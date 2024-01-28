@@ -1,9 +1,9 @@
 package report
 
 import (
-	reportv1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -38,9 +38,9 @@ func buildAdmissionReportV1Alpha1(resource unstructured.Unstructured, request ad
 func newAdmissionReportReportV1(namespace, name string, gvr schema.GroupVersionResource, resource unstructured.Unstructured) kyvernov1alpha2.ReportInterface {
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
-		report = &reportv1.ClusterAdmissionReport{Spec: reportv1.AdmissionReportSpec{}}
+		report = &reportsv1.ClusterEphemeralReport{Spec: reportsv1.EphemeralReportSpec{}}
 	} else {
-		report = &reportv1.AdmissionReport{Spec: reportv1.AdmissionReportSpec{}}
+		report = &reportsv1.EphemeralReport{Spec: reportsv1.EphemeralReportSpec{}}
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)
@@ -75,9 +75,9 @@ func newBackgroundScanReportV1Alpha1(namespace, name string, gvk schema.GroupVer
 func newBackgroundScanReportReportsV1(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportInterface {
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
-		report = &reportv1.ClusterBackgroundScanReport{}
+		report = &reportsv1.ClusterEphemeralReport{}
 	} else {
-		report = &reportv1.BackgroundScanReport{}
+		report = &reportsv1.EphemeralReport{}
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)

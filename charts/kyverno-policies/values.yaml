@@ -101,6 +101,9 @@ customLabels: {}
 # -- Policies background mode
 background: true
 
+# -- (bool) SkipBackgroundRequests bypasses admission requests that are sent by the background controller
+skipBackgroundRequests: ~
+
 # -- Kyverno version
 # The default of "autodetect" will try to determine the currently installed version from the deployment
 kyvernoVersion: autodetect

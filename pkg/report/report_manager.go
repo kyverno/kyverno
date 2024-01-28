@@ -3,8 +3,8 @@ package report
 import (
 	"context"
 
-	reportv1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -88,7 +88,7 @@ func (r *reportManager) DeleteReport(ctx context.Context, report kyvernov1alpha2
 
 func (r *reportManager) GetAdmissionReports(ctx context.Context, name string, namespace string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error) {
 	if r.storeInDB {
-		return r.client.ReportsV1().AdmissionReports(namespace).Get(ctx, name, opts)
+		return r.client.ReportsV1().EphemeralReports(namespace).Get(ctx, name, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, opts)
 	}
@@ -96,7 +96,7 @@ func (r *reportManager) GetAdmissionReports(ctx context.Context, name string, na
 
 func (r *reportManager) ListAdmissionReports(ctx context.Context, namespace string, opts metav1.ListOptions) (runtime.Object, error) {
 	if r.storeInDB {
-		return r.client.ReportsV1().AdmissionReports(namespace).List(ctx, opts)
+		return r.client.ReportsV1().EphemeralReports(namespace).List(ctx, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().AdmissionReports(namespace).List(ctx, opts)
 	}
@@ -104,7 +104,7 @@ func (r *reportManager) ListAdmissionReports(ctx context.Context, namespace stri
 
 func (r *reportManager) DeleteAdmissionReports(ctx context.Context, name, namespace string, opts metav1.DeleteOptions) error {
 	if r.storeInDB {
-		return r.client.ReportsV1().AdmissionReports(namespace).Delete(ctx, name, opts)
+		return r.client.ReportsV1().EphemeralReports(namespace).Delete(ctx, name, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, opts)
 	}
@@ -112,7 +112,7 @@ func (r *reportManager) DeleteAdmissionReports(ctx context.Context, name, namesp
 
 func (r *reportManager) GetBackgroundScanReports(ctx context.Context, name string, namespace string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error) {
 	if r.storeInDB {
-		return r.client.ReportsV1().BackgroundScanReports(namespace).Get(ctx, name, opts)
+		return r.client.ReportsV1().EphemeralReports(namespace).Get(ctx, name, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(ctx, name, opts)
 	}
@@ -120,7 +120,7 @@ func (r *reportManager) GetBackgroundScanReports(ctx context.Context, name strin
 
 func (r *reportManager) ListBackgroundScanReports(ctx context.Context, namespace string, opts metav1.ListOptions) (runtime.Object, error) {
 	if r.storeInDB {
-		return r.client.ReportsV1().BackgroundScanReports(namespace).List(ctx, opts)
+		return r.client.ReportsV1().EphemeralReports(namespace).List(ctx, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().BackgroundScanReports(namespace).List(ctx, opts)
 	}
@@ -128,7 +128,7 @@ func (r *reportManager) ListBackgroundScanReports(ctx context.Context, namespace
 
 func (r *reportManager) DeleteBackgroundScanReports(ctx context.Context, name, namespace string, opts metav1.DeleteOptions) error {
 	if r.storeInDB {
-		return r.client.ReportsV1().BackgroundScanReports(namespace).Delete(ctx, name, opts)
+		return r.client.ReportsV1().EphemeralReports(namespace).Delete(ctx, name, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().BackgroundScanReports(namespace).Delete(ctx, name, opts)
 	}
@@ -136,7 +136,7 @@ func (r *reportManager) DeleteBackgroundScanReports(ctx context.Context, name, n
 
 func (r *reportManager) GetClusterAdmissionReports(ctx context.Context, name string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error) {
 	if r.storeInDB {
-		return r.client.ReportsV1().ClusterAdmissionReports().Get(ctx, name, opts)
+		return r.client.ReportsV1().ClusterEphemeralReports().Get(ctx, name, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, opts)
 	}
@@ -144,7 +144,7 @@ func (r *reportManager) GetClusterAdmissionReports(ctx context.Context, name str
 
 func (r *reportManager) ListClusterAdmissionReports(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 	if r.storeInDB {
-		return r.client.ReportsV1().ClusterAdmissionReports().List(ctx, opts)
+		return r.client.ReportsV1().ClusterEphemeralReports().List(ctx, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, opts)
 	}
@@ -152,7 +152,7 @@ func (r *reportManager) ListClusterAdmissionReports(ctx context.Context, opts me
 
 func (r *reportManager) DeleteClusterAdmissionReports(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	if r.storeInDB {
-		return r.client.ReportsV1().ClusterAdmissionReports().Delete(ctx, name, opts)
+		return r.client.ReportsV1().ClusterEphemeralReports().Delete(ctx, name, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, opts)
 	}
@@ -160,7 +160,7 @@ func (r *reportManager) DeleteClusterAdmissionReports(ctx context.Context, name 
 
 func (r *reportManager) GetClusterBackgroundScanReports(ctx context.Context, name string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error) {
 	if r.storeInDB {
-		return r.client.ReportsV1().ClusterBackgroundScanReports().Get(ctx, name, opts)
+		return r.client.ReportsV1().ClusterEphemeralReports().Get(ctx, name, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(ctx, name, opts)
 	}
@@ -168,7 +168,7 @@ func (r *reportManager) GetClusterBackgroundScanReports(ctx context.Context, nam
 
 func (r *reportManager) ListClusterBackgroundScanReports(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 	if r.storeInDB {
-		return r.client.ReportsV1().ClusterBackgroundScanReports().List(ctx, opts)
+		return r.client.ReportsV1().ClusterEphemeralReports().List(ctx, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(ctx, opts)
 	}
@@ -176,7 +176,7 @@ func (r *reportManager) ListClusterBackgroundScanReports(ctx context.Context, op
 
 func (r *reportManager) DeleteClusterBackgroundScanReports(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	if r.storeInDB {
-		return r.client.ReportsV1().ClusterBackgroundScanReports().Delete(ctx, name, opts)
+		return r.client.ReportsV1().ClusterEphemeralReports().Delete(ctx, name, opts)
 	} else {
 		return r.client.KyvernoV1alpha2().ClusterBackgroundScanReports().Delete(ctx, name, opts)
 	}
@@ -208,7 +208,7 @@ func (r *reportManager) NewBackgroundScanReport(namespace, name string, gvk sche
 
 func (r *reportManager) AdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
-		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("admissionreports"))
+		return metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("admissionreports"))
 	} else {
 		return metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
 	}
@@ -216,7 +216,7 @@ func (r *reportManager) AdmissionReportInformer(metadataFactory metadatainformer
 
 func (r *reportManager) ClusterAdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
-		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("clusteradmissionreports"))
+		return metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	} else {
 		return metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	}
@@ -224,7 +224,7 @@ func (r *reportManager) ClusterAdmissionReportInformer(metadataFactory metadatai
 
 func (r *reportManager) BackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
-		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("backgroundscanreports"))
+		return metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	} else {
 		return metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	}
@@ -232,7 +232,7 @@ func (r *reportManager) BackgroundScanReportInformer(metadataFactory metadatainf
 
 func (r *reportManager) ClusterBackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer {
 	if r.storeInDB {
-		return metadataFactory.ForResource(reportv1.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
+		return metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	} else {
 		return metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	}
