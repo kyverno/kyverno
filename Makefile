@@ -565,13 +565,34 @@ codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-
 .PHONY: codegen-helm-crds
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
-	@cat $(CRDS_PATH)/* \
+	@rm -rf ./charts/kyverno/charts/crds/templates/*.yaml
+	@echo "{{- if .Values.groups.kyverno }}" > ./charts/kyverno/charts/crds/templates/kyverno.yaml
+	@cat $(CRDS_PATH)/kyverno/* \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
  		| $(SED) -e '/^  annotations:/i \ \ labels:' \
 		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		> ./charts/kyverno/charts/crds/templates/crds.yaml
+ 		>> ./charts/kyverno/charts/crds/templates/kyverno.yaml
+	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/kyverno.yaml
+	@echo "{{- if .Values.groups.reports }}" > ./charts/kyverno/charts/crds/templates/reports.yaml
+	@cat $(CRDS_PATH)/reports/* \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+ 		>> ./charts/kyverno/charts/crds/templates/reports.yaml
+	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/reports.yaml
+	@echo "{{- if .Values.groups.policyreport }}" > ./charts/kyverno/charts/crds/templates/policyreport.yaml
+	@cat $(CRDS_PATH)/policyreport/* \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+ 		>> ./charts/kyverno/charts/crds/templates/policyreport.yaml
+	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/policyreport.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
