@@ -256,7 +256,6 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		validPolicies = append(validPolicies, pol)
 	}
 
-
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
