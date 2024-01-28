@@ -245,7 +245,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
-			rc.PolicyValError()
+			rc.IncrementError(1)
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
 				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
 			} else {
