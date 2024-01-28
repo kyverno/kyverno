@@ -325,6 +325,14 @@ config:
   # Items to exclude from config.resourceFilters
   resourceFiltersExclude: []
 
+  # -- resourceFilter namespace include
+  # Namespaces to include to the default resourceFilters
+  resourceFiltersIncludeNamespaces: []
+
+  # -- resourceFilters include list
+  # Items to include to config.resourceFilters
+  resourceFiltersInclude: []
+
 # Metrics configuration
 metricsConfig:
 
@@ -561,6 +569,9 @@ features:
   aggregateReports:
     # -- Enables the feature
     enabled: true
+  alternateReportStorage:
+    # -- Enables the feature
+    enabled: false
   policyReports:
     # -- Enables the feature
     enabled: true
@@ -601,11 +612,11 @@ features:
     verbosity: 2
   omitEvents:
     # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
-    eventTypes: []
+    eventTypes:
+      - PolicyApplied
+      - PolicySkipped
       # - PolicyViolation
-      # - PolicyApplied
       # - PolicyError
-      # - PolicySkipped
   policyExceptions:
     # -- Enables the feature
     enabled: true

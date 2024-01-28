@@ -600,6 +600,58 @@ spec:
                       type: object
                     type: array
                 type: object
+              podSecurity:
+                description: PodSecurity specifies the Pod Security Standard controls
+                  to be excluded. Applicable only to policies that have validate.podSecurity
+                  subrule.
+                items:
+                  description: PodSecurityStandard specifies the Pod Security Standard
+                    controls to be excluded.
+                  properties:
+                    controlName:
+                      description: 'ControlName specifies the name of the Pod Security
+                        Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                      enum:
+                      - HostProcess
+                      - Host Namespaces
+                      - Privileged Containers
+                      - Capabilities
+                      - HostPath Volumes
+                      - Host Ports
+                      - AppArmor
+                      - SELinux
+                      - /proc Mount Type
+                      - Seccomp
+                      - Sysctls
+                      - Volume Types
+                      - Privilege Escalation
+                      - Running as Non-root
+                      - Running as Non-root user
+                      type: string
+                    images:
+                      description: 'Images selects matching containers and applies
+                        the container level PSS. Each image is the image name consisting
+                        of the registry address, repository, image, and tag. Empty
+                        list matches no containers, PSS checks are applied at the
+                        pod level only. Wildcards (''*'' and ''?'') are allowed. See:
+                        https://kubernetes.io/docs/concepts/containers/images.'
+                      items:
+                        type: string
+                      type: array
+                    restrictedField:
+                      description: RestrictedField selects the field for the given
+                        Pod Security Standard control. When not set, all restricted
+                        fields for the control are selected.
+                      type: string
+                    values:
+                      description: Values defines the allowed values that can be excluded.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - controlName
+                  type: object
+                type: array
             required:
             - exceptions
             - match
@@ -1191,6 +1243,58 @@ spec:
                       type: object
                     type: array
                 type: object
+              podSecurity:
+                description: PodSecurity specifies the Pod Security Standard controls
+                  to be excluded. Applicable only to policies that have validate.podSecurity
+                  subrule.
+                items:
+                  description: PodSecurityStandard specifies the Pod Security Standard
+                    controls to be excluded.
+                  properties:
+                    controlName:
+                      description: 'ControlName specifies the name of the Pod Security
+                        Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                      enum:
+                      - HostProcess
+                      - Host Namespaces
+                      - Privileged Containers
+                      - Capabilities
+                      - HostPath Volumes
+                      - Host Ports
+                      - AppArmor
+                      - SELinux
+                      - /proc Mount Type
+                      - Seccomp
+                      - Sysctls
+                      - Volume Types
+                      - Privilege Escalation
+                      - Running as Non-root
+                      - Running as Non-root user
+                      type: string
+                    images:
+                      description: 'Images selects matching containers and applies
+                        the container level PSS. Each image is the image name consisting
+                        of the registry address, repository, image, and tag. Empty
+                        list matches no containers, PSS checks are applied at the
+                        pod level only. Wildcards (''*'' and ''?'') are allowed. See:
+                        https://kubernetes.io/docs/concepts/containers/images.'
+                      items:
+                        type: string
+                      type: array
+                    restrictedField:
+                      description: RestrictedField selects the field for the given
+                        Pod Security Standard control. When not set, all restricted
+                        fields for the control are selected.
+                      type: string
+                    values:
+                      description: Values defines the allowed values that can be excluded.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - controlName
+                  type: object
+                type: array
             required:
             - exceptions
             - match
@@ -1782,6 +1886,58 @@ spec:
                       type: object
                     type: array
                 type: object
+              podSecurity:
+                description: PodSecurity specifies the Pod Security Standard controls
+                  to be excluded. Applicable only to policies that have validate.podSecurity
+                  subrule.
+                items:
+                  description: PodSecurityStandard specifies the Pod Security Standard
+                    controls to be excluded.
+                  properties:
+                    controlName:
+                      description: 'ControlName specifies the name of the Pod Security
+                        Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                      enum:
+                      - HostProcess
+                      - Host Namespaces
+                      - Privileged Containers
+                      - Capabilities
+                      - HostPath Volumes
+                      - Host Ports
+                      - AppArmor
+                      - SELinux
+                      - /proc Mount Type
+                      - Seccomp
+                      - Sysctls
+                      - Volume Types
+                      - Privilege Escalation
+                      - Running as Non-root
+                      - Running as Non-root user
+                      type: string
+                    images:
+                      description: 'Images selects matching containers and applies
+                        the container level PSS. Each image is the image name consisting
+                        of the registry address, repository, image, and tag. Empty
+                        list matches no containers, PSS checks are applied at the
+                        pod level only. Wildcards (''*'' and ''?'') are allowed. See:
+                        https://kubernetes.io/docs/concepts/containers/images.'
+                      items:
+                        type: string
+                      type: array
+                    restrictedField:
+                      description: RestrictedField selects the field for the given
+                        Pod Security Standard control. When not set, all restricted
+                        fields for the control are selected.
+                      type: string
+                    values:
+                      description: Values defines the allowed values that can be excluded.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - controlName
+                  type: object
+                type: array
             required:
             - exceptions
             - match
