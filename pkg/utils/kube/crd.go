@@ -13,10 +13,14 @@ import (
 func CRDsInstalled(apiserverClient apiserver.Interface) error {
 	kyvernoCRDs := []string{
 		"admissionreports.kyverno.io",
+		"admissionreports.reports.kyverno.io",
 		"backgroundscanreports.kyverno.io",
+		"backgroundscanreports.reports.kyverno.io",
 		"cleanuppolicies.kyverno.io",
 		"clusteradmissionreports.kyverno.io",
+		"clusteradmissionreports.reports.kyverno.io",
 		"clusterbackgroundscanreports.kyverno.io",
+		"clusterbackgroundscanreports.reports.kyverno.io",
 		"clustercleanuppolicies.kyverno.io",
 		"clusterpolicies.kyverno.io",
 		"clusterpolicyreports.wgpolicyk8s.io",
