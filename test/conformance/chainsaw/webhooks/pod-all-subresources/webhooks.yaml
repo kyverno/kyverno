@@ -25,4 +25,4 @@ webhooks:
     - pods/portforward
     - pods/proxy
     - pods/status
-    scope: '*'
+    scope: 'Namespaced'

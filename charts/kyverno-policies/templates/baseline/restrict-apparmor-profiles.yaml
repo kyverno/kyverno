@@ -49,6 +49,9 @@ spec:
       preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
+      {{- end }}
       validate:
         message: >-
           Specifying other AppArmor profiles is disallowed. The annotation
