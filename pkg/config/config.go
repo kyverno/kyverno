@@ -74,6 +74,8 @@ const (
 	ReadinessServicePath = "/health/readiness"
 	// MetricsPath is the path for exposing metrics
 	MetricsPath = "/metrics"
+	// FineGrainedWebhookPath is the sub-path for fine-grained webhook configurationss
+	FineGrainedWebhookPath = "/finegrained"
 )
 
 // keys in config map

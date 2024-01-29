@@ -56,6 +56,20 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - reports.kyverno.io
+    resources:
+      - ephemeralreports
+      - clusterephemeralreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
       - wgpolicyk8s.io
     resources:
       - policyreports
