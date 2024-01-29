@@ -50364,13 +50364,13 @@ rules:
       - list
       - watch
   - apiGroups:
-      - '*'
+    - '*'
     resources:
-      - '*'
+    - '*'
     verbs:
-      - get
-      - list
-      - watch
+    - get
+    - list
+    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -50829,14 +50829,6 @@ metadata:
     app.kubernetes.io/version: latest
 rules:
   - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - ''
     resources:
       - secrets
@@ -50903,6 +50895,14 @@ rules:
     verbs:
       - create
       - patch
+  - apiGroups:
+    - '*'
+    resources:
+    - '*'
+    verbs:
+    - get
+    - list
+    - watch
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
