@@ -21,6 +21,10 @@ func (rc ResultCounts) Warn() int  { return rc.warn }
 func (rc ResultCounts) Error() int { return rc.err }
 func (rc ResultCounts) Skip() int  { return rc.skip }
 
+func (rc *ResultCounts) IncrementError(inc int) {
+	rc.err += inc
+}
+
 func (rc *ResultCounts) addEngineResponses(auditWarn bool, responses ...engineapi.EngineResponse) {
 	for _, response := range responses {
 		rc.addEngineResponse(auditWarn, response)

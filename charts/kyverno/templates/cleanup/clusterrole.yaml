@@ -14,3 +14,12 @@ rules:
       - list
       - deletecollection
       - delete
+  - apiGroups:
+      - reports.kyverno.io
+    resources:
+      - ephemeralreports
+      - clusterephemeralreports
+    verbs:
+      - list
+      - deletecollection
+      - delete
