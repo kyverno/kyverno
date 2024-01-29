@@ -24,20 +24,20 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// ClusterBackgroundScanReportApplyConfiguration represents an declarative configuration of the ClusterBackgroundScanReport type for use
+// ClusterEphemeralReportApplyConfiguration represents an declarative configuration of the ClusterEphemeralReport type for use
 // with apply.
-type ClusterBackgroundScanReportApplyConfiguration struct {
+type ClusterEphemeralReportApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *BackgroundScanReportSpecApplyConfiguration `json:"spec,omitempty"`
+	Spec                             *EphemeralReportSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
-// ClusterBackgroundScanReport constructs an declarative configuration of the ClusterBackgroundScanReport type for use with
+// ClusterEphemeralReport constructs an declarative configuration of the ClusterEphemeralReport type for use with
 // apply.
-func ClusterBackgroundScanReport(name string) *ClusterBackgroundScanReportApplyConfiguration {
-	b := &ClusterBackgroundScanReportApplyConfiguration{}
+func ClusterEphemeralReport(name string) *ClusterEphemeralReportApplyConfiguration {
+	b := &ClusterEphemeralReportApplyConfiguration{}
 	b.WithName(name)
-	b.WithKind("ClusterBackgroundScanReport")
+	b.WithKind("ClusterEphemeralReport")
 	b.WithAPIVersion("reports.kyverno.io/v1")
 	return b
 }
@@ -45,7 +45,7 @@ func ClusterBackgroundScanReport(name string) *ClusterBackgroundScanReportApplyC
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithKind(value string) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithKind(value string) *ClusterEphemeralReportApplyConfiguration {
 	b.Kind = &value
 	return b
 }
@@ -53,7 +53,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithKind(value string) *
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithAPIVersion(value string) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithAPIVersion(value string) *ClusterEphemeralReportApplyConfiguration {
 	b.APIVersion = &value
 	return b
 }
@@ -61,7 +61,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithAPIVersion(value str
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithName(value string) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithName(value string) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Name = &value
 	return b
@@ -70,7 +70,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithName(value string) *
 // WithGenerateName sets the GenerateName field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the GenerateName field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithGenerateName(value string) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithGenerateName(value string) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.GenerateName = &value
 	return b
@@ -79,7 +79,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithGenerateName(value s
 // WithNamespace sets the Namespace field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Namespace field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithNamespace(value string) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithNamespace(value string) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
 	return b
@@ -88,7 +88,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithNamespace(value stri
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithUID(value types.UID) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithUID(value types.UID) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.UID = &value
 	return b
@@ -97,7 +97,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithUID(value types.UID)
 // WithResourceVersion sets the ResourceVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ResourceVersion field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithResourceVersion(value string) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithResourceVersion(value string) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ResourceVersion = &value
 	return b
@@ -106,7 +106,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithResourceVersion(valu
 // WithGeneration sets the Generation field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Generation field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithGeneration(value int64) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithGeneration(value int64) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Generation = &value
 	return b
@@ -115,7 +115,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithGeneration(value int
 // WithCreationTimestamp sets the CreationTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CreationTimestamp field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithCreationTimestamp(value metav1.Time) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithCreationTimestamp(value metav1.Time) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.CreationTimestamp = &value
 	return b
@@ -124,7 +124,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithCreationTimestamp(va
 // WithDeletionTimestamp sets the DeletionTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionTimestamp field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.DeletionTimestamp = &value
 	return b
@@ -133,7 +133,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithDeletionTimestamp(va
 // WithDeletionGracePeriodSeconds sets the DeletionGracePeriodSeconds field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionGracePeriodSeconds field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.DeletionGracePeriodSeconds = &value
 	return b
@@ -143,7 +143,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithDeletionGracePeriodS
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Labels field,
 // overwriting an existing map entries in Labels field with the same key.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithLabels(entries map[string]string) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithLabels(entries map[string]string) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.Labels == nil && len(entries) > 0 {
 		b.Labels = make(map[string]string, len(entries))
@@ -158,7 +158,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithLabels(entries map[s
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Annotations field,
 // overwriting an existing map entries in Annotations field with the same key.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithAnnotations(entries map[string]string) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithAnnotations(entries map[string]string) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.Annotations == nil && len(entries) > 0 {
 		b.Annotations = make(map[string]string, len(entries))
@@ -172,7 +172,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithAnnotations(entries 
 // WithOwnerReferences adds the given value to the OwnerReferences field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the OwnerReferences field.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		if values[i] == nil {
@@ -186,7 +186,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithOwnerReferences(valu
 // WithFinalizers adds the given value to the Finalizers field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Finalizers field.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithFinalizers(values ...string) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithFinalizers(values ...string) *ClusterEphemeralReportApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		b.Finalizers = append(b.Finalizers, values[i])
@@ -194,7 +194,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) WithFinalizers(values ..
 	return b
 }
 
-func (b *ClusterBackgroundScanReportApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
+func (b *ClusterEphemeralReportApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
 	}
@@ -203,7 +203,7 @@ func (b *ClusterBackgroundScanReportApplyConfiguration) ensureObjectMetaApplyCon
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *ClusterBackgroundScanReportApplyConfiguration) WithSpec(value *BackgroundScanReportSpecApplyConfiguration) *ClusterBackgroundScanReportApplyConfiguration {
+func (b *ClusterEphemeralReportApplyConfiguration) WithSpec(value *EphemeralReportSpecApplyConfiguration) *ClusterEphemeralReportApplyConfiguration {
 	b.Spec = value
 	return b
 }

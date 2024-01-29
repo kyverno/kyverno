@@ -27,13 +27,9 @@ func deepCopyV1Alpha2(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.Re
 
 func deepCopyReportV1(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.ReportInterface {
 	switch v := report.(type) {
-	case *reportsv1.AdmissionReport:
+	case *reportsv1.EphemeralReport:
 		return v.DeepCopy()
-	case *reportsv1.ClusterAdmissionReport:
-		return v.DeepCopy()
-	case *reportsv1.BackgroundScanReport:
-		return v.DeepCopy()
-	case *reportsv1.ClusterBackgroundScanReport:
+	case *reportsv1.ClusterEphemeralReport:
 		return v.DeepCopy()
 	case *policyreportv1alpha2.PolicyReport:
 		return v.DeepCopy()

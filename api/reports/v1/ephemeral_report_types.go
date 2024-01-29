@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type AdmissionReportSpec struct {
+type EphemeralReportSpec struct {
 	// Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)
 	Owner metav1.OwnerReference `json:"owner"`
 
@@ -49,22 +49,22 @@ type AdmissionReportSpec struct {
 // +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']"
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
-// AdmissionReport is the Schema for the AdmissionReports API
-type AdmissionReport struct {
+// EphemeralReport is the Schema for the EphemeralReports API
+type EphemeralReport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              AdmissionReportSpec `json:"spec"`
+	Spec              EphemeralReportSpec `json:"spec"`
 }
 
-func (r *AdmissionReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
+func (r *EphemeralReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
 	return r.Spec.Results
 }
 
-func (r *AdmissionReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
+func (r *EphemeralReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
 	r.Spec.Results = results
 }
 
-func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
+func (r *EphemeralReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
 	r.Spec.Summary = summary
 }
 
@@ -84,41 +84,41 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +kubebuilder:printcolumn:name="REF",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.name']"
 // +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
-// ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API
-type ClusterAdmissionReport struct {
+// ClusterEphemeralReport is the Schema for the ClusterEphemeralReports API
+type ClusterEphemeralReport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              AdmissionReportSpec `json:"spec"`
+	Spec              EphemeralReportSpec `json:"spec"`
 }
 
-func (r *ClusterAdmissionReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
+func (r *ClusterEphemeralReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
 	return r.Spec.Results
 }
 
-func (r *ClusterAdmissionReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
+func (r *ClusterEphemeralReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
 	r.Spec.Results = results
 }
 
-func (r *ClusterAdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
+func (r *ClusterEphemeralReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
 	r.Spec.Summary = summary
 }
 
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// AdmissionReportList contains a list of AdmissionReport
-type AdmissionReportList struct {
+// EphemeralReportList contains a list of EphemeralReport
+type EphemeralReportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []AdmissionReport `json:"items"`
+	Items           []EphemeralReport `json:"items"`
 }
 
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ClusterAdmissionReportList contains a list of ClusterAdmissionReport
-type ClusterAdmissionReportList struct {
+// ClusterEphemeralReportList contains a list of ClusterEphemeralReport
+type ClusterEphemeralReportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterAdmissionReport `json:"items"`
+	Items           []ClusterEphemeralReport `json:"items"`
 }
