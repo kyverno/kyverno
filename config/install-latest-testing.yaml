@@ -49564,7 +49564,7 @@ spec:
     listKind: ClusterEphemeralReportList
     plural: clusterephemeralreports
     shortNames:
-    - cadmr
+    - cephr
     singular: clusterephemeralreport
   scope: Cluster
   versions:
@@ -49902,7 +49902,7 @@ spec:
     listKind: EphemeralReportList
     plural: ephemeralreports
     shortNames:
-    - admr
+    - ephr
     singular: ephemeralreport
   scope: Namespaced
   versions:

@@ -14,7 +14,7 @@ spec:
     listKind: EphemeralReportList
     plural: ephemeralreports
     shortNames:
-    - admr
+    - ephr
     singular: ephemeralreport
   scope: Namespaced
   versions:
