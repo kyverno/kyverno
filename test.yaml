@@ -1,0 +1,35 @@
+apiVersion: json.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-ecs-image-tag
+  annotations:
+    policies.kyverno.io/title: Check ECS Image Tag 
+    policies.kyverno.io/category: OpenTofu ECS Best Practices
+    policies.kyverno.io/severity: High
+    policies.kyverno.io/description: >-
+      The ':latest' tag is mutable and can lead to unexpected errors if the
+      image changes. A best practice is to use an immutable tag that maps to
+      a specific version of an application. This policy validates that the image
+      specifies a tag and that it is not called `latest`.
+spec:
+  rules:
+    - name: check-ecs-image-tag-latest
+      match:
+        all:
+        - type: (planned_values.root_module.resources[?type=='aws_ecs_task_definition'])
+      assert:
+        all:
+        - message: An image tag should be specified
+          check:
+            ~.(planned_values.root_module.resources[?type=='aws_ecs_task_definition']):
+              values: 
+                ~.(json_parse(container_definitions)):
+                  image:
+                    (contains(@, ':')): true
+        - message: Image tag `latest` should not be used
+          check:
+            ~.(planned_values.root_module.resources[?type=='aws_ecs_task_definition']):
+              values: 
+                  ~.(json_parse(container_definitions)):
+                    image:
+                      (contains(@, ':latest')): false
