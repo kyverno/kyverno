@@ -26,6 +26,7 @@ rules:
       - policyexceptions
       - updaterequests
       - updaterequests/status
+      - cachedcontextentries
     verbs:
       - create
       - delete

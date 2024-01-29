@@ -28,6 +28,7 @@ import (
 
 type KyvernoV2alpha1Interface interface {
 	RESTClient() rest.Interface
+	CachedContextEntriesGetter
 	CleanupPoliciesGetter
 	ClusterCleanupPoliciesGetter
 	PolicyExceptionsGetter
@@ -36,6 +37,10 @@ type KyvernoV2alpha1Interface interface {
 // KyvernoV2alpha1Client is used to interact with features provided by the kyverno.io group.
 type KyvernoV2alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *KyvernoV2alpha1Client) CachedContextEntries() CachedContextEntryInterface {
+	return newCachedContextEntries(c)
 }
 
 func (c *KyvernoV2alpha1Client) CleanupPolicies(namespace string) CleanupPolicyInterface {

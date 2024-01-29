@@ -98,6 +98,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().UpdateRequests().Informer()}, nil
 
 		// Group=kyverno.io, Version=v2alpha1
+	case v2alpha1.SchemeGroupVersion.WithResource("cachedcontextentries"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().CachedContextEntries().Informer()}, nil
 	case v2alpha1.SchemeGroupVersion.WithResource("cleanuppolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().CleanupPolicies().Informer()}, nil
 	case v2alpha1.SchemeGroupVersion.WithResource("clustercleanuppolicies"):

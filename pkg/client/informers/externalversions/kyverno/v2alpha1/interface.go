@@ -24,6 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// CachedContextEntries returns a CachedContextEntryInformer.
+	CachedContextEntries() CachedContextEntryInformer
 	// CleanupPolicies returns a CleanupPolicyInformer.
 	CleanupPolicies() CleanupPolicyInformer
 	// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
@@ -41,6 +43,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// CachedContextEntries returns a CachedContextEntryInformer.
+func (v *version) CachedContextEntries() CachedContextEntryInformer {
+	return &cachedContextEntryInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CleanupPolicies returns a CleanupPolicyInformer.

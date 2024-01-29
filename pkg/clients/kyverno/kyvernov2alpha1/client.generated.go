@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/go-logr/logr"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
+	cachedcontextentries "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/cachedcontextentries"
 	cleanuppolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/cleanuppolicies"
 	clustercleanuppolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/clustercleanuppolicies"
 	policyexceptions "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/policyexceptions"
@@ -31,6 +32,10 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withMetrics) CachedContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.CachedContextEntryInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "CachedContextEntry", c.clientType)
+	return cachedcontextentries.WithMetrics(c.inner.CachedContextEntries(), recorder)
+}
 func (c *withMetrics) CleanupPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.CleanupPolicyInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "CleanupPolicy", c.clientType)
 	return cleanuppolicies.WithMetrics(c.inner.CleanupPolicies(namespace), recorder)
@@ -52,6 +57,9 @@ type withTracing struct {
 func (c *withTracing) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withTracing) CachedContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.CachedContextEntryInterface {
+	return cachedcontextentries.WithTracing(c.inner.CachedContextEntries(), c.client, "CachedContextEntry")
+}
 func (c *withTracing) CleanupPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.CleanupPolicyInterface {
 	return cleanuppolicies.WithTracing(c.inner.CleanupPolicies(namespace), c.client, "CleanupPolicy")
 }
@@ -69,6 +77,9 @@ type withLogging struct {
 
 func (c *withLogging) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
+}
+func (c *withLogging) CachedContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.CachedContextEntryInterface {
+	return cachedcontextentries.WithLogging(c.inner.CachedContextEntries(), c.logger.WithValues("resource", "CachedContextEntries"))
 }
 func (c *withLogging) CleanupPolicies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.CleanupPolicyInterface {
 	return cleanuppolicies.WithLogging(c.inner.CleanupPolicies(namespace), c.logger.WithValues("resource", "CleanupPolicies").WithValues("namespace", namespace))

@@ -18,6 +18,8 @@ limitations under the License.
 
 package v2alpha1
 
+type CachedContextEntryExpansion interface{}
+
 type CleanupPolicyExpansion interface{}
 
 type ClusterCleanupPolicyExpansion interface{}
