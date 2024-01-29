@@ -34,7 +34,6 @@ type ImageVerificationHandler interface {
 
 type imageVerificationHandler struct {
 	kyvernoClient    versioned.Interface
-	reportManager    report.Interface
 	engine           engineapi.Engine
 	log              logr.Logger
 	eventGen         event.Interface
@@ -46,7 +45,6 @@ type imageVerificationHandler struct {
 func NewImageVerificationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
-	reportManager report.Interface,
 	engine engineapi.Engine,
 	eventGen event.Interface,
 	admissionReports bool,
@@ -56,7 +54,6 @@ func NewImageVerificationHandler(
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
 		engine:           engine,
-		reportManager:    reportManager,
 		log:              log,
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
@@ -177,9 +174,9 @@ func (v *imageVerificationHandler) handleAudit(
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
 			if createReport {
-				report := v.reportManager.BuildAdmissionReport(resource, request, engineResponses...)
-				if len(report.GetResults()) > 0 {
-					_, err := v.reportManager.CreateReport(context.Background(), report)
+				admissionReport := report.BuildAdmissionReport(resource, request, engineResponses...)
+				if len(admissionReport.GetResults()) > 0 {
+					_, err := report.CreateReport(context.Background(), admissionReport, v.kyvernoClient)
 					if err != nil {
 						v.log.Error(err, "failed to create report")
 					}

@@ -51,7 +51,7 @@ func newAdmissionReportReportV1(namespace, name string, gvr schema.GroupVersionR
 	return report
 }
 
-func buildAdmissionReportReportV1(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) kyvernov1alpha2.ReportInterface {
+func BuildAdmissionReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) kyvernov1alpha2.ReportInterface {
 	report := newAdmissionReportReportV1(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), resource)
 	reportutils.SetResponses(report, responses...)
 	return report

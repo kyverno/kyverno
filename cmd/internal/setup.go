@@ -87,10 +87,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	var reportManager report.Interface
 	if config.UsesKyvernoClient() {
 		kyvernoClient = createKyvernoClient(logger, kyvernoclient.WithMetrics(metricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
-
-		if config.UsesAlternateReportStore() {
-			reportManager = report.NewReportManager(alternateReportStorage, kyvernoClient)
-		}
+		// TODO: hardcoded to false but needs to be removed
+		reportManager = report.NewReportManager(false, kyvernoClient)
 	}
 	var dynamicClient dynamicclient.UpstreamInterface
 	if config.UsesDynamicClient() {

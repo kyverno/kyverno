@@ -233,7 +233,6 @@ func main() {
 		internal.WithImageVerifyCache(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
-		internal.WithAlternateReportStore(),
 		internal.WithDynamicClient(),
 		internal.WithMetadataClient(),
 		internal.WithKyvernoDynamicClient(),

@@ -64,7 +64,7 @@ func NewReportManager(storeInDB bool, client versioned.Interface) Interface {
 
 func (r *reportManager) CreateReport(ctx context.Context, report kyvernov1alpha2.ReportInterface) (kyvernov1alpha2.ReportInterface, error) {
 	if r.storeInDB {
-		return createReportV1Report(ctx, report, r.client)
+		return CreateReport(ctx, report, r.client)
 	} else {
 		return createV1Alpha1Report(ctx, report, r.client)
 	}
@@ -192,7 +192,7 @@ func (r *reportManager) NewAdmissionReport(namespace, name string, gvr schema.Gr
 
 func (r *reportManager) BuildAdmissionReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) kyvernov1alpha2.ReportInterface {
 	if r.storeInDB {
-		return buildAdmissionReportReportV1(resource, request, responses...)
+		return BuildAdmissionReport(resource, request, responses...)
 	} else {
 		return buildAdmissionReportV1Alpha1(resource, request, responses...)
 	}

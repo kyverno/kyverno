@@ -36,7 +36,6 @@ type ValidationHandler interface {
 func NewValidationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
-	reportManager report.Interface,
 	engine engineapi.Engine,
 	pCache policycache.Cache,
 	pcBuilder webhookutils.PolicyContextBuilder,
@@ -48,7 +47,6 @@ func NewValidationHandler(
 	return &validationHandler{
 		log:              log,
 		kyvernoClient:    kyvernoClient,
-		reportManager:    reportManager,
 		engine:           engine,
 		pCache:           pCache,
 		pcBuilder:        pcBuilder,
@@ -62,7 +60,6 @@ func NewValidationHandler(
 type validationHandler struct {
 	log              logr.Logger
 	kyvernoClient    versioned.Interface
-	reportManager    report.Interface
 	engine           engineapi.Engine
 	pCache           policycache.Cache
 	pcBuilder        webhookutils.PolicyContextBuilder
@@ -194,9 +191,9 @@ func (v *validationHandler) handleAudit(
 			v.eventGen.Add(events...)
 			if createReport {
 				responses = append(responses, engineResponses...)
-				report := v.reportManager.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
-				if len(report.GetResults()) > 0 {
-					_, err = v.reportManager.CreateReport(ctx, report)
+				admissionReport := report.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
+				if len(admissionReport.GetResults()) > 0 {
+					_, err = report.CreateReport(ctx, admissionReport, v.kyvernoClient)
 					if err != nil {
 						v.log.Error(err, "failed to create report")
 					}

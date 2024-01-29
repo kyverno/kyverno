@@ -36,7 +36,7 @@ func createV1Alpha1Report(ctx context.Context, report kyvernov1alpha2.ReportInte
 	}
 }
 
-func createReportV1Report(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
+func CreateReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
 	switch v := report.(type) {
 	case *reportsv1.EphemeralReport:
 		report, err := client.ReportsV1().EphemeralReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})
