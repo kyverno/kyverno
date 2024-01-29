@@ -85,8 +85,7 @@ spec:
         - reports.kyverno.io
       clusterScope: true
       resources:
-        - clusteradmissionreports
-        - clusterbackgroundscanreports
+        - clusterephemeralreports
       verbs:
         - create
         - delete
@@ -101,8 +100,7 @@ spec:
       namespaces:
         - '*'
       resources:
-        - admissionreports
-        - backgroundscanreports
+        - ephemeralreports
       verbs:
         - create
         - delete
