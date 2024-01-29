@@ -13,6 +13,7 @@ spec:
   failedJobsHistoryLimit: {{ .Values.cleanupJobs.clusterAdmissionReports.history.failure }}
   jobTemplate:
     spec:
+      backoffLimit: 3
       template:
         metadata:
           {{- with .Values.cleanupJobs.clusterAdmissionReports.podAnnotations }}
@@ -41,10 +42,10 @@ spec:
             - -c
             - |
               set -euo pipefail
-              COUNT=$(kubectl get clusteradmissionreports.reports.kyverno.io -A | wc -l)
+              COUNT=$(kubectl get clusteradmissionreports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt {{ .Values.cleanupJobs.clusterAdmissionReports.threshold }} ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
-                kubectl delete clusteradmissionreports.reports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+                kubectl delete clusteradmissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
