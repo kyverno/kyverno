@@ -17,8 +17,8 @@ rules:
   - apiGroups:
       - reports.kyverno.io
     resources:
-      - admissionreports
-      - clusteradmissionreports
+      - ephemeralreports
+      - clusterephemeralreports
     verbs:
       - list
       - deletecollection
