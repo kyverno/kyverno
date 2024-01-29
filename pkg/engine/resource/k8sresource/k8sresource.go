@@ -100,7 +100,6 @@ func (r *ResourceLoader) AddEntry(entry *v2alpha1.CachedContextEntry) {
 		return
 	}
 	r.logger.V(4).Info("successfully created cache entry", "key", key, "entry", ent)
-	return
 }
 
 func (r *ResourceLoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
