@@ -38,17 +38,11 @@ func updateV1Alpha1Report(ctx context.Context, report kyvernov1alpha2.ReportInte
 
 func updateReportsV1Report(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
 	switch v := report.(type) {
-	case *reportsv1.AdmissionReport:
-		report, err := client.ReportsV1().AdmissionReports(report.GetNamespace()).Update(ctx, v, metav1.UpdateOptions{})
+	case *reportsv1.EphemeralReport:
+		report, err := client.ReportsV1().EphemeralReports(report.GetNamespace()).Update(ctx, v, metav1.UpdateOptions{})
 		return report, err
-	case *reportsv1.ClusterAdmissionReport:
-		report, err := client.ReportsV1().ClusterAdmissionReports().Update(ctx, v, metav1.UpdateOptions{})
-		return report, err
-	case *reportsv1.BackgroundScanReport:
-		report, err := client.ReportsV1().BackgroundScanReports(report.GetNamespace()).Update(ctx, v, metav1.UpdateOptions{})
-		return report, err
-	case *reportsv1.ClusterBackgroundScanReport:
-		report, err := client.ReportsV1().ClusterBackgroundScanReports().Update(ctx, v, metav1.UpdateOptions{})
+	case *reportsv1.ClusterEphemeralReport:
+		report, err := client.ReportsV1().ClusterEphemeralReports().Update(ctx, v, metav1.UpdateOptions{})
 		return report, err
 	case *policyreportv1alpha2.PolicyReport:
 		report, err := client.Wgpolicyk8sV1alpha2().PolicyReports(report.GetNamespace()).Update(ctx, v, metav1.UpdateOptions{})

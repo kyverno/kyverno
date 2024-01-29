@@ -61,6 +61,17 @@ crds:
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
 
+  groups:
+
+    # -- Install CRDs in group `kyverno.io`
+    kyverno: true
+
+    # -- Install CRDs in group `wgpolicyk8s.io`
+    policyreport: true
+
+    # -- Install CRDs in group `reports.kyverno.io`
+    reports: true
+
   # -- Additional CRDs annotations
   annotations: {}
     # argocd.argoproj.io/sync-options: Replace=true

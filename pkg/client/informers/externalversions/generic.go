@@ -118,14 +118,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().PolicyExceptions().Informer()}, nil
 
 		// Group=reports.kyverno.io, Version=v1
-	case reportsv1.SchemeGroupVersion.WithResource("admissionreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().AdmissionReports().Informer()}, nil
-	case reportsv1.SchemeGroupVersion.WithResource("backgroundscanreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().BackgroundScanReports().Informer()}, nil
-	case reportsv1.SchemeGroupVersion.WithResource("clusteradmissionreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().ClusterAdmissionReports().Informer()}, nil
-	case reportsv1.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().ClusterBackgroundScanReports().Informer()}, nil
+	case reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().ClusterEphemeralReports().Informer()}, nil
+	case reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Reports().V1().EphemeralReports().Informer()}, nil
 
 		// Group=wgpolicyk8s.io, Version=v1alpha2
 	case policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"):

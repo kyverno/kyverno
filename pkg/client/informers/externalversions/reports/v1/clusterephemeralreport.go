@@ -32,58 +32,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ClusterBackgroundScanReportInformer provides access to a shared informer and lister for
-// ClusterBackgroundScanReports.
-type ClusterBackgroundScanReportInformer interface {
+// ClusterEphemeralReportInformer provides access to a shared informer and lister for
+// ClusterEphemeralReports.
+type ClusterEphemeralReportInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ClusterBackgroundScanReportLister
+	Lister() v1.ClusterEphemeralReportLister
 }
 
-type clusterBackgroundScanReportInformer struct {
+type clusterEphemeralReportInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewClusterBackgroundScanReportInformer constructs a new informer for ClusterBackgroundScanReport type.
+// NewClusterEphemeralReportInformer constructs a new informer for ClusterEphemeralReport type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewClusterBackgroundScanReportInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredClusterBackgroundScanReportInformer(client, resyncPeriod, indexers, nil)
+func NewClusterEphemeralReportInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredClusterEphemeralReportInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredClusterBackgroundScanReportInformer constructs a new informer for ClusterBackgroundScanReport type.
+// NewFilteredClusterEphemeralReportInformer constructs a new informer for ClusterEphemeralReport type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredClusterBackgroundScanReportInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredClusterEphemeralReportInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ReportsV1().ClusterBackgroundScanReports().List(context.TODO(), options)
+				return client.ReportsV1().ClusterEphemeralReports().List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ReportsV1().ClusterBackgroundScanReports().Watch(context.TODO(), options)
+				return client.ReportsV1().ClusterEphemeralReports().Watch(context.TODO(), options)
 			},
 		},
-		&reportsv1.ClusterBackgroundScanReport{},
+		&reportsv1.ClusterEphemeralReport{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *clusterBackgroundScanReportInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredClusterBackgroundScanReportInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *clusterEphemeralReportInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredClusterEphemeralReportInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *clusterBackgroundScanReportInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&reportsv1.ClusterBackgroundScanReport{}, f.defaultInformer)
+func (f *clusterEphemeralReportInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&reportsv1.ClusterEphemeralReport{}, f.defaultInformer)
 }
 
-func (f *clusterBackgroundScanReportInformer) Lister() v1.ClusterBackgroundScanReportLister {
-	return v1.NewClusterBackgroundScanReportLister(f.Informer().GetIndexer())
+func (f *clusterEphemeralReportInformer) Lister() v1.ClusterEphemeralReportLister {
+	return v1.NewClusterEphemeralReportLister(f.Informer().GetIndexer())
 }
