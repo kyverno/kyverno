@@ -40,10 +40,10 @@ spec:
             - /bin/sh
             - -c
             - |
-              COUNT=$(kubectl get clusteradmissionreports.kyverno.io -A | wc -l)
+              COUNT=$(kubectl get clusteradmissionreports.reports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt {{ .Values.cleanupJobs.clusterAdmissionReports.threshold }} ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
-                kubectl delete clusteradmissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+                kubectl delete clusteradmissionreports.reports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi

@@ -45,6 +45,10 @@
     {{- end -}}
   {{- end -}}
 {{- end -}}
+{{- $resourceFilters = concat $resourceFilters .Values.config.resourceFiltersInclude -}}
+{{- range $include := .Values.config.resourceFiltersIncludeNamespaces -}}
+  {{- $resourceFilters = append $resourceFilters (printf "[*/*,%s,*]" $include) -}}
+{{- end -}}
 {{- range $resourceFilter := $resourceFilters }}
 {{ tpl $resourceFilter $ }}
 {{- end -}}
