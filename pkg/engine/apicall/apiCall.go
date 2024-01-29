@@ -120,7 +120,7 @@ func (a *APICall) Fetch(ctx context.Context) ([]byte, error) {
 	data, err := a.Execute(ctx, call)
 	if err != nil {
 		metricLabels := []attribute.KeyValue{
-			attribute.String("url", string(call.URLPath)),
+			attribute.String("url", call.URLPath),
 		}
 		a.config.FailedFetchesCounter.Add(ctx, 1, metric.WithAttributes(metricLabels...))
 		return nil, err
