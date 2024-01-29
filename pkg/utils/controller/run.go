@@ -109,7 +109,7 @@ func handleErr(ctx context.Context, logger logr.Logger, metric *controllerMetric
 	if err == nil {
 		queue.Forget(obj)
 	} else if errors.IsNotFound(err) {
-		logger.Info("Dropping request from the queue", "obj", obj, "error", err.Error())
+		logger.V(4).Info("Dropping request from the queue", "obj", obj, "error", err.Error())
 		queue.Forget(obj)
 	} else if queue.NumRequeues(obj) < maxRetries {
 		logger.Info("Retrying request", "obj", obj, "error", err.Error())

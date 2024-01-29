@@ -7,31 +7,64 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	objectmeta "k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 )
 
 // webhook is the instance that aggregates the GVK of existing policies
-// based on kind, failurePolicy and webhookTimeout
+// based on group, kind, scopeType, failurePolicy and webhookTimeout
+// a fine-grained webhook is created per policy with a unique path
 type webhook struct {
+	// policyMeta is set for fine-grained webhooks
+	policyMeta objectmeta.ObjectName
+
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
-	rules             map[schema.GroupVersion]sets.Set[string]
+	rules             map[groupVersionScope]sets.Set[string]
+	matchConditions   []admissionregistrationv1.MatchCondition
 }
 
-func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType) *webhook {
+// groupVersionScope contains the GV and scopeType of a resource
+type groupVersionScope struct {
+	schema.GroupVersion
+	scopeType admissionregistrationv1.ScopeType
+}
+
+// String puts / between group/version and scope
+func (gvs groupVersionScope) String() string {
+	return gvs.GroupVersion.String() + "/" + string(gvs.scopeType)
+}
+
+func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition) *webhook {
 	return &webhook{
 		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
-		rules:             map[schema.GroupVersion]sets.Set[string]{},
+		rules:             map[groupVersionScope]sets.Set[string]{},
+		matchConditions:   matchConditions,
 	}
+}
+
+func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition, policy kyvernov1.PolicyInterface) *webhook {
+	webhook := newWebhook(timeout, failurePolicy, matchConditions)
+	webhook.policyMeta = objectmeta.ObjectName{
+		Namespace: policy.GetNamespace(),
+		Name:      policy.GetName(),
+	}
+	if policy.GetSpec().CustomWebhookConfiguration() {
+		webhook.matchConditions = policy.GetSpec().GetMatchConditions()
+	}
+	return webhook
 }
 
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
+
 	for gv, resources := range wh.rules {
 		// if we have pods, we add pods/ephemeralcontainers by default
 		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
@@ -42,6 +75,7 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 				APIGroups:   []string{gv.Group},
 				APIVersions: []string{gv.Version},
 				Resources:   sets.List(resources),
+				Scope:       ptr.To(gv.scopeType),
 			},
 			Operations: ops,
 		})
@@ -67,16 +101,38 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 		if x, match := less(a.Resources, b.Resources); match {
 			return x
 		}
+		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
+			return x
+		}
 		return 0
 	})
 	return rules
 }
 
-func (wh *webhook) set(gvrs schema.GroupVersionResource) {
-	gv := gvrs.GroupVersion()
-	resources := wh.rules[gv]
+func (wh *webhook) set(gvrs GroupVersionResourceScope) {
+	gvs := groupVersionScope{
+		GroupVersion: gvrs.GroupVersion(),
+		scopeType:    gvrs.Scope,
+	}
+
+	// check if the resource contains wildcard and is already added as all scope
+	// in that case, we do not need to add it again as namespaced scope
+	if (gvrs.Resource == "*" || gvrs.Group == "*") && gvs.scopeType == admissionregistrationv1.NamespacedScope {
+		allScopeResource := groupVersionScope{
+			GroupVersion: gvs.GroupVersion,
+			scopeType:    admissionregistrationv1.AllScopes,
+		}
+		resources := wh.rules[allScopeResource]
+		if resources != nil {
+			// explicitly do nothing as the resource is already added as all scope
+			return
+		}
+	}
+
+	// check if the resource is already added
+	resources := wh.rules[gvs]
 	if resources == nil {
-		wh.rules[gv] = sets.New(gvrs.Resource)
+		wh.rules[gvs] = sets.New(gvrs.Resource)
 	} else {
 		resources.Insert(gvrs.Resource)
 	}
@@ -84,6 +140,14 @@ func (wh *webhook) set(gvrs schema.GroupVersionResource) {
 
 func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
+}
+
+func (wh *webhook) key(separator string) string {
+	p := wh.policyMeta
+	if p.Namespace != "" {
+		return p.Namespace + separator + p.Name
+	}
+	return p.Name
 }
 
 func objectMeta(name string, annotations map[string]string, labels map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
@@ -130,4 +194,19 @@ func capTimeout(maxWebhookTimeout int32) int32 {
 		return 30
 	}
 	return maxWebhookTimeout
+}
+
+func webhookNameAndPath(wh webhook, baseName, basePath string) (name string, path string) {
+	if wh.failurePolicy == ignore {
+		name = baseName + "-ignore"
+		path = basePath + "/ignore"
+	} else {
+		name = baseName + "-fail"
+		path = basePath + "/fail"
+	}
+	if wh.policyMeta.Name != "" {
+		name = name + "-finegrained-" + wh.key("-")
+		path = path + config.FineGrainedWebhookPath + "/" + wh.key("/")
+	}
+	return name, path
 }

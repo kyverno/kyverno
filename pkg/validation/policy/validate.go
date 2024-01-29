@@ -89,10 +89,12 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	}
 	for _, operation := range decodedPatch {
 		op := operation.Kind()
-		if op != "add" && op != "remove" && op != "replace" {
+		requiresValue := op != "remove" && op != "move" && op != "copy"
+		validOperation := op == "add" || op == "remove" || op == "replace" || op == "move" || op == "copy" || op == "test"
+		if !validOperation {
 			return fmt.Errorf("unexpected kind: spec.rules[%d]: %s", ruleIdx, op)
 		}
-		if op != "remove" {
+		if requiresValue {
 			if _, err := operation.ValueInterface(); err != nil {
 				return fmt.Errorf("invalid value: spec.rules[%d]: %s", ruleIdx, err)
 			}
@@ -121,6 +123,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
+	if policy.GetSpec().CustomWebhookConfiguration() &&
+		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
+		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
+	}
 
 	warnings = append(warnings, checkValidationFailureAction(spec)...)
 	var errs field.ErrorList

@@ -106,8 +106,10 @@ func main() {
 		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
+		internal.WithAlternateReportStore(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -137,7 +139,7 @@ func main() {
 		emitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
-		setup.KyvernoDynamicClient,
+		setup.EventsClient,
 		logging.WithName("EventGenerator"),
 		emitEventsValues...,
 	)

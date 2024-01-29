@@ -33,6 +33,8 @@ var (
 	kubeconfig           string
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
+	eventsRateLimitQPS   float64
+	eventsRateLimitBurst int
 	// engine
 	enablePolicyException  bool
 	exceptionNamespace     string
@@ -54,6 +56,8 @@ var (
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
+	// alternate report storage
+	alternateReportStorage bool
 )
 
 func initLoggingFlags() {
@@ -83,10 +87,12 @@ func initMetricsFlags() {
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 
-func initKubeconfigFlags(qps float64, burst int) {
+func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst int) {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flag.Float64Var(&eventsRateLimitQPS, "eventsRateLimitQPS", eventsQPS, "Configure the maximum QPS to the Kubernetes API server from Kyverno for events. Uses the client default if zero.")
+	flag.IntVar(&eventsRateLimitBurst, "eventsRateLimitBurst", eventsBurst, "Configure the maximum burst for throttle for events. Uses the client default if zero.")
 }
 
 func initPolicyExceptionsFlags() {
@@ -129,15 +135,23 @@ func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
 }
 
+func initAltReportStoreFlag() {
+	flag.BoolVar(&alternateReportStorage, "alternateReportStorage", false, "Store kyverno intermediate reports in a separate api group reports.kyverno.io. defaults to false.")
+}
+
 type options struct {
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
+	eventsRateLimitQPS   float64
+	eventsRateLimitBurst int
 }
 
 func newOptions() options {
 	return options{
 		clientRateLimitQPS:   20,
 		clientRateLimitBurst: 50,
+		eventsRateLimitQPS:   1000,
+		eventsRateLimitBurst: 2000,
 	}
 }
 
@@ -178,7 +192,7 @@ func initFlags(config Configuration, opts ...Option) {
 	}
 	// kubeconfig
 	if config.UsesKubeconfig() {
-		initKubeconfigFlags(options.clientRateLimitQPS, options.clientRateLimitBurst)
+		initKubeconfigFlags(options.clientRateLimitQPS, options.clientRateLimitBurst, options.eventsRateLimitQPS, options.eventsRateLimitBurst)
 	}
 	// policy exceptions
 	if config.UsesPolicyExceptions() {
@@ -207,6 +221,10 @@ func initFlags(config Configuration, opts ...Option) {
 	// leader election
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
+	}
+	// alternate report storage
+	if config.UsesAlternateReportStore() {
+		initAltReportStoreFlag()
 	}
 
 	initCleanupFlags()

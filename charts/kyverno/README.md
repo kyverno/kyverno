@@ -253,8 +253,26 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
+| crds.groups.kyverno | bool | `true` | Install CRDs in group `kyverno.io` |
+| crds.groups.policyreport | bool | `true` | Install CRDs in group `wgpolicyk8s.io` |
+| crds.groups.reports | bool | `true` | Install CRDs in group `reports.kyverno.io` |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
 | crds.customLabels | object | `{}` | Additional CRDs labels |
+| crds.migration.enabled | bool | `true` | Enable CRDs migration using helm post upgrade hook |
+| crds.migration.resources | list | `["cleanuppolicies.kyverno.io","clustercleanuppolicies.kyverno.io","policyexceptions.kyverno.io"]` | Resources to migrate |
+| crds.migration.image.registry | string | `"ghcr.io"` | Image registry |
+| crds.migration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
+| crds.migration.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| crds.migration.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| crds.migration.imagePullSecrets | list | `[]` | Image pull secrets |
+| crds.migration.podSecurityContext | object | `{}` | Security context for the pod |
+| crds.migration.nodeSelector | object | `{}` | Node labels for pod assignment |
+| crds.migration.tolerations | list | `[]` | List of node taints to tolerate |
+| crds.migration.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| crds.migration.podAffinity | object | `{}` | Pod affinity constraints. |
+| crds.migration.podLabels | object | `{}` | Pod labels. |
+| crds.migration.nodeAffinity | object | `{}` | Node affinity constraints. |
+| crds.migration.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
 ### Config
 
@@ -278,6 +296,8 @@ The chart values are organised per component.
 | config.excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | config.resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
 | config.resourceFiltersExclude | list | `[]` | resourceFilters exclude list Items to exclude from config.resourceFilters |
+| config.resourceFiltersIncludeNamespaces | list | `[]` | resourceFilter namespace include Namespaces to include to the default resourceFilters |
+| config.resourceFiltersInclude | list | `[]` | resourceFilters include list Items to include to config.resourceFilters |
 
 ### Metrics config
 
@@ -298,6 +318,7 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | features.admissionReports.enabled | bool | `true` | Enables the feature |
 | features.aggregateReports.enabled | bool | `true` | Enables the feature |
+| features.alternateReportStorage.enabled | bool | `false` | Enables the feature |
 | features.policyReports.enabled | bool | `true` | Enables the feature |
 | features.validatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
 | features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
@@ -312,7 +333,7 @@ The chart values are organised per component.
 | features.generateValidatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.logging.format | string | `"text"` | Logging format |
 | features.logging.verbosity | int | `2` | Logging verbosity |
-| features.omitEvents.eventTypes | list | `[]` | Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`) |
+| features.omitEvents.eventTypes | list | `["PolicyApplied","PolicySkipped"]` | Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`) |
 | features.policyExceptions.enabled | bool | `true` | Enables the feature |
 | features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace |
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
@@ -413,6 +434,10 @@ The chart values are organised per component.
 | admissionController.metering.port | int | `8000` | Prometheus endpoint port |
 | admissionController.metering.collector | string | `""` | Otel collector endpoint |
 | admissionController.metering.creds | string | `""` | Otel collector credentials |
+| admissionController.profiling.enabled | bool | `false` | Enable profiling |
+| admissionController.profiling.port | int | `6060` | Profiling endpoint port |
+| admissionController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
+| admissionController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 
 ### Background controller
 
@@ -481,6 +506,10 @@ The chart values are organised per component.
 | backgroundController.metering.port | int | `8000` | Prometheus endpoint port |
 | backgroundController.metering.collector | string | `""` | Otel collector endpoint |
 | backgroundController.metering.creds | string | `""` | Otel collector credentials |
+| backgroundController.profiling.enabled | bool | `false` | Enable profiling |
+| backgroundController.profiling.port | int | `6060` | Profiling endpoint port |
+| backgroundController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
+| backgroundController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 
 ### Cleanup controller
 
@@ -556,6 +585,10 @@ The chart values are organised per component.
 | cleanupController.metering.port | int | `8000` | Prometheus endpoint port |
 | cleanupController.metering.collector | string | `""` | Otel collector endpoint |
 | cleanupController.metering.creds | string | `""` | Otel collector credentials |
+| cleanupController.profiling.enabled | bool | `false` | Enable profiling |
+| cleanupController.profiling.port | int | `6060` | Profiling endpoint port |
+| cleanupController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
+| cleanupController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 
 ### Reports controller
 
@@ -627,6 +660,10 @@ The chart values are organised per component.
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |
 | reportsController.metering.collector | string | `nil` | Otel collector endpoint |
 | reportsController.metering.creds | string | `nil` | Otel collector credentials |
+| reportsController.profiling.enabled | bool | `false` | Enable profiling |
+| reportsController.profiling.port | int | `6060` | Profiling endpoint port |
+| reportsController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
+| reportsController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 
 ### Grafana
 
@@ -646,7 +683,7 @@ The chart values are organised per component.
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image.registry | string | `nil` | Image registry |
 | webhooksCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| webhooksCleanup.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
+| webhooksCleanup.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -654,6 +691,7 @@ The chart values are organised per component.
 | webhooksCleanup.tolerations | list | `[]` | List of node taints to tolerate |
 | webhooksCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | webhooksCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
+| webhooksCleanup.podLabels | object | `{}` | Pod labels. |
 | webhooksCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | webhooksCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
@@ -682,7 +720,7 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.admissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.admissionReports.image.tag | string | `"1.26.10"` | Image tag Defaults to `latest` if omitted |
+| cleanupJobs.admissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
 | cleanupJobs.admissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | cleanupJobs.admissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupJobs.admissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
@@ -702,7 +740,7 @@ The chart values are organised per component.
 | cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.26.4"` | Image tag Defaults to `latest` if omitted |
+| cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
 | cleanupJobs.clusterAdmissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | cleanupJobs.clusterAdmissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupJobs.clusterAdmissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
@@ -728,6 +766,7 @@ The chart values are organised per component.
 | global.caCertificates.data | string | `nil` | Global CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates Individual controller values will override this global value |
 | global.caCertificates.volume | object | `{}` | Global value to set single volume to be mounted for CA certificates for all deployments. Not used when `.Values.global.caCertificates.data` is defined Individual  controller values will override this global value |
 | global.extraEnvVars | list | `[]` | Additional container environment variables to apply to all containers and init containers |
+| global.nodeSelector | object | `{}` | Global node labels for pod assignment. Non-global values will override the global value. |
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
@@ -738,7 +777,7 @@ The chart values are organised per component.
 | policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
 | policyReportsCleanup.image.registry | string | `nil` | Image registry |
 | policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| policyReportsCleanup.image.tag | string | `"1.28.4"` | Image tag Defaults to `latest` if omitted |
+| policyReportsCleanup.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | policyReportsCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -746,6 +785,7 @@ The chart values are organised per component.
 | policyReportsCleanup.tolerations | list | `[]` | List of node taints to tolerate |
 | policyReportsCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | policyReportsCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
+| policyReportsCleanup.podLabels | object | `{}` | Pod labels. |
 | policyReportsCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
 | policyReportsCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
 
@@ -786,6 +826,8 @@ It contains an array of string templates that are passed through the `tpl` Helm 
 Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
 
 Add entries to `config.resourceFiltersExclude` that you wish to omit from `config.resourceFilters`.
+
+Add entries to `config.resourceFiltersInclude` that you with to add to `config.resourceFilters`.
 
 ## High availability
 

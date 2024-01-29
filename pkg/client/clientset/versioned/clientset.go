@@ -29,6 +29,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/reports/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -43,6 +44,7 @@ type Interface interface {
 	KyvernoV2beta1() kyvernov2beta1.KyvernoV2beta1Interface
 	KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface
 	Wgpolicyk8sV1alpha2() wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface
+	ReportsV1() reportsv1.ReportsV1Interface
 }
 
 // Clientset contains the clients for groups.
@@ -55,6 +57,7 @@ type Clientset struct {
 	kyvernoV2beta1      *kyvernov2beta1.KyvernoV2beta1Client
 	kyvernoV2alpha1     *kyvernov2alpha1.KyvernoV2alpha1Client
 	wgpolicyk8sV1alpha2 *wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Client
+	reportsV1           *reportsv1.ReportsV1Client
 }
 
 // KyvernoV1 retrieves the KyvernoV1Client
@@ -90,6 +93,11 @@ func (c *Clientset) KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface {
 // Wgpolicyk8sV1alpha2 retrieves the Wgpolicyk8sV1alpha2Client
 func (c *Clientset) Wgpolicyk8sV1alpha2() wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface {
 	return c.wgpolicyk8sV1alpha2
+}
+
+// ReportsV1 retrieves the ReportsV1Client
+func (c *Clientset) ReportsV1() reportsv1.ReportsV1Interface {
+	return c.reportsV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -164,6 +172,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.reportsV1, err = reportsv1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -192,6 +204,7 @@ func New(c rest.Interface) *Clientset {
 	cs.kyvernoV2beta1 = kyvernov2beta1.New(c)
 	cs.kyvernoV2alpha1 = kyvernov2alpha1.New(c)
 	cs.wgpolicyk8sV1alpha2 = wgpolicyk8sv1alpha2.New(c)
+	cs.reportsV1 = reportsv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

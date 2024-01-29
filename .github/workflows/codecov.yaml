@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Codecov
 
 permissions: {}
@@ -35,7 +37,7 @@ jobs:
       - name: Generate Code Coverage Report
         run: make code-cov-report
       - name: Upload Report to Codecov
-        uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d # v3.1.4
+        uses: codecov/codecov-action@4fe8c5f003fae66aa5ebb77cfd3e7bfbbda0b6b0 # v3.1.5
         with:
           file: ./coverage.out
           fail_ci_if_error: true
