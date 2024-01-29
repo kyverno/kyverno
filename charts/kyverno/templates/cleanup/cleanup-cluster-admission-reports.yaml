@@ -34,12 +34,13 @@ spec:
           {{- end }}
           containers:
           - name: cleanup
-            image: {{ (include "kyverno.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.cleanupJobs.clusterAdmissionReports.image)) | quote }}
+            image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.cleanupJobs.clusterAdmissionReports.image)) | quote }}
             imagePullPolicy: {{ .Values.cleanupJobs.clusterAdmissionReports.image.pullPolicy }}
             command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
+              set -euo pipefail
               COUNT=$(kubectl get clusteradmissionreports.reports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt {{ .Values.cleanupJobs.clusterAdmissionReports.threshold }} ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
