@@ -18,14 +18,6 @@ metadata:
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
 rules:
-  # - apiGroups:
-  #     - '*'
-  #   resources:
-  #     - '*'
-  #   verbs:
-  #     - get
-  #     - list
-  #     - watch
   - apiGroups:
       - ''
     resources:
@@ -93,6 +85,9 @@ rules:
     verbs:
       - create
       - patch
+{{- with .Values.reportsController.rbac.coreClusterRole.extraResources }}
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- with .Values.reportsController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
