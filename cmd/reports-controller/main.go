@@ -230,6 +230,7 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
+		internal.WithResourceCache(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags

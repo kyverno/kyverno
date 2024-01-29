@@ -56,6 +56,8 @@ var (
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
+	// resource cache
+	enableResourceCache bool
 )
 
 func initLoggingFlags() {
@@ -131,6 +133,10 @@ func initLeaderElectionFlags() {
 
 func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
+}
+
+func initResourceCacheFlags() {
+	flag.BoolVar(&enableResourceCache, "enableResourceCache", true, "Enable ResourceCache feature.")
 }
 
 type options struct {
@@ -216,6 +222,10 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
+	// resource cache
+	if config.UsesResourceCache() {
+		initResourceCacheFlags()
+	}
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
@@ -251,6 +261,10 @@ func LeaderElectionRetryPeriod() time.Duration {
 
 func CleanupServerPort() string {
 	return cleanupServerPort
+}
+
+func ResourceCacheEnabled() bool {
+	return enableResourceCache
 }
 
 func printFlagSettings(logger logr.Logger) {

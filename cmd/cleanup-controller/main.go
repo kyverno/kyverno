@@ -94,6 +94,7 @@ func main() {
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
+		internal.WithResourceCache(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags

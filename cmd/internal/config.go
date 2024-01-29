@@ -22,6 +22,7 @@ type Configuration interface {
 	UsesMetadataClient() bool
 	UsesKyvernoDynamicClient() bool
 	UsesEventsClient() bool
+	UsesResourceCache() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -145,6 +146,12 @@ func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	}
 }
 
+func WithResourceCache() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesResourceCache = true
+	}
+}
+
 type configuration struct {
 	usesMetrics              bool
 	usesTracing              bool
@@ -163,6 +170,7 @@ type configuration struct {
 	usesMetadataClient       bool
 	usesKyvernoDynamicClient bool
 	usesEventsClient         bool
+	usesResourceCache        bool
 	flagSets                 []*flag.FlagSet
 }
 
@@ -232,6 +240,10 @@ func (c *configuration) UsesKyvernoDynamicClient() bool {
 
 func (c *configuration) UsesEventsClient() bool {
 	return c.usesEventsClient
+}
+
+func (c *configuration) UsesResourceCache() bool {
+	return c.usesResourceCache
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {

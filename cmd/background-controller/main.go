@@ -108,6 +108,7 @@ func main() {
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
+		internal.WithResourceCache(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
