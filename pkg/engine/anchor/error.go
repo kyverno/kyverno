@@ -83,7 +83,7 @@ func IsConditionalAnchorError(err error) bool {
 	return isError(err, conditionalAnchorErr, conditionalAnchorErrMsg)
 }
 
-// IsGlobalAnchorError checks if error is a global global anchor error
+// IsGlobalAnchorError checks if error is a global anchor error
 func IsGlobalAnchorError(err error) bool {
 	return isError(err, globalAnchorErr, globalAnchorErrMsg)
 }
