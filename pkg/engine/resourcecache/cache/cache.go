@@ -19,7 +19,7 @@ type ResourceEntry interface {
 }
 
 type cache struct {
-	sync.Mutex
+	sync.RWMutex
 	store *ristretto.Cache
 }
 
@@ -48,14 +48,17 @@ func (l *cache) Add(key string, val ResourceEntry) bool {
 }
 
 func (l *cache) Get(key string) (ResourceEntry, bool) {
-	l.Lock()
-	defer l.Unlock()
+	l.RLock()
+	defer l.RUnlock()
 	val, ok := l.store.Get(key)
 	if !ok {
 		return nil, ok
 	}
 
 	entry, ok := val.(ResourceEntry)
+	if !ok {
+		return nil, ok
+	}
 	return entry, ok
 }
 
