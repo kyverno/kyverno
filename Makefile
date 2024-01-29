@@ -960,6 +960,15 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set crds.migration.image.tag=$(GIT_SHA) \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
 
+.PHONY: kind-install-goldilocks
+kind-install-goldilocks: $(HELM) ## Install goldilocks helm chart
+	@echo Install goldilocks chart... >&2
+	@$(HELM) upgrade --install vpa --namespace vpa --create-namespace --wait \
+		--repo https://charts.fairwinds.com/stable vpa
+	@$(HELM) upgrade --install goldilocks --namespace goldilocks --create-namespace --wait \
+		--repo https://charts.fairwinds.com/stable goldilocks
+	kubectl label ns kyverno goldilocks.fairwinds.com/enabled=true
+
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@$(MAKE) kind-install-kyverno
