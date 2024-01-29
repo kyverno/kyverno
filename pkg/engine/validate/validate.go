@@ -129,6 +129,8 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	sort.Strings(keys)
 
 	// Evaluate anchors
+	var skipErrors []error
+	var applyCount int
 	for _, key := range keys {
 		patternElement := anchors[key]
 		// get handler for each pattern in the pattern
@@ -137,11 +139,23 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 		// - Equality
 		handler := anchor.CreateElementHandler(key, patternElement, path)
 		handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern, ac)
-		// if there are resource values at same level, then anchor acts as conditional instead of a strict check
-		// but if there are none then it's an if-then check
 		if err != nil {
-			// If global anchor fails then we don't process the resource
+			if skip(err) {
+				skipErrors = append(skipErrors, err)
+				continue
+			}
+
 			return handlerPath, err
+		}
+
+		applyCount++
+	}
+
+	if applyCount == 0 && len(skipErrors) > 0 {
+		return path, &PatternError{
+			Err:  multierr.Combine(skipErrors...),
+			Path: path,
+			Skip: true,
 		}
 	}
 
