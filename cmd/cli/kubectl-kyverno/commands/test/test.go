@@ -91,7 +91,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 					continue
 				}
 				if rule.Name!=res.Rule{
-					return nil,(fmt.Errorf("rule(%s) cannot be found in the given policy", rule.Name)
+					return nil,(fmt.Errorf("rule(%s) cannot be found in the given policy", rule.Name))
 		                }
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
