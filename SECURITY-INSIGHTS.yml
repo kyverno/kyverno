@@ -1,0 +1,62 @@
+header:
+  schema-version: 1.0.0
+  expiration-date: '2025-01-15T01:00:00.000Z'
+  project-url: 'https://github.com/kyverno/kyverno'
+  license: 'https://github.com/kyverno/kyverno/blob/main/LICENSE'
+project-lifecycle:
+  bug-fixes-only: false
+  core-maintainers:
+    - https://github.com/kyverno/kyverno/blob/main/MAINTAINERS.md
+  status: active
+  release-process: 'https://github.com/kyverno/kyverno/releases'
+contribution-policy:
+  accepts-pull-requests: true
+  accepts-automated-pull-requests: true
+  automated-tools-list:
+    - automated-tool: dependabot
+      action: allowed
+      path:
+        - /
+  contributing-policy: 'https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md'
+  code-of-conduct:
+  - 'https://github.com/kyverno/kyverno/blob/main/CODE_OF_CONDUCT.md'
+documentation:
+  - 'https://kyverno.io/docs/'
+distribution-points:
+  - 'https://github.com/orgs/kyverno/packages'
+security-artifacts:
+  threat-model:
+    threat-model-created: true
+    evidence-url:
+    - 'https://kyverno.io/docs/security/#threat-model'
+  self-assessment:
+    self-assessment-created: true
+    evidence-url:
+    - https://github.com/cncf/tag-security/blob/main/assessments/projects/kyverno/self-assessment.md
+security-testing:
+- tool-type: sca
+  tool-name: Dependabot
+  tool-version: "2"
+  tool-url: https://github.com/dependabot
+  integration:
+    ad-hoc: false
+    ci: true
+    before-release: true 
+security-contacts:
+- type: email
+  value: kyverno-security@googlegroups.com
+  primary: true
+vulnerability-reporting:
+  accepts-vulnerability-reports: true
+  email-contact: kyverno-security@googlegroups.com
+  security-policy: 'https://kyverno.io/docs/security/'
+  bug-bounty-available: false
+  bug-bounty-url: ''
+dependencies:
+  third-party-packages: true
+  dependencies-lists:
+  - 'https://github.com/kyverno/kyverno/blob/main/go.mod'
+  dependencies-lifecycle:
+    policy-url: 'https://kyverno.io/docs/installation/#compatibility-matrix'
+  env-dependencies-policy:
+    policy-url: ''
