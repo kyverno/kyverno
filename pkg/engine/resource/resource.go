@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
@@ -143,7 +142,7 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 	}, nil
 }
 
-func (r *resourceCache) Get(c kyvernov1.ContextEntry, jsonCtx enginecontext.Interface) ([]byte, error) {
+func (r *resourceCache) Get(c ContextEntry, jsonCtx enginecontext.Interface) ([]byte, error) {
 	var data interface{}
 	var err error
 	if c.Resource == nil {

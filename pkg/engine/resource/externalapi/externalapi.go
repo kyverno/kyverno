@@ -102,8 +102,8 @@ func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) {
 	}
 	rc := entry.Spec.ResourceCache.DeepCopy()
 	ctxentry := kyvernov1.ContextEntry{
-		Name:     entry.Name,
-		Resource: rc,
+		Name: entry.Name,
+		// Resource: rc,
 	}
 
 	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds)

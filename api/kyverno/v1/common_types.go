@@ -97,7 +97,7 @@ type ContextEntry struct {
 	Variable *Variable `json:"variable,omitempty" yaml:"variable,omitempty"`
 
 	// ResourceCache is the request to the cache to fetch a specific cache entry.
-	Resource *ResourceCache `json:"resource,omitempty" yaml:"resource,omitempty"`
+	// Resource *ResourceCache `json:"resource,omitempty" yaml:"resource,omitempty"`
 }
 
 // Variable defines an arbitrary JMESPath context variable that can be defined inline.

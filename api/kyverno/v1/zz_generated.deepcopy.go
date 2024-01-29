@@ -466,11 +466,6 @@ func (in *ContextEntry) DeepCopyInto(out *ContextEntry) {
 		*out = new(Variable)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Resource != nil {
-		in, out := &in.Resource, &out.Resource
-		*out = new(ResourceCache)
-		(*in).DeepCopyInto(*out)
-	}
 	return
 }
 
