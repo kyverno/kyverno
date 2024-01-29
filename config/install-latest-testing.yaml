@@ -54921,7 +54921,11 @@ rules:
       - reports.kyverno.io
     resources:
       - ephemeralreports
+<<<<<<< HEAD
 >>>>>>> 58755a454 (fix: add logging and fixes)
+=======
+      - clusterephemeralreports
+>>>>>>> 92469446f (fix: CRDs codegen (#9542))
     verbs:
       - create
       - delete
