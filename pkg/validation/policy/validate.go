@@ -28,11 +28,17 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
+	"k8s.io/apiserver/pkg/cel/openapi/resolver"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/restmapper"
 )
 
 var (
@@ -393,6 +399,51 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		checkForDeprecatedOperatorsInRule(rule, &warnings)
+	}
+
+	// check for CEL expression warnings in case of CEL subrules
+	if ok, _ := vaputils.CanGenerateVAP(spec); ok {
+		resolver := &resolver.ClientDiscoveryResolver{
+			Discovery: client.GetKubeClient().Discovery(),
+		}
+		groupResources, err := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
+		if err != nil {
+			return nil, err
+		}
+		mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+		checker := &validatingadmissionpolicy.TypeChecker{
+			SchemaResolver: resolver,
+			RestMapper:     mapper,
+		}
+
+		// build Kubernetes ValidatingAdmissionPolicy
+		vap := &admissionregistrationv1alpha1.ValidatingAdmissionPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: policy.GetName(),
+			},
+		}
+		vaputils.BuildValidatingAdmissionPolicy(client.Discovery(), vap, policy)
+		v1beta1vap := vaputils.ConvertValidatingAdmissionPolicy(*vap)
+
+		// check cel expression warnings
+		ctx := checker.CreateContext(&v1beta1vap)
+		fieldRef := field.NewPath("spec", "rules[0]", "validate", "cel", "expressions")
+		for i, e := range spec.Rules[0].Validation.CEL.Expressions {
+			results := checker.CheckExpression(ctx, e.Expression)
+			if len(results) != 0 {
+				err := fmt.Errorf("%s:%s", fieldRef.Index(i).Child("expression").String(), results.String())
+				return nil, err
+			}
+
+			if e.MessageExpression == "" {
+				continue
+			}
+			results = checker.CheckExpression(ctx, e.MessageExpression)
+			if len(results) != 0 {
+				err := fmt.Errorf("%s:%s", fieldRef.Index(i).Child("messageExpression").String(), results.String())
+				return nil, err
+			}
+		}
 	}
 	return warnings, nil
 }
