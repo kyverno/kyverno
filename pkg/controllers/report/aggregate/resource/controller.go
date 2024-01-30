@@ -252,14 +252,6 @@ func (c *controller) getAdmissionReports(ctx context.Context, namespace, name st
 			report := report
 			results = append(results, &report)
 		}
-		// report, err := c.client.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
-		// if err != nil {
-		// 	if apierrors.IsNotFound(err) {
-		// 		return nil, nil
-		// 	}
-		// 	return nil, err
-		// }
-		// return report, nil
 	} else {
 		reports, err := c.client.ReportsV1().EphemeralReports(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: selector.String(),
@@ -274,14 +266,6 @@ func (c *controller) getAdmissionReports(ctx context.Context, namespace, name st
 			report := report
 			results = append(results, &report)
 		}
-		// report, err := c.client.ReportsV1().EphemeralReports(namespace).Get(ctx, name, metav1.GetOptions{})
-		// if err != nil {
-		// 	if apierrors.IsNotFound(err) {
-		// 		return nil, nil
-		// 	}
-		// 	return nil, err
-		// }
-		// return report, nil
 	}
 	return results, nil
 }
@@ -324,7 +308,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
 	if exists {
-		admissionReport, backgroundReport, err := c.getReports(ctx, namespace, name)
+		admissionReports, backgroundReport, err := c.getReports(ctx, namespace, name)
 		if err != nil {
 			return err
 		}
@@ -358,7 +342,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		var reports []kyvernov1alpha2.ReportInterface
 		reports = append(reports, policyReport)
 		reports = append(reports, backgroundReport)
-		reports = append(reports, admissionReport...)
+		reports = append(reports, admissionReports...)
 		mergeReports(policyMap, vapMap, merged, uid, reports...)
 		var results []policyreportv1alpha2.PolicyReportResult
 		for _, result := range merged {
@@ -382,11 +366,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 				}
 			}
 		}
-		// if admissionReport != nil {
-		// 	if err := deleteReport(ctx, admissionReport, c.client); err != nil {
-		// 		return err
-		// 	}
-		// }
+		for _, admissionReport := range admissionReports {
+			if err := deleteReport(ctx, admissionReport, c.client); err != nil {
+				return err
+			}
+		}
 		if backgroundReport != nil {
 			if err := deleteReport(ctx, backgroundReport, c.client); err != nil {
 				return err
