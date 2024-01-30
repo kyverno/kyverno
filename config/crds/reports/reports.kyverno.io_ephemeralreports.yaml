@@ -19,32 +19,35 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: AGE
-      type: date
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      type: string
+    - jsonPath: .metadata.ownerReferences[0].kind
+      name: Kind
+      type: string
+    - jsonPath: .metadata.ownerReferences[0].name
+      name: Subject
+      type: string
     - jsonPath: .spec.summary.pass
-      name: PASS
+      name: Pass
       type: integer
     - jsonPath: .spec.summary.fail
-      name: FAIL
+      name: Fail
       type: integer
     - jsonPath: .spec.summary.warn
-      name: WARN
+      name: Warn
       type: integer
     - jsonPath: .spec.summary.error
-      name: ERROR
+      name: Error
       type: integer
     - jsonPath: .spec.summary.skip
-      name: SKIP
+      name: Skip
       type: integer
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
-      name: GVR
-      type: string
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
-      name: REF
-      type: string
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
-      name: AGGREGATE
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
+      name: Hash
       priority: 1
       type: string
     name: v1
