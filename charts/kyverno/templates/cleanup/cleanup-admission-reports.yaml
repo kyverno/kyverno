@@ -13,6 +13,7 @@ spec:
   failedJobsHistoryLimit: {{ .Values.cleanupJobs.admissionReports.history.failure }}
   jobTemplate:
     spec:
+      backoffLimit: {{ .Values.cleanupJobs.admissionReports.backoffLimit }}
       template:
         metadata:
           {{- with .Values.cleanupJobs.admissionReports.podAnnotations }}
@@ -29,14 +30,18 @@ spec:
           securityContext:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
+          {{- with .Values.cleanupJobs.admissionReports.priorityClassName }}
+          priorityClassName: {{ . }}
+          {{- end }}
           containers:
           - name: cleanup
-            image: {{ (include "kyverno.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.cleanupJobs.admissionReports.image)) | quote }}
+            image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.cleanupJobs.admissionReports.image)) | quote }}
             imagePullPolicy: {{ .Values.cleanupJobs.admissionReports.image.pullPolicy }}
             command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
+              set -euo pipefail
               COUNT=$(kubectl get admissionreports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt {{ .Values.cleanupJobs.admissionReports.threshold }} ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
@@ -61,7 +66,7 @@ spec:
           tolerations:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- with .Values.cleanupJobs.admissionReports.nodeSelector }}
+          {{- with .Values.cleanupJobs.admissionReports.nodeSelector | default .Values.global.nodeSelector }}
           nodeSelector:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}

@@ -2,14 +2,18 @@ package validatingadmissionpolicygenerate
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -43,6 +47,7 @@ type controller struct {
 
 	// listers
 	cpolLister       kyvernov1listers.ClusterPolicyLister
+	polexLister      kyvernov2beta1listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyBindingLister
 
@@ -57,8 +62,8 @@ func NewController(
 	client kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	discoveryClient dclient.IDiscovery,
-	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polexInformer kyvernov2beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
@@ -70,6 +75,7 @@ func NewController(
 		kyvernoClient:    kyvernoClient,
 		discoveryClient:  discoveryClient,
 		cpolLister:       cpolInformer.Lister(),
+		polexLister:      polexInformer.Lister(),
 		vapLister:        vapInformer.Lister(),
 		vapbindingLister: vapbindingInformer.Lister(),
 		queue:            queue,
@@ -79,6 +85,11 @@ func NewController(
 
 	// Set up an event handler for when Kyverno policies change
 	if _, err := controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+
+	// Set up an event handler for when policy exceptions change
+	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addException, c.updateException, c.deleteException); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 
@@ -134,6 +145,46 @@ func (c *controller) enqueuePolicy(obj kyvernov1.PolicyInterface) {
 		return
 	}
 	c.queue.Add(key)
+}
+
+func (c *controller) addException(obj *kyvernov2beta1.PolicyException) {
+	logger.Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	c.enqueueException(obj)
+}
+
+func (c *controller) updateException(old, obj *kyvernov2beta1.PolicyException) {
+	if datautils.DeepEqual(old.Spec, obj.Spec) {
+		return
+	}
+	logger.Info("policy exception updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	c.enqueueException(obj)
+}
+
+func (c *controller) deleteException(obj *kyvernov2beta1.PolicyException) {
+	polex := kubeutils.GetObjectWithTombstone(obj).(*kyvernov2beta1.PolicyException)
+
+	logger.Info("policy exception deleted", "uid", polex.GetUID(), "kind", polex.GetKind(), "name", polex.GetName())
+	c.enqueueException(obj)
+}
+
+func (c *controller) enqueueException(obj *kyvernov2beta1.PolicyException) {
+	for _, exception := range obj.Spec.Exceptions {
+		// skip adding namespaced policies in the queue.
+		// skip adding policies with multiple rules in the queue.
+		if strings.Contains(exception.PolicyName, "/") || len(exception.RuleNames) > 1 {
+			continue
+		}
+
+		cpol, err := c.getClusterPolicy(exception.PolicyName)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return
+			}
+			logger.Error(err, "unable to get the policy from policy informer")
+			return
+		}
+		c.enqueuePolicy(cpol)
+	}
 }
 
 func (c *controller) addVAP(obj *admissionregistrationv1alpha1.ValidatingAdmissionPolicy) {
@@ -318,15 +369,15 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	// check if the controller has the required permissions to generate validating admission policies.
 	if !validatingadmissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
-		logger.Info("doesn't have required permissions for generating ValidatingAdmissionPolicies")
-		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating ValidatingAdmissionPolicies")
+		logger.Info("insufficient permissions to generate ValidatingAdmissionPolicies")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
 		return nil
 	}
 
 	// check if the controller has the required permissions to generate validating admission policy bindings.
 	if !validatingadmissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
-		logger.Info("doesn't have required permissions for generating ValidatingAdmissionPolicyBindings")
-		c.updateClusterPolicyStatus(ctx, *policy, false, "doesn't have required permissions for generating ValidatingAdmissionPolicyBindings")
+		logger.Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
+		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 		return nil
 	}
 
@@ -335,7 +386,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
 	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
-	if ok, msg := canGenerateVAP(spec); !ok {
+
+	hasExceptions, err := c.hasExceptions(name, spec.Rules[0].Name)
+	if err != nil {
+		return err
+	}
+	if ok, msg := canGenerateVAP(spec); !ok || hasExceptions {
 		// delete the ValidatingAdmissionPolicy if exist
 		if vapErr == nil {
 			err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
@@ -349,6 +405,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			if err != nil {
 				return err
 			}
+		}
+
+		if msg == "" {
+			msg = "skip generating ValidatingAdmissionPolicy: a policy exception is configured."
 		}
 		c.updateClusterPolicyStatus(ctx, *policy, false, msg)
 		return nil

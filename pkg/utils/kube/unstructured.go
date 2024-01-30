@@ -28,22 +28,3 @@ func ObjToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	}
 	return &unstructured.Unstructured{Object: unstrObj}, nil
 }
-
-func NewUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": apiVersion,
-			"kind":       kind,
-			"metadata": map[string]interface{}{
-				"namespace": namespace,
-				"name":      name,
-			},
-		},
-	}
-}
-
-func NewUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[string]interface{}) *unstructured.Unstructured {
-	u := NewUnstructured(apiVersion, kind, namespace, name)
-	u.Object["spec"] = spec
-	return u
-}

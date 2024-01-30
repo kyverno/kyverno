@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -26,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi.EngineResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWarn bool) ([]engineapi.EngineResponse, error) {
 	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
@@ -37,7 +38,7 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 	var dClient dclient.Interface
 	// values/variables
 	fmt.Fprintln(out, "  Loading values/variables", "...")
-	vars, err := variables.New(testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
+	vars, err := variables.New(out, testCase.Fs, testDir, testCase.Test.Variables, testCase.Test.Values)
 	if err != nil {
 		err = fmt.Errorf("failed to decode yaml (%w)", err)
 		return nil, err
@@ -50,12 +51,13 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 		if err != nil {
 			return nil, fmt.Errorf("Error: failed to load request info (%s)", err)
 		}
+		deprecations.CheckUserInfo(out, testCase.Test.UserInfo, info)
 		userInfo = &info.RequestInfo
 	}
 	// policies
 	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
-	policies, validatingAdmissionPolicies, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
+	policies, validatingAdmissionPolicies, _, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
@@ -73,9 +75,11 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 		}
 	}
 	// init store
+	var store store.Store
 	store.SetLocal(true)
+	store.SetRegistryAccess(registryAccess)
 	if vars != nil {
-		vars.SetInStore()
+		vars.SetInStore(&store)
 	}
 	fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	// TODO document the code below
@@ -88,21 +92,30 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 				}
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
-						ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
-						if err != nil {
-							fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
-							break
-						}
-						genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
-						if err != nil {
-							fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
-							break
-						}
-						if len(genClone) != 0 {
+						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
+							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
 								ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
 							} else {
 								ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+							}
+						} else { // clone or data
+							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
+							if err != nil {
+								fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
+								break
+							}
+							genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
+							if err != nil {
+								fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
+								break
+							}
+							if len(genClone) != 0 {
+								if isGit {
+									ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
+								} else {
+									ruleToCloneSourceResource[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
+								}
 							}
 						}
 					}
@@ -125,9 +138,9 @@ func runTest(out io.Writer, testCase test.TestCase, auditWarn bool) ([]engineapi
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
-
 	for _, resource := range uniques {
 		processor := processor.PolicyProcessor{
+			Store:                     &store,
 			Policies:                  validPolicies,
 			Resource:                  *resource,
 			MutateLogPath:             "",

@@ -1,0 +1,37 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: pol-clone-nosync-modify-source
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: manifests.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: create-cm.yaml
+    - assert:
+        file: cloned-secret.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: chainsaw-step-03-apply-1-1.yaml
+  - name: step-04
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-05
+    try:
+    - assert:
+        file: chainsaw-step-05-assert-1-1.yaml
+  - name: step-99
+    try:
+    - script:
+        content: |
+          kubectl delete ur -A --all
+          kubectl delete -f cloned-secret.yaml --ignore-not-found=true

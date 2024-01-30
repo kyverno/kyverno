@@ -32,36 +32,34 @@ USE_CONFIG           ?= standard
 # TOOLS #
 #########
 
-TOOLS_DIR                          := $(PWD)/.tools
-KIND                               := $(TOOLS_DIR)/kind
-KIND_VERSION                       := v0.20.0
-CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             := v0.12.0
-CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
-LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
-INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
-OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
-REGISTER_GEN                       := $(TOOLS_DIR)/register-gen
-DEEPCOPY_GEN                       := $(TOOLS_DIR)/deepcopy-gen
-DEFAULTER_GEN                      := $(TOOLS_DIR)/defaulter-gen
-APPLYCONFIGURATION_GEN             := $(TOOLS_DIR)/applyconfiguration-gen
-CODE_GEN_VERSION                   := v0.28.0
-GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
-GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
-GO_ACC                             := $(TOOLS_DIR)/go-acc
-GO_ACC_VERSION                     := latest
-GOIMPORTS                          := $(TOOLS_DIR)/goimports
-GOIMPORTS_VERSION                  := latest
-HELM                               := $(TOOLS_DIR)/helm
-HELM_VERSION                       := v3.12.3
-HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
-HELM_DOCS_VERSION                  := v1.11.0
-KO                                 := $(TOOLS_DIR)/ko
-KO_VERSION                         := v0.14.1
-KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
-KUTTL_VERSION                      := v0.0.0-20230914072640-e3af68e47317
-KUBE_VERSION                       := v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
+TOOLS_DIR                          ?= $(PWD)/.tools
+KIND                               ?= $(TOOLS_DIR)/kind
+KIND_VERSION                       ?= v0.20.0
+CONTROLLER_GEN                     ?= $(TOOLS_DIR)/controller-gen
+CONTROLLER_GEN_VERSION             ?= v0.12.0
+CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
+LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
+INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
+OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
+REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
+DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
+DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
+APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
+CODE_GEN_VERSION                   ?= v0.28.0
+GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
+GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
+GO_ACC                             ?= $(TOOLS_DIR)/go-acc
+GO_ACC_VERSION                     ?= latest
+GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
+GOIMPORTS_VERSION                  ?= latest
+HELM                               ?= $(TOOLS_DIR)/helm
+HELM_VERSION                       ?= v3.12.3
+HELM_DOCS                          ?= $(TOOLS_DIR)/helm-docs
+HELM_DOCS_VERSION                  ?= v1.11.0
+KO                                 ?= $(TOOLS_DIR)/ko
+KO_VERSION                         ?= v0.14.1
+KUBE_VERSION                       ?= v1.25.0
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -132,10 +130,6 @@ $(HELM_DOCS):
 $(KO):
 	@echo Install ko... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
-
-$(KUTTL):
-	@echo Install kuttl... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/kyverno/kuttl/cmd/kubectl-kuttl@$(KUTTL_VERSION)
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
@@ -402,7 +396,7 @@ image-build-all: $(BUILD_WITH)-build-all
 GOPATH_SHIM                 := ${PWD}/.gopath
 PACKAGE_SHIM                := $(GOPATH_SHIM)/src/$(PACKAGE)
 OUT_PACKAGE                 := $(PACKAGE)/pkg/client
-INPUT_DIRS                  := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
+INPUT_DIRS                  := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2
 CLIENTSET_PACKAGE           := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE             := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
@@ -461,8 +455,8 @@ codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registration
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS)
 
-.PHONY: codegen-deepcopy
-codegen-deepcopy: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
+.PHONY: codegen-deepcopy-all
+codegen-deepcopy-all: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
 	@echo Generate deep copy functions... >&2
 	@GOPATH=$(GOPATH_SHIM) $(DEEPCOPY_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
@@ -488,20 +482,29 @@ codegen-client-all: codegen-register codegen-defaulters codegen-applyconfigurati
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	@echo Generate kyverno crds... >&2
-	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
+	@rm -rf $(CRDS_PATH)/kyverno && mkdir -p $(CRDS_PATH)/kyverno
+	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/kyverno
 
-.PHONY: codegen-crds-report
-codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+.PHONY: codegen-crds-policyreport
+codegen-crds-policyreport: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
-	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
+	@rm -rf $(CRDS_PATH)/policyreport && mkdir -p $(CRDS_PATH)/policyreport
+	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/policyreport
+
+.PHONY: codegen-crds-reports
+codegen-crds-reports: $(CONTROLLER_GEN) ## Generate reports CRDs
+	@echo Generate policy reports crds... >&2
+	@rm -rf $(CRDS_PATH)/reports && mkdir -p $(CRDS_PATH)/reports
+	@$(CONTROLLER_GEN) crd paths=./api/reports/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/reports
 
 .PHONY: codegen-crds-cli
 codegen-crds-cli: $(CONTROLLER_GEN) ## Generate CLI CRDs
 	@echo Generate cli crds... >&2
+	@rm -rf ${PWD}/cmd/cli/kubectl-kyverno/config/crds && mkdir -p ${PWD}/cmd/cli/kubectl-kyverno/config/crds
 	@$(CONTROLLER_GEN) crd paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1 output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
 
 .PHONY: codegen-crds-all
-codegen-crds-all: codegen-crds-kyverno codegen-crds-report codegen-cli-crds ## Generate all CRDs
+codegen-crds-all: codegen-crds-kyverno codegen-crds-policyreport codegen-crds-reports codegen-cli-crds ## Generate all CRDs
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
@@ -538,9 +541,9 @@ codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CLI
 	@echo Copy generated CRDs to embed in the CLI... >&2
 	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
+	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all
@@ -562,13 +565,34 @@ codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-
 .PHONY: codegen-helm-crds
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
-	@cat $(CRDS_PATH)/* \
+	@rm -rf ./charts/kyverno/charts/crds/templates/*.yaml
+	@echo "{{- if .Values.groups.kyverno }}" > ./charts/kyverno/charts/crds/templates/kyverno.yaml
+	@cat $(CRDS_PATH)/kyverno/* \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
  		| $(SED) -e '/^  annotations:/i \ \ labels:' \
 		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		> ./charts/kyverno/charts/crds/templates/crds.yaml
+ 		>> ./charts/kyverno/charts/crds/templates/kyverno.yaml
+	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/kyverno.yaml
+	@echo "{{- if .Values.groups.reports }}" > ./charts/kyverno/charts/crds/templates/reports.yaml
+	@cat $(CRDS_PATH)/reports/* \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+ 		>> ./charts/kyverno/charts/crds/templates/reports.yaml
+	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/reports.yaml
+	@echo "{{- if .Values.groups.policyreport }}" > ./charts/kyverno/charts/crds/templates/policyreport.yaml
+	@cat $(CRDS_PATH)/policyreport/* \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+ 		>> ./charts/kyverno/charts/crds/templates/policyreport.yaml
+	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/policyreport.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
@@ -621,7 +645,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## Create all manifests
 
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
+codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
 
 .PHONY: codegen-slow
 codegen-slow: codegen-client-all ## Generate client code
@@ -654,11 +678,11 @@ verify-client: codegen-client-all ## Check client is up to date
 	@git diff --ignore-space-change --quiet --exit-code pkg/clients
 
 .PHONY: verify-deepcopy
-verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
+verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 	@echo Checking deepcopy functions are up to date... >&2
 	@git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy".' >&2
-	@echo 'To correct this, locally run "make codegen-deepcopy", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".' >&2
+	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-docs
@@ -731,15 +755,6 @@ code-cov-report: test-clean ## Generate code coverage report
 	@GO111MODULE=on go test -v -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
-
-###############
-# KUTTL TESTS #
-###############
-
-.PHONY: test-kuttl
-test-kuttl: $(KUTTL) ## Run kuttl tests
-	@echo Running kuttl tests... >&2
-	@$(KUTTL) test --config ./test/conformance/kuttl/kuttl-test.yaml
 
 #############
 # CLI TESTS #
@@ -854,12 +869,13 @@ test-perf: $(PACKAGE_SHIM) ## Run perf tests
 
 .PHONY: docker-save-image-all
 docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
-	docker save 												\
-		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) 	\
-		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(GIT_SHA) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) 		\
-		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) 	\
+	docker save \
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_CLI_REPO):$(GIT_SHA) \
 	> kyverno.tar
 
 ########
@@ -880,6 +896,11 @@ kind-delete-cluster: $(KIND) ## Delete kind cluster
 kind-load-kyverno-init: $(KIND) image-build-kyverno-init ## Build kyvernopre image and load it in kind cluster
 	@echo Load kyvernopre image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(GIT_SHA)
+
+.PHONY: kind-load-cli
+kind-load-cli: $(KIND) image-build-cli ## Build cli image and load it in kind cluster
+	@echo Load cli image... >&2
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_CLI_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-kyverno
 kind-load-kyverno: $(KIND) image-build-kyverno ## Build kyverno image and load it in kind cluster
@@ -902,7 +923,13 @@ kind-load-background-controller: $(KIND) image-build-background-controller ## Bu
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA)
 
 .PHONY: kind-load-all
-kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller ## Build images and load them in kind cluster
+kind-load-all: ## Build images and load them in kind cluster
+kind-load-all: kind-load-kyverno-init
+kind-load-all: kind-load-kyverno
+kind-load-all: kind-load-cleanup-controller
+kind-load-all: kind-load-reports-controller
+kind-load-all: kind-load-background-controller
+kind-load-all: kind-load-cli
 
 .PHONY: kind-load-image-archive
 kind-load-image-archive: $(KIND) ## Load docker images from archive
@@ -928,7 +955,19 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
 		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(GIT_SHA) \
+		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
+		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
+		--set crds.migration.image.tag=$(GIT_SHA) \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
+
+.PHONY: kind-install-goldilocks
+kind-install-goldilocks: $(HELM) ## Install goldilocks helm chart
+	@echo Install goldilocks chart... >&2
+	@$(HELM) upgrade --install vpa --namespace vpa --create-namespace --wait \
+		--repo https://charts.fairwinds.com/stable vpa
+	@$(HELM) upgrade --install goldilocks --namespace goldilocks --create-namespace --wait \
+		--repo https://charts.fairwinds.com/stable goldilocks
+	kubectl label ns kyverno goldilocks.fairwinds.com/enabled=true
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart

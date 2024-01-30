@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -76,6 +78,7 @@ var (
 	x509_decode            = "x509_decode"
 	imageNormalize         = "image_normalize"
 	isExternalURL          = "is_external_url"
+	SHA256                 = "sha256"
 )
 
 func GetFunctions(configuration config.Configuration) []FunctionEntry {
@@ -593,6 +596,16 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		},
 		ReturnType: []jpType{jpBool},
 		Note:       "determine if a URL points to an external network address",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: SHA256,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpSha256,
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "generate unique resources name if length exceeds the limit",
 	}}
 }
 
@@ -1260,4 +1273,19 @@ func jpIsExternalURL(arguments []interface{}) (interface{}, error) {
 		}
 	}
 	return true, nil
+}
+
+func jpSha256(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	hasher := sha256.New()
+	_, err = hasher.Write([]byte(str.String()))
+	if err != nil {
+		return "", err
+	}
+	hashedBytes := hasher.Sum(nil)
+	return hex.EncodeToString(hashedBytes), nil
 }

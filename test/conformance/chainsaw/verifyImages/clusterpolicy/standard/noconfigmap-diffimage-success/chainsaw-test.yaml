@@ -1,0 +1,42 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: noconfigmap-diffimage-success
+spec:
+  timeouts:
+    delete: 2m
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: good-pod.yaml
+    - assert:
+        file: good-pod.yaml
+  - name: step-03
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: bad-pod.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: update-policy.yaml
+    - assert:
+        file: update-policy.yaml
+  - name: step-05
+    try:
+    - apply:
+        file: pod-with-configmap.yaml
+    - assert:
+        file: pod-with-configmap-ready.yaml

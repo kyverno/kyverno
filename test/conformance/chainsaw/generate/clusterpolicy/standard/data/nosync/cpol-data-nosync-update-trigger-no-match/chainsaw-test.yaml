@@ -1,0 +1,35 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-data-nosync-update-trigger-no-match
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1-1.yaml
+    - assert:
+        file: chainsaw-step-01-assert-1-1.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1-1.yaml
+    - apply:
+        file: chainsaw-step-02-apply-1-2.yaml
+  - name: step-03
+    try:
+    - assert:
+        file: downstream.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: chainsaw-step-04-apply-1-1.yaml
+  - name: step-05
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-06
+    try:
+    - assert:
+        file: downstream.yaml

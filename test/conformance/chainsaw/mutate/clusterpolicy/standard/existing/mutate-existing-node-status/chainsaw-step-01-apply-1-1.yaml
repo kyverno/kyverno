@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: advertise-resource
+spec:
+  background: false
+  rules:
+  - match:
+      resources:
+        kinds:
+        - Node
+    mutate:
+      patchStrategicMerge:
+        status:
+          capacity:
+            example.com/dongle: "41"
+      targets:
+      - apiVersion: v1
+        kind: Node/status
+        name: kind-control-plane
+        namespace: ""
+    name: advertise-resource

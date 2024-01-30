@@ -1,0 +1,37 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/description: 'Secrets like registry credentials often need
+      to exist in multiple Namespaces so Pods there have access. Manually duplicating
+      those Secrets is time consuming and error prone. This policy will copy all Secrets
+      with the appropriate label which exists in the `default` Namespace to new Namespaces
+      when they are created. It will also push updates to the copied Secrets should the
+      source Secret be changed.'
+    policies.kyverno.io/subject: Secret
+    policies.kyverno.io/title: Clone List Secrets
+  name: clone-list-secrets
+spec:
+  admission: true
+  background: true
+  rules:
+  - generate:
+      cloneList:
+        namespace: default
+        kinds:
+          - v1/Secret
+          - v1/ConfigMap
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"
+      namespace: '{{request.object.metadata.name}}'
+      synchronize: true
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    name: clone-list-labelled-secrets
+  validationFailureAction: Audit

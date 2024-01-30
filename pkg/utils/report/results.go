@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -91,7 +90,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 	pol := response.Policy()
 	var results []policyreportv1alpha2.PolicyReportResult
 	if pol.GetType() == engineapi.KyvernoPolicyType {
-		key, _ := cache.MetaNamespaceKeyFunc(pol.GetPolicy().(kyvernov1.PolicyInterface))
+		key, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
 		for _, ruleResult := range response.PolicyResponse.Rules {
 			annotations := pol.GetAnnotations()
 			result := policyreportv1alpha2.PolicyReportResult{
@@ -106,6 +105,11 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 				},
 				Category: annotations[kyverno.AnnotationPolicyCategory],
 				Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
+			}
+			if ruleResult.Exception() != nil {
+				result.Properties = map[string]string{
+					"exception": ruleResult.Exception().Name,
+				}
 			}
 			pss := ruleResult.PodSecurityChecks()
 			if pss != nil {
@@ -139,6 +143,11 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 				Timestamp: metav1.Timestamp{
 					Seconds: time.Now().Unix(),
 				},
+			}
+			if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
+				result.Properties = map[string]string{
+					"binding": ruleResult.ValidatingAdmissionPolicyBinding().Name,
+				}
 			}
 			results = append(results, result)
 		}

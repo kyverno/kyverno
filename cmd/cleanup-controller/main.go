@@ -25,6 +25,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -67,6 +68,7 @@ func main() {
 		webhookServerPort int
 		maxQueuedEvents   int
 		interval          time.Duration
+		renewBefore       time.Duration
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -75,8 +77,10 @@ func main() {
 	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.DurationVar(&interval, "ttlReconciliationInterval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
+	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
+	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -86,6 +90,7 @@ func main() {
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
@@ -115,6 +120,7 @@ func main() {
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	var wg sync.WaitGroup
 	// listers
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 	// log policy changes
@@ -130,20 +136,19 @@ func main() {
 		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
 		genericloggingcontroller.CheckGeneration,
 	)
-	eventGenerator := event.NewEventCleanupGenerator(
-		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
-		kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
-		maxQueuedEvents,
+	eventGenerator := event.NewEventGenerator(
+		setup.EventsClient,
 		logging.WithName("EventGenerator"),
+	)
+	eventController := internal.NewController(
+		event.ControllerName,
+		eventGenerator,
+		event.Workers,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
 	}
-	// start event generator
-	var wg sync.WaitGroup
-	go eventGenerator.Run(ctx, 3, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -166,6 +171,7 @@ func main() {
 				tls.CertRenewalInterval,
 				tls.CAValidityDuration,
 				tls.TLSValidityDuration,
+				renewBefore,
 				serverIP,
 				config.KyvernoServiceName(),
 				config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
@@ -328,7 +334,12 @@ func main() {
 		setup.Configuration,
 	)
 	// start server
-	server.Run(ctx.Done())
+	server.Run()
+	defer server.Stop()
+	// start non leader controllers
+	eventController.Run(ctx, setup.Logger, &wg)
 	// start leader election
 	le.Run(ctx)
+	// wait for everything to shut down and exit
+	wg.Wait()
 }

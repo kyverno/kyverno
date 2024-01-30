@@ -191,8 +191,8 @@ func createrLeaderControllers(
 			kubeClient,
 			kyvernoClient,
 			dynamicClient.Discovery(),
-			kyvernoInformer.Kyverno().V1().Policies(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+			kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
@@ -219,6 +219,7 @@ func main() {
 		webhookServerPort            int
 		backgroundServiceAccountName string
 		maxAPICallResponseLength     int64
+		renewBefore                  time.Duration
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -238,6 +239,7 @@ func main() {
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
+	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -254,6 +256,7 @@ func main() {
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
@@ -305,6 +308,7 @@ func main() {
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
+		renewBefore,
 		serverIP,
 		config.KyvernoServiceName(),
 		config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
@@ -318,12 +322,14 @@ func main() {
 		omitEventsValues = []string{}
 	}
 	eventGenerator := event.NewEventGenerator(
-		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		maxQueuedEvents,
-		omitEventsValues,
+		setup.EventsClient,
 		logging.WithName("EventGenerator"),
+		omitEventsValues...,
+	)
+	eventController := internal.NewController(
+		event.ControllerName,
+		eventGenerator,
+		event.Workers,
 	)
 	// this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(
@@ -389,8 +395,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	// start event generator
-	go eventGenerator.Run(signalCtx, 3, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -455,19 +459,6 @@ func main() {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
-	// start non leader controllers
-	for _, controller := range nonLeaderControllers {
-		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
-	}
-	// start leader election
-	go func() {
-		select {
-		case <-signalCtx.Done():
-			return
-		default:
-			le.Run(signalCtx)
-		}
-	}()
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
 		setup.KyvernoClient,
@@ -531,8 +522,15 @@ func main() {
 		os.Exit(1)
 	}
 	// start webhooks server
-	server.Run(signalCtx.Done())
+	server.Run()
+	defer server.Stop()
+	// start non leader controllers
+	eventController.Run(signalCtx, setup.Logger, &wg)
+	for _, controller := range nonLeaderControllers {
+		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
+	}
+	// start leader election
+	le.Run(signalCtx)
+	// wait for everything to shut down and exit
 	wg.Wait()
-	// say goodbye...
-	setup.Logger.V(2).Info("Kyverno shutdown successful")
 }
