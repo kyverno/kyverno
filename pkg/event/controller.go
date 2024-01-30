@@ -2,6 +2,9 @@ package event
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -11,37 +14,30 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "k8s.io/client-go/kubernetes/typed/events/v1"
-	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/tools/record/util"
+	"k8s.io/client-go/tools/reference"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/clock"
 )
 
 const (
 	Workers             = 3
-	CleanupWorkers      = 3
 	eventWorkQueueName  = "kyverno-events"
 	workQueueRetryLimit = 3
 )
 
 // generator generate events
 type generator struct {
-	// broadcaster
-	broadcaster events.EventBroadcaster
-
-	// recorders
-	recorders map[Source]events.EventRecorder
-
-	// client
-	eventsClient v1.EventsV1Interface
-
-	// metrics
+	logger               logr.Logger
+	eventsClient         v1.EventsV1Interface
+	omitEvents           sets.Set[string]
+	queue                workqueue.RateLimitingInterface
+	clock                clock.Clock
+	hostname             string
 	droppedEventsCounter metric.Int64Counter
-
-	// config
-	omitEvents sets.Set[string]
-	logger     logr.Logger
 }
 
 // Interface to generate event
@@ -57,6 +53,9 @@ type Controller interface {
 
 // NewEventGenerator to generate a new event controller
 func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, omitEvents ...string) Controller {
+	clock := clock.RealClock{}
+	hostname, _ := os.Hostname()
+
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	droppedEventsCounter, err := meter.Int64Counter(
 		"kyverno_events_dropped",
@@ -66,12 +65,12 @@ func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, om
 		logger.Error(err, "failed to register metric kyverno_events_dropped")
 	}
 	return &generator{
-		broadcaster: events.NewBroadcaster(&events.EventSinkImpl{
-			Interface: eventsClient,
-		}),
+		logger:               logger,
 		eventsClient:         eventsClient,
 		omitEvents:           sets.New(omitEvents...),
-		logger:               logger,
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
+		clock:                clock,
+		hostname:             hostname,
 		droppedEventsCounter: droppedEventsCounter,
 	}
 }
@@ -101,55 +100,43 @@ func (gen *generator) Run(ctx context.Context) {
 	logger.Info("start")
 	defer logger.Info("terminated")
 	defer utilruntime.HandleCrash()
-	defer gen.stopRecorders()
-	defer logger.Info("shutting down...")
-	if err := gen.startRecorders(ctx); err != nil {
-		logger.Error(err, "failed to start recorders")
-		return
+
+	for i := 0; i < Workers; i++ {
+		go func() {
+			for gen.processNextWorkItem(ctx) {
+			}
+		}()
 	}
+
 	<-ctx.Done()
 }
 
-func (gen *generator) startRecorders(ctx context.Context) error {
-	eventHandler := func(obj runtime.Object) {
-		event, ok := obj.(*eventsv1.Event)
-		if !ok {
-			gen.logger.Error(nil, "unexpected type, expected eventsv1.Event")
-			return
-		}
-
-		eventCopy := event.DeepCopy()
-		eventCopy.ResourceVersion = ""
-		_, err := gen.eventsClient.Events(event.Namespace).Create(ctx, eventCopy, metav1.CreateOptions{})
-		if err != nil {
-			gen.droppedEventsCounter.Add(ctx, 1)
-			gen.logger.Error(err, "failed to create event")
-		}
+func (gen *generator) processNextWorkItem(ctx context.Context) bool {
+	logger := gen.logger
+	key, quit := gen.queue.Get()
+	if quit {
+		return false
 	}
-	stopWatcher, err := gen.broadcaster.StartEventWatcher(eventHandler)
+	defer gen.queue.Done(key)
+
+	event, ok := key.(*eventsv1.Event)
+	if !ok {
+		logger.Error(nil, "failed to convert key to Info", "key", key)
+		return true
+	}
+
+	_, err := gen.eventsClient.Events(event.Namespace).Create(ctx, event, metav1.CreateOptions{})
 	if err != nil {
-		return err
+		if gen.queue.NumRequeues(key) < workQueueRetryLimit {
+			logger.Error(err, "failed to create event", "key", key)
+			gen.queue.AddRateLimited(key)
+			return true
+		}
+		gen.droppedEventsCounter.Add(ctx, 1)
+		logger.Error(err, "dropping event", "key", key)
 	}
-	go func() {
-		<-ctx.Done()
-		stopWatcher()
-	}()
-
-	if _, err := gen.broadcaster.StartLogging(gen.logger); err != nil {
-		return err
-	}
-	gen.recorders = map[Source]events.EventRecorder{
-		PolicyController:         gen.broadcaster.NewRecorder(scheme.Scheme, string(PolicyController)),
-		AdmissionController:      gen.broadcaster.NewRecorder(scheme.Scheme, string(AdmissionController)),
-		GeneratePolicyController: gen.broadcaster.NewRecorder(scheme.Scheme, string(GeneratePolicyController)),
-		MutateExistingController: gen.broadcaster.NewRecorder(scheme.Scheme, string(MutateExistingController)),
-		CleanupController:        gen.broadcaster.NewRecorder(scheme.Scheme, string(CleanupController)),
-	}
-	return nil
-}
-
-func (gen *generator) stopRecorders() {
-	gen.broadcaster.Shutdown()
+	gen.queue.Forget(key)
+	return true
 }
 
 func (gen *generator) emitEvent(key Info) {
@@ -158,10 +145,50 @@ func (gen *generator) emitEvent(key Info) {
 	if key.Reason == PolicyApplied || key.Reason == PolicySkipped {
 		eventType = corev1.EventTypeNormal
 	}
-	if recorder := gen.recorders[key.Source]; recorder != nil {
-		logger.V(3).Info("creating the event", "source", key.Source, "type", eventType, "resource", key.Resource())
-		recorder.Eventf(&key.Regarding, key.Related, eventType, string(key.Reason), string(key.Action), key.Message)
-	} else {
-		logger.Info("info.source not defined for the request")
+
+	timestamp := metav1.MicroTime{Time: time.Now()}
+	refRegarding, err := reference.GetReference(scheme.Scheme, key.Related)
+	if err != nil {
+		logger.Error(err, "Could not construct reference, will not report event", "object", &key.Regarding, "eventType", eventType, "reason", string(key.Reason), "message", key.Message)
+		return
 	}
+
+	var refRelated *corev1.ObjectReference
+	if key.Related != nil {
+		refRelated, err = reference.GetReference(scheme.Scheme, key.Related)
+		if err != nil {
+			logger.V(9).Info("Could not construct reference", "object", key.Related, "err", err)
+		}
+	}
+	if !util.ValidateEventType(eventType) {
+		logger.Error(nil, "Unsupported event type", "eventType", eventType)
+		return
+	}
+
+	reportingController := string(key.Source)
+	reportingInstance := reportingController + "-" + gen.hostname
+
+	t := metav1.Time{Time: gen.clock.Now()}
+	namespace := refRegarding.Namespace
+	if namespace == "" {
+		namespace = metav1.NamespaceDefault
+	}
+	event := &eventsv1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%v.%x", refRegarding.Name, t.UnixNano()),
+			Namespace: namespace,
+		},
+		EventTime:           timestamp,
+		Series:              nil,
+		ReportingController: reportingController,
+		ReportingInstance:   reportingInstance,
+		Action:              string(key.Action),
+		Reason:              string(key.Reason),
+		Regarding:           *refRegarding,
+		Related:             refRelated,
+		Note:                key.Message,
+		Type:                eventType,
+	}
+
+	gen.queue.Add(event)
 }
