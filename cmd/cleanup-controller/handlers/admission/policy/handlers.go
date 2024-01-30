@@ -11,17 +11,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
-type cleanupHandlers struct {
+type validationHandlers struct {
 	client dclient.Interface
 }
 
-func New(client dclient.Interface) *cleanupHandlers {
-	return &cleanupHandlers{
+func New(client dclient.Interface) *validationHandlers {
+	return &validationHandlers{
 		client: client,
 	}
 }
 
-func (h *cleanupHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+func (h *validationHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
 	policy, _, err := admissionutils.GetCleanupPolicies(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")

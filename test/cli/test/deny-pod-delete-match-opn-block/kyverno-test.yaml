@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: deny-pod-delete-match-opn-block-test
+policies:
+- deny-pod-delete-match-opn-block.yaml
+resources:
+- resources.yaml
+results:
+- kind: Pod
+  policy: deny-pod-delete-match-opn-block
+  resources:
+  - test-delete
+  result: fail
+  rule: deny-pod-delete-match-opn-block
+variables: values.yaml

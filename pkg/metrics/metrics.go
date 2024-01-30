@@ -17,9 +17,8 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/metric/aggregation"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -72,42 +71,22 @@ func ShutDownController(ctx context.Context, pusher *sdkmetric.MeterProvider) {
 	}
 }
 
-func aggregationSelector(ik sdkmetric.InstrumentKind) aggregation.Aggregation {
-	switch ik {
-	case sdkmetric.InstrumentKindHistogram:
-		return aggregation.ExplicitBucketHistogram{
-			Boundaries: []float64{
-				0.005,
-				0.01,
-				0.025,
-				0.05,
-				0.1,
-				0.25,
-				0.5,
-				1,
-				2.5,
-				5,
-				10,
-				15,
-				20,
-				25,
-				30,
-			},
-			NoMinMax: false,
+func aggregationSelector(metricsConfiguration kconfig.MetricsConfiguration) func(ik sdkmetric.InstrumentKind) sdkmetric.Aggregation {
+	return func(ik sdkmetric.InstrumentKind) sdkmetric.Aggregation {
+		switch ik {
+		case sdkmetric.InstrumentKindHistogram:
+			return sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: metricsConfiguration.GetBucketBoundaries(),
+				NoMinMax:   false,
+			}
+		default:
+			return sdkmetric.DefaultAggregationSelector(ik)
 		}
-	default:
-		return sdkmetric.DefaultAggregationSelector(ik)
 	}
 }
 
-func NewOTLPGRPCConfig(
-	ctx context.Context,
-	endpoint string,
-	certs string,
-	kubeClient kubernetes.Interface,
-	log logr.Logger,
-) (metric.MeterProvider, error) {
-	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint), otlpmetricgrpc.WithAggregationSelector(aggregationSelector)}
+func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeClient kubernetes.Interface, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, error) {
+	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint), otlpmetricgrpc.WithAggregationSelector(aggregationSelector(configuration))}
 	if certs != "" {
 		// here the certificates are stored as configmaps
 		transportCreds, err := tlsutils.FetchCert(ctx, certs, kubeClient)
@@ -145,14 +124,12 @@ func NewOTLPGRPCConfig(
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(reader),
 		sdkmetric.WithResource(res),
+		sdkmetric.WithView(configuration.BuildMeterProviderViews()...),
 	)
 	return provider, nil
 }
 
-func NewPrometheusConfig(
-	ctx context.Context,
-	log logr.Logger,
-) (metric.MeterProvider, *http.ServeMux, error) {
+func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, *http.ServeMux, error) {
 	res, err := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
@@ -169,7 +146,7 @@ func NewPrometheusConfig(
 	exporter, err := prometheus.New(
 		prometheus.WithoutUnits(),
 		prometheus.WithoutTargetInfo(),
-		prometheus.WithAggregationSelector(aggregationSelector),
+		prometheus.WithAggregationSelector(aggregationSelector(configuration)),
 	)
 	if err != nil {
 		log.Error(err, "failed to initialize prometheus exporter")
@@ -178,6 +155,7 @@ func NewPrometheusConfig(
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(exporter),
 		sdkmetric.WithResource(res),
+		sdkmetric.WithView(configuration.BuildMeterProviderViews()...),
 	)
 	metricsServerMux := http.NewServeMux()
 	metricsServerMux.Handle(config.MetricsPath, promhttp.Handler())

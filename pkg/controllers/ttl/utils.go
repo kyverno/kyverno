@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
+	"k8s.io/kube-openapi/pkg/validation/strfmt"
 )
 
 func discoverResources(logger logr.Logger, discoveryClient discovery.DiscoveryInterface) ([]schema.GroupVersionResource, error) {
@@ -41,7 +42,7 @@ func discoverResources(logger logr.Logger, discoveryClient discovery.DiscoveryIn
 	return resources, nil
 }
 
-func hasResourcePermissions(logger logr.Logger, resource schema.GroupVersionResource, s checker.AuthChecker) bool {
+func HasResourcePermissions(logger logr.Logger, resource schema.GroupVersionResource, s checker.AuthChecker) bool {
 	can, err := checker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, "", "", "watch", "list", "delete")
 	if err != nil {
 		logger.Error(err, "failed to check permissions")
@@ -51,7 +52,7 @@ func hasResourcePermissions(logger logr.Logger, resource schema.GroupVersionReso
 }
 
 func parseDeletionTime(metaObj metav1.Object, deletionTime *time.Time, ttlValue string) error {
-	ttlDuration, err := time.ParseDuration(ttlValue)
+	ttlDuration, err := strfmt.ParseDuration(ttlValue)
 	if err == nil {
 		creationTime := metaObj.GetCreationTimestamp().Time
 		*deletionTime = creationTime.Add(ttlDuration)

@@ -53,8 +53,12 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		client:     client,
 	}
-	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
-	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
 	return &c
 }
 
@@ -99,7 +103,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	if policy.AdmissionProcessingEnabled() {
+	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookConfiguration() {
 		return c.cache.Set(key, policy, c.client.Discovery())
 	} else {
 		c.cache.Unset(key)

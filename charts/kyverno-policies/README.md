@@ -63,6 +63,7 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies |
 | podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
 | podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
@@ -78,6 +79,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | nameOverride | string | `nil` | Name override. |
 | customLabels | object | `{}` | Additional labels. |
 | background | bool | `true` | Policies background mode |
+| skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
 | kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment |
 
 ## Source Code
@@ -92,7 +94,7 @@ Kubernetes: `>=1.16.0-0`
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| Nirmata |  | <https://kyverno.io/> |
+| kyverno-maintainers | <cncf-kyverno-maintainers@lists.cncf.io> |  |
 
 ## Changes
 

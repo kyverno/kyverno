@@ -33,3 +33,7 @@
 {{- define "kyverno.admission-controller.serviceName" -}}
 {{- printf "%s-svc" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{- define "kyverno.admission-controller.caCertificatesConfigMapName" -}}
+{{ printf "%s-ca-certificates" (include "kyverno.admission-controller.name" .) }}
+{{- end -}}

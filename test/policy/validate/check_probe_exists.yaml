@@ -1,36 +1,42 @@
-apiVersion : kyverno.io/v1
-kind : ClusterPolicy
-metadata :
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
   name: check-probe-exists
 spec:
+  admission: true
+  background: true
   rules:
-  - name: check-liveness-probe-exists
-    match:
-      resources:
-        kinds :
-        - StatefulSet
+  - match:
+      any:
+      - resources:
+          kinds:
+          - StatefulSet
+    name: check-liveness-probe-exists
     validate:
-      message: "a livenessProbe is required"
+      message: a livenessProbe is required
       pattern:
         spec:
           template:
             spec:
               containers:
-              - name: "*"
-                livenessProbe:
-                  periodSeconds: ">0"
-  - name: check-readiness-probe-exists
-    match:
-      resources:
-        kinds :
-        - StatefulSet
+              - livenessProbe:
+                  periodSeconds: '>0'
+                name: '*'
+  - match:
+      any:
+      - resources:
+          kinds:
+          - StatefulSet
+    name: check-readiness-probe-exists
     validate:
-      message: "a readinessProbe is required"
+      message: a readinessProbe is required
       pattern:
         spec:
           template:
             spec:
               containers:
-              - name: "*"
+              - name: '*'
                 readinessProbe:
-                  periodSeconds: ">0"
+                  periodSeconds: '>0'
+  validationFailureAction: Audit

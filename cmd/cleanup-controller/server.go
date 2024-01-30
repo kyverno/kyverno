@@ -8,13 +8,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type Server interface {
@@ -45,7 +44,6 @@ func NewServer(
 	tlsProvider TlsProvider,
 	validationHandler ValidationHandler,
 	labelValidationHandler LabelValidationHandler,
-	cleanupHandler CleanupHandler,
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts webhooks.DebugModeOptions,
 	probes Probes,
@@ -53,21 +51,6 @@ func NewServer(
 ) Server {
 	policyLogger := logging.WithName("cleanup-policy")
 	labelLogger := logging.WithName("ttl-label")
-	cleanupLogger := logging.WithName("cleanup")
-	cleanupHandlerFunc := func(w http.ResponseWriter, r *http.Request) {
-		policy := r.URL.Query().Get("policy")
-		logger := cleanupLogger.WithValues("policy", policy)
-		err := cleanupHandler(r.Context(), logger, policy, time.Now(), cfg)
-		if err == nil {
-			w.WriteHeader(http.StatusOK)
-		} else {
-			if apierrors.IsNotFound(err) {
-				w.WriteHeader(http.StatusNotFound)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		}
-	}
 	mux := httprouter.New()
 	mux.HandlerFunc(
 		"POST",
@@ -77,7 +60,7 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
-			ToHandlerFunc(),
+			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc(
 		"POST",
@@ -87,21 +70,13 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(labelLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(labelLogger.WithName("validate")).
-			ToHandlerFunc(),
-	)
-	mux.HandlerFunc(
-		"GET",
-		cleanup.CleanupServicePath,
-		handlers.HttpHandler(cleanupHandlerFunc).
-			WithMetrics(policyLogger).
-			WithTrace("CLEANUP").
-			ToHandlerFunc(),
+			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(probes.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(probes.IsReady))
 	return &server{
 		server: &http.Server{
-			Addr: ":9443",
+			Addr: ":" + internal.CleanupServerPort(),
 			TLSConfig: &tls.Config{
 				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 					certPem, keyPem, err := tlsProvider()

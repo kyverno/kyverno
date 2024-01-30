@@ -20,24 +20,25 @@ package v1
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // RuleApplyConfiguration represents an declarative configuration of the Rule type for use
 // with apply.
 type RuleApplyConfiguration struct {
-	Name                *string                                  `json:"name,omitempty"`
-	Context             []ContextEntryApplyConfiguration         `json:"context,omitempty"`
-	MatchResources      *MatchResourcesApplyConfiguration        `json:"match,omitempty"`
-	ExcludeResources    *MatchResourcesApplyConfiguration        `json:"exclude,omitempty"`
-	ImageExtractors     *kyvernov1.ImageExtractorConfigs         `json:"imageExtractors,omitempty"`
-	RawAnyAllConditions *apiextensionsv1.JSON                    `json:"preconditions,omitempty"`
-	CELPreconditions    []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty"`
-	Mutation            *MutationApplyConfiguration              `json:"mutate,omitempty"`
-	Validation          *ValidationApplyConfiguration            `json:"validate,omitempty"`
-	Generation          *GenerationApplyConfiguration            `json:"generate,omitempty"`
-	VerifyImages        []ImageVerificationApplyConfiguration    `json:"verifyImages,omitempty"`
+	Name                   *string                               `json:"name,omitempty"`
+	Context                []ContextEntryApplyConfiguration      `json:"context,omitempty"`
+	MatchResources         *MatchResourcesApplyConfiguration     `json:"match,omitempty"`
+	ExcludeResources       *MatchResourcesApplyConfiguration     `json:"exclude,omitempty"`
+	ImageExtractors        *kyvernov1.ImageExtractorConfigs      `json:"imageExtractors,omitempty"`
+	RawAnyAllConditions    *apiextensionsv1.JSON                 `json:"preconditions,omitempty"`
+	CELPreconditions       []v1alpha1.MatchCondition             `json:"celPreconditions,omitempty"`
+	Mutation               *MutationApplyConfiguration           `json:"mutate,omitempty"`
+	Validation             *ValidationApplyConfiguration         `json:"validate,omitempty"`
+	Generation             *GenerationApplyConfiguration         `json:"generate,omitempty"`
+	VerifyImages           []ImageVerificationApplyConfiguration `json:"verifyImages,omitempty"`
+	SkipBackgroundRequests *bool                                 `json:"skipBackgroundRequests,omitempty"`
 }
 
 // RuleApplyConfiguration constructs an declarative configuration of the Rule type for use with
@@ -102,7 +103,7 @@ func (b *RuleApplyConfiguration) WithRawAnyAllConditions(value apiextensionsv1.J
 // WithCELPreconditions adds the given value to the CELPreconditions field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the CELPreconditions field.
-func (b *RuleApplyConfiguration) WithCELPreconditions(values ...admissionregistrationv1.MatchCondition) *RuleApplyConfiguration {
+func (b *RuleApplyConfiguration) WithCELPreconditions(values ...v1alpha1.MatchCondition) *RuleApplyConfiguration {
 	for i := range values {
 		b.CELPreconditions = append(b.CELPreconditions, values[i])
 	}
@@ -143,5 +144,13 @@ func (b *RuleApplyConfiguration) WithVerifyImages(values ...*ImageVerificationAp
 		}
 		b.VerifyImages = append(b.VerifyImages, *values[i])
 	}
+	return b
+}
+
+// WithSkipBackgroundRequests sets the SkipBackgroundRequests field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SkipBackgroundRequests field is set to the value of the last call.
+func (b *RuleApplyConfiguration) WithSkipBackgroundRequests(value bool) *RuleApplyConfiguration {
+	b.SkipBackgroundRequests = &value
 	return b
 }

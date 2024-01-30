@@ -29,6 +29,7 @@ type CELApplyConfiguration struct {
 	ParamKind        *v1alpha1.ParamKind        `json:"paramKind,omitempty"`
 	ParamRef         *v1alpha1.ParamRef         `json:"paramRef,omitempty"`
 	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty"`
+	Variables        []v1alpha1.Variable        `json:"variables,omitempty"`
 }
 
 // CELApplyConfiguration constructs an declarative configuration of the CEL type for use with
@@ -69,6 +70,16 @@ func (b *CELApplyConfiguration) WithParamRef(value v1alpha1.ParamRef) *CELApplyC
 func (b *CELApplyConfiguration) WithAuditAnnotations(values ...v1alpha1.AuditAnnotation) *CELApplyConfiguration {
 	for i := range values {
 		b.AuditAnnotations = append(b.AuditAnnotations, values[i])
+	}
+	return b
+}
+
+// WithVariables adds the given value to the Variables field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Variables field.
+func (b *CELApplyConfiguration) WithVariables(values ...v1alpha1.Variable) *CELApplyConfiguration {
+	for i := range values {
+		b.Variables = append(b.Variables, values[i])
 	}
 	return b
 }

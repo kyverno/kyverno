@@ -36,7 +36,6 @@ type Policy struct {
 	// Spec defines policy behaviors and contains one or more rules.
 	Spec Spec `json:"spec" yaml:"spec"`
 
-	// Status contains policy runtime information.
 	// +optional
 	// Deprecated. Policy metrics are available via the metrics endpoint
 	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
@@ -55,7 +54,7 @@ func (p *Policy) HasAutoGenAnnotation() bool {
 // HasMutateOrValidateOrGenerate checks for rule types
 func (p *Policy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
-		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
+		if rule.HasMutateStandard() || rule.HasValidate() || rule.HasGenerate() {
 			return true
 		}
 	}
@@ -110,10 +109,6 @@ func (p *Policy) IsNamespaced() bool {
 // IsReady indicates if the policy is ready to serve the admission request
 func (p *Policy) IsReady() bool {
 	return p.Status.IsReady()
-}
-
-func (p *Policy) ValidateSchema() bool {
-	return p.Spec.ValidateSchema()
 }
 
 // Validate implements programmatic validation.

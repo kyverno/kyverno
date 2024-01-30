@@ -1,29 +1,31 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: spread-pods
 spec:
+  admission: true
+  background: true
   rules:
-    - name: spread-pods-across-nodes
-      # Matches any Deployment with the label `distributed=required`
-      match:
-        resources:
+  - match:
+      any:
+      - resources:
           kinds:
           - Deployment
           selector:
             matchLabels:
               distributed: required
-      # Mutates the incoming Deployment.
-      mutate:
-        patchStrategicMerge:
-          spec:
-            template:
-              spec:
-                # Adds the topologySpreadConstraints field if non-existent in the request.
-                +(topologySpreadConstraints):
-                - maxSkew: 1
-                  topologyKey: zone
-                  whenUnsatisfiable: DoNotSchedule
-                  labelSelector:
-                    matchLabels:
-                      distributed: required
+    mutate:
+      patchStrategicMerge:
+        spec:
+          template:
+            spec:
+              +(topologySpreadConstraints):
+              - labelSelector:
+                  matchLabels:
+                    distributed: required
+                maxSkew: 1
+                topologyKey: zone
+                whenUnsatisfiable: DoNotSchedule
+    name: spread-pods-across-nodes
+  validationFailureAction: Audit

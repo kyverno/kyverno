@@ -1,12 +1,16 @@
-name: foreach-mutate
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: replace-image-registry-containers
-    rule: set-default
-    resource: test-patched-image
-    patchedResource: pod-patched.yaml
-    kind: Pod
-    result: pass
+- kind: Pod
+  patchedResource: pod-patched.yaml
+  policy: replace-image-registry-containers
+  resources:
+  - test-patched-image
+  result: pass
+  rule: set-default

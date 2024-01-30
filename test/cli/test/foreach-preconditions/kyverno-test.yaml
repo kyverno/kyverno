@@ -1,16 +1,21 @@
-name: test-foreach-precondition
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: enforce-limits-fraction
-    rule: check-memory-requests-limits
-    resource: frontend1
-    kind: Pod
-    status: fail
-  - policy: enforce-limits-fraction
-    rule: check-memory-requests-limits
-    resource: frontend2
-    kind: Pod
-    status: pass
+- kind: Pod
+  policy: enforce-limits-fraction
+  resources:
+  - frontend1
+  result: fail
+  rule: check-memory-requests-limits
+- kind: Pod
+  policy: enforce-limits-fraction
+  resources:
+  - frontend2
+  result: pass
+  rule: check-memory-requests-limits

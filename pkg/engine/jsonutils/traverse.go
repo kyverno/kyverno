@@ -2,11 +2,11 @@ package jsonutils
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"golang.org/x/exp/slices"
 )
 
 // ActionData represents data available for action on current element

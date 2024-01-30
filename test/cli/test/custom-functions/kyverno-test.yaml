@@ -1,67 +1,81 @@
-name: test-custom-funcs
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: base64
-    rule: secret-value-must-match-label
-    resource: base64-test-match
-    kind: Secret
-    status: pass
-  - policy: base64
-    rule: secret-value-must-match-label
-    resource: base64-test-no-match
-    kind: Secret
-    status: fail
-  - policy: pattern-match
-    rule: label-must-match-pattern
-    resource: pattern-match-test-match
-    kind: Namespace
-    status: pass
-  - policy: pattern-match
-    rule: label-must-match-pattern
-    resource: pattern-match-test-no-match
-    kind: Namespace
-    status: fail
-  - policy: path-canonicalize
-    rule: disallow-mount-containerd-sock
-    resource: mount-containerd-sock
-    kind: Pod
-    status: fail
-  - policy: test-parse-json
-    rule: test-json-parsing-jmespath
-    resource: valid-test
-    kind: ConfigMap
-    result: pass
-  - policy: test-parse-json
-    rule: test-json-parsing-jmespath
-    resource: invalid-test
-    kind: ConfigMap
-    result: fail
-  - policy: test-parse-yaml
-    rule: test-yaml-parsing-jmespath
-    resource: valid-yaml-test
-    kind: ConfigMap
-    result: pass
-  - policy: test-parse-yaml
-    rule: test-yaml-parsing-jmespath
-    resource: invalid-yaml-test
-    kind: ConfigMap
-    result: fail
-  - policy: test-parse-yaml-array
-    rule: test-yaml-parsing-jmespath
-    resource: valid-yaml-test
-    kind: ConfigMap
-    result: pass
-  - policy: test-parse-yaml-array
-    rule: test-yaml-parsing-jmespath
-    resource: invalid-yaml-test
-    kind: ConfigMap
-    result: fail
-  - policy: test-x509-decode
-    rule: test-x509-decode
-    resource: test-x509-configmap
-    kind: ConfigMap
-    result: fail
-    
+- kind: Secret
+  policy: base64
+  resources:
+  - base64-test-no-match
+  result: fail
+  rule: secret-value-must-match-label
+- kind: Secret
+  policy: base64
+  resources:
+  - base64-test-match
+  result: pass
+  rule: secret-value-must-match-label
+- kind: Pod
+  policy: path-canonicalize
+  resources:
+  - mount-containerd-sock
+  result: fail
+  rule: disallow-mount-containerd-sock
+- kind: Namespace
+  policy: pattern-match
+  resources:
+  - pattern-match-test-no-match
+  result: fail
+  rule: label-must-match-pattern
+- kind: Namespace
+  policy: pattern-match
+  resources:
+  - pattern-match-test-match
+  result: pass
+  rule: label-must-match-pattern
+- kind: ConfigMap
+  policy: test-parse-json
+  resources:
+  - invalid-test
+  result: fail
+  rule: test-json-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-json
+  resources:
+  - valid-test
+  result: pass
+  rule: test-json-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-yaml
+  resources:
+  - invalid-yaml-test
+  result: fail
+  rule: test-yaml-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-yaml
+  resources:
+  - valid-yaml-test
+  result: pass
+  rule: test-yaml-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-yaml-array
+  resources:
+  - invalid-yaml-test
+  result: fail
+  rule: test-yaml-parsing-jmespath
+- kind: ConfigMap
+  policy: test-parse-yaml-array
+  resources:
+  - valid-yaml-test
+  result: pass
+  rule: test-yaml-parsing-jmespath
+- kind: ConfigMap
+  policy: test-x509-decode
+  resources:
+  - test-x509-configmap
+  result: fail
+  rule: test-x509-decode

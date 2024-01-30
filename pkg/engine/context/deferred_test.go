@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/pkg/errors"
 	"gotest.tools/assert"
 )
 
@@ -94,8 +95,8 @@ func TestDeferredLoaderMismatch(t *testing.T) {
 func newContext() *context {
 	return &context{
 		jp:                 jp,
-		jsonRaw:            []byte(`{}`),
-		jsonRawCheckpoints: make([][]byte, 0),
+		jsonRaw:            make(map[string]interface{}),
+		jsonRawCheckpoints: make([]map[string]interface{}, 0),
 		deferred:           NewDeferredLoaders(),
 	}
 }
@@ -289,7 +290,7 @@ func TestDeferredCheckpointRestore(t *testing.T) {
 
 func TestDeferredForloop(t *testing.T) {
 	ctx := newContext()
-	addDeferred(ctx, "value", -1)
+	addDeferred(ctx, "value", float64(-1))
 
 	ctx.Checkpoint()
 	for i := 0; i < 5; i++ {
@@ -298,7 +299,7 @@ func TestDeferredForloop(t *testing.T) {
 		assert.Equal(t, float64(i-1), val)
 
 		ctx.Reset()
-		mock, _ := addDeferred(ctx, "value", i)
+		mock, _ := addDeferred(ctx, "value", float64(i))
 		val, err = ctx.Query("value")
 		assert.NilError(t, err)
 		assert.Equal(t, float64(i), val)
@@ -440,4 +441,57 @@ func TestDeferredNotHiddenOrdered(t *testing.T) {
 	val, err = ctx.Query("foo")
 	assert.NilError(t, err)
 	assert.Equal(t, "baz", val)
+}
+
+type invalidLoader struct {
+	name      string
+	level     int
+	value     interface{}
+	query     string
+	hasLoaded bool
+	ctx       *context
+}
+
+func (il *invalidLoader) Name() string {
+	return il.name
+}
+
+func (il *invalidLoader) SetLevel(lvl int) {
+	il.level = lvl
+}
+
+func (il *invalidLoader) GetLevel() int {
+	return il.level
+}
+
+func (il *invalidLoader) HasLoaded() bool {
+	return il.hasLoaded
+}
+
+func (il *invalidLoader) LoadData() error {
+	return errors.New("failed to load data")
+}
+
+func addInvalidDeferredLoader(ctx *context, name string, value interface{}, query string) (*invalidLoader, error) {
+	loader := &invalidLoader{
+		name:  name,
+		value: value,
+		ctx:   ctx,
+		query: query,
+	}
+
+	d, err := NewDeferredLoader(name, loader, logger)
+	if err != nil {
+		return loader, err
+	}
+
+	ctx.AddDeferredLoader(d)
+	return loader, nil
+}
+
+func TestDeferredLoadMatchingError(t *testing.T) {
+	ctx := newContext()
+	addInvalidDeferredLoader(ctx, "value", "0", "value")
+	err := ctx.deferred.LoadMatching("value", len(ctx.jsonRawCheckpoints))
+	assert.ErrorContains(t, err, `failed to load data`)
 }

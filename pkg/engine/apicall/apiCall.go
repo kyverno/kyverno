@@ -26,6 +26,17 @@ type apiCall struct {
 	entry   kyvernov1.ContextEntry
 	jsonCtx enginecontext.Interface
 	client  ClientInterface
+	config  APICallConfiguration
+}
+
+type APICallConfiguration struct {
+	maxAPICallResponseLength int64
+}
+
+func NewAPICallConfiguration(maxLen int64) APICallConfiguration {
+	return APICallConfiguration{
+		maxAPICallResponseLength: maxLen,
+	}
 }
 
 type ClientInterface interface {
@@ -38,6 +49,7 @@ func New(
 	entry kyvernov1.ContextEntry,
 	jsonCtx enginecontext.Interface,
 	client ClientInterface,
+	apiCallConfig APICallConfiguration,
 ) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
@@ -48,6 +60,7 @@ func New(
 		entry:   entry,
 		jsonCtx: jsonCtx,
 		client:  client,
+		config:  apiCallConfig,
 	}, nil
 }
 
@@ -127,6 +140,12 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute HTTP request for APICall %s: %w", a.entry.Name, err)
 	}
+	defer resp.Body.Close()
+	var w http.ResponseWriter
+
+	if a.config.maxAPICallResponseLength != 0 {
+		resp.Body = http.MaxBytesReader(w, resp.Body, a.config.maxAPICallResponseLength)
+	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, err := io.ReadAll(resp.Body)
@@ -137,10 +156,13 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 		return nil, fmt.Errorf("HTTP %s", resp.Status)
 	}
 
-	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.entry.Name, err)
+		if _, ok := err.(*http.MaxBytesError); ok {
+			return nil, fmt.Errorf("response length must be less than max allowed response length of %d.", a.config.maxAPICallResponseLength)
+		} else {
+			return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.entry.Name, err)
+		}
 	}
 
 	a.logger.Info("executed service APICall", "name", a.entry.Name, "len", len(body))

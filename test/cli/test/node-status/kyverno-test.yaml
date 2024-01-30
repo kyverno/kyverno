@@ -1,11 +1,15 @@
-name: check-kernel
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - check_node_for_cve_2022_0185.yaml
+- check_node_for_cve_2022_0185.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-- policy: check-kernel
-  rule: kernel-validate
-  resource: test-check-kernel-version
-  kind: Node
+- kind: Node
+  policy: check-kernel
+  resources:
+  - test-check-kernel-version
   result: pass
+  rule: kernel-validate

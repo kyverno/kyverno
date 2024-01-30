@@ -1,0 +1,25 @@
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: mutate
+  namespace: default
+spec:
+  admission: false
+  background: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          - Service
+          - ConfigMap
+          - Secret
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: bar
+    name: mutate
+  validationFailureAction: Audit

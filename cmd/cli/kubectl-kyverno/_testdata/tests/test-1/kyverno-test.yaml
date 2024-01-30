@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-registry
+policies:
+- image-example.yaml
+resources:
+- resources.yaml
+results:
+- kind: Pod
+  policy: images
+  resources:
+  - test-pod-with-non-root-user-image
+  - test-pod-with-trusted-registry
+  result: pass
+  rule: only-allow-trusted-images

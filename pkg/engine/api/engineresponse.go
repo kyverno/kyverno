@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	utils "github.com/kyverno/kyverno/pkg/utils/match"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -198,7 +198,7 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 	if polType := pol.GetType(); polType == ValidatingAdmissionPolicyType {
 		return ""
 	}
-	spec := pol.GetPolicy().(kyvernov1.PolicyInterface).GetSpec()
+	spec := pol.AsKyvernoPolicy().GetSpec()
 	for _, v := range spec.ValidationFailureActionOverrides {
 		if !v.Action.IsValid() {
 			continue

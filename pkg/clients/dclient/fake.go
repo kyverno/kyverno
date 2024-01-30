@@ -65,7 +65,7 @@ func (c *fakeDiscoveryClient) getGVR(resource string) (schema.GroupVersionResour
 			return gvr, nil
 		}
 	}
-	return schema.GroupVersionResource{}, errors.New("no found")
+	return schema.GroupVersionResource{}, errors.New("not found")
 }
 
 func (c *fakeDiscoveryClient) GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error) {

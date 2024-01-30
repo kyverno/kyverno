@@ -21,32 +21,14 @@ package v1
 // CTLogApplyConfiguration represents an declarative configuration of the CTLog type for use
 // with apply.
 type CTLogApplyConfiguration struct {
-	URL         *string `json:"url,omitempty"`
-	RekorPubKey *string `json:"pubkey,omitempty"`
 	IgnoreSCT   *bool   `json:"ignoreSCT,omitempty"`
-	IgnoreTlog  *bool   `json:"ignoreTlog,omitempty"`
+	CTLogPubKey *string `json:"pubkey,omitempty"`
 }
 
 // CTLogApplyConfiguration constructs an declarative configuration of the CTLog type for use with
 // apply.
 func CTLog() *CTLogApplyConfiguration {
 	return &CTLogApplyConfiguration{}
-}
-
-// WithURL sets the URL field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the URL field is set to the value of the last call.
-func (b *CTLogApplyConfiguration) WithURL(value string) *CTLogApplyConfiguration {
-	b.URL = &value
-	return b
-}
-
-// WithRekorPubKey sets the RekorPubKey field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the RekorPubKey field is set to the value of the last call.
-func (b *CTLogApplyConfiguration) WithRekorPubKey(value string) *CTLogApplyConfiguration {
-	b.RekorPubKey = &value
-	return b
 }
 
 // WithIgnoreSCT sets the IgnoreSCT field in the declarative configuration to the given value
@@ -57,10 +39,10 @@ func (b *CTLogApplyConfiguration) WithIgnoreSCT(value bool) *CTLogApplyConfigura
 	return b
 }
 
-// WithIgnoreTlog sets the IgnoreTlog field in the declarative configuration to the given value
+// WithCTLogPubKey sets the CTLogPubKey field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the IgnoreTlog field is set to the value of the last call.
-func (b *CTLogApplyConfiguration) WithIgnoreTlog(value bool) *CTLogApplyConfiguration {
-	b.IgnoreTlog = &value
+// If called multiple times, the CTLogPubKey field is set to the value of the last call.
+func (b *CTLogApplyConfiguration) WithCTLogPubKey(value string) *CTLogApplyConfiguration {
+	b.CTLogPubKey = &value
 	return b
 }

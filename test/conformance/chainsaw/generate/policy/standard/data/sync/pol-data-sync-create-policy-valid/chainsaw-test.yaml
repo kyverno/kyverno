@@ -1,0 +1,13 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: pol-data-sync-create-policy-valid
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: "if kubectl apply -f policy.yaml\nthen\n  echo \"Test succeeded.
+          Policy was created as intended.\"\n  exit 0 \nelse \n  echo \"Tested failed.
+          Policy was not created when it should have been.\"\n  exit 1\nfi\n"

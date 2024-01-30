@@ -1,7 +1,7 @@
 {{- $name := "disallow-privileged-containers" }}
 {{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: {{ .Values.policyKind }}
 metadata:
   name: {{ $name }}
   annotations:
@@ -45,6 +45,9 @@ spec:
       {{- with index .Values "policyPreconditions" $name }}
       preconditions:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
         message: >-

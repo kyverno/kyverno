@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: allow-scaling-nginx-test
+  namespace: test-validate
+spec:
+  exceptions:
+  - policyName: nginx-test-scaling-policy
+    ruleNames:
+    - validate-nginx-test
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment/scale
+        names:
+        - nginx-test

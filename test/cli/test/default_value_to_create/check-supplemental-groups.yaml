@@ -1,34 +1,35 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: psp-check-supplemental-groups
   annotations:
-    policies.kyverno.io/title: Check supplementalGroups
-    policies.kyverno.io/category: PSP Migration
-    policies.kyverno.io/severity: medium
-    kyverno.io/kyverno-version: 1.6.0
-    policies.kyverno.io/minversion: 1.6.0
     kyverno.io/kubernetes-version: "1.23"
+    kyverno.io/kyverno-version: 1.6.0
+    policies.kyverno.io/category: PSP Migration
+    policies.kyverno.io/description: Supplemental groups control which group IDs containers
+      add and can coincide with restricted groups on the host. Pod Security Policies
+      (PSP) allowed a range of these group IDs to be specified which were allowed.
+      This policy ensures any Pod may only specify supplementalGroup IDs between 100-200
+      or 500-600.
+    policies.kyverno.io/minversion: 1.6.0
+    policies.kyverno.io/severity: medium
     policies.kyverno.io/subject: Pod
-    policies.kyverno.io/description: >-
-      Supplemental groups control which group IDs containers add and can coincide with
-      restricted groups on the host. Pod Security Policies (PSP) allowed a range of
-      these group IDs to be specified which were allowed. This policy ensures any Pod
-      may only specify supplementalGroup IDs between 100-200 or 500-600.
+    policies.kyverno.io/title: Check supplementalGroups
+  name: psp-check-supplemental-groups
 spec:
+  admission: true
   background: false
-  validationFailureAction: audit
   rules:
-  - name: supplementalgroup-ranges
-    match:
+  - match:
       any:
       - resources:
           kinds:
-            - Pod
+          - Pod
+    name: supplementalgroup-ranges
     preconditions:
       all:
-      - key: "{{ request.operation }}"
-        operator: In
+      - key: '{{ request.operation }}'
+        operator: AllIn
         value:
         - CREATE
         - UPDATE
@@ -38,3 +39,4 @@ spec:
         spec:
           =(securityContext):
             =(supplementalGroups): 100-200 | 500-600
+  validationFailureAction: Audit

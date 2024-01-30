@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
 	"github.com/sigstore/cosign/v2/pkg/cosign/attestation"
 	"github.com/sigstore/cosign/v2/pkg/oci"
@@ -30,6 +30,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 )
+
+var signatureAlgorithmMap = map[string]crypto.Hash{
+	"":       crypto.SHA256,
+	"sha224": crypto.SHA224,
+	"sha256": crypto.SHA256,
+	"sha384": crypto.SHA384,
+	"sha512": crypto.SHA512,
+}
 
 func NewVerifier() images.ImageVerifier {
 	return &cosignVerifier{}
@@ -87,18 +95,16 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 }
 
 func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.CheckOpts, error) {
-	var remoteOpts []remote.Option
 	var err error
-	signatureAlgorithmMap := map[string]crypto.Hash{
-		"":       crypto.SHA256,
-		"sha256": crypto.SHA256,
-		"sha512": crypto.SHA512,
+
+	options, err := opts.Client.Options(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("constructing cosign remote options: %w", err)
 	}
 
-	remoteOpts = append(remoteOpts, opts.Client.BuildRemoteOption(ctx))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
-		RegistryClientOpts: remoteOpts,
+		RegistryClientOpts: []remote.Option{remote.WithRemoteOptions(options...)},
 	}
 
 	if opts.FetchAttestations {
@@ -117,9 +123,13 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 
 	if opts.Key != "" {
 		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
-			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithmMap[opts.SignatureAlgorithm])
-			if err != nil {
-				return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
+			if signatureAlgorithm, ok := signatureAlgorithmMap[opts.SignatureAlgorithm]; ok {
+				cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithm)
+				if err != nil {
+					return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
+				}
+			} else {
+				return nil, fmt.Errorf("invalid signature algorithm provided %s", opts.SignatureAlgorithm)
 			}
 		} else {
 			// this supports Kubernetes secrets and KMS
@@ -175,20 +185,24 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 	}
 
 	cosignOpts.IgnoreTlog = opts.IgnoreTlog
-	cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
-	}
+	if !opts.IgnoreTlog {
+		cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
+		}
 
-	cosignOpts.RekorPubKeys, err = getRekorPubs(ctx, opts.RekorPubKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
+		cosignOpts.RekorPubKeys, err = getRekorPubs(ctx, opts.RekorPubKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
+		}
 	}
 
 	cosignOpts.IgnoreSCT = opts.IgnoreSCT
-	cosignOpts.CTLogPubKeys, err = cosign.GetCTLogPubs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load Rekor public keys: %w", err)
+	if !opts.IgnoreSCT {
+		cosignOpts.CTLogPubKeys, err = getCTLogPubs(ctx, opts.CTLogsPubKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load CTLogs public keys: %w", err)
+		}
 	}
 
 	if opts.Repository != "" {
@@ -579,7 +593,19 @@ func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTrans
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
 	if err := publicKeys.AddTransparencyLogPubKey([]byte(rekorPubKey), tuf.Active); err != nil {
-		return nil, fmt.Errorf("AddRekorPubKey: %w", err)
+		return nil, fmt.Errorf("failed to get rekor public keys: %w", err)
+	}
+	return &publicKeys, nil
+}
+
+func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
+	if ctlogPubKey == "" {
+		return cosign.GetCTLogPubs(ctx)
+	}
+
+	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
+	if err := publicKeys.AddTransparencyLogPubKey([]byte(ctlogPubKey), tuf.Active); err != nil {
+		return nil, fmt.Errorf("failed to get transparency log public keys: %w", err)
 	}
 	return &publicKeys, nil
 }

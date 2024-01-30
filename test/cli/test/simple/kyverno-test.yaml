@@ -1,95 +1,69 @@
-name: test-simple
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resources.yaml
-variables: values.yaml
+- resources.yaml
 results:
-  - policy: disallow-latest-tag
-    rule: require-image-tag
-    resource: test-require-image-tag-pass
-    kind: Pod
-    namespace: test
-    status: pass
-  - policy: disallow-latest-tag
-    rule: require-image-tag
-    resource: test-require-image-tag-fail
-    kind: Pod
-    namespace: test
-    status: fail
-  - policy: disallow-latest-tag
-    rule: validate-image-tag
-    resource: test-validate-image-tag-ignore
-    kind: Pod
-    status: skip
-  - policy: disallow-latest-tag
-    rule: validate-image-tag
-    resource: test-validate-image-tag-fail
-    namespace: test
-    kind: Pod
-    status: fail
-  - policy: disallow-latest-tag
-    rule: validate-image-tag
-    resource: test-validate-image-tag-pass
-    kind: Pod
-    namespace: test
-    status: pass
-  - policy: duration-test
-    rule: greater-than
-    resource: test-lifetime-fail
-    kind: Pod
-    namespace: test
-    status: fail
-  - policy: duration-test
-    rule: less-than
-    resource: test-lifetime-fail
-    kind: Pod
-    namespace: test
-    status: pass
-  - policy: duration-test
-    rule: greater-equal-than
-    resource: test-lifetime-fail
-    kind: Pod
-    namespace: test
-    status: fail
-  - policy: duration-test
-    rule: less-equal-than
-    resource: test-lifetime-fail
-    kind: Pod
-    namespace: test
-    status: pass
-
-  - policy: restrict-pod-counts
-    rule: restrict-pod-count
-    resource: myapp-pod
-    kind: Pod
-    status: fail
-  - policy: restrict-pod-counts
-    rule: restrict-pod-count
-    resource: test-require-image-tag-pass
-    kind: Pod
-    namespace: test
-    status: fail
-  - policy: restrict-pod-counts
-    rule: restrict-pod-count
-    resource: test-require-image-tag-fail
-    kind: Pod
-    namespace: test
-    status: fail
-  - policy: restrict-pod-counts
-    rule: restrict-pod-count
-    resource: test-validate-image-tag-ignore
-    kind: Pod
-    status: fail
-  - policy: restrict-pod-counts
-    rule: restrict-pod-count
-    resource: test-validate-image-tag-fail
-    kind: Pod
-    namespace: test
-    status: fail    
-  - policy: restrict-pod-counts
-    rule: restrict-pod-count
-    resource: test-validate-image-tag-pass
-    kind: Pod
-    namespace: test
-    status: fail
+- kind: Pod
+  policy: disallow-latest-tag
+  resources:
+  - test/test-require-image-tag-fail
+  result: fail
+  rule: require-image-tag
+- kind: Pod
+  policy: disallow-latest-tag
+  resources:
+  - test/test-require-image-tag-pass
+  result: pass
+  rule: require-image-tag
+- kind: Pod
+  policy: disallow-latest-tag
+  resources:
+  - test/test-validate-image-tag-fail
+  result: fail
+  rule: validate-image-tag
+- kind: Pod
+  policy: disallow-latest-tag
+  resources:
+  - test/test-validate-image-tag-pass
+  result: pass
+  rule: validate-image-tag
+- kind: Pod
+  policy: duration-test
+  resources:
+  - test/test-lifetime-fail
+  result: fail
+  rule: greater-equal-than
+- kind: Pod
+  policy: duration-test
+  resources:
+  - test/test-lifetime-fail
+  result: fail
+  rule: greater-than
+- kind: Pod
+  policy: duration-test
+  resources:
+  - test/test-lifetime-fail
+  result: pass
+  rule: less-equal-than
+- kind: Pod
+  policy: duration-test
+  resources:
+  - test/test-lifetime-fail
+  result: pass
+  rule: less-than
+- kind: Pod
+  policy: restrict-pod-counts
+  resources:
+  - myapp-pod
+  - test-validate-image-tag-ignore
+  - test/test-require-image-tag-fail
+  - test/test-require-image-tag-pass
+  - test/test-validate-image-tag-fail
+  - test/test-validate-image-tag-pass
+  result: fail
+  rule: restrict-pod-count
+variables: values.yaml

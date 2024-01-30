@@ -10,13 +10,21 @@ import (
 	"gomodules.xyz/jsonpatch/v2"
 )
 
+type ImageVerificationMetadataStatus string
+
+const (
+	ImageVerificationPass ImageVerificationMetadataStatus = "pass"
+	ImageVerificationFail ImageVerificationMetadataStatus = "fail"
+	ImageVerificationSkip ImageVerificationMetadataStatus = "skip"
+)
+
 type ImageVerificationMetadata struct {
-	Data map[string]bool `json:"data"`
+	Data map[string]ImageVerificationMetadataStatus `json:"data"`
 }
 
-func (ivm *ImageVerificationMetadata) Add(image string, verified bool) {
+func (ivm *ImageVerificationMetadata) Add(image string, verified ImageVerificationMetadataStatus) {
 	if ivm.Data == nil {
-		ivm.Data = make(map[string]bool)
+		ivm.Data = make(map[string]ImageVerificationMetadataStatus)
 	}
 	ivm.Data[image] = verified
 }
@@ -29,11 +37,22 @@ func (ivm *ImageVerificationMetadata) IsVerified(image string) bool {
 	if !ok {
 		return false
 	}
+	return verified == ImageVerificationPass || verified == ImageVerificationSkip
+}
+
+func (ivm *ImageVerificationMetadata) ImageVerificationStatus(image string) ImageVerificationMetadataStatus {
+	if ivm.Data == nil {
+		return ImageVerificationFail
+	}
+	verified, ok := ivm.Data[image]
+	if !ok {
+		return ImageVerificationFail
+	}
 	return verified
 }
 
 func ParseImageMetadata(jsonData string) (*ImageVerificationMetadata, error) {
-	var data map[string]bool
+	var data map[string]ImageVerificationMetadataStatus
 	if err := json.Unmarshal([]byte(jsonData), &data); err != nil {
 		return nil, err
 	}

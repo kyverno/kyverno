@@ -2,7 +2,7 @@
 {{- if eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 {{- include "kyverno-policies.supportedKyvernoCheck" (dict "top" . "ver" ">= 1.6.0-0") }}
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: {{ .Values.policyKind }}
 metadata:
   name: {{ $name }}
   annotations:
@@ -65,6 +65,9 @@ spec:
           operator: NotEquals
           value: DELETE
       {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
+      {{- end }}
       validate:
         message: >-
           Containers must drop `ALL` capabilities.
@@ -106,6 +109,9 @@ spec:
         - key: "{{`{{ request.operation || 'BACKGROUND' }}`}}"
           operator: NotEquals
           value: DELETE
+      {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
         message: >-

@@ -1,4 +1,4 @@
-{{- if (gt (int .Values.admissionController.replicas) 1) -}}
+{{- if or .Values.admissionController.podDisruptionBudget.enabled (gt (int .Values.admissionController.replicas) 1) -}}
 apiVersion: {{ template "kyverno.pdb.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:

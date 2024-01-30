@@ -1,33 +1,38 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: images
 spec:
-  validationFailureAction: enforce
+  admission: true
+  background: true
   rules:
-  - name: only-allow-trusted-images
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: only-allow-trusted-images
     preconditions:
-      - key: "{{request.operation}}"
+      all:
+      - key: '{{request.operation}}'
         operator: NotEquals
         value: DELETE
     validate:
-      message: "images with root user are not allowed"  
       foreach:
-      - list: "request.object.spec.containers"
-        context: 
-        - name: imageData
-          imageRegistry: 
-            reference: "{{ element.image }}"
+      - context:
+        - imageRegistry:
+            reference: '{{ element.image }}'
+          name: imageData
         deny:
           conditions:
             all:
-              - key: "{{ imageData.configData.config.User || ''}}"
-                operator: Equals
-                value: ""
-              - key: "{{ imageData.registry }}"
-                operator: NotEquals
-                value: "ghcr.io"
+            - key: '{{ imageData.configData.config.User || ''''}}'
+              operator: Equals
+              value: ""
+            - key: '{{ imageData.registry }}'
+              operator: NotEquals
+              value: ghcr.io
+        list: request.object.spec.containers
+      message: images with root user are not allowed
+  validationFailureAction: Enforce

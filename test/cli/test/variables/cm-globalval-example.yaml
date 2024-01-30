@@ -1,20 +1,23 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: cm-globalval-example
 spec:
-  validationFailureAction: enforce
+  admission: true
   background: false
   rules:
-    - name: validate-mode
-      match:
-        resources:
+  - match:
+      any:
+      - resources:
           kinds:
-            - Pod
-      validate:
-        message: "The value {{ request.mode }} for val1 is not equal to 'dev'."
-        deny:
-          conditions:
-            - key: "{{ request.mode }}"
-              operator: NotEquals
-              value: dev
+          - Pod
+    name: validate-mode
+    validate:
+      deny:
+        conditions:
+        - key: '{{ request.mode }}'
+          operator: NotEquals
+          value: dev
+      message: The value {{ request.mode }} for val1 is not equal to 'dev'.
+  validationFailureAction: Enforce

@@ -22,6 +22,10 @@ rules:
     resources:
       - mutatingwebhookconfigurations
       - validatingwebhookconfigurations
+      {{- if .Values.features.generateValidatingAdmissionPolicy.enabled }}
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
+      {{- end }}
     verbs:
       - create
       - delete
@@ -39,8 +43,8 @@ rules:
       - rolebindings
       - clusterrolebindings
     verbs:
-      - watch
       - list
+      - watch
   - apiGroups:
       - kyverno.io
     resources:
@@ -54,6 +58,21 @@ rules:
       - clusteradmissionreports
       - backgroundscanreports
       - clusterbackgroundscanreports
+      - policyexceptions
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - reports.kyverno.io
+    resources:
+      - ephemeralreports
+      - clusterephemeralreports
     verbs:
       - create
       - delete
@@ -95,13 +114,36 @@ rules:
     verbs:
       - create
   - apiGroups:
-      - '*'
+      - apiextensions.k8s.io
     resources:
-      - '*'
+      - customresourcedefinitions
     verbs:
       - get
       - list
       - watch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - update
+      - patch
+      - get
+      - list
+      - watch
+{{- with .Values.admissionController.rbac.coreClusterRole.extraResources }}
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- with .Values.admissionController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

@@ -1,11 +1,19 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
 subresources:
-  - subresource:
-      name: "deployments/scale"
-      kind: "Scale"
-      group: "autoscaling"
-      version: "v1"
-    parentResource:
-      name: "deployments"
-      kind: "Deployment"
-      group: "apps"
-      version: "v1"
+- parentResource:
+    group: apps
+    kind: Deployment
+    name: deployments
+    namespaced: false
+    singularName: ""
+    verbs: null
+    version: v1
+  subresource:
+    group: autoscaling
+    kind: Scale
+    name: deployments/scale
+    namespaced: false
+    singularName: ""
+    verbs: null
+    version: v1

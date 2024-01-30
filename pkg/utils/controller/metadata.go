@@ -58,6 +58,14 @@ func SetAnnotation(obj metav1.Object, key, value string) {
 	obj.SetAnnotations(annotations)
 }
 
+func GetAnnotation(obj metav1.Object, key string) string {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return ""
+	}
+	return annotations[key]
+}
+
 func HasAnnotation(obj metav1.Object, key string) bool {
 	annotations := obj.GetAnnotations()
 	if annotations == nil {

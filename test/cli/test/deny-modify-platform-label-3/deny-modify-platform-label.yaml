@@ -1,0 +1,29 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    policies.kyverno.io/category: Hardening
+    policies.kyverno.io/description: Restrict modification of platform owned roles
+      to admins only
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Role
+    policies.kyverno.io/title: Deny Modification of platform owned roles
+  name: deny-modify-platform-label
+spec:
+  admission: true
+  background: false
+  rules:
+  - match:
+      any:
+      - resources:
+          annotations:
+            hpedevops.net/platform: "true"
+          kinds:
+          - Role
+    name: deny-modify-platform-role
+    validate:
+      deny: {}
+      message: Roles owned by platform team (ones with label hpedevops.net/platform=true)
+        should not be modified by non-admin users.
+  validationFailureAction: Audit

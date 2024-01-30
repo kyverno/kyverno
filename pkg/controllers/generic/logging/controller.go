@@ -31,7 +31,9 @@ func NewController(logger logr.Logger, objectType string, informer informer, pre
 		logger:     logger.WithValues("type", objectType),
 		predicates: predicates,
 	}
-	controllerutils.AddEventHandlersT(informer.Informer(), c.add, c.update, c.delete)
+	if _, err := controllerutils.AddEventHandlersT(informer.Informer(), c.add, c.update, c.delete); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
 }
 
 func (c *controller) add(obj metav1.Object) {

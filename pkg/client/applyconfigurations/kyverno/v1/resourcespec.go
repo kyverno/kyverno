@@ -18,13 +18,18 @@ limitations under the License.
 
 package v1
 
+import (
+	types "k8s.io/apimachinery/pkg/types"
+)
+
 // ResourceSpecApplyConfiguration represents an declarative configuration of the ResourceSpec type for use
 // with apply.
 type ResourceSpecApplyConfiguration struct {
-	APIVersion *string `json:"apiVersion,omitempty"`
-	Kind       *string `json:"kind,omitempty"`
-	Namespace  *string `json:"namespace,omitempty"`
-	Name       *string `json:"name,omitempty"`
+	APIVersion *string    `json:"apiVersion,omitempty"`
+	Kind       *string    `json:"kind,omitempty"`
+	Namespace  *string    `json:"namespace,omitempty"`
+	Name       *string    `json:"name,omitempty"`
+	UID        *types.UID `json:"uid,omitempty"`
 }
 
 // ResourceSpecApplyConfiguration constructs an declarative configuration of the ResourceSpec type for use with
@@ -62,5 +67,13 @@ func (b *ResourceSpecApplyConfiguration) WithNamespace(value string) *ResourceSp
 // If called multiple times, the Name field is set to the value of the last call.
 func (b *ResourceSpecApplyConfiguration) WithName(value string) *ResourceSpecApplyConfiguration {
 	b.Name = &value
+	return b
+}
+
+// WithUID sets the UID field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the UID field is set to the value of the last call.
+func (b *ResourceSpecApplyConfiguration) WithUID(value types.UID) *ResourceSpecApplyConfiguration {
+	b.UID = &value
 	return b
 }

@@ -82,7 +82,7 @@ func Test_Add(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := newJMESPath(cfg, tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -228,7 +228,7 @@ func Test_Sum(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := newJMESPath(cfg, tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -327,7 +327,7 @@ func Test_Subtract(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := newJMESPath(cfg, tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -426,7 +426,7 @@ func Test_Multiply(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := newJMESPath(cfg, tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -588,7 +588,7 @@ func Test_Divide(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := newJMESPath(cfg, tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -744,7 +744,7 @@ func Test_Modulo(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := newJMESPath(cfg, tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -813,7 +813,7 @@ func Test_Round(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := newJMESPath(cfg, tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")

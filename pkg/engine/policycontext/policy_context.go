@@ -10,6 +10,7 @@ import (
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -59,6 +60,26 @@ type PolicyContext struct {
 
 func (c *PolicyContext) Policy() kyvernov1.PolicyInterface {
 	return c.policy
+}
+
+func (c *PolicyContext) OldPolicyContext() (engineapi.PolicyContext, error) {
+	if c.Operation() != kyvernov1.Update {
+		return nil, errors.New("cannot create old policy context")
+	}
+	copy := c.copy()
+	oldJsonContext := copy.jsonContext
+	copy.oldResource = unstructured.Unstructured{}
+	copy.newResource = c.oldResource
+
+	if err := oldJsonContext.AddResource(nil); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
+	}
+	if err := oldJsonContext.AddOldResource(copy.OldResource().Object); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+
+	copy.jsonContext = oldJsonContext
+	return copy, nil
 }
 
 func (c *PolicyContext) NewResource() unstructured.Unstructured {
@@ -193,8 +214,15 @@ func NewPolicyContext(
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
 	enginectx := enginectx.NewContext(jp)
-	if err := enginectx.AddResource(resource.Object); err != nil {
-		return nil, err
+
+	if operation != kyvernov1.Delete {
+		if err := enginectx.AddResource(resource.Object); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := enginectx.AddOldResource(resource.Object); err != nil {
+			return nil, err
+		}
 	}
 	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
@@ -222,6 +250,7 @@ func NewPolicyContext(
 	if admissionInfo != nil {
 		policyContext = policyContext.WithAdmissionInfo(*admissionInfo)
 	}
+
 	return policyContext, nil
 }
 
@@ -250,6 +279,7 @@ func NewPolicyContextFromAdmissionRequest(
 		WithAdmissionOperation(true).
 		WithResourceKind(gvk, request.SubResource).
 		WithRequestResource(request.Resource)
+
 	return policyContext, nil
 }
 

@@ -1,0 +1,31 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-policy
+spec:
+  admission: true
+  background: true
+  rules:
+  - context:
+    - apiCall:
+        jmesPath: metadata.annotations."overwrite.kyverno.io/excluded-policies" ||
+          '[]' | parse_json(@)
+        method: GET
+        urlPath: /api/v1/namespaces/{{request.namespace}}
+      name: excludedPolicies
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: test-rule
+    preconditions:
+      all:
+      - key: key-name
+        operator: AllNotIn
+        value: '{{ excludedPolicies }}'
+    validate:
+      message: Do nothing!
+      pattern: {}
+  validationFailureAction: Audit

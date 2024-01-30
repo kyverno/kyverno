@@ -88,6 +88,7 @@ func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, u
 				Namespace:  er.Resource.GetNamespace(),
 				Name:       er.Resource.GetName(),
 				APIVersion: er.Resource.GetAPIVersion(),
+				UID:        er.Resource.GetUID(),
 			},
 			Context: kyvernov1beta1.UpdateRequestSpecContext{
 				UserRequestInfo:      userRequestInfo,
@@ -98,4 +99,20 @@ func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, u
 	}
 
 	return urs
+}
+
+func skipBackgroundRequests(policy kyvernov1.PolicyInterface, logger logr.Logger, bgsaDesired, bgsaActual string) kyvernov1.PolicyInterface {
+	policyNew := policy.CreateDeepCopy()
+	policyNew.GetSpec().Rules = nil
+	for _, rule := range policy.GetSpec().Rules {
+		if rule.SkipBackgroundRequests && (bgsaDesired == bgsaActual) {
+			continue
+		}
+		logger.V(4).Info("applying background rule", "rule", rule.Name, "skipBackgroundRequests", rule.SkipBackgroundRequests, "backgroundSaDesired", bgsaDesired, "backgroundSaActual", bgsaActual)
+		policyNew.GetSpec().Rules = append(policyNew.GetSpec().Rules, *rule.DeepCopy())
+	}
+	if len(policyNew.GetSpec().Rules) == 0 {
+		return nil
+	}
+	return policyNew
 }

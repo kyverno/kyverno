@@ -1,0 +1,23 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: add-quota
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- generatedResource: generatedLimitRange.yaml
+  kind: Namespace
+  policy: add-ns-quota
+  resources:
+  - hello-world-namespace
+  result: pass
+  rule: generate-limitrange
+- generatedResource: generatedResourceQuota.yaml
+  kind: Namespace
+  policy: add-ns-quota
+  resources:
+  - hello-world-namespace
+  result: pass
+  rule: generate-resourcequota

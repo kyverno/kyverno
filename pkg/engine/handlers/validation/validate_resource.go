@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
@@ -18,8 +19,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
+	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/tools/cache"
 )
 
 type validateResourceHandler struct{}
@@ -35,7 +38,22 @@ func (h validateResourceHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	contextLoader engineapi.EngineContextLoader,
+	exceptions []kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	// check if there is a policy exception matches the incoming resource
+	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	if exception != nil {
+		key, err := cache.MetaNamespaceKeyFunc(exception)
+		if err != nil {
+			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+		} else {
+			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception),
+			)
+		}
+	}
 	v := newValidator(logger, contextLoader, policyContext, rule)
 	return resource, handlers.WithResponses(v.validate(ctx))
 }
@@ -55,15 +73,17 @@ type validator struct {
 }
 
 func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
+	anyAllConditions, _ := datautils.ToMap(rule.RawAnyAllConditions)
 	return &validator{
-		log:           log,
-		rule:          rule,
-		policyContext: ctx,
-		contextLoader: contextLoader,
-		pattern:       rule.Validation.GetPattern(),
-		anyPattern:    rule.Validation.GetAnyPattern(),
-		deny:          rule.Validation.Deny,
-		forEach:       rule.Validation.ForEachValidation,
+		log:              log,
+		rule:             rule,
+		policyContext:    ctx,
+		contextLoader:    contextLoader,
+		pattern:          rule.Validation.GetPattern(),
+		anyPattern:       rule.Validation.GetAnyPattern(),
+		deny:             rule.Validation.Deny,
+		anyAllConditions: anyAllConditions,
+		forEach:          rule.Validation.ForEachValidation,
 	}
 }
 
@@ -121,6 +141,22 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		}
 
 		ruleResponse := v.validateResourceWithRule()
+
+		if engineutils.IsUpdateRequest(v.policyContext) {
+			priorResp, err := v.validateOldObject(ctx)
+			if err != nil {
+				return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to validate old object", err)
+			}
+
+			if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
+				v.log.V(3).Info("skipping modified resource as validation results have not changed")
+				if ruleResponse.Status() == engineapi.RuleStatusPass {
+					return ruleResponse
+				}
+				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
+			}
+		}
+
 		return ruleResponse
 	}
 
@@ -131,6 +167,20 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 
 	v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	return nil
+}
+
+func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
+	pc := v.policyContext
+	oldPc, err := v.policyContext.OldPolicyContext()
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot get old policy context")
+	}
+
+	v.policyContext = oldPc
+	resp := v.validate(ctx)
+	v.policyContext = pc
+
+	return resp, nil
 }
 
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {
@@ -148,10 +198,7 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 		applyCount += count
 	}
 	if applyCount == 0 {
-		if v.forEach == nil {
-			return nil
-		}
-		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "rule skipped")
+		return nil
 	}
 	return engineapi.RulePass(v.rule.Name, engineapi.Validation, "rule passed")
 }

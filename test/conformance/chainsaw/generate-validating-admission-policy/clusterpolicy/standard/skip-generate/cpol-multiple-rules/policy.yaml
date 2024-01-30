@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+spec:
+  rules:
+  - name: require-image-tag
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+        cel:
+          expressions:
+            - expression: "object.spec.containers.all(container, !container.image.matches('^[a-zA-Z]+:[0-9]*$'))"
+              message: "An image tag is required."
+  - name: validate-image-tag
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+        cel:
+          expressions:
+            - expression: "object.spec.containers.all(container, !container.image.contains('latest'))"
+              message: "Using a mutable image tag e.g. 'latest' is not allowed."

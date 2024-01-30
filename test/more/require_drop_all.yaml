@@ -1,33 +1,40 @@
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: drop-all-capabilities
 spec:
-  validationFailureAction: audit
+  admission: true
+  background: true
   rules:
-  - name: drop-all-containers
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: drop-all-containers
     validate:
-      message: "Drop all must be defined for every container in the Pod."
+      message: Drop all must be defined for every container in the Pod.
       pattern:
         spec:
           containers:
           - securityContext:
               capabilities:
-                drop: ["ALL"]
-  - name: drop-all-initcontainers
-    match:
-      resources:
-        kinds:
-        - Pod
+                drop:
+                - ALL
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: drop-all-initcontainers
     validate:
-      message: "Drop all must be defined for every container in the Pod."
+      message: Drop all must be defined for every container in the Pod.
       pattern:
         spec:
           initContainers:
           - securityContext:
               capabilities:
-                drop: ["ALL"]
+                drop:
+                - ALL
+  validationFailureAction: Audit

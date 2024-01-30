@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: "2020-09-21T12:56:35Z"
+  name: nginx-deployment
+  labels:
+    app: nginx
+  namespace: test-foo-aaaaaaaaa-bbbbbbbb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      creationTimestamp: "2020-09-21T12:56:35Z"
+      labels:
+        app: nginx
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: nginx
+          image: nginx:1.14.2
+          ports:
+            - containerPort: 80

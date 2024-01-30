@@ -1,31 +1,35 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: enforce-limits-fraction
 spec:
-  validationFailureAction: enforce
+  admission: true
+  background: true
   rules:
-  - name: check-memory-requests-limits
-    match:
+  - match:
       any:
       - resources:
           kinds:
           - Pod
+    name: check-memory-requests-limits
     validate:
-      message: Limits may not exceed 2.5x the requests.
       foreach:
-      - list: "request.object.spec.containers"
-        preconditions:
-          all:
-          - key: "{{ element.resources.limits.memory || '' }}"
-            operator: NotEquals
-            value: ""
-          - key: "{{ element.resources.requests.memory || '' }}"
-            operator: NotEquals
-            value: ""
-        deny:
+      - deny:
           conditions:
             any:
-            - key: "{{ divide('{{ element.resources.limits.memory }}', '{{ element.resources.requests.memory }}') }}"
+            - key: '{{ divide(''{{ element.resources.limits.memory }}'', ''{{ element.resources.requests.memory
+                }}'') }}'
               operator: GreaterThan
               value: 2.5
+        list: request.object.spec.containers
+        preconditions:
+          all:
+          - key: '{{ element.resources.limits.memory || '''' }}'
+            operator: NotEquals
+            value: ""
+          - key: '{{ element.resources.requests.memory || '''' }}'
+            operator: NotEquals
+            value: ""
+      message: Limits may not exceed 2.5x the requests.
+  validationFailureAction: Enforce

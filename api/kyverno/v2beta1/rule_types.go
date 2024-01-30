@@ -40,8 +40,7 @@ type Rule struct {
 	ImageExtractors kyvernov1.ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
-	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
-	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
 	RawAnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
@@ -66,11 +65,31 @@ type Rule struct {
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
 	VerifyImages []ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+
+	// SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+	// The default value is set to "true", it must be set to "false" to apply
+	// generate and mutateExisting rules to those requests.
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:Optional
+	SkipBackgroundRequests bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
 }
 
 // HasMutate checks for mutate rule
 func (r *Rule) HasMutate() bool {
 	return !datautils.DeepEqual(r.Mutation, kyvernov1.Mutation{})
+}
+
+// HasMutate checks for standard admission mutate rule
+func (r *Rule) HasMutateStandard() bool {
+	if r.HasMutateExisting() {
+		return false
+	}
+	return !datautils.DeepEqual(r.Mutation, kyvernov1.Mutation{})
+}
+
+// HasMutateExisting checks if the mutate rule applies to existing resources
+func (r *Rule) HasMutateExisting() bool {
+	return r.Mutation.Targets != nil
 }
 
 // HasVerifyImages checks for verifyImages rule
@@ -116,11 +135,6 @@ func (r *Rule) HasValidate() bool {
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
 	return !datautils.DeepEqual(r.Generation, kyvernov1.Generation{})
-}
-
-// IsMutateExisting checks if the mutate rule applies to existing resources
-func (r *Rule) IsMutateExisting() bool {
-	return r.Mutation.Targets != nil
 }
 
 func (r *Rule) GetGenerateTypeAndSync() (_ kyvernov1.GenerateType, sync bool) {

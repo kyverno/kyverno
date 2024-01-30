@@ -1,13 +1,13 @@
 package variables
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path"
 	"strings"
 
 	"github.com/go-logr/logr"
+	jsoniter "github.com/json-iterator/go"
 	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
@@ -18,6 +18,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // ReplaceAllVars replaces all variables with the value defined in the replacement function
 // This is used to avoid validation errors
@@ -58,7 +60,7 @@ func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 }
 
 func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, document interface{}) (interface{}, error) {
-	untypedDoc, err := DocumentToUntyped(document)
+	untypedDoc, err := jsonUtils.DocumentToUntyped(document)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +68,7 @@ func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, do
 }
 
 func SubstituteAllInType[T any](log logr.Logger, ctx context.EvalInterface, t *T) (*T, error) {
-	untyped, err := DocumentToUntyped(t)
+	untyped, err := jsonUtils.DocumentToUntyped(t)
 	if err != nil {
 		return nil, err
 	}
@@ -97,23 +99,6 @@ func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, rule kyvern
 	}
 
 	return *result, nil
-}
-
-// DocumentToUntyped converts a typed object to JSON data i.e.
-// string, []interface{}, map[string]interface{}
-func DocumentToUntyped(doc interface{}) (interface{}, error) {
-	jsonDoc, err := json.Marshal(doc)
-	if err != nil {
-		return nil, err
-	}
-
-	var untyped interface{}
-	err = json.Unmarshal(jsonDoc, &untyped)
-	if err != nil {
-		return nil, err
-	}
-
-	return untyped, nil
 }
 
 func untypedToTyped[T any](untyped interface{}) (*T, error) {
@@ -184,7 +169,7 @@ func substituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 func SubstituteAllForceMutate(log logr.Logger, ctx context.Interface, typedRule kyvernov1.Rule) (_ kyvernov1.Rule, err error) {
 	var rule interface{}
 
-	rule, err = DocumentToUntyped(typedRule)
+	rule, err = jsonUtils.DocumentToUntyped(typedRule)
 	if err != nil {
 		return kyvernov1.Rule{}, err
 	}
@@ -407,10 +392,11 @@ func isDeleteRequest(ctx context.EvalInterface) bool {
 	if ctx == nil {
 		return false
 	}
-	operation, err := ctx.Query("request.operation")
-	if err == nil && operation == "DELETE" {
-		return true
+
+	if op := ctx.QueryOperation(); op != "" {
+		return op == "DELETE"
 	}
+
 	return false
 }
 

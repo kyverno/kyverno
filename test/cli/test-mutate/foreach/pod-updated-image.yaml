@@ -10,11 +10,15 @@ spec:
   containers:
     - image: registry.digitalocean.com/runlevl4/nginxasdfasdf:latest
       name: busybox01
+      securityContext:
+        runAsNonRoot: true
       args:
         - sleep
         - "9999"
     - image: registry.digitalocean.com/runlevl4/bbbbbbbbbb-ccccc:1.28
       name: busybox02
+      securityContext:
+        runAsNonRoot: true
       args:
         - sleep
         - "9999"

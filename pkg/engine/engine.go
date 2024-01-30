@@ -180,7 +180,6 @@ func (e *engine) ContextLoader(
 			e.jp,
 			e.client,
 			e.rclientFactory,
-			e.ivCache,
 			contextEntries,
 			jsonContext,
 		)
@@ -256,10 +255,6 @@ func (e *engine) invokeRuleHandler(
 			} else if handler, err := handlerFactory(); err != nil {
 				return resource, handlers.WithError(rule, ruleType, "failed to instantiate handler", err)
 			} else if handler != nil {
-				// check if there's an exception
-				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
-					return resource, handlers.WithResponses(ruleResp)
-				}
 				policyContext.JSONContext().Checkpoint()
 				defer func() {
 					policyContext.JSONContext().Restore()
@@ -288,8 +283,15 @@ func (e *engine) invokeRuleHandler(
 					s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
 					return resource, handlers.WithSkip(rule, ruleType, s)
 				}
+				// get policy exceptions that matches both policy and rule name
+				exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
+				if err != nil {
+					logger.Error(err, "failed to get exceptions")
+					return resource, nil
+				}
 				// process handler
-				return handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)
+				resource, ruleResponses := handler.Process(ctx, logger, policyContext, resource, rule, contextLoader, exceptions)
+				return resource, ruleResponses
 			}
 			return resource, nil
 		},
