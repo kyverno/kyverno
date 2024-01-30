@@ -32,58 +32,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// CachedContextEntryInformer provides access to a shared informer and lister for
-// CachedContextEntries.
-type CachedContextEntryInformer interface {
+// GlobalContextEntryInformer provides access to a shared informer and lister for
+// GlobalContextEntries.
+type GlobalContextEntryInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2alpha1.CachedContextEntryLister
+	Lister() v2alpha1.GlobalContextEntryLister
 }
 
-type cachedContextEntryInformer struct {
+type globalContextEntryInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewCachedContextEntryInformer constructs a new informer for CachedContextEntry type.
+// NewGlobalContextEntryInformer constructs a new informer for GlobalContextEntry type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewCachedContextEntryInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredCachedContextEntryInformer(client, resyncPeriod, indexers, nil)
+func NewGlobalContextEntryInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredGlobalContextEntryInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredCachedContextEntryInformer constructs a new informer for CachedContextEntry type.
+// NewFilteredGlobalContextEntryInformer constructs a new informer for GlobalContextEntry type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredCachedContextEntryInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredGlobalContextEntryInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2alpha1().CachedContextEntries().List(context.TODO(), options)
+				return client.KyvernoV2alpha1().GlobalContextEntries().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KyvernoV2alpha1().CachedContextEntries().Watch(context.TODO(), options)
+				return client.KyvernoV2alpha1().GlobalContextEntries().Watch(context.TODO(), options)
 			},
 		},
-		&kyvernov2alpha1.CachedContextEntry{},
+		&kyvernov2alpha1.GlobalContextEntry{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *cachedContextEntryInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredCachedContextEntryInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *globalContextEntryInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredGlobalContextEntryInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *cachedContextEntryInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kyvernov2alpha1.CachedContextEntry{}, f.defaultInformer)
+func (f *globalContextEntryInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&kyvernov2alpha1.GlobalContextEntry{}, f.defaultInformer)
 }
 
-func (f *cachedContextEntryInformer) Lister() v2alpha1.CachedContextEntryLister {
-	return v2alpha1.NewCachedContextEntryLister(f.Informer().GetIndexer())
+func (f *globalContextEntryInformer) Lister() v2alpha1.GlobalContextEntryLister {
+	return v2alpha1.NewGlobalContextEntryLister(f.Informer().GetIndexer())
 }

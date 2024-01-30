@@ -25,46 +25,49 @@ import (
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:shortName=cacheentry,categories=kyverno,scope="Cluster"
+// +kubebuilder:resource:shortName=globalcontext,categories=kyverno,scope="Cluster"
 
-// CachedContextEntry declares resources to be cached.
-type CachedContextEntry struct {
+// GlobalContextEntry declares resources to be cached.
+type GlobalContextEntry struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
-	Spec CachedContextEntrySpec `json:"spec" yaml:"spec"`
+	Spec GlobalContextEntrySpec `json:"spec" yaml:"spec"`
 }
 
 // Validate implements programmatic validation
-func (c *CachedContextEntry) Validate() (errs field.ErrorList) {
+func (c *GlobalContextEntry) Validate() (errs field.ErrorList) {
 	errs = append(errs, c.Spec.Validate(field.NewPath("spec"))...)
 	return errs
 }
 
 // IsNamespaced indicates if the policy is namespace scoped
-func (c *CachedContextEntry) IsNamespaced() bool {
+func (c *GlobalContextEntry) IsNamespaced() bool {
 	return false
 }
 
-// CachedContextEntrySpec stores policy exception spec
-type CachedContextEntrySpec struct {
-	kyvernov1.ResourceCache `json:",inline,omitempty" yaml:",inline,omitempty"`
+// GlobalContextEntrySpec stores policy exception spec
+type GlobalContextEntrySpec struct {
+	// K8sResource stores infos about kubernetes resource that should be cached
+	// +kubebuilder:validation:Optional
+	K8sResource *kyvernov1.K8sResource `json:"k8sresource,omitempty" yaml:"k8sresource,omitempty"`
+
+	// APICall stores infos about API call that should be cached
+	// +kubebuilder:validation:Optional
+	APICall *kyvernov1.ExternalAPICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
 }
 
-func (c *CachedContextEntrySpec) IsAPICall() bool {
+func (c *GlobalContextEntrySpec) IsAPICall() bool {
 	return c.APICall != nil
 }
 
-func (c *CachedContextEntrySpec) IsResource() bool {
+func (c *GlobalContextEntrySpec) IsResource() bool {
 	return c.K8sResource != nil
 }
 
 // Validate implements programmatic validation
-func (c *CachedContextEntrySpec) Validate(path *field.Path) (errs field.ErrorList) {
-	if c.JMESPath != "" {
-		errs = append(errs, field.Forbidden(path.Child("resource"), "Invalid field: jmespath"))
-	}
+func (c *GlobalContextEntrySpec) Validate(path *field.Path) (errs field.ErrorList) {
 	if c.IsResource() && c.IsAPICall() {
 		errs = append(errs, field.Forbidden(path.Child("resource"), "An External API Call entry requires a url"))
 	}
@@ -80,9 +83,9 @@ func (c *CachedContextEntrySpec) Validate(path *field.Path) (errs field.ErrorLis
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// CachedContextEntryList is a list of Cached Context Entries
-type CachedContextEntryList struct {
+// GlobalContextEntryList is a list of Cached Context Entries
+type GlobalContextEntryList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
 	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []CachedContextEntry `json:"items" yaml:"items"`
+	Items           []GlobalContextEntry `json:"items" yaml:"items"`
 }

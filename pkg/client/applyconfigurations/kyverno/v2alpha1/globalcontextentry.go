@@ -24,20 +24,20 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// CachedContextEntryApplyConfiguration represents an declarative configuration of the CachedContextEntry type for use
+// GlobalContextEntryApplyConfiguration represents an declarative configuration of the GlobalContextEntry type for use
 // with apply.
-type CachedContextEntryApplyConfiguration struct {
+type GlobalContextEntryApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",omitempty,inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *CachedContextEntrySpecApplyConfiguration `json:"spec,omitempty"`
+	Spec                             *GlobalContextEntrySpecApplyConfiguration `json:"spec,omitempty"`
 }
 
-// CachedContextEntry constructs an declarative configuration of the CachedContextEntry type for use with
+// GlobalContextEntry constructs an declarative configuration of the GlobalContextEntry type for use with
 // apply.
-func CachedContextEntry(name string) *CachedContextEntryApplyConfiguration {
-	b := &CachedContextEntryApplyConfiguration{}
+func GlobalContextEntry(name string) *GlobalContextEntryApplyConfiguration {
+	b := &GlobalContextEntryApplyConfiguration{}
 	b.WithName(name)
-	b.WithKind("CachedContextEntry")
+	b.WithKind("GlobalContextEntry")
 	b.WithAPIVersion("kyverno.io/v2alpha1")
 	return b
 }
@@ -45,7 +45,7 @@ func CachedContextEntry(name string) *CachedContextEntryApplyConfiguration {
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithKind(value string) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithKind(value string) *GlobalContextEntryApplyConfiguration {
 	b.Kind = &value
 	return b
 }
@@ -53,7 +53,7 @@ func (b *CachedContextEntryApplyConfiguration) WithKind(value string) *CachedCon
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithAPIVersion(value string) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithAPIVersion(value string) *GlobalContextEntryApplyConfiguration {
 	b.APIVersion = &value
 	return b
 }
@@ -61,7 +61,7 @@ func (b *CachedContextEntryApplyConfiguration) WithAPIVersion(value string) *Cac
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithName(value string) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithName(value string) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Name = &value
 	return b
@@ -70,7 +70,7 @@ func (b *CachedContextEntryApplyConfiguration) WithName(value string) *CachedCon
 // WithGenerateName sets the GenerateName field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the GenerateName field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithGenerateName(value string) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithGenerateName(value string) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.GenerateName = &value
 	return b
@@ -79,7 +79,7 @@ func (b *CachedContextEntryApplyConfiguration) WithGenerateName(value string) *C
 // WithNamespace sets the Namespace field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Namespace field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithNamespace(value string) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithNamespace(value string) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
 	return b
@@ -88,7 +88,7 @@ func (b *CachedContextEntryApplyConfiguration) WithNamespace(value string) *Cach
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithUID(value types.UID) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithUID(value types.UID) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.UID = &value
 	return b
@@ -97,7 +97,7 @@ func (b *CachedContextEntryApplyConfiguration) WithUID(value types.UID) *CachedC
 // WithResourceVersion sets the ResourceVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ResourceVersion field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithResourceVersion(value string) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithResourceVersion(value string) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ResourceVersion = &value
 	return b
@@ -106,7 +106,7 @@ func (b *CachedContextEntryApplyConfiguration) WithResourceVersion(value string)
 // WithGeneration sets the Generation field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Generation field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithGeneration(value int64) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithGeneration(value int64) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Generation = &value
 	return b
@@ -115,7 +115,7 @@ func (b *CachedContextEntryApplyConfiguration) WithGeneration(value int64) *Cach
 // WithCreationTimestamp sets the CreationTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CreationTimestamp field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithCreationTimestamp(value metav1.Time) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithCreationTimestamp(value metav1.Time) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.CreationTimestamp = &value
 	return b
@@ -124,7 +124,7 @@ func (b *CachedContextEntryApplyConfiguration) WithCreationTimestamp(value metav
 // WithDeletionTimestamp sets the DeletionTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionTimestamp field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.DeletionTimestamp = &value
 	return b
@@ -133,7 +133,7 @@ func (b *CachedContextEntryApplyConfiguration) WithDeletionTimestamp(value metav
 // WithDeletionGracePeriodSeconds sets the DeletionGracePeriodSeconds field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionGracePeriodSeconds field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.DeletionGracePeriodSeconds = &value
 	return b
@@ -143,7 +143,7 @@ func (b *CachedContextEntryApplyConfiguration) WithDeletionGracePeriodSeconds(va
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Labels field,
 // overwriting an existing map entries in Labels field with the same key.
-func (b *CachedContextEntryApplyConfiguration) WithLabels(entries map[string]string) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithLabels(entries map[string]string) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.Labels == nil && len(entries) > 0 {
 		b.Labels = make(map[string]string, len(entries))
@@ -158,7 +158,7 @@ func (b *CachedContextEntryApplyConfiguration) WithLabels(entries map[string]str
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Annotations field,
 // overwriting an existing map entries in Annotations field with the same key.
-func (b *CachedContextEntryApplyConfiguration) WithAnnotations(entries map[string]string) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithAnnotations(entries map[string]string) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.Annotations == nil && len(entries) > 0 {
 		b.Annotations = make(map[string]string, len(entries))
@@ -172,7 +172,7 @@ func (b *CachedContextEntryApplyConfiguration) WithAnnotations(entries map[strin
 // WithOwnerReferences adds the given value to the OwnerReferences field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the OwnerReferences field.
-func (b *CachedContextEntryApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		if values[i] == nil {
@@ -186,7 +186,7 @@ func (b *CachedContextEntryApplyConfiguration) WithOwnerReferences(values ...*v1
 // WithFinalizers adds the given value to the Finalizers field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Finalizers field.
-func (b *CachedContextEntryApplyConfiguration) WithFinalizers(values ...string) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithFinalizers(values ...string) *GlobalContextEntryApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		b.Finalizers = append(b.Finalizers, values[i])
@@ -194,7 +194,7 @@ func (b *CachedContextEntryApplyConfiguration) WithFinalizers(values ...string) 
 	return b
 }
 
-func (b *CachedContextEntryApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
+func (b *GlobalContextEntryApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
 	}
@@ -203,7 +203,7 @@ func (b *CachedContextEntryApplyConfiguration) ensureObjectMetaApplyConfiguratio
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *CachedContextEntryApplyConfiguration) WithSpec(value *CachedContextEntrySpecApplyConfiguration) *CachedContextEntryApplyConfiguration {
+func (b *GlobalContextEntryApplyConfiguration) WithSpec(value *GlobalContextEntrySpecApplyConfiguration) *GlobalContextEntryApplyConfiguration {
 	b.Spec = value
 	return b
 }

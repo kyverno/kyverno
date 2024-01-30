@@ -117,8 +117,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.RekorApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("RequestData"):
 		return &kyvernov1.RequestDataApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("ResourceCache"):
-		return &kyvernov1.ResourceCacheApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ResourceDescription"):
 		return &kyvernov1.ResourceDescriptionApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ResourceFilter"):
@@ -223,14 +221,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.UpdateRequestStatusApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
-	case v2alpha1.SchemeGroupVersion.WithKind("CachedContextEntry"):
-		return &kyvernov2alpha1.CachedContextEntryApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("CachedContextEntrySpec"):
-		return &kyvernov2alpha1.CachedContextEntrySpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CleanupPolicy"):
 		return &kyvernov2alpha1.CleanupPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
 		return &kyvernov2alpha1.ClusterCleanupPolicyApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntry"):
+		return &kyvernov2alpha1.GlobalContextEntryApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntrySpec"):
+		return &kyvernov2alpha1.GlobalContextEntrySpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2alpha1.PolicyExceptionApplyConfiguration{}
 

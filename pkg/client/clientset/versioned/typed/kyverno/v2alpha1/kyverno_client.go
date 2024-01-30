@@ -28,9 +28,9 @@ import (
 
 type KyvernoV2alpha1Interface interface {
 	RESTClient() rest.Interface
-	CachedContextEntriesGetter
 	CleanupPoliciesGetter
 	ClusterCleanupPoliciesGetter
+	GlobalContextEntriesGetter
 	PolicyExceptionsGetter
 }
 
@@ -39,16 +39,16 @@ type KyvernoV2alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *KyvernoV2alpha1Client) CachedContextEntries() CachedContextEntryInterface {
-	return newCachedContextEntries(c)
-}
-
 func (c *KyvernoV2alpha1Client) CleanupPolicies(namespace string) CleanupPolicyInterface {
 	return newCleanupPolicies(c, namespace)
 }
 
 func (c *KyvernoV2alpha1Client) ClusterCleanupPolicies() ClusterCleanupPolicyInterface {
 	return newClusterCleanupPolicies(c)
+}
+
+func (c *KyvernoV2alpha1Client) GlobalContextEntries() GlobalContextEntryInterface {
+	return newGlobalContextEntries(c)
 }
 
 func (c *KyvernoV2alpha1Client) PolicyExceptions(namespace string) PolicyExceptionInterface {

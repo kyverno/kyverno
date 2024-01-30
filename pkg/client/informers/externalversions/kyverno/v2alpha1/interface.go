@@ -24,12 +24,12 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// CachedContextEntries returns a CachedContextEntryInformer.
-	CachedContextEntries() CachedContextEntryInformer
 	// CleanupPolicies returns a CleanupPolicyInformer.
 	CleanupPolicies() CleanupPolicyInformer
 	// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
 	ClusterCleanupPolicies() ClusterCleanupPolicyInformer
+	// GlobalContextEntries returns a GlobalContextEntryInformer.
+	GlobalContextEntries() GlobalContextEntryInformer
 	// PolicyExceptions returns a PolicyExceptionInformer.
 	PolicyExceptions() PolicyExceptionInformer
 }
@@ -45,11 +45,6 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// CachedContextEntries returns a CachedContextEntryInformer.
-func (v *version) CachedContextEntries() CachedContextEntryInformer {
-	return &cachedContextEntryInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // CleanupPolicies returns a CleanupPolicyInformer.
 func (v *version) CleanupPolicies() CleanupPolicyInformer {
 	return &cleanupPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -58,6 +53,11 @@ func (v *version) CleanupPolicies() CleanupPolicyInformer {
 // ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
 func (v *version) ClusterCleanupPolicies() ClusterCleanupPolicyInformer {
 	return &clusterCleanupPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// GlobalContextEntries returns a GlobalContextEntryInformer.
+func (v *version) GlobalContextEntries() GlobalContextEntryInformer {
+	return &globalContextEntryInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyExceptions returns a PolicyExceptionInformer.

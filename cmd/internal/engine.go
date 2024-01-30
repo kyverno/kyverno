@@ -17,8 +17,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
+	resource "github.com/kyverno/kyverno/pkg/engine/globalcontext"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/engine/resource"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/dynamic"
@@ -125,9 +125,9 @@ func NewResourceCacheLoader(
 		logger.V(4).Info("resource caching is disabled")
 		return nil
 	}
-	var informer v2alpha1.CachedContextEntryInformer
+	var informer v2alpha1.GlobalContextEntryInformer
 	factory := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	informer = factory.Kyverno().V2alpha1().CachedContextEntries()
+	informer = factory.Kyverno().V2alpha1().GlobalContextEntries()
 	// start informers and wait for cache sync
 	if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
 		checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")

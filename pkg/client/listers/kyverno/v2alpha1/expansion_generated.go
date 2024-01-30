@@ -18,10 +18,6 @@ limitations under the License.
 
 package v2alpha1
 
-// CachedContextEntryListerExpansion allows custom methods to be added to
-// CachedContextEntryLister.
-type CachedContextEntryListerExpansion interface{}
-
 // CleanupPolicyListerExpansion allows custom methods to be added to
 // CleanupPolicyLister.
 type CleanupPolicyListerExpansion interface{}
@@ -33,6 +29,10 @@ type CleanupPolicyNamespaceListerExpansion interface{}
 // ClusterCleanupPolicyListerExpansion allows custom methods to be added to
 // ClusterCleanupPolicyLister.
 type ClusterCleanupPolicyListerExpansion interface{}
+
+// GlobalContextEntryListerExpansion allows custom methods to be added to
+// GlobalContextEntryLister.
+type GlobalContextEntryListerExpansion interface{}
 
 // PolicyExceptionListerExpansion allows custom methods to be added to
 // PolicyExceptionLister.

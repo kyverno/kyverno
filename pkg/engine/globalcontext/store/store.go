@@ -1,22 +1,19 @@
-package cache
+package store
 
 import (
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 )
 
-type Cache interface {
-	Set(key string, val ResourceEntry) bool
-	Get(key string) (ResourceEntry, bool)
+type Store interface {
+	Set(key string, val Entry) bool
+	Get(key string) (Entry, bool)
 	Delete(key string)
 }
 
-type ResourceEntry interface {
+type Entry interface {
 	Get() (interface{}, error)
-	LastUpdated() time.Time
 	Stop()
 }
 
@@ -28,13 +25,9 @@ func (i *invalidentry) Get() (interface{}, error) {
 	return nil, errors.Wrapf(i.err, "failed to create cached context entry")
 }
 
-func (i *invalidentry) LastUpdated() time.Time {
-	return time.Time{}
-}
-
 func (i *invalidentry) Stop() {}
 
-func NewInvalidEntry(err error) ResourceEntry {
+func NewInvalidEntry(err error) Entry {
 	return &invalidentry{
 		err: err,
 	}
@@ -42,16 +35,16 @@ func NewInvalidEntry(err error) ResourceEntry {
 
 type cache struct {
 	sync.RWMutex
-	store map[string]ResourceEntry
+	store map[string]Entry
 }
 
-func New() Cache {
+func New() Store {
 	return &cache{
-		store: make(map[string]ResourceEntry),
+		store: make(map[string]Entry),
 	}
 }
 
-func (l *cache) Set(key string, val ResourceEntry) bool {
+func (l *cache) Set(key string, val Entry) bool {
 	l.Lock()
 	defer l.Unlock()
 
@@ -64,22 +57,12 @@ func (l *cache) Set(key string, val ResourceEntry) bool {
 	return ok
 }
 
-func (l *cache) Get(prefix string) (ResourceEntry, bool) {
+func (l *cache) Get(key string) (Entry, bool) {
 	l.RLock()
 	defer l.RUnlock()
 
-	t := time.Time{}
-	var entry ResourceEntry = nil
-	for k, v := range l.store {
-		if !strings.HasPrefix(k, prefix) {
-			continue
-		}
-
-		if v.LastUpdated().After(t) {
-			entry = v
-		}
-	}
-	if entry == nil {
+	entry, ok := l.store[key]
+	if !ok {
 		return nil, false
 	}
 	return entry, true

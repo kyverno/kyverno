@@ -1575,7 +1575,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ResourceCache">ResourceCache</a>)
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
 </p>
 <p>
 <p>ExternalAPICall stores infos about API call that should be cached</p>
@@ -2461,7 +2461,7 @@ bool
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ResourceCache">ResourceCache</a>)
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
 </p>
 <p>
 <p>K8sResource stores infos about kubernetes resource that should be cached</p>
@@ -3231,10 +3231,6 @@ Kubernetes apiextensions/v1.JSON
 <h3 id="kyverno.io/v1.ResourceCache">ResourceCache
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.CachedContextEntrySpec">CachedContextEntrySpec</a>)
-</p>
-<p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -3246,28 +3242,13 @@ Kubernetes apiextensions/v1.JSON
 <tbody>
 <tr>
 <td>
-<code>k8sresource</code><br/>
+<code>name</code><br/>
 <em>
-<a href="#kyverno.io/v1.K8sResource">
-K8sResource
-</a>
+string
 </em>
 </td>
 <td>
-<p>K8sResource stores infos about kubernetes resource that should be cached</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>apiCall</code><br/>
-<em>
-<a href="#kyverno.io/v1.ExternalAPICall">
-ExternalAPICall
-</a>
-</em>
-</td>
-<td>
-<p>APICall stores infos about API call that should be cached</p>
+<p>Name of the global context entry</p>
 </td>
 </tr>
 <tr>
@@ -7542,93 +7523,14 @@ int
 </p>
 Resource Types:
 <ul><li>
-<a href="#kyverno.io/v2alpha1.CachedContextEntry">CachedContextEntry</a>
-</li><li>
 <a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>
 </li><li>
 <a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
 </li><li>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>
+</li><li>
 <a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>
 </li></ul>
-<hr />
-<h3 id="kyverno.io/v2alpha1.CachedContextEntry">CachedContextEntry
-</h3>
-<p>
-<p>CachedContextEntry declares resources to be cached.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v2alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>CachedContextEntry</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v2alpha1.CachedContextEntrySpec">
-CachedContextEntrySpec
-</a>
-</em>
-</td>
-<td>
-<p>Spec declares policy exception behaviors.</p>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>ResourceCache</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceCache">
-ResourceCache
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>ResourceCache</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
 <hr />
 <h3 id="kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy
 </h3>
@@ -7928,6 +7830,96 @@ CleanupPolicyStatus
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry
+</h3>
+<p>
+<p>GlobalContextEntry declares resources to be cached.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>GlobalContextEntry</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">
+GlobalContextEntrySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>k8sresource</code><br/>
+<em>
+<a href="#kyverno.io/v1.K8sResource">
+K8sResource
+</a>
+</em>
+</td>
+<td>
+<p>K8sResource stores infos about kubernetes resource that should be cached</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiCall</code><br/>
+<em>
+<a href="#kyverno.io/v1.ExternalAPICall">
+ExternalAPICall
+</a>
+</em>
+</td>
+<td>
+<p>APICall stores infos about API call that should be cached</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2alpha1.PolicyException">PolicyException
 </h3>
 <p>
@@ -8061,14 +8053,19 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2alpha1.CachedContextEntrySpec">CachedContextEntrySpec
+<h3 id="kyverno.io/v2alpha1.CleanupPolicyInterface">CleanupPolicyInterface
+</h3>
+<p>
+<p>CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)</p>
+</p>
+<h3 id="kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.CachedContextEntry">CachedContextEntry</a>)
+<a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>)
 </p>
 <p>
-<p>CachedContextEntrySpec stores policy exception spec</p>
+<p>GlobalContextEntrySpec stores policy exception spec</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -8080,27 +8077,33 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
 <tbody>
 <tr>
 <td>
-<code>ResourceCache</code><br/>
+<code>k8sresource</code><br/>
 <em>
-<a href="#kyverno.io/v1.ResourceCache">
-ResourceCache
+<a href="#kyverno.io/v1.K8sResource">
+K8sResource
 </a>
 </em>
 </td>
 <td>
-<p>
-(Members of <code>ResourceCache</code> are embedded into this type.)
-</p>
+<p>K8sResource stores infos about kubernetes resource that should be cached</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiCall</code><br/>
+<em>
+<a href="#kyverno.io/v1.ExternalAPICall">
+ExternalAPICall
+</a>
+</em>
+</td>
+<td>
+<p>APICall stores infos about API call that should be cached</p>
 </td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2alpha1.CleanupPolicyInterface">CleanupPolicyInterface
-</h3>
-<p>
-<p>CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)</p>
-</p>
 <h2 id="kyverno.io/v2beta1">kyverno.io/v2beta1</h2>
 Resource Types:
 <ul><li>

@@ -30,8 +30,10 @@ type WatchErrorHandler struct {
 
 func NewWatchErrorHandler(logger logr.Logger, resource schema.GroupVersionResource, namespace string) *WatchErrorHandler {
 	return &WatchErrorHandler{
-		logger: logger,
-		data:   NewEphemeralData(resyncPeriod),
+		logger:    logger,
+		data:      NewEphemeralData(resyncPeriod),
+		resource:  resource,
+		namespace: namespace,
 	}
 }
 
