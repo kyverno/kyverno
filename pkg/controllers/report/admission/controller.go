@@ -2,7 +2,6 @@ package admission
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -12,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
-	"github.com/kyverno/kyverno/pkg/report"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
@@ -38,9 +36,8 @@ const (
 
 type controller struct {
 	// clients
-	client        versioned.Interface
-	dclient       dclient.Interface
-	reportManager report.Interface
+	client  versioned.Interface
+	dclient dclient.Interface
 
 	// listers
 	admrLister  cache.GenericLister
@@ -54,18 +51,16 @@ func NewController(
 	client versioned.Interface,
 	dclient dclient.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
-	reportManager report.Interface,
 ) controllers.Controller {
-	admrInformer := reportManager.AdmissionReportInformer(metadataFactory)
-	cadmrInformer := reportManager.ClusterAdmissionReportInformer(metadataFactory)
+	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
+	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		client:        client,
-		dclient:       dclient,
-		reportManager: reportManager,
-		admrLister:    admrInformer.Lister(),
-		cadmrLister:   cadmrInformer.Lister(),
-		queue:         queue,
+		client:      client,
+		dclient:     dclient,
+		admrLister:  admrInformer.Lister(),
+		cadmrLister: cadmrInformer.Lister(),
+		queue:       queue,
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		admrInformer.Informer(),
@@ -115,9 +110,9 @@ func (c *controller) getReports(uid types.UID) ([]metav1.Object, error) {
 
 func (c *controller) fetchReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		return c.reportManager.GetClusterAdmissionReports(ctx, name, metav1.GetOptions{})
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
-		return c.reportManager.GetAdmissionReports(ctx, name, namespace, metav1.GetOptions{})
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
@@ -147,25 +142,17 @@ func (c *controller) fetchReports(ctx context.Context, uid types.UID) ([]kyverno
 	} else {
 		for n := range ns {
 			if n == "" {
-				cadmrsObj, err := c.reportManager.ListClusterAdmissionReports(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+				cadmrs, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 				if err != nil {
 					return nil, err
-				}
-				cadmrs, ok := cadmrsObj.(*kyvernov1alpha2.ClusterAdmissionReportList)
-				if !ok {
-					return nil, fmt.Errorf("failed to convert runtime object to cluster admission report list")
 				}
 				for i := range cadmrs.Items {
 					results = append(results, &cadmrs.Items[i])
 				}
 			} else {
-				admrsObj, err := c.reportManager.ListAdmissionReports(ctx, n, metav1.ListOptions{LabelSelector: selector.String()})
+				admrs, err := c.client.KyvernoV1alpha2().AdmissionReports(n).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 				if err != nil {
 					return nil, err
-				}
-				admrs, ok := admrsObj.(*kyvernov1alpha2.AdmissionReportList)
-				if !ok {
-					return nil, fmt.Errorf("failed to convert runtime object to admission report list")
 				}
 				for i := range admrs.Items {
 					results = append(results, &admrs.Items[i])
@@ -178,9 +165,9 @@ func (c *controller) fetchReports(ctx context.Context, uid types.UID) ([]kyverno
 
 func (c *controller) deleteReport(ctx context.Context, namespace, name string) error {
 	if namespace == "" {
-		return c.reportManager.DeleteClusterAdmissionReports(ctx, name, metav1.DeleteOptions{})
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, metav1.DeleteOptions{})
 	} else {
-		return c.reportManager.DeleteAdmissionReports(ctx, name, namespace, metav1.DeleteOptions{})
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	}
 }
 
@@ -237,7 +224,7 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		// if we found the resource, build an aggregated report for it
 		if res != nil {
 			if aggregated == nil {
-				aggregated = c.reportManager.NewAdmissionReport(res.GetNamespace(), string(uid), gvr, *res)
+				aggregated = reportutils.NewAdmissionReport(res.GetNamespace(), string(uid), gvr, res.GroupVersionKind(), *res)
 				controllerutils.SetOwner(aggregated, res.GetAPIVersion(), res.GetKind(), res.GetName(), uid)
 				controllerutils.SetLabel(aggregated, reportutils.LabelAggregatedReport, string(uid))
 			}
@@ -264,12 +251,12 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		}
 		after := aggregated
 		if aggregated.GetResourceVersion() != "" {
-			after = c.reportManager.DeepCopy(aggregated)
+			after = reportutils.DeepCopy(aggregated)
 		}
 		reportutils.SetResults(after, results...)
 		if after.GetResourceVersion() == "" {
 			if len(results) > 0 {
-				if _, err := c.reportManager.CreateReport(ctx, after); err != nil {
+				if _, err := reportutils.CreateReport(ctx, after, c.client); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -280,7 +267,7 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 				}
 			} else {
 				if !utils.ReportsAreIdentical(aggregated, after) {
-					if _, err = c.reportManager.UpdateReport(ctx, after); err != nil {
+					if _, err = reportutils.UpdateReport(ctx, after, c.client); err != nil {
 						errs = append(errs, err)
 					}
 				}
