@@ -326,6 +326,11 @@ func main() {
 		logging.WithName("EventGenerator"),
 		omitEventsValues...,
 	)
+	eventController := internal.NewController(
+		event.ControllerName,
+		eventGenerator,
+		event.Workers,
+	)
 	// this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(
 		setup.MetricsManager,
@@ -390,8 +395,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	// start event generator
-	go eventGenerator.Run(signalCtx, event.Workers, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -456,19 +459,6 @@ func main() {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
-	// start non leader controllers
-	for _, controller := range nonLeaderControllers {
-		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
-	}
-	// start leader election
-	go func() {
-		select {
-		case <-signalCtx.Done():
-			return
-		default:
-			le.Run(signalCtx)
-		}
-	}()
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
 		setup.KyvernoClient,
@@ -532,8 +522,15 @@ func main() {
 		os.Exit(1)
 	}
 	// start webhooks server
-	server.Run(signalCtx.Done())
+	server.Run()
+	defer server.Stop()
+	// start non leader controllers
+	eventController.Run(signalCtx, setup.Logger, &wg)
+	for _, controller := range nonLeaderControllers {
+		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
+	}
+	// start leader election
+	le.Run(signalCtx)
+	// wait for everything to shut down and exit
 	wg.Wait()
-	// say goodbye...
-	setup.Logger.V(2).Info("Kyverno shutdown successful")
 }

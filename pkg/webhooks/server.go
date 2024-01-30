@@ -32,7 +32,7 @@ type DebugModeOptions struct {
 
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
-	Run(<-chan struct{})
+	Run()
 	// Stop TLS server and returns control after the server is shut down
 	Stop()
 }
@@ -201,23 +201,17 @@ func NewServer(
 	}
 }
 
-func (s *server) Run(stopCh <-chan struct{}) {
+func (s *server) Run() {
 	go func() {
-		logger.V(3).Info("started serving requests", "addr", s.server.Addr)
-		if err := s.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-			logger.Error(err, "failed to listen to requests")
+		if err := s.server.ListenAndServeTLS("", ""); err != nil {
+			logging.Error(err, "failed to start server")
 		}
 	}()
-	logger.Info("starting service")
-
-	<-stopCh
-	s.Stop()
 }
 
 func (s *server) Stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-
 	s.cleanup(ctx)
 	err := s.server.Shutdown(ctx)
 	if err != nil {
