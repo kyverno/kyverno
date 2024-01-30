@@ -34,11 +34,11 @@ func CachedContextEntrySpec() *CachedContextEntrySpecApplyConfiguration {
 	return &CachedContextEntrySpecApplyConfiguration{}
 }
 
-// WithResource sets the Resource field in the declarative configuration to the given value
+// WithK8sResource sets the K8sResource field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Resource field is set to the value of the last call.
-func (b *CachedContextEntrySpecApplyConfiguration) WithResource(value *v1.K8sResourceApplyConfiguration) *CachedContextEntrySpecApplyConfiguration {
-	b.Resource = value
+// If called multiple times, the K8sResource field is set to the value of the last call.
+func (b *CachedContextEntrySpecApplyConfiguration) WithK8sResource(value *v1.K8sResourceApplyConfiguration) *CachedContextEntrySpecApplyConfiguration {
+	b.K8sResource = value
 	return b
 }
 

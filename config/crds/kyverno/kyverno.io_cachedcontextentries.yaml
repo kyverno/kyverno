@@ -97,8 +97,6 @@ spec:
                       same format used by the `kubectl get --raw` command. See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
                       for details.
                     type: string
-                required:
-                - refreshIntervalSeconds
                 type: object
               jmesPath:
                 description: JMESPath is an optional JSON Match Expression that can
@@ -107,8 +105,8 @@ spec:
                   server response for the URLPath "/apis/apps/v1/deployments" will
                   return the total count of deployments across all namespaces.
                 type: string
-              resource:
-                description: Resource stores infos about kubernetes resource that
+              k8sresource:
+                description: K8sResource stores infos about kubernetes resource that
                   should be cached
                 properties:
                   group:
@@ -124,10 +122,6 @@ spec:
                   version:
                     description: Version defines the version of the resource
                     type: string
-                required:
-                - group
-                - resource
-                - version
                 type: object
             type: object
         required:

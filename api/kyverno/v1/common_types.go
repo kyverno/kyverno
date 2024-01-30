@@ -175,13 +175,13 @@ type APICall struct {
 }
 
 type ResourceCache struct {
-	// Resource stores infos about kubernetes resource that should be cached
+	// K8sResource stores infos about kubernetes resource that should be cached
 	// +kubebuilder:validation:Optional
-	Resource *K8sResource `json:"resource" yaml:"resource"`
+	K8sResource *K8sResource `json:"k8sresource,omitempty" yaml:"k8sresource,omitempty"`
 
 	// APICall stores infos about API call that should be cached
 	// +kubebuilder:validation:Optional
-	APICall *ExternalAPICall `json:"apiCall" yaml:"apiCall"`
+	APICall *ExternalAPICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example
@@ -195,14 +195,14 @@ type ResourceCache struct {
 // K8sResource stores infos about kubernetes resource that should be cached
 type K8sResource struct {
 	// Group defines the group of the resource
-	Group string `json:"group" yaml:"group"`
+	Group string `json:"group,omitempty" yaml:"group,omitempty"`
 	// Version defines the version of the resource
-	Version string `json:"version" yaml:"version"`
+	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 	// Resource defines the type of the resource
-	Resource string `json:"resource" yaml:"resource"`
+	Resource string `json:"resource,omitempty" yaml:"resource,omitempty"`
 	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 	// +kubebuilder:validation:Optional
-	Namespace string `json:"namespace" yaml:"namespace"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
 // Validate implements programmatic validation
@@ -224,7 +224,7 @@ type ExternalAPICall struct {
 	APICall `json:",inline,omitempty" yaml:",inline,omitempty"`
 	// Group defines the group of the resource
 	// +kubebuilder:default=0
-	RefreshIntervalSeconds int64 `json:"refreshIntervalSeconds" yaml:"refreshIntervalSeconds"`
+	RefreshIntervalSeconds int64 `json:"refreshIntervalSeconds,omitempty" yaml:"refreshIntervalSeconds,omitempty"`
 }
 
 // Validate implements programmatic validation

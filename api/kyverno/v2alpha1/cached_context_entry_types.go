@@ -57,7 +57,7 @@ func (c *CachedContextEntrySpec) IsAPICall() bool {
 }
 
 func (c *CachedContextEntrySpec) IsResource() bool {
-	return c.Resource != nil
+	return c.K8sResource != nil
 }
 
 // Validate implements programmatic validation
@@ -69,7 +69,7 @@ func (c *CachedContextEntrySpec) Validate(path *field.Path) (errs field.ErrorLis
 		errs = append(errs, field.Forbidden(path.Child("resource"), "An External API Call entry requires a url"))
 	}
 	if c.IsResource() {
-		errs = append(errs, c.Resource.Validate(path.Child("resource"))...)
+		errs = append(errs, c.K8sResource.Validate(path.Child("resource"))...)
 	}
 	if c.IsAPICall() {
 		errs = append(errs, c.APICall.Validate(path.Child("apiCall"))...)

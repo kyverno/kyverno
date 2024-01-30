@@ -21,9 +21,9 @@ package v1
 // ResourceCacheApplyConfiguration represents an declarative configuration of the ResourceCache type for use
 // with apply.
 type ResourceCacheApplyConfiguration struct {
-	Resource *K8sResourceApplyConfiguration     `json:"resource,omitempty"`
-	APICall  *ExternalAPICallApplyConfiguration `json:"apiCall,omitempty"`
-	JMESPath *string                            `json:"jmesPath,omitempty"`
+	K8sResource *K8sResourceApplyConfiguration     `json:"k8sresource,omitempty"`
+	APICall     *ExternalAPICallApplyConfiguration `json:"apiCall,omitempty"`
+	JMESPath    *string                            `json:"jmesPath,omitempty"`
 }
 
 // ResourceCacheApplyConfiguration constructs an declarative configuration of the ResourceCache type for use with
@@ -32,11 +32,11 @@ func ResourceCache() *ResourceCacheApplyConfiguration {
 	return &ResourceCacheApplyConfiguration{}
 }
 
-// WithResource sets the Resource field in the declarative configuration to the given value
+// WithK8sResource sets the K8sResource field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Resource field is set to the value of the last call.
-func (b *ResourceCacheApplyConfiguration) WithResource(value *K8sResourceApplyConfiguration) *ResourceCacheApplyConfiguration {
-	b.Resource = value
+// If called multiple times, the K8sResource field is set to the value of the last call.
+func (b *ResourceCacheApplyConfiguration) WithK8sResource(value *K8sResourceApplyConfiguration) *ResourceCacheApplyConfiguration {
+	b.K8sResource = value
 	return b
 }
 
