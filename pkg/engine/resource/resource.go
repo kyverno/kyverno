@@ -84,7 +84,6 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 			}
 		},
 	})
-
 	if err != nil {
 		cancel()
 		return nil, err
