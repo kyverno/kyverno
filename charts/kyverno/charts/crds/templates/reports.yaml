@@ -34,6 +34,9 @@ spec:
     - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
       type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/source']
+      name: Source
+      type: string
     - jsonPath: .spec.summary.pass
       name: Pass
       type: integer
@@ -372,6 +375,9 @@ spec:
       type: string
     - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/source']
+      name: Source
       type: string
     - jsonPath: .spec.summary.pass
       name: Pass
