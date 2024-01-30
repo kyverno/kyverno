@@ -41,13 +41,13 @@ func TestAddOperationsForValidatingWebhookConf(t *testing.T) {
 					},
 					ExcludeResources: kyverno.MatchResources{
 						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []kyverno.AdmissionOperation{"DELETE"},
+							Operations: []kyverno.AdmissionOperation{"DELETE", "CONNECT", "CREATE"},
 						},
 					},
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"ConfigMap": {"CREATE", "UPDATE", "CONNECT"},
+				"ConfigMap": {"UPDATE"},
 			},
 		},
 	}
