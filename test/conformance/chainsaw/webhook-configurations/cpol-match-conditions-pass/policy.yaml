@@ -8,7 +8,7 @@ metadata:
 spec:
   admission: true
   background: true
-  webhookConfigurations:
+  webhookConfiguration:
     matchConditions:
     - name: "select-namespace"
       expression: '(object.metadata.namespace == "cpol-fine-grained-match-conditions-pass-ns")'
