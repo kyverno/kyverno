@@ -50580,15 +50580,6 @@ rules:
       - list
       - deletecollection
       - delete
-  - apiGroups:
-      - reports.kyverno.io
-    resources:
-      - ephemeralreports
-      - clusterephemeralreports
-    verbs:
-      - list
-      - deletecollection
-      - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -51973,6 +51964,7 @@ spec:
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: 3
       template:
         metadata:
         spec:
@@ -51982,13 +51974,14 @@ spec:
             image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
-              COUNT=$(kubectl get admissionreports.reports.kyverno.io -A | wc -l)
+              set -euo pipefail
+              COUNT=$(kubectl get admissionreports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt 10000 ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
-                kubectl delete admissionreports.reports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+                kubectl delete admissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
@@ -52021,6 +52014,7 @@ spec:
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: 3
       template:
         metadata:
         spec:
@@ -52030,13 +52024,14 @@ spec:
             image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
-              COUNT=$(kubectl get clusteradmissionreports.reports.kyverno.io -A | wc -l)
+              set -euo pipefail
+              COUNT=$(kubectl get clusteradmissionreports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt 10000 ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
-                kubectl delete clusteradmissionreports.reports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+                kubectl delete clusteradmissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi

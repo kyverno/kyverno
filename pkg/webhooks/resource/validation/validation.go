@@ -191,9 +191,9 @@ func (v *validationHandler) handleAudit(
 			v.eventGen.Add(events...)
 			if createReport {
 				responses = append(responses, engineResponses...)
-				admissionReport := report.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
-				if len(admissionReport.GetResults()) > 0 {
-					_, err = report.CreateReport(ctx, admissionReport, v.kyvernoClient)
+				report := report.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
+				if len(report.GetResults()) > 0 {
+					_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
 					if err != nil {
 						v.log.Error(err, "failed to create report")
 					}

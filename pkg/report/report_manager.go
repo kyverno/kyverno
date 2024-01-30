@@ -7,6 +7,7 @@ import (
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -61,19 +62,11 @@ func NewReportManager(storeInDB bool, client versioned.Interface) Interface {
 }
 
 func (r *reportManager) CreateReport(ctx context.Context, report kyvernov1alpha2.ReportInterface) (kyvernov1alpha2.ReportInterface, error) {
-	if r.storeInDB {
-		return CreateReport(ctx, report, r.client)
-	} else {
-		return createV1Alpha1Report(ctx, report, r.client)
-	}
+	return reportutils.CreateReport(ctx, report, r.client)
 }
 
 func (r *reportManager) UpdateReport(ctx context.Context, report kyvernov1alpha2.ReportInterface) (kyvernov1alpha2.ReportInterface, error) {
-	if r.storeInDB {
-		return updateReportsV1Report(ctx, report, r.client)
-	} else {
-		return updateV1Alpha1Report(ctx, report, r.client)
-	}
+	return reportutils.UpdateReport(ctx, report, r.client)
 }
 
 func (r *reportManager) DeleteReport(ctx context.Context, report kyvernov1alpha2.ReportInterface) error {
@@ -182,7 +175,7 @@ func (r *reportManager) DeleteClusterBackgroundScanReports(ctx context.Context, 
 
 func (r *reportManager) NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource, resource unstructured.Unstructured) kyvernov1alpha2.ReportInterface {
 	if r.storeInDB {
-		return newAdmissionReportReportV1(namespace, name, gvr, resource)
+		return NewAdmissionReport(namespace, name, gvr, resource)
 	} else {
 		return newAdmissionReportV1Alpha1(namespace, name, gvr, resource)
 	}
@@ -198,7 +191,7 @@ func (r *reportManager) BuildAdmissionReport(resource unstructured.Unstructured,
 
 func (r *reportManager) NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportInterface {
 	if r.storeInDB {
-		return newBackgroundScanReportReportsV1(namespace, name, gvk, owner, uid)
+		return NewBackgroundScanReport(namespace, name, gvk, owner, uid)
 	} else {
 		return newBackgroundScanReportV1Alpha1(namespace, name, gvk, owner, uid)
 	}

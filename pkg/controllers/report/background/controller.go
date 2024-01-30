@@ -22,6 +22,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/report"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -52,8 +53,7 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	// reportManager report.Interface
-	engine engineapi.Engine
+	engine        engineapi.Engine
 
 	// listers
 	polLister        kyvernov1listers.PolicyLister
@@ -82,7 +82,6 @@ type controller struct {
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	// reportManager report.Interface,
 	engine engineapi.Engine,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
@@ -102,9 +101,8 @@ func NewController(
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		// reportManager:  reportManager,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
 		engine:         engine,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
@@ -329,7 +327,7 @@ func (c *controller) reconcileReport(
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
+		observed = report.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
 	}
 	// build desired report
 	expected := map[string]string{}
@@ -453,7 +451,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov
 	if !hasReport && !wantsReport {
 		return nil
 	} else if !hasReport && wantsReport {
-		_, err = reportutils.CreateReport(ctx, desired)
+		_, err = reportutils.CreateReport(ctx, desired, c.kyvernoClient)
 		return err
 	} else if hasReport && !wantsReport {
 		if observed.GetNamespace() == "" {
@@ -465,7 +463,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov
 		if utils.ReportsAreIdentical(observed, desired) {
 			return nil
 		}
-		_, err = reportutils.UpdateReport(ctx, desired)
+		_, err = reportutils.UpdateReport(ctx, desired, c.kyvernoClient)
 		return err
 	}
 }

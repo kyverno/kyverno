@@ -106,7 +106,6 @@ func createReportControllers(
 					kyvernoClient,
 					client,
 					metadataFactory,
-					reportManager,
 				),
 				admissionreportcontroller.Workers,
 			))

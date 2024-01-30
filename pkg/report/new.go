@@ -35,7 +35,7 @@ func buildAdmissionReportV1Alpha1(resource unstructured.Unstructured, request ad
 	return report
 }
 
-func newAdmissionReportReportV1(namespace, name string, gvr schema.GroupVersionResource, resource unstructured.Unstructured) kyvernov1alpha2.ReportInterface {
+func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource, resource unstructured.Unstructured) kyvernov1alpha2.ReportInterface {
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &reportsv1.ClusterEphemeralReport{Spec: reportsv1.EphemeralReportSpec{}}
@@ -52,7 +52,7 @@ func newAdmissionReportReportV1(namespace, name string, gvr schema.GroupVersionR
 }
 
 func BuildAdmissionReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) kyvernov1alpha2.ReportInterface {
-	report := newAdmissionReportReportV1(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), resource)
+	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), resource)
 	reportutils.SetResponses(report, responses...)
 	return report
 }
@@ -72,7 +72,7 @@ func newBackgroundScanReportV1Alpha1(namespace, name string, gvk schema.GroupVer
 	return report
 }
 
-func newBackgroundScanReportReportsV1(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportInterface {
+func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportInterface {
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &reportsv1.ClusterEphemeralReport{}

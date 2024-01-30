@@ -174,9 +174,9 @@ func (v *imageVerificationHandler) handleAudit(
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
 			if createReport {
-				admissionReport := report.BuildAdmissionReport(resource, request, engineResponses...)
-				if len(admissionReport.GetResults()) > 0 {
-					_, err := report.CreateReport(context.Background(), admissionReport, v.kyvernoClient)
+				report := report.BuildAdmissionReport(resource, request, engineResponses...)
+				if len(report.GetResults()) > 0 {
+					_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
 					if err != nil {
 						v.log.Error(err, "failed to create report")
 					}
