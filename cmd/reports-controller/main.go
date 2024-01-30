@@ -24,7 +24,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/report"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -47,7 +46,6 @@ func createReportControllers(
 	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	reportManager report.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -158,7 +156,6 @@ func createrLeaderControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	metadataInformer metadatainformers.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
-	reportManager report.Interface,
 	dynamicClient dclient.Interface,
 	configuration config.Configuration,
 	jp jmespath.Interface,
@@ -176,7 +173,6 @@ func createrLeaderControllers(
 		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
-		reportManager,
 		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
@@ -320,7 +316,6 @@ func main() {
 				kyvernoInformer,
 				metadataInformer,
 				setup.KyvernoClient,
-				setup.ReportManager,
 				setup.KyvernoDynamicClient,
 				setup.Configuration,
 				setup.Jp,
