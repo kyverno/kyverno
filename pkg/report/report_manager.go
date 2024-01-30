@@ -70,11 +70,7 @@ func (r *reportManager) UpdateReport(ctx context.Context, report kyvernov1alpha2
 }
 
 func (r *reportManager) DeleteReport(ctx context.Context, report kyvernov1alpha2.ReportInterface) error {
-	if r.storeInDB {
-		return deleteReportV1Reports(ctx, report, r.client)
-	} else {
-		return deleteV1Alpha1Reports(ctx, report, r.client)
-	}
+	return reportutils.DeleteReport(ctx, report, r.client)
 }
 
 func (r *reportManager) GetAdmissionReports(ctx context.Context, name string, namespace string, opts metav1.GetOptions) (kyvernov1alpha2.ReportInterface, error) {
