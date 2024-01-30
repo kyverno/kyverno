@@ -51760,6 +51760,7 @@ spec:
             - --dumpPayload=false
             - --loggingFormat=text
             - --v=2
+            - --protectManagedResources=false
             - --ttlReconciliationInterval=1m
             
           env:
