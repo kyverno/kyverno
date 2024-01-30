@@ -22,7 +22,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/report"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -53,8 +52,8 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	reportManager report.Interface
-	engine        engineapi.Engine
+	// reportManager report.Interface
+	engine engineapi.Engine
 
 	// listers
 	polLister        kyvernov1listers.PolicyLister
@@ -83,7 +82,7 @@ type controller struct {
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	reportManager report.Interface,
+	// reportManager report.Interface,
 	engine engineapi.Engine,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
@@ -99,13 +98,13 @@ func NewController(
 	eventGen event.Interface,
 	policyReports bool,
 ) controllers.Controller {
-	bgscanr := reportManager.BackgroundScanReportInformer(metadataFactory)
-	cbgscanr := reportManager.ClusterBackgroundScanReportInformer(metadataFactory)
+	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
+	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		reportManager:  reportManager,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		// reportManager:  reportManager,
 		engine:         engine,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
@@ -225,9 +224,9 @@ func (c *controller) enqueueResources() {
 
 func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		return c.reportManager.GetClusterBackgroundScanReports(ctx, name, metav1.GetOptions{})
+		return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
-		return c.reportManager.GetBackgroundScanReports(ctx, name, namespace, metav1.GetOptions{})
+		return c.kyvernoClient.ReportsV1().EphemeralReports(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
@@ -330,7 +329,7 @@ func (c *controller) reconcileReport(
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		observed = c.reportManager.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
+		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
 	}
 	// build desired report
 	expected := map[string]string{}
@@ -343,7 +342,6 @@ func (c *controller) reconcileReport(
 	for _, binding := range bindings {
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
 	}
-
 	actual := map[string]string{}
 	for key, value := range observed.GetLabels() {
 		if reportutils.IsPolicyLabel(key) {
@@ -366,7 +364,6 @@ func (c *controller) reconcileReport(
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
-
 		for _, exception := range exceptions {
 			key, err := cache.MetaNamespaceKeyFunc(exception)
 			if err != nil {
@@ -374,7 +371,6 @@ func (c *controller) reconcileReport(
 			}
 			policyNameToLabel[key] = reportutils.PolicyExceptionLabel(exception)
 		}
-
 		for _, binding := range bindings {
 			key, err := cache.MetaNamespaceKeyFunc(binding)
 			if err != nil {
@@ -382,7 +378,6 @@ func (c *controller) reconcileReport(
 			}
 			policyNameToLabel[key] = reportutils.ValidatingAdmissionPolicyBindingLabel(binding)
 		}
-
 		for _, result := range observed.GetResults() {
 			// if the policy did not change, keep the result
 			label := policyNameToLabel[result.Policy]
@@ -425,7 +420,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 	}
-	desired := c.reportManager.DeepCopy(observed)
+	desired := reportutils.DeepCopy(observed)
 	for key := range desired.GetLabels() {
 		if reportutils.IsPolicyLabel(key) {
 			delete(desired.GetLabels(), key)
@@ -458,19 +453,19 @@ func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov
 	if !hasReport && !wantsReport {
 		return nil
 	} else if !hasReport && wantsReport {
-		_, err = c.reportManager.CreateReport(ctx, desired)
+		_, err = reportutils.CreateReport(ctx, desired)
 		return err
 	} else if hasReport && !wantsReport {
 		if observed.GetNamespace() == "" {
-			return c.reportManager.DeleteClusterBackgroundScanReports(ctx, observed.GetName(), metav1.DeleteOptions{})
+			return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
 		} else {
-			return c.reportManager.DeleteBackgroundScanReports(ctx, observed.GetName(), observed.GetNamespace(), metav1.DeleteOptions{})
+			return c.kyvernoClient.ReportsV1().EphemeralReports(observed.GetNamespace()).Delete(ctx, observed.GetName(), metav1.DeleteOptions{})
 		}
 	} else {
 		if utils.ReportsAreIdentical(observed, desired) {
 			return nil
 		}
-		_, err = c.reportManager.UpdateReport(ctx, desired)
+		_, err = reportutils.UpdateReport(ctx, desired)
 		return err
 	}
 }
@@ -490,9 +485,9 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			return nil
 		} else {
 			if report.GetNamespace() == "" {
-				return c.reportManager.DeleteClusterBackgroundScanReports(ctx, report.GetName(), metav1.DeleteOptions{})
+				return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Delete(ctx, report.GetName(), metav1.DeleteOptions{})
 			} else {
-				return c.reportManager.DeleteBackgroundScanReports(ctx, report.GetName(), report.GetNamespace(), metav1.DeleteOptions{})
+				return c.kyvernoClient.ReportsV1().EphemeralReports(report.GetNamespace()).Delete(ctx, report.GetName(), metav1.DeleteOptions{})
 			}
 		}
 	}

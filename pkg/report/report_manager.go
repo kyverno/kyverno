@@ -51,8 +51,6 @@ type Interface interface {
 	ClusterAdmissionReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
 	BackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
 	ClusterBackgroundScanReportInformer(metadataFactory metadatainformers.SharedInformerFactory) informers.GenericInformer
-
-	DeepCopy(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.ReportInterface
 }
 
 func NewReportManager(storeInDB bool, client versioned.Interface) Interface {
@@ -235,13 +233,5 @@ func (r *reportManager) ClusterBackgroundScanReportInformer(metadataFactory meta
 		return metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	} else {
 		return metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
-	}
-}
-
-func (r *reportManager) DeepCopy(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.ReportInterface {
-	if r.storeInDB {
-		return deepCopyReportV1(report)
-	} else {
-		return deepCopyV1Alpha2(report)
 	}
 }

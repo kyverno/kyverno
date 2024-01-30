@@ -115,7 +115,6 @@ func createReportControllers(
 			backgroundScanController := backgroundscancontroller.NewController(
 				client,
 				kyvernoClient,
-				reportManager,
 				eng,
 				metadataFactory,
 				kyvernoV1.Policies(),
