@@ -29,7 +29,7 @@ func (i *invalidentry) Get() (interface{}, error) {
 }
 
 func (i *invalidentry) LastUpdated() time.Time {
-	return time.Now()
+	return time.Time{}
 }
 
 func (i *invalidentry) Stop() {}
