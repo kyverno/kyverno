@@ -17,7 +17,7 @@ require (
 	github.com/distribution/reference v0.5.0
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/fatih/color v1.16.0
-	github.com/fluxcd/pkg/oci v0.34.0
+	github.com/fluxcd/pkg/oci v0.35.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.11.0
