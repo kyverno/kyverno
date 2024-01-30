@@ -87,16 +87,16 @@ func New(logger logr.Logger, config apicall.APICallConfiguration) *ExternalAPILo
 	}
 }
 
-func (e *ExternalAPILoader) AddEntries(entries ...*v2alpha1.CachedContextEntry) {
+func (e *ExternalAPILoader) SetEntries(entries ...*v2alpha1.CachedContextEntry) {
 	for _, entry := range entries {
 		if entry.Spec.APICall == nil {
 			continue
 		}
-		e.AddEntry(entry)
+		e.SetEntry(entry)
 	}
 }
 
-func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) {
+func (e *ExternalAPILoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
 	if entry.Spec.APICall == nil {
 		return
 	}
@@ -112,7 +112,7 @@ func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) {
 	if err != nil {
 		err := fmt.Errorf("failed to initiaize APICall: %w", err)
 		e.logger.Error(err, "")
-		_ = e.cache.Add(key, cache.NewInvalidEntry(err))
+		_ = e.cache.Set(key, cache.NewInvalidEntry(err))
 		return
 	}
 
@@ -131,14 +131,14 @@ func (e *ExternalAPILoader) AddEntry(entry *v2alpha1.CachedContextEntry) {
 	data, err := extEntry.apicaller.Execute(ctx, extEntry.call)
 	if err != nil {
 		cancel()
-		_ = e.cache.Add(key, cache.NewInvalidEntry(err))
+		_ = e.cache.Set(key, cache.NewInvalidEntry(err))
 		return
 	}
 	extEntry.data = data
 
 	go extEntry.Poller().Run(ctx, ctx.Done())
 
-	ok := e.cache.Add(key, extEntry.Getter())
+	ok := e.cache.Set(key, extEntry.Getter())
 	if !ok {
 		err := fmt.Errorf("failed to create cache entry key=%s", key)
 		e.logger.Error(err, "")

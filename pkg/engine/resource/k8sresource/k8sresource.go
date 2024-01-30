@@ -69,16 +69,16 @@ func New(logger logr.Logger, dclient dynamic.Interface, c cache.Cache) *Resource
 	}
 }
 
-func (r *ResourceLoader) AddEntries(entries ...*v2alpha1.CachedContextEntry) {
+func (r *ResourceLoader) SetEntries(entries ...*v2alpha1.CachedContextEntry) {
 	for _, entry := range entries {
 		if entry.Spec.Resource == nil {
 			continue
 		}
-		r.AddEntry(entry)
+		r.SetEntry(entry)
 	}
 }
 
-func (r *ResourceLoader) AddEntry(entry *v2alpha1.CachedContextEntry) {
+func (r *ResourceLoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
 	if entry.Spec.Resource == nil {
 		return
 	}
@@ -93,7 +93,7 @@ func (r *ResourceLoader) AddEntry(entry *v2alpha1.CachedContextEntry) {
 	if err != nil {
 		ent = cache.NewInvalidEntry(err)
 	}
-	ok := r.cache.Add(key, ent)
+	ok := r.cache.Set(key, ent)
 	if !ok {
 		err := fmt.Errorf("failed to create cache entry key=%s", key)
 		r.logger.Error(err, "")

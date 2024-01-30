@@ -57,36 +57,22 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 				return
 			}
 			if entry.Spec.IsResource() {
-				k8sloader.AddEntry(entry)
+				k8sloader.SetEntry(entry)
 			} else if entry.Spec.IsAPICall() {
-				extloader.AddEntry(entry)
+				extloader.SetEntry(entry)
 			}
 		},
-		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+		UpdateFunc: func(_ interface{}, newObj interface{}) {
 			logger.V(4).Info("cached context entry updated, updating cache entry")
 			newentry, ok := newObj.(*kyvernov2alpha1.CachedContextEntry)
 			if !ok {
 				return
 			}
-			oldentry, ok := oldObj.(*kyvernov2alpha1.CachedContextEntry)
-			if !ok {
-				return
-			}
 
 			if newentry.Spec.IsResource() {
-				err := k8sloader.Delete(oldentry)
-				if err != nil {
-					logger.Error(err, "failed to delete entry from k8s loader")
-					return
-				}
-				k8sloader.AddEntry(newentry)
+				k8sloader.SetEntry(newentry)
 			} else if newentry.Spec.IsAPICall() {
-				err := extloader.Delete(oldentry)
-				if err != nil {
-					logger.Error(err, "failed to delete entry from external api loader")
-					return
-				}
-				extloader.AddEntry(newentry)
+				extloader.SetEntry(newentry)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -130,8 +116,8 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 		return nil, err
 	}
 
-	k8sloader.AddEntries(entries...)
-	extloader.AddEntries(entries...)
+	k8sloader.SetEntries(entries...)
+	extloader.SetEntries(entries...)
 
 	return &resourceCache{
 		logger:    logger,

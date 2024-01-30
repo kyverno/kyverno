@@ -8,9 +8,8 @@ import (
 )
 
 type Cache interface {
-	Add(key string, val ResourceEntry) bool
+	Set(key string, val ResourceEntry) bool
 	Get(key string) (ResourceEntry, bool)
-	Update(key string, val ResourceEntry) bool
 	Delete(key string) bool
 }
 
@@ -58,7 +57,7 @@ func New() (Cache, error) {
 	}, nil
 }
 
-func (l *cache) Add(key string, val ResourceEntry) bool {
+func (l *cache) Set(key string, val ResourceEntry) bool {
 	l.Lock()
 	defer l.Unlock()
 	return l.store.Set(key, val, 0)
@@ -77,12 +76,6 @@ func (l *cache) Get(key string) (ResourceEntry, bool) {
 		return nil, ok
 	}
 	return entry, ok
-}
-
-func (l *cache) Update(key string, val ResourceEntry) bool {
-	l.Lock()
-	defer l.Unlock()
-	return l.store.Set(key, val, 0)
 }
 
 func (l *cache) Delete(key string) bool {
