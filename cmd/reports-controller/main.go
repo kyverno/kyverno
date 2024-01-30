@@ -89,7 +89,6 @@ func createReportControllers(
 				aggregatereportcontroller.NewController(
 					kyvernoClient,
 					metadataFactory,
-					reportManager,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					vapInformer,

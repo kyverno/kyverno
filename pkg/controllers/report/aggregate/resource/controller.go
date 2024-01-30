@@ -14,7 +14,6 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
-	"github.com/kyverno/kyverno/pkg/report"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
@@ -40,8 +39,7 @@ const (
 
 type controller struct {
 	// clients
-	client        versioned.Interface
-	reportManager report.Interface
+	client versioned.Interface
 
 	// listers
 	polLister  kyvernov1listers.PolicyLister
@@ -65,22 +63,20 @@ type policyMapEntry struct {
 func NewController(
 	client versioned.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
-	reportManager report.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	metadataCache resource.MetadataCache,
 	chunkSize int,
 ) controllers.Controller {
-	admrInformer := reportManager.AdmissionReportInformer(metadataFactory)
-	cadmrInformer := reportManager.ClusterAdmissionReportInformer(metadataFactory)
-	bgscanrInformer := reportManager.BackgroundScanReportInformer(metadataFactory)
-	cbgscanrInformer := reportManager.ClusterBackgroundScanReportInformer(metadataFactory)
+	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
+	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
+	bgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
+	cbgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
 	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
 	c := controller{
 		client:        client,
-		reportManager: reportManager,
 		polLister:     polInformer.Lister(),
 		cpolLister:    cpolInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
@@ -220,7 +216,7 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 
 func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		report, err := c.reportManager.GetClusterBackgroundScanReports(ctx, name, metav1.GetOptions{})
+		report, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
@@ -229,7 +225,7 @@ func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, nam
 		}
 		return report, nil
 	} else {
-		report, err := c.reportManager.GetBackgroundScanReports(ctx, name, namespace, metav1.GetOptions{})
+		report, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
@@ -242,7 +238,7 @@ func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, nam
 
 func (c *controller) getAdmissionReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		report, err := c.reportManager.GetClusterAdmissionReports(ctx, name, metav1.GetOptions{})
+		report, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
@@ -251,7 +247,7 @@ func (c *controller) getAdmissionReport(ctx context.Context, namespace, name str
 		}
 		return report, nil
 	} else {
-		report, err := c.reportManager.GetAdmissionReports(ctx, name, namespace, metav1.GetOptions{})
+		report, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil, nil
@@ -338,29 +334,29 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		}
 		if len(results) == 0 {
 			if !create {
-				if err := deleteReport(ctx, policyReport, c.reportManager); err != nil {
+				if err := deleteReport(ctx, policyReport, c.client); err != nil {
 					return err
 				}
 			}
 		} else {
 			reportutils.SetResults(policyReport, results...)
 			if create {
-				if _, err := c.reportManager.CreateReport(ctx, policyReport); err != nil {
+				if _, err := reportutils.CreateReport(ctx, policyReport, c.client); err != nil {
 					return err
 				}
 			} else {
-				if _, err := updateReport(ctx, policyReport, c.reportManager); err != nil {
+				if _, err := updateReport(ctx, policyReport, c.client); err != nil {
 					return err
 				}
 			}
 		}
 		if admissionReport != nil {
-			if err := deleteReport(ctx, admissionReport, c.reportManager); err != nil {
+			if err := deleteReport(ctx, admissionReport, c.client); err != nil {
 				return err
 			}
 		}
 		if backgroundReport != nil {
-			if err := deleteReport(ctx, backgroundReport, c.reportManager); err != nil {
+			if err := deleteReport(ctx, backgroundReport, c.client); err != nil {
 				return err
 			}
 		}
@@ -370,7 +366,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 			return err
 		}
 		if policyReport != nil {
-			if err := deleteReport(ctx, policyReport, c.reportManager); err != nil {
+			if err := deleteReport(ctx, policyReport, c.client); err != nil {
 				return err
 			}
 		}
