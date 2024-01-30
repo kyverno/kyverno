@@ -33,6 +33,8 @@ var (
 	kubeconfig           string
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
+	eventsRateLimitQPS   float64
+	eventsRateLimitBurst int
 	// engine
 	enablePolicyException  bool
 	exceptionNamespace     string
@@ -83,10 +85,12 @@ func initMetricsFlags() {
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 }
 
-func initKubeconfigFlags(qps float64, burst int) {
+func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst int) {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flag.Float64Var(&eventsRateLimitQPS, "eventsRateLimitQPS", eventsQPS, "Configure the maximum QPS to the Kubernetes API server from Kyverno for events. Uses the client default if zero.")
+	flag.IntVar(&eventsRateLimitBurst, "eventsRateLimitBurst", eventsBurst, "Configure the maximum burst for throttle for events. Uses the client default if zero.")
 }
 
 func initPolicyExceptionsFlags() {
@@ -132,12 +136,16 @@ func initCleanupFlags() {
 type options struct {
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
+	eventsRateLimitQPS   float64
+	eventsRateLimitBurst int
 }
 
 func newOptions() options {
 	return options{
 		clientRateLimitQPS:   20,
 		clientRateLimitBurst: 50,
+		eventsRateLimitQPS:   1000,
+		eventsRateLimitBurst: 2000,
 	}
 }
 
@@ -178,7 +186,7 @@ func initFlags(config Configuration, opts ...Option) {
 	}
 	// kubeconfig
 	if config.UsesKubeconfig() {
-		initKubeconfigFlags(options.clientRateLimitQPS, options.clientRateLimitBurst)
+		initKubeconfigFlags(options.clientRateLimitQPS, options.clientRateLimitBurst, options.eventsRateLimitQPS, options.eventsRateLimitBurst)
 	}
 	// policy exceptions
 	if config.UsesPolicyExceptions() {
@@ -208,9 +216,7 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
-
 	initCleanupFlags()
-
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
 			flag.CommandLine.Var(f.Value, f.Name, f.Usage)

@@ -224,7 +224,7 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		// if we found the resource, build an aggregated report for it
 		if res != nil {
 			if aggregated == nil {
-				aggregated = reportutils.NewAdmissionReport(res.GetNamespace(), string(uid), gvr, *res)
+				aggregated = reportutils.NewAdmissionReport(res.GetNamespace(), string(uid), gvr, res.GroupVersionKind(), *res)
 				controllerutils.SetOwner(aggregated, res.GetAPIVersion(), res.GetKind(), res.GetName(), uid)
 				controllerutils.SetLabel(aggregated, reportutils.LabelAggregatedReport, string(uid))
 			}

@@ -1,0 +1,141 @@
+name: Baseline Load Tests
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - "main"
+      - "release*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: build-images
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+        with:
+          free-disk-space: false
+      - name: ko build
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: upload images archive
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: kyverno.tar
+          path: kyverno.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  load-test:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - name: v1.29
+            version: v1.29.0
+        kyverno-config:
+          - name: default
+            values:
+              - default-with-profiling
+          - name: standard
+            values:
+              - standard-with-profiling
+        test:
+          - kyverno-pss
+          - kyverno-mutate
+        k6-config:
+          - vus: 5
+            iterations: 100
+          - vus: 10
+            iterations: 200
+    needs:
+      - prepare-images
+    name: ${{ matrix.kyverno-config.name }} - ${{ matrix.test }} - ${{ matrix.k6-config.vus }} vus - ${{ matrix.k6-config.iterations }} iterations
+    steps:
+      - name: Checkout kyverno/kyverno
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Checkout kyverno/load-testing
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: kyverno/load-testing
+          path: load-testing
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create kind cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
+          export USE_CONFIG=${{ join(matrix.kyverno-config.values, ',') }}
+          make kind-install-kyverno
+          bash load-testing/k8s/metrics-server/hack.sh
+          make kind-install-goldilocks
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Run load tests using K6
+        shell: bash
+        run: |
+          set -e
+          KYVERNO_NODE_IP=$(kubectl get nodes -o jsonpath='{.items[?(@.metadata.labels.kubernetes\.io/hostname=="kind-control-plane")].status.addresses[?(@.type=="InternalIP")].address}')
+          curl http://$KYVERNO_NODE_IP:30950/debug/pprof/heap > heap.pprof
+          curl "http://$KYVERNO_NODE_IP:30950/debug/pprof/profile?seconds=30" > cpu.pprof 2> curl.tmp &
+          cd load-testing/k6
+          ./start.sh tests/${{ matrix.test }}.js ${{ matrix.k6-config.vus }} ${{ matrix.k6-config.iterations }}
+          wait %1 || true
+          # TODO: wait for VPA to stabilize and recommend
+          kubectl -n kyverno get vpa goldilocks-kyverno-admission-controller -o jsonpath='{.status.recommendation.containerRecommendations[*]}'
+      - name: Archive load test results
+        if: failure()
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: load-test-reports
+          path: load-testing/k6/${{ matrix.test }}.js-${{ matrix.k6-config.vus }}vu-${{ matrix.k6-config.iterations }}it-logs.txt
+      - name: Archive pprof CPU profiles
+        if: failure()
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: pprof-cpu-profiles
+          path: cpu.pprof
+      - name: Archive pprof HEAP profiles
+        if: failure()
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: pprof-heap-profiles
+          path: heap.pprof

@@ -1122,6 +1122,36 @@ Defaults to &quot;false&quot; if not specified.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
             </table>
           
@@ -1655,6 +1685,36 @@ Defaults to &quot;false&quot; if not specified.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
             </table>
           
@@ -1914,6 +1974,36 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
           
 
           <p>Exceptions is a list policy/rules to be excluded</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>podSecurity</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-PodSecurityStandard">
+                <span style="font-family: monospace">[]PodSecurityStandard</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
 
 
           
@@ -2758,6 +2848,38 @@ Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/co
     
     
       <tr>
+        <td><code>skipImageReferences</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SkipImageReferences is a list of matching image reference patterns that should be skipped.
+At least one pattern in the list must match the image for the rule to be skipped. Each image reference
+consists of a registry address (defaults to docker.io), repository, image, and tag (defaults to latest).
+Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>attestors</code>
           
           <span style="color:blue;"> *</span>
@@ -3246,6 +3368,36 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
           
 
           <p>Exceptions is a list policy/rules to be excluded</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>podSecurity</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-PodSecurityStandard">
+                <span style="font-family: monospace">[]PodSecurityStandard</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
 
 
           
@@ -4313,6 +4465,36 @@ Defaults to &quot;false&quot; if not specified.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -4568,6 +4750,69 @@ by specifying exclusions for Pod Security Standards controls.</p>
           
 
           <p>CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-WebhookConfiguration">WebhookConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-Spec">Spec</a>)
+    </p>
+  
+
+  <p><p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchCondition configures admission webhook matchConditions.</p>
 
 
           

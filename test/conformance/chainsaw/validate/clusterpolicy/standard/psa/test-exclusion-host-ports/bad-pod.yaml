@@ -12,7 +12,7 @@ spec:
     ports:
     - hostPort: 20
       containerPort: 80
-    initContainers:
+  initContainers:
   - name: nginx2
     image: nginx
     args:

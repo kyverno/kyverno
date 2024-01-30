@@ -1,6 +1,6 @@
-# Kyverno [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Kubernetes%20Native%20Policy%20Management.%20No%20new%20language%20required%21&url=https://github.com/kyverno/kyverno/&hashtags=kubernetes,devops)
+# Kyverno [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Cloud%20Native%20Policy%20Management.%20No%20new%20language%20required%21&url=https://github.com/kyverno/kyverno/&hashtags=kubernetes,devops)
 
-**Kubernetes Native Policy Management 🎉**
+**Cloud Native Policy Management 🎉**
 
 ![build](https://github.com/kyverno/kyverno/workflows/build/badge.svg)
 ![releaser](https://github.com/kyverno/kyverno/workflows/releaser/badge.svg)
@@ -13,13 +13,20 @@
 [![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kyverno)](https://artifacthub.io/packages/search?repo=kyverno)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno?ref=badge_shield)
 
-
-
 <a href="https://kyverno.io" rel="kyverno.io">![logo](img/Kyverno_Horizontal.png)</a>
 
 <p class="callout info" style="font-size: 100%;">
-Kyverno is a policy engine designed for Kubernetes. It can validate, mutate, and generate configurations using admission controls and background scans. Kyverno policies are Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like kubectl, kustomize, and Git.
+Kyverno is a policy engine designed for Kubernetes platform engineering teams. It enables security, automation, compliance, and governance using policy-as-code. Kyverno can validate, mutate, generate, and cleanup configurations using Kubernetes admission controls, background scans, and source code respository scans. Kyverno policies can be managed as Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like kubectl, kustomize, and Git.
 </p>
+
+<a href="https://opensourcesecurityindex.io/" target="_blank" rel="noopener"> <img
+        style="width: 282px; height: 56px"
+        src="https://opensourcesecurityindex.io/badge.svg"
+        alt="Open Source Security Index - Fastest Growing Open Source Security Projects"
+        width="282"
+        height="56"
+    />
+</a>
 
 ## 📙 Documentation
 

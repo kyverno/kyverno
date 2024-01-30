@@ -52,7 +52,6 @@ type PolicyProcessor struct {
 	AuditWarn                 bool
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
-	RegistryClient            registryclient.Client
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -65,12 +64,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		client = adapters.Client(p.Client)
 	}
 
+	rclient := p.Store.GetRegistryClient()
+	if rclient == nil {
+		rclient = registryclient.NewOrDie()
+	}
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jmespath.New(cfg),
 		client,
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(p.RegistryClient), nil),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(p.Store, nil),
 		nil,
