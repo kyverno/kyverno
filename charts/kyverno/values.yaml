@@ -61,6 +61,17 @@ crds:
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
 
+  groups:
+
+    # -- Install CRDs in group `kyverno.io`
+    kyverno: true
+
+    # -- Install CRDs in group `wgpolicyk8s.io`
+    policyreport: true
+
+    # -- Install CRDs in group `reports.kyverno.io`
+    reports: true
+
   # -- Additional CRDs annotations
   annotations: {}
     # argocd.argoproj.io/sync-options: Replace=true
@@ -324,6 +335,14 @@ config:
   # -- resourceFilters exclude list
   # Items to exclude from config.resourceFilters
   resourceFiltersExclude: []
+
+  # -- resourceFilter namespace include
+  # Namespaces to include to the default resourceFilters
+  resourceFiltersIncludeNamespaces: []
+
+  # -- resourceFilters include list
+  # Items to include to config.resourceFilters
+  resourceFiltersInclude: []
 
 # Metrics configuration
 metricsConfig:
@@ -601,11 +620,11 @@ features:
     verbosity: 2
   omitEvents:
     # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
-    eventTypes: []
+    eventTypes:
+      - PolicyApplied
+      - PolicySkipped
       # - PolicyViolation
-      # - PolicyApplied
       # - PolicyError
-      # - PolicySkipped
   policyExceptions:
     # -- Enables the feature
     enabled: true
@@ -806,6 +825,20 @@ admissionController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1808,6 +1841,20 @@ reportsController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role

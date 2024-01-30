@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	"github.com/kyverno/kyverno/pkg/policy/auth"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
@@ -20,7 +21,7 @@ type Generate struct {
 	// rule to hold 'generate' rule specifications
 	rule kyvernov1.Generation
 	// authCheck to check access for operations
-	authCheck Operations
+	authCheck auth.Operations
 	// logger
 	log logr.Logger
 }
@@ -30,7 +31,7 @@ func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, use
 	g := Generate{
 		user:      user,
 		rule:      rule,
-		authCheck: NewAuth(client, user, log),
+		authCheck: auth.NewAuth(client, user, log),
 		log:       log,
 	}
 

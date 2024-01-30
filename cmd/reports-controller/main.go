@@ -57,9 +57,11 @@ func createReportControllers(
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	var vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer
+	var vapBindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer
 	// check if validating admission policies are registered in the API server
 	if validatingAdmissionPolicyReports {
 		vapInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies()
+		vapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings()
 	}
 
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
@@ -115,6 +117,7 @@ func createReportControllers(
 				kyvernoV1.ClusterPolicies(),
 				kyvernoV2beta1.PolicyExceptions(),
 				vapInformer,
+				vapBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,
 				backgroundScanInterval,

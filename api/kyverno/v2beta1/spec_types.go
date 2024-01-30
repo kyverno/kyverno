@@ -82,6 +82,15 @@ type Spec struct {
 	// Defaults to "false" if not specified.
 	// +optional
 	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
+
+	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+	// Requires Kubernetes 1.27 or later.
+	// +optional
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty" yaml:"webhookConfiguration,omitempty"`
+}
+
+func (s *Spec) CustomWebhookConfiguration() bool {
+	return s.WebhookConfiguration != nil
 }
 
 func (s *Spec) SetRules(rules []Rule) {

@@ -48,6 +48,9 @@ spec:
       preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
+      {{- end }}
       validate:
         message: >-
           HostProcess containers are disallowed. The fields spec.securityContext.windowsOptions.hostProcess,

@@ -1,0 +1,25 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  namespace: staging-ns-1
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: deployment-4
+results:
+- policy: check-deployment-replicas-03
+  result: pass
+  source: ValidatingAdmissionPolicy
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: deployment-4
+  namespace: staging-ns-1
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

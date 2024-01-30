@@ -106,6 +106,13 @@ func LoadWithLoader(loader loader, fs billy.Filesystem, resourcePath string, pat
 			polex = append(polex, pe...)
 		}
 	}
+  
+	// It's hard to use apply with the fake client, so disable all server side
+	// https://github.com/kubernetes/kubernetes/issues/99953
+	for _, policy := range pols {
+		policy.GetSpec().UseServerSideApply = false
+	}
+
 	return pols, vaps, vapBindings, polex, nil
 }
 

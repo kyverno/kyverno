@@ -244,6 +244,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	if vars != nil {
 		vars.SetInStore(store)
 	}
+	var rc processor.ResultCounts
 	// validate policies
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
@@ -251,6 +252,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
+			rc.IncrementError(1)
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
 				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
 			} else {
@@ -261,7 +263,6 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		validPolicies = append(validPolicies, pol)
 	}
 
-	var rc processor.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{

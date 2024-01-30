@@ -18,13 +18,18 @@ limitations under the License.
 
 package v2beta1
 
+import (
+	v1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
+)
+
 // PolicyExceptionSpecApplyConfiguration represents an declarative configuration of the PolicyExceptionSpec type for use
 // with apply.
 type PolicyExceptionSpecApplyConfiguration struct {
-	Background *bool                               `json:"background,omitempty"`
-	Match      *MatchResourcesApplyConfiguration   `json:"match,omitempty"`
-	Conditions *AnyAllConditionsApplyConfiguration `json:"conditions,omitempty"`
-	Exceptions []ExceptionApplyConfiguration       `json:"exceptions,omitempty"`
+	Background  *bool                                      `json:"background,omitempty"`
+	Match       *MatchResourcesApplyConfiguration          `json:"match,omitempty"`
+	Conditions  *AnyAllConditionsApplyConfiguration        `json:"conditions,omitempty"`
+	Exceptions  []ExceptionApplyConfiguration              `json:"exceptions,omitempty"`
+	PodSecurity []v1.PodSecurityStandardApplyConfiguration `json:"podSecurity,omitempty"`
 }
 
 // PolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the PolicyExceptionSpec type for use with
@@ -66,6 +71,19 @@ func (b *PolicyExceptionSpecApplyConfiguration) WithExceptions(values ...*Except
 			panic("nil value passed to WithExceptions")
 		}
 		b.Exceptions = append(b.Exceptions, *values[i])
+	}
+	return b
+}
+
+// WithPodSecurity adds the given value to the PodSecurity field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the PodSecurity field.
+func (b *PolicyExceptionSpecApplyConfiguration) WithPodSecurity(values ...*v1.PodSecurityStandardApplyConfiguration) *PolicyExceptionSpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithPodSecurity")
+		}
+		b.PodSecurity = append(b.PodSecurity, *values[i])
 	}
 	return b
 }
