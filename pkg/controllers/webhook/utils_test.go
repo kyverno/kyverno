@@ -255,6 +255,26 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 				webhookUpdate: true,
 			},
 		},
+		{
+			name: "Test Case 2",
+			rules: []kyverno.Rule{
+				{
+					Mutation: kyverno.Mutation{
+						PatchesJSON6902: "add",
+					},
+					MatchResources: kyverno.MatchResources{},
+					ExcludeResources: kyverno.MatchResources{
+						ResourceDescription: kyverno.ResourceDescription{
+							Operations: []v1.AdmissionOperation{"CREATE"},
+						},
+					},
+				},
+			},
+			expectedResult: map[string]bool{
+				webhookCreate: false,
+				webhookUpdate: true,
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -325,7 +345,7 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 			expectedResult: map[string]bool{
 				webhookCreate: true,
 				webhookUpdate: true,
-				"DELETE":      true,
+				"DELETE":      false,
 			},
 		},
 	}
