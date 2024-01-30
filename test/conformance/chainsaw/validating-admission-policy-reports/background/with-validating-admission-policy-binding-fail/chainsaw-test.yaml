@@ -1,0 +1,27 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: with-validating-admission-policy-binding-fail
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: ns.yaml
+    - assert:
+        file: ns.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: deployment.yaml
+    - assert:
+        file: deployment-assert.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: policy.yaml
+  - name: step-04
+    try:
+    - assert:
+        file: report-assert.yaml

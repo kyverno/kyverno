@@ -61,6 +61,17 @@ crds:
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
 
+  groups:
+
+    # -- Install CRDs in group `kyverno.io`
+    kyverno: true
+
+    # -- Install CRDs in group `wgpolicyk8s.io`
+    policyreport: true
+
+    # -- Install CRDs in group `reports.kyverno.io`
+    reports: true
+
   # -- Additional CRDs annotations
   annotations: {}
     # argocd.argoproj.io/sync-options: Replace=true
@@ -68,6 +79,67 @@ crds:
 
   # -- Additional CRDs labels
   customLabels: {}
+
+  migration:
+
+    # -- Enable CRDs migration using helm post upgrade hook
+    enabled: true
+
+    # -- Resources to migrate
+    resources:
+    - cleanuppolicies.kyverno.io
+    - clustercleanuppolicies.kyverno.io
+    - policyexceptions.kyverno.io
+
+    image:
+      # -- (string) Image registry
+      registry: ghcr.io
+      # -- (string) Image repository
+      repository: kyverno/kyverno-cli
+      # -- (string) Image tag
+      # Defaults to appVersion in Chart.yaml if omitted
+      tag: ~
+      # -- (string) Image pull policy
+      pullPolicy: IfNotPresent
+
+    # -- Image pull secrets
+    imagePullSecrets: []
+    # - name: secretName
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
+    # -- List of node taints to tolerate
+    tolerations: []
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Pod labels.
+    podLabels: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
+
+    # -- Security context for the hook containers
+    securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
 
 # Configuration
 config:
@@ -263,6 +335,14 @@ config:
   # -- resourceFilters exclude list
   # Items to exclude from config.resourceFilters
   resourceFiltersExclude: []
+
+  # -- resourceFilter namespace include
+  # Namespaces to include to the default resourceFilters
+  resourceFiltersIncludeNamespaces: []
+
+  # -- resourceFilters include list
+  # Items to include to config.resourceFilters
+  resourceFiltersInclude: []
 
 # Metrics configuration
 metricsConfig:
@@ -467,61 +547,6 @@ policyReportsCleanup:
     seccompProfile:
       type: RuntimeDefault
 
-crdsMigration:
-  # -- Create a helm post-upgrade hook to migrate the existing CRDs to the stored version
-  exceptions:
-    enabled: true
-
-  image:
-    # -- (string) Image registry
-    registry: ghcr.io
-    # -- (string) Image repository
-    repository: kyverno/kyverno-cli
-    # -- (string) Image tag
-    # Defaults to appVersion in Chart.yaml if omitted
-    tag: ~
-    # -- (string) Image pull policy
-    pullPolicy: IfNotPresent
-
-  # -- Image pull secrets
-  imagePullSecrets: []
-  # - name: secretName
-
-  # -- Security context for the pod
-  podSecurityContext: {}
-
-  # -- Node labels for pod assignment
-  nodeSelector: {}
-
-  # -- List of node taints to tolerate
-  tolerations: []
-
-  # -- Pod anti affinity constraints.
-  podAntiAffinity: {}
-
-  # -- Pod affinity constraints.
-  podAffinity: {}
-
-  # -- Pod labels.
-  podLabels: {}
-
-  # -- Node affinity constraints.
-  nodeAffinity: {}
-
-  # -- Security context for the hook containers
-  securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
-    runAsNonRoot: true
-    privileged: false
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-
 grafana:
   # -- Enable grafana dashboard creation.
   enabled: false
@@ -555,6 +580,9 @@ features:
   aggregateReports:
     # -- Enables the feature
     enabled: true
+  alternateReportStorage:
+    # -- Enables the feature
+    enabled: false
   policyReports:
     # -- Enables the feature
     enabled: true
@@ -595,11 +623,11 @@ features:
     verbosity: 2
   omitEvents:
     # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
-    eventTypes: []
+    eventTypes:
+      - PolicyApplied
+      - PolicySkipped
       # - PolicyViolation
-      # - PolicyApplied
       # - PolicyError
-      # - PolicySkipped
   policyExceptions:
     # -- Enables the feature
     enabled: true
@@ -800,6 +828,20 @@ admissionController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1802,6 +1844,20 @@ reportsController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
