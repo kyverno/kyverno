@@ -1,20 +1,22 @@
 package cache
 
 import (
+	"strings"
 	"sync"
+	"time"
 
-	"github.com/dgraph-io/ristretto"
 	"github.com/pkg/errors"
 )
 
 type Cache interface {
 	Set(key string, val ResourceEntry) bool
 	Get(key string) (ResourceEntry, bool)
-	Delete(key string) bool
+	Delete(key string)
 }
 
 type ResourceEntry interface {
 	Get() (interface{}, error)
+	LastUpdated() time.Time
 	Stop()
 }
 
@@ -24,6 +26,10 @@ type invalidentry struct {
 
 func (i *invalidentry) Get() (interface{}, error) {
 	return nil, errors.Wrapf(i.err, "failed to create cached context entry")
+}
+
+func (i *invalidentry) LastUpdated() time.Time {
+	return time.Now()
 }
 
 func (i *invalidentry) Stop() {}
@@ -36,59 +42,53 @@ func NewInvalidEntry(err error) ResourceEntry {
 
 type cache struct {
 	sync.RWMutex
-	store *ristretto.Cache
+	store map[string]ResourceEntry
 }
 
-func New() (Cache, error) {
-	config := ristretto.Config{
-		MaxCost:     100 * 1000 * 1000, // 100 MB
-		NumCounters: 10 * 100,          // 100 entries
-		BufferItems: 64,
-		OnExit:      ristrettoOnExit,
-	}
-
-	rcache, err := ristretto.NewCache(&config)
-	if err != nil {
-		return nil, err
-	}
-
+func New() Cache {
 	return &cache{
-		store: rcache,
-	}, nil
+		store: make(map[string]ResourceEntry),
+	}
 }
 
 func (l *cache) Set(key string, val ResourceEntry) bool {
 	l.Lock()
 	defer l.Unlock()
-	return l.store.Set(key, val, 0)
+
+	l.store[key] = val
+	_, ok := l.store[key]
+	return ok
 }
 
-func (l *cache) Get(key string) (ResourceEntry, bool) {
+func (l *cache) Get(prefix string) (ResourceEntry, bool) {
 	l.RLock()
 	defer l.RUnlock()
-	val, ok := l.store.Get(key)
-	if !ok {
-		return nil, ok
-	}
 
-	entry, ok := val.(ResourceEntry)
-	if !ok {
-		return nil, ok
+	t := time.Time{}
+	var entry ResourceEntry = nil
+	for k, v := range l.store {
+		if !strings.HasPrefix(k, prefix) {
+			continue
+		}
+
+		if v.LastUpdated().After(t) {
+			entry = v
+		}
 	}
-	return entry, ok
+	if entry == nil {
+		return nil, false
+	}
+	return entry, true
 }
 
-func (l *cache) Delete(key string) bool {
+func (l *cache) Delete(key string) {
 	l.Lock()
 	defer l.Unlock()
 
-	l.store.Del(key)
-	_, ok := l.store.Get(key)
-	return !ok
-}
-
-func ristrettoOnExit(val interface{}) {
-	if entry, ok := val.(ResourceEntry); ok {
-		entry.Stop()
+	val, ok := l.store[key]
+	if !ok {
+		return // value already deleted
 	}
+	val.Stop()
+	delete(l.store, key)
 }

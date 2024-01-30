@@ -20,6 +20,7 @@ type Poller interface {
 
 type Getter interface {
 	Get() (interface{}, error)
+	LastUpdated() time.Time
 	Stop()
 }
 
@@ -31,12 +32,13 @@ type ExternalAPILoader struct {
 
 type externalEntry struct {
 	sync.Mutex
-	logger    logr.Logger
-	call      *kyvernov1.APICall
-	ticker    *time.Ticker
-	apicaller *apicall.APICall
-	data      interface{}
-	cancel    context.CancelFunc
+	logger      logr.Logger
+	call        *kyvernov1.APICall
+	ticker      *time.Ticker
+	apicaller   *apicall.APICall
+	lastUpdated time.Time
+	data        interface{}
+	cancel      context.CancelFunc
 }
 
 func (e *externalEntry) Getter() Getter {
@@ -51,7 +53,12 @@ func (e *externalEntry) Get() (interface{}, error) {
 	e.Lock()
 	defer e.Unlock()
 	e.logger.V(6).Info("cache entry data", "data", e.data)
+	e.lastUpdated = time.Now()
 	return e.data, nil
+}
+
+func (e *externalEntry) LastUpdated() time.Time {
+	return e.lastUpdated
 }
 
 func (e *externalEntry) Stop() {
@@ -106,7 +113,7 @@ func (e *ExternalAPILoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
 		// Resource: rc,
 	}
 
-	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds)
+	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds, entry.Name)
 
 	executor, err := apicall.New(e.logger.WithName("apicaller"), nil, ctxentry, nil, nil, e.config)
 	if err != nil {
@@ -121,11 +128,12 @@ func (e *ExternalAPILoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	extEntry := &externalEntry{
-		logger:    e.logger.WithName("external entry"),
-		call:      rc.APICall.APICall.DeepCopy(),
-		apicaller: executor,
-		ticker:    ticker,
-		cancel:    cancel,
+		logger:      e.logger.WithName("external entry"),
+		call:        rc.APICall.APICall.DeepCopy(),
+		apicaller:   executor,
+		ticker:      ticker,
+		lastUpdated: time.Now(),
+		cancel:      cancel,
 	}
 
 	data, err := extEntry.apicaller.Execute(ctx, extEntry.call)
@@ -148,10 +156,10 @@ func (e *ExternalAPILoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
 }
 
 func (e *ExternalAPILoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
-	if rc.Resource == nil {
+	if rc.K8sResource == nil {
 		return nil, fmt.Errorf("resource not found")
 	}
-	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds)
+	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds, "")
 	entry, ok := e.cache.Get(key)
 	if !ok {
 		err := fmt.Errorf("failed to create fetch entry key=%s", key)
@@ -162,24 +170,18 @@ func (e *ExternalAPILoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error
 	return entry.Get()
 }
 
-func (e *ExternalAPILoader) Delete(entry *v2alpha1.CachedContextEntry) error {
+func (e *ExternalAPILoader) Delete(entry *v2alpha1.CachedContextEntry) {
 	if entry.Spec.APICall == nil {
-		return fmt.Errorf("invalid object provided")
+		return
 	}
 	rc := entry.Spec.ResourceCache.DeepCopy()
-	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds)
-	ok := e.cache.Delete(key)
-	if !ok {
-		err := fmt.Errorf("failed to delete ext api loader")
-		e.logger.Error(err, "")
-		return err
-	}
+	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds, entry.Name)
+	e.cache.Delete(key)
 	e.logger.V(4).Info("successfully deleted cache entry")
-	return nil
 }
 
-func getKeyForExternalEntry(url, caBundle string, interval int64) string {
-	return strings.Join([]string{"External= ", url, ", Bundle=", caBundle, "Refresh= ", fmt.Sprint(interval)}, "")
+func getKeyForExternalEntry(url, caBundle string, interval int64, entryname string) string {
+	return strings.Join([]string{"External= ", url, ", Bundle=", caBundle, "Refresh=", fmt.Sprint(interval), "EntryName=", entryname}, "")
 }
 
 type ExternalInformer interface {

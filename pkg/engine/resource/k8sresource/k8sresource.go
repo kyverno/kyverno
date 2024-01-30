@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -28,14 +29,20 @@ type ResourceLoader struct {
 }
 
 type resourceEntry struct {
+	sync.Mutex
 	logger          logr.Logger
 	lister          k8scache.GenericNamespaceLister
 	watchErrHandler *WatchErrorHandler
+	lastUpdated     time.Time
 	cancel          context.CancelFunc
 }
 
 func (re *resourceEntry) Get() (interface{}, error) {
+	re.Lock()
+	defer re.Unlock()
+
 	re.logger.V(4).Info("fetching data from resource cache entry")
+	re.lastUpdated = time.Now()
 	if re.watchErrHandler.Error() != nil {
 		re.logger.Error(re.watchErrHandler.Error(), "failed to fetch data from entry")
 		return nil, re.watchErrHandler.Error()
@@ -56,6 +63,10 @@ func (re *resourceEntry) Get() (interface{}, error) {
 	return obj, nil
 }
 
+func (re *resourceEntry) LastUpdated() time.Time {
+	return re.lastUpdated
+}
+
 func (re *resourceEntry) Stop() {
 	re.cancel()
 }
@@ -71,7 +82,7 @@ func New(logger logr.Logger, dclient dynamic.Interface, c cache.Cache) *Resource
 
 func (r *ResourceLoader) SetEntries(entries ...*v2alpha1.CachedContextEntry) {
 	for _, entry := range entries {
-		if entry.Spec.Resource == nil {
+		if entry.Spec.K8sResource == nil {
 			continue
 		}
 		r.SetEntry(entry)
@@ -79,16 +90,16 @@ func (r *ResourceLoader) SetEntries(entries ...*v2alpha1.CachedContextEntry) {
 }
 
 func (r *ResourceLoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
-	if entry.Spec.Resource == nil {
+	if entry.Spec.K8sResource == nil {
 		return
 	}
-	rc := entry.Spec.Resource
+	rc := entry.Spec.K8sResource
 	resource := schema.GroupVersionResource{
 		Group:    rc.Group,
 		Version:  rc.Version,
 		Resource: rc.Resource,
 	}
-	key := getKeyForResourceEntry(resource, rc.Namespace)
+	key := getKeyForResourceEntry(resource, rc.Namespace, entry.Name)
 	ent, err := r.createGenericListerForResource(resource, rc.Namespace)
 	if err != nil {
 		ent = cache.NewInvalidEntry(err)
@@ -103,15 +114,15 @@ func (r *ResourceLoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
 }
 
 func (r *ResourceLoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
-	if rc.Resource == nil {
+	if rc.K8sResource == nil {
 		return nil, fmt.Errorf("resource not found")
 	}
 	resource := schema.GroupVersionResource{
-		Group:    rc.Resource.Group,
-		Version:  rc.Resource.Version,
-		Resource: rc.Resource.Resource,
+		Group:    rc.K8sResource.Group,
+		Version:  rc.K8sResource.Version,
+		Resource: rc.K8sResource.Resource,
 	}
-	key := getKeyForResourceEntry(resource, rc.Resource.Namespace)
+	key := getKeyForResourceEntry(resource, rc.K8sResource.Namespace, "")
 	entry, ok := r.cache.Get(key)
 	if !ok {
 		err := fmt.Errorf("failed to fetch entry key=%s", key)
@@ -122,25 +133,20 @@ func (r *ResourceLoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
 	return entry.Get()
 }
 
-func (r *ResourceLoader) Delete(entry *v2alpha1.CachedContextEntry) error {
-	if entry.Spec.Resource == nil {
-		return fmt.Errorf("invalid object provided")
+func (r *ResourceLoader) Delete(entry *v2alpha1.CachedContextEntry) {
+	if entry.Spec.K8sResource == nil {
+		return
 	}
-	rc := entry.Spec.Resource
+	rc := entry.Spec.K8sResource
 	resource := schema.GroupVersionResource{
 		Group:    rc.Group,
 		Version:  rc.Version,
 		Resource: rc.Resource,
 	}
-	key := getKeyForResourceEntry(resource, rc.Namespace)
-	ok := r.cache.Delete(key)
-	if !ok {
-		err := fmt.Errorf("failed to delete k8s object entry")
-		r.logger.Error(err, "")
-		return err
-	}
+	key := getKeyForResourceEntry(resource, rc.Namespace, entry.Name)
+	r.cache.Delete(key)
+
 	r.logger.V(4).Info("successfully deleted cache entry")
-	return nil
 }
 
 func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVersionResource, namespace string) (cache.ResourceEntry, error) {
@@ -167,9 +173,9 @@ func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVer
 	} else {
 		lister = informer.Lister().ByNamespace(namespace)
 	}
-	return &resourceEntry{lister: lister, logger: r.logger.WithName("k8s resource entry"), watchErrHandler: watchErrHandler, cancel: cancel}, nil
+	return &resourceEntry{lister: lister, logger: r.logger.WithName("k8s resource entry"), watchErrHandler: watchErrHandler, lastUpdated: time.Now(), cancel: cancel}, nil
 }
 
-func getKeyForResourceEntry(resource schema.GroupVersionResource, namespace string) string {
-	return strings.Join([]string{"Resource= ", resource.String(), ", Namespace=", namespace}, "")
+func getKeyForResourceEntry(resource schema.GroupVersionResource, namespace, entryname string) string {
+	return strings.Join([]string{"Resource= ", resource.String(), ", Namespace=", namespace, "EntryName=", entryname}, "")
 }

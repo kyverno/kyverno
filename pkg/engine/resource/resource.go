@@ -31,11 +31,8 @@ type resourceCache struct {
 
 func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.CachedContextEntryInformer, jp jmespath.Interface, config apicall.APICallConfiguration) (Interface, error) {
 	logger = logger.WithName("resource cache")
-	cacheClient, err := cache.New()
-	if err != nil {
-		return nil, err
-	}
 
+	cacheClient := cache.New()
 	k8sloader := k8sresource.New(logger, dclient, cacheClient)
 	extloader := externalapi.New(logger, config)
 
@@ -82,17 +79,9 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 				return
 			}
 			if entry.Spec.IsResource() {
-				err := k8sloader.Delete(entry)
-				if err != nil {
-					logger.Error(err, "failed to delete entry from k8s resource loader")
-					return
-				}
+				k8sloader.Delete(entry)
 			} else if entry.Spec.IsAPICall() {
-				err := extloader.Delete(entry)
-				if err != nil {
-					logger.Error(err, "failed to delete entry from external api loader")
-					return
-				}
+				extloader.Delete(entry)
 			}
 		},
 	})
@@ -141,7 +130,7 @@ func (r *resourceCache) Get(c ContextEntry, jsonCtx enginecontext.Interface) ([]
 	}
 	r.logger.V(6).Info("variables substituted", "resource", rc)
 
-	if rc.Resource != nil {
+	if rc.K8sResource != nil {
 		if data, err = r.k8sloader.Get(rc); err != nil || data == nil {
 			r.logger.Error(err, "failed to get data from k8sloader")
 			return nil, err
