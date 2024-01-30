@@ -103,6 +103,10 @@ func SetManagedByKyvernoLabel(obj metav1.Object) {
 	controllerutils.SetLabel(obj, kyverno.LabelAppManagedBy, kyverno.ValueKyvernoApp)
 }
 
+func SetSource(obj metav1.Object, source string) {
+	controllerutils.SetLabel(obj, "audit.kyverno.io/source", source)
+}
+
 func SetResourceUid(report kyvernov1alpha2.ReportInterface, uid types.UID) {
 	controllerutils.SetLabel(report, LabelResourceUid, string(uid))
 }
