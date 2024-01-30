@@ -101,8 +101,9 @@ func (gen *controller) Run(ctx context.Context, workers int) {
 			}
 		})
 	}
-	waitGroup.Wait()
 	<-ctx.Done()
+	gen.queue.ShutDownWithDrain()
+	waitGroup.Wait()
 }
 
 func (gen *controller) processNextWorkItem(ctx context.Context) bool {
@@ -139,7 +140,7 @@ func (gen *controller) emitEvent(key Info) {
 	}
 
 	timestamp := metav1.MicroTime{Time: time.Now()}
-	refRegarding, err := reference.GetReference(scheme.Scheme, key.Related)
+	refRegarding, err := reference.GetReference(scheme.Scheme, &key.Regarding)
 	if err != nil {
 		logger.Error(err, "Could not construct reference, will not report event", "object", &key.Regarding, "eventType", eventType, "reason", string(key.Reason), "message", key.Message)
 		return

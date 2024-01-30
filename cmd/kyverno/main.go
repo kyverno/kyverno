@@ -254,7 +254,6 @@ func main() {
 		internal.WithImageVerifyCache(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
-		internal.WithAlternateReportStore(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
@@ -473,7 +472,6 @@ func main() {
 		engine,
 		setup.KyvernoDynamicClient,
 		setup.KyvernoClient,
-		setup.ReportManager,
 		setup.Configuration,
 		setup.MetricsManager,
 		policyCache,
@@ -524,7 +522,8 @@ func main() {
 		os.Exit(1)
 	}
 	// start webhooks server
-	server.Run(signalCtx.Done())
+	server.Run()
+	defer server.Stop()
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
 	for _, controller := range nonLeaderControllers {

@@ -120,7 +120,6 @@ spec:
               "logging"
               "omitEvents"
               "policyExceptions"
-              "alternateReportStorage"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
             {{- if $value }}

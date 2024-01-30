@@ -27,6 +27,10 @@ const (
 	LabelResourceHash           = "audit.kyverno.io/resource.hash"
 	LabelResourceUid            = "audit.kyverno.io/resource.uid"
 	LabelResourceGVR            = "audit.kyverno.io/resource.gvr"
+	LabelResourceGroup          = "audit.kyverno.io/resource.group"
+	LabelResourceVersion        = "audit.kyverno.io/resource.version"
+	LabelResourceKind           = "audit.kyverno.io/resource.kind"
+	LabelSource                 = "audit.kyverno.io/source"
 	AnnotationResourceNamespace = "audit.kyverno.io/resource.namespace"
 	AnnotationResourceName      = "audit.kyverno.io/resource.name"
 	//	policy labels
@@ -103,6 +107,10 @@ func SetManagedByKyvernoLabel(obj metav1.Object) {
 	controllerutils.SetLabel(obj, kyverno.LabelAppManagedBy, kyverno.ValueKyvernoApp)
 }
 
+func SetSource(obj metav1.Object, source string) {
+	controllerutils.SetLabel(obj, LabelSource, source)
+}
+
 func SetResourceUid(report kyvernov1alpha2.ReportInterface, uid types.UID) {
 	controllerutils.SetLabel(report, LabelResourceUid, string(uid))
 }
@@ -113,6 +121,12 @@ func SetResourceGVR(report kyvernov1alpha2.ReportInterface, gvr schema.GroupVers
 	} else {
 		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version)
 	}
+}
+
+func SetResourceGVK(report kyvernov1alpha2.ReportInterface, gvk schema.GroupVersionKind) {
+	controllerutils.SetLabel(report, LabelResourceGroup, gvk.Group)
+	controllerutils.SetLabel(report, LabelResourceVersion, gvk.Version)
+	controllerutils.SetLabel(report, LabelResourceKind, gvk.Kind)
 }
 
 func SetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface, namespace, name string) {
@@ -157,6 +171,10 @@ func SetPolicyExceptionLabel(report kyvernov1alpha2.ReportInterface, exception k
 
 func SetValidatingAdmissionPolicyBindingLabel(report kyvernov1alpha2.ReportInterface, binding v1alpha1.ValidatingAdmissionPolicyBinding) {
 	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
+}
+
+func GetSource(report metav1.Object) string {
+	return controllerutils.GetLabel(report, LabelSource)
 }
 
 func GetResourceUid(report metav1.Object) types.UID {

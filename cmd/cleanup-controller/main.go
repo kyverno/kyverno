@@ -334,7 +334,8 @@ func main() {
 		setup.Configuration,
 	)
 	// start server
-	server.Run(ctx.Done())
+	server.Run()
+	defer server.Stop()
 	// start non leader controllers
 	eventController.Run(ctx, setup.Logger, &wg)
 	// start leader election
