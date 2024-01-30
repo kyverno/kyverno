@@ -61,6 +61,17 @@ crds:
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
 
+  groups:
+
+    # -- Install CRDs in group `kyverno.io`
+    kyverno: true
+
+    # -- Install CRDs in group `wgpolicyk8s.io`
+    policyreport: true
+
+    # -- Install CRDs in group `reports.kyverno.io`
+    reports: true
+
   # -- Additional CRDs annotations
   annotations: {}
     # argocd.argoproj.io/sync-options: Replace=true
@@ -569,9 +580,6 @@ features:
   aggregateReports:
     # -- Enables the feature
     enabled: true
-  alternateReportStorage:
-    # -- Enables the feature
-    enabled: false
   policyReports:
     # -- Enables the feature
     enabled: true
@@ -817,6 +825,20 @@ admissionController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1819,6 +1841,20 @@ reportsController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role

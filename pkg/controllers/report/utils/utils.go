@@ -136,3 +136,15 @@ func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1alpha1lis
 	}
 	return policies, nil
 }
+
+func FetchValidatingAdmissionPolicyBindings(vapBindingLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyBindingLister) ([]admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding, error) {
+	var bindings []admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding
+	if pols, err := vapBindingLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			bindings = append(bindings, *pol)
+		}
+	}
+	return bindings, nil
+}

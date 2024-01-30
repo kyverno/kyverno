@@ -4,53 +4,63 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
-  name: admissionreports.reports.kyverno.io
+  name: clusterephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io
   names:
     categories:
     - kyverno
-    kind: AdmissionReport
-    listKind: AdmissionReportList
-    plural: admissionreports
+    kind: ClusterEphemeralReport
+    listKind: ClusterEphemeralReportList
+    plural: clusterephemeralreports
     shortNames:
-    - admr
-    singular: admissionreport
-  scope: Namespaced
+    - cephr
+    singular: clusterephemeralreport
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: AGE
-      type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/source']
+      name: Source
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.group']
+      name: Group
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.kind']
+      name: Kind
+      type: string
+    - jsonPath: .metadata.annotations['audit\.kyverno\.io/resource\.name']
+      name: Owner
+      type: string
     - jsonPath: .spec.summary.pass
-      name: PASS
+      name: Pass
       type: integer
     - jsonPath: .spec.summary.fail
-      name: FAIL
+      name: Fail
       type: integer
     - jsonPath: .spec.summary.warn
-      name: WARN
+      name: Warn
       type: integer
     - jsonPath: .spec.summary.error
-      name: ERROR
+      name: Error
       type: integer
     - jsonPath: .spec.summary.skip
-      name: SKIP
+      name: Skip
       type: integer
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
-      name: GVR
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.uid']
+      name: Uid
       type: string
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
-      name: REF
-      type: string
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
-      name: AGGREGATE
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
+      name: Hash
       priority: 1
       type: string
     name: v1
     schema:
       openAPIV3Schema:
-        description: AdmissionReport is the Schema for the AdmissionReports API
+        description: ClusterEphemeralReport is the Schema for the ClusterEphemeralReports
+          API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

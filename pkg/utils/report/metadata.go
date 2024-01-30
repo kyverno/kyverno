@@ -13,6 +13,8 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -25,21 +27,30 @@ const (
 	LabelResourceHash           = "audit.kyverno.io/resource.hash"
 	LabelResourceUid            = "audit.kyverno.io/resource.uid"
 	LabelResourceGVR            = "audit.kyverno.io/resource.gvr"
+	LabelResourceGroup          = "audit.kyverno.io/resource.group"
+	LabelResourceVersion        = "audit.kyverno.io/resource.version"
+	LabelResourceKind           = "audit.kyverno.io/resource.kind"
+	LabelSource                 = "audit.kyverno.io/source"
 	AnnotationResourceNamespace = "audit.kyverno.io/resource.namespace"
 	AnnotationResourceName      = "audit.kyverno.io/resource.name"
 	//	policy labels
-	LabelDomainClusterPolicy             = "cpol.kyverno.io"
-	LabelDomainPolicy                    = "pol.kyverno.io"
-	LabelPrefixClusterPolicy             = LabelDomainClusterPolicy + "/"
-	LabelPrefixPolicy                    = LabelDomainPolicy + "/"
-	LabelPrefixPolicyException           = "polex.kyverno.io/"
-	LabelPrefixValidatingAdmissionPolicy = "validatingadmissionpolicy.apiserver.io/"
+	LabelDomainClusterPolicy                    = "cpol.kyverno.io"
+	LabelDomainPolicy                           = "pol.kyverno.io"
+	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
+	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
+	LabelPrefixPolicyException                  = "polex.kyverno.io/"
+	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
+	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
 
 func IsPolicyLabel(label string) bool {
-	return strings.HasPrefix(label, LabelPrefixPolicy) || strings.HasPrefix(label, LabelPrefixClusterPolicy) || strings.HasPrefix(label, LabelPrefixPolicyException)
+	return strings.HasPrefix(label, LabelPrefixPolicy) ||
+		strings.HasPrefix(label, LabelPrefixClusterPolicy) ||
+		strings.HasPrefix(label, LabelPrefixPolicyException) ||
+		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
+		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
 }
 
 func PolicyNameFromLabel(namespace, label string) (string, error) {
@@ -79,6 +90,10 @@ func PolicyExceptionLabel(exception kyvernov2beta1.PolicyException) string {
 	return LabelPrefixPolicyException + exception.GetName()
 }
 
+func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding) string {
+	return LabelPrefixValidatingAdmissionPolicyBinding + binding.GetName()
+}
+
 func CleanupKyvernoLabels(obj metav1.Object) {
 	labels := obj.GetLabels()
 	for key := range labels {
@@ -92,6 +107,10 @@ func SetManagedByKyvernoLabel(obj metav1.Object) {
 	controllerutils.SetLabel(obj, kyverno.LabelAppManagedBy, kyverno.ValueKyvernoApp)
 }
 
+func SetSource(obj metav1.Object, source string) {
+	controllerutils.SetLabel(obj, LabelSource, source)
+}
+
 func SetResourceUid(report kyvernov1alpha2.ReportInterface, uid types.UID) {
 	controllerutils.SetLabel(report, LabelResourceUid, string(uid))
 }
@@ -102,6 +121,12 @@ func SetResourceGVR(report kyvernov1alpha2.ReportInterface, gvr schema.GroupVers
 	} else {
 		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version)
 	}
+}
+
+func SetResourceGVK(report kyvernov1alpha2.ReportInterface, gvk schema.GroupVersionKind) {
+	controllerutils.SetLabel(report, LabelResourceGroup, gvk.Group)
+	controllerutils.SetLabel(report, LabelResourceVersion, gvk.Version)
+	controllerutils.SetLabel(report, LabelResourceKind, gvk.Kind)
 }
 
 func SetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface, namespace, name string) {
@@ -142,6 +167,14 @@ func SetPolicyLabel(report kyvernov1alpha2.ReportInterface, policy engineapi.Gen
 
 func SetPolicyExceptionLabel(report kyvernov1alpha2.ReportInterface, exception kyvernov2beta1.PolicyException) {
 	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
+}
+
+func SetValidatingAdmissionPolicyBindingLabel(report kyvernov1alpha2.ReportInterface, binding v1alpha1.ValidatingAdmissionPolicyBinding) {
+	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
+}
+
+func GetSource(report metav1.Object) string {
+	return controllerutils.GetLabel(report, LabelSource)
 }
 
 func GetResourceUid(report metav1.Object) types.UID {

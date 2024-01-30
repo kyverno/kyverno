@@ -77,7 +77,7 @@ spec:
       serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
       containers:
         - name: controller
-          image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
+          image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.reportsController.image.pullPolicy }}
           ports:
           - containerPort: 9443
@@ -127,7 +127,6 @@ spec:
               "policyExceptions"
               "reports"
               "registryClient"
-              "alternateReportStorage"
               "tuf"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.reportsController.extraArgs }}

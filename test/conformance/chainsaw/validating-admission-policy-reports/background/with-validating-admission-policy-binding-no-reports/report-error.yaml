@@ -1,0 +1,52 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: deployment-1
+results:
+- message: 'failed expression: object.spec.replicas <= 5'
+  policy: check-deployment-replicas-05
+  result: fail
+  source: ValidatingAdmissionPolicy
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: deployment-1
+  namespace: default
+summary:
+  error: 0
+  fail: 1
+  pass: 0
+  skip: 0
+  warn: 0
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: deployment-2
+results:
+- policy: check-deployment-replicas-05
+  result: pass
+  source: ValidatingAdmissionPolicy
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: deployment-2
+  namespace: default
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0
