@@ -12,8 +12,8 @@ webhooks:
     - v1
     operations:
     - CREATE
-    - CONNECT
     - UPDATE
+    - CONNECT
     resources:
     - configmaps
     scope: Namespaced

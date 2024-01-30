@@ -3,7 +3,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: dyn-op-mutate
+  name: dyn-op-mutate-multiple
 spec:
   steps:
   - name: step-01
