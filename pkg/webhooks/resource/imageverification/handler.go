@@ -13,6 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/report"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
@@ -33,6 +34,7 @@ type ImageVerificationHandler interface {
 
 type imageVerificationHandler struct {
 	kyvernoClient    versioned.Interface
+	reportManager    report.Interface
 	engine           engineapi.Engine
 	log              logr.Logger
 	eventGen         event.Interface
@@ -44,6 +46,7 @@ type imageVerificationHandler struct {
 func NewImageVerificationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
+	reportManager report.Interface,
 	engine engineapi.Engine,
 	eventGen event.Interface,
 	admissionReports bool,
@@ -53,6 +56,7 @@ func NewImageVerificationHandler(
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
 		engine:           engine,
+		reportManager:    reportManager,
 		log:              log,
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
@@ -173,9 +177,9 @@ func (v *imageVerificationHandler) handleAudit(
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
 			if createReport {
-				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
+				report := v.reportManager.BuildAdmissionReport(resource, request, engineResponses...)
 				if len(report.GetResults()) > 0 {
-					_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+					_, err := v.reportManager.CreateReport(context.Background(), report)
 					if err != nil {
 						v.log.Error(err, "failed to create report")
 					}
