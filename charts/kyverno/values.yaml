@@ -742,7 +742,7 @@ cleanupJobs:
     # -- Enable cleanup cronjob
     enabled: true
 
-    # -- backoffLimit: Maximum number of retries before considering a Job as failed. Defaults to 3.
+    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
     backoffLimit: 3
 
     image:
