@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource, resource unstructured.Unstructured) kyvernov1alpha2.ReportInterface {
+func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, resource unstructured.Unstructured) kyvernov1alpha2.ReportInterface {
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &reportsv1.ClusterEphemeralReport{Spec: reportsv1.EphemeralReportSpec{}}
@@ -24,6 +24,7 @@ func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource,
 	report.SetNamespace(namespace)
 	SetResourceUid(report, resource.GetUID())
 	SetResourceGVR(report, gvr)
+	SetResourceGVK(report, gvk)
 	SetResourceNamespaceAndName(report, resource.GetNamespace(), resource.GetName())
 	SetManagedByKyvernoLabel(report)
 	SetSource(report, "admission")
@@ -31,7 +32,7 @@ func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource,
 }
 
 func BuildAdmissionReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) kyvernov1alpha2.ReportInterface {
-	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), resource)
+	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), schema.GroupVersionKind(request.Kind), resource)
 	SetResponses(report, responses...)
 	return report
 }
@@ -47,6 +48,8 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	report.SetNamespace(namespace)
 	controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, owner, uid)
 	SetResourceUid(report, uid)
+	SetResourceGVK(report, gvk)
+	SetResourceNamespaceAndName(report, namespace, owner)
 	SetManagedByKyvernoLabel(report)
 	SetSource(report, "background-scan")
 	return report

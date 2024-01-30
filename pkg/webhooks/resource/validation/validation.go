@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/report"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -191,7 +190,7 @@ func (v *validationHandler) handleAudit(
 			v.eventGen.Add(events...)
 			if createReport {
 				responses = append(responses, engineResponses...)
-				report := report.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
+				report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
 				if len(report.GetResults()) > 0 {
 					_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
 					if err != nil {

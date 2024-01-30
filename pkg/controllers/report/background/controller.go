@@ -9,6 +9,7 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
@@ -22,7 +23,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/report"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -97,8 +97,8 @@ func NewController(
 	eventGen event.Interface,
 	policyReports bool,
 ) controllers.Controller {
-	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
-	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
+	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
+	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		client:         client,
@@ -107,8 +107,8 @@ func NewController(
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
 		polexLister:    polexInformer.Lister(),
-		bgscanrLister:  bgscanr.Lister(),
-		cbgscanrLister: cbgscanr.Lister(),
+		bgscanrLister:  ephrInformer.Lister(),
+		cbgscanrLister: cephrInformer.Lister(),
 		nsLister:       nsInformer.Lister(),
 		queue:          queue,
 		metadataCache:  metadataCache,
@@ -327,7 +327,7 @@ func (c *controller) reconcileReport(
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		observed = report.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
+		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
 	}
 	// build desired report
 	expected := map[string]string{}

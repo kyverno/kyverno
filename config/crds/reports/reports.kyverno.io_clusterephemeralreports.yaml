@@ -19,17 +19,17 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.ownerReferences[0].apiVersion
-      name: ApiVersion
-      type: string
-    - jsonPath: .metadata.ownerReferences[0].kind
-      name: Kind
-      type: string
-    - jsonPath: .metadata.ownerReferences[0].name
-      name: Subject
-      type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/source']
       name: Source
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.group']
+      name: Group
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.kind']
+      name: Kind
+      type: string
+    - jsonPath: .metadata.annotations['audit\.kyverno\.io/resource\.name']
+      name: Owner
       type: string
     - jsonPath: .spec.summary.pass
       name: Pass
@@ -49,6 +49,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.uid']
+      name: Uid
+      type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
       name: Hash
       priority: 1

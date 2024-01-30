@@ -13,7 +13,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/report"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
@@ -174,7 +173,7 @@ func (v *imageVerificationHandler) handleAudit(
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
 			if createReport {
-				report := report.BuildAdmissionReport(resource, request, engineResponses...)
+				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
 				if len(report.GetResults()) > 0 {
 					_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
 					if err != nil {

@@ -39,16 +39,17 @@ type EphemeralReportSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=ephr,categories=kyverno
-// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion"
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind"
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name"
 // +kubebuilder:printcolumn:name="Source",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/source']"
+// +kubebuilder:printcolumn:name="Group",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.group']"
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.kind']"
+// +kubebuilder:printcolumn:name="Owner",type=string,JSONPath=".metadata.annotations['audit\\.kyverno\\.io/resource\\.name']"
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
 // +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
 // +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=".spec.summary.error"
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Uid",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.uid']",priority=1
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
 
 // EphemeralReport is the Schema for the EphemeralReports API
@@ -76,16 +77,17 @@ func (r *EphemeralReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=cephr,categories=kyverno
-// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion"
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind"
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name"
 // +kubebuilder:printcolumn:name="Source",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/source']"
+// +kubebuilder:printcolumn:name="Group",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.group']"
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.kind']"
+// +kubebuilder:printcolumn:name="Owner",type=string,JSONPath=".metadata.annotations['audit\\.kyverno\\.io/resource\\.name']"
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
 // +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
 // +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=".spec.summary.error"
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Uid",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.uid']"
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
 
 // ClusterEphemeralReport is the Schema for the ClusterEphemeralReports API

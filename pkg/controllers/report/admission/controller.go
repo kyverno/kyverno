@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
-	"github.com/kyverno/kyverno/pkg/report"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
@@ -225,7 +224,7 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		// if we found the resource, build an aggregated report for it
 		if res != nil {
 			if aggregated == nil {
-				aggregated = report.NewAdmissionReport(res.GetNamespace(), string(uid), gvr, *res)
+				aggregated = reportutils.NewAdmissionReport(res.GetNamespace(), string(uid), gvr, res.GroupVersionKind(), *res)
 				controllerutils.SetOwner(aggregated, res.GetAPIVersion(), res.GetKind(), res.GetName(), uid)
 				controllerutils.SetLabel(aggregated, reportutils.LabelAggregatedReport, string(uid))
 			}
