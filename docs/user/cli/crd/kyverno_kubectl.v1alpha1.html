@@ -283,6 +283,37 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     
     
       <tr>
+        <td><code>checks</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-CheckResult">
+                <span style="font-family: monospace">[]CheckResult</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Checks are the verifications to be checked in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>values</code>
           
           <span style="color:blue;"> *</span>
@@ -516,6 +547,252 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
 
           <p>ValuesSpec declares values</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-CheckMatch">CheckMatch
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-CheckResult">CheckResult</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>resource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resource filters engine responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>policy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Policy filters engine responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rule filters rule responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-CheckResult">CheckResult
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>match</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-CheckMatch">
+                <span style="font-family: monospace">CheckMatch</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Match tells how to match relevant rule responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>assert</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Assert contains assertion to be performed on the relevant rule responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>error</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Error contains negative assertion to be performed on the relevant rule responses</p>
 
 
           
