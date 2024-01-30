@@ -194,6 +194,7 @@ func main() {
 		maxQueuedEvents                  int
 		omitEvents                       string
 		skipResourceFilters              bool
+		ignoreWebhookNamespaceSelectors  bool
 		maxAPICallResponseLength         int64
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
@@ -208,6 +209,7 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma separated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
+	flagset.BoolVar(&ignoreWebhookNamespaceSelectors, "ignoreWebhookNamespaceSelectors", true, "If true, webhook namespace selector wont be considered.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	// config
 	appConfig := internal.NewConfiguration(
