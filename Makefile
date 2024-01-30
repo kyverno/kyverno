@@ -518,18 +518,28 @@ codegen-helm-docs: ## Generate helm docs
 	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
 
 .PHONY: codegen-api-docs
-codegen-api-docs: $(PACKAGE_SHIM) $(GENREF) ## Generate API docs
+codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Generate API docs
 	@echo Generate api docs... >&2
 	@rm -rf docs/user/crd && mkdir -p docs/user/crd
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+		-api-dir $(PACKAGE)/api \
+		-config docs/user/config.json \
+		-template-dir docs/user/template \
+		-out-file docs/user/crd/index.html
 	@cd ./docs/user && GOPATH=$(GOPATH_SHIM) $(GENREF) \
 		-c config-api.yaml \
 		-o crd \
 		-f html
 
 .PHONY: codegen-cli-api-docs
-codegen-cli-api-docs: $(PACKAGE_SHIM) $(GENREF) ## Generate CLI API docs
+codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Generate CLI API docs
 	@echo Generate CLI api docs... >&2
 	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+		-api-dir $(PACKAGE)/cmd/cli/kubectl-kyverno/apis \
+		-config docs/user/config.json \
+		-template-dir docs/user/template \
+		-out-file docs/user/cli/crd/index.html
 	@cd ./docs/user && GOPATH=$(GOPATH_SHIM) $(GENREF) \
 		-c config-cli-api.yaml \
 		-o cli/crd \
@@ -551,7 +561,7 @@ codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CL
 	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all
-codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
+codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs codegen-cli-api-docs ## Generate all docs
 
 .PHONY: codegen-fix-tests
 codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
