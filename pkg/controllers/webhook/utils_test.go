@@ -12,9 +12,9 @@ import (
 )
 
 func Test_webhook_isEmpty(t *testing.T) {
-	empty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
+	empty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore, []admissionregistrationv1.MatchCondition{})
 	assert.Equal(t, empty.isEmpty(), true)
-	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
+	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore, []admissionregistrationv1.MatchCondition{})
 	notEmpty.set(GroupVersionResourceScope{
 		GroupVersionResource: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		Scope:                admissionregistrationv1.NamespacedScope,
