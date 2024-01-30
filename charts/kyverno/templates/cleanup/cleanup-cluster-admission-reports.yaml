@@ -13,7 +13,7 @@ spec:
   failedJobsHistoryLimit: {{ .Values.cleanupJobs.clusterAdmissionReports.history.failure }}
   jobTemplate:
     spec:
-      backoffLimit: 3
+      backoffLimit: {{ .Values.cleanupJobs.clusterAdmissionReports.backoffLimit }}
       template:
         metadata:
           {{- with .Values.cleanupJobs.clusterAdmissionReports.podAnnotations }}
