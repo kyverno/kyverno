@@ -173,21 +173,21 @@ func TestGetMinimumOperations(t *testing.T) {
 		{
 			name: "Test Case 1",
 			inputMap: map[string]bool{
-				"CREATE": true,
-				"UPDATE": false,
-				"DELETE": true,
+				webhookCreate: true,
+				webhookUpdate: false,
+				webhookDelete: true,
 			},
-			expectedResult: []admissionregistrationv1.OperationType{"CREATE", "DELETE"},
+			expectedResult: []admissionregistrationv1.OperationType{webhookCreate, webhookDelete},
 		},
 		{
 			name: "Test Case 2",
 			inputMap: map[string]bool{
-				"CREATE":  false,
-				"UPDATE":  false,
-				"DELETE":  false,
-				"CONNECT": true,
+				webhookCreate:  false,
+				webhookUpdate:  false,
+				webhookDelete:  false,
+				webhookConnect: true,
 			},
-			expectedResult: []admissionregistrationv1.OperationType{"CONNECT"},
+			expectedResult: []admissionregistrationv1.OperationType{webhookConnect},
 		},
 	}
 
@@ -223,13 +223,13 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 					},
 					MatchResources: kyverno.MatchResources{
 						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{"CREATE"},
+							Operations: []v1.AdmissionOperation{webhookCreate},
 						},
 					},
 				},
 			},
 			expectedResult: map[string]bool{
-				"CREATE": true,
+				webhookCreate: true,
 			},
 		},
 		{
@@ -265,7 +265,7 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 					MatchResources: kyverno.MatchResources{},
 					ExcludeResources: kyverno.MatchResources{
 						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{"CREATE"},
+							Operations: []v1.AdmissionOperation{webhookCreate},
 						},
 					},
 				},
@@ -302,13 +302,13 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 				{
 					MatchResources: kyverno.MatchResources{
 						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{"CREATE"},
+							Operations: []v1.AdmissionOperation{webhookCreate},
 						},
 					},
 				},
 			},
 			expectedResult: map[string]bool{
-				"CREATE": true,
+				webhookCreate: true,
 			},
 		},
 		{
@@ -332,12 +332,12 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 				{
 					MatchResources: kyverno.MatchResources{
 						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{"CREATE", "UPDATE"},
+							Operations: []v1.AdmissionOperation{webhookCreate, webhookUpdate},
 						},
 					},
 					ExcludeResources: kyverno.MatchResources{
 						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{"DELETE"},
+							Operations: []v1.AdmissionOperation{webhookDelete},
 						},
 					},
 				},
@@ -345,7 +345,7 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 			expectedResult: map[string]bool{
 				webhookCreate: true,
 				webhookUpdate: true,
-				"DELETE":      false,
+				webhookDelete: false,
 			},
 		},
 	}
