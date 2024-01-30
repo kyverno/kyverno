@@ -55,6 +55,10 @@ func (l *cache) Set(key string, val ResourceEntry) bool {
 	l.Lock()
 	defer l.Unlock()
 
+	if val, found := l.store[key]; found { // If the key already exists, skip it before replacing it
+		val.Stop()
+	}
+
 	l.store[key] = val
 	_, ok := l.store[key]
 	return ok

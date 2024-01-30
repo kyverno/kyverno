@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/resource/externalapi"
 	"github.com/kyverno/kyverno/pkg/engine/resource/k8sresource"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/dynamic"
 	k8scache "k8s.io/client-go/tools/cache"
 )
@@ -86,27 +85,17 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 		},
 	})
 
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
 	if !k8scache.WaitForCacheSync(ctx.Done(), ccEventHandler.HasSynced) {
 		cancel()
 		err := errors.New("resource informer cache event handler failed to sync")
 		logger.Error(err, "")
 		return nil, err
 	}
-
-	if err != nil {
-		cancel()
-		return nil, err
-	}
-
-	entries, err := informer.Lister().List(labels.Everything())
-	if err != nil {
-		cancel()
-		logger.Error(err, "failed to fetch context entries")
-		return nil, err
-	}
-
-	k8sloader.SetEntries(entries...)
-	extloader.SetEntries(entries...)
 
 	return &resourceCache{
 		logger:    logger,
