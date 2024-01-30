@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/report"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -43,8 +42,7 @@ const (
 
 type controller struct {
 	// clients
-	client        versioned.Interface
-	reportManager report.Interface
+	client versioned.Interface
 
 	// listers
 	polLister      kyvernov1listers.PolicyLister
@@ -75,21 +73,19 @@ func keyFunc(obj metav1.Object) cache.ExplicitKey {
 func NewController(
 	client versioned.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
-	reportManager report.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	metadataCache resource.MetadataCache,
 	chunkSize int,
 ) controllers.Controller {
-	admrInformer := reportManager.AdmissionReportInformer(metadataFactory)
-	cadmrInformer := reportManager.ClusterAdmissionReportInformer(metadataFactory)
-	bgscanrInformer := reportManager.BackgroundScanReportInformer(metadataFactory)
-	cbgscanrInformer := reportManager.ClusterBackgroundScanReportInformer(metadataFactory)
+	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
+	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
+	bgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
+	cbgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
 	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
 	c := controller{
 		client:         client,
-		reportManager:  reportManager,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
 		admrLister:     admrInformer.Lister(),
@@ -145,7 +141,7 @@ func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string
 	if namespace == "" {
 		next := ""
 		for {
-			cadmsObj, err := c.reportManager.ListClusterAdmissionReports(ctx, metav1.ListOptions{
+			cadms, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{
 				// no need to consider non aggregated reports
 				LabelSelector: reportutils.LabelAggregatedReport,
 				Limit:         mergeLimit,
@@ -153,10 +149,6 @@ func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string
 			})
 			if err != nil {
 				return err
-			}
-			cadms, ok := cadmsObj.(*kyvernov1alpha2.ClusterAdmissionReportList)
-			if !ok {
-				return fmt.Errorf("failed to convert runtime object to cluster admission report list")
 			}
 			next = cadms.Continue
 			for i := range cadms.Items {
@@ -169,7 +161,7 @@ func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string
 	} else {
 		next := ""
 		for {
-			admsObj, err := c.reportManager.ListAdmissionReports(ctx, namespace, metav1.ListOptions{
+			adms, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).List(ctx, metav1.ListOptions{
 				// no need to consider non aggregated reports
 				LabelSelector: reportutils.LabelAggregatedReport,
 				Limit:         mergeLimit,
@@ -177,10 +169,6 @@ func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string
 			})
 			if err != nil {
 				return err
-			}
-			adms, ok := admsObj.(*kyvernov1alpha2.AdmissionReportList)
-			if !ok {
-				return fmt.Errorf("failed to convert runtime object to admission report list")
 			}
 			next = adms.Continue
 			for i := range adms.Items {
@@ -197,16 +185,12 @@ func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace s
 	if namespace == "" {
 		next := ""
 		for {
-			cbgscansObj, err := c.reportManager.ListClusterBackgroundScanReports(ctx, metav1.ListOptions{
+			cbgscans, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(ctx, metav1.ListOptions{
 				Limit:    mergeLimit,
 				Continue: next,
 			})
 			if err != nil {
 				return err
-			}
-			cbgscans, ok := cbgscansObj.(*kyvernov1alpha2.ClusterBackgroundScanReportList)
-			if !ok {
-				return fmt.Errorf("failed to convert runtime object to admission report list")
 			}
 			next = cbgscans.Continue
 			for i := range cbgscans.Items {
@@ -219,16 +203,12 @@ func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace s
 	} else {
 		next := ""
 		for {
-			bgscansObj, err := c.reportManager.ListBackgroundScanReports(ctx, namespace, metav1.ListOptions{
+			bgscans, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).List(ctx, metav1.ListOptions{
 				Limit:    mergeLimit,
 				Continue: next,
 			})
 			if err != nil {
 				return err
-			}
-			bgscans, ok := bgscansObj.(*kyvernov1alpha2.BackgroundScanReportList)
-			if !ok {
-				return fmt.Errorf("failed to convert runtime object to admission report list")
 			}
 			next = bgscans.Continue
 			for i := range bgscans.Items {
@@ -250,9 +230,9 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 				reportutils.SetPolicyLabel(report, engineapi.NewKyvernoPolicy(policy.policy))
 			}
 		}
-		return c.reportManager.CreateReport(ctx, report)
+		return reportutils.CreateReport(ctx, report, c.client)
 	}
-	after := c.reportManager.DeepCopy(report)
+	after := reportutils.DeepCopy(report)
 	// hold custom labels
 	reportutils.CleanupKyvernoLabels(after)
 	reportutils.SetManagedByKyvernoLabel(after)
@@ -266,7 +246,7 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 	if datautils.DeepEqual(report, after) {
 		return after, nil
 	}
-	return c.reportManager.UpdateReport(ctx, after)
+	return reportutils.UpdateReport(ctx, after, c.client)
 }
 
 func (c *controller) cleanReports(ctx context.Context, actual map[string]kyvernov1alpha2.ReportInterface, expected []kyvernov1alpha2.ReportInterface) error {
@@ -276,7 +256,7 @@ func (c *controller) cleanReports(ctx context.Context, actual map[string]kyverno
 	}
 	for _, obj := range actual {
 		if !keep.Has(obj.GetName()) {
-			err := c.reportManager.DeleteReport(ctx, obj)
+			err := reportutils.DeleteReport(ctx, obj, c.client)
 			if err != nil {
 				return err
 			}
