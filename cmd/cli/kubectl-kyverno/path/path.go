@@ -14,7 +14,7 @@ func GetFullPath(path string, basePath string) string {
 
 func GetFullPaths(paths []string, Paths []string, basePath string, git bool) []string {
 	if git {
-		return paths
+		return append(paths, Paths...)
 	}
 	var out []string
 	for _, path := range paths {
