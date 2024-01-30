@@ -6,4 +6,4 @@ This test verifies that operations configured dynmically are correct in mutating
 
 1.  - Create a policy with mutate
     - Assert policy gets ready
-1.  - Assert that the resource mutation webhook is configured correctly
+2.  - Assert that the resource mutation webhook is configured correctly

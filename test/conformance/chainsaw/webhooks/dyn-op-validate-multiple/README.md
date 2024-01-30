@@ -1,6 +1,6 @@
 ## Description
 
-This test verifies that operations configured dynmically are correct in validatingadmissionwebhooks
+This test verifies that operations configured dynamically are correct in validatingadmissionwebhooks with multiple policies
 
 ## Steps
 

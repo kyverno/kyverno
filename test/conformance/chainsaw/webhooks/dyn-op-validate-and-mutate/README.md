@@ -4,6 +4,6 @@ This test verifies that operations configured dynmically are correct in both val
 
 ## Steps
 
-1.  - Create a policy with validate block and mutate block
-    - Assert policy gets ready
-1.  - Assert that the resource validation and mutation webhook is configured correctly
+1.  - Create policies with validate block and mutate block
+    - Assert policies get ready
+2.  - Assert that the resource validation and mutation webhook are configured correctly
