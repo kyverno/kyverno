@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	v1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/tools/record/util"
 	"k8s.io/client-go/tools/reference"
@@ -25,12 +26,17 @@ import (
 
 const (
 	Workers             = 3
-	eventWorkQueueName  = "kyverno-events"
+	ControllerName      = "kyverno-events"
 	workQueueRetryLimit = 3
 )
 
-// generator generate events
-type generator struct {
+// Interface to generate event
+type Interface interface {
+	Add(infoList ...Info)
+}
+
+// controller generate events
+type controller struct {
 	logger               logr.Logger
 	eventsClient         v1.EventsV1Interface
 	omitEvents           sets.Set[string]
@@ -40,22 +46,10 @@ type generator struct {
 	droppedEventsCounter metric.Int64Counter
 }
 
-// Interface to generate event
-type Interface interface {
-	Add(infoList ...Info)
-}
-
-// Controller interface to generate event
-type Controller interface {
-	Interface
-	Run(context.Context)
-}
-
 // NewEventGenerator to generate a new event controller
-func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, omitEvents ...string) Controller {
+func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, omitEvents ...string) *controller {
 	clock := clock.RealClock{}
 	hostname, _ := os.Hostname()
-
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	droppedEventsCounter, err := meter.Int64Counter(
 		"kyverno_events_dropped",
@@ -64,11 +58,11 @@ func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, om
 	if err != nil {
 		logger.Error(err, "failed to register metric kyverno_events_dropped")
 	}
-	return &generator{
+	return &controller{
 		logger:               logger,
 		eventsClient:         eventsClient,
 		omitEvents:           sets.New(omitEvents...),
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), eventWorkQueueName),
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		clock:                clock,
 		hostname:             hostname,
 		droppedEventsCounter: droppedEventsCounter,
@@ -76,7 +70,7 @@ func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, om
 }
 
 // Add queues an event for generation
-func (gen *generator) Add(infos ...Info) {
+func (gen *controller) Add(infos ...Info) {
 	logger := gen.logger
 	logger.V(3).Info("generating events", "count", len(infos))
 	for _, info := range infos {
@@ -95,36 +89,34 @@ func (gen *generator) Add(infos ...Info) {
 }
 
 // Run begins generator
-func (gen *generator) Run(ctx context.Context) {
+func (gen *controller) Run(ctx context.Context, workers int) {
 	logger := gen.logger
 	logger.Info("start")
 	defer logger.Info("terminated")
 	defer utilruntime.HandleCrash()
-
-	for i := 0; i < Workers; i++ {
-		go func() {
+	var waitGroup wait.Group
+	for i := 0; i < workers; i++ {
+		waitGroup.StartWithContext(ctx, func(ctx context.Context) {
 			for gen.processNextWorkItem(ctx) {
 			}
-		}()
+		})
 	}
-
+	waitGroup.Wait()
 	<-ctx.Done()
 }
 
-func (gen *generator) processNextWorkItem(ctx context.Context) bool {
+func (gen *controller) processNextWorkItem(ctx context.Context) bool {
 	logger := gen.logger
 	key, quit := gen.queue.Get()
 	if quit {
 		return false
 	}
 	defer gen.queue.Done(key)
-
 	event, ok := key.(*eventsv1.Event)
 	if !ok {
 		logger.Error(nil, "failed to convert key to Info", "key", key)
 		return true
 	}
-
 	_, err := gen.eventsClient.Events(event.Namespace).Create(ctx, event, metav1.CreateOptions{})
 	if err != nil {
 		if gen.queue.NumRequeues(key) < workQueueRetryLimit {
@@ -139,7 +131,7 @@ func (gen *generator) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (gen *generator) emitEvent(key Info) {
+func (gen *controller) emitEvent(key Info) {
 	logger := gen.logger
 	eventType := corev1.EventTypeWarning
 	if key.Reason == PolicyApplied || key.Reason == PolicySkipped {

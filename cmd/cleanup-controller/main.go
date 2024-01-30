@@ -120,6 +120,7 @@ func main() {
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	var wg sync.WaitGroup
 	// listers
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 	// log policy changes
@@ -139,12 +140,15 @@ func main() {
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
 	)
+	eventController := internal.NewController(
+		event.ControllerName,
+		eventGenerator,
+		event.Workers,
+	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
 	}
-	// start event generator
-	go eventGenerator.Run(ctx)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -331,6 +335,10 @@ func main() {
 	)
 	// start server
 	server.Run(ctx.Done())
+	// start non leader controllers
+	eventController.Run(ctx, setup.Logger, &wg)
 	// start leader election
 	le.Run(ctx)
+	// wait for everything to shut down and exit
+	wg.Wait()
 }

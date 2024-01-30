@@ -93,7 +93,6 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
-
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -117,7 +116,6 @@ func main() {
 	// setup
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
 	defer sdown()
-
 	var err error
 	bgscanInterval := time.Hour
 	val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
@@ -128,23 +126,27 @@ func main() {
 		}
 	}
 	setup.Logger.V(2).Info("setting the background scan interval", "value", bgscanInterval.String())
-
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-	emitEventsValues := strings.Split(omitEvents, ",")
+	omitEventsValues := strings.Split(omitEvents, ",")
 	if omitEvents == "" {
-		emitEventsValues = []string{}
+		omitEventsValues = []string{}
 	}
+	var wg sync.WaitGroup
 	eventGenerator := event.NewEventGenerator(
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
-		emitEventsValues...,
+		omitEventsValues...,
+	)
+	eventController := internal.NewController(
+		event.ControllerName,
+		eventGenerator,
+		event.Workers,
 	)
 	// this controller only subscribe to events, nothing is returned...
-	var wg sync.WaitGroup
 	policymetricscontroller.NewController(
 		setup.MetricsManager,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
@@ -170,8 +172,6 @@ func main() {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
-	// start event generator
-	go eventGenerator.Run(signalCtx)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -222,7 +222,10 @@ func main() {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
+	// start non leader controllers
+	eventController.Run(signalCtx, setup.Logger, &wg)
 	// start leader election
 	le.Run(signalCtx)
+	// wait for everything to shut down and exit
 	wg.Wait()
 }

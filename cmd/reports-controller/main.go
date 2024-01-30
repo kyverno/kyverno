@@ -267,10 +267,16 @@ func main() {
 	if omitEvents == "" {
 		omitEventsValues = []string{}
 	}
+	var wg sync.WaitGroup
 	eventGenerator := event.NewEventGenerator(
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
 		omitEventsValues...,
+	)
+	eventController := internal.NewController(
+		event.ControllerName,
+		eventGenerator,
+		event.Workers,
 	)
 	// engine
 	engine := internal.NewEngine(
@@ -292,8 +298,6 @@ func main() {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
-	// start event generator
-	go eventGenerator.Run(ctx)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -362,6 +366,10 @@ func main() {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
+	// start non leader controllers
+	eventController.Run(ctx, setup.Logger, &wg)
+	// start leader election
 	le.Run(ctx)
-	sdown()
+	// wait for everything to shut down and exit
+	wg.Wait()
 }

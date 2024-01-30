@@ -29,7 +29,7 @@ func TestEventGenerator(t *testing.T) {
 	eventsClient := clientset.EventsV1()
 	eventGenerator := NewEventGenerator(eventsClient, logger)
 
-	go eventGenerator.Run(ctx)
+	go eventGenerator.Run(ctx, Workers)
 	time.Sleep(1 * time.Second)
 
 	info := Info{
