@@ -106,6 +106,7 @@ func main() {
 		internal.WithRegistryClient(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
+		internal.WithAlternateReportStore(),
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
