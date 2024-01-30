@@ -1,4 +1,4 @@
-package resource
+package aggregate
 
 import (
 	"context"
@@ -33,7 +33,7 @@ import (
 const (
 	// Workers is the number of workers for this controller
 	Workers        = 10
-	ControllerName = "resource-aggregate-report-controller"
+	ControllerName = "aggregate-report-controller"
 	maxRetries     = 10
 	enqueueDelay   = 10 * time.Second
 )
