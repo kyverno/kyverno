@@ -58,17 +58,21 @@ func New(logger logr.Logger, dclient dynamic.Interface, informer v2alpha1.Cached
 				extloader.SetEntry(entry)
 			}
 		},
-		UpdateFunc: func(_ interface{}, newObj interface{}) {
+		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
 			logger.V(4).Info("cached context entry updated, updating cache entry")
 			newentry, ok := newObj.(*kyvernov2alpha1.CachedContextEntry)
 			if !ok {
 				return
 			}
+			oldentry, ok := oldObj.(*kyvernov2alpha1.CachedContextEntry)
+			if !ok {
+				return
+			}
 
 			if newentry.Spec.IsResource() {
-				k8sloader.SetEntry(newentry)
+				k8sloader.UpdateEntry(oldentry, newentry)
 			} else if newentry.Spec.IsAPICall() {
-				extloader.SetEntry(newentry)
+				extloader.UpdateEntry(oldentry, newentry)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {

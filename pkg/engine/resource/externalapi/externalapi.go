@@ -161,6 +161,20 @@ func (e *ExternalAPILoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
 	e.logger.V(4).Info("successfully created cache entry", "key", key, "entry", entry)
 }
 
+func (e *ExternalAPILoader) UpdateEntry(oldEntry, newEntry *v2alpha1.CachedContextEntry) {
+	oldrc := oldEntry.Spec.ResourceCache.DeepCopy()
+	newrc := newEntry.Spec.ResourceCache.DeepCopy()
+
+	oldkey := getKeyForExternalEntry(oldrc.APICall.Service.URL, oldrc.APICall.Service.CABundle, oldrc.APICall.RefreshIntervalSeconds, oldEntry.Name)
+	newkey := getKeyForExternalEntry(newrc.APICall.Service.URL, newrc.APICall.Service.CABundle, newrc.APICall.RefreshIntervalSeconds, newEntry.Name)
+
+	e.SetEntry(newEntry)
+	if oldkey == newkey {
+		return
+	}
+	e.Delete(oldEntry)
+}
+
 func (e *ExternalAPILoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
 	if rc.K8sResource == nil {
 		return nil, fmt.Errorf("resource not found")

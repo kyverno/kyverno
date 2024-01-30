@@ -113,6 +113,31 @@ func (r *ResourceLoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
 	r.logger.V(4).Info("successfully created cache entry", "key", key, "entry", ent)
 }
 
+func (r *ResourceLoader) UpdateEntry(oldEntry, newEntry *v2alpha1.CachedContextEntry) {
+	oldrc := oldEntry.Spec.K8sResource.DeepCopy()
+	newrc := newEntry.Spec.K8sResource.DeepCopy()
+
+	oldresource := schema.GroupVersionResource{
+		Group:    oldrc.Group,
+		Version:  oldrc.Version,
+		Resource: oldrc.Resource,
+	}
+	newresource := schema.GroupVersionResource{
+		Group:    newrc.Group,
+		Version:  newrc.Version,
+		Resource: newrc.Resource,
+	}
+	oldkey := getKeyForResourceEntry(oldresource, oldrc.Namespace, oldEntry.Name)
+	newkey := getKeyForResourceEntry(newresource, newrc.Namespace, newEntry.Name)
+
+	r.SetEntry(newEntry)
+	if oldkey == newkey {
+		return
+	}
+
+	r.Delete(oldEntry)
+}
+
 func (r *ResourceLoader) Get(rc *kyvernov1.ResourceCache) (interface{}, error) {
 	if rc.K8sResource == nil {
 		return nil, fmt.Errorf("resource not found")
