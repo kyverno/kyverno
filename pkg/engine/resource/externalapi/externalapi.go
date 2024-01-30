@@ -10,7 +10,10 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/resource/cache"
 )
 
@@ -115,7 +118,10 @@ func (e *ExternalAPILoader) SetEntry(entry *v2alpha1.CachedContextEntry) {
 
 	key := getKeyForExternalEntry(rc.APICall.Service.URL, rc.APICall.Service.CABundle, rc.APICall.RefreshIntervalSeconds, entry.Name)
 
-	executor, err := apicall.New(e.logger.WithName("apicaller"), nil, ctxentry, nil, nil, e.config)
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	jsonctx := enginecontext.NewContext(jp)
+
+	executor, err := apicall.New(e.logger.WithName("apicaller"), jp, ctxentry, jsonctx, nil, e.config)
 	if err != nil {
 		err := fmt.Errorf("failed to initiaize APICall: %w", err)
 		e.logger.Error(err, "")
