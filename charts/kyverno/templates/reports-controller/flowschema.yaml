@@ -52,6 +52,35 @@ spec:
         - watch
         - deletecollection
     - apiGroups:
+        - reports.kyverno.io
+      clusterScope: true
+      resources:
+        - clusterephemeralreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - reports.kyverno.io
+      namespaces:
+        - '*'
+      resources:
+        - ephemeralreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
         - wgpolicyk8s.io
       clusterScope: true
       resources:

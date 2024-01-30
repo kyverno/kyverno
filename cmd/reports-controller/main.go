@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/report"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -46,6 +47,7 @@ func createReportControllers(
 	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	reportManager report.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -57,9 +59,11 @@ func createReportControllers(
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	var vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer
+	var vapBindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer
 	// check if validating admission policies are registered in the API server
 	if validatingAdmissionPolicyReports {
 		vapInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies()
+		vapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings()
 	}
 
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
@@ -85,6 +89,7 @@ func createReportControllers(
 				aggregatereportcontroller.NewController(
 					kyvernoClient,
 					metadataFactory,
+					reportManager,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					vapInformer,
@@ -101,6 +106,7 @@ func createReportControllers(
 					kyvernoClient,
 					client,
 					metadataFactory,
+					reportManager,
 				),
 				admissionreportcontroller.Workers,
 			))
@@ -109,12 +115,14 @@ func createReportControllers(
 			backgroundScanController := backgroundscancontroller.NewController(
 				client,
 				kyvernoClient,
+				reportManager,
 				eng,
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
 				kyvernoV2beta1.PolicyExceptions(),
 				vapInformer,
+				vapBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,
 				backgroundScanInterval,
@@ -153,6 +161,7 @@ func createrLeaderControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	metadataInformer metadatainformers.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
+	reportManager report.Interface,
 	dynamicClient dclient.Interface,
 	configuration config.Configuration,
 	jp jmespath.Interface,
@@ -170,6 +179,7 @@ func createrLeaderControllers(
 		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
+		reportManager,
 		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
@@ -223,6 +233,7 @@ func main() {
 		internal.WithImageVerifyCache(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
+		internal.WithAlternateReportStore(),
 		internal.WithDynamicClient(),
 		internal.WithMetadataClient(),
 		internal.WithKyvernoDynamicClient(),
@@ -313,6 +324,7 @@ func main() {
 				kyvernoInformer,
 				metadataInformer,
 				setup.KyvernoClient,
+				setup.ReportManager,
 				setup.KyvernoDynamicClient,
 				setup.Configuration,
 				setup.Jp,
