@@ -6,13 +6,14 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"go.uber.org/multierr"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -21,6 +22,7 @@ type scanner struct {
 	engine engineapi.Engine
 	config config.Configuration
 	jp     jmespath.Interface
+	client dclient.Interface
 }
 
 type ScanResult struct {
@@ -29,7 +31,7 @@ type ScanResult struct {
 }
 
 type Scanner interface {
-	ScanResource(context.Context, unstructured.Unstructured, map[string]string, ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult
+	ScanResource(context.Context, unstructured.Unstructured, map[string]string, []v1alpha1.ValidatingAdmissionPolicyBinding, ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult
 }
 
 func NewScanner(
@@ -37,16 +39,18 @@ func NewScanner(
 	engine engineapi.Engine,
 	config config.Configuration,
 	jp jmespath.Interface,
+	client dclient.Interface,
 ) Scanner {
 	return &scanner{
 		logger: logger,
 		engine: engine,
 		config: config,
 		jp:     jp,
+		client: client,
 	}
 }
 
-func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
+func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, bindings []v1alpha1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
 	results := map[*engineapi.GenericPolicy]ScanResult{}
 	for i, policy := range policies {
 		var errors []error
@@ -54,7 +58,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 		var response *engineapi.EngineResponse
 		if policy.GetType() == engineapi.KyvernoPolicyType {
 			var err error
-			pol := policy.GetPolicy().(kyvernov1.PolicyInterface)
+			pol := policy.AsKyvernoPolicy()
 			response, err = s.validateResource(ctx, resource, nsLabels, pol)
 			if err != nil {
 				logger.Error(err, "failed to scan resource")
@@ -74,8 +78,17 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 				}
 			}
 		} else {
-			pol := policy.GetPolicy().(admissionregistrationv1alpha1.ValidatingAdmissionPolicy)
-			res := validatingadmissionpolicy.Validate(pol, resource)
+			pol := policy.AsValidatingAdmissionPolicy()
+			policyData := validatingadmissionpolicy.NewPolicyData(*pol)
+			for _, binding := range bindings {
+				if binding.Spec.PolicyName == pol.Name {
+					policyData.AddBinding(binding)
+				}
+			}
+			res, err := validatingadmissionpolicy.Validate(policyData, resource, s.client)
+			if err != nil {
+				errors = append(errors, err)
+			}
 			response = &res
 		}
 		results[&policies[i]] = ScanResult{response, multierr.Combine(errors...)}

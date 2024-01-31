@@ -24,6 +24,8 @@ func CRDsInstalled(apiserverClient apiserver.Interface) error {
 		"policyexceptions.kyverno.io",
 		"policyreports.wgpolicyk8s.io",
 		"updaterequests.kyverno.io",
+		"ephemeralreports.reports.kyverno.io",
+		"clusterephemeralreports.reports.kyverno.io",
 	}
 	var errs []error
 	for _, crd := range kyvernoCRDs {

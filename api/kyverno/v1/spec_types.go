@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -121,6 +122,15 @@ type Spec struct {
 	// Defaults to "false" if not specified.
 	// +optional
 	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
+
+	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+	// Requires Kubernetes 1.27 or later.
+	// +optional
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty" yaml:"webhookConfiguration,omitempty"`
+}
+
+func (s *Spec) CustomWebhookConfiguration() bool {
+	return s.WebhookConfiguration != nil
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -255,6 +265,14 @@ func (s *Spec) GetFailurePolicy(ctx context.Context) FailurePolicyType {
 		return Fail
 	}
 	return *s.FailurePolicy
+}
+
+// GetMatchConditions returns matchConditions in webhookConfiguration
+func (s *Spec) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	if s.WebhookConfiguration != nil {
+		return s.WebhookConfiguration.MatchConditions
+	}
+	return nil
 }
 
 // GetFailurePolicy returns the failure policy to be applied
