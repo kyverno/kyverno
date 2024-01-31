@@ -15,7 +15,7 @@ import (
 )
 
 func TestComputeClusterPolicyReports(t *testing.T) {
-	policies, _, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(policies), 1)
 	policy := policies[0]
@@ -49,7 +49,7 @@ func TestComputeClusterPolicyReports(t *testing.T) {
 }
 
 func TestComputePolicyReports(t *testing.T) {
-	policies, _, _, _, err := policy.Load(nil, "", "../_testdata/policies/pol-pod-requirements.yaml")
+	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/pol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(policies), 1)
 	policy := policies[0]
@@ -84,7 +84,7 @@ func TestComputePolicyReports(t *testing.T) {
 }
 
 func TestComputePolicyReportResultsPerPolicyOld(t *testing.T) {
-	policies, _, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(policies), 1)
 	policy := policies[0]
@@ -162,7 +162,7 @@ func TestMergeClusterReport(t *testing.T) {
 }
 
 func TestComputePolicyReportResult(t *testing.T) {
-	policies, _, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(policies), 1)
 	policy := policies[0]

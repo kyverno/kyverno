@@ -57,7 +57,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	// policies
 	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testCase.Test.PolicyExceptions, testDir, isGit)
-	policies, validatingAdmissionPolicies, _, exceptions, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
+	policies, validatingAdmissionPolicies, _, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}

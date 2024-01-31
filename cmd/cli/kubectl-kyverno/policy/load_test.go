@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/admissionregistration/v1alpha1"
 )
@@ -38,7 +37,7 @@ func TestLoad(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, _, _, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			_, _, _, err := Load(tt.fs, tt.resourcePath, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -54,7 +53,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 		resourcePath string
 		paths        []string
 		wantErr      bool
-		checks       func(*testing.T, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, []kyvernov2beta1.PolicyException)
+		checks       func(*testing.T, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy)
 	}{{
 		name:         "cpol-limit-configmap-for-sa",
 		fs:           nil,
@@ -73,7 +72,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 		resourcePath: "",
 		paths:        []string{"../_testdata/policies/check-image.yaml"},
 		wantErr:      false,
-		checks: func(t *testing.T, policies []kyvernov1.PolicyInterface, vaps []v1alpha1.ValidatingAdmissionPolicy, polex []kyvernov2beta1.PolicyException) {
+		checks: func(t *testing.T, policies []kyvernov1.PolicyInterface, vaps []v1alpha1.ValidatingAdmissionPolicy) {
 			assert.Len(t, policies, 1)
 			policy := policies[0]
 			assert.NotNil(t, policy)
@@ -100,13 +99,13 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			policies, vaps, _, polex, err := LoadWithLoader(KubectlValidateLoader, tt.fs, tt.resourcePath, tt.paths...)
+			policies, vaps, _, err := LoadWithLoader(KubectlValidateLoader, tt.fs, tt.resourcePath, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.checks != nil {
-				tt.checks(t, policies, vaps, polex)
+				tt.checks(t, policies, vaps)
 			}
 		})
 	}
