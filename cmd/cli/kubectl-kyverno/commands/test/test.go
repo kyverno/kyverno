@@ -174,7 +174,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		}
 		engineResponses = append(engineResponses, ers...)
 	}
-	v := 0
+	v := 0.0
 	var policy kyvernov1.PolicyInterface
         for _, policy = range policies {
 		for _, rule := range autogen.ComputeRules(policy) {
@@ -185,7 +185,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			}
 		}
 	}
-	if v >= (len(autogen.ComputeRules(policy)) * len(testCase.Test.Results) * len(policies)) {
+	n := float64(len(testCase.Test.Results))
+	l := float64(len(policies))
+	g := float64(len(autogen.ComputeRules(policy)))
+	if v >= g*math.Pow(n, l) {
 		return nil, fmt.Errorf("the rulename mismatches and not found anywhere on the policy ")
 
 	}
