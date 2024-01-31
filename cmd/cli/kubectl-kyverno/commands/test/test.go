@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -56,14 +57,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	}
 	// policies
 	fmt.Fprintln(out, "  Loading policies", "...")
-	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testCase.Test.PolicyExceptions, testDir, isGit)
+	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
 	policies, validatingAdmissionPolicies, _, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
-	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, nil, testDir, isGit)
+	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
 	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load resources (%s)", err)
@@ -73,6 +74,13 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		for dup := range duplicates {
 			fmt.Fprintln(out, "  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
+	}
+	// exceptions
+	fmt.Fprintln(out, "  Loading exceptions", "...")
+	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
+	exceptions, err := exception.Load(testCase.Fs, testDir, exceptionFullPath...)
+	if err != nil {
+		return nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
 	// Validates that exceptions cannot be used with ValidatingAdmissionPolicies.
 	if len(validatingAdmissionPolicies) > 0 && len(exceptions) > 0 {
