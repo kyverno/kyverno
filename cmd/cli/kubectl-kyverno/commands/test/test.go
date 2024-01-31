@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"io"
+ "math"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
