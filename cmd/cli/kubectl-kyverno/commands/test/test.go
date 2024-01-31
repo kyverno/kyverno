@@ -90,9 +90,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
-				if rule.Name != res.Rule {
-					return nil, (fmt.Errorf("rule(%s) cannot be found in the given policy", rule.Name))
-				}
+			
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
@@ -175,6 +173,21 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			return nil, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		engineResponses = append(engineResponses, ers...)
+	}
+	v := 0
+	var policy kyvernov1.PolicyInterface
+        for _, policy = range policies {
+		for _, rule := range autogen.ComputeRules(policy) {
+			for _, res := range testCase.Test.Results {
+				if rule.Name != res.Rule {
+					v += 1
+				}
+			}
+		}
+	}
+	if v >= (len(autogen.ComputeRules(policy)) * len(testCase.Test.Results) * len(policies)) {
+		return nil, fmt.Errorf("the rulename mismatches and not found anywhere on the policy ")
+
 	}
 	return engineResponses, nil
 }
