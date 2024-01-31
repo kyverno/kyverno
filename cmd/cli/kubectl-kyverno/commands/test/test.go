@@ -74,6 +74,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			fmt.Fprintln(out, "  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
+	// Validates that exceptions cannot be used with ValidatingAdmissionPolicies.
+	if len(validatingAdmissionPolicies) > 0 && len(exceptions) > 0 {
+		return nil, fmt.Errorf("Error: Currently, the use of exceptions in conjunction with ValidatingAdmissionPolicies is not supported.")
+	}
 	// init store
 	var store store.Store
 	store.SetLocal(true)
