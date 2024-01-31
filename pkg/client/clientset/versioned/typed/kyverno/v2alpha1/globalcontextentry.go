@@ -40,6 +40,7 @@ type GlobalContextEntriesGetter interface {
 type GlobalContextEntryInterface interface {
 	Create(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.CreateOptions) (*v2alpha1.GlobalContextEntry, error)
 	Update(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (*v2alpha1.GlobalContextEntry, error)
+	UpdateStatus(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (*v2alpha1.GlobalContextEntry, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2alpha1.GlobalContextEntry, error)
@@ -121,6 +122,21 @@ func (c *globalContextEntries) Update(ctx context.Context, globalContextEntry *v
 	err = c.client.Put().
 		Resource("globalcontextentries").
 		Name(globalContextEntry.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(globalContextEntry).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *globalContextEntries) UpdateStatus(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (result *v2alpha1.GlobalContextEntry, err error) {
+	result = &v2alpha1.GlobalContextEntry{}
+	err = c.client.Put().
+		Resource("globalcontextentries").
+		Name(globalContextEntry.Name).
+		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(globalContextEntry).
 		Do(ctx).

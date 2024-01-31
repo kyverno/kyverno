@@ -38,7 +38,7 @@ type cache struct {
 	store map[string]Entry
 }
 
-func New() Store {
+func NewStore() Store {
 	return &cache{
 		store: make(map[string]Entry),
 	}

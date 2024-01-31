@@ -18,13 +18,9 @@ import (
 	k8scache "k8s.io/client-go/tools/cache"
 )
 
-const resyncPeriod = 15 * time.Second
-
-type ResourceLoader struct {
-	logger logr.Logger
-	client dynamic.Interface
-	store  store.Store
-}
+const (
+	resyncPeriod = 15 * time.Second
+)
 
 type resourceEntry struct {
 	sync.Mutex
@@ -63,25 +59,7 @@ func (re *resourceEntry) Stop() {
 	re.cancel()
 }
 
-func New(logger logr.Logger, dclient dynamic.Interface, c store.Store) *ResourceLoader {
-	logger = logger.WithName("k8s resource loader")
-	return &ResourceLoader{
-		logger: logger,
-		client: dclient,
-		store:  c,
-	}
-}
-
-func (r *ResourceLoader) SetEntries(entries ...*v2alpha1.GlobalContextEntry) {
-	for _, entry := range entries {
-		if entry.Spec.K8sResource == nil {
-			continue
-		}
-		r.SetEntry(entry)
-	}
-}
-
-func (r *ResourceLoader) SetEntry(entry *v2alpha1.GlobalContextEntry) {
+func StoreInGlobalContext(logger logr.Logger, gctxStore *store.Store, entry *v2alpha1.GlobalContextEntry, client dynamic.Interface) {
 	if entry.Spec.K8sResource == nil {
 		return
 	}
@@ -92,25 +70,25 @@ func (r *ResourceLoader) SetEntry(entry *v2alpha1.GlobalContextEntry) {
 		Resource: rc.Resource,
 	}
 	key := entry.Name
-	ent, err := r.createGenericListerForResource(resource, rc.Namespace)
+	ent, err := createGenericListerForResource(logger, rc.Namespace, resource, client)
 	if err != nil {
 		ent = store.NewInvalidEntry(err)
 	}
-	ok := r.store.Set(key, ent)
+	ok := (*gctxStore).Set(key, ent)
 	if !ok {
 		err := fmt.Errorf("failed to create cache entry key=%s", key)
-		r.logger.Error(err, "")
+		logger.Error(err, "")
 		return
 	}
-	r.logger.V(4).Info("successfully created cache entry", "key", key, "entry", ent)
+	logger.V(4).Info("successfully created cache entry", "key", key, "entry", ent)
 }
 
-func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVersionResource, namespace string) (store.Entry, error) {
-	informer := dynamicinformer.NewFilteredDynamicInformer(r.client, resource, namespace, resyncPeriod, k8scache.Indexers{k8scache.NamespaceIndex: k8scache.MetaNamespaceIndexFunc}, nil)
-	watchErrHandler := NewWatchErrorHandler(r.logger, resource, namespace)
+func createGenericListerForResource(logger logr.Logger, namespace string, resource schema.GroupVersionResource, client dynamic.Interface) (store.Entry, error) {
+	informer := dynamicinformer.NewFilteredDynamicInformer(client, resource, namespace, resyncPeriod, k8scache.Indexers{k8scache.NamespaceIndex: k8scache.MetaNamespaceIndexFunc}, nil)
+	watchErrHandler := NewWatchErrorHandler(logger, resource, namespace)
 	err := informer.Informer().SetWatchErrorHandler(watchErrHandler.WatchErrorHandlerFunction())
 	if err != nil {
-		r.logger.Error(err, "failed to add watch error handler")
+		logger.Error(err, "failed to add watch error handler")
 		return nil, err
 	}
 
@@ -119,7 +97,7 @@ func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVer
 	if !k8scache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		cancel()
 		err := errors.New("resource informer cache failed to sync")
-		r.logger.Error(err, "")
+		logger.Error(err, "")
 		return nil, err
 	}
 
@@ -129,5 +107,5 @@ func (r *ResourceLoader) createGenericListerForResource(resource schema.GroupVer
 	} else {
 		lister = informer.Lister().ByNamespace(namespace)
 	}
-	return &resourceEntry{lister: lister, logger: r.logger.WithName("k8s resource entry"), watchErrHandler: watchErrHandler, cancel: cancel}, nil
+	return &resourceEntry{lister: lister, logger: logger.WithName("k8s resource entry"), watchErrHandler: watchErrHandler, cancel: cancel}, nil
 }

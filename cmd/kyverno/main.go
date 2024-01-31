@@ -26,6 +26,8 @@ import (
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
+	"github.com/kyverno/kyverno/pkg/engine/globalcontext"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -144,6 +146,7 @@ func createrLeaderControllers(
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
+		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 		serverIP,
 		int32(webhookTimeout),
 		servicePort,
@@ -354,6 +357,20 @@ func main() {
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		certRenewer,
 	)
+	// Global Context Store and Controller
+	store := globalcontextstore.NewStore()
+	gctxReconciler := globalcontext.NewController(
+		logging.WithName("GlobalContextReconciler"),
+		setup.KyvernoClient,
+		setup.KyvernoDynamicClient.GetDynamicInterface(),
+		// apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		&store,
+	)
+	gctxController := internal.NewController(
+		"global-context-controller",
+		gctxReconciler,
+		1,
+	)
 	// engine
 	engine := internal.NewEngine(
 		signalCtx,
@@ -368,6 +385,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		&store,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -523,6 +541,7 @@ func main() {
 	defer server.Stop()
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
+	gctxController.Run(signalCtx, setup.Logger, &wg)
 	for _, controller := range nonLeaderControllers {
 		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
 	}

@@ -20,6 +20,8 @@ import (
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
+	"github.com/kyverno/kyverno/pkg/engine/globalcontext"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -267,6 +269,20 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
+	// Global Context Store and Controller
+	store := globalcontextstore.NewStore()
+	gctxReconciler := globalcontext.NewController(
+		logging.WithName("GlobalContextReconciler"),
+		setup.KyvernoClient,
+		setup.KyvernoDynamicClient.GetDynamicInterface(),
+		// apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		&store,
+	)
+	gctxController := internal.NewController(
+		"global-context-controller",
+		gctxReconciler,
+		1,
+	)
 	// engine
 	engine := internal.NewEngine(
 		ctx,
@@ -281,6 +297,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		&store,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
@@ -356,6 +373,7 @@ func main() {
 	}
 	// start non leader controllers
 	eventController.Run(ctx, setup.Logger, &wg)
+	gctxController.Run(ctx, setup.Logger, &wg)
 	// start leader election
 	le.Run(ctx)
 	// wait for everything to shut down and exit

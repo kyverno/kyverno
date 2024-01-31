@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -56,6 +57,7 @@ func (l *contextLoader) Load(
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
+	gctxStore *globalcontextstore.Store,
 ) error {
 	for _, init := range l.initializers {
 		if err := init(jsonContext); err != nil {
@@ -63,7 +65,7 @@ func (l *contextLoader) Load(
 		}
 	}
 	for _, entry := range contextEntries {
-		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext)
+		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext, gctxStore)
 		if err != nil {
 			return fmt.Errorf("failed to create deferred loader for context entry %s", entry.Name)
 		}
@@ -89,6 +91,7 @@ func (l *contextLoader) newLoader(
 	rclientFactory engineapi.RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
+	gctx *globalcontextstore.Store,
 ) (enginecontext.DeferredLoader, error) {
 	if entry.ConfigMap != nil {
 		if l.cmResolver != nil {
@@ -104,6 +107,14 @@ func (l *contextLoader) newLoader(
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.Info("disabled loading of APICall context entry", "name", entry.Name)
+			return nil, nil
+		}
+	} else if entry.GlobalReference != nil {
+		if gctx != nil {
+			ldr := loaders.NewGCTXLoader(ctx, l.logger, entry, jsonContext, jp, gctx)
+			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
+		} else {
+			l.logger.Info("disabled loading of GlobalContext context entry", "name", entry.Name)
 			return nil, nil
 		}
 	} else if entry.ImageRegistry != nil {

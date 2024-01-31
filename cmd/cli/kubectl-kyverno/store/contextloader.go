@@ -7,6 +7,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
@@ -54,6 +55,7 @@ func (w wrapper) Load(
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
+	gctxStore *globalcontextstore.Store,
 ) error {
 	if !w.store.IsApiCallAllowed() {
 		client = nil
@@ -61,5 +63,5 @@ func (w wrapper) Load(
 	if !w.store.GetRegistryAccess() {
 		rclientFactory = nil
 	}
-	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
+	return w.inner.Load(ctx, jp, client, rclientFactory, contextEntries, jsonContext, nil)
 }

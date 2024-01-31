@@ -18,6 +18,8 @@ import (
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
+	"github.com/kyverno/kyverno/pkg/engine/globalcontext"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -149,6 +151,20 @@ func main() {
 		kyvernoInformer.Kyverno().V1().Policies(),
 		&wg,
 	)
+	// Global Context Store and Controller
+	store := globalcontextstore.NewStore()
+	gctxReconciler := globalcontext.NewController(
+		logging.WithName("GlobalContextReconciler"),
+		setup.KyvernoClient,
+		setup.KyvernoDynamicClient.GetDynamicInterface(),
+		// apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		&store,
+	)
+	gctxController := internal.NewController(
+		"global-context-controller",
+		gctxReconciler,
+		1,
+	)
 	engine := internal.NewEngine(
 		signalCtx,
 		setup.Logger,
@@ -162,6 +178,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		&store,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
@@ -220,6 +237,7 @@ func main() {
 	}
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
+	gctxController.Run(signalCtx, setup.Logger, &wg)
 	// start leader election
 	le.Run(signalCtx)
 	// wait for everything to shut down and exit

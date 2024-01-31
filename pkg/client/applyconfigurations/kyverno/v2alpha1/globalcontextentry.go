@@ -29,7 +29,8 @@ import (
 type GlobalContextEntryApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",omitempty,inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *GlobalContextEntrySpecApplyConfiguration `json:"spec,omitempty"`
+	Spec                             *GlobalContextEntrySpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                           *GlobalContextEntryStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // GlobalContextEntry constructs an declarative configuration of the GlobalContextEntry type for use with
@@ -205,5 +206,13 @@ func (b *GlobalContextEntryApplyConfiguration) ensureObjectMetaApplyConfiguratio
 // If called multiple times, the Spec field is set to the value of the last call.
 func (b *GlobalContextEntryApplyConfiguration) WithSpec(value *GlobalContextEntrySpecApplyConfiguration) *GlobalContextEntryApplyConfiguration {
 	b.Spec = value
+	return b
+}
+
+// WithStatus sets the Status field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Status field is set to the value of the last call.
+func (b *GlobalContextEntryApplyConfiguration) WithStatus(value *GlobalContextEntryStatusApplyConfiguration) *GlobalContextEntryApplyConfiguration {
+	b.Status = value
 	return b
 }

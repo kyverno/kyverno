@@ -990,11 +990,13 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		var err error
 		if entry.ConfigMap != nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil {
 			err = validateConfigMap(entry)
-		} else if entry.ConfigMap == nil && entry.APICall != nil && entry.ImageRegistry == nil && entry.Variable == nil {
+		} else if entry.ConfigMap == nil && entry.APICall != nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable == nil {
 			err = validateAPICall(entry)
-		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry != nil && entry.Variable == nil {
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference != nil && entry.ImageRegistry == nil && entry.Variable == nil {
+			err = validateGlobalContextEntryReference(entry)
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry != nil && entry.Variable == nil {
 			err = validateImageRegistry(entry)
-		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable != nil {
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable != nil {
 			err = validateVariable(entry)
 		} else {
 			return fmt.Errorf("exactly one of configMap or apiCall or imageRegistry or variable is required for context entries")
@@ -1090,6 +1092,22 @@ func validateAPICall(entry kyvernov1.ContextEntry) error {
 	// If JMESPath contains variables, the validation will fail because it's not
 	// possible to infer which value will be inserted by the variable
 	// Skip validation if a variable is detected
+
+	jmesPath := variables.ReplaceAllVars(entry.APICall.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
+
+	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.APICall.JMESPath != "" {
+		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
+			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
+		}
+	}
+
+	return nil
+}
+
+func validateGlobalContextEntryReference(entry kyvernov1.ContextEntry) error {
+	if entry.Name == "" {
+		return fmt.Errorf("a name is required for context entries")
+	}
 
 	jmesPath := variables.ReplaceAllVars(entry.APICall.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
 

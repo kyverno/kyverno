@@ -95,6 +95,17 @@ func (c *FakeGlobalContextEntries) Update(ctx context.Context, globalContextEntr
 	return obj.(*v2alpha1.GlobalContextEntry), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeGlobalContextEntries) UpdateStatus(ctx context.Context, globalContextEntry *v2alpha1.GlobalContextEntry, opts v1.UpdateOptions) (*v2alpha1.GlobalContextEntry, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewRootUpdateSubresourceAction(globalcontextentriesResource, "status", globalContextEntry), &v2alpha1.GlobalContextEntry{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v2alpha1.GlobalContextEntry), err
+}
+
 // Delete takes name of the globalContextEntry and deletes it. Returns an error if one occurs.
 func (c *FakeGlobalContextEntries) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.

@@ -96,8 +96,8 @@ type ContextEntry struct {
 	// Variable defines an arbitrary JMESPath context variable that can be defined inline.
 	Variable *Variable `json:"variable,omitempty" yaml:"variable,omitempty"`
 
-	// ResourceCache is the request to the cache to fetch a specific cache entry.
-	// Resource *ResourceCache `json:"resource,omitempty" yaml:"resource,omitempty"`
+	// GlobalContextEntryReference is a reference to a cached global context entry.
+	GlobalReference *GlobalContextEntryReference `json:"globalReference,omitempty" yaml:"globalReference,omitempty"`
 }
 
 // Variable defines an arbitrary JMESPath context variable that can be defined inline.
@@ -174,7 +174,7 @@ type APICall struct {
 	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
-type ResourceCache struct {
+type GlobalContextEntryReference struct {
 	// Name of the global context entry
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
@@ -217,7 +217,7 @@ func (k *K8sResource) Validate(path *field.Path) (errs field.ErrorList) {
 // ExternalAPICall stores infos about API call that should be cached
 type ExternalAPICall struct {
 	APICall `json:",inline,omitempty" yaml:",inline,omitempty"`
-	// Group defines the group of the resource
+	// RefreshIntervalSeconds defines the interval at which to poll the APICall
 	// +kubebuilder:default=0
 	RefreshIntervalSeconds int64 `json:"refreshIntervalSeconds,omitempty" yaml:"refreshIntervalSeconds,omitempty"`
 }

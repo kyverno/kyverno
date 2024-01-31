@@ -25,7 +25,7 @@ import (
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:shortName=globalcontext,categories=kyverno,scope="Cluster"
+// +kubebuilder:resource:shortName=gctxentry,categories=kyverno,scope="Cluster"
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {
@@ -34,6 +34,15 @@ type GlobalContextEntry struct {
 
 	// Spec declares policy exception behaviors.
 	Spec GlobalContextEntrySpec `json:"spec" yaml:"spec"`
+
+	// Status contains globalcontextentry runtime data.
+	// +optional
+	Status GlobalContextEntryStatus `json:"status,omitempty" yaml:"status,omitempty"`
+}
+
+// GetStatus returns the globalcontextentry status
+func (p *GlobalContextEntry) GetStatus() *GlobalContextEntryStatus {
+	return &p.Status
 }
 
 // Validate implements programmatic validation

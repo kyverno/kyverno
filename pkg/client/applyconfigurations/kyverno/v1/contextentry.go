@@ -21,11 +21,12 @@ package v1
 // ContextEntryApplyConfiguration represents an declarative configuration of the ContextEntry type for use
 // with apply.
 type ContextEntryApplyConfiguration struct {
-	Name          *string                               `json:"name,omitempty"`
-	ConfigMap     *ConfigMapReferenceApplyConfiguration `json:"configMap,omitempty"`
-	APICall       *APICallApplyConfiguration            `json:"apiCall,omitempty"`
-	ImageRegistry *ImageRegistryApplyConfiguration      `json:"imageRegistry,omitempty"`
-	Variable      *VariableApplyConfiguration           `json:"variable,omitempty"`
+	Name            *string                                        `json:"name,omitempty"`
+	ConfigMap       *ConfigMapReferenceApplyConfiguration          `json:"configMap,omitempty"`
+	APICall         *APICallApplyConfiguration                     `json:"apiCall,omitempty"`
+	ImageRegistry   *ImageRegistryApplyConfiguration               `json:"imageRegistry,omitempty"`
+	Variable        *VariableApplyConfiguration                    `json:"variable,omitempty"`
+	GlobalReference *GlobalContextEntryReferenceApplyConfiguration `json:"globalReference,omitempty"`
 }
 
 // ContextEntryApplyConfiguration constructs an declarative configuration of the ContextEntry type for use with
@@ -71,5 +72,13 @@ func (b *ContextEntryApplyConfiguration) WithImageRegistry(value *ImageRegistryA
 // If called multiple times, the Variable field is set to the value of the last call.
 func (b *ContextEntryApplyConfiguration) WithVariable(value *VariableApplyConfiguration) *ContextEntryApplyConfiguration {
 	b.Variable = value
+	return b
+}
+
+// WithGlobalReference sets the GlobalReference field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the GlobalReference field is set to the value of the last call.
+func (b *ContextEntryApplyConfiguration) WithGlobalReference(value *GlobalContextEntryReferenceApplyConfiguration) *ContextEntryApplyConfiguration {
+	b.GlobalReference = value
 	return b
 }
