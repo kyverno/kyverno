@@ -403,8 +403,8 @@ INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
 APPLYCONFIGURATIONS_PACKAGE := $(OUT_PACKAGE)/applyconfigurations
 CRDS_PATH                   := ${PWD}/config/crds
 INSTALL_MANIFEST_PATH       := ${PWD}/config/install-latest-testing.yaml
-KYVERNO_CHART_VERSION       ?= latest
-POLICIES_CHART_VERSION      ?= latest
+KYVERNO_CHART_VERSION       ?= v0.0.0
+POLICIES_CHART_VERSION      ?= v0.0.0
 APP_VERSION                 ?= latest
 KUBE_VERSION                ?= ">=1.25.0-0"
 

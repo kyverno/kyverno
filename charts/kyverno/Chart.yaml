@@ -1,7 +1,7 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: latest
+version: v0.0.0
 appVersion: latest
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
@@ -43,8 +43,8 @@ annotations:
       description: Add podLabels to the pre-delete hook
 dependencies:
   - name: grafana
-    version: latest
+    version: v0.0.0
     condition: grafana.enabled
   - name: crds
-    version: latest
+    version: v0.0.0
     condition: crds.install

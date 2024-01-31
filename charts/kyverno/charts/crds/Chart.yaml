@@ -1,3 +1,3 @@
 apiVersion: v2
 name: crds
-version: latest
+version: v0.0.0
