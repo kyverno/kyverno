@@ -51,6 +51,10 @@ const (
 	IdleDeadline              = tickerInterval * 10
 	maxRetries                = 10
 	tickerInterval            = 10 * time.Second
+	webhookCreate             = "CREATE"
+	webhookUpdate             = "UPDATE"
+	webhookDelete             = "DELETE"
+	webhookConnect            = "CONNECT"
 )
 
 var (
@@ -633,6 +637,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
+	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 	if c.watchdogCheck() {
 		webhookCfg := config.WebhookConfig{}
 		webhookCfgs := cfg.GetWebhooks()
@@ -670,6 +675,8 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					} else {
 						c.mergeWebhook(failWebhook, p, false)
 					}
+					rules := p.GetSpec().Rules
+					mapResourceToOpnType = addOpnForMutatingWebhookConf(rules, mapResourceToOpnType)
 				}
 			}
 		}
@@ -677,14 +684,14 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		webhooks := []*webhook{ignoreWebhook, failWebhook}
 		webhooks = append(webhooks, fineGrainedIgnoreList...)
 		webhooks = append(webhooks, fineGrainedFailList...)
-		result.Webhooks = c.buildResourceMutatingWebhookRules(caBundle, webhookCfg, &noneOnDryRun, webhooks)
+		result.Webhooks = c.buildResourceMutatingWebhookRules(caBundle, webhookCfg, &noneOnDryRun, webhooks, mapResourceToOpnType)
 	} else {
 		c.recordPolicyState(config.MutatingWebhookConfigurationName)
 	}
 	return &result, nil
 }
 
-func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.MutatingWebhook {
+func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.MutatingWebhook {
 	var mutatingWebhooks []admissionregistrationv1.MutatingWebhook
 	for _, webhook := range webhooks {
 		if webhook.isEmpty() {
@@ -698,7 +705,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 			admissionregistrationv1.MutatingWebhook{
 				Name:                    name,
 				ClientConfig:            c.clientConfig(caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
+				Rules:                   webhook.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -765,11 +772,40 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 		nil
 }
 
+func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
+	var mapResourceToOpn map[string]map[string]bool
+	for _, r := range rules {
+		var resources []string
+		operationStatusMap := getOperationStatusMap()
+		operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
+		resources = computeResourcesOfRule(r)
+		for _, r := range resources {
+			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+		}
+	}
+	return mapResourceToOpnType
+}
+
+func addOpnForValidatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
+	var mapResourceToOpn map[string]map[string]bool
+	for _, r := range rules {
+		var resources []string
+		operationStatusMap := getOperationStatusMap()
+		operationStatusMap = computeOperationsForValidatingWebhookConf(r, operationStatusMap)
+		resources = computeResourcesOfRule(r)
+		for _, r := range resources {
+			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+		}
+	}
+	return mapResourceToOpnType
+}
+
 func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	result := admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
+	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 	if c.watchdogCheck() {
 		webhookCfg := config.WebhookConfig{}
 		webhookCfgs := cfg.GetWebhooks()
@@ -810,6 +846,8 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					}
 				}
 			}
+			rules := p.GetSpec().Rules
+			mapResourceToOpnType = addOpnForValidatingWebhookConf(rules, mapResourceToOpnType)
 		}
 
 		sideEffects := &none
@@ -820,14 +858,14 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		webhooks := []*webhook{ignoreWebhook, failWebhook}
 		webhooks = append(webhooks, fineGrainedIgnoreList...)
 		webhooks = append(webhooks, fineGrainedFailList...)
-		result.Webhooks = c.buildResourceValidatingWebhookRules(caBundle, webhookCfg, sideEffects, webhooks)
+		result.Webhooks = c.buildResourceValidatingWebhookRules(caBundle, webhookCfg, sideEffects, webhooks, mapResourceToOpnType)
 	} else {
 		c.recordPolicyState(config.MutatingWebhookConfigurationName)
 	}
 	return &result, nil
 }
 
-func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.ValidatingWebhook {
+func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.ValidatingWebhook {
 	var validatingWebhooks []admissionregistrationv1.ValidatingWebhook
 	for _, webhook := range webhooks {
 		if webhook.isEmpty() {
@@ -841,7 +879,7 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 			admissionregistrationv1.ValidatingWebhook{
 				Name:                    name,
 				ClientConfig:            c.clientConfig(caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
+				Rules:                   webhook.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},

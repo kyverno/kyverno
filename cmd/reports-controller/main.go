@@ -15,7 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
-	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate/resource"
+	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -209,7 +209,7 @@ func main() {
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma separated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
+	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma separated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	// config
@@ -255,14 +255,16 @@ func main() {
 	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-	omitEventsValues := strings.Split(omitEvents, ",")
-	if omitEvents == "" {
-		omitEventsValues = []string{}
-	}
+	var wg sync.WaitGroup
 	eventGenerator := event.NewEventGenerator(
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
-		omitEventsValues...,
+		strings.Split(omitEvents, ",")...,
+	)
+	eventController := internal.NewController(
+		event.ControllerName,
+		eventGenerator,
+		event.Workers,
 	)
 	// engine
 	engine := internal.NewEngine(
@@ -284,9 +286,6 @@ func main() {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
-	// start event generator
-	var wg sync.WaitGroup
-	go eventGenerator.Run(ctx, event.Workers, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		setup.Logger.WithName("leader-election"),
@@ -354,7 +353,10 @@ func main() {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
+	// start non leader controllers
+	eventController.Run(ctx, setup.Logger, &wg)
+	// start leader election
 	le.Run(ctx)
-	sdown()
+	// wait for everything to shut down and exit
 	wg.Wait()
 }

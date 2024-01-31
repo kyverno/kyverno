@@ -94,6 +94,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
+				// TODO: what if two policies have a rule with the same name ?
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList

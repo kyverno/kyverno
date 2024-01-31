@@ -212,8 +212,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: admissionreports.kyverno.io
@@ -859,8 +859,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: backgroundscanreports.kyverno.io
@@ -1440,8 +1440,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: cleanuppolicies.kyverno.io
@@ -5190,8 +5190,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clusteradmissionreports.kyverno.io
@@ -5839,8 +5839,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterbackgroundscanreports.kyverno.io
@@ -6420,8 +6420,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clustercleanuppolicies.kyverno.io
@@ -10170,8 +10170,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterpolicies.kyverno.io
@@ -11285,6 +11285,14 @@ spec:
                         namespace:
                           description: Namespace specifies resource namespace.
                           type: string
+                        orphanDownstreamOnPolicyDelete:
+                          description: OrphanDownstreamOnPolicyDelete controls whether
+                            generated resources should be deleted when the rule that
+                            generated them is deleted with synchronization enabled.
+                            This option is only applicable to generate rules of the
+                            data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            Defaults to "false" if not specified.
+                          type: boolean
                         synchronize:
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. If
@@ -15738,6 +15746,14 @@ spec:
                             namespace:
                               description: Namespace specifies resource namespace.
                               type: string
+                            orphanDownstreamOnPolicyDelete:
+                              description: OrphanDownstreamOnPolicyDelete controls
+                                whether generated resources should be deleted when
+                                the rule that generated them is deleted with synchronization
+                                enabled. This option is only applicable to generate
+                                rules of the data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                Defaults to "false" if not specified.
+                              type: boolean
                             synchronize:
                               description: Synchronize controls if generated resources
                                 should be kept in-sync with their source resource.
@@ -20167,6 +20183,14 @@ spec:
                         namespace:
                           description: Namespace specifies resource namespace.
                           type: string
+                        orphanDownstreamOnPolicyDelete:
+                          description: OrphanDownstreamOnPolicyDelete controls whether
+                            generated resources should be deleted when the rule that
+                            generated them is deleted with synchronization enabled.
+                            This option is only applicable to generate rules of the
+                            data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            Defaults to "false" if not specified.
+                          type: boolean
                         synchronize:
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. If
@@ -24560,6 +24584,14 @@ spec:
                             namespace:
                               description: Namespace specifies resource namespace.
                               type: string
+                            orphanDownstreamOnPolicyDelete:
+                              description: OrphanDownstreamOnPolicyDelete controls
+                                whether generated resources should be deleted when
+                                the rule that generated them is deleted with synchronization
+                                enabled. This option is only applicable to generate
+                                rules of the data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                Defaults to "false" if not specified.
+                              type: boolean
                             synchronize:
                               description: Synchronize controls if generated resources
                                 should be kept in-sync with their source resource.
@@ -28115,8 +28147,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: policies.kyverno.io
@@ -29231,6 +29263,14 @@ spec:
                         namespace:
                           description: Namespace specifies resource namespace.
                           type: string
+                        orphanDownstreamOnPolicyDelete:
+                          description: OrphanDownstreamOnPolicyDelete controls whether
+                            generated resources should be deleted when the rule that
+                            generated them is deleted with synchronization enabled.
+                            This option is only applicable to generate rules of the
+                            data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            Defaults to "false" if not specified.
+                          type: boolean
                         synchronize:
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. If
@@ -33685,6 +33725,14 @@ spec:
                             namespace:
                               description: Namespace specifies resource namespace.
                               type: string
+                            orphanDownstreamOnPolicyDelete:
+                              description: OrphanDownstreamOnPolicyDelete controls
+                                whether generated resources should be deleted when
+                                the rule that generated them is deleted with synchronization
+                                enabled. This option is only applicable to generate
+                                rules of the data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                Defaults to "false" if not specified.
+                              type: boolean
                             synchronize:
                               description: Synchronize controls if generated resources
                                 should be kept in-sync with their source resource.
@@ -38115,6 +38163,14 @@ spec:
                         namespace:
                           description: Namespace specifies resource namespace.
                           type: string
+                        orphanDownstreamOnPolicyDelete:
+                          description: OrphanDownstreamOnPolicyDelete controls whether
+                            generated resources should be deleted when the rule that
+                            generated them is deleted with synchronization enabled.
+                            This option is only applicable to generate rules of the
+                            data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            Defaults to "false" if not specified.
+                          type: boolean
                         synchronize:
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. If
@@ -42508,6 +42564,14 @@ spec:
                             namespace:
                               description: Namespace specifies resource namespace.
                               type: string
+                            orphanDownstreamOnPolicyDelete:
+                              description: OrphanDownstreamOnPolicyDelete controls
+                                whether generated resources should be deleted when
+                                the rule that generated them is deleted with synchronization
+                                enabled. This option is only applicable to generate
+                                rules of the data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                Defaults to "false" if not specified.
+                              type: boolean
                             synchronize:
                               description: Synchronize controls if generated resources
                                 should be kept in-sync with their source resource.
@@ -46063,8 +46127,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: policyexceptions.kyverno.io
@@ -48019,8 +48083,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: updaterequests.kyverno.io
@@ -48817,8 +48881,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterpolicyreports.wgpolicyk8s.io
@@ -49184,8 +49248,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: policyreports.wgpolicyk8s.io
@@ -49550,8 +49614,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: clusterephemeralreports.reports.kyverno.io
@@ -49897,8 +49961,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: 0.0.0
-    helm.sh/chart: crds-0.0.0
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
   name: ephemeralreports.reports.kyverno.io
@@ -51521,7 +51585,7 @@ spec:
             - --generateValidatingAdmissionPolicy=false
             - --loggingFormat=text
             - --v=2
-            - --omit-events=PolicyApplied,PolicySkipped
+            - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
@@ -51672,7 +51736,7 @@ spec:
             - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
-            - --omit-events=PolicyApplied,PolicySkipped
+            - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
             
           env:
@@ -51919,7 +51983,7 @@ spec:
             - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
-            - --omit-events=PolicyApplied,PolicySkipped
+            - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
             - --reportsChunkSize=1000
             - --allowInsecureRegistry=false

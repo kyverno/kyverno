@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: v3.0.0](https://img.shields.io/badge/Version-v3.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
+![Version: v0.0.0](https://img.shields.io/badge/Version-v0.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
 
 ## About
 
@@ -723,6 +723,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | cleanupJobs.admissionReports.enabled | bool | `true` | Enable cleanup cronjob |
+| cleanupJobs.admissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
 | cleanupJobs.admissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.admissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
@@ -743,6 +744,7 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
 | cleanupJobs.admissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
 | cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
+| cleanupJobs.clusterAdmissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
 | cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
@@ -853,8 +855,8 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | 0.0.0 |
-|  | grafana | 0.0.0 |
+|  | crds | v0.0.0 |
+|  | grafana | v0.0.0 |
 
 ## Maintainers
 
