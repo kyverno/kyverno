@@ -2,7 +2,7 @@
 
 Kubernetes Pod Security Standards implemented as Kyverno policies
 
-![Version: v2.5.5](https://img.shields.io/badge/Version-v2.5.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.7.3](https://img.shields.io/badge/AppVersion-v1.7.3-informational?style=flat-square)
+![Version: v0.0.0](https://img.shields.io/badge/Version-v0.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
 
 ## About
 
@@ -88,7 +88,7 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ## Requirements
 
-Kubernetes: `>=1.16.0-0`
+Kubernetes: `>=1.25.0-0`
 
 ## Maintainers
 
