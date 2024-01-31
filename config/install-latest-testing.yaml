@@ -49569,32 +49569,41 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: AGE
-      type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/source']
+      name: Source
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.group']
+      name: Group
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.kind']
+      name: Kind
+      type: string
+    - jsonPath: .metadata.annotations['audit\.kyverno\.io/resource\.name']
+      name: Owner
+      type: string
     - jsonPath: .spec.summary.pass
-      name: PASS
+      name: Pass
       type: integer
     - jsonPath: .spec.summary.fail
-      name: FAIL
+      name: Fail
       type: integer
     - jsonPath: .spec.summary.warn
-      name: WARN
+      name: Warn
       type: integer
     - jsonPath: .spec.summary.error
-      name: ERROR
+      name: Error
       type: integer
     - jsonPath: .spec.summary.skip
-      name: SKIP
+      name: Skip
       type: integer
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
-      name: GVR
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.uid']
+      name: Uid
       type: string
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
-      name: REF
-      type: string
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
-      name: AGGREGATE
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
+      name: Hash
       priority: 1
       type: string
     name: v1
@@ -49907,32 +49916,42 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: AGE
-      type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/source']
+      name: Source
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.group']
+      name: Group
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.kind']
+      name: Kind
+      type: string
+    - jsonPath: .metadata.annotations['audit\.kyverno\.io/resource\.name']
+      name: Owner
+      type: string
     - jsonPath: .spec.summary.pass
-      name: PASS
+      name: Pass
       type: integer
     - jsonPath: .spec.summary.fail
-      name: FAIL
+      name: Fail
       type: integer
     - jsonPath: .spec.summary.warn
-      name: WARN
+      name: Warn
       type: integer
     - jsonPath: .spec.summary.error
-      name: ERROR
+      name: Error
       type: integer
     - jsonPath: .spec.summary.skip
-      name: SKIP
+      name: Skip
       type: integer
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
-      name: GVR
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.uid']
+      name: Uid
+      priority: 1
       type: string
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
-      name: REF
-      type: string
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
-      name: AGGREGATE
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
+      name: Hash
       priority: 1
       type: string
     name: v1
@@ -50576,15 +50595,6 @@ rules:
     resources:
       - admissionreports
       - clusteradmissionreports
-    verbs:
-      - list
-      - deletecollection
-      - delete
-  - apiGroups:
-      - reports.kyverno.io
-    resources:
-      - ephemeralreports
-      - clusterephemeralreports
     verbs:
       - list
       - deletecollection
@@ -51503,7 +51513,6 @@ spec:
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --admissionReports=true
-            - --alternateReportStorage=false
             - --autoUpdateWebhooks=true
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
@@ -51512,7 +51521,7 @@ spec:
             - --generateValidatingAdmissionPolicy=false
             - --loggingFormat=text
             - --v=2
-            - --omit-events=PolicyApplied,PolicySkipped
+            - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
@@ -51659,12 +51668,11 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
-            - --alternateReportStorage=false
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
-            - --omit-events=PolicyApplied,PolicySkipped
+            - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
             
           env:
@@ -51771,6 +51779,7 @@ spec:
             - --dumpPayload=false
             - --loggingFormat=text
             - --v=2
+            - --protectManagedResources=false
             - --ttlReconciliationInterval=1m
             
           env:
@@ -51900,7 +51909,6 @@ spec:
             - --metricsPort=8000
             - --admissionReports=true
             - --aggregateReports=true
-            - --alternateReportStorage=false
             - --policyReports=true
             - --validatingAdmissionPolicyReports=false
             - --backgroundScan=true
@@ -51911,7 +51919,7 @@ spec:
             - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
-            - --omit-events=PolicyApplied,PolicySkipped
+            - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
             - --reportsChunkSize=1000
             - --allowInsecureRegistry=false
@@ -51976,6 +51984,7 @@ spec:
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: 3
       template:
         metadata:
         spec:
@@ -51985,13 +51994,14 @@ spec:
             image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
-              COUNT=$(kubectl get admissionreports.reports.kyverno.io -A | wc -l)
+              set -euo pipefail
+              COUNT=$(kubectl get admissionreports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt 10000 ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
-                kubectl delete admissionreports.reports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+                kubectl delete admissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
@@ -52024,6 +52034,7 @@ spec:
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: 3
       template:
         metadata:
         spec:
@@ -52033,13 +52044,14 @@ spec:
             image: "bitnami/kubectl:1.28.5"
             imagePullPolicy: 
             command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
-              COUNT=$(kubectl get clusteradmissionreports.reports.kyverno.io -A | wc -l)
+              set -euo pipefail
+              COUNT=$(kubectl get clusteradmissionreports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt 10000 ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
-                kubectl delete clusteradmissionreports.reports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+                kubectl delete clusteradmissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
