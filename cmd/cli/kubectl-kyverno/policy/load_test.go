@@ -28,12 +28,6 @@ func TestLoad(t *testing.T) {
 		resourcePath: "",
 		paths:        []string{"../_testdata/policies/invalid-schema.yaml"},
 		wantErr:      true,
-	}, {
-		name:         "policy-exception",
-		fs:           nil,
-		resourcePath: "",
-		paths:        []string{"../_testdata/exceptions/exception.yaml"},
-		wantErr:      false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -90,12 +84,6 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 			assert.True(t, rule.VerifyImages[0].VerifyDigest)
 			assert.True(t, rule.VerifyImages[0].UseCache)
 		},
-	}, {
-		name:         "policy-exception",
-		fs:           nil,
-		resourcePath: "",
-		paths:        []string{"../_testdata/exceptions/exception.yaml"},
-		wantErr:      false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -150,7 +150,7 @@ func kubectlValidateLoader(content []byte) ([]kyvernov1.PolicyInterface, []v1alp
 			return nil, nil, nil, fmt.Errorf("policy type not supported %s", gvk)
 		}
 	}
-	return policies, vaps, vapBindings, err
+	return policies, vaps, vapBindings, nil
 }
 
 func fsLoad(loader loader, path string) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, []v1alpha1.ValidatingAdmissionPolicyBinding, error) {
