@@ -33,20 +33,16 @@ func TestToJson(t *testing.T) {
 			policy: nil,
 		},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := ToJson(test.policy)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-
 			expectedResult, err := json.Marshal(test.policy)
-
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-
 			if !reflect.DeepEqual(result, expectedResult) {
 				t.Errorf("Expected Json %s, got %s", expectedResult, result)
 			}
@@ -76,28 +72,22 @@ func TestToYaml(t *testing.T) {
 			policy: nil,
 		},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := ToYaml(test.policy)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-
 			jsonBytes, err := ToJson(test.policy)
-
 			if err != nil {
 				if !reflect.DeepEqual(result, nil) {
 					t.Errorf("Expected Json %+v, got %s", nil, result)
 				}
 			}
-
 			expectedResult, err := yaml.JSONToYAML(jsonBytes)
-
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-
 			if !reflect.DeepEqual(result, expectedResult) {
 				t.Errorf("Expected Json %s, got %s", expectedResult, result)
 			}
