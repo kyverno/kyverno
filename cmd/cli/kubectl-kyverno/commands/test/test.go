@@ -78,7 +78,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	// exceptions
 	fmt.Fprintln(out, "  Loading exceptions", "...")
 	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
-	exceptions, err := exception.Load(testCase.Fs, testDir, exceptionFullPath...)
+	exceptions, err := exception.Load(exceptionFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}

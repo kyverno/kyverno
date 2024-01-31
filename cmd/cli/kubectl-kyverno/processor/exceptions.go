@@ -6,16 +6,16 @@ import (
 )
 
 type policyExceptionLister struct {
-	exceptions []kyvernov2beta1.PolicyException
+	exceptions []*kyvernov2beta1.PolicyException
 }
 
 func (l *policyExceptionLister) List(selector labels.Selector) ([]*kyvernov2beta1.PolicyException, error) {
-	var matchedExceptions []*kyvernov2beta1.PolicyException
-	for i := range l.exceptions {
-		exceptionLabels := labels.Set(l.exceptions[i].GetLabels())
+	var out []*kyvernov2beta1.PolicyException
+	for _, exception := range l.exceptions {
+		exceptionLabels := labels.Set(exception.GetLabels())
 		if selector.Matches(exceptionLabels) {
-			matchedExceptions = append(matchedExceptions, &l.exceptions[i])
+			out = append(out, exception)
 		}
 	}
-	return matchedExceptions, nil
+	return out, nil
 }

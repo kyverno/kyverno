@@ -39,7 +39,7 @@ type PolicyProcessor struct {
 	Store                     *store.Store
 	Policies                  []kyvernov1.PolicyInterface
 	Resource                  unstructured.Unstructured
-	PolicyExceptions          []kyvernov2beta1.PolicyException
+	PolicyExceptions          []*kyvernov2beta1.PolicyException
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 *variables.Variables
