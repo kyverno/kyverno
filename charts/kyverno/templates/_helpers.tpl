@@ -52,7 +52,7 @@
 {{- end -}}
 {{- with .omitEvents -}}
   {{- with .eventTypes -}}
-    {{- $flags = append $flags (print "--omit-events=" (join "," .)) -}}
+    {{- $flags = append $flags (print "--omitEvents=" (join "," .)) -}}
   {{- end -}}
 {{- end -}}
 {{- with .policyExceptions -}}
