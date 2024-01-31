@@ -21,6 +21,16 @@ spec:
         duration: 3s
   - name: step-03
     try:
+    - command:
+        args:
+        - get
+        - validatingwebhookconfigurations
+        - kyverno-resource-validating-webhook-cfg
+        - -o
+        - yaml
+        entrypoint: kubectl
+  - name: step-04
+    try:
     - apply:
         expect:
         - check:
