@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+  namespace: policy-exception-ns-1
+spec:
+  exceptions:
+  - policyName: psa-2
+    ruleNames:
+    - baseline
+  match:
+    any:
+    - resources:
+        namespaces:
+        - staging-ns-1
+  podSecurity:
+    - controlName: HostProcess

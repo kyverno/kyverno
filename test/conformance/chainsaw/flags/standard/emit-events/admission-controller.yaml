@@ -72,7 +72,7 @@ spec:
           image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
-            - --omit-events=PolicyViolation
+            - --omitEvents=PolicyViolation
             - --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
             - --servicePort=443
             - --loggingFormat=text

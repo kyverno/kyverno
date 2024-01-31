@@ -1,4 +1,4 @@
-# golang/k8s.io/apiserver@v0.28.1
-CVE-2020-8561 until=2023-12-30
-# golang/github.com/lestrrat-go/jwx/v2@v2.0.16
-CVE-2023-49290 until=2023-12-30
+# golang/k8s.io/apiserver@v0.29.0
+CVE-2020-8561 until=2024-02-28
+# golang/github.com/notaryproject/notation-go@v1.1.0
+CVE-2024-23332 until=2024-02-28

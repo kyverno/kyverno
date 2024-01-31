@@ -6,6 +6,9 @@
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| groups.kyverno | bool | `true` | This field can be overwritten by setting crds.labels in the parent chart |
+| groups.policyreport | bool | `true` | This field can be overwritten by setting crds.labels in the parent chart |
+| groups.reports | bool | `true` | This field can be overwritten by setting crds.labels in the parent chart |
 | annotations | object | `{}` | This field can be overwritten by setting crds.annotations in the parent chart |
 | customLabels | object | `{}` | This field can be overwritten by setting crds.labels in the parent chart |
 

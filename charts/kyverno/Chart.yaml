@@ -34,6 +34,8 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: added
+      description: Add profiling support
+    - kind: added
       description: Add global nodeSelector
     - kind: added
       description: Add podLabels to the post-upgrade hook
