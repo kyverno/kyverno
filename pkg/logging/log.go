@@ -42,7 +42,7 @@ const (
 // Call depth of all loggers created before logging.Setup will not work, including package level loggers as they are created before main.
 // All loggers created after logging.Setup won't be subject to the call depth limitation and will work if the underlying sink supports it.
 
-var globalLog = log.Log //returns a Null log sink if SetLogger is not called.
+var globalLog = log.Log // returns a Null log sink if SetLogger is not called.
 
 func InitFlags(flags *flag.FlagSet) {
 	// clear flags initialized in static dependencies
@@ -55,21 +55,16 @@ func InitFlags(flags *flag.FlagSet) {
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string, loggingTimestampFormat string, level int) error {
-
 	var zc zap.Config
-
 	switch logFormat {
 	case TextFormat:
 		zc = zap.NewDevelopmentConfig()
-
 	case JSONFormat:
 		zc = zap.NewProductionConfig()
-
 	default:
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}
-
-	//Configure the timestamp format
+	// configure the timestamp format
 	switch loggingTimestampFormat {
 	case ISO8601:
 		zc.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -85,11 +80,9 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 		zc.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 	case "default":
 		zc.EncoderConfig.EncodeTime = zapcore.EpochNanosTimeEncoder
-
 	default:
 		return errors.New("timestamp format not recognized, pass `iso8601` for ISO8601, `rfc3339` for RFC3339, `rfc3339nano` for RFC3339NANO, `millis` for Epoch Millis, `nanos` for Epoch Nanos, or omit the flag for the Unix Epoch timestamp format")
 	}
-
 	// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).
 	zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-1 * level))
 	zapLog, err := zc.Build()
@@ -99,7 +92,6 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 	globalLog = zapr.NewLogger(zapLog)
 	// in json mode we configure klog and global logger to use zapr
 	klog.SetLogger(globalLog.WithName("klog"))
-
 	log.SetLogger(globalLog)
 	return nil
 }
