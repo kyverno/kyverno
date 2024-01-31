@@ -17,7 +17,7 @@ sources:
 maintainers:
   - name: kyverno-maintainers
     email: cncf-kyverno-maintainers@lists.cncf.io
-kubeVersion: ">=1.16.0-0"
+kubeVersion: ">=1.25.0-0"
 annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"

@@ -405,8 +405,8 @@ CRDS_PATH                   := ${PWD}/config/crds
 INSTALL_MANIFEST_PATH       := ${PWD}/config/install-latest-testing.yaml
 KYVERNO_CHART_VERSION       ?= v0.0.0
 POLICIES_CHART_VERSION      ?= v0.0.0
-APP_VERSION                 ?= latest
-KUBE_VERSION                ?= ">=1.25.0-0"
+APP_CHART_VERSION           ?= latest
+KUBE_CHART_VERSION          ?= ">=1.25.0-0"
 
 $(GOPATH_SHIM):
 	@echo Create gopath shim... >&2
@@ -650,12 +650,18 @@ codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## 
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
 	@echo Updating Chart.yaml files... >&2
-	@$(SED) -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' charts/kyverno-policies/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno-policies/Chart.yaml
-	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_VERSION)/' charts/kyverno/Chart.yaml
-	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' 		charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/Chart.yaml
+	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/crds/Chart.yaml
+	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/charts/grafana/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
