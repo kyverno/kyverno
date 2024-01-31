@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func createV1Alpha1Report(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
+func CreateReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
 	switch v := report.(type) {
 	case *kyvernov1alpha2.AdmissionReport:
 		report, err := client.KyvernoV1alpha2().AdmissionReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})
@@ -31,24 +31,11 @@ func createV1Alpha1Report(ctx context.Context, report kyvernov1alpha2.ReportInte
 	case *policyreportv1alpha2.ClusterPolicyReport:
 		report, err := client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Create(ctx, v, metav1.CreateOptions{})
 		return report, err
-	default:
-		return nil, errors.New("unknow type")
-	}
-}
-
-func createReportV1Report(ctx context.Context, report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
-	switch v := report.(type) {
 	case *reportsv1.EphemeralReport:
 		report, err := client.ReportsV1().EphemeralReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})
 		return report, err
 	case *reportsv1.ClusterEphemeralReport:
 		report, err := client.ReportsV1().ClusterEphemeralReports().Create(ctx, v, metav1.CreateOptions{})
-		return report, err
-	case *policyreportv1alpha2.PolicyReport:
-		report, err := client.Wgpolicyk8sV1alpha2().PolicyReports(report.GetNamespace()).Create(ctx, v, metav1.CreateOptions{})
-		return report, err
-	case *policyreportv1alpha2.ClusterPolicyReport:
-		report, err := client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Create(ctx, v, metav1.CreateOptions{})
 		return report, err
 	default:
 		return nil, errors.New("unknow type")

@@ -16,9 +16,6 @@
 {{- with .aggregateReports -}}
   {{- $flags = append $flags (print "--aggregateReports=" .enabled) -}}
 {{- end -}}
-{{- with .alternateReportStorage -}}
-  {{- $flags = append $flags (print "--alternateReportStorage=" .enabled) -}}
-{{- end -}}
 {{- with .policyReports -}}
   {{- $flags = append $flags (print "--policyReports=" .enabled) -}}
 {{- end -}}
@@ -55,7 +52,7 @@
 {{- end -}}
 {{- with .omitEvents -}}
   {{- with .eventTypes -}}
-    {{- $flags = append $flags (print "--omit-events=" (join "," .)) -}}
+    {{- $flags = append $flags (print "--omitEvents=" (join "," .)) -}}
   {{- end -}}
 {{- end -}}
 {{- with .policyExceptions -}}
