@@ -91,7 +91,7 @@ func main() {
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
+	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	// config
 	appConfig := internal.NewConfiguration(
@@ -130,15 +130,11 @@ func main() {
 	kyamlopenapi.Schema()
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-	omitEventsValues := strings.Split(omitEvents, ",")
-	if omitEvents == "" {
-		omitEventsValues = []string{}
-	}
 	var wg sync.WaitGroup
 	eventGenerator := event.NewEventGenerator(
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
-		omitEventsValues...,
+		strings.Split(omitEvents, ",")...,
 	)
 	eventController := internal.NewController(
 		event.ControllerName,

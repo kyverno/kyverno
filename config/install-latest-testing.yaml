@@ -51521,7 +51521,7 @@ spec:
             - --generateValidatingAdmissionPolicy=false
             - --loggingFormat=text
             - --v=2
-            - --omit-events=PolicyApplied,PolicySkipped
+            - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
@@ -51672,7 +51672,7 @@ spec:
             - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
-            - --omit-events=PolicyApplied,PolicySkipped
+            - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
             
           env:
@@ -51919,7 +51919,7 @@ spec:
             - --enableDeferredLoading=true
             - --loggingFormat=text
             - --v=2
-            - --omit-events=PolicyApplied,PolicySkipped
+            - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
             - --reportsChunkSize=1000
             - --allowInsecureRegistry=false
