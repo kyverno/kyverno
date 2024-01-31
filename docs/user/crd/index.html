@@ -1895,6 +1895,20 @@ Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </tr>
 <tr>
 <td>
+<code>orphanDownstreamOnPolicyDelete</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
+them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+See <a href="https://kyverno.io/docs/writing-policies/generate/#data-examples">https://kyverno.io/docs/writing-policies/generate/#data-examples</a>.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>data</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
