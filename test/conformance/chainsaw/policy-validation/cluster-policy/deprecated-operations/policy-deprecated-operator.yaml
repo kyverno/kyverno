@@ -1,0 +1,26 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-not-in
+spec:
+  admission: true
+  background: false
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: test-not-in
+    validate:
+      deny:
+        conditions:
+          any:
+          - key:
+            - '{{request.object.metadata.labels.app}}'
+            operator: NotIn
+            value:
+            - busybox
+            - busybox1
+  validationFailureAction: Enforce
