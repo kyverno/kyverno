@@ -403,6 +403,10 @@ INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
 APPLYCONFIGURATIONS_PACKAGE := $(OUT_PACKAGE)/applyconfigurations
 CRDS_PATH                   := ${PWD}/config/crds
 INSTALL_MANIFEST_PATH       := ${PWD}/config/install-latest-testing.yaml
+KYVERNO_CHART_VERSION       ?= latest
+POLICIES_CHART_VERSION      ?= latest
+APP_VERSION                 ?= latest
+KUBE_VERSION                ?= ">=1.25.0-0"
 
 $(GOPATH_SHIM):
 	@echo Create gopath shim... >&2
@@ -596,7 +600,6 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
  		| $(SED) -e '/^#.*/d' \
 		> ./.manifest/debug.yaml
 
-# guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 .PHONY: codegen-manifest-release
 codegen-manifest-release: $(HELM) ## Create release manifest
 	@echo Generate release manifest... >&2
@@ -613,6 +616,16 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 
 .PHONY: codegen-manifest-all
 codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug ## Create all manifests
+
+.PHONY: codegen-helm-update-versions
+codegen-helm-update-versions: ## Update helm charts versions
+	@echo Updating Chart.yaml files... >&2
+	@$(SED) -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno-policies/Chart.yaml
+	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/Chart.yaml
+	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno/Chart.yaml
+	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_VERSION)/' charts/kyverno/Chart.yaml
+	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/charts/crds/Chart.yaml
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
@@ -1023,25 +1036,3 @@ dev-lab-kwok: ## Deploy kwok
 .PHONY: help
 help: ## Shows the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
-
-#####################
-# Bump new versions #
-#####################
-
-KYVERNO_CHART_VERSION ?= latest
-POLICIES_CHART_VERSION ?= latest
-APP_VERSION ?= latest
-KUBE_VERSION ?= ">=1.25.0-0"
-
-
-release:
-	@echo "Updating Chart.yaml files..."
-	sed -i 's/version: .*/version: $(POLICIES_CHART_VERSION)/' charts/kyverno-policies/Chart.yaml
-	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno-policies/Chart.yaml
-	sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/Chart.yaml
-	sed -i 's/appVersion: .*/appVersion: $(APP_VERSION)/' charts/kyverno/Chart.yaml
-	sed -i 's/kubeVersion: .*/kubeVersion: $(KUBE_VERSION)/' charts/kyverno/Chart.yaml
-	sed -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' charts/kyverno/charts/crds/Chart.yaml
-	@echo "Release version bumped."
-
-
