@@ -174,11 +174,11 @@ func (r *Rule) IsPodSecurity() bool {
 	return r.Validation.PodSecurity != nil
 }
 
-func (r *Rule) GetGenerateTypeAndSync() (_ GenerateType, sync bool) {
+func (r *Rule) GetTypeAndSyncAndOrphanDownstream() (_ GenerateType, sync bool, orphanDownstream bool) {
 	if !r.HasGenerate() {
 		return
 	}
-	return r.Generation.GetTypeAndSync()
+	return r.Generation.GetTypeAndSyncAndOrphanDownstream()
 }
 
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {

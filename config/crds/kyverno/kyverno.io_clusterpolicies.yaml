@@ -1115,6 +1115,14 @@ spec:
                         namespace:
                           description: Namespace specifies resource namespace.
                           type: string
+                        orphanDownstreamOnPolicyDelete:
+                          description: OrphanDownstreamOnPolicyDelete controls whether
+                            generated resources should be deleted when the rule that
+                            generated them is deleted with synchronization enabled.
+                            This option is only applicable to generate rules of the
+                            data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            Defaults to "false" if not specified.
+                          type: boolean
                         synchronize:
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. If
@@ -5568,6 +5576,14 @@ spec:
                             namespace:
                               description: Namespace specifies resource namespace.
                               type: string
+                            orphanDownstreamOnPolicyDelete:
+                              description: OrphanDownstreamOnPolicyDelete controls
+                                whether generated resources should be deleted when
+                                the rule that generated them is deleted with synchronization
+                                enabled. This option is only applicable to generate
+                                rules of the data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                Defaults to "false" if not specified.
+                              type: boolean
                             synchronize:
                               description: Synchronize controls if generated resources
                                 should be kept in-sync with their source resource.
@@ -9997,6 +10013,14 @@ spec:
                         namespace:
                           description: Namespace specifies resource namespace.
                           type: string
+                        orphanDownstreamOnPolicyDelete:
+                          description: OrphanDownstreamOnPolicyDelete controls whether
+                            generated resources should be deleted when the rule that
+                            generated them is deleted with synchronization enabled.
+                            This option is only applicable to generate rules of the
+                            data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            Defaults to "false" if not specified.
+                          type: boolean
                         synchronize:
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. If
@@ -14390,6 +14414,14 @@ spec:
                             namespace:
                               description: Namespace specifies resource namespace.
                               type: string
+                            orphanDownstreamOnPolicyDelete:
+                              description: OrphanDownstreamOnPolicyDelete controls
+                                whether generated resources should be deleted when
+                                the rule that generated them is deleted with synchronization
+                                enabled. This option is only applicable to generate
+                                rules of the data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                Defaults to "false" if not specified.
+                              type: boolean
                             synchronize:
                               description: Synchronize controls if generated resources
                                 should be kept in-sync with their source resource.
