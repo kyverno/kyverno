@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
@@ -40,8 +39,6 @@ var (
 	vapV1Beta1            = v1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	vapBidningV1alpha1    = v1alpha1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vapBidningV1beta1     = v1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
-	exceptionV2beta1      = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
-	exceptionV2           = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
 	LegacyLoader          = yamlutils.GetPolicy
 	KubectlValidateLoader = kubectlValidateLoader
 	defaultLoader         = func(bytes []byte) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, []v1alpha1.ValidatingAdmissionPolicyBinding, error) {
@@ -119,7 +116,6 @@ func kubectlValidateLoader(content []byte) ([]kyvernov1.PolicyInterface, []v1alp
 	var policies []kyvernov1.PolicyInterface
 	var vaps []v1alpha1.ValidatingAdmissionPolicy
 	var vapBindings []v1alpha1.ValidatingAdmissionPolicyBinding
-	var exceptions []kyvernov2beta1.PolicyException
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {
@@ -150,12 +146,6 @@ func kubectlValidateLoader(content []byte) ([]kyvernov1.PolicyInterface, []v1alp
 				return nil, nil, nil, err
 			}
 			vapBindings = append(vapBindings, *typed)
-		case exceptionV2beta1, exceptionV2:
-			typed, err := convert.To[kyvernov2beta1.PolicyException](untyped)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			exceptions = append(exceptions, *typed)
 		default:
 			return nil, nil, nil, fmt.Errorf("policy type not supported %s", gvk)
 		}
