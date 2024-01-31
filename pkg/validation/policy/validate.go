@@ -24,7 +24,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/utils/api"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -402,7 +401,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 
 	// check for CEL expression warnings in case of CEL subrules
-	if ok, _ := vaputils.CanGenerateVAP(spec); ok {
+	if ok, _ := vaputils.CanGenerateVAP(spec); ok && client != nil {
 		resolver := &resolver.ClientDiscoveryResolver{
 			Discovery: client.GetKubeClient().Discovery(),
 		}
@@ -422,7 +421,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				Name: policy.GetName(),
 			},
 		}
-		vaputils.BuildValidatingAdmissionPolicy(client.Discovery(), vap, policy)
+		err = vaputils.BuildValidatingAdmissionPolicy(client.Discovery(), vap, policy)
+		if err != nil {
+			return nil, err
+		}
 		v1beta1vap := vaputils.ConvertValidatingAdmissionPolicy(*vap)
 
 		// check cel expression warnings
@@ -964,7 +966,7 @@ func validateValidationForEach(foreach []kyvernov1.ForEachValidation, schemaKey 
 			}
 		}
 		if fe.ForEachValidation != nil {
-			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](fe.ForEachValidation)
+			nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachValidation](fe.ForEachValidation)
 			if err != nil {
 				return schemaKey, err
 			}
@@ -984,7 +986,7 @@ func validateMutationForEach(foreach []kyvernov1.ForEachMutation, schemaKey stri
 			}
 		}
 		if fe.ForEachMutation != nil {
-			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
+			nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
 			if err != nil {
 				return schemaKey, err
 			}
