@@ -32,7 +32,6 @@ import (
 	"gomodules.xyz/jsonpatch/v2"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -57,29 +56,13 @@ type PolicyProcessor struct {
 	Out                       io.Writer
 }
 
-type PolicyExceptionLister struct {
-	Exceptions []kyvernov2beta1.PolicyException
-}
-
-func (l *PolicyExceptionLister) List(selector labels.Selector) ([]*kyvernov2beta1.PolicyException, error) {
-
-	var matchedExceptions []*kyvernov2beta1.PolicyException
-	for i := range l.Exceptions {
-		exceptionLabels := labels.Set(l.Exceptions[i].GetLabels())
-		if selector.Matches(exceptionLabels) {
-			matchedExceptions = append(matchedExceptions, &l.Exceptions[i])
-		}
-	}
-	return matchedExceptions, nil
-}
-
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
-	policyExceptionLister := &PolicyExceptionLister{
-		Exceptions: p.PolicyExceptions,
+	policyExceptionLister := &policyExceptionLister{
+		exceptions: p.PolicyExceptions,
 	}
 	var client engineapi.Client
 	if p.Client != nil {
