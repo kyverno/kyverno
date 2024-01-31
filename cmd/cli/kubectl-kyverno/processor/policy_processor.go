@@ -68,7 +68,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if p.Client != nil {
 		client = adapters.Client(p.Client)
 	}
-
 	rclient := p.Store.GetRegistryClient()
 	if rclient == nil {
 		rclient = registryclient.NewOrDie()
