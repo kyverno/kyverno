@@ -851,7 +851,7 @@ Please see https://kyverno.io/docs/installation/#security-vs-operability for mor
 
 ## Requirements
 
-Kubernetes: `v1.25.0`
+Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
