@@ -122,17 +122,11 @@ func testCommandExecute(
 			}
 			fmt.Fprintln(out, "  Checking results ...")
 			var resultsTable table.Table
-			{
-				err := printTestResult(out, filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath)
-				if err != nil {
-					return fmt.Errorf("failed to print test result (%w)", err)
-				}
+			if err := printTestResult(out, filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
+				return fmt.Errorf("failed to print test result (%w)", err)
 			}
-			{
-				err := printCheckResult(out, test.Test.Checks, responses, rc, &resultsTable)
-				if err != nil {
-					return fmt.Errorf("failed to print test result (%w)", err)
-				}
+			if err := printCheckResult(out, test.Test.Checks, responses, rc, &resultsTable); err != nil {
+				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)
 			printer := table.NewTablePrinter(out)
