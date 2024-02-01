@@ -234,7 +234,7 @@ jobs:
         if: failure()
         uses: ./.github/actions/kyverno-logs
 
-  validatingadmissionpolicies-v1beta1:
+  k8s-version-specific-tests-above-1-28:
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -253,6 +253,7 @@ jobs:
             version: v1.29.0
         tests:
           - generate-validating-admission-policy
+          - webhook-configurations
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
@@ -640,7 +641,7 @@ jobs:
         uses: kyverno/action-install-chainsaw@56be3cb4ec65a987b6ef4d7ab3a55ee17760a57c # v0.1.2
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@c7631747c15f1d0010c6aa25ddf2660a4501d379
+        uses: sigstore/scaffolding/actions/setup@2d10614e854828e2389881abe6c5cf76240897a7
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version.version }}
@@ -972,7 +973,7 @@ jobs:
     - ttl
     - force-failure-policy-ignore
     - validatingadmissionpolicies-v1alpha1
-    - validatingadmissionpolicies-v1beta1
+    - k8s-version-specific-tests-above-1-28
     - validatingadmissionpolicies-reports-v1alpha1
     - validatingadmissionpolicies-reports-v1beta1
     - custom-sigstore
@@ -991,7 +992,7 @@ jobs:
     - ttl
     - force-failure-policy-ignore
     - validatingadmissionpolicies-v1alpha1
-    - validatingadmissionpolicies-v1beta1
+    - k8s-version-specific-tests-above-1-28
     - validatingadmissionpolicies-reports-v1alpha1
     - validatingadmissionpolicies-reports-v1beta1
     - custom-sigstore
