@@ -73,6 +73,7 @@ crds:
       clusterbackgroundscanreports: true
       clustercleanuppolicies: true
       clusterpolicies: true
+      globalcontextentries: true
       policies: true
       policyexceptions: true
       updaterequests: true
