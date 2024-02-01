@@ -54,7 +54,7 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - cachedcontextentries
+      - globalcontextentries
     verbs:
       - list
       - watch

@@ -50591,7 +50591,7 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - cachedcontextentries
+      - globalcontextentries
     verbs:
       - list
       - watch
@@ -50721,7 +50721,7 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - cachedcontextentries
+      - globalcontextentries
     verbs:
       - list
       - watch
@@ -50850,7 +50850,7 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - cachedcontextentries
+      - globalcontextentries
     verbs:
       - list
       - watch
@@ -51161,7 +51161,7 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - cachedcontextentries
+      - globalcontextentries
     verbs:
       - list
       - watch
