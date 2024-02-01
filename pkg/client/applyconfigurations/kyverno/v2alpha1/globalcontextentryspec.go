@@ -25,7 +25,7 @@ import (
 // GlobalContextEntrySpecApplyConfiguration represents an declarative configuration of the GlobalContextEntrySpec type for use
 // with apply.
 type GlobalContextEntrySpecApplyConfiguration struct {
-	K8sResource *v1.K8sResourceApplyConfiguration     `json:"k8sresource,omitempty"`
+	K8sResource *v1.K8sResourceApplyConfiguration     `json:"k8sResource,omitempty"`
 	APICall     *v1.ExternalAPICallApplyConfiguration `json:"apiCall,omitempty"`
 }
 

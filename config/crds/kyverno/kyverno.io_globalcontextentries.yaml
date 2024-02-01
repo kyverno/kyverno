@@ -99,7 +99,7 @@ spec:
                       for details.
                     type: string
                 type: object
-              k8sresource:
+              k8sResource:
                 description: K8sResource stores infos about kubernetes resource that
                   should be cached
                 properties:

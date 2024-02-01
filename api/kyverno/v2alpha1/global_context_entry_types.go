@@ -60,7 +60,7 @@ func (c *GlobalContextEntry) IsNamespaced() bool {
 type GlobalContextEntrySpec struct {
 	// K8sResource stores infos about kubernetes resource that should be cached
 	// +kubebuilder:validation:Optional
-	K8sResource *kyvernov1.K8sResource `json:"k8sresource,omitempty" yaml:"k8sresource,omitempty"`
+	K8sResource *kyvernov1.K8sResource `json:"k8sResource,omitempty" yaml:"k8sResource,omitempty"`
 
 	// APICall stores infos about API call that should be cached
 	// +kubebuilder:validation:Optional
