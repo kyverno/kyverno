@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/globalcontext/invalid"
 	"github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
@@ -118,7 +119,7 @@ func (e *ExternalAPILoader) SetEntry(entry *v2alpha1.GlobalContextEntry) {
 	if err != nil {
 		err := fmt.Errorf("failed to initiaize APICall: %w", err)
 		e.logger.Error(err, "")
-		_ = e.store.Set(key, store.NewInvalidEntry(err))
+		_ = e.store.Set(key, invalid.New(err))
 		return
 	}
 
@@ -137,7 +138,7 @@ func (e *ExternalAPILoader) SetEntry(entry *v2alpha1.GlobalContextEntry) {
 	data, err := extEntry.apicaller.Execute(ctx, extEntry.call)
 	if err != nil {
 		cancel()
-		_ = e.store.Set(key, store.NewInvalidEntry(err))
+		_ = e.store.Set(key, invalid.New(err))
 		return
 	}
 	extEntry.data = data

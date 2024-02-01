@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/engine/globalcontext/invalid"
 	"github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
@@ -72,7 +73,7 @@ func StoreInGlobalContext(logger logr.Logger, gctxStore *store.Store, entry *v2a
 	key := entry.Name
 	ent, err := createGenericListerForResource(logger, rc.Namespace, resource, client)
 	if err != nil {
-		ent = store.NewInvalidEntry(err)
+		ent = invalid.New(err)
 	}
 	ok := (*gctxStore).Set(key, ent)
 	if !ok {
