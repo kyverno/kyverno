@@ -28,6 +28,8 @@ type Interface interface {
 	CleanupPolicies() CleanupPolicyInformer
 	// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
 	ClusterCleanupPolicies() ClusterCleanupPolicyInformer
+	// GlobalContextEntries returns a GlobalContextEntryInformer.
+	GlobalContextEntries() GlobalContextEntryInformer
 	// PolicyExceptions returns a PolicyExceptionInformer.
 	PolicyExceptions() PolicyExceptionInformer
 }
@@ -51,6 +53,11 @@ func (v *version) CleanupPolicies() CleanupPolicyInformer {
 // ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
 func (v *version) ClusterCleanupPolicies() ClusterCleanupPolicyInformer {
 	return &clusterCleanupPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// GlobalContextEntries returns a GlobalContextEntryInformer.
+func (v *version) GlobalContextEntries() GlobalContextEntryInformer {
+	return &globalContextEntryInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // PolicyExceptions returns a PolicyExceptionInformer.
