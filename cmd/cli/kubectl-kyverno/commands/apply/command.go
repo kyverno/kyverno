@@ -13,8 +13,10 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -64,6 +66,7 @@ type ApplyCommandConfig struct {
 	GitBranch      string
 	warnExitCode   int
 	warnNoPassed   bool
+	exception      []string
 }
 
 func Command() *cobra.Command {
@@ -114,6 +117,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.exception, "exception", nil, "Policy exception to be considered when evaluating policies against resources")
 	return cmd
 }
 
@@ -156,13 +160,21 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
+	exceptions, err := exception.Load(c.exception...)
+	if err != nil {
+		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+	}
 	if !c.Stdin {
 		var policyRulesCount int
 		for _, policy := range policies {
 			policyRulesCount += len(autogen.ComputeRules(policy))
 		}
 		policyRulesCount += len(vaps)
-		fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
+		if len(exceptions) > 0 {
+			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, len(resources), len(exceptions))
+		} else {
+			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
+		}
 	}
 
 	rc, resources1, responses1, err = c.applyPolicytoResource(
@@ -171,6 +183,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		variables,
 		policies,
 		resources,
+		exceptions,
 		&skipInvalidPolicies,
 		dClient,
 		userInfo,
@@ -229,6 +242,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	vars *variables.Variables,
 	policies []kyvernov1.PolicyInterface,
 	resources []*unstructured.Unstructured,
+	exceptions []*kyvernov2beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
 	userInfo *v1beta1.RequestInfo,
@@ -262,6 +276,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 			Store:                store,
 			Policies:             validPolicies,
 			Resource:             *resource,
+			PolicyExceptions:     exceptions,
 			MutateLogPath:        c.MutateLogPath,
 			MutateLogPathIsDir:   mutateLogPathIsDir,
 			Variables:            vars,
@@ -301,13 +316,11 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
-
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
 				return nil, nil, skipInvalidPolicies, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
-
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)

@@ -221,6 +221,16 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.CleanupPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
 		return &kyvernov2alpha1.ClusterCleanupPolicyApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("ExternalAPICall"):
+		return &kyvernov2alpha1.ExternalAPICallApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntry"):
+		return &kyvernov2alpha1.GlobalContextEntryApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntrySpec"):
+		return &kyvernov2alpha1.GlobalContextEntrySpecApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntryStatus"):
+		return &kyvernov2alpha1.GlobalContextEntryStatusApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("KubernetesResource"):
+		return &kyvernov2alpha1.KubernetesResourceApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2alpha1.PolicyExceptionApplyConfiguration{}
 

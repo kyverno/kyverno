@@ -5,6 +5,7 @@ import (
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	cleanuppolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/cleanuppolicies"
 	clustercleanuppolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/clustercleanuppolicies"
+	globalcontextentries "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/globalcontextentries"
 	policyexceptions "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2alpha1/policyexceptions"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/client-go/rest"
@@ -39,6 +40,10 @@ func (c *withMetrics) ClusterCleanupPolicies() github_com_kyverno_kyverno_pkg_cl
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterCleanupPolicy", c.clientType)
 	return clustercleanuppolicies.WithMetrics(c.inner.ClusterCleanupPolicies(), recorder)
 }
+func (c *withMetrics) GlobalContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.GlobalContextEntryInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "GlobalContextEntry", c.clientType)
+	return globalcontextentries.WithMetrics(c.inner.GlobalContextEntries(), recorder)
+}
 func (c *withMetrics) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.PolicyExceptionInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "PolicyException", c.clientType)
 	return policyexceptions.WithMetrics(c.inner.PolicyExceptions(namespace), recorder)
@@ -58,6 +63,9 @@ func (c *withTracing) CleanupPolicies(namespace string) github_com_kyverno_kyver
 func (c *withTracing) ClusterCleanupPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.ClusterCleanupPolicyInterface {
 	return clustercleanuppolicies.WithTracing(c.inner.ClusterCleanupPolicies(), c.client, "ClusterCleanupPolicy")
 }
+func (c *withTracing) GlobalContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.GlobalContextEntryInterface {
+	return globalcontextentries.WithTracing(c.inner.GlobalContextEntries(), c.client, "GlobalContextEntry")
+}
 func (c *withTracing) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.PolicyExceptionInterface {
 	return policyexceptions.WithTracing(c.inner.PolicyExceptions(namespace), c.client, "PolicyException")
 }
@@ -75,6 +83,9 @@ func (c *withLogging) CleanupPolicies(namespace string) github_com_kyverno_kyver
 }
 func (c *withLogging) ClusterCleanupPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.ClusterCleanupPolicyInterface {
 	return clustercleanuppolicies.WithLogging(c.inner.ClusterCleanupPolicies(), c.logger.WithValues("resource", "ClusterCleanupPolicies"))
+}
+func (c *withLogging) GlobalContextEntries() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.GlobalContextEntryInterface {
+	return globalcontextentries.WithLogging(c.inner.GlobalContextEntries(), c.logger.WithValues("resource", "GlobalContextEntries"))
 }
 func (c *withLogging) PolicyExceptions(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2alpha1.PolicyExceptionInterface {
 	return policyexceptions.WithLogging(c.inner.PolicyExceptions(namespace), c.logger.WithValues("resource", "PolicyExceptions").WithValues("namespace", namespace))
