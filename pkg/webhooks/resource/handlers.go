@@ -102,6 +102,8 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in validating webhook")
 
+	time.Sleep(250 * time.Millisecond)
+
 	policies, mutatePolicies, generatePolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, false)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
