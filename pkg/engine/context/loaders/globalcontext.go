@@ -54,78 +54,78 @@ func (g *gctxLoader) HasLoaded() bool {
 }
 
 func (g *gctxLoader) LoadData() error {
-	logger := g.logger
-
-	var data interface{}
-	var err error
-	if g.entry.GlobalReference == nil {
-		logger.Error(err, "context entry does not have resource cache")
-		return fmt.Errorf("resource cache not found")
-	}
-	rc, err := variables.SubstituteAllInType(logger, g.enginectx, g.entry.GlobalReference)
+	contextData, err := g.loadGctxData()
 	if err != nil {
-		return err
-	}
-	logger.V(6).Info("variables substituted", "resourcecache", rc)
-
-	storeEntry, ok := g.gctxStore.Get(rc.Name)
-	if !ok {
-		err := fmt.Errorf("failed to fetch entry key=%s", rc.Name)
-		logger.Error(err, "")
-		return err
-	}
-	data, err = storeEntry.Get()
-	if err != nil {
-		logger.Error(err, "failed to fetch data from entry")
-		return err
-	}
-
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	logger.V(6).Info("fetched json data", "name", g.entry.Name, "jsondata", jsonData)
-
-	if g.entry.GlobalReference.JMESPath == "" {
-		err := g.enginectx.AddContextEntry(g.entry.Name, jsonData)
-		if err != nil {
-			logger.Error(err, "failed to add resource data to context entry")
-			return fmt.Errorf("failed to add resource data to context entry %s: %w", g.entry.Name, err)
-		}
-
-		logger.V(6).Info("added context data", "name", g.entry.Name, "contextData", jsonData)
-		g.data = jsonData
-		return nil
-	}
-
-	path, err := variables.SubstituteAll(logger, g.enginectx, rc.JMESPath)
-	if err != nil {
-		logger.Error(err, "failed to substitute variables in context entry")
-		return fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", g.entry.Name, rc.JMESPath, err)
-	}
-
-	results, err := g.applyJMESPathJSON(path.(string), jsonData)
-	if err != nil {
-		logger.Error(err, "failed to apply JMESPath for context entry")
-		return fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, g.entry.Name, err)
-	}
-	logger.V(6).Info("applied jmespath expression", "name", g.entry.Name, "results", results)
-
-	contextData, err := json.Marshal(results)
-	if err != nil {
-		logger.Error(err, "failed to marshal APICall data for context entry")
+		g.logger.Error(err, "failed to marshal APICall data for context entry")
 		return fmt.Errorf("failed to marshal APICall data for context entry %s: %w", g.entry.Name, err)
 	}
 
 	err = g.enginectx.AddContextEntry(g.entry.Name, contextData)
 	if err != nil {
-		logger.Error(err, "failed to add resource cache results for context entry")
+		g.logger.Error(err, "failed to add resource cache results for context entry")
 		return fmt.Errorf("failed to add resource cache results for context entry %s: %w", g.entry.Name, err)
 	}
 
-	logger.V(6).Info("added context data", "name", g.entry.Name, "contextData", contextData)
+	g.logger.V(6).Info("added context data", "name", g.entry.Name, "contextData", contextData)
 	g.data = contextData
 	return nil
+}
+
+func (g *gctxLoader) loadGctxData() ([]byte, error) {
+	var data interface{}
+	var err error
+	if g.entry.GlobalReference == nil {
+		g.logger.Error(err, "context entry does not have resource cache")
+		return nil, fmt.Errorf("resource cache not found")
+	}
+	rc, err := variables.SubstituteAllInType(g.logger, g.enginectx, g.entry.GlobalReference)
+	if err != nil {
+		return nil, err
+	}
+	g.logger.V(6).Info("variables substituted", "resourcecache", rc)
+
+	storeEntry, ok := g.gctxStore.Get(rc.Name)
+	if !ok {
+		err := fmt.Errorf("failed to fetch entry key=%s", rc.Name)
+		g.logger.Error(err, "")
+		return nil, err
+	}
+	data, err = storeEntry.Get()
+	if err != nil {
+		g.logger.Error(err, "failed to fetch data from entry")
+		return nil, err
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	g.logger.V(6).Info("fetched json data", "name", g.entry.Name, "jsondata", jsonData)
+
+	if g.entry.GlobalReference.JMESPath == "" {
+		err := g.enginectx.AddContextEntry(g.entry.Name, jsonData)
+		if err != nil {
+			g.logger.Error(err, "failed to add resource data to context entry")
+			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", g.entry.Name, err)
+		}
+
+		return jsonData, nil
+	}
+
+	path, err := variables.SubstituteAll(g.logger, g.enginectx, rc.JMESPath)
+	if err != nil {
+		g.logger.Error(err, "failed to substitute variables in context entry")
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", g.entry.Name, rc.JMESPath, err)
+	}
+
+	results, err := g.applyJMESPathJSON(path.(string), jsonData)
+	if err != nil {
+		g.logger.Error(err, "failed to apply JMESPath for context entry")
+		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, g.entry.Name, err)
+	}
+	g.logger.V(6).Info("applied jmespath expression", "name", g.entry.Name, "results", results)
+
+	return json.Marshal(results)
 }
 
 func (a *gctxLoader) applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
