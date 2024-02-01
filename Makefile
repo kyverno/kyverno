@@ -49,7 +49,7 @@ CODE_GEN_VERSION                   ?= v0.28.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
 GENREF                             ?= $(TOOLS_DIR)/genref
-GENREF_VERSION                     ?= latest
+GENREF_VERSION                     ?= v0.28.0
 GO_ACC                             ?= $(TOOLS_DIR)/go-acc
 GO_ACC_VERSION                     ?= latest
 GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
@@ -114,7 +114,7 @@ $(GEN_CRD_API_REFERENCE_DOCS):
 	@GOBIN=$(TOOLS_DIR) go install github.com/ahmetb/gen-crd-api-reference-docs@$(GEN_CRD_API_REFERENCE_DOCS_VERSION)
 
 $(GENREF):
-	@echo Install references-docs-genref... >&2
+	@echo Install genref... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/kubernetes-sigs/reference-docs/genref@$(GENREF_VERSION)
 
 $(GO_ACC):

@@ -30,6 +30,7 @@ require (
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
+	github.com/kubernetes-sigs/reference-docs/genref v0.28.0
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-json v0.0.1
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
@@ -127,6 +128,7 @@ require (
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
 	github.com/ThalesIgnite/crypto11 v1.2.5 // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
+	github.com/alecthomas/chroma v0.7.2-0.20200305040604-4f3623dce67a // indirect
 	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.4 // indirect
 	github.com/alibabacloud-go/cr-20160607 v1.0.1 // indirect
 	github.com/alibabacloud-go/cr-20181201 v1.0.10 // indirect
@@ -175,11 +177,13 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20231217050601-ba74d44ecf5f // indirect
+	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352 // indirect
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/djherbis/times v1.6.0 // indirect
+	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/docker/cli v25.0.1+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker v25.0.1+incompatible // indirect
@@ -343,6 +347,8 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/yashtewari/glob-intersection v0.2.0 // indirect
+	github.com/yuin/goldmark v1.4.13 // indirect
+	github.com/yuin/goldmark-highlighting v0.0.0-20210516132338-9216f9c5aa01 // indirect
 	github.com/zeebo/errs v1.3.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.11 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.11 // indirect
@@ -374,12 +380,24 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/cloud-provider v0.29.0 // indirect
+	k8s.io/cluster-bootstrap v0.29.0 // indirect
 	k8s.io/component-base v0.29.1 // indirect
+	k8s.io/controller-manager v0.29.0 // indirect
+	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
+	k8s.io/kube-controller-manager v0.29.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20240126223410-2919ad4fcfec
+	k8s.io/kube-proxy v0.29.0 // indirect
+	k8s.io/kube-scheduler v0.29.0 // indirect
 	k8s.io/kubectl v0.29.1 // indirect
+	k8s.io/kubelet v0.29.0 // indirect
+	k8s.io/metrics v0.29.1 // indirect
 	oras.land/oras-go/v2 v2.3.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.29.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
 
-replace k8s.io/pod-security-admission v0.29.1 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
+replace (
+	github.com/kubernetes-sigs/reference-docs/genref v0.28.0 => github.com/eddycharly/reference-docs/genref v0.0.0-20240201105509-ecc95bc8f5be
+	k8s.io/pod-security-admission v0.29.1 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
+)
