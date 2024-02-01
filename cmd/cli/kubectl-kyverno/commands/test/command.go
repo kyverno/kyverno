@@ -8,10 +8,10 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/spf13/cobra"
@@ -31,8 +31,7 @@ func Command() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
 			color.Init(removeColor)
-			store.SetRegistryAccess(registryAccess)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, failOnly, detailedResults)
+			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, registryAccess, failOnly, detailedResults)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -57,6 +56,7 @@ func testCommandExecute(
 	fileName string,
 	gitBranch string,
 	testCase string,
+	registryAccess bool,
 	failOnly bool,
 	detailedResults bool,
 ) (err error) {
@@ -101,9 +101,10 @@ func testCommandExecute(
 		}
 	}
 	rc := &resultCounts{}
-	var table table.Table
+	var fullTable table.Table
 	for _, test := range tests {
 		if test.Err == nil {
+			deprecations.CheckTest(out, test.Path, test.Test)
 			// filter results
 			var filteredResults []v1alpha1.TestResult
 			for _, res := range test.Test.Results {
@@ -115,16 +116,23 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, test, false)
+			responses, err := runTest(out, test, registryAccess, false)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
 			fmt.Fprintln(out, "  Checking results ...")
-			t, err := printTestResult(out, filteredResults, responses, rc, failOnly, detailedResults, test.Fs, resourcePath)
-			if err != nil {
+			var resultsTable table.Table
+			if err := printTestResult(out, filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
-			table.AddFailed(t.RawRows...)
+			if err := printCheckResult(out, test.Test.Checks, responses, rc, &resultsTable); err != nil {
+				return fmt.Errorf("failed to print test result (%w)", err)
+			}
+			fullTable.AddFailed(resultsTable.RawRows...)
+			printer := table.NewTablePrinter(out)
+			fmt.Fprintln(out)
+			printer.Print(resultsTable.Rows(detailedResults))
+			fmt.Fprintln(out)
 		}
 	}
 	if !failOnly {
@@ -135,7 +143,7 @@ func testCommandExecute(
 	fmt.Fprintln(out)
 	if rc.Fail > 0 {
 		if !failOnly {
-			printFailedTestResult(out, table, detailedResults)
+			printFailedTestResult(out, fullTable, detailedResults)
 		}
 		return fmt.Errorf("%d tests failed", rc.Fail)
 	}

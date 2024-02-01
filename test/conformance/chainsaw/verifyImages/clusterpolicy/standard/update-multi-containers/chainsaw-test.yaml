@@ -1,0 +1,21 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: update-multi-containers
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: resource-v1.yaml
+        timeout: 1m30s
+    - apply:
+        file: resource-v2.yaml
+        timeout: 1m30s

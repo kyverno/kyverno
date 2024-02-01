@@ -28,6 +28,14 @@ const (
 	GHCR    ImageRegistryCredentialsProvidersType = "github"
 )
 
+var signatureAlgorithmMap = map[string]bool{
+	"":       true,
+	"sha224": true,
+	"sha256": true,
+	"sha384": true,
+	"sha512": true,
+}
+
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
@@ -47,6 +55,13 @@ type ImageVerification struct {
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// +kubebuilder:validation:Optional
 	ImageReferences []string `json:"imageReferences,omitempty" yaml:"imageReferences,omitempty"`
+
+	// SkipImageReferences is a list of matching image reference patterns that should be skipped.
+	// At least one pattern in the list must match the image for the rule to be skipped. Each image reference
+	// consists of a registry address (defaults to docker.io), repository, image, and tag (defaults to latest).
+	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+	// +kubebuilder:validation:Optional
+	SkipImageReferences []string `json:"skipImageReferences,omitempty" yaml:"skipImageReferences,omitempty"`
 
 	// Deprecated. Use StaticKeyAttestor instead.
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
@@ -166,7 +181,7 @@ type StaticKeyAttestor struct {
 	// (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
-	// Specify signature algorithm for public keys. Supported values are sha256 and sha512.
+	// Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.
 	// +kubebuilder:default=sha256
 	SignatureAlgorithm string `json:"signatureAlgorithm,omitempty" yaml:"signatureAlgorithm,omitempty"`
 
@@ -450,8 +465,10 @@ func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) 
 	if ska.PublicKeys == "" && ska.KMS == "" && ska.Secret == nil {
 		errs = append(errs, field.Invalid(path, ska, "A public key, kms key or secret is required"))
 	}
-	if ska.PublicKeys != "" && ska.SignatureAlgorithm != "" && ska.SignatureAlgorithm != "sha256" && ska.SignatureAlgorithm != "sha512" {
-		errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+	if ska.PublicKeys != "" {
+		if _, ok := signatureAlgorithmMap[ska.SignatureAlgorithm]; !ok {
+			errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+		}
 	}
 	return errs
 }

@@ -1,0 +1,31 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: rollback-image-verification
+spec:
+  timeouts:
+    delete: 2m
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: deployment_old.yaml
+    - apply:
+        file: deployment_new.yaml
+    - assert:
+        file: deployment-assert.yaml
+  - name: step-03
+    try:
+    - script:
+        content: kubectl -n verify-images rollout undo deployment nginx-deployment
+  - name: step-04
+    try:
+    - assert:
+        file: chainsaw-step-04-assert-1.yaml

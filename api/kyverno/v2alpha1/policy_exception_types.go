@@ -24,7 +24,7 @@ import (
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=polex,categories=kyverno
-// +kubebuilder:deprecatedversion
+// +kubebuilder:unservedversion
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException kyvernov2beta1.PolicyException
@@ -38,6 +38,10 @@ func (p *PolicyException) Validate() (errs field.ErrorList) {
 // Contains returns true if it contains an exception for the given policy/rule pair
 func (p *PolicyException) Contains(policy string, rule string) bool {
 	return p.Spec.Contains(policy, rule)
+}
+
+func (p *PolicyException) GetKind() string {
+	return "PolicyException"
 }
 
 // Exception stores infos about a policy and rules

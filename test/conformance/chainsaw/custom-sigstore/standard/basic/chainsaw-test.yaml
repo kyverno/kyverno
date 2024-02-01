@@ -15,6 +15,3 @@ spec:
         content: kubectl run -n $NAMESPACE test-sigstore --image=$TEST_IMAGE_URL
     - assert:
         file: pod-assert.yaml
-    finally:
-    - script:
-        content: sleep 3

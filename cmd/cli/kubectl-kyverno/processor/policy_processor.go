@@ -11,6 +11,7 @@ import (
 	json_patch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -35,8 +36,10 @@ import (
 )
 
 type PolicyProcessor struct {
+	Store                     *store.Store
 	Policies                  []kyvernov1.PolicyInterface
 	Resource                  unstructured.Unstructured
+	PolicyExceptions          []*kyvernov2beta1.PolicyException
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 *variables.Variables
@@ -58,11 +61,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
+	policyExceptionLister := &policyExceptionLister{
+		exceptions: p.PolicyExceptions,
+	}
 	var client engineapi.Client
 	if p.Client != nil {
 		client = adapters.Client(p.Client)
 	}
-	rclient := registryclient.NewOrDie()
+	rclient := p.Store.GetRegistryClient()
+	if rclient == nil {
+		rclient = registryclient.NewOrDie()
+	}
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
@@ -70,8 +79,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		client,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(nil),
-		nil,
+		store.ContextLoaderFactory(p.Store, nil),
+		policyExceptionLister,
 		"",
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
@@ -98,7 +107,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	var responses []engineapi.EngineResponse
 	// mutate
 	for _, policy := range p.Policies {
-		if !policyHasMutate(policy) {
+		if !policy.GetSpec().HasMutate() {
 			continue
 		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
@@ -115,7 +124,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// verify images
 	for _, policy := range p.Policies {
-		if !policyHasVerifyImages(policy) {
+		if !policy.GetSpec().HasVerifyImages() {
 			continue
 		}
 		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
@@ -170,14 +179,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// generate
 	for _, policy := range p.Policies {
-		if policyHasGenerate(policy) {
+		if policy.GetSpec().HasGenerate() {
 			policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
 			if err != nil {
 				return responses, err
 			}
 			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 			if !generateResponse.IsEmpty() {
-				newRuleResponse, err := handleGeneratePolicy(p.Out, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
+				newRuleResponse, err := handleGeneratePolicy(p.Out, p.Store, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
 				if err != nil {
 					log.Log.Error(err, "failed to apply generate policy")
 				} else {
@@ -205,7 +214,7 @@ func (p *PolicyProcessor) makePolicyContext(
 	var resourceValues map[string]interface{}
 	if p.Variables != nil {
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(p.Out, policy, p.Variables.Subresources(), p.Client)
-		vals, err := p.Variables.ComputeVariables(policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
+		vals, err := p.Variables.ComputeVariables(p.Store, policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
 		if err != nil {
 			return nil, fmt.Errorf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
 				policy.GetName(),
@@ -234,7 +243,8 @@ func (p *PolicyProcessor) makePolicyContext(
 		return nil, fmt.Errorf("failed to create policy context (%w)", err)
 	}
 	if operation == kyvernov1.Update {
-		policyContext = policyContext.WithOldResource(resource)
+		resource := resource.DeepCopy()
+		policyContext = policyContext.WithOldResource(*resource)
 		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
 			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
 		}

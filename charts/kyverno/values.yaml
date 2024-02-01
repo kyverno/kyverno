@@ -23,11 +23,13 @@ global:
     # -- (string) Global value that allows to set a single image registry across all deployments.
     # When set, it will override any values set under `.image.registry` across the chart.
     registry: ~
+
   caCertificates:
     # -- Global CA certificates to use with Kyverno deployments
     # This value is expected to be one large string of CA certificates
     # Individual controller values will override this global value
     data: ~
+
     # -- Global value to set single volume to be mounted for CA certificates for all deployments.
     # Not used when `.Values.global.caCertificates.data` is defined
     # Individual  controller values will override this global value
@@ -36,6 +38,16 @@ global:
     # hostPath:
     #   path: /etc/pki/tls/ca-certificates.crt
     #   type: File
+
+  # -- Additional container environment variables to apply to all containers and init containers
+  extraEnvVars: []
+  # Example setting proxy
+  # extraEnvVars:
+  # - name: HTTPS_PROXY
+  #   value: 'https://proxy.example.com:3128'
+
+  # -- Global node labels for pod assignment. Non-global values will override the global value.
+  nodeSelector: {}
 
 # -- (string) Override the name of the chart
 nameOverride: ~
@@ -74,6 +86,17 @@ crds:
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
 
+  groups:
+
+    # -- Install CRDs in group `kyverno.io`
+    kyverno: true
+
+    # -- Install CRDs in group `wgpolicyk8s.io`
+    policyreport: true
+
+    # -- Install CRDs in group `reports.kyverno.io`
+    reports: true
+
   # -- Additional CRDs annotations
   annotations: {}
     # argocd.argoproj.io/sync-options: Replace=true
@@ -81,6 +104,67 @@ crds:
 
   # -- Additional CRDs labels
   customLabels: {}
+
+  migration:
+
+    # -- Enable CRDs migration using helm post upgrade hook
+    enabled: true
+
+    # -- Resources to migrate
+    resources:
+    - cleanuppolicies.kyverno.io
+    - clustercleanuppolicies.kyverno.io
+    - policyexceptions.kyverno.io
+
+    image:
+      # -- (string) Image registry
+      registry: ghcr.io
+      # -- (string) Image repository
+      repository: kyverno/kyverno-cli
+      # -- (string) Image tag
+      # Defaults to appVersion in Chart.yaml if omitted
+      tag: ~
+      # -- (string) Image pull policy
+      pullPolicy: IfNotPresent
+
+    # -- Image pull secrets
+    imagePullSecrets: []
+    # - name: secretName
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
+    # -- List of node taints to tolerate
+    tolerations: []
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Pod labels.
+    podLabels: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
+
+    # -- Security context for the hook containers
+    securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
 
 # Configuration
 config:
@@ -257,6 +341,11 @@ config:
     # Example to disable admission enforcer on AKS:
     # 'admissions.enforcer/disabled': 'true'
 
+  # -- Defines labels to set on webhook configurations.
+  webhookLabels: {}
+    # Example to adopt webhook resources in ArgoCD:
+    # 'argocd.argoproj.io/instance': 'kyverno'
+
   # -- Defines match conditions to set on webhook configurations (requires Kubernetes 1.27+).
   matchConditions: []
 
@@ -271,6 +360,14 @@ config:
   # -- resourceFilters exclude list
   # Items to exclude from config.resourceFilters
   resourceFiltersExclude: []
+
+  # -- resourceFilter namespace include
+  # Namespaces to include to the default resourceFilters
+  resourceFiltersIncludeNamespaces: []
+
+  # -- resourceFilters include list
+  # Items to include to config.resourceFilters
+  resourceFiltersInclude: []
 
 # Metrics configuration
 metricsConfig:
@@ -377,7 +474,7 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.26.4'
+    tag: '1.28.5'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -399,6 +496,64 @@ webhooksCleanup:
 
   # -- Pod affinity constraints.
   podAffinity: {}
+
+  # -- Pod labels.
+  podLabels: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
+  # -- Security context for the hook containers
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    runAsNonRoot: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+
+policyReportsCleanup:
+  # -- Create a helm post-upgrade hook to cleanup the old policy reports.
+  enabled: true
+
+  image:
+    # -- (string) Image registry
+    registry: ~
+    # -- Image repository
+    repository: bitnami/kubectl
+    # -- Image tag
+    # Defaults to `latest` if omitted
+    tag: '1.28.5'
+    # -- (string) Image pull policy
+    # Defaults to image.pullPolicy if omitted
+    pullPolicy: ~
+
+  # -- Image pull secrets
+  imagePullSecrets: []
+  # - name: secretName
+
+  # -- Security context for the pod
+  podSecurityContext: {}
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Pod anti affinity constraints.
+  podAntiAffinity: {}
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Pod labels.
+  podLabels: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
@@ -490,11 +645,11 @@ features:
     verbosity: 2
   omitEvents:
     # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
-    eventTypes: []
+    eventTypes:
+      - PolicyApplied
+      - PolicySkipped
       # - PolicyViolation
-      # - PolicyApplied
       # - PolicyError
-      # - PolicySkipped
   policyExceptions:
     # -- Enables the feature
     enabled: true
@@ -535,6 +690,9 @@ cleanupJobs:
     # -- Enable cleanup cronjob
     enabled: true
 
+    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
+    backoffLimit: 3
+
     image:
       # -- (string) Image registry
       registry: ~
@@ -542,7 +700,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.26.10'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -576,6 +734,9 @@ cleanupJobs:
           - ALL
       seccompProfile:
         type: RuntimeDefault
+
+    # -- Pod PriorityClassName
+    priorityClassName: ""
 
     # -- Job resources
     resources: {}
@@ -606,6 +767,9 @@ cleanupJobs:
     # -- Enable cleanup cronjob
     enabled: true
 
+    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
+    backoffLimit: 3
+
     image:
       # -- (string) Image registry
       registry: ~
@@ -613,7 +777,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.26.4'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -647,6 +811,9 @@ cleanupJobs:
           - ALL
       seccompProfile:
         type: RuntimeDefault
+
+    # -- Pod PriorityClassName
+    priorityClassName: ""
 
     # -- Job resources
     resources: {}
@@ -689,6 +856,20 @@ admissionController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1055,6 +1236,17 @@ admissionController:
     # -- Otel collector credentials
     creds: ''
 
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+
 # Background controller configuration
 backgroundController:
 
@@ -1339,6 +1531,17 @@ backgroundController:
     collector: ''
     # -- Otel collector credentials
     creds: ''
+
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
 
 # Cleanup controller configuration
 cleanupController:
@@ -1632,6 +1835,17 @@ cleanupController:
     # -- Otel collector credentials
     creds: ''
 
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+
 # Reports controller configuration
 reportsController:
 
@@ -1649,6 +1863,20 @@ reportsController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1890,3 +2118,14 @@ reportsController:
     collector: ~
     # -- (string) Otel collector credentials
     creds: ~
+
+  profiling:
+    # -- Enable profiling
+    enabled: false
+    # -- Profiling endpoint port
+    port: 6060
+    # -- Service type.
+    serviceType: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:

@@ -55,6 +55,14 @@ func parseWebhookAnnotations(in string) (map[string]string, error) {
 	return out, nil
 }
 
+func parseWebhookLabels(in string) (map[string]string, error) {
+	var out map[string]string
+	if err := json.Unmarshal([]byte(in), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func parseMatchConditions(in string) ([]admissionregistrationv1.MatchCondition, error) {
 	var out []admissionregistrationv1.MatchCondition
 	if err := json.Unmarshal([]byte(in), &out); err != nil {

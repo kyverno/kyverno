@@ -28,6 +28,7 @@ import (
 type ImageVerificationApplyConfiguration struct {
 	Type                     *v1.ImageVerificationType                             `json:"type,omitempty"`
 	ImageReferences          []string                                              `json:"imageReferences,omitempty"`
+	SkipImageReferences      []string                                              `json:"skipImageReferences,omitempty"`
 	Attestors                []kyvernov1.AttestorSetApplyConfiguration             `json:"attestors,omitempty"`
 	Attestations             []kyvernov1.AttestationApplyConfiguration             `json:"attestations,omitempty"`
 	Repository               *string                                               `json:"repository,omitempty"`
@@ -58,6 +59,16 @@ func (b *ImageVerificationApplyConfiguration) WithType(value v1.ImageVerificatio
 func (b *ImageVerificationApplyConfiguration) WithImageReferences(values ...string) *ImageVerificationApplyConfiguration {
 	for i := range values {
 		b.ImageReferences = append(b.ImageReferences, values[i])
+	}
+	return b
+}
+
+// WithSkipImageReferences adds the given value to the SkipImageReferences field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the SkipImageReferences field.
+func (b *ImageVerificationApplyConfiguration) WithSkipImageReferences(values ...string) *ImageVerificationApplyConfiguration {
+	for i := range values {
+		b.SkipImageReferences = append(b.SkipImageReferences, values[i])
 	}
 	return b
 }

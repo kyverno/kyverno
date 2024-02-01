@@ -15,6 +15,8 @@ results:
   rule: require-team
   scored: true
   source: kyverno
+  properties:
+    exception: mynewpolex
 summary:
   error: 0
   fail: 0

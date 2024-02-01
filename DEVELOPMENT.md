@@ -242,7 +242,7 @@ To create a local KinD cluster, run:
 make kind-create-cluster
 ```
 
-You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.24.0`).
+You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.28.0`).
 
 You can also override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
 
@@ -418,10 +418,12 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
     - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)
     - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
     - `--backgroundServiceAccountName` must be set to `system:serviceaccount:kyverno:kyverno-background-controller`
+    - `--caSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-ca`
+    - `--tlsSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-pair`
 
 Once you are ready with the steps above, Kyverno can be started locally with:
 ```console
-go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443 --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
+go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443 --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca  --tlsSecretName=kyverno-svc.kyverno.svc.kyverno-tls-pair
 ```
 
 You will need to adapt those steps to run debug sessions in your IDE of choice, but the general idea remains the same.

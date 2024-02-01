@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno-policies
-version: v2.5.5
-appVersion: v1.7.3
+version: v0.0.0
+appVersion: latest
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Pod Security Standards implemented as Kyverno policies
 keywords:
@@ -17,19 +17,7 @@ sources:
 maintainers:
   - name: kyverno-maintainers
     email: cncf-kyverno-maintainers@lists.cncf.io
-kubeVersion: ">=1.16.0-0"
+kubeVersion: ">=1.25.0-0"
 annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
-  # valid kinds are: added, changed, deprecated, removed, fixed and security
-  artifacthub.io/changes: |
-    - kind: added
-      description: Add ability to configure autogen behavior
-    - kind: fixed
-      description: Support for customLabels, they were ignored up to now
-    - kind: removed
-      description: "Walk back change in PSS policy to send to to_upper"
-    - kind: fixed
-      description: Skip DELETE requests on policies using deny statements
-    - kind: added
-      description: Add policyKind to allow changing ClusterPolicy to Policy for all policies

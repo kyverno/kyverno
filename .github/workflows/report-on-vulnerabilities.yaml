@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: report-on-vulnerabilities
 
 permissions: {}
@@ -16,21 +18,56 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       results: ${{ steps.parse-results.outputs.results }}
-    steps:
-    - name: Scan for vulnerabilities
-      uses: aquasecurity/trivy-action@f78e9ecf42a1271402d4f484518b9313235990e1 # v0.8.0 (Trivy v0.34.0)
+    steps:    
+    - name: Get Branches Name
+      id: get-branches
+      run: |
+        all_branches=$(curl -s https://api.github.com/repos/${{ env.IMAGE_NAME }}/branches | jq -r '.[].name | select(startswith("release-"))' | sort -rV | head -n 2)
+        releasebranch1=$(echo "$all_branches" | sed -n 1p)
+        releasebranch2=$(echo "$all_branches" | sed -n 2p)
+
+        echo "releasebranch1=$releasebranch1" >> $GITHUB_OUTPUT
+        echo "releasebranch2=$releasebranch2" >> $GITHUB_OUTPUT
+    
+    - name: Scan for vulnerabilities in latest image
+      uses: aquasecurity/trivy-action@d43c1f16c00cfd3978dde6c07f4bbcf9eb6993ca # v0.8.0 (Trivy v0.34.0)
+
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
         ignore-unfixed: false
         severity: HIGH,CRITICAL
-        output: scan.json
+        output: scan1.json
+
+    - name: Scan for vulnerabilities in latest-1 image
+      uses: aquasecurity/trivy-action@d43c1f16c00cfd3978dde6c07f4bbcf9eb6993ca # v0.8.0 (Trivy v0.34.0)
+      with: 
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
+        format: json
+        ignore-unfixed: false
+        severity: HIGH,CRITICAL
+        output: scan2.json
+
+    - name: Scan for vulnerabilities in latest-2 image
+      uses: aquasecurity/trivy-action@d43c1f16c00cfd3978dde6c07f4bbcf9eb6993ca # v0.8.0 (Trivy v0.34.0)
+      with: 
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
+        format: json
+        ignore-unfixed: false
+        severity: HIGH,CRITICAL
+        output: scan3.json
+
+    - name: Merge scan results
+      id: merge-results
+      run: |
+        jq -s add scan1.json scan2.json scan3.json > scan.json
+        cat scan.json
 
     - name: Parse scan results
       id: parse-results
       continue-on-error: true
       run: |
-        VULNS=$(cat scan.json | jq '.Results[] | select(.Target=="ko-app/kyverno") | length')
+        VULNS=$(cat scan.json | jq '.Results[] | select(.Target=="ko-app/kyverno").Vulnerabilities | length')
         if [[ $VULNS -eq 0 ]]
         then
           echo "No vulnerabilities found, halting"

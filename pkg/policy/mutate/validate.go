@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	"github.com/kyverno/kyverno/pkg/policy/auth"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
@@ -18,15 +18,15 @@ import (
 type Mutate struct {
 	mutation    kyvernov1.Mutation
 	user        string
-	authChecker AuthChecker
+	authChecker auth.Operations
 }
 
 // NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface, user string) *Mutate {
+func NewMutateFactory(m kyvernov1.Mutation, authChecker auth.Operations, user string) *Mutate {
 	return &Mutate{
 		mutation:    m,
 		user:        user,
-		authChecker: newAuthChecker(client, user),
+		authChecker: authChecker,
 	}
 }
 

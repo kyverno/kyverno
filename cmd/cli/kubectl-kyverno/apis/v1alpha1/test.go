@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"github.com/kyverno/kyverno-json/pkg/apis/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,6 +33,34 @@ type Test struct {
 	// Results are the results to be checked in the test
 	Results []TestResult `json:"results,omitempty"`
 
+	// Checks are the verifications to be checked in the test
+	Checks []CheckResult `json:"checks,omitempty"`
+
 	// Values are the values to be used in the test
 	Values *ValuesSpec `json:"values,omitempty"`
+
+	// Policy Exceptions are the policy exceptions to be used in the test
+	PolicyExceptions []string `json:"exceptions,omitempty"`
+}
+
+type CheckResult struct {
+	// Match tells how to match relevant rule responses
+	Match CheckMatch `json:"match,omitempty"`
+
+	// Assert contains assertion to be performed on the relevant rule responses
+	Assert v1alpha1.Any `json:"assert"`
+
+	// Error contains negative assertion to be performed on the relevant rule responses
+	Error v1alpha1.Any `json:"error"`
+}
+
+type CheckMatch struct {
+	// Resource filters engine responses
+	Resource *v1alpha1.Any `json:"resource,omitempty"`
+
+	// Policy filters engine responses
+	Policy *v1alpha1.Any `json:"policy,omitempty"`
+
+	// Rule filters rule responses
+	Rule *v1alpha1.Any `json:"rule,omitempty"`
 }
