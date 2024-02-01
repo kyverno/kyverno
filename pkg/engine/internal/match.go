@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -10,6 +9,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
@@ -29,28 +29,12 @@ func MatchPolicyContext(logger logr.Logger, client engineapi.Client, policyConte
 		logger.V(2).Info("configuration resource filters doesn't match resource")
 		return false
 	}
-	gvr := schema.GroupVersionResource(policyContext.RequestResource())
+
 	if policy.GetSpec().GetMatchConditions() != nil {
-		requestInfo := policyContext.AdmissionInfo().AdmissionUserInfo
-		userInfo := NewUser(requestInfo.Username, requestInfo.UID, requestInfo.Groups)
-		admissionAttributes := admission.NewAttributesRecord(new.DeepCopyObject(), old.DeepCopyObject(), gvk, new.GetNamespace(), new.GetName(), gvr, subresource, admission.Operation(policyContext.Operation()), nil, false, &userInfo)
-		versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
-		// authorizer := NewAuthorizer(client, gvk)
-
-		optionalVars := cel.OptionalVariableDeclarations{HasParams: false, HasAuthorizer: true}
-		compiler, err := celutils.NewCompiler(nil, nil, policy.GetSpec().GetMatchConditions(), nil)
-		if err != nil {
-			logger.Error(err, "error creating composited compiler")
+		if !checkMatchConditions(logger, client, policyContext, gvk, subresource) {
+			logger.V(2).Info("webhookConfiguration.matchConditions doesn't match request")
 			return false
 		}
-		matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
-		matcher := matchconditions.NewMatcher(matchConditionFilter, nil, policy.GetKind(), "", policy.GetName())
-		result := matcher.Match(context.TODO(), versionedAttr, nil, nil)
-		if !result.Matches {
-			fmt.Println("====doesn't match====")
-			return false
-		}
-
 	}
 	return true
 }
@@ -80,4 +64,34 @@ func checkNamespacedPolicy(policy kyvernov1.PolicyInterface, resources ...unstru
 		}
 	}
 	return true
+}
+
+func checkMatchConditions(logger logr.Logger, client engineapi.Client, policyContext engineapi.PolicyContext, gvk schema.GroupVersionKind, subresource string) bool {
+	policy := policyContext.Policy()
+	old := policyContext.OldResource()
+	new := policyContext.NewResource()
+	new.SetGroupVersionKind(gvk)
+	old.SetGroupVersionKind(gvk)
+	gvr := schema.GroupVersionResource(policyContext.RequestResource())
+	requestInfo := policyContext.AdmissionInfo().AdmissionUserInfo
+	userInfo := NewUser(requestInfo.Username, requestInfo.UID, requestInfo.Groups)
+	admissionAttributes := admission.NewAttributesRecord(new.DeepCopyObject(), old.DeepCopyObject(), gvk, new.GetNamespace(), new.GetName(), gvr, subresource, admission.Operation(policyContext.Operation()), nil, false, &userInfo)
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypes(gvk.GroupVersion())
+	versionedAttr, err := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), admission.NewObjectInterfacesFromScheme(scheme))
+	if err != nil {
+		logger.Error(err, "error creating versioned attributes")
+		return false
+	}
+
+	optionalVars := cel.OptionalVariableDeclarations{HasParams: false, HasAuthorizer: false}
+	compiler, err := celutils.NewCompiler(nil, nil, policy.GetSpec().GetMatchConditions(), nil)
+	if err != nil {
+		logger.Error(err, "error creating composited compiler")
+		return false
+	}
+	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
+	matcher := matchconditions.NewMatcher(matchConditionFilter, nil, policy.GetKind(), "", policy.GetName())
+	result := matcher.Match(context.TODO(), versionedAttr, nil, nil)
+	return result.Matches
 }
