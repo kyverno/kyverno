@@ -5,17 +5,19 @@ metadata:
   name: cel-expressions
 spec:
   steps:
-  - name: step-01
+  - name: Apply the first policy
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: policy-1.yaml
-  - name: step-02
+    - script:
+        content: kubectl apply -f policy-1.yaml
+        check:
+          # This check ensures that the string "undefined field 'automountServiceAccountToken';" is found
+          # in stdout or else fails
+          (contains($stdout, 'undefined field \'automountServiceAccountToken\';')): true
+  - name: Apply the second policy
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: policy-2.yaml
+    - script:
+        content: kubectl apply -f policy-2.yaml
+        check:
+          # This check ensures that the string "undefined field 'replicas';" is found
+          # in stdout or else fails
+          (contains($stdout, 'undefined field \'replicas\';')): true

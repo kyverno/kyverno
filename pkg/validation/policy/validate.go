@@ -433,8 +433,8 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		for i, e := range spec.Rules[0].Validation.CEL.Expressions {
 			results := checker.CheckExpression(ctx, e.Expression)
 			if len(results) != 0 {
-				err := fmt.Errorf("%s:%s", fieldRef.Index(i).Child("expression").String(), results.String())
-				return nil, err
+				msg := fmt.Sprintf("%s:%s", fieldRef.Index(i).Child("expression").String(), strings.ReplaceAll(results.String(), "\n", ";"))
+				warnings = append(warnings, msg)
 			}
 
 			if e.MessageExpression == "" {
@@ -442,8 +442,8 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 			results = checker.CheckExpression(ctx, e.MessageExpression)
 			if len(results) != 0 {
-				err := fmt.Errorf("%s:%s", fieldRef.Index(i).Child("messageExpression").String(), results.String())
-				return nil, err
+				msg := fmt.Sprintf("%s:%s", fieldRef.Index(i).Child("messageExpression").String(), strings.ReplaceAll(results.String(), "\n", ";"))
+				warnings = append(warnings, msg)
 			}
 		}
 	}
