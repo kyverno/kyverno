@@ -66,8 +66,8 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	var errs []error
 	rules := autogen.ComputeRules(policy)
 	for _, r := range rules {
-		generateType, sync := r.GetGenerateTypeAndSync()
-		if sync && (generateType == kyvernov1.Data) {
+		generateType, sync, orphanDownstreamOnPolicyDelete := r.GetTypeAndSyncAndOrphanDownstream()
+		if sync && (generateType == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
 			if err := pc.syncDataPolicyChanges(policy, true); err != nil {
 				errs = append(errs, err)
 			}

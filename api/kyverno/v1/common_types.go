@@ -626,6 +626,13 @@ type Generation struct {
 	// +optional
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
+	// OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
+	// them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+	// See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+	// Defaults to "false" if not specified.
+	// +optional
+	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty" yaml:"orphanDownstreamOnPolicyDelete,omitempty"`
+
 	// Data provides the resource declaration used to populate each generated resource.
 	// At most one of Data or Clone must be specified. If neither are provided, the generated
 	// resource will be created with default data only.
@@ -675,7 +682,7 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 		}
 	}
 
-	generateType, _ := g.GetTypeAndSync()
+	generateType, _, _ := g.GetTypeAndSyncAndOrphanDownstream()
 	if generateType == Data {
 		return errs
 	}
@@ -776,11 +783,11 @@ const (
 	Clone GenerateType = "Clone"
 )
 
-func (g *Generation) GetTypeAndSync() (GenerateType, bool) {
+func (g *Generation) GetTypeAndSyncAndOrphanDownstream() (GenerateType, bool, bool) {
 	if g.RawData != nil {
-		return Data, g.Synchronize
+		return Data, g.Synchronize, g.OrphanDownstreamOnPolicyDelete
 	}
-	return Clone, g.Synchronize
+	return Clone, g.Synchronize, g.OrphanDownstreamOnPolicyDelete
 }
 
 // CloneFrom provides the location of the source resource used to generate target resources.
