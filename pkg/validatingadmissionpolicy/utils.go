@@ -1,7 +1,7 @@
 package validatingadmissionpolicy
 
 import (
-	v1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/api/admissionregistration/v1beta1"
 )
@@ -37,10 +37,11 @@ func convertMatchConditions(v1alpha1conditions []v1alpha1.MatchCondition) []v1be
 	}
 	return v1beta1conditions
 }
-func ConvertMatchConditionsV1(v1alpha1conditions []v1alpha1.MatchCondition) []v1.MatchCondition {
-	var v1conditions []v1.MatchCondition
+
+func ConvertMatchConditionsV1(v1alpha1conditions []v1alpha1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	var v1conditions []admissionregistrationv1.MatchCondition
 	for _, m := range v1alpha1conditions {
-		v1conditions = append(v1conditions, v1.MatchCondition(m))
+		v1conditions = append(v1conditions, admissionregistrationv1.MatchCondition(m))
 	}
 	return v1conditions
 }
