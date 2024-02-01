@@ -1,0 +1,7 @@
+---
+config:
+  resourceFiltersInclude:
+    - '[MyCRD,*,*]'
+    - '[MyCRD/*,*,*]'
+  resourceFiltersIncludeNamespaces:
+    - "my-namespace"

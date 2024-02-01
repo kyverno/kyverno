@@ -1,0 +1,73 @@
+{{- if .Values.webhooksCleanup.enabled -}}
+{{- if not .Values.templating.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "kyverno.fullname" . }}-scale-to-zero
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      {{- with .Values.webhooksCleanup.podLabels }}
+      labels:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccount: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      {{- with .Values.webhooksCleanup.podSecurityContext }}
+      securityContext:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      {{- with .Values.webhooksCleanup.imagePullSecrets }}
+      imagePullSecrets: 
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: kubectl
+          image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
+          imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - '-c'
+            - |-
+              set -euo pipefail
+              kubectl scale -n {{ template "kyverno.namespace" . }} deployment -l app.kubernetes.io/part-of={{ template "kyverno.fullname" . }} --replicas=0
+              sleep 30
+              kubectl delete validatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
+              kubectl delete mutatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
+          {{- with .Values.webhooksCleanup.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.webhooksCleanup.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webhooksCleanup.nodeSelector | default .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.webhooksCleanup.podAntiAffinity .Values.webhooksCleanup.podAffinity .Values.webhooksCleanup.nodeAffinity }}
+      affinity:
+        {{- with .Values.webhooksCleanup.podAntiAffinity }}
+        podAntiAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.webhooksCleanup.podAffinity }}
+        podAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.webhooksCleanup.nodeAffinity }}
+        nodeAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+      {{- end }}
+{{- end -}}
+{{- end -}}

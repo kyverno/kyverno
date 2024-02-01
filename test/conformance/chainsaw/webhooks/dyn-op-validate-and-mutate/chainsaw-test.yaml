@@ -1,0 +1,28 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: dyn-op-validate-and-mutate
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy-01.yaml
+    - assert:
+        file: policy-assert1.yaml
+  - name: step-02
+    try:
+    - assert:
+        file: webhooks-02.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: policy-03.yaml
+    - assert:
+        file: policy-assert2.yaml
+  - name: step-04
+    try:
+    - assert:
+        file: webhooks-04.yaml
