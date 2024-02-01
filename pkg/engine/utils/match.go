@@ -57,13 +57,18 @@ func doesResourceMatchConditionBlock(
 	namespaceLabels map[string]string,
 	gvk schema.GroupVersionKind,
 	subresource string,
-	operation kyvernov1.AdmissionOperation,
+	allowedOperations []kyvernov1.AdmissionOperation,
 ) []error {
 	if len(conditionBlock.Operations) > 0 {
-		if !slices.Contains(conditionBlock.Operations, operation) {
-			// if operation does not match, return immediately
-			err := fmt.Errorf("operation does not match")
-			return []error{err}
+		// Check if all operations in condition block are in the allowed operations list
+		if !slices.ContainsFunc(allowedOperations, func(op kyvernov1.AdmissionOperation) bool {
+			return slices.Contains(conditionBlock.Operations, op)
+		}) {
+			// If none of the input operations match the operations from condition block, return immediately
+			return []error{
+				fmt.Errorf("one or more operations from the %v don't match any from the allowed operations list %v",
+					allowedOperations, conditionBlock.Operations),
+			}
 		}
 	}
 
@@ -173,7 +178,7 @@ func MatchesResourceDescription(
 	policyNamespace string,
 	gvk schema.GroupVersionKind,
 	subresource string,
-	operation kyvernov1.AdmissionOperation,
+	allowedOperations []kyvernov1.AdmissionOperation,
 ) error {
 	if resource.Object == nil {
 		return fmt.Errorf("resource is empty")
@@ -190,7 +195,7 @@ func MatchesResourceDescription(
 		oneMatched := false
 		for _, rmr := range rule.MatchResources.Any {
 			// if there are no errors it means it was a match
-			if len(matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)) == 0 {
+			if len(matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, allowedOperations)) == 0 {
 				oneMatched = true
 				break
 			}
@@ -201,11 +206,11 @@ func MatchesResourceDescription(
 	} else if len(rule.MatchResources.All) > 0 {
 		// include object if ALL of the criteria match
 		for _, rmr := range rule.MatchResources.All {
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, allowedOperations)...)
 		}
 	} else {
 		rmr := kyvernov1.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)...)
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource, allowedOperations)...)
 	}
 
 	// check exlude conditions only if match succeeds
@@ -213,7 +218,7 @@ func MatchesResourceDescription(
 		if len(rule.ExcludeResources.Any) > 0 {
 			// exclude the object if ANY of the criteria match
 			for _, rer := range rule.ExcludeResources.Any {
-				reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)...)
+				reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, allowedOperations)...)
 			}
 		} else if len(rule.ExcludeResources.All) > 0 {
 			// exclude the object if ALL the criteria match
@@ -221,7 +226,7 @@ func MatchesResourceDescription(
 			for _, rer := range rule.ExcludeResources.All {
 				// we got no errors inplying a resource did NOT exclude it
 				// "matchesResourceDescriptionExcludeHelper" returns errors if resource is excluded by a filter
-				if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)) == 0 {
+				if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, allowedOperations)) == 0 {
 					excludedByAll = false
 					break
 				}
@@ -231,7 +236,7 @@ func MatchesResourceDescription(
 			}
 		} else {
 			rer := kyvernov1.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource, allowedOperations)...)
 		}
 	}
 
@@ -257,7 +262,7 @@ func matchesResourceDescriptionMatchHelper(
 	namespaceLabels map[string]string,
 	gvk schema.GroupVersionKind,
 	subresource string,
-	operation kyvernov1.AdmissionOperation,
+	allowedOperations []kyvernov1.AdmissionOperation,
 ) []error {
 	var errs []error
 	if datautils.DeepEqual(admissionInfo, kyvernov1beta1.RequestInfo{}) {
@@ -267,7 +272,7 @@ func matchesResourceDescriptionMatchHelper(
 	// checking if resource matches the rule
 	if !datautils.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!datautils.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)
+		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, allowedOperations)
 		errs = append(errs, matchErrs...)
 	} else {
 		errs = append(errs, fmt.Errorf("match cannot be empty"))
@@ -282,13 +287,13 @@ func matchesResourceDescriptionExcludeHelper(
 	namespaceLabels map[string]string,
 	gvk schema.GroupVersionKind,
 	subresource string,
-	operation kyvernov1.AdmissionOperation,
+	allowedOperations []kyvernov1.AdmissionOperation,
 ) []error {
 	var errs []error
 	// checking if resource matches the rule
 	if !datautils.DeepEqual(rer.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!datautils.DeepEqual(rer.UserInfo, kyvernov1.UserInfo{}) {
-		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)
+		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, allowedOperations)
 		// it was a match so we want to exclude it
 		if len(excludeErrs) == 0 {
 			errs = append(errs, fmt.Errorf("resource excluded since one of the criteria excluded it"))

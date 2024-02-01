@@ -105,7 +105,9 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithNamespaceLabels(nsLabels)
-	response := s.engine.Validate(ctx, policyCtx)
+	response := s.engine.Validate(ctx, policyCtx,
+		[]kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update}..., // Pass operations that are allowed
+	)
 	return &response, nil
 }
 
