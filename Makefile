@@ -420,6 +420,7 @@ $(PACKAGE_SHIM): $(GOPATH_SHIM)
 .PHONY: codegen-client-clientset
 codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 	@echo Generate clientset... >&2
+	@rm -rf $(CLIENTSET_PACKAGE) && mkdir -p $(CLIENTSET_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--clientset-name versioned \
@@ -430,6 +431,7 @@ codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 .PHONY: codegen-client-listers
 codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
 	@echo Generate listers... >&2
+	@rm -rf $(LISTERS_PACKAGE) && mkdir -p $(LISTERS_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-package $(LISTERS_PACKAGE) \
@@ -438,6 +440,7 @@ codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
 .PHONY: codegen-client-informers
 codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@echo Generate informers... >&2
+	@rm -rf $(INFORMERS_PACKAGE) && mkdir -p $(INFORMERS_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-package $(INFORMERS_PACKAGE) \
@@ -475,6 +478,7 @@ codegen-defaulters: $(PACKAGE_SHIM) $(DEFAULTER_GEN) ## Generate defaulters
 .PHONY: codegen-applyconfigurations
 codegen-applyconfigurations: $(PACKAGE_SHIM) $(APPLYCONFIGURATION_GEN) ## Generate apply configurations
 	@echo Generate applyconfigurations... >&2
+	@rm -rf $(APPLYCONFIGURATIONS_PACKAGE) && mkdir -p $(APPLYCONFIGURATIONS_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(APPLYCONFIGURATION_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS) \
