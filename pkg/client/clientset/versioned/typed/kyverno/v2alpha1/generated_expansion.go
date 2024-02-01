@@ -22,4 +22,6 @@ type CleanupPolicyExpansion interface{}
 
 type ClusterCleanupPolicyExpansion interface{}
 
+type GlobalContextEntryExpansion interface{}
+
 type PolicyExceptionExpansion interface{}
