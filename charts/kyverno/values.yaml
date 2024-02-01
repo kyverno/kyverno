@@ -65,13 +65,25 @@ crds:
   groups:
 
     # -- Install CRDs in group `kyverno.io`
-    kyverno: true
-
-    # -- Install CRDs in group `wgpolicyk8s.io`
-    wgpolicyk8s: true
+    kyverno:
+      cleanuppolicies: true
+      clusteradmissionreports: true
+      clusterbackgroundscanreports: true
+      clustercleanuppolicies: true
+      clusterpolicies: true
+      policies: true
+      policyexceptions: true
+      updaterequests: true
 
     # -- Install CRDs in group `reports.kyverno.io`
-    reports: true
+    reports:
+      clusterephemeralreports: true
+      ephemeralreports: true
+
+    # -- Install CRDs in group `wgpolicyk8s.io`
+    wgpolicyk8s:
+      clusterpolicyreports: true
+      policyreports: true
 
   # -- Additional CRDs annotations
   annotations: {}

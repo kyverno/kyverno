@@ -497,7 +497,7 @@ codegen-crds-policyreport: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 
 .PHONY: codegen-crds-reports
 codegen-crds-reports: $(CONTROLLER_GEN) ## Generate reports CRDs
-	@echo Generate policy reports crds... >&2
+	@echo Generate reports crds... >&2
 	@rm -rf $(CRDS_PATH)/reports && mkdir -p $(CRDS_PATH)/reports
 	@$(CONTROLLER_GEN) crd paths=./api/reports/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/reports
 
