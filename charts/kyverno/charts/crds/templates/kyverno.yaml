@@ -28430,9 +28430,9 @@ spec:
                       for details.
                     type: string
                 type: object
-              k8sResource:
-                description: K8sResource stores infos about kubernetes resource that
-                  should be cached
+              kubernetesResource:
+                description: KubernetesResource stores infos about kubernetes resource
+                  that should be cached
                 properties:
                   group:
                     description: Group defines the group of the resource

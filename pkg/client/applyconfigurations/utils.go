@@ -95,10 +95,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.ImageRegistryCredentialsApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ImageVerification"):
 		return &kyvernov1.ImageVerificationApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("K8sResource"):
-		return &kyvernov1.K8sResourceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("KeylessAttestor"):
 		return &kyvernov1.KeylessAttestorApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("KubernetesResource"):
+		return &kyvernov1.KubernetesResourceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Manifests"):
 		return &kyvernov1.ManifestsApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("MatchResources"):

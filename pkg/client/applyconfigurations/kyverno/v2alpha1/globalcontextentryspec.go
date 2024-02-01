@@ -25,8 +25,8 @@ import (
 // GlobalContextEntrySpecApplyConfiguration represents an declarative configuration of the GlobalContextEntrySpec type for use
 // with apply.
 type GlobalContextEntrySpecApplyConfiguration struct {
-	K8sResource *v1.K8sResourceApplyConfiguration     `json:"k8sResource,omitempty"`
-	APICall     *v1.ExternalAPICallApplyConfiguration `json:"apiCall,omitempty"`
+	KubernetesResource *v1.KubernetesResourceApplyConfiguration `json:"kubernetesResource,omitempty"`
+	APICall            *v1.ExternalAPICallApplyConfiguration    `json:"apiCall,omitempty"`
 }
 
 // GlobalContextEntrySpecApplyConfiguration constructs an declarative configuration of the GlobalContextEntrySpec type for use with
@@ -35,11 +35,11 @@ func GlobalContextEntrySpec() *GlobalContextEntrySpecApplyConfiguration {
 	return &GlobalContextEntrySpecApplyConfiguration{}
 }
 
-// WithK8sResource sets the K8sResource field in the declarative configuration to the given value
+// WithKubernetesResource sets the KubernetesResource field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the K8sResource field is set to the value of the last call.
-func (b *GlobalContextEntrySpecApplyConfiguration) WithK8sResource(value *v1.K8sResourceApplyConfiguration) *GlobalContextEntrySpecApplyConfiguration {
-	b.K8sResource = value
+// If called multiple times, the KubernetesResource field is set to the value of the last call.
+func (b *GlobalContextEntrySpecApplyConfiguration) WithKubernetesResource(value *v1.KubernetesResourceApplyConfiguration) *GlobalContextEntrySpecApplyConfiguration {
+	b.KubernetesResource = value
 	return b
 }
 

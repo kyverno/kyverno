@@ -60,10 +60,10 @@ func (re *resourceEntry) Stop() {
 }
 
 func StoreInGlobalContext(logger logr.Logger, gctxStore *store.Store, entry *v2alpha1.GlobalContextEntry, client dynamic.Interface) {
-	if entry.Spec.K8sResource == nil {
+	if entry.Spec.KubernetesResource == nil {
 		return
 	}
-	rc := entry.Spec.K8sResource
+	rc := entry.Spec.KubernetesResource
 	resource := schema.GroupVersionResource{
 		Group:    rc.Group,
 		Version:  rc.Version,

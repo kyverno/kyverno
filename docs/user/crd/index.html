@@ -2530,70 +2530,6 @@ bool
 <p>
 <p>ImageVerificationType selects the type of verification algorithm</p>
 </p>
-<h3 id="kyverno.io/v1.K8sResource">K8sResource
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
-</p>
-<p>
-<p>K8sResource stores infos about kubernetes resource that should be cached</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>group</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Group defines the group of the resource</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>version</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Version defines the version of the resource</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resource</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Resource defines the type of the resource</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespace</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.KeylessAttestor">KeylessAttestor
 </h3>
 <p>
@@ -2681,6 +2617,70 @@ map[string]string
 </td>
 <td>
 <p>AdditionalExtensions are certificate-extensions used for keyless signing.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.KubernetesResource">KubernetesResource
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
+</p>
+<p>
+<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>group</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Group defines the group of the resource</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Version defines the version of the resource</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Resource defines the type of the resource</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.</p>
 </td>
 </tr>
 </tbody>
@@ -7922,15 +7922,15 @@ GlobalContextEntrySpec
 <table class="table table-striped">
 <tr>
 <td>
-<code>k8sResource</code><br/>
+<code>kubernetesResource</code><br/>
 <em>
-<a href="#kyverno.io/v1.K8sResource">
-K8sResource
+<a href="#kyverno.io/v1.KubernetesResource">
+KubernetesResource
 </a>
 </em>
 </td>
 <td>
-<p>K8sResource stores infos about kubernetes resource that should be cached</p>
+<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
 </td>
 </tr>
 <tr>
@@ -8123,15 +8123,15 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
 <tbody>
 <tr>
 <td>
-<code>k8sResource</code><br/>
+<code>kubernetesResource</code><br/>
 <em>
-<a href="#kyverno.io/v1.K8sResource">
-K8sResource
+<a href="#kyverno.io/v1.KubernetesResource">
+KubernetesResource
 </a>
 </em>
 </td>
 <td>
-<p>K8sResource stores infos about kubernetes resource that should be cached</p>
+<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
 </td>
 </tr>
 <tr>

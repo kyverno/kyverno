@@ -148,15 +148,15 @@ func (gc *globalContextController) syncGCTXEntry(key string) error {
 }
 
 func (gc *globalContextController) handleGCTXEntry(gctxentry *kyvernov2alpha1.GlobalContextEntry) {
-	if gctxentry.Spec.K8sResource == nil && gctxentry.Spec.APICall == nil {
+	if gctxentry.Spec.KubernetesResource == nil && gctxentry.Spec.APICall == nil {
 		gc.logger.Info("global context entry neither has K8sResource nor APICall")
 		return
 	}
-	if gctxentry.Spec.K8sResource != nil && gctxentry.Spec.APICall != nil {
+	if gctxentry.Spec.KubernetesResource != nil && gctxentry.Spec.APICall != nil {
 		gc.logger.Info("global context entry has both K8sResource and APICall")
 		return
 	}
-	if gctxentry.Spec.K8sResource != nil {
+	if gctxentry.Spec.KubernetesResource != nil {
 		k8sresource.StoreInGlobalContext(gc.logger, gc.store, gctxentry, gc.dynamicClient)
 	}
 }

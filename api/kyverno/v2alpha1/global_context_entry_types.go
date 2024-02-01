@@ -58,9 +58,9 @@ func (c *GlobalContextEntry) IsNamespaced() bool {
 
 // GlobalContextEntrySpec stores policy exception spec
 type GlobalContextEntrySpec struct {
-	// K8sResource stores infos about kubernetes resource that should be cached
+	// KubernetesResource stores infos about kubernetes resource that should be cached
 	// +kubebuilder:validation:Optional
-	K8sResource *kyvernov1.K8sResource `json:"k8sResource,omitempty" yaml:"k8sResource,omitempty"`
+	KubernetesResource *kyvernov1.KubernetesResource `json:"kubernetesResource,omitempty" yaml:"kubernetesResource,omitempty"`
 
 	// APICall stores infos about API call that should be cached
 	// +kubebuilder:validation:Optional
@@ -72,7 +72,7 @@ func (c *GlobalContextEntrySpec) IsAPICall() bool {
 }
 
 func (c *GlobalContextEntrySpec) IsResource() bool {
-	return c.K8sResource != nil
+	return c.KubernetesResource != nil
 }
 
 // Validate implements programmatic validation
@@ -81,7 +81,7 @@ func (c *GlobalContextEntrySpec) Validate(path *field.Path) (errs field.ErrorLis
 		errs = append(errs, field.Forbidden(path.Child("resource"), "An External API Call entry requires a url"))
 	}
 	if c.IsResource() {
-		errs = append(errs, c.K8sResource.Validate(path.Child("resource"))...)
+		errs = append(errs, c.KubernetesResource.Validate(path.Child("resource"))...)
 	}
 	if c.IsAPICall() {
 		errs = append(errs, c.APICall.Validate(path.Child("apiCall"))...)

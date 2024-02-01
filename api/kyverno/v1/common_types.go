@@ -187,8 +187,8 @@ type GlobalContextEntryReference struct {
 	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
-// K8sResource stores infos about kubernetes resource that should be cached
-type K8sResource struct {
+// KubernetesResource stores infos about kubernetes resource that should be cached
+type KubernetesResource struct {
 	// Group defines the group of the resource
 	Group string `json:"group,omitempty" yaml:"group,omitempty"`
 	// Version defines the version of the resource
@@ -201,7 +201,7 @@ type K8sResource struct {
 }
 
 // Validate implements programmatic validation
-func (k *K8sResource) Validate(path *field.Path) (errs field.ErrorList) {
+func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
 	if k.Group == "" {
 		errs = append(errs, field.Required(path.Child("group"), "An Resource entry requires a group"))
 	}
