@@ -77,6 +77,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.DenyApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("DryRunOption"):
 		return &kyvernov1.DryRunOptionApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ExternalAPICall"):
+		return &kyvernov1.ExternalAPICallApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ForEachMutation"):
 		return &kyvernov1.ForEachMutationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ForEachValidation"):
@@ -93,6 +95,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.ImageVerificationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("KeylessAttestor"):
 		return &kyvernov1.KeylessAttestorApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("KubernetesResource"):
+		return &kyvernov1.KubernetesResourceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Manifests"):
 		return &kyvernov1.ManifestsApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("MatchResources"):
@@ -221,6 +225,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.CleanupPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy"):
 		return &kyvernov2alpha1.ClusterCleanupPolicyApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntry"):
+		return &kyvernov2alpha1.GlobalContextEntryApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntrySpec"):
+		return &kyvernov2alpha1.GlobalContextEntrySpecApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntryStatus"):
+		return &kyvernov2alpha1.GlobalContextEntryStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2alpha1.PolicyExceptionApplyConfiguration{}
 
