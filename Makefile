@@ -566,37 +566,36 @@ codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
 .PHONY: codegen-cli-all
 codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-fix-tests ## Generate all CLI related code and docs
 
+define generate_crd
+	@echo "{{- if .Values.groups.$(4) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+	@cat $(CRDS_PATH)/$(2)/$(1) \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+ 		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+endef
+
 .PHONY: codegen-helm-crds
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
-	@rm -rf ./charts/kyverno/charts/crds/templates/*.yaml
-	@echo "{{- if .Values.groups.kyverno }}" > ./charts/kyverno/charts/crds/templates/kyverno.yaml
-	@cat $(CRDS_PATH)/kyverno/* \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		>> ./charts/kyverno/charts/crds/templates/kyverno.yaml
-	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/kyverno.yaml
-	@echo "{{- if .Values.groups.reports }}" > ./charts/kyverno/charts/crds/templates/reports.yaml
-	@cat $(CRDS_PATH)/reports/* \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		>> ./charts/kyverno/charts/crds/templates/reports.yaml
-	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/reports.yaml
-	@echo "{{- if .Values.groups.policyreport }}" > ./charts/kyverno/charts/crds/templates/policyreport.yaml
-	@cat $(CRDS_PATH)/policyreport/* \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		>> ./charts/kyverno/charts/crds/templates/policyreport.yaml
-	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/policyreport.yaml
+	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
+	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
+	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
+	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno)
+	$(call generate_crd,kyverno.io_clusteradmissionreports.yaml,kyverno,kyverno.io,kyverno)
+	$(call generate_crd,kyverno.io_clusterbackgroundscanreports.yaml,kyverno,kyverno.io,kyverno)
+	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno)
+	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno)
+	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno)
+	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno)
+	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno)
+	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports)
+	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports)
+	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s)
+	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s)
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs

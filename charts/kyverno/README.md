@@ -258,7 +258,7 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
 | crds.groups.kyverno | bool | `true` | Install CRDs in group `kyverno.io` |
-| crds.groups.policyreport | bool | `true` | Install CRDs in group `wgpolicyk8s.io` |
+| crds.groups.wgpolicyk8s | bool | `true` | Install CRDs in group `wgpolicyk8s.io` |
 | crds.groups.reports | bool | `true` | Install CRDs in group `reports.kyverno.io` |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
 | crds.customLabels | object | `{}` | Additional CRDs labels |

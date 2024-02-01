@@ -68,7 +68,7 @@ crds:
     kyverno: true
 
     # -- Install CRDs in group `wgpolicyk8s.io`
-    policyreport: true
+    wgpolicyk8s: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports: true

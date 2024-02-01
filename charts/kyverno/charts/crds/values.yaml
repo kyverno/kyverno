@@ -13,7 +13,7 @@ groups:
 
   # -- Install CRDs in group `wgpolicyk8s.io`
   # -- This field can be overwritten by setting crds.labels in the parent chart
-  policyreport: true
+  wgpolicyk8s: true
 
   # -- Install CRDs in group `reports.kyverno.io`
   # -- This field can be overwritten by setting crds.labels in the parent chart

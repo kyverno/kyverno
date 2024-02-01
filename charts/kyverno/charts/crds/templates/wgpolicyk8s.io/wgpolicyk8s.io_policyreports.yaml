@@ -1,8 +1,5 @@
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.clusterpolicyreports false) }}
-{{- fail "CRD clusterpolicyreports disabled while reportsController enabled" }}
-{{- end }}
-
-{{- if .Values.clusterpolicyreports -}}
+{{- if .Values.groups.wgpolicyk8s }}
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -13,26 +10,24 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     controller-gen.kubebuilder.io/version: v0.12.0
-  name: clusterpolicyreports.wgpolicyk8s.io
+  name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
   names:
-    kind: ClusterPolicyReport
-    listKind: ClusterPolicyReportList
-    plural: clusterpolicyreports
+    kind: PolicyReport
+    listKind: PolicyReportList
+    plural: policyreports
     shortNames:
-    - cpolr
-    singular: clusterpolicyreport
-  scope: Cluster
+    - polr
+    singular: policyreport
+  scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .scope.name
       name: Name
-      priority: 1
       type: string
     - jsonPath: .summary.pass
       name: Pass
@@ -55,8 +50,7 @@ spec:
     name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: ClusterPolicyReport is the Schema for the clusterpolicyreports
-          API
+        description: PolicyReport is the Schema for the policyreports API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -369,4 +363,4 @@ spec:
     served: true
     storage: true
     subresources: {}
-{{- end -}}
+{{- end }}

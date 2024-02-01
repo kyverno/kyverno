@@ -1,3 +1,5 @@
+{{- if .Values.groups.kyverno }}
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -1120,6 +1122,14 @@ spec:
                         namespace:
                           description: Namespace specifies resource namespace.
                           type: string
+                        orphanDownstreamOnPolicyDelete:
+                          description: OrphanDownstreamOnPolicyDelete controls whether
+                            generated resources should be deleted when the rule that
+                            generated them is deleted with synchronization enabled.
+                            This option is only applicable to generate rules of the
+                            data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            Defaults to "false" if not specified.
+                          type: boolean
                         synchronize:
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. If
@@ -2415,6 +2425,13 @@ spec:
                         is supported for backwards compatibility but will be deprecated
                         in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                       x-kubernetes-preserve-unknown-fields: true
+                    skipBackgroundRequests:
+                      default: true
+                      description: SkipBackgroundRequests bypasses admission requests
+                        that are sent by the background controller. The default value
+                        is set to "true", it must be set to "false" to apply generate
+                        and mutateExisting rules to those requests.
+                      type: boolean
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -3365,7 +3382,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -3468,6 +3485,18 @@ spec:
                                       matches no containers, PSS checks are applied
                                       at the pod level only. Wildcards (''*'' and
                                       ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                                    items:
+                                      type: string
+                                    type: array
+                                  restrictedField:
+                                    description: RestrictedField selects the field
+                                      for the given Pod Security Standard control.
+                                      When not set, all restricted fields for the
+                                      control are selected.
+                                    type: string
+                                  values:
+                                    description: Values defines the allowed values
+                                      that can be excluded.
                                     items:
                                       type: string
                                     type: array
@@ -3822,7 +3851,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -4238,7 +4268,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -4325,6 +4355,17 @@ spec:
                           roots:
                             description: Deprecated. Use KeylessAttestor instead.
                             type: string
+                          skipImageReferences:
+                            description: 'SkipImageReferences is a list of matching
+                              image reference patterns that should be skipped. At
+                              least one pattern in the list must match the image for
+                              the rule to be skipped. Each image reference consists
+                              of a registry address (defaults to docker.io), repository,
+                              image, and tag (defaults to latest). Wildcards (''*''
+                              and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           subject:
                             description: Deprecated. Use KeylessAttestor instead.
                             type: string
@@ -4353,9 +4394,7 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips validation checks for policies
-                  as well as patched resources. Optional. The default value is set
-                  to "true", it must be set to "false" to disable the validation checks.
+                description: Deprecated.
                 type: boolean
               useServerSideApply:
                 description: UseServerSideApply controls whether to use server-side
@@ -4445,6 +4484,52 @@ spec:
                       type: array
                   type: object
                 type: array
+              webhookConfiguration:
+                description: WebhookConfiguration specifies the custom configuration
+                  for Kubernetes admission webhookconfiguration. Requires Kubernetes
+                  1.27 or later.
+                properties:
+                  matchConditions:
+                    description: MatchCondition configures admission webhook matchConditions.
+                    items:
+                      description: MatchCondition represents a condition which must
+                        by fulfilled for a request to be sent to a webhook.
+                      properties:
+                        expression:
+                          description: "Expression represents the expression which
+                            will be evaluated by CEL. Must evaluate to bool. CEL expressions
+                            have access to the contents of the AdmissionRequest and
+                            Authorizer, organized into CEL variables: \n 'object'
+                            - The object from the incoming request. The value is null
+                            for DELETE requests. 'oldObject' - The existing object.
+                            The value is null for CREATE requests. 'request' - Attributes
+                            of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                            'authorizer' - A CEL Authorizer. May be used to perform
+                            authorization checks for the principal (user or service
+                            account) of the request. See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                            'authorizer.requestResource' - A CEL ResourceCheck constructed
+                            from the 'authorizer' and configured with the request
+                            resource. Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+                            \n Required."
+                          type: string
+                        name:
+                          description: "Name is an identifier for this match condition,
+                            used for strategic merging of MatchConditions, as well
+                            as providing an identifier for logging purposes. A good
+                            name should be descriptive of the associated expression.
+                            Name must be a qualified name consisting of alphanumeric
+                            characters, '-', '_' or '.', and must start and end with
+                            an alphanumeric character (e.g. 'MyName',  or 'my.name',
+                            \ or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                            with an optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+                            \n Required."
+                          type: string
+                      required:
+                      - expression
+                      - name
+                      type: object
+                    type: array
+                type: object
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds
                   allowed to apply this policy. After the configured time expires,
@@ -5499,6 +5584,14 @@ spec:
                             namespace:
                               description: Namespace specifies resource namespace.
                               type: string
+                            orphanDownstreamOnPolicyDelete:
+                              description: OrphanDownstreamOnPolicyDelete controls
+                                whether generated resources should be deleted when
+                                the rule that generated them is deleted with synchronization
+                                enabled. This option is only applicable to generate
+                                rules of the data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                Defaults to "false" if not specified.
+                              type: boolean
                             synchronize:
                               description: Synchronize controls if generated resources
                                 should be kept in-sync with their source resource.
@@ -6850,6 +6943,13 @@ spec:
                             is supported for backwards compatibility but will be deprecated
                             in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                           x-kubernetes-preserve-unknown-fields: true
+                        skipBackgroundRequests:
+                          default: true
+                          description: SkipBackgroundRequests bypasses admission requests
+                            that are sent by the background controller. The default
+                            value is set to "true", it must be set to "false" to apply
+                            generate and mutateExisting rules to those requests.
+                          type: boolean
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -7851,7 +7951,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -7957,6 +8058,18 @@ spec:
                                           checks are applied at the pod level only.
                                           Wildcards (''*'' and ''?'') are allowed.
                                           See: https://kubernetes.io/docs/concepts/containers/images.'
+                                        items:
+                                          type: string
+                                        type: array
+                                      restrictedField:
+                                        description: RestrictedField selects the field
+                                          for the given Pod Security Standard control.
+                                          When not set, all restricted fields for
+                                          the control are selected.
+                                        type: string
+                                      values:
+                                        description: Values defines the allowed values
+                                          that can be excluded.
                                         items:
                                           type: string
                                         type: array
@@ -8337,8 +8450,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -8776,7 +8889,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:
@@ -8866,6 +8979,17 @@ spec:
                               roots:
                                 description: Deprecated. Use KeylessAttestor instead.
                                 type: string
+                              skipImageReferences:
+                                description: 'SkipImageReferences is a list of matching
+                                  image reference patterns that should be skipped.
+                                  At least one pattern in the list must match the
+                                  image for the rule to be skipped. Each image reference
+                                  consists of a registry address (defaults to docker.io),
+                                  repository, image, and tag (defaults to latest).
+                                  Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                                items:
+                                  type: string
+                                type: array
                               subject:
                                 description: Deprecated. Use KeylessAttestor instead.
                                 type: string
@@ -9898,6 +10022,14 @@ spec:
                         namespace:
                           description: Namespace specifies resource namespace.
                           type: string
+                        orphanDownstreamOnPolicyDelete:
+                          description: OrphanDownstreamOnPolicyDelete controls whether
+                            generated resources should be deleted when the rule that
+                            generated them is deleted with synchronization enabled.
+                            This option is only applicable to generate rules of the
+                            data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            Defaults to "false" if not specified.
+                          type: boolean
                         synchronize:
                           description: Synchronize controls if generated resources
                             should be kept in-sync with their source resource. If
@@ -11067,6 +11199,13 @@ spec:
                             type: object
                           type: array
                       type: object
+                    skipBackgroundRequests:
+                      default: true
+                      description: SkipBackgroundRequests bypasses admission requests
+                        that are sent by the background controller. The default value
+                        is set to "true", it must be set to "false" to apply generate
+                        and mutateExisting rules to those requests.
+                      type: boolean
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
@@ -12109,7 +12248,7 @@ spec:
                                               default: sha256
                                               description: Specify signature algorithm
                                                 for public keys. Supported values
-                                                are sha256 and sha512.
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         repository:
@@ -12212,6 +12351,18 @@ spec:
                                       matches no containers, PSS checks are applied
                                       at the pod level only. Wildcards (''*'' and
                                       ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                                    items:
+                                      type: string
+                                    type: array
+                                  restrictedField:
+                                    description: RestrictedField selects the field
+                                      for the given Pod Security Standard control.
+                                      When not set, all restricted fields for the
+                                      control are selected.
+                                    type: string
+                                  values:
+                                    description: Values defines the allowed values
+                                      that can be excluded.
                                     items:
                                       type: string
                                     type: array
@@ -12555,7 +12706,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -12971,7 +13123,7 @@ spec:
                                             default: sha256
                                             description: Specify signature algorithm
                                               for public keys. Supported values are
-                                              sha256 and sha512.
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       repository:
@@ -13046,6 +13198,17 @@ spec:
                               i.e. have matched passed a signature or attestation
                               check.
                             type: boolean
+                          skipImageReferences:
+                            description: 'SkipImageReferences is a list of matching
+                              image reference patterns that should be skipped. At
+                              least one pattern in the list must match the image for
+                              the rule to be skipped. Each image reference consists
+                              of a registry address (defaults to docker.io), repository,
+                              image, and tag (defaults to latest). Wildcards (''*''
+                              and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           type:
                             description: Type specifies the method of signature validation.
                               The allowed options are Cosign and Notary. By default
@@ -13071,9 +13234,7 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips validation checks for policies
-                  as well as patched resources. Optional. The default value is set
-                  to "true", it must be set to "false" to disable the validation checks.
+                description: Deprecated.
                 type: boolean
               useServerSideApply:
                 description: UseServerSideApply controls whether to use server-side
@@ -13163,6 +13324,52 @@ spec:
                       type: array
                   type: object
                 type: array
+              webhookConfiguration:
+                description: WebhookConfiguration specifies the custom configuration
+                  for Kubernetes admission webhookconfiguration. Requires Kubernetes
+                  1.27 or later.
+                properties:
+                  matchConditions:
+                    description: MatchCondition configures admission webhook matchConditions.
+                    items:
+                      description: MatchCondition represents a condition which must
+                        by fulfilled for a request to be sent to a webhook.
+                      properties:
+                        expression:
+                          description: "Expression represents the expression which
+                            will be evaluated by CEL. Must evaluate to bool. CEL expressions
+                            have access to the contents of the AdmissionRequest and
+                            Authorizer, organized into CEL variables: \n 'object'
+                            - The object from the incoming request. The value is null
+                            for DELETE requests. 'oldObject' - The existing object.
+                            The value is null for CREATE requests. 'request' - Attributes
+                            of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                            'authorizer' - A CEL Authorizer. May be used to perform
+                            authorization checks for the principal (user or service
+                            account) of the request. See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                            'authorizer.requestResource' - A CEL ResourceCheck constructed
+                            from the 'authorizer' and configured with the request
+                            resource. Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+                            \n Required."
+                          type: string
+                        name:
+                          description: "Name is an identifier for this match condition,
+                            used for strategic merging of MatchConditions, as well
+                            as providing an identifier for logging purposes. A good
+                            name should be descriptive of the associated expression.
+                            Name must be a qualified name consisting of alphanumeric
+                            characters, '-', '_' or '.', and must start and end with
+                            an alphanumeric character (e.g. 'MyName',  or 'my.name',
+                            \ or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')
+                            with an optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+                            \n Required."
+                          type: string
+                      required:
+                      - expression
+                      - name
+                      type: object
+                    type: array
+                type: object
               webhookTimeoutSeconds:
                 description: WebhookTimeoutSeconds specifies the maximum time in seconds
                   allowed to apply this policy. After the configured time expires,
@@ -14216,6 +14423,14 @@ spec:
                             namespace:
                               description: Namespace specifies resource namespace.
                               type: string
+                            orphanDownstreamOnPolicyDelete:
+                              description: OrphanDownstreamOnPolicyDelete controls
+                                whether generated resources should be deleted when
+                                the rule that generated them is deleted with synchronization
+                                enabled. This option is only applicable to generate
+                                rules of the data type. See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                Defaults to "false" if not specified.
+                              type: boolean
                             synchronize:
                               description: Synchronize controls if generated resources
                                 should be kept in-sync with their source resource.
@@ -15567,6 +15782,13 @@ spec:
                             is supported for backwards compatibility but will be deprecated
                             in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
                           x-kubernetes-preserve-unknown-fields: true
+                        skipBackgroundRequests:
+                          default: true
+                          description: SkipBackgroundRequests bypasses admission requests
+                            that are sent by the background controller. The default
+                            value is set to "true", it must be set to "false" to apply
+                            generate and mutateExisting rules to those requests.
+                          type: boolean
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
@@ -16568,7 +16790,8 @@ spec:
                                                   default: sha256
                                                   description: Specify signature algorithm
                                                     for public keys. Supported values
-                                                    are sha256 and sha512.
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             repository:
@@ -16674,6 +16897,18 @@ spec:
                                           checks are applied at the pod level only.
                                           Wildcards (''*'' and ''?'') are allowed.
                                           See: https://kubernetes.io/docs/concepts/containers/images.'
+                                        items:
+                                          type: string
+                                        type: array
+                                      restrictedField:
+                                        description: RestrictedField selects the field
+                                          for the given Pod Security Standard control.
+                                          When not set, all restricted fields for
+                                          the control are selected.
+                                        type: string
+                                      values:
+                                        description: Values defines the allowed values
+                                          that can be excluded.
                                         items:
                                           type: string
                                         type: array
@@ -17054,8 +17289,8 @@ spec:
                                                       default: sha256
                                                       description: Specify signature
                                                         algorithm for public keys.
-                                                        Supported values are sha256
-                                                        and sha512.
+                                                        Supported values are sha224,
+                                                        sha256, sha384 and sha512.
                                                       type: string
                                                   type: object
                                                 repository:
@@ -17493,7 +17728,7 @@ spec:
                                                 default: sha256
                                                 description: Specify signature algorithm
                                                   for public keys. Supported values
-                                                  are sha256 and sha512.
+                                                  are sha224, sha256, sha384 and sha512.
                                                 type: string
                                             type: object
                                           repository:
@@ -17583,6 +17818,17 @@ spec:
                               roots:
                                 description: Deprecated. Use KeylessAttestor instead.
                                 type: string
+                              skipImageReferences:
+                                description: 'SkipImageReferences is a list of matching
+                                  image reference patterns that should be skipped.
+                                  At least one pattern in the list must match the
+                                  image for the rule to be skipped. Each image reference
+                                  consists of a registry address (defaults to docker.io),
+                                  repository, image, and tag (defaults to latest).
+                                  Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                                items:
+                                  type: string
+                                type: array
                               subject:
                                 description: Deprecated. Use KeylessAttestor instead.
                                 type: string
@@ -17731,4 +17977,4 @@ spec:
     storage: false
     subresources:
       status: {}
----
+{{- end }}
