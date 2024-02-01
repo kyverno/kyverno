@@ -18,15 +18,11 @@ limitations under the License.
 
 package v2alpha1
 
-import (
-	v1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
-)
-
 // GlobalContextEntrySpecApplyConfiguration represents an declarative configuration of the GlobalContextEntrySpec type for use
 // with apply.
 type GlobalContextEntrySpecApplyConfiguration struct {
-	KubernetesResource *v1.KubernetesResourceApplyConfiguration `json:"kubernetesResource,omitempty"`
-	APICall            *v1.ExternalAPICallApplyConfiguration    `json:"apiCall,omitempty"`
+	KubernetesResource *KubernetesResourceApplyConfiguration `json:"kubernetesResource,omitempty"`
+	APICall            *ExternalAPICallApplyConfiguration    `json:"apiCall,omitempty"`
 }
 
 // GlobalContextEntrySpecApplyConfiguration constructs an declarative configuration of the GlobalContextEntrySpec type for use with
@@ -38,7 +34,7 @@ func GlobalContextEntrySpec() *GlobalContextEntrySpecApplyConfiguration {
 // WithKubernetesResource sets the KubernetesResource field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the KubernetesResource field is set to the value of the last call.
-func (b *GlobalContextEntrySpecApplyConfiguration) WithKubernetesResource(value *v1.KubernetesResourceApplyConfiguration) *GlobalContextEntrySpecApplyConfiguration {
+func (b *GlobalContextEntrySpecApplyConfiguration) WithKubernetesResource(value *KubernetesResourceApplyConfiguration) *GlobalContextEntrySpecApplyConfiguration {
 	b.KubernetesResource = value
 	return b
 }
@@ -46,7 +42,7 @@ func (b *GlobalContextEntrySpecApplyConfiguration) WithKubernetesResource(value 
 // WithAPICall sets the APICall field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APICall field is set to the value of the last call.
-func (b *GlobalContextEntrySpecApplyConfiguration) WithAPICall(value *v1.ExternalAPICallApplyConfiguration) *GlobalContextEntrySpecApplyConfiguration {
+func (b *GlobalContextEntrySpecApplyConfiguration) WithAPICall(value *ExternalAPICallApplyConfiguration) *GlobalContextEntrySpecApplyConfiguration {
 	b.APICall = value
 	return b
 }
