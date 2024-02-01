@@ -1,4 +1,4 @@
-{{- if .Values.global.reportsController.enabled -}}
+{{- if .Values.reportsController.enabled -}}
 {{- if .Values.reportsController.networkPolicy.enabled -}}
 {{- if .Values.reportsController.metricsService.create -}}
 apiVersion: networking.k8s.io/v1

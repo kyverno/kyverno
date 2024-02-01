@@ -8,13 +8,13 @@ The following components have been installed in your cluster:
 - CRDs
 {{- end }}
 - Admission controller
-{{- if .Values.global.reportsController.enabled }}
+{{- if .Values.reportsController.enabled }}
 - Reports controller
 {{- end }}
-{{- if .Values.global.cleanupController.enabled }}
+{{- if .Values.cleanupController.enabled }}
 - Cleanup controller
 {{- end }}
-{{- if .Values.global.backgroundController.enabled }}
+{{- if .Values.backgroundController.enabled }}
 - Background controller
 {{- end }}
 {{- if .Values.grafana.enabled }}

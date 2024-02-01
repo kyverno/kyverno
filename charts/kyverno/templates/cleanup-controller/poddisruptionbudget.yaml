@@ -1,4 +1,4 @@
-{{- if .Values.global.cleanupController.enabled -}}
+{{- if .Values.cleanupController.enabled -}}
 {{- if or .Values.cleanupController.podDisruptionBudget.enabled (gt (int .Values.cleanupController.replicas) 1) -}}
 apiVersion: {{ template "kyverno.pdb.apiVersion" . }}
 kind: PodDisruptionBudget

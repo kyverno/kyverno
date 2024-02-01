@@ -1,4 +1,4 @@
-{{- if .Values.global.cleanupController.enabled -}}
+{{- if .Values.cleanupController.enabled -}}
 {{- if not .Values.templating.debug -}}
 apiVersion: apps/v1
 kind: Deployment

@@ -1,4 +1,4 @@
-{{- if .Values.global.cleanupController.enabled -}}
+{{- if .Values.cleanupController.enabled -}}
 {{- if .Values.cleanupController.serviceMonitor.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

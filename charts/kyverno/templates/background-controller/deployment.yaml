@@ -1,4 +1,4 @@
-{{- if .Values.global.backgroundController.enabled -}}
+{{- if .Values.backgroundController.enabled -}}
 {{- if not .Values.templating.debug -}}
 apiVersion: apps/v1
 kind: Deployment

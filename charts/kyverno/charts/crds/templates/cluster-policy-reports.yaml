@@ -1,4 +1,4 @@
-{{- if and (eq .Values.global.reportsController.enabled true) (eq .Values.clusterpolicyreports false) }}
+{{- if and (eq .Values.reportsController.enabled true) (eq .Values.clusterpolicyreports false) }}
 {{- fail "CRD clusterpolicyreports disabled while reportsController enabled" }}
 {{- end }}
 

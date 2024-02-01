@@ -1,4 +1,4 @@
-{{- if .Values.global.reportsController.enabled -}}
+{{- if .Values.reportsController.enabled -}}
 {{- if .Values.reportsController.metricsService.create -}}
 ---
 apiVersion: v1

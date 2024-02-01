@@ -1,4 +1,4 @@
-{{- if .Values.global.backgroundController.enabled -}}
+{{- if .Values.backgroundController.enabled -}}
 {{- if .Values.backgroundController.serviceMonitor.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

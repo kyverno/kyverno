@@ -1,4 +1,4 @@
-{{- if and .Values.global.reportsController.enabled .Values.reportsController.metricsService.create -}}
+{{- if and .Values.reportsController.enabled .Values.reportsController.metricsService.create -}}
 apiVersion: v1
 kind: Pod
 metadata:

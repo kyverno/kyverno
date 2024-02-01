@@ -1,4 +1,4 @@
-{{- if .Values.global.reportsController.enabled -}}
+{{- if .Values.reportsController.enabled -}}
 {{- if or .Values.reportsController.podDisruptionBudget.enabled (gt (int .Values.reportsController.replicas) 1) -}}
 apiVersion: {{ template "kyverno.pdb.apiVersion" . }}
 kind: PodDisruptionBudget

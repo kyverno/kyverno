@@ -1,4 +1,4 @@
-{{- if .Values.global.reportsController.enabled -}}
+{{- if .Values.reportsController.enabled -}}
 {{- if not .Values.templating.debug -}}
 apiVersion: apps/v1
 kind: Deployment

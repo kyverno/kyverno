@@ -1,4 +1,4 @@
-{{- if .Values.global.reportsController.enabled -}}
+{{- if .Values.reportsController.enabled -}}
 {{- if .Values.reportsController.serviceMonitor.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

@@ -1,4 +1,4 @@
-{{- if .Values.global.backgroundController.enabled -}}
+{{- if .Values.backgroundController.enabled -}}
 {{- if .Values.backgroundController.rbac.create -}}
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

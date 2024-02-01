@@ -1,4 +1,4 @@
-{{- if and (eq .Values.global.reportsController.enabled true) (eq .Values.clusterbackgroundscanreports false) }}
+{{- if and (eq .Values.reportsController.enabled true) (eq .Values.clusterbackgroundscanreports false) }}
 {{- fail "CRD backgroundscanreports disabled while reportsController enabled" }}
 {{- end }}
 
