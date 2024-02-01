@@ -256,12 +256,6 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| crds.backgroundscanreports | bool | `true` |  |
-| crds.cleanuppolicies | bool | `true` |  |
-| crds.clusterbackgroundscanreports | bool | `true` |  |
-| crds.clustercleanuppolicies | bool | `true` |  |
-| crds.clusterpolicyreports | bool | `true` |  |
-| crds.policyreports | bool | `true` |  |
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
 | crds.groups.kyverno | bool | `true` | Install CRDs in group `kyverno.io` |
 | crds.groups.policyreport | bool | `true` | Install CRDs in group `wgpolicyk8s.io` |
@@ -454,6 +448,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | backgroundController.featuresOverride | object | `{}` | Overrides features defined at the root level |
+| backgroundController.enabled | bool | `true` | Enable background controller. |
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -525,6 +520,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | cleanupController.featuresOverride | object | `{}` | Overrides features defined at the root level |
+| cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | cleanupController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -603,6 +599,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | reportsController.featuresOverride | object | `{}` | Overrides features defined at the root level |
+| reportsController.enabled | bool | `true` | Enable reports controller. |
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | reportsController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -772,9 +769,6 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| global.backgroundController | object | `{"enabled":true}` | Enable background controller. |
-| global.cleanupController.enabled | bool | `true` |  |
-| global.reportsController.enabled | bool | `true` |  |
 | global.image.registry | string | `nil` | Global value that allows to set a single image registry across all deployments. When set, it will override any values set under `.image.registry` across the chart. |
 | global.caCertificates.data | string | `nil` | Global CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates Individual controller values will override this global value |
 | global.caCertificates.volume | object | `{}` | Global value to set single volume to be mounted for CA certificates for all deployments. Not used when `.Values.global.caCertificates.data` is defined Individual  controller values will override this global value |
