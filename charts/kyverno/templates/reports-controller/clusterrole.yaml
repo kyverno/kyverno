@@ -37,6 +37,13 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
+      - cachedcontextentries
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
       - admissionreports
       - clusteradmissionreports
       - backgroundscanreports

@@ -54,6 +54,13 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
+      - cachedcontextentries
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
       - clustercleanuppolicies/status
       - cleanuppolicies/status
     verbs:
