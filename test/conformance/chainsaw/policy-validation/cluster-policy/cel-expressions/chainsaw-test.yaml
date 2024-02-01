@@ -11,13 +11,13 @@ spec:
         content: kubectl apply -f policy-1.yaml
         check:
           # This check ensures that the string "undefined field 'automountServiceAccountToken';" is found
-          # in stdout or else fails
-          (contains($stdout, 'undefined field \'automountServiceAccountToken\';')): true
+          # in stderr or else fails
+          (contains($stderr, 'undefined field \'automountServiceAccountToken\';')): true
   - name: Apply the second policy
     try:
     - script:
         content: kubectl apply -f policy-2.yaml
         check:
           # This check ensures that the string "undefined field 'replicas';" is found
-          # in stdout or else fails
-          (contains($stdout, 'undefined field \'replicas\';')): true
+          # in stderr or else fails
+          (contains($stderr, 'undefined field \'replicas\';')): true
