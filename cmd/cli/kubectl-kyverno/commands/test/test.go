@@ -98,7 +98,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	} else {
 		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	}
-
 	//For veriifying all ruules mentioned in test are also in policy
         for _, res := range testCase.Test.Results {
                if res.IsValidatingAdmissionPolicy {
