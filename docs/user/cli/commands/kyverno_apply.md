@@ -41,6 +41,7 @@ kyverno apply [flags]
   -c, --cluster              Checks if policies should be applied to cluster in the current context
       --context string       The name of the kubeconfig context to use
       --detailed-results     If set to true, display detailed results
+      --exception strings    Policy exception to be considered when evaluating policies against resources
   -b, --git-branch string    test git repository branch
   -h, --help                 help for apply
       --kubeconfig string    path to kubeconfig file with authorization and master location information

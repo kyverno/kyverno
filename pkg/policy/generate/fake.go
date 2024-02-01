@@ -3,7 +3,7 @@ package generate
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/policy/generate/fake"
+	"github.com/kyverno/kyverno/pkg/policy/auth/fake"
 )
 
 // FakeGenerate provides implementation for generate rule processing

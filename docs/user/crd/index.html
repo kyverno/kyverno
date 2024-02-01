@@ -36,6 +36,9 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv2beta1"><b style="color: white">kyverno.io/v2beta1</b></a>
 </li>
 <li>
+<a href="#reports.kyverno.io%2fv1"><b style="color: white">reports.kyverno.io/v1</b></a>
+</li>
+<li>
 <a href="#wgpolicyk8s.io%2fv1alpha2"><b style="color: white">wgpolicyk8s.io/v1alpha2</b></a>
 </li>
 </ul>
@@ -288,6 +291,21 @@ bool
 <p>UseServerSideApply controls whether to use server-side apply for generate rules
 If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use apply instead of create/update.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </table>
@@ -553,6 +571,21 @@ If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use 
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -577,7 +610,8 @@ PolicyStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>)
+<a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>, 
+<a href="#kyverno.io/v2alpha1.ExternalAPICall">ExternalAPICall</a>)
 </p>
 <p>
 </p>
@@ -1862,6 +1896,21 @@ Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </tr>
 <tr>
 <td>
+<code>orphanDownstreamOnPolicyDelete</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
+them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+See <a href="https://kyverno.io/docs/writing-policies/generate/#data-examples">https://kyverno.io/docs/writing-policies/generate/#data-examples</a>.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>data</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
@@ -1904,6 +1953,47 @@ CloneList
 <td>
 <em>(Optional)</em>
 <p>CloneList specifies the list of source resource used to populate each generated resource.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.GlobalContextEntryReference">GlobalContextEntryReference
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name of the global context entry</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>jmesPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>JMESPath is an optional JSON Match Expression that can be used to
+transform the JSON response returned from the server. For example
+a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
+for the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
+of deployments across all namespaces.</p>
 </td>
 </tr>
 </tbody>
@@ -2822,7 +2912,9 @@ Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, lates
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>)
+<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>, 
+<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 <p>PodSecurityStandard specifies the Pod Security Standard controls to be excluded.</p>
@@ -3905,6 +3997,21 @@ If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use 
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -4431,6 +4538,40 @@ Kubernetes apiextensions/v1.JSON
 <em>(Optional)</em>
 <p>Default is an optional arbitrary JSON object that the variable may take if the JMESPath
 expression evaluates to nil</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.WebhookConfiguration">WebhookConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Spec">Spec</a>)
+</p>
+<p>
+<p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchCondition configures admission webhook matchConditions.</p>
 </td>
 </tr>
 </tbody>
@@ -6190,6 +6331,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -6955,6 +7111,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -7261,6 +7432,8 @@ Resource Types:
 </li><li>
 <a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
 </li><li>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>
+</li><li>
 <a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>
 </li></ul>
 <hr />
@@ -7562,6 +7735,110 @@ CleanupPolicyStatus
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry
+</h3>
+<p>
+<p>GlobalContextEntry declares resources to be cached.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>GlobalContextEntry</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">
+GlobalContextEntrySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>kubernetesResource</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.KubernetesResource">
+KubernetesResource
+</a>
+</em>
+</td>
+<td>
+<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiCall</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.ExternalAPICall">
+ExternalAPICall
+</a>
+</em>
+</td>
+<td>
+<p>APICall stores infos about API call that should be cached</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntryStatus">
+GlobalContextEntryStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains globalcontextentry runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2alpha1.PolicyException">PolicyException
 </h3>
 <p>
@@ -7674,6 +7951,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -7685,6 +7977,205 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>
 <p>CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)</p>
 </p>
+<h3 id="kyverno.io/v2alpha1.ExternalAPICall">ExternalAPICall
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
+</p>
+<p>
+<p>ExternalAPICall stores infos about API call that should be cached</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>APICall</code><br/>
+<em>
+<a href="#kyverno.io/v1.APICall">
+APICall
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>APICall</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>refreshIntervalSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>RefreshIntervalSeconds defines the interval at which to poll the APICall</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>)
+</p>
+<p>
+<p>GlobalContextEntrySpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>kubernetesResource</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.KubernetesResource">
+KubernetesResource
+</a>
+</em>
+</td>
+<td>
+<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>apiCall</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.ExternalAPICall">
+ExternalAPICall
+</a>
+</em>
+</td>
+<td>
+<p>APICall stores infos about API call that should be cached</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.GlobalContextEntryStatus">GlobalContextEntryStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ready</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Deprecated in favor of Conditions</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.KubernetesResource">KubernetesResource
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
+</p>
+<p>
+<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>group</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Group defines the group of the resource</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Version defines the version of the resource</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Resource defines the type of the resource</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h2 id="kyverno.io/v2beta1">kyverno.io/v2beta1</h2>
 Resource Types:
 <ul><li>
@@ -8238,6 +8729,21 @@ If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use 
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -8500,6 +9006,21 @@ If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use 
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -8630,6 +9151,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 </td>
 <td>
 <p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
 </td>
 </tr>
 </table>
@@ -9285,6 +9821,21 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 <p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -9852,6 +10403,21 @@ If is set to &ldquo;true&rdquo; create &amp; update for generate rules will use 
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -9982,6 +10548,319 @@ CEL
 <td>
 <em>(Optional)</em>
 <p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2beta1.WebhookConfiguration">WebhookConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.Spec">Spec</a>)
+</p>
+<p>
+<p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchCondition configures admission webhook matchConditions.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="reports.kyverno.io/v1">reports.kyverno.io/v1</h2>
+<p>
+</p>
+Resource Types:
+<ul><li>
+<a href="#reports.kyverno.io/v1.ClusterEphemeralReport">ClusterEphemeralReport</a>
+</li><li>
+<a href="#reports.kyverno.io/v1.EphemeralReport">EphemeralReport</a>
+</li></ul>
+<hr />
+<h3 id="reports.kyverno.io/v1.ClusterEphemeralReport">ClusterEphemeralReport
+</h3>
+<p>
+<p>ClusterEphemeralReport is the Schema for the ClusterEphemeralReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+reports.kyverno.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterEphemeralReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#reports.kyverno.io/v1.EphemeralReportSpec">
+EphemeralReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="reports.kyverno.io/v1.EphemeralReport">EphemeralReport
+</h3>
+<p>
+<p>EphemeralReport is the Schema for the EphemeralReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+reports.kyverno.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>EphemeralReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#reports.kyverno.io/v1.EphemeralReportSpec">
+EphemeralReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#reports.kyverno.io/v1.ClusterEphemeralReport">ClusterEphemeralReport</a>, 
+<a href="#reports.kyverno.io/v1.EphemeralReport">EphemeralReport</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
 </td>
 </tr>
 </tbody>
@@ -10210,7 +11089,8 @@ PolicyReportSummary
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
 <a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>, 
+<a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
 </p>
 <p>
 <p>PolicyReportResult provides the result for an individual policy</p>
@@ -10384,7 +11264,8 @@ PolicySeverity
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
 <a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>)
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>, 
+<a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
 </p>
 <p>
 <p>PolicyReportSummary provides a status count summary</p>
