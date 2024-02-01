@@ -171,6 +171,65 @@ type APICall struct {
 	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
+type GlobalContextEntryReference struct {
+	// Name of the global context entry
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	// JMESPath is an optional JSON Match Expression that can be used to
+	// transform the JSON response returned from the server. For example
+	// a JMESPath of "items | length(@)" applied to the API server response
+	// for the URLPath "/apis/apps/v1/deployments" will return the total count
+	// of deployments across all namespaces.
+	// +kubebuilder:validation:Optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+}
+
+// KubernetesResource stores infos about kubernetes resource that should be cached
+type KubernetesResource struct {
+	// Group defines the group of the resource
+	Group string `json:"group,omitempty" yaml:"group,omitempty"`
+	// Version defines the version of the resource
+	Version string `json:"version,omitempty" yaml:"version,omitempty"`
+	// Resource defines the type of the resource
+	Resource string `json:"resource,omitempty" yaml:"resource,omitempty"`
+	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
+	// +kubebuilder:validation:Optional
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+}
+
+// Validate implements programmatic validation
+func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
+	if k.Group == "" {
+		errs = append(errs, field.Required(path.Child("group"), "An Resource entry requires a group"))
+	}
+	if k.Version == "" {
+		errs = append(errs, field.Required(path.Child("version"), "An Resource entry requires a version"))
+	}
+	if k.Resource == "" {
+		errs = append(errs, field.Required(path.Child("resource"), "An Resource entry requires a resource"))
+	}
+	return errs
+}
+
+// ExternalAPICall stores infos about API call that should be cached
+type ExternalAPICall struct {
+	APICall `json:",inline,omitempty" yaml:",inline,omitempty"`
+	// RefreshIntervalSeconds defines the interval at which to poll the APICall
+	// +kubebuilder:default=0
+	RefreshIntervalSeconds int64 `json:"refreshIntervalSeconds,omitempty" yaml:"refreshIntervalSeconds,omitempty"`
+}
+
+// Validate implements programmatic validation
+func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
+	if e.Service.URL == "" {
+		errs = append(errs, field.Required(path.Child("url"), "An External API Call entry requires a url"))
+	}
+	if e.RefreshIntervalSeconds <= 0 {
+		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "An Resource entry requires a refresh interval greater than 0 seconds"))
+	}
+	return errs
+}
+
 type ServiceCall struct {
 	// URL is the JSON web service URL. A typical form is
 	// `https://{service}.{namespace}:{port}/{path}`.
