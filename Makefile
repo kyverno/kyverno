@@ -567,7 +567,7 @@ codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
 codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-fix-tests ## Generate all CLI related code and docs
 
 define generate_crd
-	@echo "{{- if .Values.groups.$(4) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+	@echo "{{- if .Values.groups.$(4).$(5) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@cat $(CRDS_PATH)/$(2)/$(1) \
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
@@ -584,18 +584,18 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
-	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno)
-	$(call generate_crd,kyverno.io_clusteradmissionreports.yaml,kyverno,kyverno.io,kyverno)
-	$(call generate_crd,kyverno.io_clusterbackgroundscanreports.yaml,kyverno,kyverno.io,kyverno)
-	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno)
-	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno)
-	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno)
-	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno)
-	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno)
-	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports)
-	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports)
-	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s)
-	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s)
+	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
+	$(call generate_crd,kyverno.io_clusteradmissionreports.yaml,kyverno,kyverno.io,kyverno,clusteradmissionreports)
+	$(call generate_crd,kyverno.io_clusterbackgroundscanreports.yaml,kyverno,kyverno.io,kyverno,clusterbackgroundscanreports)
+	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno,clustercleanuppolicies)
+	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno,clusterpolicies)
+	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno,policies)
+	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno,policyexceptions)
+	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
+	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports)
+	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports)
+	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports)
+	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports)
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
