@@ -72,7 +72,7 @@ func showWarnings(ctx context.Context, logger logr.Logger) {
 }
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsInstalled(apiserverClient)
+	return kubeutils.CRDsInstalled(apiserverClient, "clusterpolicies.kyverno.io", "policies.kyverno.io")
 }
 
 func createNonLeaderControllers(

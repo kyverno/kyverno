@@ -18,6 +18,12 @@ metadata:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
   - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+  - apiGroups:
       - admissionregistration.k8s.io
     resources:
       - mutatingwebhookconfigurations
@@ -114,14 +120,6 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - get
-      - list
-      - watch
   - apiGroups:
       - ''
     resources:
