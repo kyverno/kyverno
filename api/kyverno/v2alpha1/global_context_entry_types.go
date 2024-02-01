@@ -29,15 +29,15 @@ import (
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {
-	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
 	Spec GlobalContextEntrySpec `json:"spec" yaml:"spec"`
 
 	// Status contains globalcontextentry runtime data.
 	// +optional
-	Status GlobalContextEntryStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Status GlobalContextEntryStatus `json:"status,omitempty"`
 }
 
 // GetStatus returns the globalcontextentry status
@@ -60,11 +60,11 @@ func (c *GlobalContextEntry) IsNamespaced() bool {
 type GlobalContextEntrySpec struct {
 	// KubernetesResource stores infos about kubernetes resource that should be cached
 	// +kubebuilder:validation:Optional
-	KubernetesResource *kyvernov1.KubernetesResource `json:"kubernetesResource,omitempty" yaml:"kubernetesResource,omitempty"`
+	KubernetesResource *KubernetesResource `json:"kubernetesResource,omitempty"`
 
 	// APICall stores infos about API call that should be cached
 	// +kubebuilder:validation:Optional
-	APICall *kyvernov1.ExternalAPICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
+	APICall *ExternalAPICall `json:"apiCall,omitempty"`
 }
 
 func (c *GlobalContextEntrySpec) IsAPICall() bool {
@@ -94,7 +94,53 @@ func (c *GlobalContextEntrySpec) Validate(path *field.Path) (errs field.ErrorLis
 
 // GlobalContextEntryList is a list of Cached Context Entries
 type GlobalContextEntryList struct {
-	metav1.TypeMeta `json:",inline" yaml:",inline"`
-	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []GlobalContextEntry `json:"items" yaml:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []GlobalContextEntry `json:"items"`
+}
+
+// KubernetesResource stores infos about kubernetes resource that should be cached
+type KubernetesResource struct {
+	// Group defines the group of the resource
+	Group string `json:"group,omitempty"`
+	// Version defines the version of the resource
+	Version string `json:"version,omitempty"`
+	// Resource defines the type of the resource
+	Resource string `json:"resource,omitempty"`
+	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
+	// +kubebuilder:validation:Optional
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// Validate implements programmatic validation
+func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
+	if k.Group == "" {
+		errs = append(errs, field.Required(path.Child("group"), "An Resource entry requires a group"))
+	}
+	if k.Version == "" {
+		errs = append(errs, field.Required(path.Child("version"), "An Resource entry requires a version"))
+	}
+	if k.Resource == "" {
+		errs = append(errs, field.Required(path.Child("resource"), "An Resource entry requires a resource"))
+	}
+	return errs
+}
+
+// ExternalAPICall stores infos about API call that should be cached
+type ExternalAPICall struct {
+	kyvernov1.APICall `json:",inline,omitempty"`
+	// RefreshIntervalSeconds defines the interval at which to poll the APICall
+	// +kubebuilder:default=0
+	RefreshIntervalSeconds int64 `json:"refreshIntervalSeconds,omitempty"`
+}
+
+// Validate implements programmatic validation
+func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
+	if e.Service.URL == "" {
+		errs = append(errs, field.Required(path.Child("url"), "An External API Call entry requires a url"))
+	}
+	if e.RefreshIntervalSeconds <= 0 {
+		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "An Resource entry requires a refresh interval greater than 0 seconds"))
+	}
+	return errs
 }
