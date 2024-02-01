@@ -105,8 +105,8 @@ func (e *ExternalAPILoader) SetEntry(entry *v2alpha1.GlobalContextEntry) {
 	}
 	rc := entry.Spec.APICall.DeepCopy()
 	ctxentry := kyvernov1.ContextEntry{
-		Name: entry.Name,
-		// Resource: rc,
+		Name:    entry.Name,
+		APICall: &rc.APICall,
 	}
 
 	key := entry.Name
