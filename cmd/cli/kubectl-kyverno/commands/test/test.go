@@ -101,7 +101,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 
 	//For veriifying all ruules mentioned in test are also in policy
         for _, res := range testCase.Test.Results {
-                c := false
+               if res.IsValidatingAdmissionPolicy {
+			continue
+		}
+		c := false
 		for _, policy := range policies {
 			for _, rule := range autogen.ComputeRules(policy) {
 				if res.Rule == rule.Name {
