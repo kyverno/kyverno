@@ -101,6 +101,7 @@ func main() {
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
 		internal.WithApiServerClient(),
+		internal.WithGlobalContext(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags

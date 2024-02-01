@@ -22,6 +22,7 @@ type Configuration interface {
 	UsesMetadataClient() bool
 	UsesKyvernoDynamicClient() bool
 	UsesEventsClient() bool
+	UsesGlobalContext() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -139,6 +140,12 @@ func WithEventsClient() ConfigurationOption {
 	}
 }
 
+func WithGlobalContext() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesGlobalContext = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -163,6 +170,7 @@ type configuration struct {
 	usesMetadataClient       bool
 	usesKyvernoDynamicClient bool
 	usesEventsClient         bool
+	usesGlobalContext        bool
 	flagSets                 []*flag.FlagSet
 }
 
@@ -232,6 +240,10 @@ func (c *configuration) UsesKyvernoDynamicClient() bool {
 
 func (c *configuration) UsesEventsClient() bool {
 	return c.usesEventsClient
+}
+
+func (c *configuration) UsesGlobalContext() bool {
+	return c.usesGlobalContext
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {
