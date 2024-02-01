@@ -9,15 +9,29 @@ groups:
 
   # -- Install CRDs in group `kyverno.io`
   # -- This field can be overwritten by setting crds.labels in the parent chart
-  kyverno: true
-
-  # -- Install CRDs in group `wgpolicyk8s.io`
-  # -- This field can be overwritten by setting crds.labels in the parent chart
-  policyreport: true
+  kyverno:
+    admissionreports: true
+    backgroundscanreports: true
+    cleanuppolicies: true
+    clusteradmissionreports: true
+    clusterbackgroundscanreports: true
+    clustercleanuppolicies: true
+    clusterpolicies: true
+    policies: true
+    policyexceptions: true
+    updaterequests: true
 
   # -- Install CRDs in group `reports.kyverno.io`
   # -- This field can be overwritten by setting crds.labels in the parent chart
-  reports: true
+  reports:
+    clusterephemeralreports: true
+    ephemeralreports: true
+
+  # -- Install CRDs in group `wgpolicyk8s.io`
+  # -- This field can be overwritten by setting crds.labels in the parent chart
+  wgpolicyk8s:
+    clusterpolicyreports: true
+    policyreports: true
 
 # -- Additional CRDs annotations
 # -- This field can be overwritten by setting crds.annotations in the parent chart
