@@ -38,7 +38,12 @@ const (
 )
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsForReportsControllerInstalled(apiserverClient)
+	return kubeutils.CRDsInstalled(apiserverClient,
+		"clusterpolicyreports.wgpolicyk8s.io",
+		"policyreports.wgpolicyk8s.io",
+		"clusterbackgroundscanreports.kyverno.io",
+		"backgroundscanreports.kyverno.io",
+	)
 }
 
 func createReportControllers(

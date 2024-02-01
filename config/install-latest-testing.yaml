@@ -50327,6 +50327,12 @@ metadata:
     app.kubernetes.io/version: latest
 rules:
   - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+  - apiGroups:
       - admissionregistration.k8s.io
     resources:
       - mutatingwebhookconfigurations
@@ -50419,14 +50425,6 @@ rules:
     verbs:
       - create
   - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - ''
     resources:
       - configmaps
@@ -50481,6 +50479,12 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 rules:
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
   - apiGroups:
       - kyverno.io
     resources:
@@ -50587,6 +50591,12 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 rules:
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
   - apiGroups:
       - admissionregistration.k8s.io
     resources:
@@ -50902,6 +50912,12 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 rules:
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
   - apiGroups:
       - ''
     resources:

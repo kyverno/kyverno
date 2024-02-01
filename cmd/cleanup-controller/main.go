@@ -63,7 +63,7 @@ func (probes) IsLive(context.Context) bool {
 }
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsForCleanupControllerInstalled(apiserverClient)
+	return kubeutils.CRDsInstalled(apiserverClient, "cleanuppolicies.kyverno.io", "clustercleanuppolicies.kyverno.io")
 }
 
 func main() {

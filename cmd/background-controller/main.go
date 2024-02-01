@@ -35,7 +35,7 @@ const (
 )
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsForBackgroundControllerInstalled(apiserverClient)
+	return kubeutils.CRDsInstalled(apiserverClient, "updaterequests.kyverno.io")
 }
 
 func createrLeaderControllers(
