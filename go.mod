@@ -42,7 +42,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.18.0
 	github.com/robfig/cron v1.2.0
-	github.com/sigstore/cosign/v2 v2.2.2
+	github.com/sigstore/cosign/v2 v2.2.3
 	github.com/sigstore/k8s-manifest-sigstore v0.5.2
 	github.com/sigstore/rekor v1.3.4
 	github.com/sigstore/sigstore v1.8.1
