@@ -12,14 +12,8 @@ import (
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
 func CRDsInstalled(apiserverClient apiserver.Interface) error {
 	kyvernoCRDs := []string{
-		"admissionreports.kyverno.io",
-		"clusteradmissionreports.kyverno.io",
 		"clusterpolicies.kyverno.io",
 		"policies.kyverno.io",
-		"policyexceptions.kyverno.io",
-		"updaterequests.kyverno.io",
-		"ephemeralreports.reports.kyverno.io",
-		"clusterephemeralreports.reports.kyverno.io",
 	}
 	var errs []error
 	for _, crd := range kyvernoCRDs {

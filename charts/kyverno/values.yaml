@@ -66,6 +66,8 @@ crds:
 
     # -- Install CRDs in group `kyverno.io`
     kyverno:
+      admissionreports: true
+      backgroundscanreports: true
       cleanuppolicies: true
       clusteradmissionreports: true
       clusterbackgroundscanreports: true

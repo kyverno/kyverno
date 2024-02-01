@@ -37,6 +37,10 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForReportsControllerInstalled(apiserverClient)
+}
+
 func createReportControllers(
 	eng engineapi.Engine,
 	backgroundScan bool,
@@ -232,6 +236,7 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -365,9 +370,4 @@ func main() {
 	le.Run(ctx)
 	// wait for everything to shut down and exit
 	wg.Wait()
-}
-
-// sanity checks for reports-controller
-func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsForReportsControllerInstalled(apiserverClient)
 }

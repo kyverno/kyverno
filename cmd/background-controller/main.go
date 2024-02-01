@@ -34,6 +34,10 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForBackgroundControllerInstalled(apiserverClient)
+}
+
 func createrLeaderControllers(
 	eng engineapi.Engine,
 	genWorkers int,
@@ -110,6 +114,7 @@ func main() {
 		internal.WithDynamicClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -134,7 +139,6 @@ func main() {
 		setup.Logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
-
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	var wg sync.WaitGroup
@@ -230,9 +234,4 @@ func main() {
 	le.Run(signalCtx)
 	// wait for everything to shut down and exit
 	wg.Wait()
-}
-
-// add sanity checks for background-controller
-func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsForBackgroundControllerInstalled(apiserverClient)
 }

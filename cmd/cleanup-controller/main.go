@@ -62,6 +62,10 @@ func (probes) IsLive(context.Context) bool {
 	return true
 }
 
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForCleanupControllerInstalled(apiserverClient)
+}
+
 func main() {
 	var (
 		dumpPayload       bool
@@ -96,6 +100,7 @@ func main() {
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -348,9 +353,4 @@ func main() {
 	le.Run(ctx)
 	// wait for everything to shut down and exit
 	wg.Wait()
-}
-
-// sanity checks for cleanup-controller
-func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsForCleanupControllerInstalled(apiserverClient)
 }
