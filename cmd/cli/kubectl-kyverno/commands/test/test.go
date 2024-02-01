@@ -3,8 +3,7 @@ package test
 import (
 	"fmt"
 	"io"
-        "math"
-
+       
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -99,6 +98,23 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	} else {
 		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	}
+
+	//For veriifying all ruules mentioned in test are also in policy
+        for _, res := range testCase.Test.Results {
+                c := false
+		for _, policy := range policies {
+			for _, rule := range autogen.ComputeRules(policy) {
+				if res.Rule == rule.Name {
+					c = true
+					break
+				}
+			}
+		}
+		if !c {
+			return nil, fmt.Errorf("the rule(%v) name not found",res.Rule)
+		}
+	}
+	
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {
@@ -192,23 +208,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		}
 		engineResponses = append(engineResponses, ers...)
 	}
-	v := 0.0
-	var policy kyvernov1.PolicyInterface
-        for _, policy = range policies {
-		for _, rule := range autogen.ComputeRules(policy) {
-			for _, res := range testCase.Test.Results {
-				if rule.Name != res.Rule {
-					v += 1
-				}
-			}
-		}
-	}
-	n := float64(len(testCase.Test.Results))
-	l := float64(len(policies))
-	g := float64(len(autogen.ComputeRules(policy)))
-	if v >= g*math.Pow(n, l) {
-		return nil, fmt.Errorf("the rulename mismatches and not found anywhere on the policy ")
-
-	}
+	
 	return engineResponses, nil
 }
