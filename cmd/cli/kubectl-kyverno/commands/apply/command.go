@@ -86,6 +86,7 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
 				printReport(out, responses, applyCommandConfig.AuditWarn)
@@ -461,12 +462,14 @@ func printViolations(out io.Writer, rc *processor.ResultCounts) {
 }
 
 func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
-	if rc.Fail() > 0 || rc.Error() > 0 {
-		return fmt.Errorf("exit as fail or error count > 0")
+	if rc.Fail() > 0 {
+		return fmt.Errorf("exit as there are policy violations")
+	} else if rc.Error() > 0 {
+		return fmt.Errorf("exit as there are policy errors")
 	} else if rc.Warn() > 0 && warnExitCode != 0 {
 		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	} else if rc.Pass() == 0 && warnNoPassed {
-		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
+		return fmt.Errorf("exit as no objects satisfied policy")
 	}
 	return nil
 }
