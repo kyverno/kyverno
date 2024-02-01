@@ -18,7 +18,7 @@ func Configure() error {
 func configure(args ...string) error {
 	logging.InitFlags(nil)
 	if isVerbose(args...) {
-		return logging.Setup(logging.TextFormat, logging.DefaultTime, 4)
+		return logging.Setup(logging.TextFormat, logging.DefaultTime, 0)
 	}
 	return nil
 }
