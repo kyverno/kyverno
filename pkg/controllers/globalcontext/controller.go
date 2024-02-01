@@ -10,9 +10,12 @@ import (
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/engine/globalcontext/k8sresource"
 	"github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -31,16 +34,13 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// state
-	store store.Store
-
-	// kyvernoClient versioned.Interface
-	// dynamicClient dynamic.Interface
+	dynamicClient dynamic.Interface
+	store         store.Store
 }
 
 func NewController(
 	gceInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
-	// kyvernoClient versioned.Interface,
-	// dclient dynamic.Interface,
+	dclient dynamic.Interface,
 	storage store.Store,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -49,12 +49,10 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	return &controller{
-		gceLister: gceInformer.Lister(),
-		queue:     queue,
-		store:     storage,
-
-		// kyvernoClient:   kyvernoClient,
-		// dynamicClient:   dclient,
+		gceLister:     gceInformer.Lister(),
+		queue:         queue,
+		dynamicClient: dclient,
+		store:         storage,
 	}
 }
 
@@ -74,7 +72,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	}
 	// either it's a new entry or an existing entry changed
 	// create a new element and set it in the store
-	entry, err := c.makeStoreEntry(gce)
+	entry, err := c.makeStoreEntry(ctx, gce)
 	if err != nil {
 		return err
 	}
@@ -86,7 +84,7 @@ func (c *controller) getEntry(name string) (*kyvernov2alpha1.GlobalContextEntry,
 	return c.gceLister.Get(name)
 }
 
-func (c *controller) makeStoreEntry(gce *kyvernov2alpha1.GlobalContextEntry) (store.Entry, error) {
+func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry) (store.Entry, error) {
 	// TODO: should be done at validation time
 	if gce.Spec.KubernetesResource == nil && gce.Spec.APICall == nil {
 		return nil, errors.New("global context entry neither has K8sResource nor APICall")
@@ -96,8 +94,12 @@ func (c *controller) makeStoreEntry(gce *kyvernov2alpha1.GlobalContextEntry) (st
 		return nil, errors.New("global context entry has both K8sResource and APICall")
 	}
 	if gce.Spec.KubernetesResource != nil {
-		// TODO: build the store entry
-		return nil, nil
+		gvr := schema.GroupVersionResource{
+			Group:    gce.Spec.KubernetesResource.Group,
+			Version:  gce.Spec.KubernetesResource.Version,
+			Resource: gce.Spec.KubernetesResource.Resource,
+		}
+		return k8sresource.New(ctx, c.dynamicClient, gvr)
 	}
 	// TODO: build the store entry
 	return nil, nil
