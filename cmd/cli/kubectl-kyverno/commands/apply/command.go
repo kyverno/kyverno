@@ -73,12 +73,11 @@ func Command() *cobra.Command {
 	var removeColor, detailedResults, table bool
 	applyCommandConfig := &ApplyCommandConfig{}
 	cmd := &cobra.Command{
-		Use:           "apply",
-		Short:         command.FormatDescription(true, websiteUrl, false, description...),
-		Long:          command.FormatDescription(false, websiteUrl, false, description...),
-		Example:       command.FormatExamples(examples...),
-		SilenceUsage:  true,
-		SilenceErrors: true,
+		Use:          "apply",
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
+		Example:      command.FormatExamples(examples...),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			out := cmd.OutOrStdout()
 			color.Init(removeColor)
@@ -87,6 +86,7 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
 				printReport(out, responses, applyCommandConfig.AuditWarn)
