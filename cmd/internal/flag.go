@@ -57,6 +57,8 @@ var (
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
+	// global context
+	enableGlobalContext bool
 )
 
 func initLoggingFlags() {
@@ -133,6 +135,10 @@ func initLeaderElectionFlags() {
 
 func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
+}
+
+func initGlobalContextFlags() {
+	flag.BoolVar(&enableGlobalContext, "enableGlobalContext", true, "Enable global context feature.")
 }
 
 type options struct {
@@ -218,6 +224,10 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
+	// leader election
+	if config.UsesGlobalContext() {
+		initGlobalContextFlags()
+	}
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
@@ -253,6 +263,10 @@ func LeaderElectionRetryPeriod() time.Duration {
 
 func CleanupServerPort() string {
 	return cleanupServerPort
+}
+
+func GlobalContextEnabled() bool {
+	return enableGlobalContext
 }
 
 func printFlagSettings(logger logr.Logger) {

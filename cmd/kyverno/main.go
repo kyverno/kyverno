@@ -258,6 +258,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
+		internal.WithGlobalContext(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags

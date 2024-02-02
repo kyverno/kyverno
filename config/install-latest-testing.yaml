@@ -50589,6 +50589,13 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
+      - list
+      - watch
+  - apiGroups:
       - reports.kyverno.io
     resources:
       - ephemeralreports
@@ -50712,6 +50719,13 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
+      - list
+      - watch
+  - apiGroups:
       - ''
     resources:
       - namespaces
@@ -50830,6 +50844,13 @@ rules:
     resources:
       - clustercleanuppolicies
       - cleanuppolicies
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
     verbs:
       - list
       - watch
@@ -51135,6 +51156,13 @@ rules:
       - namespaces
     verbs:
       - get
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
       - list
       - watch
   - apiGroups:
