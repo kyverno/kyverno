@@ -3,7 +3,6 @@ package k8sresource
 import (
 	"context"
 	"fmt"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -12,10 +11,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
-)
-
-const (
-	resyncPeriod = 15 * time.Second
 )
 
 type entry struct {
@@ -31,7 +26,7 @@ func New(ctx context.Context, client dynamic.Interface, gvr schema.GroupVersionR
 	if namespace == "" {
 		namespace = metav1.NamespaceAll
 	}
-	informer := dynamicinformer.NewFilteredDynamicInformer(client, gvr, namespace, 10*time.Minute, indexers, nil)
+	informer := dynamicinformer.NewFilteredDynamicInformer(client, gvr, namespace, 0, indexers, nil)
 	var group wait.Group
 	ctx, cancel := context.WithCancel(ctx)
 	stop := func() {
