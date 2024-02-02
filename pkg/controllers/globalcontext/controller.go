@@ -9,14 +9,15 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	"github.com/kyverno/kyverno/pkg/engine/globalcontext/externalapi"
 	"github.com/kyverno/kyverno/pkg/engine/globalcontext/k8sresource"
 	"github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -35,13 +36,13 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// state
-	dynamicClient dynamic.Interface
-	store         store.Store
+	dclient dclient.Interface
+	store   store.Store
 }
 
 func NewController(
 	gceInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
-	dclient dynamic.Interface,
+	dclient dclient.Interface,
 	storage store.Store,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -50,10 +51,10 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	return &controller{
-		gceLister:     gceInformer.Lister(),
-		queue:         queue,
-		dynamicClient: dclient,
-		store:         storage,
+		gceLister: gceInformer.Lister(),
+		queue:     queue,
+		dclient:   dclient,
+		store:     storage,
 	}
 }
 
@@ -100,7 +101,7 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			Version:  gce.Spec.KubernetesResource.Version,
 			Resource: gce.Spec.KubernetesResource.Resource,
 		}
-		return k8sresource.New(ctx, c.dynamicClient, gvr, gce.Spec.KubernetesResource.Namespace)
+		return k8sresource.New(ctx, c.dclient.GetDynamicInterface(), gvr, gce.Spec.KubernetesResource.Namespace)
 	}
-	return externalapi.New(ctx, logger, time.Duration(gce.Spec.APICall.RefreshIntervalSeconds))
+	return externalapi.New(ctx, logger, adapters.Client(c.dclient), gce.Spec.APICall.APICall, time.Duration(gce.Spec.APICall.RefreshIntervalSeconds))
 }

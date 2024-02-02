@@ -164,7 +164,7 @@ func main() {
 		globalcontext.ControllerName,
 		globalcontext.NewController(
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
-			setup.DynamicClient,
+			setup.KyvernoDynamicClient,
 			store,
 		),
 		globalcontext.Workers,
