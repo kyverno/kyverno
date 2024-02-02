@@ -51836,6 +51836,7 @@ spec:
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
+            - --enableGlobalContext=true
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -51987,6 +51988,7 @@ spec:
             - --metricsPort=8000
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
+            - --enableGlobalContext=true
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -52094,6 +52096,7 @@ spec:
             - --metricsPort=8000
             - --enableDeferredLoading=true
             - --dumpPayload=false
+            - --enableGlobalContext=true
             - --loggingFormat=text
             - --v=2
             - --protectManagedResources=false
@@ -52234,6 +52237,7 @@ spec:
             - --skipResourceFilters=true
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
+            - --enableGlobalContext=true
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped

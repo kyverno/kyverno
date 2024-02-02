@@ -629,6 +629,9 @@ features:
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
+  globalContext:
+    # -- Enables the feature
+    enabled: true
   logging:
     # -- Logging format
     format: text
