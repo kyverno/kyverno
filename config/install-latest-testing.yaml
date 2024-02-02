@@ -28218,12 +28218,12 @@ spec:
                     - GET
                     - POST
                     type: string
-                  refreshIntervalSeconds:
-                    default: 0
-                    description: RefreshIntervalSeconds defines the interval at which
-                      to poll the APICall
-                    format: int64
-                    type: integer
+                  refreshInterval:
+                    default: 10m
+                    description: RefreshInterval defines the interval in duration
+                      at which to poll the APICall
+                    format: duration
+                    type: string
                   service:
                     description: Service is an API call to a JSON web service
                     properties:
@@ -50589,6 +50589,13 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
+      - list
+      - watch
+  - apiGroups:
       - reports.kyverno.io
     resources:
       - ephemeralreports
@@ -50712,6 +50719,13 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
+      - list
+      - watch
+  - apiGroups:
       - ''
     resources:
       - namespaces
@@ -50830,6 +50844,13 @@ rules:
     resources:
       - clustercleanuppolicies
       - cleanuppolicies
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
     verbs:
       - list
       - watch
@@ -51135,6 +51156,13 @@ rules:
       - namespaces
     verbs:
       - get
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
       - list
       - watch
   - apiGroups:
@@ -51808,6 +51836,7 @@ spec:
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
+            - --enableGlobalContext=true
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -51959,6 +51988,7 @@ spec:
             - --metricsPort=8000
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
+            - --enableGlobalContext=true
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -52066,6 +52096,7 @@ spec:
             - --metricsPort=8000
             - --enableDeferredLoading=true
             - --dumpPayload=false
+            - --enableGlobalContext=true
             - --loggingFormat=text
             - --v=2
             - --protectManagedResources=false
@@ -52206,6 +52237,7 @@ spec:
             - --skipResourceFilters=true
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
+            - --enableGlobalContext=true
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
