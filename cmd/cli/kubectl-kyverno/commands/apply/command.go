@@ -66,7 +66,7 @@ type ApplyCommandConfig struct {
 	GitBranch      string
 	warnExitCode   int
 	warnNoPassed   bool
-	exception      []string
+	Exception      []string
 }
 
 func Command() *cobra.Command {
@@ -86,6 +86,7 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
 				printReport(out, responses, applyCommandConfig.AuditWarn)
@@ -117,7 +118,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
-	cmd.Flags().StringSliceVar(&applyCommandConfig.exception, "exception", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.Exception, "exception", nil, "Policy exception to be considered when evaluating policies against resources")
 	return cmd
 }
 
@@ -160,7 +161,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	exceptions, err := exception.Load(c.exception...)
+	exceptions, err := exception.Load(c.Exception...)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
@@ -461,12 +462,14 @@ func printViolations(out io.Writer, rc *processor.ResultCounts) {
 }
 
 func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
-	if rc.Fail() > 0 || rc.Error() > 0 {
-		return fmt.Errorf("exit as fail or error count > 0")
+	if rc.Fail() > 0 {
+		return fmt.Errorf("exit as there are policy violations")
+	} else if rc.Error() > 0 {
+		return fmt.Errorf("exit as there are policy errors")
 	} else if rc.Warn() > 0 && warnExitCode != 0 {
 		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	} else if rc.Pass() == 0 && warnNoPassed {
-		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
+		return fmt.Errorf("exit as no objects satisfied policy")
 	}
 	return nil
 }

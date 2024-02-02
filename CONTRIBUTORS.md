@@ -11,3 +11,4 @@ Contributors are those who have made enough contributions to the project as defi
 | Khaled Emara             | [@KhaledEmaraDev](https://github.com/KhaledEmaraDev)   |
 | Anushka Mittal           | [@anushkamittal2001](https://github.com/anushkamittal2001)|
 | Sanskar Gurdasani        | [@Sanskarzz](https://github.com/Sanskarzz) |
+| D N Siva Sathyaseelan    | [@sivasathyaseeelan](https://github.com/sivasathyaseeelan)|
