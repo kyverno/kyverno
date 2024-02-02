@@ -66,7 +66,7 @@ type ApplyCommandConfig struct {
 	GitBranch      string
 	warnExitCode   int
 	warnNoPassed   bool
-	exception      []string
+	Exception      []string
 }
 
 func Command() *cobra.Command {
@@ -118,7 +118,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
-	cmd.Flags().StringSliceVar(&applyCommandConfig.exception, "exception", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.Exception, "exception", nil, "Policy exception to be considered when evaluating policies against resources")
 	return cmd
 }
 
@@ -161,7 +161,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	exceptions, err := exception.Load(c.exception...)
+	exceptions, err := exception.Load(c.Exception...)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
