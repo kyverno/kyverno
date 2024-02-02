@@ -99,6 +99,8 @@ $(REGISTER_GEN):
 $(PROTOBUF_GEN):
 	@echo Install go-to-protobuf... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/go-to-protobuf@$(CODE_GEN_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+	@GOBIN=$(TOOLS_DIR) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
 $(DEEPCOPY_GEN):
 	@echo Install deepcopy-gen... >&2
@@ -472,9 +474,9 @@ codegen-protobuf: $(PACKAGE_SHIM) $(PROTOBUF_GEN) ## Generate protobuf
 	@echo Generate protobuf... >&2
 	@GOPATH=$(GOPATH_SHIM) $(PROTOBUF_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
-		--apimachinery-packages -k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-k8s.io/api/rbac/v1 \
+		--apimachinery-packages k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/runtime/schema,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/api/rbac/v1 \
 		--drop-embedded-fields k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta,k8s.io/apimachinery/pkg/runtime.Serializer \
-		--packages $(INPUT_DIRS) \
+		--packages $(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2 \
 
 .PHONY: codegen-deepcopy-all
 codegen-deepcopy-all: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
