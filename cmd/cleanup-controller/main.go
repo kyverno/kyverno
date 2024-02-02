@@ -19,9 +19,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
-	"github.com/kyverno/kyverno/pkg/controllers/globalcontext"
+	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
-	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -159,15 +159,14 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
-	store := globalcontextstore.New()
 	gceController := internal.NewController(
-		globalcontext.ControllerName,
-		globalcontext.NewController(
+		globalcontextcontroller.ControllerName,
+		globalcontextcontroller.NewController(
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 			setup.KyvernoDynamicClient,
-			store,
+			store.New(),
 		),
-		globalcontext.Workers,
+		globalcontextcontroller.Workers,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
