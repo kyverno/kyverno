@@ -1,4 +1,4 @@
-package validatingadmissionpolicygenerate
+package validatingadmissionpolicy
 
 import (
 	"encoding/json"
@@ -480,7 +480,7 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
 			policies, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
-			out, _ := canGenerateVAP(policies[0].GetSpec())
+			out, _ := CanGenerateVAP(policies[0].GetSpec())
 			assert.Equal(t, out, test.expected)
 		})
 	}
