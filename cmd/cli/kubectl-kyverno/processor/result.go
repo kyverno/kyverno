@@ -27,14 +27,13 @@ func (rc *ResultCounts) IncrementError(inc int) {
 	rc.err += inc
 }
 
-func (rc *ResultCounts) addEngineResponses(auditWarn bool, policyReport bool, resourcePath string, responses ...engineapi.EngineResponse) {
+func (rc *ResultCounts) addEngineResponses(auditWarn bool, responses ...engineapi.EngineResponse) {
 	for _, response := range responses {
-		rc.addEngineResponse(auditWarn, policyReport, resourcePath, response)
+		rc.addEngineResponse(auditWarn, response)
 	}
 }
 
-func (rc *ResultCounts) addEngineResponse(auditWarn bool, policyReport bool, resourcePath string, response engineapi.EngineResponse) {
-	printCount := 0
+func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.EngineResponse) {
 	if !response.IsEmpty() {
 		genericPolicy := response.Policy()
 		if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
@@ -42,7 +41,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, policyReport bool, res
 		}
 		policy := genericPolicy.AsKyvernoPolicy()
 		scored := annotations.Scored(policy.GetAnnotations())
-		for i, rule := range autogen.ComputeRules(policy) {
+		for _, rule := range autogen.ComputeRules(policy) {
 			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 				for _, valResponseRule := range response.PolicyResponse.Rules {
 					if rule.Name == valResponseRule.Name() {
@@ -50,26 +49,13 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, policyReport bool, res
 						case engineapi.RuleStatusPass:
 							rc.pass++
 						case engineapi.RuleStatusFail:
-							auditWarning := false
 							if !scored {
 								rc.warn++
 								break
 							} else if auditWarn && response.GetValidationFailureAction().Audit() {
-								auditWarning = true
 								rc.warn++
 							} else {
 								rc.fail++
-							}
-							if !policyReport {
-								if printCount < 1 {
-									if auditWarning {
-										fmt.Printf("\npolicy %s -> resource %s failed as audit warning: \n", policy.GetName(), resourcePath)
-									} else {
-										fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resourcePath)
-									}
-									printCount++
-								}
-								fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name(), valResponseRule.Message())
 							}
 						case engineapi.RuleStatusError:
 							rc.err++

@@ -197,7 +197,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			p.Rc.addGenerateResponse(p.AuditWarn, generateResponse)
 		}
 	}
-	p.Rc.addEngineResponses(p.AuditWarn, p.PolicyReport, resPath, responses...)
+	p.Rc.addEngineResponses(p.AuditWarn, responses...)
 	return responses, nil
 }
 
