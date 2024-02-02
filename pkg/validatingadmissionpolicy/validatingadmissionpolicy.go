@@ -202,7 +202,8 @@ func validateResource(policy v1alpha1.ValidatingAdmissionPolicy, binding *v1alph
 	var ruleResp *engineapi.RuleResponse
 
 	// compile CEL expressions
-	compiler, err := celutils.NewCompiler(policy.Spec.Validations, policy.Spec.AuditAnnotations, policy.Spec.MatchConditions, policy.Spec.Variables)
+	matchConditions := ConvertMatchConditionsV1(policy.Spec.MatchConditions)
+	compiler, err := celutils.NewCompiler(policy.Spec.Validations, policy.Spec.AuditAnnotations, matchConditions, policy.Spec.Variables)
 	if err != nil {
 		return engineResponse, err
 	}
