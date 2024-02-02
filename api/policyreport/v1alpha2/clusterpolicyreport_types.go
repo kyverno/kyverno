@@ -39,24 +39,24 @@ import (
 // ClusterPolicyReport is the Schema for the clusterpolicyreports API
 type ClusterPolicyReport struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)
 	// +optional
-	Scope *corev1.ObjectReference `json:"scope,omitempty"`
+	Scope *corev1.ObjectReference `json:"scope,omitempty" protobuf:"bytes,2,opt,name=scope"`
 
 	// ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
 	// Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
 	// +optional
-	ScopeSelector *metav1.LabelSelector `json:"scopeSelector,omitempty"`
+	ScopeSelector *metav1.LabelSelector `json:"scopeSelector,omitempty" protobuf:"bytes,3,opt,name=scopeSelector"`
 
 	// PolicyReportSummary provides a summary of results
 	// +optional
-	Summary PolicyReportSummary `json:"summary,omitempty"`
+	Summary PolicyReportSummary `json:"summary,omitempty" protobuf:"bytes,4,opt,name=summary"`
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []PolicyReportResult `json:"results,omitempty"`
+	Results []PolicyReportResult `json:"results,omitempty" protobuf:"bytes,5,opt,name=results"`
 }
 
 func (r *ClusterPolicyReport) GetResults() []PolicyReportResult {
@@ -77,6 +77,6 @@ func (r *ClusterPolicyReport) SetSummary(summary PolicyReportSummary) {
 // ClusterPolicyReportList contains a list of ClusterPolicyReport
 type ClusterPolicyReportList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterPolicyReport `json:"items"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Items           []ClusterPolicyReport `json:"items" protobuf:"bytes,2,opt,name=items"`
 }

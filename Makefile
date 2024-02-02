@@ -95,6 +95,11 @@ $(REGISTER_GEN):
 	@echo Install register-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/register-gen@$(CODE_GEN_VERSION)
 
+$(PROTOBUF_GEN):
+	@echo Install go-to-protobuf... >&2
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/go-to-protobuf@$(CODE_GEN_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo@$(CODE_GEN_VERSION)
+
 $(DEEPCOPY_GEN):
 	@echo Install deepcopy-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/deepcopy-gen@$(CODE_GEN_VERSION)
@@ -462,6 +467,13 @@ codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registration
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS)
 
+.PHONY: codegen-protobuf
+codegen-protobuf: $(PACKAGE_SHIM) $(PROTOBUF_GEN) ## Generate protobuf
+	@echo Generate protobuf... >&2
+	@GOPATH=$(GOPATH_SHIM) $(PROTOBUF_GEN) \
+		--go-header-file=./scripts/boilerplate.go.txt \
+		--packages=$(INPUT_DIRS)
+
 .PHONY: codegen-deepcopy-all
 codegen-deepcopy-all: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
 	@echo Generate deep copy functions... >&2
@@ -485,7 +497,7 @@ codegen-applyconfigurations: $(PACKAGE_SHIM) $(APPLYCONFIGURATION_GEN) ## Genera
 		--output-package $(APPLYCONFIGURATIONS_PACKAGE)
 
 .PHONY: codegen-client-all
-codegen-client-all: codegen-register codegen-defaulters codegen-applyconfigurations codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
+codegen-client-all: codegen-register codegen-protobuf codegen-defaulters codegen-applyconfigurations codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
