@@ -89,10 +89,6 @@ func (c *controller) getEntry(name string) (*kyvernov2alpha1.GlobalContextEntry,
 }
 
 func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry) (store.Entry, error) {
-	// TODO: should be done at validation time
-	if err := gce.Validate(); err != nil {
-		return nil, err.ToAggregate()
-	}
 	if gce.Spec.KubernetesResource != nil {
 		gvr := schema.GroupVersionResource{
 			Group:    gce.Spec.KubernetesResource.Group,

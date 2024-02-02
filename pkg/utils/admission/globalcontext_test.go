@@ -4,14 +4,13 @@ import (
 	"reflect"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/util/json"
-
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
-func TestUnmarshalPartialObjectMetadata(t *testing.T) {
+func TestUnmarshalGlobalContext(t *testing.T) {
 	testCases := []struct {
 		name      string
 		raw       []byte
@@ -47,7 +46,7 @@ func TestUnmarshalPartialObjectMetadata(t *testing.T) {
 	}
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := UnmarshalPartialObjectMetadata(test.raw)
+			result, err := UnmarshalGlobalContextEntry(test.raw)
 			if test.expectErr {
 				if err == nil {
 					t.Error("Expected an error, but got none")
@@ -56,17 +55,17 @@ func TestUnmarshalPartialObjectMetadata(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				var object *metav1.PartialObjectMetadata
-				json.Unmarshal(test.raw, &object)
-				if !reflect.DeepEqual(result, object) {
-					t.Errorf("Expected %+v, got %+v", object, result)
+				var gctx *kyvernov2alpha1.GlobalContextEntry
+				json.Unmarshal(test.raw, &gctx)
+				if !reflect.DeepEqual(result, gctx) {
+					t.Errorf("Expected %+v, got %+v", gctx, result)
 				}
 			}
 		})
 	}
 }
 
-func TestGetPartialObjectMetadatas(t *testing.T) {
+func TestGetGlobalContext(t *testing.T) {
 	type args struct {
 		request admissionv1.AdmissionRequest
 	}
@@ -154,29 +153,29 @@ func TestGetPartialObjectMetadatas(t *testing.T) {
 	}}
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			p1, p2, _ := GetPartialObjectMetadatas(test.args.request)
-			object, err := UnmarshalPartialObjectMetadata(test.args.request.Object.Raw)
-			var nil_object *metav1.PartialObjectMetadata = nil
+			g1, g2, _ := GetGlobalContextEntry(test.args.request)
+			var empty *kyvernov2alpha1.GlobalContextEntry
+			expectedG1, err := UnmarshalGlobalContextEntry(test.args.request.Object.Raw)
 			if err != nil {
-				if !reflect.DeepEqual(nil_object, p1) || !reflect.DeepEqual(nil_object, p2) {
-					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", nil_object, nil_object, p1, p2)
+				expectedG2 := empty
+				if !reflect.DeepEqual(expectedG1, g1) || !reflect.DeepEqual(expectedG2, g2) {
+					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedG1, expectedG2, g1, g2)
 				}
-			} else if test.args.request.Operation != admissionv1.Update {
+			} else if test.args.request.Operation == admissionv1.Update {
+				expectedG2, err := UnmarshalGlobalContextEntry(test.args.request.OldObject.Raw)
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				if !reflect.DeepEqual(object, p1) || !reflect.DeepEqual(nil_object, p2) {
-					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", object, nil_object, p1, p2)
+				if !reflect.DeepEqual(expectedG1, g1) || !reflect.DeepEqual(expectedG2, g2) {
+					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedG1, expectedG2, g1, g2)
 				}
 			} else {
-				oldObject, err := UnmarshalPartialObjectMetadata(test.args.request.OldObject.Raw)
+				expectedG2 := empty
 				if err != nil {
-					if !reflect.DeepEqual(nil_object, p1) || !reflect.DeepEqual(nil_object, p2) {
-						t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", nil_object, nil_object, p1, p2)
-					}
+					t.Errorf("Unexpected error: %v", err)
 				}
-				if !reflect.DeepEqual(object, p1) || !reflect.DeepEqual(oldObject, p2) {
-					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", object, oldObject, p1, p2)
+				if !reflect.DeepEqual(expectedG1, g1) || !reflect.DeepEqual(expectedG2, g2) {
+					t.Errorf("Expected policies %+v and %+v , got %+v and %+v ", expectedG1, expectedG2, g1, g2)
 				}
 			}
 		})

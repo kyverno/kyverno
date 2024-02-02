@@ -1,10 +1,9 @@
 package admission
 
 import (
-	"encoding/json"
-
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 func UnmarshalPolicyException(raw []byte) (*kyvernov2beta1.PolicyException, error) {
