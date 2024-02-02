@@ -4,12 +4,11 @@ import (
 	"reflect"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/util/json"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 func TestUnmarshalPolicy(t *testing.T) {
