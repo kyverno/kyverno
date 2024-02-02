@@ -73,9 +73,11 @@ func Test_serviceGetRequest(t *testing.T) {
 		assert.ErrorContains(t, err, "missing APICall")
 
 		entry.Name = "test"
-		entry.APICall = &kyvernov1.APICall{
-			Service: &kyvernov1.ServiceCall{
-				URL: s.URL,
+		entry.APICall = &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL,
+				},
 			},
 		}
 
@@ -123,10 +125,12 @@ func Test_servicePostRequest(t *testing.T) {
 
 	entry := kyvernov1.ContextEntry{
 		Name: "test",
-		APICall: &kyvernov1.APICall{
-			Method: "POST",
-			Service: &kyvernov1.ServiceCall{
-				URL: s.URL + "/resource",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Method: "POST",
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL + "/resource",
+				},
 			},
 		},
 	}

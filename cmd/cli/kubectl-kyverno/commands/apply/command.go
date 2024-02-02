@@ -43,12 +43,12 @@ import (
 
 const divider = "----------------------------------------------------------------------"
 
-type skippedInvalidPolicies struct {
+type SkippedInvalidPolicies struct {
 	skipped []string
 	invalid []string
 }
 
-type applyCommandConfig struct {
+type ApplyCommandConfig struct {
 	KubeConfig     string
 	Context        string
 	Namespace      string
@@ -66,12 +66,12 @@ type applyCommandConfig struct {
 	GitBranch      string
 	warnExitCode   int
 	warnNoPassed   bool
-	exception      []string
+	Exception      []string
 }
 
 func Command() *cobra.Command {
 	var removeColor, detailedResults, table bool
-	applyCommandConfig := &applyCommandConfig{}
+	applyCommandConfig := &ApplyCommandConfig{}
 	cmd := &cobra.Command{
 		Use:          "apply",
 		Short:        command.FormatDescription(true, websiteUrl, false, description...),
@@ -86,6 +86,7 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
 				printReport(out, responses, applyCommandConfig.AuditWarn)
@@ -117,11 +118,11 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
-	cmd.Flags().StringSliceVar(&applyCommandConfig.exception, "exception", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().StringSliceVar(&applyCommandConfig.Exception, "exception", nil, "Policy exception to be considered when evaluating policies against resources")
 	return cmd
 }
 
-func (c *applyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, skippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	rc, resources1, skipInvalidPolicies, responses1, err := c.checkArguments()
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
@@ -160,7 +161,7 @@ func (c *applyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	exceptions, err := exception.Load(c.exception...)
+	exceptions, err := exception.Load(c.Exception...)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
@@ -202,7 +203,7 @@ func (c *applyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	return rc, resources1, skipInvalidPolicies, responses, nil
 }
 
-func (c *applyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies skippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, skippedInvalidPolicies, []engineapi.EngineResponse, error, bool) {
+func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, bool) {
 	mutateLogPathIsDir, err := checkMutateLogPath(c.MutateLogPath)
 	if err != nil {
 		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to create file/folder (%w)", err), false
@@ -210,7 +211,7 @@ func (c *applyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies skippedIn
 	return nil, nil, skipInvalidPolicies, nil, err, mutateLogPathIsDir
 }
 
-func (c *applyCommandConfig) applyValidatingAdmissionPolicytoResource(
+func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 	vaps []v1alpha1.ValidatingAdmissionPolicy,
 	vapBindings []v1alpha1.ValidatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
@@ -236,14 +237,14 @@ func (c *applyCommandConfig) applyValidatingAdmissionPolicytoResource(
 	return responses, nil
 }
 
-func (c *applyCommandConfig) applyPolicytoResource(
+func (c *ApplyCommandConfig) applyPolicytoResource(
 	out io.Writer,
 	store *store.Store,
 	vars *variables.Variables,
 	policies []kyvernov1.PolicyInterface,
 	resources []*unstructured.Unstructured,
 	exceptions []*kyvernov2beta1.PolicyException,
-	skipInvalidPolicies *skippedInvalidPolicies,
+	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
 	userInfo *v1beta1.RequestInfo,
 	mutateLogPathIsDir bool,
@@ -300,7 +301,7 @@ func (c *applyCommandConfig) applyPolicytoResource(
 	return &rc, resources, responses, nil
 }
 
-func (c *applyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.PolicyInterface, vap []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
+func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.PolicyInterface, vap []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(out, nil, c.ResourcePaths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, fmt.Errorf("failed to load resources (%w)", err)
@@ -308,7 +309,7 @@ func (c *applyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.P
 	return resources, nil
 }
 
-func (c *applyCommandConfig) loadPolicies(skipInvalidPolicies skippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, skippedInvalidPolicies, []engineapi.EngineResponse, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, []v1alpha1.ValidatingAdmissionPolicyBinding, error) {
+func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, []v1alpha1.ValidatingAdmissionPolicyBinding, error) {
 	// load policies
 	var policies []kyvernov1.PolicyInterface
 	var vaps []v1alpha1.ValidatingAdmissionPolicy
@@ -362,7 +363,7 @@ func (c *applyCommandConfig) loadPolicies(skipInvalidPolicies skippedInvalidPoli
 	return nil, nil, skipInvalidPolicies, nil, policies, vaps, vapBindings, nil
 }
 
-func (c *applyCommandConfig) initStoreAndClusterClient(store *store.Store, skipInvalidPolicies skippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, skippedInvalidPolicies, []engineapi.EngineResponse, error, dclient.Interface) {
+func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error, dclient.Interface) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
@@ -391,7 +392,7 @@ func (c *applyCommandConfig) initStoreAndClusterClient(store *store.Store, skipI
 	return nil, nil, skipInvalidPolicies, nil, err, dClient
 }
 
-func (c *applyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool, skipInvalidPolicies skippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, skippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool, skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	// empty the previous contents of the file just in case if the file already existed before with some content(so as to perform overwrites)
 	// the truncation of files for the case when mutateLogPath is dir, is handled under pkg/kyverno/apply/common.go
 	if !mutateLogPathIsDir && c.MutateLogPath != "" {
@@ -405,8 +406,8 @@ func (c *applyCommandConfig) cleanPreviousContent(mutateLogPathIsDir bool, skipI
 	return nil, nil, skipInvalidPolicies, nil, nil
 }
 
-func (c *applyCommandConfig) checkArguments() (*processor.ResultCounts, []*unstructured.Unstructured, skippedInvalidPolicies, []engineapi.EngineResponse, error) {
-	var skipInvalidPolicies skippedInvalidPolicies
+func (c *ApplyCommandConfig) checkArguments() (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+	var skipInvalidPolicies SkippedInvalidPolicies
 	if c.ValuesFile != "" && c.Variables != nil {
 		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("pass the values either using set flag or values_file flag")
 	}
@@ -422,7 +423,7 @@ func (c *applyCommandConfig) checkArguments() (*processor.ResultCounts, []*unstr
 	return nil, nil, skipInvalidPolicies, nil, nil
 }
 
-func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies skippedInvalidPolicies) {
+func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedInvalidPolicies) {
 	if len(skipInvalidPolicies.skipped) > 0 {
 		fmt.Fprintln(out, divider)
 		fmt.Fprintln(out, "Policies Skipped (as required variables are not provided by the user):")
@@ -461,12 +462,14 @@ func printViolations(out io.Writer, rc *processor.ResultCounts) {
 }
 
 func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
-	if rc.Fail() > 0 || rc.Error() > 0 {
-		return fmt.Errorf("exit as fail or error count > 0")
+	if rc.Fail() > 0 {
+		return fmt.Errorf("exit as there are policy violations")
+	} else if rc.Error() > 0 {
+		return fmt.Errorf("exit as there are policy errors")
 	} else if rc.Warn() > 0 && warnExitCode != 0 {
 		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	} else if rc.Pass() == 0 && warnNoPassed {
-		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
+		return fmt.Errorf("exit as no objects satisfied policy")
 	}
 	return nil
 }

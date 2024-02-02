@@ -1,43 +1,11 @@
-package validatingadmissionpolicygenerate
+package validatingadmissionpolicy
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
-// hasExceptions checks if there is an exception that match both the policy and the rule.
-func (c *controller) hasExceptions(policyName, rule string) (bool, error) {
-	polexs, err := c.polexLister.List(labels.Everything())
-	if err != nil {
-		return false, err
-	}
-	for _, polex := range polexs {
-		if polex.Contains(policyName, rule) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
-	var msg string
-	if len(resource.Namespaces) != 0 || len(resource.Annotations) != 0 {
-		msg = "skip generating ValidatingAdmissionPolicy: Namespaces / Annotations in resource description isn't applicable."
-		return false, msg
-	}
-	return true, msg
-}
-
-func checkUserInfo(info kyvernov1.UserInfo) (bool, string) {
-	var msg string
-	if !info.IsEmpty() {
-		msg = "skip generating ValidatingAdmissionPolicy: Roles / ClusterRoles / Subjects in `any/all` isn't applicable."
-		return false, msg
-	}
-	return true, msg
-}
-
-func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
+// CanGenerateVAP check if Kyverno policy can be translated to a Kubernetes ValidatingAdmissionPolicy
+func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 	var msg string
 	if len(spec.Rules) > 1 {
 		msg = "skip generating ValidatingAdmissionPolicy: multiple rules aren't applicable."
@@ -119,5 +87,23 @@ func canGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 		}
 	}
 
+	return true, msg
+}
+
+func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
+	var msg string
+	if len(resource.Namespaces) != 0 || len(resource.Annotations) != 0 {
+		msg = "skip generating ValidatingAdmissionPolicy: Namespaces / Annotations in resource description isn't applicable."
+		return false, msg
+	}
+	return true, msg
+}
+
+func checkUserInfo(info kyvernov1.UserInfo) (bool, string) {
+	var msg string
+	if !info.IsEmpty() {
+		msg = "skip generating ValidatingAdmissionPolicy: Roles / ClusterRoles / Subjects in `any/all` isn't applicable."
+		return false, msg
+	}
 	return true, msg
 }

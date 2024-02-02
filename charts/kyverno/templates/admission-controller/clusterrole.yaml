@@ -75,6 +75,13 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
+      - list
+      - watch
+  - apiGroups:
       - reports.kyverno.io
     resources:
       - ephemeralreports
