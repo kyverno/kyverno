@@ -2,7 +2,6 @@ package globalcontext
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -88,12 +87,8 @@ func (c *controller) getEntry(name string) (*kyvernov2alpha1.GlobalContextEntry,
 
 func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry) (store.Entry, error) {
 	// TODO: should be done at validation time
-	if gce.Spec.KubernetesResource == nil && gce.Spec.APICall == nil {
-		return nil, errors.New("global context entry neither has K8sResource nor APICall")
-	}
-	// TODO: should be done at validation time
-	if gce.Spec.KubernetesResource != nil && gce.Spec.APICall != nil {
-		return nil, errors.New("global context entry has both K8sResource and APICall")
+	if err := gce.Validate(); err != nil {
+		return nil, err.ToAggregate()
 	}
 	if gce.Spec.KubernetesResource != nil {
 		gvr := schema.GroupVersionResource{
@@ -103,5 +98,5 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 		}
 		return k8sresource.New(ctx, c.dclient.GetDynamicInterface(), gvr, gce.Spec.KubernetesResource.Namespace)
 	}
-	return externalapi.New(ctx, logger, adapters.Client(c.dclient), gce.Spec.APICall.APICall, time.Duration(gce.Spec.APICall.RefreshIntervalSeconds))
+	return externalapi.New(ctx, logger, adapters.Client(c.dclient), gce.Spec.APICall.APICall, gce.Spec.APICall.RefreshInterval.Duration)
 }

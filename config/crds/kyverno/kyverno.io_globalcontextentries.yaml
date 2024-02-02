@@ -71,12 +71,12 @@ spec:
                     - GET
                     - POST
                     type: string
-                  refreshIntervalSeconds:
-                    default: 0
-                    description: RefreshIntervalSeconds defines the interval at which
-                      to poll the APICall
-                    format: int64
-                    type: integer
+                  refreshInterval:
+                    default: 10m
+                    description: RefreshInterval defines the interval in duration
+                      at which to poll the APICall
+                    format: duration
+                    type: string
                   service:
                     description: Service is an API call to a JSON web service
                     properties:
