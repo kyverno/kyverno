@@ -5,7 +5,7 @@ import (
 )
 
 type Store interface {
-	Set(key string, val Entry) bool
+	Set(key string, val Entry)
 	Get(key string) (Entry, bool)
 	Delete(key string)
 }
@@ -21,7 +21,7 @@ func New() Store {
 	}
 }
 
-func (l *store) Set(key string, val Entry) bool {
+func (l *store) Set(key string, val Entry) {
 	l.Lock()
 	defer l.Unlock()
 	old := l.store[key]
@@ -30,8 +30,6 @@ func (l *store) Set(key string, val Entry) bool {
 		val.Stop()
 	}
 	l.store[key] = val
-	_, ok := l.store[key]
-	return ok
 }
 
 func (l *store) Get(key string) (Entry, bool) {
