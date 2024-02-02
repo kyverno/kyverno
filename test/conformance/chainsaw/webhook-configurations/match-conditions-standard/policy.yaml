@@ -1,0 +1,40 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: cpol-match-conditions-standard
+spec:
+  admission: true
+  background: true
+  webhookConfiguration:
+    matchConditions:
+    - name: "select-namespace"
+      expression: '(object.metadata.namespace == "match-conditions-standard-ns")'
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: require-image-tag
+    validate:
+      message: An image tag is required
+      pattern:
+        spec:
+          containers:
+          - image: '*:*'
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-image-tag
+    validate:
+      message: Using a mutable image tag e.g. 'latest' is not allowed
+      pattern:
+        spec:
+          containers:
+          - image: '!*:latest'
+  validationFailureAction: Enforce
+  failurePolicy: Ignore
