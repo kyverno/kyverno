@@ -48,6 +48,7 @@
 {{- end -}}
 {{- with .globalContext -}}
   {{- $flags = append $flags (print "--enableGlobalContext=" .enabled) -}}
+  {{- $flags = append $flags (print "--maxAPICallResponseLength=" .maxApiCallResponseLength) -}}
 {{- end -}}
 {{- with .logging -}}
   {{- $flags = append $flags (print "--loggingFormat=" .format) -}}

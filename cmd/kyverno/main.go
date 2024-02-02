@@ -331,6 +331,7 @@ func main() {
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 			setup.KyvernoDynamicClient,
 			store.New(),
+			maxAPICallResponseLength,
 		),
 		globalcontextcontroller.Workers,
 	)

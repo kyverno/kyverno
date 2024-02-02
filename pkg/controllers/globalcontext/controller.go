@@ -35,14 +35,16 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// state
-	dclient dclient.Interface
-	store   store.Store
+	dclient           dclient.Interface
+	store             store.Store
+	maxResponseLength int64
 }
 
 func NewController(
 	gceInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
 	dclient dclient.Interface,
 	storage store.Store,
+	maxResponseLength int64,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	_, _, err := controllerutils.AddDefaultEventHandlers(logger, gceInformer.Informer(), queue)
@@ -50,10 +52,11 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	return &controller{
-		gceLister: gceInformer.Lister(),
-		queue:     queue,
-		dclient:   dclient,
-		store:     storage,
+		gceLister:         gceInformer.Lister(),
+		queue:             queue,
+		dclient:           dclient,
+		store:             storage,
+		maxResponseLength: maxResponseLength,
 	}
 }
 
@@ -98,5 +101,12 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 		}
 		return k8sresource.New(ctx, c.dclient.GetDynamicInterface(), gvr, gce.Spec.KubernetesResource.Namespace)
 	}
-	return externalapi.New(ctx, logger, adapters.Client(c.dclient), gce.Spec.APICall.APICall, gce.Spec.APICall.RefreshInterval.Duration)
+	return externalapi.New(
+		ctx,
+		logger,
+		adapters.Client(c.dclient),
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		c.maxResponseLength,
+	)
 }
