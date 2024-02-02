@@ -99,7 +99,7 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			Version:  gce.Spec.KubernetesResource.Version,
 			Resource: gce.Spec.KubernetesResource.Resource,
 		}
-		return k8sresource.New(ctx, c.dynamicClient, gvr)
+		return k8sresource.New(ctx, c.dynamicClient, gvr, gce.Spec.KubernetesResource.Namespace)
 	}
 	// TODO: build the store entry
 	return nil, nil

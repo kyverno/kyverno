@@ -4,18 +4,18 @@ import (
 	"github.com/pkg/errors"
 )
 
-type invalidentry struct {
+type entry struct {
 	err error
 }
 
-func (i *invalidentry) Get() (interface{}, error) {
+func (i *entry) Get() (interface{}, error) {
 	return nil, errors.Wrapf(i.err, "failed to create cached context entry")
 }
 
-func (i *invalidentry) Stop() {}
+func (i *entry) Stop() {}
 
-func New(err error) *invalidentry {
-	return &invalidentry{
+func New(err error) *entry {
+	return &entry{
 		err: err,
 	}
 }
