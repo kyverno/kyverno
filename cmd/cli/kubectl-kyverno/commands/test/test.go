@@ -98,22 +98,26 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	} else {
 		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	}
-	//For veriifying all ruules mentioned in test are also in policy
+	//For veriifying all policies and rules are mentioned in test are also in policy
         for _, res := range testCase.Test.Results {
-               if res.IsValidatingAdmissionPolicy {
-			continue
-		}
-		c := false
+		ruleSame := false
+		policySame := false
 		for _, policy := range policies {
-			for _, rule := range autogen.ComputeRules(policy) {
-				if res.Rule == rule.Name {
-					c = true
-					break
+			if res.Policy == policy.GetName() {
+				policySame = true
+				for _, rule := range autogen.ComputeRules(policy) {
+					if res.Rule == rule.Name {
+						ruleSame = true
+						break
+					}
 				}
 			}
 		}
-		if !c {
-			return nil, fmt.Errorf("the rule(%v) name not found",res.Rule)
+		if !policySame {
+			return nil, fmt.Errorf("the policy(%v) name not found", res.Policy)
+		}
+		if !ruleSame {
+			return nil, fmt.Errorf("the rule(%v) name not found", res.Rule)
 		}
 	}
 	
