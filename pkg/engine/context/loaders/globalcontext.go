@@ -8,9 +8,9 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 )
 
 type gctxLoader struct {

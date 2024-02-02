@@ -7,8 +7,8 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
-	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 )
 
 func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engineapi.ContextLoaderFactory {

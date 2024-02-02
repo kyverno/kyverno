@@ -5,8 +5,8 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 )
 
 type RegistryClientFactory interface {

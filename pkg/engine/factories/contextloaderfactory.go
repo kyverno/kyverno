@@ -10,8 +10,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
-	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 )
