@@ -43,7 +43,7 @@ type ExceptionHandlers interface {
 }
 
 type GlobalContextHandlers interface {
-	// Validate performs the validation check on exception resources
+	// Validate performs the validation check on global context entries
 	Validate(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) admissionv1.AdmissionResponse
 }
 

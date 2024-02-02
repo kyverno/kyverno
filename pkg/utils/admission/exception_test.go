@@ -1,7 +1,7 @@
 package admission
 
 import (
-	"encoding/json"
+	"k8s.io/apimachinery/pkg/util/json"
 	"reflect"
 	"testing"
 

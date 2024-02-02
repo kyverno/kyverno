@@ -1,8 +1,9 @@
 package admission
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"k8s.io/apimachinery/pkg/util/json"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
