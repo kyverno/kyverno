@@ -42,6 +42,7 @@ LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
+PROTOBUF_GEN                       ?= $(TOOLS_DIR)/go-to-protobuf
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
 DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
 APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
@@ -59,7 +60,7 @@ HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.14.1
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(PROTOBUF_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -98,7 +99,6 @@ $(REGISTER_GEN):
 $(PROTOBUF_GEN):
 	@echo Install go-to-protobuf... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/go-to-protobuf@$(CODE_GEN_VERSION)
-	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo@$(CODE_GEN_VERSION)
 
 $(DEEPCOPY_GEN):
 	@echo Install deepcopy-gen... >&2
@@ -472,7 +472,8 @@ codegen-protobuf: $(PACKAGE_SHIM) $(PROTOBUF_GEN) ## Generate protobuf
 	@echo Generate protobuf... >&2
 	@GOPATH=$(GOPATH_SHIM) $(PROTOBUF_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
-		--packages=$(INPUT_DIRS)
+		--apimachinery-packages -k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-sigs.k8s.io/apiserver-builder-alpha/pkg/builders,-k8s.io/api/rbac/v1 \
+		--packages $(INPUT_DIRS)
 
 .PHONY: codegen-deepcopy-all
 codegen-deepcopy-all: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
