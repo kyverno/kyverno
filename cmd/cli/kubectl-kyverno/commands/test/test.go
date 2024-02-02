@@ -103,7 +103,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		ruleSame := false
 		policySame := false
 		for _, policy := range policies {
-			if res.Policy == policy.GetName() {
+			if res.Policy == policy.GetName() || res.Policy == "default/"+policy.GetName() {
 				policySame = true
 				for _, rule := range autogen.ComputeRules(policy) {
 					if res.Rule == rule.Name {
