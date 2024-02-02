@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
+	globalcontextstore "github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -36,6 +37,7 @@ func NewEngine(
 	kyvernoClient versioned.Interface,
 	secretLister corev1listers.SecretNamespaceLister,
 	apiCallConfig apicall.APICallConfiguration,
+	gctxStore *globalcontextstore.Store,
 ) engineapi.Engine {
 	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
 	exceptionsSelector := NewExceptionSelector(ctx, logger, kyvernoClient, 15*time.Minute)
@@ -51,6 +53,7 @@ func NewEngine(
 		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig)),
 		exceptionsSelector,
 		imageSignatureRepository,
+		gctxStore,
 	)
 }
 
