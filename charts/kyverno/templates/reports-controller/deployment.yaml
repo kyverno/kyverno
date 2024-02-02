@@ -122,6 +122,7 @@ spec:
               "backgroundScan"
               "configMapCaching"
               "deferredLoading"
+              "globalContext"
               "logging"
               "omitEvents"
               "policyExceptions"

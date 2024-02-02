@@ -15,9 +15,11 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
+	"github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -153,7 +155,15 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
-	// this controller only subscribe to events, nothing is returned...
+	gceController := internal.NewController(
+		globalcontextcontroller.ControllerName,
+		globalcontextcontroller.NewController(
+			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+			setup.KyvernoDynamicClient,
+			store.New(),
+		),
+		globalcontextcontroller.Workers,
+	) // this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(
 		setup.MetricsManager,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
@@ -231,6 +241,7 @@ func main() {
 	}
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
+	gceController.Run(signalCtx, setup.Logger, &wg)
 	// start leader election
 	le.Run(signalCtx)
 	// wait for everything to shut down and exit
