@@ -41,6 +41,7 @@ func NewCaller(
 		config: config,
 	}
 }
+
 func (a *caller) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
 	if call.URLPath != "" {
 		return a.executeK8sAPICall(ctx, call.URLPath, call.Method, call.Data)
