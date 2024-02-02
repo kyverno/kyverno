@@ -19,28 +19,26 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
-// APICallApplyConfiguration represents an declarative configuration of the APICall type for use
+// ContextAPICallApplyConfiguration represents an declarative configuration of the ContextAPICall type for use
 // with apply.
-type APICallApplyConfiguration struct {
-	URLPath *string                         `json:"urlPath,omitempty"`
-	Method  *v1.Method                      `json:"method,omitempty"`
-	Data    []RequestDataApplyConfiguration `json:"data,omitempty"`
-	Service *ServiceCallApplyConfiguration  `json:"service,omitempty"`
+type ContextAPICallApplyConfiguration struct {
+	APICallApplyConfiguration `json:",inline"`
+	JMESPath                  *string `json:"jmesPath,omitempty"`
 }
 
-// APICallApplyConfiguration constructs an declarative configuration of the APICall type for use with
+// ContextAPICallApplyConfiguration constructs an declarative configuration of the ContextAPICall type for use with
 // apply.
-func APICall() *APICallApplyConfiguration {
-	return &APICallApplyConfiguration{}
+func ContextAPICall() *ContextAPICallApplyConfiguration {
+	return &ContextAPICallApplyConfiguration{}
 }
 
 // WithURLPath sets the URLPath field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the URLPath field is set to the value of the last call.
-func (b *APICallApplyConfiguration) WithURLPath(value string) *APICallApplyConfiguration {
+func (b *ContextAPICallApplyConfiguration) WithURLPath(value string) *ContextAPICallApplyConfiguration {
 	b.URLPath = &value
 	return b
 }
@@ -48,7 +46,7 @@ func (b *APICallApplyConfiguration) WithURLPath(value string) *APICallApplyConfi
 // WithMethod sets the Method field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Method field is set to the value of the last call.
-func (b *APICallApplyConfiguration) WithMethod(value v1.Method) *APICallApplyConfiguration {
+func (b *ContextAPICallApplyConfiguration) WithMethod(value kyvernov1.Method) *ContextAPICallApplyConfiguration {
 	b.Method = &value
 	return b
 }
@@ -56,7 +54,7 @@ func (b *APICallApplyConfiguration) WithMethod(value v1.Method) *APICallApplyCon
 // WithData adds the given value to the Data field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Data field.
-func (b *APICallApplyConfiguration) WithData(values ...*RequestDataApplyConfiguration) *APICallApplyConfiguration {
+func (b *ContextAPICallApplyConfiguration) WithData(values ...*RequestDataApplyConfiguration) *ContextAPICallApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithData")
@@ -69,7 +67,15 @@ func (b *APICallApplyConfiguration) WithData(values ...*RequestDataApplyConfigur
 // WithService sets the Service field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Service field is set to the value of the last call.
-func (b *APICallApplyConfiguration) WithService(value *ServiceCallApplyConfiguration) *APICallApplyConfiguration {
+func (b *ContextAPICallApplyConfiguration) WithService(value *ServiceCallApplyConfiguration) *ContextAPICallApplyConfiguration {
 	b.Service = value
+	return b
+}
+
+// WithJMESPath sets the JMESPath field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the JMESPath field is set to the value of the last call.
+func (b *ContextAPICallApplyConfiguration) WithJMESPath(value string) *ContextAPICallApplyConfiguration {
+	b.JMESPath = &value
 	return b
 }
