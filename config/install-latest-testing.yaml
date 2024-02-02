@@ -28204,13 +28204,6 @@ spec:
                       - value
                       type: object
                     type: array
-                  jmesPath:
-                    description: JMESPath is an optional JSON Match Expression that
-                      can be used to transform the JSON response returned from the
-                      server. For example a JMESPath of "items | length(@)" applied
-                      to the API server response for the URLPath "/apis/apps/v1/deployments"
-                      will return the total count of deployments across all namespaces.
-                    type: string
                   method:
                     default: GET
                     description: Method is the HTTP request type (GET or POST).
@@ -51837,6 +51830,7 @@ spec:
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
             - --enableGlobalContext=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -51989,6 +51983,7 @@ spec:
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --enableGlobalContext=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -52097,6 +52092,7 @@ spec:
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --enableGlobalContext=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --protectManagedResources=false
@@ -52238,6 +52234,7 @@ spec:
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --enableGlobalContext=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped

@@ -11,9 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
-	"github.com/kyverno/kyverno/pkg/engine/globalcontext/externalapi"
-	"github.com/kyverno/kyverno/pkg/engine/globalcontext/k8sresource"
-	"github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/globalcontext/externalapi"
+	"github.com/kyverno/kyverno/pkg/globalcontext/k8sresource"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,14 +35,16 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// state
-	dclient dclient.Interface
-	store   store.Store
+	dclient           dclient.Interface
+	store             store.Store
+	maxResponseLength int64
 }
 
 func NewController(
 	gceInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
 	dclient dclient.Interface,
 	storage store.Store,
+	maxResponseLength int64,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	_, _, err := controllerutils.AddDefaultEventHandlers(logger, gceInformer.Informer(), queue)
@@ -50,10 +52,11 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	return &controller{
-		gceLister: gceInformer.Lister(),
-		queue:     queue,
-		dclient:   dclient,
-		store:     storage,
+		gceLister:         gceInformer.Lister(),
+		queue:             queue,
+		dclient:           dclient,
+		store:             storage,
+		maxResponseLength: maxResponseLength,
 	}
 }
 
@@ -86,10 +89,6 @@ func (c *controller) getEntry(name string) (*kyvernov2alpha1.GlobalContextEntry,
 }
 
 func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry) (store.Entry, error) {
-	// TODO: should be done at validation time
-	if err := gce.Validate(); err != nil {
-		return nil, err.ToAggregate()
-	}
 	if gce.Spec.KubernetesResource != nil {
 		gvr := schema.GroupVersionResource{
 			Group:    gce.Spec.KubernetesResource.Group,
@@ -98,5 +97,12 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 		}
 		return k8sresource.New(ctx, c.dclient.GetDynamicInterface(), gvr, gce.Spec.KubernetesResource.Namespace)
 	}
-	return externalapi.New(ctx, logger, adapters.Client(c.dclient), gce.Spec.APICall.APICall, gce.Spec.APICall.RefreshInterval.Duration)
+	return externalapi.New(
+		ctx,
+		logger,
+		adapters.Client(c.dclient),
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		c.maxResponseLength,
+	)
 }

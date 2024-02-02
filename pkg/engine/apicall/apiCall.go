@@ -84,7 +84,7 @@ func (a *apiCall) Store(data []byte) ([]byte, error) {
 	return results, nil
 }
 
-func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
+func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.ContextAPICall) ([]byte, error) {
 	if call.URLPath != "" {
 		return a.executeK8sAPICall(ctx, call.URLPath, call.Method, call.Data)
 	}
@@ -104,7 +104,7 @@ func (a *apiCall) executeK8sAPICall(ctx context.Context, path string, method kyv
 	return jsonData, nil
 }
 
-func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.APICall) ([]byte, error) {
+func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.ContextAPICall) ([]byte, error) {
 	if apiCall.Service == nil {
 		return nil, fmt.Errorf("missing service for APICall %s", a.entry.Name)
 	}
@@ -152,7 +152,7 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.API
 	return body, nil
 }
 
-func (a *apiCall) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APICall) (req *http.Request, err error) {
+func (a *apiCall) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.ContextAPICall) (req *http.Request, err error) {
 	if apiCall.Service == nil {
 		return nil, fmt.Errorf("missing service")
 	}
