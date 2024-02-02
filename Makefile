@@ -472,8 +472,9 @@ codegen-protobuf: $(PACKAGE_SHIM) $(PROTOBUF_GEN) ## Generate protobuf
 	@echo Generate protobuf... >&2
 	@GOPATH=$(GOPATH_SHIM) $(PROTOBUF_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
-		--apimachinery-packages -k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-sigs.k8s.io/apiserver-builder-alpha/pkg/builders,-k8s.io/api/rbac/v1 \
-		--packages $(INPUT_DIRS)
+		--apimachinery-packages -k8s.io/apimachinery/pkg/util/intstr,-k8s.io/apimachinery/pkg/api/resource,-k8s.io/apimachinery/pkg/runtime/schema,-k8s.io/apimachinery/pkg/runtime,-k8s.io/apimachinery/pkg/apis/meta/v1,-k8s.io/api/rbac/v1 \
+		--drop-embedded-fields k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta,k8s.io/apimachinery/pkg/runtime.Serializer \
+		--packages $(INPUT_DIRS) \
 
 .PHONY: codegen-deepcopy-all
 codegen-deepcopy-all: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
@@ -496,6 +497,7 @@ codegen-applyconfigurations: $(PACKAGE_SHIM) $(APPLYCONFIGURATION_GEN) ## Genera
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS) \
 		--output-package $(APPLYCONFIGURATIONS_PACKAGE)
+
 
 .PHONY: codegen-client-all
 codegen-client-all: codegen-register codegen-protobuf codegen-defaulters codegen-applyconfigurations codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
