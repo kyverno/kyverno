@@ -51837,6 +51837,7 @@ spec:
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
             - --enableGlobalContext=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -51989,6 +51990,7 @@ spec:
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --enableGlobalContext=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -52097,6 +52099,7 @@ spec:
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --enableGlobalContext=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --protectManagedResources=false
@@ -52238,6 +52241,7 @@ spec:
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --enableGlobalContext=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
