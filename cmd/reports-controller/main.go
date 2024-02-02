@@ -24,6 +24,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -34,6 +36,15 @@ import (
 const (
 	resyncPeriod = 15 * time.Minute
 )
+
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsInstalled(apiserverClient,
+		"clusterpolicyreports.wgpolicyk8s.io",
+		"policyreports.wgpolicyk8s.io",
+		"clusterbackgroundscanreports.kyverno.io",
+		"backgroundscanreports.kyverno.io",
+	)
+}
 
 func createReportControllers(
 	eng engineapi.Engine,
@@ -230,6 +241,7 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -244,6 +256,10 @@ func main() {
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
+	if err := sanityChecks(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		os.Exit(1)
+	}
 	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
 	// check if validating admission policies are registered in the API server
 	if validatingAdmissionPolicyReports {

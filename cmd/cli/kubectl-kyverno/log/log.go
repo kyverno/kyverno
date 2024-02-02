@@ -21,7 +21,7 @@ func configure(args ...string) error {
 
 	if isVerbose(args...) {
 		if level, err := getLogLevel(args...); err == nil {
-			return logging.Setup(logging.TextFormat, level)
+			return logging.Setup(logging.TextFormat, logging.DefaultTime, level)
 		}
 	}
 

@@ -37,8 +37,10 @@ jobs:
       - name: Generate Code Coverage Report
         run: make code-cov-report
       - name: Upload Report to Codecov
-        uses: codecov/codecov-action@ab904c41d6ece82784817410c45d8b8c02684457 # v3.1.6
+        uses: codecov/codecov-action@f30e4959ba63075080d4f7f90cacc18d9f3fafd7 # v4.0.0
         with:
-          file: ./coverage.out
+          files: ./coverage.out
           fail_ci_if_error: true
           verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

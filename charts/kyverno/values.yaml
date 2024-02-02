@@ -6,6 +6,7 @@ templating:
   version: ~
 
 global:
+
   image:
     # -- (string) Global value that allows to set a single image registry across all deployments.
     # When set, it will override any values set under `.image.registry` across the chart.
@@ -64,13 +65,28 @@ crds:
   groups:
 
     # -- Install CRDs in group `kyverno.io`
-    kyverno: true
-
-    # -- Install CRDs in group `wgpolicyk8s.io`
-    policyreport: true
+    kyverno:
+      admissionreports: true
+      backgroundscanreports: true
+      cleanuppolicies: true
+      clusteradmissionreports: true
+      clusterbackgroundscanreports: true
+      clustercleanuppolicies: true
+      clusterpolicies: true
+      globalcontextentries: true
+      policies: true
+      policyexceptions: true
+      updaterequests: true
 
     # -- Install CRDs in group `reports.kyverno.io`
-    reports: true
+    reports:
+      clusterephemeralreports: true
+      ephemeralreports: true
+
+    # -- Install CRDs in group `wgpolicyk8s.io`
+    wgpolicyk8s:
+      clusterpolicyreports: true
+      policyreports: true
 
   # -- Additional CRDs annotations
   annotations: {}

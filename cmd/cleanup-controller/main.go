@@ -26,9 +26,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 )
@@ -58,6 +60,10 @@ func (probes) IsReady(context.Context) bool {
 
 func (probes) IsLive(context.Context) bool {
 	return true
+}
+
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsInstalled(apiserverClient, "cleanuppolicies.kyverno.io", "clustercleanuppolicies.kyverno.io")
 }
 
 func main() {
@@ -94,6 +100,7 @@ func main() {
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -107,6 +114,10 @@ func main() {
 	}
 	if tlsSecretName == "" {
 		setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
+		os.Exit(1)
+	}
+	if err := sanityChecks(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
 	// certificates informers
