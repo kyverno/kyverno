@@ -1,6 +1,6 @@
 package store
 
 type Entry interface {
-	Get() (interface{}, error)
+	Get() (any, error)
 	Stop()
 }

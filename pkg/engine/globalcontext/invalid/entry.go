@@ -8,7 +8,7 @@ type entry struct {
 	err error
 }
 
-func (i *entry) Get() (interface{}, error) {
+func (i *entry) Get() (any, error) {
 	return nil, errors.Wrapf(i.err, "failed to create cached context entry")
 }
 

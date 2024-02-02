@@ -10,6 +10,7 @@ import (
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/engine/globalcontext/externalapi"
 	"github.com/kyverno/kyverno/pkg/engine/globalcontext/k8sresource"
 	"github.com/kyverno/kyverno/pkg/engine/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -101,6 +102,5 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 		}
 		return k8sresource.New(ctx, c.dynamicClient, gvr, gce.Spec.KubernetesResource.Namespace)
 	}
-	// TODO: build the store entry
-	return nil, nil
+	return externalapi.New(ctx, logger, time.Duration(gce.Spec.APICall.RefreshIntervalSeconds))
 }

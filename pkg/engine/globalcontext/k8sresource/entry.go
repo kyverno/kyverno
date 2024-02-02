@@ -48,7 +48,7 @@ func New(ctx context.Context, client dynamic.Interface, gvr schema.GroupVersionR
 	}, nil
 }
 
-func (e *entry) Get() (interface{}, error) {
+func (e *entry) Get() (any, error) {
 	obj, err := e.lister.List(labels.Everything())
 	if err != nil {
 		return nil, err
