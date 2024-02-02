@@ -93,6 +93,30 @@ func Command() *cobra.Command {
 			} else if table {
 				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
+				for _, response := range responses {
+					var failedRules []engineapi.RuleResponse
+					for _, rule := range response.PolicyResponse.Rules {
+						if rule.Status() == engineapi.RuleStatusFail {
+							failedRules = append(failedRules, rule)
+						}
+					}
+					if len(failedRules) > 0 {
+						auditWarn := false
+						if applyCommandConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
+							auditWarn = true
+						}
+						resPath := fmt.Sprintf("%s/%s/%s", response.Resource.GetNamespace(), response.Resource.GetKind(), response.Resource.GetName())
+						if auditWarn {
+							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed as audit warning:")
+						} else {
+							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
+						}
+						for i, rule := range failedRules {
+							fmt.Fprintln(out, i+1, "-", rule.Name(), rule.Message())
+						}
+						fmt.Fprintln(out, "")
+					}
+				}
 				printViolations(out, rc)
 			}
 			return exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
