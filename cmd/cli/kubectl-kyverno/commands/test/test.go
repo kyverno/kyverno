@@ -105,6 +105,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		for _, policy := range policies {
 			if res.Policy == policy.GetName() || res.Policy == "default/"+policy.GetName() {
 				policySame = true
+				if res.IsValidatingAdmissionPolicy {
+					continue
+				}
 				for _, rule := range autogen.ComputeRules(policy) {
 					if res.Rule == rule.Name {
 						ruleSame = true
@@ -114,10 +117,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			}
 		}
 		if !policySame {
-			return nil, fmt.Errorf("the policy(%v) name not found", res.Policy)
+			return nil, fmt.Errorf("The policy named %v cannot be found.", res.Policy)
 		}
 		if !ruleSame {
-			return nil, fmt.Errorf("the rule(%v) name not found", res.Rule)
+			return nil, fmt.Errorf("The rule %v cannot be found in the policy named %v.", res.Rule, res.Policy)
 		}
 	}
 	
