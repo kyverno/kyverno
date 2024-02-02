@@ -474,7 +474,7 @@ codegen-protobuf: $(PACKAGE_SHIM) $(PROTOBUF_GEN) ## Generate protobuf
 	@echo Generate protobuf... >&2
 	@GOPATH=$(GOPATH_SHIM) $(PROTOBUF_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
-		--apimachinery-packages k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/runtime/schema,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/api/rbac/v1 \
+		--apimachinery-packages +k8s.io/apimachinery/pkg/util/intstr,+k8s.io/apimachinery/pkg/api/resource,+k8s.io/apimachinery/pkg/runtime/schema,+k8s.io/apimachinery/pkg/runtime,+k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/apis/meta/v1beta1,k8s.io/apimachinery/pkg/apis/testapigroup/v1 \
 		--drop-embedded-fields k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta,k8s.io/apimachinery/pkg/runtime.Serializer \
 		--packages $(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2 \
 
