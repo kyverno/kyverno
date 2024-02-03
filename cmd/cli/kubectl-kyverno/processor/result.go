@@ -114,6 +114,7 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 	printCount := 0
 	printMutatedRes := false
 	for i, policyRule := range autogen.ComputeRules(policy) {
+		// TODO: Move the print statements below to https://github.com/kyverno/kyverno/blob/main/cmd/cli/kubectl-kyverno/commands/apply/command.go
 		for _, mutateResponseRule := range response.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name() {
 				if mutateResponseRule.Status() == engineapi.RuleStatusPass {
