@@ -41,7 +41,8 @@ kyverno apply [flags]
   -c, --cluster              Checks if policies should be applied to cluster in the current context
       --context string       The name of the kubeconfig context to use
       --detailed-results     If set to true, display detailed results
-      --exception strings    Policy exception to be considered when evaluating policies against resources
+  -e, --exception string    Policy exception to be considered when evaluating policies against resources
+      --exceptions strings
   -b, --git-branch string    test git repository branch
   -h, --help                 help for apply
       --kubeconfig string    path to kubeconfig file with authorization and master location information
@@ -50,7 +51,8 @@ kyverno apply [flags]
   -p, --policy-report        Generates policy report when passed (default policyviolation)
       --registry             If set to true, access the image registry using local docker credentials to populate external data
       --remove-color         Remove any color from output
-  -r, --resource strings     Path to resource files
+  -r, --resource string     Path to resource files
+      --resources strings    
   -s, --set strings          Variables that are required
   -i, --stdin                Optional mutate policy parameter to pipe directly through to kubectl
   -t, --table                Show results in table format
