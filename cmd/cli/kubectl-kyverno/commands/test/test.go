@@ -103,11 +103,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		if res.IsValidatingAdmissionPolicy {
 			continue
 		}
+		var ns string
 		ruleSame := false
 		policySame := false
 		for _, policy := range policies {
 			if policy.IsNamespaced() {
-				ns := policy.GetNamespace()
+				ns = policy.GetNamespace()
 				}
 			if res.Policy == policy.GetName() || res.Policy == "default/"+policy.GetName() || res.Policy == ns+"/"+policy.GetName() {
 				policySame = true
