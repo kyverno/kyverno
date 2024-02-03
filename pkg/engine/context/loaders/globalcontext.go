@@ -29,7 +29,7 @@ func NewGCTXLoader(
 	entry kyvernov1.ContextEntry,
 	enginectx enginecontext.Interface,
 	jp jmespath.Interface,
-	gctxStore *globalcontextstore.Store,
+	gctxStore globalcontextstore.Store,
 ) enginecontext.Loader {
 	return &gctxLoader{
 		ctx:       ctx,
@@ -37,7 +37,7 @@ func NewGCTXLoader(
 		entry:     entry,
 		enginectx: enginectx,
 		jp:        jp,
-		gctxStore: *gctxStore,
+		gctxStore: gctxStore,
 	}
 }
 

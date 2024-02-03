@@ -37,7 +37,7 @@ func NewEngine(
 	kyvernoClient versioned.Interface,
 	secretLister corev1listers.SecretNamespaceLister,
 	apiCallConfig apicall.APICallConfiguration,
-	gctxStore *globalcontextstore.Store,
+	gctxStore globalcontextstore.Store,
 ) engineapi.Engine {
 	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
 	exceptionsSelector := NewExceptionSelector(ctx, logger, kyvernoClient, 15*time.Minute)

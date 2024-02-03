@@ -43,7 +43,7 @@ func WithAPICallConfig(config apicall.APICallConfiguration) ContextLoaderFactory
 	}
 }
 
-func WithGlobalContextStore(gctxStore *globalcontextstore.Store) ContextLoaderFactoryOptions {
+func WithGlobalContextStore(gctxStore globalcontextstore.Store) ContextLoaderFactoryOptions {
 	return func(cl *contextLoader) {
 		cl.gctxStore = gctxStore
 	}
@@ -54,7 +54,7 @@ type contextLoader struct {
 	cmResolver    engineapi.ConfigmapResolver
 	initializers  []engineapi.Initializer
 	apiCallConfig apicall.APICallConfiguration
-	gctxStore     *globalcontextstore.Store
+	gctxStore     globalcontextstore.Store
 }
 
 func (l *contextLoader) Load(
@@ -97,7 +97,7 @@ func (l *contextLoader) newLoader(
 	rclientFactory engineapi.RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
-	gctx *globalcontextstore.Store,
+	gctx globalcontextstore.Store,
 ) (enginecontext.DeferredLoader, error) {
 	if entry.ConfigMap != nil {
 		if l.cmResolver != nil {
