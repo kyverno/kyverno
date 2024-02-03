@@ -153,6 +153,11 @@ func (in *ClusterCleanupPolicyList) DeepCopyObject() runtime.Object {
 func (in *ExternalAPICall) DeepCopyInto(out *ExternalAPICall) {
 	*out = *in
 	in.APICall.DeepCopyInto(&out.APICall)
+	if in.RefreshInterval != nil {
+		in, out := &in.RefreshInterval, &out.RefreshInterval
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	return
 }
 

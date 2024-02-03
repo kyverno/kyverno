@@ -8,7 +8,7 @@ spec:
     error: 90s
   parallel: 1
   fullName: true
-  failFast: false
+  failFast: true
   excludeTestRegex: '_.+'
   forceTerminationGracePeriod: 5s
   delayBeforeCleanup: 3s

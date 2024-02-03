@@ -19,8 +19,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
+	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -68,13 +70,14 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 
 func main() {
 	var (
-		dumpPayload       bool
-		serverIP          string
-		servicePort       int
-		webhookServerPort int
-		maxQueuedEvents   int
-		interval          time.Duration
-		renewBefore       time.Duration
+		dumpPayload              bool
+		serverIP                 string
+		servicePort              int
+		webhookServerPort        int
+		maxQueuedEvents          int
+		interval                 time.Duration
+		renewBefore              time.Duration
+		maxAPICallResponseLength int64
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -87,6 +90,7 @@ func main() {
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
+	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -101,6 +105,7 @@ func main() {
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
 		internal.WithApiServerClient(),
+		internal.WithGlobalContext(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -155,6 +160,16 @@ func main() {
 		event.ControllerName,
 		eventGenerator,
 		event.Workers,
+	)
+	gceController := internal.NewController(
+		globalcontextcontroller.ControllerName,
+		globalcontextcontroller.NewController(
+			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+			setup.KyvernoDynamicClient,
+			store.New(),
+			maxAPICallResponseLength,
+		),
+		globalcontextcontroller.Workers,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
@@ -349,6 +364,7 @@ func main() {
 	defer server.Stop()
 	// start non leader controllers
 	eventController.Run(ctx, setup.Logger, &wg)
+	gceController.Run(ctx, setup.Logger, &wg)
 	// start leader election
 	le.Run(ctx)
 	// wait for everything to shut down and exit

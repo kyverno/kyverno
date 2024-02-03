@@ -1165,7 +1165,7 @@ Requires Kubernetes 1.27 or later.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#kyverno-io-v1-ContextEntry">ContextEntry</a>)
+        <a href="#kyverno-io-v1-ContextAPICall">ContextAPICall</a>)
     </p>
   
 
@@ -1305,39 +1305,6 @@ for details.</p>
           
 
           <p>Service is an API call to a JSON web service</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>jmesPath</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>JMESPath is an optional JSON Match Expression that can be used to
-transform the JSON response returned from the server. For example
-a JMESPath of &quot;items | length(@)&quot; applied to the API server response
-for the URLPath &quot;/apis/apps/v1/deployments&quot; will return the total count
-of deployments across all namespaces.</p>
 
 
           
@@ -2818,6 +2785,106 @@ or can be variables declared using JMESPath.</p>
     </table>
   
 
+  <H3 id="kyverno-io-v1-ContextAPICall">ContextAPICall
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ContextEntry">ContextEntry</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>APICall</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-APICall">
+                <span style="font-family: monospace">APICall</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>APICall</code> are embedded into this type.)</p>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>jmesPath</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>JMESPath is an optional JSON Match Expression that can be used to
+transform the JSON response returned from the server. For example
+a JMESPath of &quot;items | length(@)&quot; applied to the API server response
+for the URLPath &quot;/apis/apps/v1/deployments&quot; will return the total count
+of deployments across all namespaces.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v1-ContextEntry">ContextEntry
     </H3>
 
@@ -2924,8 +2991,8 @@ ConfigMap reference or a APILookup must be provided.</p>
           
           
             
-              <a href="#kyverno-io-v1-APICall">
-                <span style="font-family: monospace">APICall</span>
+              <a href="#kyverno-io-v1-ContextAPICall">
+                <span style="font-family: monospace">ContextAPICall</span>
               </a>
             
           

@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -28,13 +27,22 @@ const (
 	LogLevelController = 1
 	// LogLevelClient is the log level to use for clients.
 	LogLevelClient = 1
+	// time formats
+	DefaultTime = "default"
+	ISO8601     = "iso8601"
+	RFC3339     = "rfc3339"
+	MILLIS      = "millis"
+	NANOS       = "nanos"
+	EPOCH       = "epoch"
+	RFC3339NANO = "rfc3339nano"
 )
 
 // Initially, globalLog comes from controller-runtime/log with logger created earlier by controller-runtime.
 // When logging.Setup is called, globalLog is switched to the real logger.
 // Call depth of all loggers created before logging.Setup will not work, including package level loggers as they are created before main.
 // All loggers created after logging.Setup won't be subject to the call depth limitation and will work if the underlying sink supports it.
-var globalLog = log.Log
+
+var globalLog = log.Log // returns a Null log sink if SetLogger is not called.
 
 func InitFlags(flags *flag.FlagSet) {
 	// clear flags initialized in static dependencies
@@ -46,28 +54,44 @@ func InitFlags(flags *flag.FlagSet) {
 
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
-func Setup(logFormat string, level int) error {
+func Setup(logFormat string, loggingTimestampFormat string, level int) error {
+	var zc zap.Config
 	switch logFormat {
 	case TextFormat:
-		config := textlogger.NewConfig(
-			textlogger.Verbosity(level),
-			textlogger.Output(os.Stdout),
-		)
-		globalLog = textlogger.NewLogger(config)
+		zc = zap.NewDevelopmentConfig()
 	case JSONFormat:
-		zc := zap.NewProductionConfig()
-		// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).
-		zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-1 * level))
-		zapLog, err := zc.Build()
-		if err != nil {
-			return err
-		}
-		globalLog = zapr.NewLogger(zapLog)
-		// in json mode we configure klog and global logger to use zapr
-		klog.SetLogger(globalLog.WithName("klog"))
+		zc = zap.NewProductionConfig()
 	default:
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}
+	// configure the timestamp format
+	switch loggingTimestampFormat {
+	case ISO8601:
+		zc.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	case RFC3339:
+		zc.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
+	case MILLIS:
+		zc.EncoderConfig.EncodeTime = zapcore.EpochMillisTimeEncoder
+	case NANOS:
+		zc.EncoderConfig.EncodeTime = zapcore.EpochNanosTimeEncoder
+	case EPOCH:
+		zc.EncoderConfig.EncodeTime = zapcore.EpochTimeEncoder
+	case RFC3339NANO:
+		zc.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+	case "default":
+		zc.EncoderConfig.EncodeTime = zapcore.EpochNanosTimeEncoder
+	default:
+		return errors.New("timestamp format not recognized, pass `iso8601` for ISO8601, `rfc3339` for RFC3339, `rfc3339nano` for RFC3339NANO, `millis` for Epoch Millis, `nanos` for Epoch Nanos, or omit the flag for the Unix Epoch timestamp format")
+	}
+	// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).
+	zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-1 * level))
+	zapLog, err := zc.Build()
+	if err != nil {
+		return err
+	}
+	globalLog = zapr.NewLogger(zapLog)
+	// in json mode we configure klog and global logger to use zapr
+	klog.SetLogger(globalLog.WithName("klog"))
 	log.SetLogger(globalLog)
 	return nil
 }
