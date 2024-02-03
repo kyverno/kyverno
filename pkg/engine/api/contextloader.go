@@ -6,7 +6,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	globalcontextstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 )
 
 type RegistryClientFactory interface {
@@ -27,6 +26,5 @@ type ContextLoader interface {
 		rclientFactory RegistryClientFactory,
 		contextEntries []kyvernov1.ContextEntry,
 		jsonContext enginecontext.Interface,
-		gctxStore *globalcontextstore.Store,
 	) error
 }

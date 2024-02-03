@@ -191,7 +191,6 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 		nil,
 		spec.Context,
 		enginectx,
-		nil,
 	); err != nil {
 		return err
 	}

@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	globalcontextstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -37,7 +36,6 @@ type engine struct {
 	contextLoader            engineapi.ContextLoaderFactory
 	exceptionSelector        engineapi.PolicyExceptionSelector
 	imageSignatureRepository string
-	gctxStore                *globalcontextstore.Store
 	// metrics
 	resultCounter     metric.Int64Counter
 	durationHistogram metric.Float64Histogram
@@ -55,7 +53,6 @@ func NewEngine(
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 	imageSignatureRepository string,
-	gtxStore *globalcontextstore.Store,
 ) engineapi.Engine {
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
@@ -82,7 +79,6 @@ func NewEngine(
 		contextLoader:            contextLoader,
 		exceptionSelector:        exceptionSelector,
 		imageSignatureRepository: imageSignatureRepository,
-		gctxStore:                gtxStore,
 		resultCounter:            resultCounter,
 		durationHistogram:        durationHistogram,
 	}
@@ -186,7 +182,6 @@ func (e *engine) ContextLoader(
 			e.rclientFactory,
 			contextEntries,
 			jsonContext,
-			e.gctxStore,
 		)
 	}
 }

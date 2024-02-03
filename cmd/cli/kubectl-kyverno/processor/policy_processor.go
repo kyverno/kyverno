@@ -82,7 +82,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		store.ContextLoaderFactory(p.Store, nil),
 		policyExceptionLister,
 		"",
-		nil,
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource

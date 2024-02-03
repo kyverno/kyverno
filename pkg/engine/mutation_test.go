@@ -43,7 +43,6 @@ func testMutate(
 		contextLoader,
 		nil,
 		"",
-		nil,
 	)
 	return e.Mutate(
 		ctx,

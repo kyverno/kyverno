@@ -43,11 +43,18 @@ func WithAPICallConfig(config apicall.APICallConfiguration) ContextLoaderFactory
 	}
 }
 
+func WithGlobalContextStore(gctxStore *globalcontextstore.Store) ContextLoaderFactoryOptions {
+	return func(cl *contextLoader) {
+		cl.gctxStore = gctxStore
+	}
+}
+
 type contextLoader struct {
 	logger        logr.Logger
 	cmResolver    engineapi.ConfigmapResolver
 	initializers  []engineapi.Initializer
 	apiCallConfig apicall.APICallConfiguration
+	gctxStore     *globalcontextstore.Store
 }
 
 func (l *contextLoader) Load(
@@ -57,7 +64,6 @@ func (l *contextLoader) Load(
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
-	gctxStore *globalcontextstore.Store,
 ) error {
 	for _, init := range l.initializers {
 		if err := init(jsonContext); err != nil {
@@ -65,7 +71,7 @@ func (l *contextLoader) Load(
 		}
 	}
 	for _, entry := range contextEntries {
-		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext, gctxStore)
+		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext, l.gctxStore)
 		if err != nil {
 			return fmt.Errorf("failed to create deferred loader for context entry %s", entry.Name)
 		}

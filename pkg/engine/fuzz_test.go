@@ -44,7 +44,6 @@ var (
 		factories.DefaultContextLoaderFactory(nil),
 		nil,
 		"",
-		nil,
 	)
 	initter sync.Once
 )
@@ -129,7 +128,6 @@ func FuzzVerifyImageAndPatchTest(f *testing.F) {
 			factories.DefaultContextLoaderFactory(nil),
 			nil,
 			"",
-			nil,
 		)
 
 		_, _ = verifyImageAndPatchEngine.VerifyAndPatchImages(
@@ -277,7 +275,6 @@ func FuzzMutateTest(f *testing.F) {
 			factories.DefaultContextLoaderFactory(nil),
 			nil,
 			"",
-			nil,
 		)
 		e.Mutate(
 			context.Background(),

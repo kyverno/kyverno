@@ -63,7 +63,6 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			factories.DefaultContextLoaderFactory(configMapResolver),
 			peLister,
 			"",
-			nil,
 		),
 	}
 }
