@@ -69,6 +69,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.ConditionApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ConfigMapReference"):
 		return &kyvernov1.ConfigMapReferenceApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ContextAPICall"):
+		return &kyvernov1.ContextAPICallApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ContextEntry"):
 		return &kyvernov1.ContextEntryApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("CTLog"):

@@ -23,7 +23,7 @@ package v1
 type ContextEntryApplyConfiguration struct {
 	Name            *string                                        `json:"name,omitempty"`
 	ConfigMap       *ConfigMapReferenceApplyConfiguration          `json:"configMap,omitempty"`
-	APICall         *APICallApplyConfiguration                     `json:"apiCall,omitempty"`
+	APICall         *ContextAPICallApplyConfiguration              `json:"apiCall,omitempty"`
 	ImageRegistry   *ImageRegistryApplyConfiguration               `json:"imageRegistry,omitempty"`
 	Variable        *VariableApplyConfiguration                    `json:"variable,omitempty"`
 	GlobalReference *GlobalContextEntryReferenceApplyConfiguration `json:"globalReference,omitempty"`
@@ -54,7 +54,7 @@ func (b *ContextEntryApplyConfiguration) WithConfigMap(value *ConfigMapReference
 // WithAPICall sets the APICall field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APICall field is set to the value of the last call.
-func (b *ContextEntryApplyConfiguration) WithAPICall(value *APICallApplyConfiguration) *ContextEntryApplyConfiguration {
+func (b *ContextEntryApplyConfiguration) WithAPICall(value *ContextAPICallApplyConfiguration) *ContextEntryApplyConfiguration {
 	b.APICall = value
 	return b
 }
