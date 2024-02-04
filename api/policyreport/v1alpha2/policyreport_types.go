@@ -35,24 +35,24 @@ import (
 // PolicyReport is the Schema for the policyreports API
 type PolicyReport struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)
 	// +optional
-	Scope *corev1.ObjectReference `json:"scope,omitempty"`
+	Scope *corev1.ObjectReference `json:"scope,omitempty"  protobuf:"bytes,2,opt,name=scope"`
 
 	// ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
 	// Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
 	// +optional
-	ScopeSelector *metav1.LabelSelector `json:"scopeSelector,omitempty"`
+	ScopeSelector *metav1.LabelSelector `json:"scopeSelector,omitempty" protobuf:"bytes,3,opt,name=scopeSelector"`
 
 	// PolicyReportSummary provides a summary of results
 	// +optional
-	Summary PolicyReportSummary `json:"summary,omitempty"`
+	Summary PolicyReportSummary `json:"summary,omitempty" protobuf:"bytes,4,opt,name=summary"`
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []PolicyReportResult `json:"results,omitempty"`
+	Results []PolicyReportResult `json:"results,omitempty" protobuf:"bytes,5,opt,name=results"`
 }
 
 func (r *PolicyReport) GetResults() []PolicyReportResult {
@@ -73,6 +73,6 @@ func (r *PolicyReport) SetSummary(summary PolicyReportSummary) {
 // PolicyReportList contains a list of PolicyReport
 type PolicyReportList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PolicyReport `json:"items"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Items           []PolicyReport `json:"items" protobuf:"bytes,2,opt,name=items"`
 }

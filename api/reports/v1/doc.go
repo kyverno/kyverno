@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 // +k8s:openapi-gen=true
+// +k8s:protobuf-gen=package
 // +k8s:deepcopy-gen=package
 // +kubebuilder:object:generate=true
 // +groupName=reports.kyverno.io

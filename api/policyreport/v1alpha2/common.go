@@ -42,23 +42,23 @@ const (
 type PolicyReportSummary struct {
 	// Pass provides the count of policies whose requirements were met
 	// +optional
-	Pass int `json:"pass"`
+	Pass int `json:"pass" protobuf:"bytes,1,opt,name=pass"`
 
 	// Fail provides the count of policies whose requirements were not met
 	// +optional
-	Fail int `json:"fail"`
+	Fail int `json:"fail" protobuf:"bytes,2,opt,name=fail"`
 
 	// Warn provides the count of non-scored policies whose requirements were not met
 	// +optional
-	Warn int `json:"warn"`
+	Warn int `json:"warn" protobuf:"bytes,3,opt,name=warn"`
 
 	// Error provides the count of policies that could not be evaluated
 	// +optional
-	Error int `json:"error"`
+	Error int `json:"error" protobuf:"bytes,4,opt,name=error"`
 
 	// Skip indicates the count of policies that were not selected for evaluation
 	// +optional
-	Skip int `json:"skip"`
+	Skip int `json:"skip" protobuf:"bytes,5,opt,name=skip"`
 }
 
 func (prs PolicyReportSummary) ToMap() map[string]interface{} {
@@ -92,46 +92,46 @@ type PolicySeverity string
 type PolicyReportResult struct {
 	// Source is an identifier for the policy engine that manages this report
 	// +optional
-	Source string `json:"source"`
+	Source string `json:"source" protobuf:"bytes,1,opt,name=source"`
 
 	// Policy is the name or identifier of the policy
-	Policy string `json:"policy"`
+	Policy string `json:"policy" protobuf:"bytes,2,opt,name=policy"`
 
 	// Rule is the name or identifier of the rule within the policy
 	// +optional
-	Rule string `json:"rule,omitempty"`
+	Rule string `json:"rule,omitempty" protobuf:"bytes,3,opt,name=rule"`
 
 	// Subjects is an optional reference to the checked Kubernetes resources
 	// +optional
-	Resources []corev1.ObjectReference `json:"resources,omitempty"`
+	Resources []corev1.ObjectReference `json:"resources,omitempty" protobuf:"bytes,4,opt,name=resources"`
 
 	// SubjectSelector is an optional label selector for checked Kubernetes resources.
 	// For example, a policy result may apply to all pods that match a label.
 	// Either a Subject or a SubjectSelector can be specified.
 	// If neither are provided, the result is assumed to be for the policy report scope.
 	// +optional
-	ResourceSelector *metav1.LabelSelector `json:"resourceSelector,omitempty"`
+	ResourceSelector *metav1.LabelSelector `json:"resourceSelector,omitempty" protobuf:"bytes,5,opt,name=resourceSelector"`
 
 	// Description is a short user friendly message for the policy rule
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 
 	// Result indicates the outcome of the policy rule execution
-	Result PolicyResult `json:"result,omitempty"`
+	Result PolicyResult `json:"result,omitempty" protobuf:"bytes,7,opt,name=result"`
 
 	// Scored indicates if this result is scored
-	Scored bool `json:"scored,omitempty"`
+	Scored bool `json:"scored,omitempty" protobuf:"varint,8,opt,name=scored"`
 
 	// Properties provides additional information for the policy rule
-	Properties map[string]string `json:"properties,omitempty"`
+	Properties map[string]string `json:"properties,omitempty" protobuf:"bytes,9,opt,name=properties"`
 
 	// Timestamp indicates the time the result was found
-	Timestamp metav1.Timestamp `json:"timestamp,omitempty"`
+	Timestamp metav1.Timestamp `json:"timestamp,omitempty" protobuf:"bytes,10,opt,name=timestamp"`
 
 	// Category indicates policy category
 	// +optional
-	Category string `json:"category,omitempty"`
+	Category string `json:"category,omitempty" protobuf:"bytes,11,opt,name=category"`
 
 	// Severity indicates policy check result criticality
 	// +optional
-	Severity PolicySeverity `json:"severity,omitempty"`
+	Severity PolicySeverity `json:"severity,omitempty" protobuf:"bytes,12,opt,name=severity"`
 }

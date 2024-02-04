@@ -23,15 +23,15 @@ import (
 
 type EphemeralReportSpec struct {
 	// Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)
-	Owner metav1.OwnerReference `json:"owner"`
+	Owner metav1.OwnerReference `json:"owner" protobuf:"bytes,1,opt,name=owner"`
 
 	// PolicyReportSummary provides a summary of results
 	// +optional
-	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
+	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty" protobuf:"bytes,2,opt,name=summary"`
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
+	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty" protobuf:"bytes,3,opt,name=results"`
 }
 
 // +genclient
@@ -55,8 +55,8 @@ type EphemeralReportSpec struct {
 // EphemeralReport is the Schema for the EphemeralReports API
 type EphemeralReport struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              EphemeralReportSpec `json:"spec"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Spec              EphemeralReportSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
 }
 
 func (r *EphemeralReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
@@ -93,8 +93,8 @@ func (r *EphemeralReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // ClusterEphemeralReport is the Schema for the ClusterEphemeralReports API
 type ClusterEphemeralReport struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              EphemeralReportSpec `json:"spec"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Spec              EphemeralReportSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
 }
 
 func (r *ClusterEphemeralReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
@@ -115,8 +115,8 @@ func (r *ClusterEphemeralReport) SetSummary(summary policyreportv1alpha2.PolicyR
 // EphemeralReportList contains a list of EphemeralReport
 type EphemeralReportList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []EphemeralReport `json:"items"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Items           []EphemeralReport `json:"items" protobuf:"bytes,2,opt,name=items"`
 }
 
 // +kubebuilder:object:root=true
@@ -125,6 +125,6 @@ type EphemeralReportList struct {
 // ClusterEphemeralReportList contains a list of ClusterEphemeralReport
 type ClusterEphemeralReportList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterEphemeralReport `json:"items"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Items           []ClusterEphemeralReport `json:"items" protobuf:"bytes,2,opt,name=items"`
 }

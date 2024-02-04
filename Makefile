@@ -42,6 +42,7 @@ LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
 OPENAPI_GEN                        ?= $(TOOLS_DIR)/openapi-gen
 REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
+PROTOBUF_GEN                       ?= $(TOOLS_DIR)/go-to-protobuf
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
 DEFAULTER_GEN                      ?= $(TOOLS_DIR)/defaulter-gen
 APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
@@ -59,7 +60,7 @@ HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.14.1
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(PROTOBUF_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -94,6 +95,12 @@ $(OPENAPI_GEN):
 $(REGISTER_GEN):
 	@echo Install register-gen... >&2
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/register-gen@$(CODE_GEN_VERSION)
+
+$(PROTOBUF_GEN):
+	@echo Install go-to-protobuf... >&2
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/go-to-protobuf@$(CODE_GEN_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+	@GOBIN=$(TOOLS_DIR) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
 $(DEEPCOPY_GEN):
 	@echo Install deepcopy-gen... >&2
@@ -462,6 +469,15 @@ codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registration
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS)
 
+.PHONY: codegen-protobuf
+codegen-protobuf: $(PACKAGE_SHIM) $(PROTOBUF_GEN) ## Generate protobuf
+	@echo Generate protobuf... >&2
+	@GOPATH=$(GOPATH_SHIM) $(PROTOBUF_GEN) \
+		--go-header-file=./scripts/boilerplate.go.txt \
+		--apimachinery-packages +k8s.io/apimachinery/pkg/util/intstr,+k8s.io/apimachinery/pkg/api/resource,+k8s.io/apimachinery/pkg/runtime/schema,+k8s.io/apimachinery/pkg/runtime,+k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/apis/meta/v1beta1,k8s.io/apimachinery/pkg/apis/testapigroup/v1 \
+		--drop-embedded-fields k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta,k8s.io/apimachinery/pkg/runtime.Serializer \
+		--packages $(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2 \
+
 .PHONY: codegen-deepcopy-all
 codegen-deepcopy-all: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
 	@echo Generate deep copy functions... >&2
@@ -484,8 +500,9 @@ codegen-applyconfigurations: $(PACKAGE_SHIM) $(APPLYCONFIGURATION_GEN) ## Genera
 		--input-dirs=$(INPUT_DIRS) \
 		--output-package $(APPLYCONFIGURATIONS_PACKAGE)
 
+
 .PHONY: codegen-client-all
-codegen-client-all: codegen-register codegen-defaulters codegen-applyconfigurations codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
+codegen-client-all: codegen-register codegen-protobuf codegen-defaulters codegen-applyconfigurations codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
