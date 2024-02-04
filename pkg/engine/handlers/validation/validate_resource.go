@@ -392,7 +392,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 			}
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", v.rule.Name, errorStr))
-			msg := buildAnyPatternErrorMessage(v.rule, errorStr)
+			msg := v.buildAnyPatternErrorMessage(v.rule, errorStr)
 			return engineapi.RuleFail(v.rule.Name, engineapi.Validation, msg)
 		}
 	}
@@ -443,28 +443,24 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	}
 }
 
-func buildAnyPatternErrorMessage(rule kyvernov1.Rule, errors []string) string {
+func (v *validator) buildAnyPatternErrorMessage(rule kyvernov1.Rule, errors []string) string {
 	errStr := strings.Join(errors, " ")
 	if rule.Validation.Message == "" {
 		return fmt.Sprintf("validation error: %s", errStr)
 	}
-
- msgRaw, sErr := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.rule.Validation.Message)
-	if sErr != nil {
-		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
-		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, err.Error())
-	} else {
+    msgRaw, sErr := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.rule.Validation.Message)
+    if sErr != nil {
+	    v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
+		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, errStr)
+    } else {
 		msg := msgRaw.(string)
- }
- 
-
-	if strings.HasSuffix(msg, ".") {
-		return fmt.Sprintf("validation error: %s %s", msg, errStr)
+		if strings.HasSuffix(msg, ".") {
+			return fmt.Sprintf("validation error: %s %s", msg, errStr)
 	}
-
-	return fmt.Sprintf("validation error: %s. %s", msg, errStr)
-}
-
+    return fmt.Sprintf("validation error: %s. %s", msg, errStr)
+	}
+}	
+        
 func (v *validator) substitutePatterns() error {
 	if v.pattern != nil {
 		i, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.pattern)
