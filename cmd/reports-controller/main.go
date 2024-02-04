@@ -14,6 +14,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
@@ -22,8 +23,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -34,6 +38,15 @@ import (
 const (
 	resyncPeriod = 15 * time.Minute
 )
+
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsInstalled(apiserverClient,
+		"clusterpolicyreports.wgpolicyk8s.io",
+		"policyreports.wgpolicyk8s.io",
+		"clusterbackgroundscanreports.kyverno.io",
+		"backgroundscanreports.kyverno.io",
+	)
+}
 
 func createReportControllers(
 	eng engineapi.Engine,
@@ -230,6 +243,8 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
+		internal.WithApiServerClient(),
+		internal.WithGlobalContext(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -244,6 +259,10 @@ func main() {
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
+	if err := sanityChecks(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		os.Exit(1)
+	}
 	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
 	// check if validating admission policies are registered in the API server
 	if validatingAdmissionPolicyReports {
@@ -265,6 +284,16 @@ func main() {
 		event.ControllerName,
 		eventGenerator,
 		event.Workers,
+	)
+	gceController := internal.NewController(
+		globalcontextcontroller.ControllerName,
+		globalcontextcontroller.NewController(
+			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+			setup.KyvernoDynamicClient,
+			store.New(),
+			maxAPICallResponseLength,
+		),
+		globalcontextcontroller.Workers,
 	)
 	// engine
 	engine := internal.NewEngine(
@@ -355,6 +384,7 @@ func main() {
 	}
 	// start non leader controllers
 	eventController.Run(ctx, setup.Logger, &wg)
+	gceController.Run(ctx, setup.Logger, &wg)
 	// start leader election
 	le.Run(ctx)
 	// wait for everything to shut down and exit

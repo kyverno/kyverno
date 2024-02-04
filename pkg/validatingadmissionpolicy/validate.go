@@ -14,8 +14,6 @@ import (
 	"golang.org/x/text/language"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
-	"k8s.io/api/admissionregistration/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -80,30 +78,7 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 		matcher := validatingadmissionpolicy.NewMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 
 		// convert policy from v1alpha1 to v1beta1
-		var namespaceSelector, objectSelector metav1.LabelSelector
-		if policy.Spec.MatchConstraints.NamespaceSelector != nil {
-			namespaceSelector = *policy.Spec.MatchConstraints.NamespaceSelector
-		}
-		if policy.Spec.MatchConstraints.ObjectSelector != nil {
-			objectSelector = *policy.Spec.MatchConstraints.ObjectSelector
-		}
-		v1beta1policy := &v1beta1.ValidatingAdmissionPolicy{
-			Spec: v1beta1.ValidatingAdmissionPolicySpec{
-				FailurePolicy: (*v1beta1.FailurePolicyType)(policy.Spec.FailurePolicy),
-				ParamKind:     (*v1beta1.ParamKind)(policy.Spec.ParamKind),
-				MatchConstraints: &v1beta1.MatchResources{
-					NamespaceSelector:    &namespaceSelector,
-					ObjectSelector:       &objectSelector,
-					ResourceRules:        convertRules(policy.Spec.MatchConstraints.ResourceRules),
-					ExcludeResourceRules: convertRules(policy.Spec.MatchConstraints.ExcludeResourceRules),
-					MatchPolicy:          (*v1beta1.MatchPolicyType)(policy.Spec.MatchConstraints.MatchPolicy),
-				},
-				Validations:      convertValidations(policy.Spec.Validations),
-				AuditAnnotations: convertAuditAnnotations(policy.Spec.AuditAnnotations),
-				MatchConditions:  convertMatchConditions(policy.Spec.MatchConditions),
-				Variables:        convertVariables(policy.Spec.Variables),
-			},
-		}
+		v1beta1policy := ConvertValidatingAdmissionPolicy(policy)
 
 		// construct admission attributes
 		gvr, err = client.Discovery().GetGVRFromGVK(resource.GroupVersionKind())
@@ -114,7 +89,7 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 
 		// check if policy matches the incoming resource
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-		isMatch, _, _, err := matcher.DefinitionMatches(a, o, v1beta1policy)
+		isMatch, _, _, err := matcher.DefinitionMatches(a, o, &v1beta1policy)
 		if err != nil {
 			return engineResponse, err
 		}
@@ -130,48 +105,8 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 		} else {
 			for i, binding := range bindings {
 				// convert policy binding from v1alpha1 to v1beta1
-				var namespaceSelector, objectSelector, paramSelector metav1.LabelSelector
-				var resourceRules, excludeResourceRules []v1alpha1.NamedRuleWithOperations
-				var matchPolicy *v1alpha1.MatchPolicyType
-				if binding.Spec.MatchResources != nil {
-					if binding.Spec.MatchResources.NamespaceSelector != nil {
-						namespaceSelector = *binding.Spec.MatchResources.NamespaceSelector
-					}
-					if binding.Spec.MatchResources.ObjectSelector != nil {
-						objectSelector = *binding.Spec.MatchResources.ObjectSelector
-					}
-					resourceRules = binding.Spec.MatchResources.ResourceRules
-					excludeResourceRules = binding.Spec.MatchResources.ExcludeResourceRules
-					matchPolicy = binding.Spec.MatchResources.MatchPolicy
-				}
-
-				var paramRef v1beta1.ParamRef
-				if binding.Spec.ParamRef != nil {
-					paramRef.Name = binding.Spec.ParamRef.Name
-					paramRef.Namespace = binding.Spec.ParamRef.Namespace
-					if binding.Spec.ParamRef.Selector != nil {
-						paramRef.Selector = binding.Spec.ParamRef.Selector
-					} else {
-						paramRef.Selector = &paramSelector
-					}
-					paramRef.ParameterNotFoundAction = (*v1beta1.ParameterNotFoundActionType)(binding.Spec.ParamRef.ParameterNotFoundAction)
-				}
-
-				v1beta1binding := &v1beta1.ValidatingAdmissionPolicyBinding{
-					Spec: v1beta1.ValidatingAdmissionPolicyBindingSpec{
-						PolicyName: binding.Spec.PolicyName,
-						ParamRef:   &paramRef,
-						MatchResources: &v1beta1.MatchResources{
-							NamespaceSelector:    &namespaceSelector,
-							ObjectSelector:       &objectSelector,
-							ResourceRules:        convertRules(resourceRules),
-							ExcludeResourceRules: convertRules(excludeResourceRules),
-							MatchPolicy:          (*v1beta1.MatchPolicyType)(matchPolicy),
-						},
-						ValidationActions: convertValidationActions(binding.Spec.ValidationActions),
-					},
-				}
-				isMatch, err := matcher.BindingMatches(a, o, v1beta1binding)
+				v1beta1binding := ConvertValidatingAdmissionPolicyBinding(binding)
+				isMatch, err := matcher.BindingMatches(a, o, &v1beta1binding)
 				if err != nil {
 					return engineResponse, err
 				}
@@ -202,7 +137,8 @@ func validateResource(policy v1alpha1.ValidatingAdmissionPolicy, binding *v1alph
 	var ruleResp *engineapi.RuleResponse
 
 	// compile CEL expressions
-	compiler, err := celutils.NewCompiler(policy.Spec.Validations, policy.Spec.AuditAnnotations, policy.Spec.MatchConditions, policy.Spec.Variables)
+	matchConditions := ConvertMatchConditionsV1(policy.Spec.MatchConditions)
+	compiler, err := celutils.NewCompiler(policy.Spec.Validations, policy.Spec.AuditAnnotations, matchConditions, policy.Spec.Variables)
 	if err != nil {
 		return engineResponse, err
 	}

@@ -48,6 +48,8 @@ APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
 CODE_GEN_VERSION                   ?= v0.28.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
+GENREF                             ?= $(TOOLS_DIR)/genref
+GENREF_VERSION                     ?= master
 GO_ACC                             ?= $(TOOLS_DIR)/go-acc
 GO_ACC_VERSION                     ?= latest
 GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
@@ -59,7 +61,7 @@ HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.14.1
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -110,6 +112,10 @@ $(APPLYCONFIGURATION_GEN):
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@echo Install gen-crd-api-reference-docs... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/ahmetb/gen-crd-api-reference-docs@$(GEN_CRD_API_REFERENCE_DOCS_VERSION)
+
+$(GENREF):
+	@echo Install genref... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/kubernetes-sigs/reference-docs/genref@$(GENREF_VERSION)
 
 $(GO_ACC):
 	@echo Install go-acc... >&2
@@ -420,6 +426,7 @@ $(PACKAGE_SHIM): $(GOPATH_SHIM)
 .PHONY: codegen-client-clientset
 codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 	@echo Generate clientset... >&2
+	@rm -rf $(CLIENTSET_PACKAGE) && mkdir -p $(CLIENTSET_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--clientset-name versioned \
@@ -430,6 +437,7 @@ codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 .PHONY: codegen-client-listers
 codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
 	@echo Generate listers... >&2
+	@rm -rf $(LISTERS_PACKAGE) && mkdir -p $(LISTERS_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-package $(LISTERS_PACKAGE) \
@@ -438,6 +446,7 @@ codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
 .PHONY: codegen-client-informers
 codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@echo Generate informers... >&2
+	@rm -rf $(INFORMERS_PACKAGE) && mkdir -p $(INFORMERS_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-package $(INFORMERS_PACKAGE) \
@@ -475,6 +484,7 @@ codegen-defaulters: $(PACKAGE_SHIM) $(DEFAULTER_GEN) ## Generate defaulters
 .PHONY: codegen-applyconfigurations
 codegen-applyconfigurations: $(PACKAGE_SHIM) $(APPLYCONFIGURATION_GEN) ## Generate apply configurations
 	@echo Generate applyconfigurations... >&2
+	@rm -rf $(APPLYCONFIGURATIONS_PACKAGE) && mkdir -p $(APPLYCONFIGURATIONS_PACKAGE)
 	@GOPATH=$(GOPATH_SHIM) $(APPLYCONFIGURATION_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS) \
@@ -497,7 +507,7 @@ codegen-crds-policyreport: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 
 .PHONY: codegen-crds-reports
 codegen-crds-reports: $(CONTROLLER_GEN) ## Generate reports CRDs
-	@echo Generate policy reports crds... >&2
+	@echo Generate reports crds... >&2
 	@rm -rf $(CRDS_PATH)/reports && mkdir -p $(CRDS_PATH)/reports
 	@$(CONTROLLER_GEN) crd paths=./api/reports/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/reports
 
@@ -516,7 +526,7 @@ codegen-helm-docs: ## Generate helm docs
 	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
 
 .PHONY: codegen-api-docs
-codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
+codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Generate API docs
 	@echo Generate api docs... >&2
 	@rm -rf docs/user/crd && mkdir -p docs/user/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
@@ -524,9 +534,13 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
 		-out-file docs/user/crd/index.html
+	@cd ./docs/user && GOPATH=$(GOPATH_SHIM) $(GENREF) \
+		-c config-api.yaml \
+		-o crd \
+		-f html
 
 .PHONY: codegen-cli-api-docs
-codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate CLI API docs
+codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Generate CLI API docs
 	@echo Generate CLI api docs... >&2
 	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
@@ -534,6 +548,10 @@ codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate 
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
 		-out-file docs/user/cli/crd/index.html
+	@cd ./docs/user && GOPATH=$(GOPATH_SHIM) $(GENREF) \
+		-c config-cli-api.yaml \
+		-o cli/crd \
+		-f html
 
 .PHONY: codegen-cli-docs
 codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
@@ -551,7 +569,7 @@ codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CL
 	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all
-codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
+codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs codegen-cli-api-docs ## Generate all docs
 
 .PHONY: codegen-fix-tests
 codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
@@ -566,37 +584,39 @@ codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
 .PHONY: codegen-cli-all
 codegen-cli-all: codegen-cli-crds codegen-cli-docs codegen-cli-api-docs codegen-fix-tests ## Generate all CLI related code and docs
 
+define generate_crd
+	@echo "{{- if .Values.groups.$(4).$(5) }}" > ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+	@cat $(CRDS_PATH)/$(2)/$(1) \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
+		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
+ 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
+		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+ 		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
+endef
+
 .PHONY: codegen-helm-crds
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
-	@rm -rf ./charts/kyverno/charts/crds/templates/*.yaml
-	@echo "{{- if .Values.groups.kyverno }}" > ./charts/kyverno/charts/crds/templates/kyverno.yaml
-	@cat $(CRDS_PATH)/kyverno/* \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		>> ./charts/kyverno/charts/crds/templates/kyverno.yaml
-	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/kyverno.yaml
-	@echo "{{- if .Values.groups.reports }}" > ./charts/kyverno/charts/crds/templates/reports.yaml
-	@cat $(CRDS_PATH)/reports/* \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		>> ./charts/kyverno/charts/crds/templates/reports.yaml
-	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/reports.yaml
-	@echo "{{- if .Values.groups.policyreport }}" > ./charts/kyverno/charts/crds/templates/policyreport.yaml
-	@cat $(CRDS_PATH)/policyreport/* \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- toYaml . | nindent 4 }}' \
-		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
- 		| $(SED) -e '/^  annotations:/i \ \ labels:' \
-		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
- 		>> ./charts/kyverno/charts/crds/templates/policyreport.yaml
-	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/policyreport.yaml
+	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
+	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
+	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
+	$(call generate_crd,kyverno.io_admissionreports.yaml,kyverno,kyverno.io,kyverno,admissionreports)
+	$(call generate_crd,kyverno.io_backgroundscanreports.yaml,kyverno,kyverno.io,kyverno,backgroundscanreports)
+	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
+	$(call generate_crd,kyverno.io_clusteradmissionreports.yaml,kyverno,kyverno.io,kyverno,clusteradmissionreports)
+	$(call generate_crd,kyverno.io_clusterbackgroundscanreports.yaml,kyverno,kyverno.io,kyverno,clusterbackgroundscanreports)
+	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno,clustercleanuppolicies)
+	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno,clusterpolicies)
+	$(call generate_crd,kyverno.io_globalcontextentries.yaml,kyverno,kyverno.io,kyverno,globalcontextentries)
+	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno,policies)
+	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno,policyexceptions)
+	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
+	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports)
+	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports)
+	$(call generate_crd,wgpolicyk8s.io_clusterpolicyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,clusterpolicyreports)
+	$(call generate_crd,wgpolicyk8s.io_policyreports.yaml,policyreport,wgpolicyk8s.io,wgpolicyk8s,policyreports)
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs

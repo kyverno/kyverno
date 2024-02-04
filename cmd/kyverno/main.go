@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
+	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
@@ -27,6 +28,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -36,8 +38,10 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
+	"github.com/kyverno/kyverno/pkg/validation/globalcontext"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
+	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
@@ -54,6 +58,7 @@ import (
 const (
 	resyncPeriod                   = 15 * time.Minute
 	exceptionWebhookControllerName = "exception-webhook-controller"
+	gctxWebhookControllerName      = "global-context-webhook-controller"
 )
 
 var (
@@ -70,7 +75,7 @@ func showWarnings(ctx context.Context, logger logr.Logger) {
 }
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsInstalled(apiserverClient)
+	return kubeutils.CRDsInstalled(apiserverClient, "clusterpolicies.kyverno.io", "policies.kyverno.io")
 }
 
 func createNonLeaderControllers(
@@ -181,9 +186,37 @@ func createrLeaderControllers(
 		configuration,
 		caSecretName,
 	)
+	gctxWebhookController := genericwebhookcontroller.NewController(
+		gctxWebhookControllerName,
+		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+		caInformer,
+		config.GlobalContextValidatingWebhookConfigurationName,
+		config.GlobalContextValidatingWebhookServicePath,
+		serverIP,
+		servicePort,
+		webhookServerPort,
+		nil,
+		[]admissionregistrationv1.RuleWithOperations{{
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{"kyverno.io"},
+				APIVersions: []string{"v2alpha1"},
+				Resources:   []string{"globalcontextentries"},
+			},
+			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
+				admissionregistrationv1.Update,
+			},
+		}},
+		genericwebhookcontroller.Fail,
+		genericwebhookcontroller.None,
+		configuration,
+		caSecretName,
+	)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
+	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
 
 	if generateVAPs {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
@@ -258,6 +291,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
+		internal.WithGlobalContext(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -321,6 +355,16 @@ func main() {
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
 		strings.Split(omitEvents, ",")...,
+	)
+	gceController := internal.NewController(
+		globalcontextcontroller.ControllerName,
+		globalcontextcontroller.NewController(
+			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+			setup.KyvernoDynamicClient,
+			store.New(),
+			maxAPICallResponseLength,
+		),
+		globalcontextcontroller.Workers,
 	)
 	eventController := internal.NewController(
 		event.ControllerName,
@@ -485,11 +529,15 @@ func main() {
 		Enabled:   internal.PolicyExceptionEnabled(),
 		Namespace: internal.ExceptionNamespace(),
 	})
+	globalContextHandlers := webhooksglobalcontext.NewHandlers(globalcontext.ValidationOptions{
+		Enabled: internal.PolicyExceptionEnabled(),
+	})
 	server := webhooks.NewServer(
 		signalCtx,
 		policyHandlers,
 		resourceHandlers,
 		exceptionHandlers,
+		globalContextHandlers,
 		setup.Configuration,
 		setup.MetricsManager,
 		webhooks.DebugModeOptions{
@@ -522,6 +570,7 @@ func main() {
 	defer server.Stop()
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
+	gceController.Run(signalCtx, setup.Logger, &wg)
 	for _, controller := range nonLeaderControllers {
 		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
 	}
