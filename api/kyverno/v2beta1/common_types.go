@@ -12,6 +12,11 @@ type WebhookConfiguration struct {
 	// MatchCondition configures admission webhook matchConditions.
 	// +optional
 	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
+
+	// WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
 // Validation defines checks to be performed on matching resources.

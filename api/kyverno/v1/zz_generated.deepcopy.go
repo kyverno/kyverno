@@ -1432,8 +1432,8 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.WebhookTimeoutSeconds != nil {
-		in, out := &in.WebhookTimeoutSeconds, &out.WebhookTimeoutSeconds
+	if in.WebhookConfiguration.WebhookTimeoutSeconds != nil {
+		in, out := &in.WebhookConfiguration.WebhookTimeoutSeconds, &out.WebhookConfiguration.WebhookTimeoutSeconds
 		*out = new(int32)
 		**out = **in
 	}

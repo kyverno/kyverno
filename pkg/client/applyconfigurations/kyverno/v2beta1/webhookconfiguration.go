@@ -25,7 +25,8 @@ import (
 // WebhookConfigurationApplyConfiguration represents an declarative configuration of the WebhookConfiguration type for use
 // with apply.
 type WebhookConfigurationApplyConfiguration struct {
-	MatchConditions []v1.MatchCondition `json:"matchConditions,omitempty"`
+	MatchConditions                   []v1.MatchCondition         `json:"matchConditions,omitempty"`
+	WebhookTimeoutSeconds            *int32                       `json:"webhookTimeoutSeconds,omitempty"`
 }
 
 // WebhookConfigurationApplyConfiguration constructs an declarative configuration of the WebhookConfiguration type for use with
@@ -41,5 +42,12 @@ func (b *WebhookConfigurationApplyConfiguration) WithMatchConditions(values ...v
 	for i := range values {
 		b.MatchConditions = append(b.MatchConditions, values[i])
 	}
+	return b
+}
+// WithWebhookTimeoutSeconds sets the WebhookTimeoutSeconds field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the WebhookTimeoutSeconds field is set to the value of the last call.
+func (b *WebhookConfigurationApplyConfiguration) WithWebhookTimeoutSeconds(value int32) *WebhookConfigurationApplyConfiguration {
+	b.WebhookTimeoutSeconds = &value
 	return b
 }
