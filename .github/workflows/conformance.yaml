@@ -7,8 +7,8 @@ permissions: {}
 on:
   pull_request:
     branches:
-      - 'main'
-      - 'release*'
+      - "main"
+      - "release*"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -104,6 +104,7 @@ jobs:
           - ^generate$/^clusterpolicy$
           - ^generate$/^policy$
           - ^generate$/^validation$
+          - ^globalcontext$
           - ^mutate$
           - ^policy-validation$
           - ^rangeoperators$
@@ -645,7 +646,7 @@ jobs:
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version.version }}
-          knative-version: '1.10.0'
+          knative-version: "1.10.0"
       - name: Create TUF values config map
         run: |
           set -e
@@ -969,37 +970,37 @@ jobs:
   conformance-required-success:
     name: conformance-required
     needs:
-    - standard
-    - ttl
-    - force-failure-policy-ignore
-    - validatingadmissionpolicies-v1alpha1
-    - k8s-version-specific-tests-above-1-28
-    - validatingadmissionpolicies-reports-v1alpha1
-    - validatingadmissionpolicies-reports-v1beta1
-    - custom-sigstore
-    - default
-    - monitor-helm-secret-size
-    - check-tests
+      - standard
+      - ttl
+      - force-failure-policy-ignore
+      - validatingadmissionpolicies-v1alpha1
+      - k8s-version-specific-tests-above-1-28
+      - validatingadmissionpolicies-reports-v1alpha1
+      - validatingadmissionpolicies-reports-v1beta1
+      - custom-sigstore
+      - default
+      - monitor-helm-secret-size
+      - check-tests
     runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
-    - run: ${{ true }}
+      - run: ${{ true }}
 
   conformance-required-failure:
     name: conformance-required
     needs:
-    - standard
-    - ttl
-    - force-failure-policy-ignore
-    - validatingadmissionpolicies-v1alpha1
-    - k8s-version-specific-tests-above-1-28
-    - validatingadmissionpolicies-reports-v1alpha1
-    - validatingadmissionpolicies-reports-v1beta1
-    - custom-sigstore
-    - default
-    - monitor-helm-secret-size
-    - check-tests
+      - standard
+      - ttl
+      - force-failure-policy-ignore
+      - validatingadmissionpolicies-v1alpha1
+      - k8s-version-specific-tests-above-1-28
+      - validatingadmissionpolicies-reports-v1alpha1
+      - validatingadmissionpolicies-reports-v1beta1
+      - custom-sigstore
+      - default
+      - monitor-helm-secret-size
+      - check-tests
     runs-on: ubuntu-latest
     if: ${{ failure() || cancelled() }}
     steps:
-    - run: ${{ false }}
+      - run: ${{ false }}
