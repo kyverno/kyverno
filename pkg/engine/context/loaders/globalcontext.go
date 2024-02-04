@@ -10,8 +10,12 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	globalcontextstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 )
+
+type Store interface {
+	Get(key string) (store.Entry, bool)
+}
 
 type gctxLoader struct {
 	ctx       context.Context //nolint:containedctx
@@ -19,7 +23,7 @@ type gctxLoader struct {
 	entry     kyvernov1.ContextEntry
 	enginectx enginecontext.Interface
 	jp        jmespath.Interface
-	gctxStore globalcontextstore.Store
+	gctxStore Store
 	data      []byte
 }
 
@@ -29,7 +33,7 @@ func NewGCTXLoader(
 	entry kyvernov1.ContextEntry,
 	enginectx enginecontext.Interface,
 	jp jmespath.Interface,
-	gctxStore globalcontextstore.Store,
+	gctxStore Store,
 ) enginecontext.Loader {
 	return &gctxLoader{
 		ctx:       ctx,

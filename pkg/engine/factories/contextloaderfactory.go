@@ -11,7 +11,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	globalcontextstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 )
@@ -43,7 +42,7 @@ func WithAPICallConfig(config apicall.APICallConfiguration) ContextLoaderFactory
 	}
 }
 
-func WithGlobalContextStore(gctxStore globalcontextstore.Store) ContextLoaderFactoryOptions {
+func WithGlobalContextStore(gctxStore loaders.Store) ContextLoaderFactoryOptions {
 	return func(cl *contextLoader) {
 		cl.gctxStore = gctxStore
 	}
@@ -54,7 +53,7 @@ type contextLoader struct {
 	cmResolver    engineapi.ConfigmapResolver
 	initializers  []engineapi.Initializer
 	apiCallConfig apicall.APICallConfiguration
-	gctxStore     globalcontextstore.Store
+	gctxStore     loaders.Store
 }
 
 func (l *contextLoader) Load(
@@ -97,7 +96,7 @@ func (l *contextLoader) newLoader(
 	rclientFactory engineapi.RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
-	gctx globalcontextstore.Store,
+	gctx loaders.Store,
 ) (enginecontext.DeferredLoader, error) {
 	if entry.ConfigMap != nil {
 		if l.cmResolver != nil {
