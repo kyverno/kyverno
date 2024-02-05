@@ -1,0 +1,23 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cel-expressions
+spec:
+  steps:
+  - name: Apply the first policy
+    try:
+    - script:
+        content: kubectl apply -f policy-1.yaml
+        check:
+          # This check ensures that the string "undefined field 'automountServiceAccountToken';" is found
+          # in stderr or else fails
+          (contains($stderr, 'undefined field \'automountServiceAccountToken\';')): true
+  - name: Apply the second policy
+    try:
+    - script:
+        content: kubectl apply -f policy-2.yaml
+        check:
+          # This check ensures that the string "undefined field 'replicas';" is found
+          # in stderr or else fails
+          (contains($stderr, 'undefined field \'replicas\';')): true

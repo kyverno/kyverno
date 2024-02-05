@@ -21,13 +21,14 @@ package v2alpha1
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ExternalAPICallApplyConfiguration represents an declarative configuration of the ExternalAPICall type for use
 // with apply.
 type ExternalAPICallApplyConfiguration struct {
 	v1.APICallApplyConfiguration `json:",omitempty,inline"`
-	RefreshIntervalSeconds       *int64 `json:"refreshIntervalSeconds,omitempty"`
+	RefreshInterval              *metav1.Duration `json:"refreshInterval,omitempty"`
 }
 
 // ExternalAPICallApplyConfiguration constructs an declarative configuration of the ExternalAPICall type for use with
@@ -73,18 +74,10 @@ func (b *ExternalAPICallApplyConfiguration) WithService(value *v1.ServiceCallApp
 	return b
 }
 
-// WithJMESPath sets the JMESPath field in the declarative configuration to the given value
+// WithRefreshInterval sets the RefreshInterval field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the JMESPath field is set to the value of the last call.
-func (b *ExternalAPICallApplyConfiguration) WithJMESPath(value string) *ExternalAPICallApplyConfiguration {
-	b.JMESPath = &value
-	return b
-}
-
-// WithRefreshIntervalSeconds sets the RefreshIntervalSeconds field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the RefreshIntervalSeconds field is set to the value of the last call.
-func (b *ExternalAPICallApplyConfiguration) WithRefreshIntervalSeconds(value int64) *ExternalAPICallApplyConfiguration {
-	b.RefreshIntervalSeconds = &value
+// If called multiple times, the RefreshInterval field is set to the value of the last call.
+func (b *ExternalAPICallApplyConfiguration) WithRefreshInterval(value metav1.Duration) *ExternalAPICallApplyConfiguration {
+	b.RefreshInterval = &value
 	return b
 }

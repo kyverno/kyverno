@@ -48,6 +48,8 @@ APPLYCONFIGURATION_GEN             ?= $(TOOLS_DIR)/applyconfiguration-gen
 CODE_GEN_VERSION                   ?= v0.28.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
+GENREF                             ?= $(TOOLS_DIR)/genref
+GENREF_VERSION                     ?= master
 GO_ACC                             ?= $(TOOLS_DIR)/go-acc
 GO_ACC_VERSION                     ?= latest
 GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
@@ -59,7 +61,7 @@ HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.14.1
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -110,6 +112,10 @@ $(APPLYCONFIGURATION_GEN):
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@echo Install gen-crd-api-reference-docs... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/ahmetb/gen-crd-api-reference-docs@$(GEN_CRD_API_REFERENCE_DOCS_VERSION)
+
+$(GENREF):
+	@echo Install genref... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/kubernetes-sigs/reference-docs/genref@$(GENREF_VERSION)
 
 $(GO_ACC):
 	@echo Install go-acc... >&2
@@ -520,7 +526,7 @@ codegen-helm-docs: ## Generate helm docs
 	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
 
 .PHONY: codegen-api-docs
-codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
+codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Generate API docs
 	@echo Generate api docs... >&2
 	@rm -rf docs/user/crd && mkdir -p docs/user/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
@@ -528,9 +534,13 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
 		-out-file docs/user/crd/index.html
+	@cd ./docs/user && GOPATH=$(GOPATH_SHIM) $(GENREF) \
+		-c config-api.yaml \
+		-o crd \
+		-f html
 
 .PHONY: codegen-cli-api-docs
-codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate CLI API docs
+codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) ## Generate CLI API docs
 	@echo Generate CLI api docs... >&2
 	@rm -rf docs/user/cli/crd && mkdir -p docs/user/cli/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
@@ -538,6 +548,10 @@ codegen-cli-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate 
 		-config docs/user/config.json \
 		-template-dir docs/user/template \
 		-out-file docs/user/cli/crd/index.html
+	@cd ./docs/user && GOPATH=$(GOPATH_SHIM) $(GENREF) \
+		-c config-cli-api.yaml \
+		-o cli/crd \
+		-f html
 
 .PHONY: codegen-cli-docs
 codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
@@ -555,7 +569,7 @@ codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CL
 	@cp cmd/cli/kubectl-kyverno/config/crds/* cmd/cli/kubectl-kyverno/data/crds
 
 .PHONY: codegen-docs-all
-codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs  ## Generate all docs
+codegen-docs-all: codegen-helm-docs codegen-cli-docs codegen-api-docs codegen-cli-api-docs ## Generate all docs
 
 .PHONY: codegen-fix-tests
 codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files

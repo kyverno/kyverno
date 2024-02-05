@@ -87,7 +87,7 @@ type ContextEntry struct {
 
 	// APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
 	// The data returned is stored in the context with the name for the context entry.
-	APICall *APICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
+	APICall *ContextAPICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
 
 	// ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
 	// details.
@@ -161,6 +161,10 @@ type APICall struct {
 	// Service is an API call to a JSON web service
 	// +kubebuilder:validation:Optional
 	Service *ServiceCall `json:"service,omitempty" yaml:"service,omitempty"`
+}
+
+type ContextAPICall struct {
+	APICall `json:",inline" yaml:",inline"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example

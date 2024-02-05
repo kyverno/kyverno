@@ -610,7 +610,7 @@ PolicyStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>, 
+<a href="#kyverno.io/v1.ContextAPICall">ContextAPICall</a>, 
 <a href="#kyverno.io/v2alpha1.ExternalAPICall">ExternalAPICall</a>)
 </p>
 <p>
@@ -675,21 +675,6 @@ ServiceCall
 </td>
 <td>
 <p>Service is an API call to a JSON web service</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>jmesPath</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>JMESPath is an optional JSON Match Expression that can be used to
-transform the JSON response returned from the server. For example
-a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
-for the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
-of deployments across all namespaces.</p>
 </td>
 </tr>
 </tbody>
@@ -1399,6 +1384,55 @@ string
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ContextAPICall">ContextAPICall
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>APICall</code><br/>
+<em>
+<a href="#kyverno.io/v1.APICall">
+APICall
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>APICall</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>jmesPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>JMESPath is an optional JSON Match Expression that can be used to
+transform the JSON response returned from the server. For example
+a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
+for the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
+of deployments across all namespaces.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.ContextEntry">ContextEntry
 </h3>
 <p>
@@ -1451,8 +1485,8 @@ ConfigMapReference
 <td>
 <code>apiCall</code><br/>
 <em>
-<a href="#kyverno.io/v1.APICall">
-APICall
+<a href="#kyverno.io/v1.ContextAPICall">
+ContextAPICall
 </a>
 </em>
 </td>
@@ -8011,13 +8045,15 @@ APICall
 </tr>
 <tr>
 <td>
-<code>refreshIntervalSeconds</code><br/>
+<code>refreshInterval</code><br/>
 <em>
-int64
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
 </em>
 </td>
 <td>
-<p>RefreshIntervalSeconds defines the interval at which to poll the APICall</p>
+<p>RefreshInterval defines the interval in duration at which to poll the APICall</p>
 </td>
 </tr>
 </tbody>

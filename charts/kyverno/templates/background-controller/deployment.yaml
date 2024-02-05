@@ -117,6 +117,7 @@ spec:
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.backgroundController.featuresOverride)
               "configMapCaching"
               "deferredLoading"
+              "globalContext"
               "logging"
               "omitEvents"
               "policyExceptions"
