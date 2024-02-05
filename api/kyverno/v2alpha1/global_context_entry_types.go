@@ -80,10 +80,10 @@ func (c *GlobalContextEntrySpec) IsResource() bool {
 // Validate implements programmatic validation
 func (c *GlobalContextEntrySpec) Validate(path *field.Path) (errs field.ErrorList) {
 	if c.IsResource() && c.IsAPICall() {
-		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should be either have KubernetesResource or APICall"))
+		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should either have KubernetesResource or APICall"))
 	}
 	if !c.IsResource() && !c.IsAPICall() {
-		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should be either have KubernetesResource or APICall"))
+		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should either have KubernetesResource or APICall"))
 	}
 	if c.IsResource() {
 		errs = append(errs, c.KubernetesResource.Validate(path.Child("resource"))...)
