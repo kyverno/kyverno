@@ -46,5 +46,8 @@ spec:
   - name: step-07
     try:
     - script:
-        content: "if kubectl get updaterequests -n kyverno 2>&1 | grep -q 'No resources found in kyverno namespace.'\nthen \n  exit 0 \nelse \n  exit
-          1\nfi\n"
+        content: kubectl get updaterequests -n kyverno
+        check:
+          # This check ensures the contents of stderr are exactly as shown.
+          ($stderr): |-
+            No resources found in kyverno namespace.
