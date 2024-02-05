@@ -163,7 +163,6 @@ type configuration struct {
 	usesMetadataClient       bool
 	usesKyvernoDynamicClient bool
 	usesEventsClient         bool
-	usesGlobalContext        bool
 	flagSets                 []*flag.FlagSet
 }
 
