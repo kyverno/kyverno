@@ -800,8 +800,8 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.WebhookConfiguration.WebhookTimeoutSeconds != nil {
-		in, out := &in.WebhookConfiguration.WebhookTimeoutSeconds, &out.WebhookConfiguration.WebhookTimeoutSeconds
+	if in.WebhookConfiguration.TimeoutSeconds != nil {
+		in, out := &in.WebhookConfiguration.TimeoutSeconds, &out.WebhookConfiguration.TimeoutSeconds
 		*out = new(int32)
 		**out = **in
 	}

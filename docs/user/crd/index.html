@@ -229,19 +229,6 @@ bool
 </tr>
 <tr>
 <td>
-<code>webhookTimeoutSeconds</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>mutateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
@@ -503,19 +490,6 @@ bool
 </td>
 <td>
 <p>Deprecated.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>webhookTimeoutSeconds</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 <tr>
@@ -3967,19 +3941,6 @@ bool
 </tr>
 <tr>
 <td>
-<code>webhookTimeoutSeconds</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>mutateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
@@ -4606,6 +4567,19 @@ expression evaluates to nil</p>
 <td>
 <em>(Optional)</em>
 <p>MatchCondition configures admission webhook matchConditions.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>TimeoutSeconds</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 </tbody>
@@ -8701,19 +8675,6 @@ bool
 </tr>
 <tr>
 <td>
-<code>webhookTimeoutSeconds</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>mutateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
@@ -8974,19 +8935,6 @@ bool
 </td>
 <td>
 <p>Deprecated.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>webhookTimeoutSeconds</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 <tr>
@@ -10375,19 +10323,6 @@ bool
 </tr>
 <tr>
 <td>
-<code>webhookTimeoutSeconds</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>mutateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
@@ -10618,6 +10553,19 @@ CEL
 <td>
 <em>(Optional)</em>
 <p>MatchCondition configures admission webhook matchConditions.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>TimeoutSeconds</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 </tbody>

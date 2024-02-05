@@ -4488,6 +4488,14 @@ spec:
                   for Kubernetes admission webhookconfiguration. Requires Kubernetes
                   1.27 or later.
                 properties:
+                  TimeoutSeconds:
+                    description: WebhookTimeoutSeconds specifies the maximum time
+                      in seconds allowed to apply this policy. After the configured
+                      time expires, the admission request may fail, or may simply
+                      ignore the policy results, based on the failure policy. The
+                      default timeout is 10s, the value must be between 1 and 30 seconds.
+                    format: int32
+                    type: integer
                   matchConditions:
                     description: MatchCondition configures admission webhook matchConditions.
                     items:
@@ -4528,14 +4536,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  webhookTimeoutSeconds:
-                    description: WebhookTimeoutSeconds specifies the maximum time in seconds
-                      allowed to apply this policy. After the configured time expires,
-                      the admission request may fail, or may simply ignore the policy
-                      results, based on the failure policy. The default timeout is 10s,
-                      the value must be between 1 and 30 seconds.
-                    format: int32
-                    type: integer
                 type: object
             type: object
           status:
@@ -13326,6 +13326,14 @@ spec:
                   for Kubernetes admission webhookconfiguration. Requires Kubernetes
                   1.27 or later.
                 properties:
+                  TimeoutSeconds:
+                    description: WebhookTimeoutSeconds specifies the maximum time
+                      in seconds allowed to apply this policy. After the configured
+                      time expires, the admission request may fail, or may simply
+                      ignore the policy results, based on the failure policy. The
+                      default timeout is 10s, the value must be between 1 and 30 seconds.
+                    format: int32
+                    type: integer
                   matchConditions:
                     description: MatchCondition configures admission webhook matchConditions.
                     items:
@@ -13366,14 +13374,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  webhookTimeoutSeconds:
-                    description: WebhookTimeoutSeconds specifies the maximum time in seconds
-                      allowed to apply this policy. After the configured time expires,
-                      the admission request may fail, or may simply ignore the policy
-                      results, based on the failure policy. The default timeout is 10s,
-                      the value must be between 1 and 30 seconds.
-                    format: int32
-                    type: integer
                 type: object
             type: object
           status:

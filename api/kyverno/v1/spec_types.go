@@ -330,8 +330,8 @@ func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	if err := s.validateMutateTargets(path); err != nil {
 		errs = append(errs, err...)
 	}
-	if s.WebhookConfiguration.WebhookTimeoutSeconds != nil && (*s.WebhookConfiguration.WebhookTimeoutSeconds < 1 || *s.WebhookConfiguration.WebhookTimeoutSeconds > 30) {
-		errs = append(errs, field.Invalid(path.Child("webhookTimeoutSeconds"), s.WebhookConfiguration.WebhookTimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
+	if s.WebhookConfiguration.TimeoutSeconds != nil && (*s.WebhookConfiguration.TimeoutSeconds < 1 || *s.WebhookConfiguration.TimeoutSeconds > 30) {
+		errs = append(errs, field.Invalid(path.Child("webhookTimeoutSeconds"), s.WebhookConfiguration.TimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
 	}
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {

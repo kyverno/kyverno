@@ -59,7 +59,7 @@ type WebhookConfiguration struct {
 	// WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
-	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
+	TimeoutSeconds *int32 `json:"TimeoutSeconds,omitempty" yaml:"TimeoutSeconds,omitempty"`
 }
 
 // AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
