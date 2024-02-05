@@ -1,0 +1,12 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test
+spec:
+  steps:
+  - name: two-results
+    try:
+    - script:
+        content: kyverno test .
+        check:
+          ($error != null): true
