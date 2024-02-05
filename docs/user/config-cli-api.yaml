@@ -1,0 +1,29 @@
+hiddenMemberFields:
+  - "TypeMeta"
+
+externalPackages:
+  - match: ^k8s\\.io/apimachinery/pkg/apis/meta/v1\\.Duration$
+    target: https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration
+  - match: ^k8s\\.io/(api|apimachinery|apiextensions-apiserver/pkg/apis)/
+    target: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#{{lower .TypeIdentifier}}-{{arrIndex .PackageSegments -1}}-{{arrIndex .PackageSegments -2}}
+  - match: ^github\\.com/knative/pkg/apis/duck/
+    target: https://godoc.org/github.com/knative/pkg/apis/duck/{{arrIndex .PackageSegments -1}}#{{.TypeIdentifier}}
+
+hideTypePatterns:
+  - "ParseError$"
+  - "List$"
+
+markdownDisabled: false
+
+stripPrefix:
+  - k8s.io/api/
+  - k8s.io/apimachinery/pkg/apis/
+  - github.com/tengqm/kubeconfig/config/kubeadm/v1beta2.
+  - github.com/tengqm/kubeconfig/config/kubeadm/v1beta3.
+  - github.com/tengqm/kubeconfig/config/bootstraptoken/v1.
+
+apis:
+  - name: kyverno_kubectl
+    title: cli (v1alpha1)
+    package: github.com/kyverno/kyverno
+    path: cmd/cli/kubectl-kyverno/apis/v1alpha1
