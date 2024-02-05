@@ -679,9 +679,6 @@ codegen-helm-update-versions: ## Update helm charts versions
 	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/charts/crds/Chart.yaml
 	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/crds/Chart.yaml
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/crds/Chart.yaml
-	@$(SED) -i 's/version: .*/version: $(KYVERNO_CHART_VERSION)/' 		charts/kyverno/charts/grafana/Chart.yaml
-	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
-	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
