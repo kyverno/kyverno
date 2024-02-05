@@ -5,7 +5,7 @@ metadata:
 spec:
   securityContext:
     seccompProfile:
-      type: foo
+      type: Unconfined
   containers:
   - name: nginx1
     image: nginx
@@ -14,7 +14,7 @@ spec:
     - 1d
     securityContext:
       seccompProfile:
-        type: baz
+        type: Unconfined
   initContainers:
   - name: nginx2
     image: nginx
@@ -23,4 +23,4 @@ spec:
     - 1d
     securityContext:
       seccompProfile:
-        type: Localhost
+        type: Unconfined

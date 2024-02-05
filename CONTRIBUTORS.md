@@ -4,7 +4,11 @@ Contributors are those who have made enough contributions to the project as defi
 
 | Maintainer               | GitHub ID                                              |
 |--------------------------|--------------------------------------------------------|
-| John Doe                 | [@JohnDoe](https://github.com/JohnDoe)                 |
-| Vishal Choudhary         | [@Vishal-Chdhry](https://github.com/Vishal-Chdhry)     |
-| Mariam Fahmy             | [@MariamFahmy98](https://github.com/MariamFahmy98)     |
 | Ved Ratan                | [@VedRatan](https://github.com/VedRatan)               |
+| Chandan DK               | [@Chandan-DK](https://github.com/Chandan-DK)           |
+| Swastik Gour             | [@swastik959](https://github.com/swastik959)           |
+| Amit Kumar               | [@hackeramitkumar](https://github.com/hackeramitkumar) |
+| Khaled Emara             | [@KhaledEmaraDev](https://github.com/KhaledEmaraDev)   |
+| Anushka Mittal           | [@anushkamittal2001](https://github.com/anushkamittal2001)|
+| Sanskar Gurdasani        | [@Sanskarzz](https://github.com/Sanskarzz) |
+| D N Siva Sathyaseelan    | [@sivasathyaseeelan](https://github.com/sivasathyaseeelan)|

@@ -9,11 +9,13 @@ import (
 	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/policy/auth"
+	"github.com/kyverno/kyverno/pkg/policy/auth/fake"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/kyverno/pkg/utils/validatingadmissionpolicy"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 )
 
 // Validation provides methods to validate a rule
@@ -33,7 +35,13 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	var checker Validation
 	// Mutate
 	if rule.HasMutate() {
-		checker = mutate.NewMutateFactory(rule.Mutation, client, username)
+		var authChecker auth.Operations
+		if mock {
+			authChecker = fake.NewFakeAuth()
+		} else {
+			authChecker = auth.NewAuth(client, username, logging.GlobalLogger())
+		}
+		checker = mutate.NewMutateFactory(rule.Mutation, authChecker, username)
 		if path, err := checker.Validate(context.TODO()); err != nil {
 			return "", fmt.Errorf("path: spec.rules[%d].mutate.%s.: %v", idx, path, err)
 		}

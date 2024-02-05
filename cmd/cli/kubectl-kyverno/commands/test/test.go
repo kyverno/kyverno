@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -23,7 +24,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -58,7 +58,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	// policies
 	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
-	policies, validatingAdmissionPolicies, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
+	policies, validatingAdmissionPolicies, _, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
@@ -75,6 +75,17 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			fmt.Fprintln(out, "  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
+	// exceptions
+	fmt.Fprintln(out, "  Loading exceptions", "...")
+	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
+	exceptions, err := exception.Load(exceptionFullPath...)
+	if err != nil {
+		return nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+	}
+	// Validates that exceptions cannot be used with ValidatingAdmissionPolicies.
+	if len(validatingAdmissionPolicies) > 0 && len(exceptions) > 0 {
+		return nil, fmt.Errorf("Error: Currently, the use of exceptions in conjunction with ValidatingAdmissionPolicies is not supported.")
+	}
 	// init store
 	var store store.Store
 	store.SetLocal(true)
@@ -82,7 +93,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	if vars != nil {
 		vars.SetInStore(&store)
 	}
-	fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
+	if len(exceptions) > 0 {
+		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "with", len(exceptions), pluralize.Pluralize(len(exceptions), "exception", "exceptions"), "...")
+	} else {
+		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
+	}
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {
@@ -91,6 +106,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
+				// TODO: what if two policies have a rule with the same name ?
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
@@ -144,6 +160,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			Store:                     &store,
 			Policies:                  validPolicies,
 			Resource:                  *resource,
+			PolicyExceptions:          exceptions,
 			MutateLogPath:             "",
 			Variables:                 vars,
 			UserInfo:                  userInfo,
@@ -154,7 +171,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			Client:                    dClient,
 			Subresources:              vars.Subresources(),
 			Out:                       out,
-			RegistryClient:            registryclient.NewOrDie(),
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {

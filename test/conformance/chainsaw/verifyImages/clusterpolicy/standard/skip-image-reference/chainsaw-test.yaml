@@ -1,0 +1,34 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: skip-image-reference
+spec:
+  timeouts:
+    delete: 2m
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: pod.yaml
+    - assert:
+        file: pod-assert.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: skipped.yaml
+    - assert:
+        file: skipped-assert.yaml
+  - name: step-04
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: bad.yaml

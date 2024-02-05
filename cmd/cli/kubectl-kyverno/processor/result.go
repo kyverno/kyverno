@@ -1,7 +1,6 @@
 package processor
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -22,6 +21,10 @@ func (rc ResultCounts) Warn() int  { return rc.warn }
 func (rc ResultCounts) Error() int { return rc.err }
 func (rc ResultCounts) Skip() int  { return rc.skip }
 
+func (rc *ResultCounts) IncrementError(inc int) {
+	rc.err += inc
+}
+
 func (rc *ResultCounts) addEngineResponses(auditWarn bool, responses ...engineapi.EngineResponse) {
 	for _, response := range responses {
 		rc.addEngineResponse(auditWarn, response)
@@ -34,7 +37,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 		if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 			return
 		}
-		policy := genericPolicy.GetPolicy().(kyvernov1.PolicyInterface)
+		policy := genericPolicy.AsKyvernoPolicy()
 		scored := annotations.Scored(policy.GetAnnotations())
 		for _, rule := range autogen.ComputeRules(policy) {
 			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
@@ -72,7 +75,7 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return
 	}
-	policy := genericPolicy.GetPolicy().(kyvernov1.PolicyInterface)
+	policy := genericPolicy.AsKyvernoPolicy()
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		for _, ruleResponse := range response.PolicyResponse.Rules {
 			if policyRule.Name == ruleResponse.Name() {
@@ -96,7 +99,7 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return false
 	}
-	policy := genericPolicy.GetPolicy().(kyvernov1.PolicyInterface)
+	policy := genericPolicy.AsKyvernoPolicy()
 	var policyHasMutate bool
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {

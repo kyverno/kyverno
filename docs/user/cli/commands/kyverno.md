@@ -46,6 +46,8 @@ kyverno [flags]
 * [kyverno docs](kyverno_docs.md)	 - Generates reference documentation.
 * [kyverno fix](kyverno_fix.md)	 - Fix inconsistencies and deprecated usage of Kyverno resources.
 * [kyverno jp](kyverno_jp.md)	 - Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
+* [kyverno json](kyverno_json.md)	 - Runs tests against any json compatible payloads/policies.
+* [kyverno migrate](kyverno_migrate.md)	 - Migrate one or more resources to the stored version.
 * [kyverno oci](kyverno_oci.md)	 - Pulls/pushes images that include policie(s) from/to OCI registries.
 * [kyverno test](kyverno_test.md)	 - Run tests from a local filesystem or a remote git repository.
 * [kyverno version](kyverno_version.md)	 - Prints the version of Kyverno CLI.
