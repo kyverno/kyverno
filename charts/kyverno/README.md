@@ -334,7 +334,6 @@ The chart values are organised per component.
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
 | features.generateValidatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
-| features.globalContext.enabled | bool | `true` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |
 | features.logging.format | string | `"text"` | Logging format |
 | features.logging.verbosity | int | `2` | Logging verbosity |
