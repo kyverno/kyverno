@@ -21,14 +21,14 @@ func MatchPolicyContext(logger logr.Logger, client engineapi.Client, policyConte
 	old := policyContext.OldResource()
 	new := policyContext.NewResource()
 	if !checkNamespacedPolicy(policy, new, old) {
-		logger.V(2).Info("policy namespace doesn't match resource namespace")
+		logger.V(2).WithValues("msg", "policy namespace doesn't match resource namespace").Info("debug message")
 		return false
-	}
-	gvk, subresource := policyContext.ResourceKind()
-	if !checkResourceFilters(configuration, gvk, subresource, new, old) {
-		logger.V(2).Info("configuration resource filters doesn't match resource")
+	 }
+	 gvk, subresource := policyContext.ResourceKind()
+	 if !checkResourceFilters(configuration, gvk, subresource, new, old) {
+		logger.V(2).WithValues("msg", "configuration resource filters doesn't match resource").Info("debug message")
 		return false
-	}
+	 }	 
 
 	if policy.GetSpec().GetMatchConditions() != nil {
 		if !checkMatchConditions(logger, client, policyContext, gvk, subresource) {
