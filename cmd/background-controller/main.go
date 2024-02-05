@@ -155,12 +155,13 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
+	gcstore := store.New()
 	gceController := internal.NewController(
 		globalcontextcontroller.ControllerName,
 		globalcontextcontroller.NewController(
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 			setup.KyvernoDynamicClient,
-			store.New(),
+			gcstore,
 			maxAPICallResponseLength,
 		),
 		globalcontextcontroller.Workers,
@@ -184,6 +185,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		gcstore,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
