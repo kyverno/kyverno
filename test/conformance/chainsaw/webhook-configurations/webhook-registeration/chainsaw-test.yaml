@@ -25,4 +25,4 @@ spec:
   - name: step-04
     try:
     - error:
-      file: webhook.yaml
+        file: webhook.yaml

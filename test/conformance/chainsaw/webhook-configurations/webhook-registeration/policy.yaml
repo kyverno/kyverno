@@ -10,8 +10,6 @@ spec:
   background: true
   webhookConfiguration:
     matchConditions:
-    - name: "select-namespace"
-      expression: '(object.metadata.namespace == "cpol-fine-grained-match-conditions-ns")'
     - name: 'exclude-requests-by-groups'
       expression: '!("system:nodes" in request.userInfo.groups)' 
   rules:

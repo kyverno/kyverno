@@ -7,10 +7,10 @@ metadata:
 webhooks:
 - failurePolicy: Ignore
   matchConditions:
-  - expression: '(object.metadata.namespace == "cpol-fine-grained-match-conditions-ns")'
-    name: select-namespace
   - expression: '!("system:nodes" in request.userInfo.groups)'
     name: exclude-requests-by-groups
+  matchPolicy: Equivalent
+  name: validate.kyverno.svc-ignore-finegrained-cpol-fine-grained-match-conditions-disallow-latest-image-tag-1
   rules:
   - apiGroups:
     - ""
