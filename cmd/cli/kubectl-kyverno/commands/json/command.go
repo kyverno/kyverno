@@ -2,6 +2,7 @@ package json
 
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/json/scan"
 	"github.com/spf13/cobra"
 )
 
@@ -17,5 +18,6 @@ func Command() *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	cmd.AddCommand(scan.Command())
 	return cmd
 }
