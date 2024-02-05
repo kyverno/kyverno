@@ -95,6 +95,9 @@ type ContextEntry struct {
 
 	// Variable defines an arbitrary JMESPath context variable that can be defined inline.
 	Variable *Variable `json:"variable,omitempty" yaml:"variable,omitempty"`
+
+	// GlobalContextEntryReference is a reference to a cached global context entry.
+	GlobalReference *GlobalContextEntryReference `json:"globalReference,omitempty" yaml:"globalReference,omitempty"`
 }
 
 // Variable defines an arbitrary JMESPath context variable that can be defined inline.
