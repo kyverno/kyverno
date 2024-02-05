@@ -17,12 +17,12 @@ type Configuration interface {
 	UsesImageVerifyCache() bool
 	UsesLeaderElection() bool
 	UsesKyvernoClient() bool
-	UsesAlternateReportStore() bool
 	UsesDynamicClient() bool
 	UsesApiServerClient() bool
 	UsesMetadataClient() bool
 	UsesKyvernoDynamicClient() bool
 	UsesEventsClient() bool
+	UsesGlobalContext() bool
 	FlagSets() []*flag.FlagSet
 }
 
@@ -108,12 +108,6 @@ func WithKyvernoClient() ConfigurationOption {
 	}
 }
 
-func WithAlternateReportStore() ConfigurationOption {
-	return func(c *configuration) {
-		c.usesAlternateReportStore = true
-	}
-}
-
 func WithDynamicClient() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesDynamicClient = true
@@ -146,6 +140,12 @@ func WithEventsClient() ConfigurationOption {
 	}
 }
 
+func WithGlobalContext() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesGlobalContext = true
+	}
+}
+
 func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
 	return func(c *configuration) {
 		c.flagSets = append(c.flagSets, flagsets...)
@@ -165,12 +165,12 @@ type configuration struct {
 	usesImageVerifyCache     bool
 	usesLeaderElection       bool
 	usesKyvernoClient        bool
-	usesAlternateReportStore bool
 	usesDynamicClient        bool
 	usesApiServerClient      bool
 	usesMetadataClient       bool
 	usesKyvernoDynamicClient bool
 	usesEventsClient         bool
+	usesGlobalContext        bool
 	flagSets                 []*flag.FlagSet
 }
 
@@ -222,10 +222,6 @@ func (c *configuration) UsesKyvernoClient() bool {
 	return c.usesKyvernoClient
 }
 
-func (c *configuration) UsesAlternateReportStore() bool {
-	return c.usesAlternateReportStore
-}
-
 func (c *configuration) UsesDynamicClient() bool {
 	return c.usesDynamicClient
 }
@@ -244,6 +240,10 @@ func (c *configuration) UsesKyvernoDynamicClient() bool {
 
 func (c *configuration) UsesEventsClient() bool {
 	return c.usesEventsClient
+}
+
+func (c *configuration) UsesGlobalContext() bool {
+	return c.usesGlobalContext
 }
 
 func (c *configuration) FlagSets() []*flag.FlagSet {

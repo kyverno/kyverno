@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/report"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -36,7 +35,6 @@ type ValidationHandler interface {
 func NewValidationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
-	reportManager report.Interface,
 	engine engineapi.Engine,
 	pCache policycache.Cache,
 	pcBuilder webhookutils.PolicyContextBuilder,
@@ -48,7 +46,6 @@ func NewValidationHandler(
 	return &validationHandler{
 		log:              log,
 		kyvernoClient:    kyvernoClient,
-		reportManager:    reportManager,
 		engine:           engine,
 		pCache:           pCache,
 		pcBuilder:        pcBuilder,
@@ -62,7 +59,6 @@ func NewValidationHandler(
 type validationHandler struct {
 	log              logr.Logger
 	kyvernoClient    versioned.Interface
-	reportManager    report.Interface
 	engine           engineapi.Engine
 	pCache           policycache.Cache
 	pcBuilder        webhookutils.PolicyContextBuilder
@@ -194,9 +190,9 @@ func (v *validationHandler) handleAudit(
 			v.eventGen.Add(events...)
 			if createReport {
 				responses = append(responses, engineResponses...)
-				report := v.reportManager.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
+				report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
 				if len(report.GetResults()) > 0 {
-					_, err = v.reportManager.CreateReport(ctx, report)
+					_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
 					if err != nil {
 						v.log.Error(err, "failed to create report")
 					}

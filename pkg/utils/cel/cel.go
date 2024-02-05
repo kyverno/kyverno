@@ -1,6 +1,7 @@
 package cel
 
 import (
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
@@ -13,14 +14,14 @@ type Compiler struct {
 	// CEL expressions
 	validateExpressions        []admissionregistrationv1alpha1.Validation
 	auditAnnotationExpressions []admissionregistrationv1alpha1.AuditAnnotation
-	matchExpressions           []admissionregistrationv1alpha1.MatchCondition
+	matchExpressions           []admissionregistrationv1.MatchCondition
 	variables                  []admissionregistrationv1alpha1.Variable
 }
 
 func NewCompiler(
 	validations []admissionregistrationv1alpha1.Validation,
 	auditAnnotations []admissionregistrationv1alpha1.AuditAnnotation,
-	matchConditions []admissionregistrationv1alpha1.MatchCondition,
+	matchConditions []admissionregistrationv1.MatchCondition,
 	variables []admissionregistrationv1alpha1.Variable,
 ) (*Compiler, error) {
 	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))

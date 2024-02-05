@@ -7,8 +7,8 @@ permissions: {}
 on:
   pull_request:
     branches:
-      - 'main'
-      - 'release*'
+      - "main"
+      - "release*"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -104,6 +104,7 @@ jobs:
           - ^generate$/^clusterpolicy$
           - ^generate$/^policy$
           - ^generate$/^validation$
+          - ^globalcontext$
           - ^mutate$
           - ^policy-validation$
           - ^rangeoperators$
@@ -234,7 +235,7 @@ jobs:
         if: failure()
         uses: ./.github/actions/kyverno-logs
 
-  validatingadmissionpolicies-v1beta1:
+  k8s-version-specific-tests-above-1-28:
     runs-on: ubuntu-latest
     permissions:
       packages: read
@@ -253,6 +254,7 @@ jobs:
             version: v1.29.0
         tests:
           - generate-validating-admission-policy
+          - webhook-configurations
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
@@ -635,16 +637,16 @@ jobs:
       - name: Install crane
         uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
       - name: Install Cosign
-        uses: sigstore/cosign-installer@9614fae9e5c5eddabb09f90a270fcb487c9f7149
+        uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@56be3cb4ec65a987b6ef4d7ab3a55ee17760a57c # v0.1.2
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@c7631747c15f1d0010c6aa25ddf2660a4501d379
+        uses: sigstore/scaffolding/actions/setup@2d10614e854828e2389881abe6c5cf76240897a7
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version.version }}
-          knative-version: '1.10.0'
+          knative-version: "1.10.0"
       - name: Create TUF values config map
         run: |
           set -e
@@ -968,37 +970,37 @@ jobs:
   conformance-required-success:
     name: conformance-required
     needs:
-    - standard
-    - ttl
-    - force-failure-policy-ignore
-    - validatingadmissionpolicies-v1alpha1
-    - validatingadmissionpolicies-v1beta1
-    - validatingadmissionpolicies-reports-v1alpha1
-    - validatingadmissionpolicies-reports-v1beta1
-    - custom-sigstore
-    - default
-    - monitor-helm-secret-size
-    - check-tests
+      - standard
+      - ttl
+      - force-failure-policy-ignore
+      - validatingadmissionpolicies-v1alpha1
+      - k8s-version-specific-tests-above-1-28
+      - validatingadmissionpolicies-reports-v1alpha1
+      - validatingadmissionpolicies-reports-v1beta1
+      - custom-sigstore
+      - default
+      - monitor-helm-secret-size
+      - check-tests
     runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
-    - run: ${{ true }}
+      - run: ${{ true }}
 
   conformance-required-failure:
     name: conformance-required
     needs:
-    - standard
-    - ttl
-    - force-failure-policy-ignore
-    - validatingadmissionpolicies-v1alpha1
-    - validatingadmissionpolicies-v1beta1
-    - validatingadmissionpolicies-reports-v1alpha1
-    - validatingadmissionpolicies-reports-v1beta1
-    - custom-sigstore
-    - default
-    - monitor-helm-secret-size
-    - check-tests
+      - standard
+      - ttl
+      - force-failure-policy-ignore
+      - validatingadmissionpolicies-v1alpha1
+      - k8s-version-specific-tests-above-1-28
+      - validatingadmissionpolicies-reports-v1alpha1
+      - validatingadmissionpolicies-reports-v1beta1
+      - custom-sigstore
+      - default
+      - monitor-helm-secret-size
+      - check-tests
     runs-on: ubuntu-latest
     if: ${{ failure() || cancelled() }}
     steps:
-    - run: ${{ false }}
+      - run: ${{ false }}

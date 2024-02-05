@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-deployment-replicas
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-deployment-replicas
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+      validate:
+        cel:
+          expressions:
+            - expression: "object.replicas > 1" # should be "object.spec.replicas > 1"
+              message: "must be replicated"

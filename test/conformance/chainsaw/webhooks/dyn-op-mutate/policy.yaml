@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-apparmor-annotations
+  annotations:
+    policies.kyverno.io/title: Add AppArmor Annotations
+    policies.kyverno.io/category: PSP Migration
+    policies.kyverno.io/subject: Pod,Annotation
+    kyverno.io/kyverno-version: 1.10.0    
+spec:
+  rules:
+  - name: apparmor-runtime-default
+    match:
+      any:
+      - resources:
+          kinds:
+          - '*/scale'
+          operations:
+          - CREATE
+    mutate:
+      foreach:
+      - list: request.object.spec.containers[]
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              "container.apparmor.security.beta.kubernetes.io/{{element.name}}": runtime/default

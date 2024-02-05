@@ -13,7 +13,8 @@ import (
 
 var (
 	// logging
-	loggingFormat string
+	loggingFormat   string
+	loggingTsFormat string
 	// profiling
 	profilingEnabled bool
 	profilingAddress string
@@ -56,13 +57,14 @@ var (
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
-	// alternate report storage
-	alternateReportStorage bool
+	// global context
+	enableGlobalContext bool
 )
 
 func initLoggingFlags() {
 	logging.InitFlags(nil)
 	flag.StringVar(&loggingFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.StringVar(&loggingTsFormat, "loggingtsFormat", logging.DefaultTime, "This determines the timestamp format of the logger.")
 	checkErr(flag.Set("v", "2"), "failed to init flags")
 }
 
@@ -135,8 +137,8 @@ func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
 }
 
-func initAltReportStoreFlag() {
-	flag.BoolVar(&alternateReportStorage, "alternateReportStorage", false, "Store kyverno intermediate reports in a separate api group reports.kyverno.io. defaults to false.")
+func initGlobalContextFlags() {
+	flag.BoolVar(&enableGlobalContext, "enableGlobalContext", true, "Enable global context feature.")
 }
 
 type options struct {
@@ -222,13 +224,11 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
-	// alternate report storage
-	if config.UsesAlternateReportStore() {
-		initAltReportStoreFlag()
+	// leader election
+	if config.UsesGlobalContext() {
+		initGlobalContextFlags()
 	}
-
 	initCleanupFlags()
-
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
 			flag.CommandLine.Var(f.Value, f.Name, f.Usage)
@@ -263,6 +263,10 @@ func LeaderElectionRetryPeriod() time.Duration {
 
 func CleanupServerPort() string {
 	return cleanupServerPort
+}
+
+func GlobalContextEnabled() bool {
+	return enableGlobalContext
 }
 
 func printFlagSettings(logger logr.Logger) {

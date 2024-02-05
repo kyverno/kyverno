@@ -119,6 +119,7 @@ spec:
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.cleanupController.featuresOverride)
               "deferredLoading"
               "dumpPayload"
+              "globalContext"
               "logging"
               "ttlController"
               "protectManagedResources"
