@@ -680,7 +680,7 @@ func getAllowedVariables(background bool, target bool) *regexp.Regexp {
 
 func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.MockContext) {
 	for _, contextEntry := range entries {
-		if contextEntry.APICall != nil || contextEntry.ImageRegistry != nil || contextEntry.Variable != nil {
+		if contextEntry.APICall != nil || contextEntry.GlobalReference != nil || contextEntry.ImageRegistry != nil || contextEntry.Variable != nil {
 			ctx.AddVariable(contextEntry.Name + "*")
 		}
 
@@ -1197,13 +1197,15 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		}
 
 		var err error
-		if entry.ConfigMap != nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil {
+		if entry.ConfigMap != nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable == nil {
 			err = validateConfigMap(entry)
-		} else if entry.ConfigMap == nil && entry.APICall != nil && entry.ImageRegistry == nil && entry.Variable == nil {
+		} else if entry.ConfigMap == nil && entry.APICall != nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable == nil {
 			err = validateAPICall(entry)
-		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry != nil && entry.Variable == nil {
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference != nil && entry.ImageRegistry == nil && entry.Variable == nil {
+			err = validateGlobalReference(entry)
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry != nil && entry.Variable == nil {
 			err = validateImageRegistry(entry)
-		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable != nil {
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable != nil {
 			err = validateVariable(entry)
 		} else {
 			return fmt.Errorf("exactly one of configMap or apiCall or imageRegistry or variable is required for context entries")
@@ -1305,6 +1307,30 @@ func validateAPICall(entry kyvernov1.ContextEntry) error {
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.APICall.JMESPath != "" {
 		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
+		}
+	}
+
+	return nil
+}
+
+func validateGlobalReference(entry kyvernov1.ContextEntry) error {
+	if entry.GlobalReference == nil {
+		return nil
+	}
+
+	if entry.GlobalReference.Name == "" {
+		return fmt.Errorf("a name is required for globalReference context entry")
+	}
+
+	// If JMESPath contains variables, the validation will fail because it's not
+	// possible to infer which value will be inserted by the variable
+	// Skip validation if a variable is detected
+
+	jmesPath := variables.ReplaceAllVars(entry.GlobalReference.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
+
+	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.GlobalReference.JMESPath != "" {
+		if _, err := jmespath.NewParser().Parse(entry.GlobalReference.JMESPath); err != nil {
+			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.GlobalReference.JMESPath, err)
 		}
 	}
 
