@@ -52541,7 +52541,6 @@ spec:
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
-            - --enableGlobalContext=true
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
@@ -52694,7 +52693,6 @@ spec:
             - --metricsPort=8000
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
-            - --enableGlobalContext=true
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
@@ -52803,7 +52801,6 @@ spec:
             - --metricsPort=8000
             - --enableDeferredLoading=true
             - --dumpPayload=false
-            - --enableGlobalContext=true
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
@@ -52945,7 +52942,6 @@ spec:
             - --skipResourceFilters=true
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
-            - --enableGlobalContext=true
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
