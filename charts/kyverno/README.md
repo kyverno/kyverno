@@ -263,7 +263,7 @@ The chart values are organised per component.
 | crds.annotations | object | `{}` | Additional CRDs annotations |
 | crds.customLabels | object | `{}` | Additional CRDs labels |
 | crds.migration.enabled | bool | `true` | Enable CRDs migration using helm post upgrade hook |
-| crds.migration.resources | list | `["cleanuppolicies.kyverno.io","clustercleanuppolicies.kyverno.io","policyexceptions.kyverno.io"]` | Resources to migrate |
+| crds.migration.resources | list | `["admissionreports.kyverno.io","backgroundscanreports.kyverno.io","cleanuppolicies.kyverno.io","clusteradmissionreports.kyverno.io","clusterbackgroundscanreports.kyverno.io","clustercleanuppolicies.kyverno.io","clusterpolicies.kyverno.io","globalcontextentries.kyverno.io","policies.kyverno.io","policyexceptions.kyverno.io","updaterequests.kyverno.io"]` | Resources to migrate |
 | crds.migration.image.registry | string | `"ghcr.io"` | Image registry |
 | crds.migration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
 | crds.migration.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
