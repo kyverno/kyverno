@@ -547,8 +547,8 @@ github.com/jellydator/ttlcache/v3 v3.1.1 h1:RCgYJqo3jgvhl+fEWvjNW8thxGWsgxi+TPhR
 github.com/jellydator/ttlcache/v3 v3.1.1/go.mod h1:hi7MGFdMAwZna5n2tuvh63DvFLzVKySzCVW6+0gA2n4=
 github.com/jinzhu/copier v0.4.0 h1:w3ciUoD19shMCRargcpm0cm91ytaBhDvuRpz1ODO/U8=
 github.com/jinzhu/copier v0.4.0/go.mod h1:DfbEm0FYsaqBcKcFuvmOZb218JkPGtvSHsKg8S8hyyg=
-github.com/jmespath-community/go-jmespath v1.1.2-0.20231004164315-78945398586a h1:8W5d74FhEWTJPnFwpDDxbwUK3pPLUbY4RlfN2uzTTSE=
-github.com/jmespath-community/go-jmespath v1.1.2-0.20231004164315-78945398586a/go.mod h1:4gOyFJsR/Gk+05RgTKYrifT7tBPWD8Lubtb5jRrfy9I=
+github.com/jmespath-community/go-jmespath v1.1.2-0.20240117150817-e430401a2172 h1:XQYEhx+bEiWn6eiHFivu4wEHm91FoZ/gCvoLZK6Ze5Y=
+github.com/jmespath-community/go-jmespath v1.1.2-0.20240117150817-e430401a2172/go.mod h1:j4OeykGPBbhX3rw4AOPGXSmX2/zuWXktm704A4MtHFs=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
 github.com/jmespath/go-jmespath v0.4.0/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
 github.com/jmespath/go-jmespath/internal/testify v1.5.1 h1:shLQSRRSCCPj3f2gpwzGwWFoC7ycTf1rcQZHOlsJ6N8=
@@ -590,8 +590,8 @@ github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877 h1:XOLJNGX/q
 github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9 h1:lL311dF3a2aeNibJj8v+uhFU3XkvRHZmCtAdSPOrQYY=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9/go.mod h1:XRxUGHIiCy1WYma1CdfdO1WOhIe8dLPTENaZr5D1ex4=
-github.com/kyverno/kyverno-json v0.0.1 h1:2d3k1M0YCWRz9r5fdHkIMesChPbmtSYqR6qk+2s05b0=
-github.com/kyverno/kyverno-json v0.0.1/go.mod h1:7lNc9nnrNYC1Pbn/Qd5acyoRXa6sqBrZulc6Rg64q7w=
+github.com/kyverno/kyverno-json v0.0.3-0.20240202090521-82d03384ea37 h1:h3USymehtGfFbqzk24SYZjaM3BonWutMG+0Hscj3CZQ=
+github.com/kyverno/kyverno-json v0.0.3-0.20240202090521-82d03384ea37/go.mod h1:6He8M7B7FO51qojD5tZVU/OuVWFFn/urXbQXO5DuEVk=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7/go.mod h1:YR/zYthNdWfO8+0IOyHDcIDBBBS2JMnYUIwSsnwmRqU=
 github.com/letsencrypt/boulder v0.0.0-20240127020530-97a19b18d21e h1:7QjzPboPE+0pVMsZP1sz1mN26m6vew78YmcIZz1FMrg=

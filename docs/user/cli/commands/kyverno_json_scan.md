@@ -1,4 +1,4 @@
-## kyverno json
+## kyverno json scan
 
 Runs tests against any json compatible payloads/policies.
 
@@ -9,13 +9,18 @@ Runs tests against any json compatible payloads/policies.
   NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
 
 ```
-kyverno json [flags]
+kyverno json scan [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for json
+  -h, --help                  help for scan
+      --labels strings        Labels selectors for policies
+      --output string         Output format (text or json) (default "text")
+      --payload string        Path to payload (json or yaml file)
+      --policy strings        Path to kyverno-json policies
+      --pre-process strings   JMESPath expression used to pre process payload
 ```
 
 ### Options inherited from parent commands
@@ -38,6 +43,5 @@ kyverno json [flags]
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
-* [kyverno json scan](kyverno_json_scan.md)	 - Runs tests against any json compatible payloads/policies.
+* [kyverno json](kyverno_json.md)	 - Runs tests against any json compatible payloads/policies.
 
