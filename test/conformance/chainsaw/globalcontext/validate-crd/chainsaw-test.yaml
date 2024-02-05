@@ -18,7 +18,7 @@ spec:
             file: multiple-resources.yaml
             expect:
               - check:
-                  $error: |-
+                  ($error): |-
                     admission webhook "kyverno-svc.kyverno.svc" denied the request: spec.kubernetesResource: Forbidden: A global context entry should either have KubernetesResource or APICall
     - name: step-03
       try:
@@ -26,5 +26,5 @@ spec:
             file: no-resource.yaml
             expect:
               - check:
-                  $error: |-
+                  ($error): |-
                     admission webhook "kyverno-svc.kyverno.svc" denied the request: spec.kubernetesResource: Forbidden: A global context entry should either have KubernetesResource or APICall
