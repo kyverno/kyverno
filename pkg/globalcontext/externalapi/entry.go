@@ -70,6 +70,5 @@ func (e *entry) setData(data any) {
 }
 
 func doCall(ctx context.Context, caller apicall.Caller, call kyvernov1.APICall) (any, error) {
-	// TODO: unmarshall json ?
 	return caller.Execute(ctx, &call)
 }
