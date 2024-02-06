@@ -1,0 +1,27 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-validating-webhook-cfg
+webhooks:
+- failurePolicy: Ignore
+  matchConditions:
+  - expression: '!("system:nodes" in request.userInfo.groups)'
+    name: exclude-requests-by-groups
+  matchPolicy: Equivalent
+  name: validate.kyverno.svc-ignore-finegrained-cpol-fine-grained-match-conditions-disallow-latest-image-tag-1
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    - CONNECT
+    resources:
+    - pods
+    - pods/ephemeralcontainers
+    scope: Namespaced
