@@ -1,8 +1,6 @@
 package processor
 
 import (
-	"fmt"
-
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -111,28 +109,17 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 	if !policyHasMutate {
 		return false
 	}
-	printCount := 0
 	printMutatedRes := false
-	for i, policyRule := range autogen.ComputeRules(policy) {
-		// TODO: Move the print statements below to https://github.com/kyverno/kyverno/blob/main/cmd/cli/kubectl-kyverno/commands/apply/command.go
+	for _, policyRule := range autogen.ComputeRules(policy) {
 		for _, mutateResponseRule := range response.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name() {
 				if mutateResponseRule.Status() == engineapi.RuleStatusPass {
 					rc.pass++
 					printMutatedRes = true
 				} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip {
-					fmt.Printf("\nskipped mutate policy %s -> resource %s", policy.GetName(), resourcePath)
 					rc.skip++
 				} else if mutateResponseRule.Status() == engineapi.RuleStatusError {
-					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", policy.GetName(), resourcePath, mutateResponseRule.Message())
 					rc.err++
-				} else {
-					if printCount < 1 {
-						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", policy.GetName(), resourcePath)
-						printCount++
-					}
-					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name(), mutateResponseRule.Message())
-					rc.fail++
 				}
 				continue
 			}
