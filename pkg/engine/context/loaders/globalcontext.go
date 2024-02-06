@@ -100,9 +100,14 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 		return nil, err
 	}
 
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
+	var jsonData []byte
+	if _, ok := data.([]byte); ok {
+		jsonData = data.([]byte)
+	} else {
+		jsonData, err = json.Marshal(data)
+		if err != nil {
+			return nil, err
+		}
 	}
 	g.logger.V(6).Info("fetched json data", "name", g.entry.Name, "jsondata", jsonData)
 
