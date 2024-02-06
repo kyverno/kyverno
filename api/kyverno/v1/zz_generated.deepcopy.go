@@ -483,6 +483,11 @@ func (in *ContextEntry) DeepCopyInto(out *ContextEntry) {
 		*out = new(Variable)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.GlobalReference != nil {
+		in, out := &in.GlobalReference, &out.GlobalReference
+		*out = new(GlobalContextEntryReference)
+		**out = **in
+	}
 	return
 }
 

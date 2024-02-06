@@ -137,10 +137,6 @@ func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
 }
 
-func initGlobalContextFlags() {
-	flag.BoolVar(&enableGlobalContext, "enableGlobalContext", true, "Enable global context feature.")
-}
-
 type options struct {
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
@@ -223,10 +219,6 @@ func initFlags(config Configuration, opts ...Option) {
 	// leader election
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
-	}
-	// leader election
-	if config.UsesGlobalContext() {
-		initGlobalContextFlags()
 	}
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
