@@ -1318,10 +1318,6 @@ func validateGlobalReference(entry kyvernov1.ContextEntry) error {
 		return nil
 	}
 
-	if entry.GlobalReference.Name == "" {
-		return fmt.Errorf("a name is required for globalReference context entry")
-	}
-
 	// If JMESPath contains variables, the validation will fail because it's not
 	// possible to infer which value will be inserted by the variable
 	// Skip validation if a variable is detected
