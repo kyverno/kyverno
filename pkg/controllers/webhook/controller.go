@@ -794,22 +794,6 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 		nil
 }
 
-func isMutationEmpty(m kyvernov1.Mutation) bool {
-	if len(m.Targets) > 0 {
-		return false
-	}
-	if m.RawPatchStrategicMerge != nil && len(m.RawPatchStrategicMerge.Raw) > 0 {
-		return false
-	}
-	if m.PatchesJSON6902 != "" {
-		return false
-	}
-	if len(m.ForEachMutation) > 0 {
-		return false
-	}
-	return true
-}
-
 func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	result := admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), c.buildOwner()...),
