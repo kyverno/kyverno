@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+  namespace: policy-exception-ns
+spec:
+  exceptions:
+  - policyName: psa
+    ruleNames:
+    - restricted
+  match:
+    any:
+    - resources:
+        namespaces:
+        - staging-ns
+  podSecurity:
+    - controlName: "Capabilities"
+      images:
+      - nginx
+      restrictedField: "spec.containers[*].securityContext.capabilities.add"
+      values:
+      - "foo"
+    - controlName: "Capabilities"
+      images:
+      - nginx
+      restrictedField: "spec.initContainers[*].securityContext.capabilities.add"
+      values:
+      - "baz"
+
