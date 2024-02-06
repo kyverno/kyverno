@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+  namespace: policy-exception-ns
+spec:
+  exceptions:
+  - policyName: psa
+    ruleNames:
+    - baseline
+  match:
+    any:
+    - resources:
+        namespaces:
+        - staging-ns
+  podSecurity:
+    - controlName: "SELinux"
+      images:
+      - nginx
+      restrictedField: "spec.containers[*].securityContext.seLinuxOptions.type"
+      values:
+      - "foo"
+    - controlName: "SELinux"
+      images:
+      - nginx
+      restrictedField: "spec.initContainers[*].securityContext.seLinuxOptions.type"
+      values:
+      - "bar"
