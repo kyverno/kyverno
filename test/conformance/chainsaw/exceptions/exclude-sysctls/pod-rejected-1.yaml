@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-1
+  namespace: staging-ns
+spec:
+  securityContext:
+    sysctls:
+    - name: unknown
+  containers:
+  - name: nginx
+    image: nginx
+    args:
+    - sleep
+    - 1d

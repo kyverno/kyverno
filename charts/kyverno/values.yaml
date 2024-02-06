@@ -6,6 +6,7 @@ templating:
   version: ~
 
 global:
+
   image:
     # -- (string) Global value that allows to set a single image registry across all deployments.
     # When set, it will override any values set under `.image.registry` across the chart.
@@ -61,6 +62,32 @@ crds:
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
 
+  groups:
+
+    # -- Install CRDs in group `kyverno.io`
+    kyverno:
+      admissionreports: true
+      backgroundscanreports: true
+      cleanuppolicies: true
+      clusteradmissionreports: true
+      clusterbackgroundscanreports: true
+      clustercleanuppolicies: true
+      clusterpolicies: true
+      globalcontextentries: true
+      policies: true
+      policyexceptions: true
+      updaterequests: true
+
+    # -- Install CRDs in group `reports.kyverno.io`
+    reports:
+      clusterephemeralreports: true
+      ephemeralreports: true
+
+    # -- Install CRDs in group `wgpolicyk8s.io`
+    wgpolicyk8s:
+      clusterpolicyreports: true
+      policyreports: true
+
   # -- Additional CRDs annotations
   annotations: {}
     # argocd.argoproj.io/sync-options: Replace=true
@@ -76,9 +103,17 @@ crds:
 
     # -- Resources to migrate
     resources:
-    - cleanuppolicies.kyverno.io
-    - clustercleanuppolicies.kyverno.io
-    - policyexceptions.kyverno.io
+      - admissionreports.kyverno.io
+      - backgroundscanreports.kyverno.io
+      - cleanuppolicies.kyverno.io
+      - clusteradmissionreports.kyverno.io
+      - clusterbackgroundscanreports.kyverno.io
+      - clustercleanuppolicies.kyverno.io
+      - clusterpolicies.kyverno.io
+      - globalcontextentries.kyverno.io
+      - policies.kyverno.io
+      - policyexceptions.kyverno.io
+      - updaterequests.kyverno.io
 
     image:
       # -- (string) Image registry
@@ -324,6 +359,14 @@ config:
   # -- resourceFilters exclude list
   # Items to exclude from config.resourceFilters
   resourceFiltersExclude: []
+
+  # -- resourceFilter namespace include
+  # Namespaces to include to the default resourceFilters
+  resourceFiltersIncludeNamespaces: []
+
+  # -- resourceFilters include list
+  # Items to include to config.resourceFilters
+  resourceFiltersInclude: []
 
 # Metrics configuration
 metricsConfig:
@@ -594,6 +637,9 @@ features:
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
+  globalContext:
+    # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
+    maxApiCallResponseLength: 2000000
   logging:
     # -- Logging format
     format: text
@@ -645,6 +691,9 @@ cleanupJobs:
 
     # -- Enable cleanup cronjob
     enabled: true
+
+    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
+    backoffLimit: 3
 
     image:
       # -- (string) Image registry
@@ -719,6 +768,9 @@ cleanupJobs:
 
     # -- Enable cleanup cronjob
     enabled: true
+
+    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
+    backoffLimit: 3
 
     image:
       # -- (string) Image registry
@@ -806,6 +858,20 @@ admissionController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1808,6 +1874,20 @@ reportsController:
       # -- Annotations for the ServiceAccount
       annotations: {}
         # example.com/annotation: value
+
+    coreClusterRole:
+      # -- Extra resource permissions to add in the core cluster role.
+      # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
+      # @default -- See [values.yaml](values.yaml)
+      extraResources:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - get
+            - list
+            - watch
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role

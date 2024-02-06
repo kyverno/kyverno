@@ -1,0 +1,26 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: resource-not-exist
+spec:
+  steps:
+  - name: setup
+    try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: main-deployment.yaml
+    - apply:
+        file: gctxentry.yaml
+    - apply:
+        file: clusterpolicy.yaml
+    - assert:
+        file: clusterpolicy-failed.yaml
+  - name: negative
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: new-deployment.yaml
