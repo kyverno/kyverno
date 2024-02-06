@@ -425,8 +425,8 @@ func checkClosedBraces(s string) bool {
 	stack := []rune{}
 	insideSingleQuote := false
 	insideDoubleQuote := false
-
-	for _, char := range s {
+	isJmesPath := false
+	for i, char := range s {
 		switch char {
 		case '\'':
 			insideSingleQuote = !insideSingleQuote
@@ -435,7 +435,16 @@ func checkClosedBraces(s string) bool {
 				insideSingleQuote = false
 			}
 			insideDoubleQuote = !insideDoubleQuote
+			if insideDoubleQuote {
+				isJmesPath = hasTextInsideDoubleQuotes(s[i+1:])
+			}
+			if !insideDoubleQuote {
+				isJmesPath = false
+			}
 		case '{':
+			if !isJmesPath {
+				break
+			}
 			if !insideSingleQuote && !insideDoubleQuote {
 				stack = append(stack, char)
 			}
@@ -443,6 +452,9 @@ func checkClosedBraces(s string) bool {
 				stack = append(stack, char)
 			}
 		case '}':
+			if !isJmesPath {
+				break
+			}
 			if !insideSingleQuote && !insideDoubleQuote {
 				if len(stack) == 0 {
 					return false
@@ -457,8 +469,19 @@ func checkClosedBraces(s string) bool {
 			}
 		}
 	}
-
 	return len(stack) == 0
+}
+
+func hasTextInsideDoubleQuotes(s string) bool {
+	for _, char := range s {
+		if char == '"' {
+			return false
+		}
+		if char != '}' && char != '{' {
+			return true
+		}
+	}
+	return false
 }
 
 // hasInvalidVariables - checks for unexpected variables in the policy
