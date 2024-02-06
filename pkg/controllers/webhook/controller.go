@@ -466,7 +466,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				for _, ctxEntry := range rule.Context {
 					if ctxEntry.GlobalReference != nil {
 						if !c.isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
-							ready, message = false, "Not ready yet"
+							ready, message = false, "global context entry not ready"
 							break
 						}
 					}
