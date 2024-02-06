@@ -426,7 +426,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 func (c *controller) isGlobalContextEntryReady(name string, gctxentries []*kyvernov2alpha1.GlobalContextEntry) bool {
 	for _, gctxentry := range gctxentries {
 		if gctxentry.Name == name {
-			return gctxentry.Status.Ready
+			return true
 		}
 	}
 	return false
