@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod-1
+  namespace: default
+spec:
+  containers:
+  - name: nginx1
+    image: nginx
+    args:
+    - sleep
+    - "3000"
+    securityContext:
+      privileged: false

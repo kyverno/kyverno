@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod-1
+  namespace: default
+spec:
+  securityContext:
+    sysctls:
+    - name: net.ipv4.ip_unprivileged_port_start
+  containers:
+  - name: nginx
+    image: nginx
+    args:
+    - sleep
+    - 1d

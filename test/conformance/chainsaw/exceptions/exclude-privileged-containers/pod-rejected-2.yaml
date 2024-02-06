@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-2
+  namespace: staging-ns
+spec:
+  containers:
+  - name: busybox1
+    image: busybox
+    args:
+    - sleep
+    - 1d
+    securityContext:
+      privileged: true
+  initContainers:
+  - name: busybox2
+    image: busybox
+    args:
+    - sleep
+    - 1d
+    securityContext:
+      privileged: true

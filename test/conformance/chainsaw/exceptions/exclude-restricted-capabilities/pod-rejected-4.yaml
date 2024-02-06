@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-4
+  namespace: default
+spec:
+  containers:
+  - name: nginx1
+    image: nginx
+    args:
+    - sleep
+    - 1d
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - foo
+  initContainers:
+  - name: nginx2
+    image: nginx
+    args:
+    - sleep
+    - 1d
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
