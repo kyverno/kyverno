@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+  namespace: policy-exception-ns
+spec:
+  exceptions:
+  - policyName: psa
+    ruleNames:
+    - restricted
+  match:
+    any:
+    - resources:
+        namespaces:
+        - staging-ns
+  podSecurity:
+    - controlName: "Running as Non-root user"
+      images:
+      - nginx
+      restrictedField: "spec.containers[*].securityContext.runAsUser"
+      values:
+      - "0"
