@@ -97,6 +97,7 @@ type ContextEntry struct {
 	Variable *Variable `json:"variable,omitempty" yaml:"variable,omitempty"`
 
 	// GlobalContextEntryReference is a reference to a cached global context entry.
+	// +kubebuilder:validation:Required
 	GlobalReference *GlobalContextEntryReference `json:"globalReference,omitempty" yaml:"globalReference,omitempty"`
 }
 
