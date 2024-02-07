@@ -1,6 +1,6 @@
 ---
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: Policy
 metadata:
   name: preconditions
   //there is no namespace
