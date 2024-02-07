@@ -80,10 +80,10 @@ func (c *GlobalContextEntrySpec) IsResource() bool {
 // Validate implements programmatic validation
 func (c *GlobalContextEntrySpec) Validate(path *field.Path) (errs field.ErrorList) {
 	if c.IsResource() && c.IsAPICall() {
-		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should be either have KubernetesResource or APICall"))
+		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should either have KubernetesResource or APICall"))
 	}
 	if !c.IsResource() && !c.IsAPICall() {
-		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should be either have KubernetesResource or APICall"))
+		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should either have KubernetesResource or APICall"))
 	}
 	if c.IsResource() {
 		errs = append(errs, c.KubernetesResource.Validate(path.Child("resource"))...)
@@ -142,9 +142,6 @@ type ExternalAPICall struct {
 
 // Validate implements programmatic validation
 func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
-	if e.Service.URL == "" {
-		errs = append(errs, field.Required(path.Child("url"), "An External API Call entry requires a url"))
-	}
 	if e.RefreshInterval.Duration == 0*time.Second {
 		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "A Resource entry requires a refresh interval greater than 0 seconds"))
 	}

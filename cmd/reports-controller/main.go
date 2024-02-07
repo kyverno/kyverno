@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
-	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
@@ -76,7 +75,6 @@ func createReportControllers(
 		vapInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies()
 		vapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings()
 	}
-
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2beta1 := kyvernoInformer.Kyverno().V2beta1()
 	if backgroundScan || admissionReports {
@@ -107,17 +105,6 @@ func createReportControllers(
 					reportsChunkSize,
 				),
 				aggregatereportcontroller.Workers,
-			))
-		}
-		if admissionReports {
-			ctrls = append(ctrls, internal.NewController(
-				admissionreportcontroller.ControllerName,
-				admissionreportcontroller.NewController(
-					kyvernoClient,
-					client,
-					metadataFactory,
-				),
-				admissionreportcontroller.Workers,
 			))
 		}
 		if backgroundScan {
@@ -244,7 +231,6 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
-		internal.WithGlobalContext(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -285,12 +271,13 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
+	gcstore := store.New()
 	gceController := internal.NewController(
 		globalcontextcontroller.ControllerName,
 		globalcontextcontroller.NewController(
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 			setup.KyvernoDynamicClient,
-			store.New(),
+			gcstore,
 			maxAPICallResponseLength,
 		),
 		globalcontextcontroller.Workers,
@@ -309,6 +296,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		gcstore,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
