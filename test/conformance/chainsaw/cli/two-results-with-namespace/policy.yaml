@@ -5,6 +5,7 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
   name: test-jmespath
+  namespace: test 
 spec:
   admission: true
   background: false
