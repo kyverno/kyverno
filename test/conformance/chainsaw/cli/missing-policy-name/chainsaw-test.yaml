@@ -4,9 +4,10 @@ metadata:
   name: test
 spec:
   steps:
-  - name: invalid policy nam
+  - name: invalid policy name
     try:
     - script:
         content: kyverno test .
         check:
           ($error != null): true
+          ($stderr): "Error: failed to run test (The policy named missing cannot be found.)"
