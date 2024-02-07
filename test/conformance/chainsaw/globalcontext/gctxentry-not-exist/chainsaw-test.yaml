@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: resource-not-exist
+  name: gctxentry-not-exist
 spec:
   steps:
   - name: setup
