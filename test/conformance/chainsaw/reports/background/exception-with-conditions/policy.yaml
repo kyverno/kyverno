@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-deployment-replicas
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: check-deployment-replicas
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    validate:
+      message: "Deployment should have at most 1 replica"
+      deny:
+        conditions:
+          any:
+          - key: "{{request.object.spec.replicas}}"
+            operator: GreaterThan
+            value: "2"
