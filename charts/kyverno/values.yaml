@@ -670,6 +670,9 @@ features:
     - amazon
     - azure
     - github
+  reports:
+    # -- Reports chunk size
+    chunkSize: 0
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
