@@ -54,7 +54,7 @@ type controller struct {
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
 
-	// frontQueue
+	// queues
 	frontQueue workqueue.RateLimitingInterface
 	backQueue  workqueue.RateLimitingInterface
 }
