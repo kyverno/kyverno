@@ -12,7 +12,7 @@ spec:
       - resources:
           kinds:
           - Pod
-    name: anyrule #rulename is incorrect
+    name: anyrule  #rulename is incorect
     preconditions:
       any:
       - key: '{{request.object.metadata.labels.app}}'
@@ -41,7 +41,7 @@ spec:
       - resources:
           kinds:
           - Pod
-    name: any-rule   #rulename is correct
+    name: any-rule  #rulename is correct
     validate:
       deny:
         conditions:
