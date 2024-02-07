@@ -1,24 +1,22 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: max-containers
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: none
+  name: check-deployment-replicas
 spec:
   validationFailureAction: Enforce
   background: true
   rules:
-  - name: max-two-containers
+  - name: check-deployment-replicas
     match:
       any:
       - resources:
           kinds:
-          - Pod
+          - Deployment
     validate:
-      message: "A maximum of 2 containers are allowed inside a Pod."
+      message: "Deployment should have at most 1 replica"
       deny:
         conditions:
           any:
-          - key: "{{request.object.spec.containers[] | length(@)}}"
+          - key: "{{request.object.spec.replicas}}"
             operator: GreaterThan
             value: "2"

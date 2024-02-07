@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: max-containers
+  name: check-deployment-replicas
 status:
   conditions:
   - reason: Succeeded

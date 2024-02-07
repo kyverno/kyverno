@@ -4,16 +4,18 @@ metadata:
   name: container-exception
 spec:
   exceptions:
-  - policyName: max-containers
+  - policyName: check-deployment-replicas
     ruleNames:
-    - max-two-containers
+    - check-deployment-replicas
   match:
     any:
     - resources:
         kinds:
-        - Pod
+        - Deployment
+        namespaces:
+        - dev-ns
   conditions:
     any:
-    - key: "{{ request.object.metadata.labels.color || '' }}"
+    - key: "{{ request.object.metadata.labels.env || '' }}"
       operator: Equals
-      value: blue
+      value: dev

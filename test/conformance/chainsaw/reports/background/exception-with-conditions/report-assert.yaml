@@ -1,22 +1,24 @@
 apiVersion: wgpolicyk8s.io/v1alpha2
 kind: PolicyReport
 metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  namespace: dev-ns
   ownerReferences:
-  - apiVersion: v1
-    kind: Pod
-    name: apps
-scope:
-  apiVersion: v1
-  kind: Pod
-  name: apps
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: new-deployment
 results:
-- policy: max-containers
-  properties:
-    exception: container-exception
+- policy: check-deployment-replicas
   result: skip
-  rule: max-two-containers
+  rule: check-deployment-replicas
   scored: true
   source: kyverno
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: new-deployment
+  namespace: dev-ns
 summary:
   error: 0
   fail: 0
