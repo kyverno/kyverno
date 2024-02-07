@@ -15,7 +15,7 @@ spec:
       - resources:
           kinds:
           - Pod
-    name: testjmespath
+    name: testjmespath #the rulename is not correct
     validate:
       deny:
         conditions:
@@ -41,7 +41,7 @@ spec:
       - resources:
           kinds:
           - Namespace
-    name: namespace-validation
+    name: namespace-validation #this is correct 
     validate:
       deny:
         conditions:
