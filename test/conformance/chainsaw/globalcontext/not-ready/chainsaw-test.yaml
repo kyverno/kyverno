@@ -24,10 +24,7 @@ spec:
           name: deployments
     - assert:
         file: clusterpolicy-failed.yaml
-  - name: negative
-    try:
     - apply:
-        expect:
-        - check:
-            ($error != null): true
         file: new-deployment.yaml
+    - assert:
+        file: new-deployment-exists.yaml
