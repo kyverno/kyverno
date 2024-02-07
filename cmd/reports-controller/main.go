@@ -54,7 +54,6 @@ func createReportControllers(
 	aggregateReports bool,
 	policyReports bool,
 	validatingAdmissionPolicyReports bool,
-	reportsChunkSize int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
@@ -102,8 +101,6 @@ func createReportControllers(
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					vapInformer,
-					resourceReportController,
-					reportsChunkSize,
 				),
 				aggregatereportcontroller.Workers,
 			))
@@ -151,7 +148,6 @@ func createrLeaderControllers(
 	aggregateReports bool,
 	policyReports bool,
 	validatingAdmissionPolicyReports bool,
-	reportsChunkSize int,
 	backgroundScanWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -170,7 +166,6 @@ func createrLeaderControllers(
 		aggregateReports,
 		policyReports,
 		validatingAdmissionPolicyReports,
-		reportsChunkSize,
 		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
@@ -192,7 +187,6 @@ func main() {
 		aggregateReports                 bool
 		policyReports                    bool
 		validatingAdmissionPolicyReports bool
-		reportsChunkSize                 int
 		backgroundScanWorkers            int
 		backgroundScanInterval           time.Duration
 		maxQueuedEvents                  int
@@ -206,7 +200,6 @@ func main() {
 	flagset.BoolVar(&aggregateReports, "aggregateReports", true, "Enable or disable aggregated policy reports.")
 	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
 	flagset.BoolVar(&validatingAdmissionPolicyReports, "validatingAdmissionPolicyReports", false, "Enable or disable validating admission policy reports.")
-	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -327,7 +320,6 @@ func main() {
 				aggregateReports,
 				policyReports,
 				validatingAdmissionPolicyReports,
-				reportsChunkSize,
 				backgroundScanWorkers,
 				kubeInformer,
 				kyvernoInformer,
