@@ -10,3 +10,4 @@ spec:
         content: kyverno test .
         check:
           ($error != null): true
+          ($stderr): "Error: failed to run test (The policy named default/test-jmespath cannot be found.)"
