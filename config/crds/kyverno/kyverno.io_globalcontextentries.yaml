@@ -57,13 +57,6 @@ spec:
                       - value
                       type: object
                     type: array
-                  jmesPath:
-                    description: JMESPath is an optional JSON Match Expression that
-                      can be used to transform the JSON response returned from the
-                      server. For example a JMESPath of "items | length(@)" applied
-                      to the API server response for the URLPath "/apis/apps/v1/deployments"
-                      will return the total count of deployments across all namespaces.
-                    type: string
                   method:
                     default: GET
                     description: Method is the HTTP request type (GET or POST).
@@ -71,12 +64,12 @@ spec:
                     - GET
                     - POST
                     type: string
-                  refreshIntervalSeconds:
-                    default: 0
-                    description: RefreshIntervalSeconds defines the interval at which
-                      to poll the APICall
-                    format: int64
-                    type: integer
+                  refreshInterval:
+                    default: 10m
+                    description: RefreshInterval defines the interval in duration
+                      at which to poll the APICall
+                    format: duration
+                    type: string
                   service:
                     description: Service is an API call to a JSON web service
                     properties:

@@ -1,7 +1,6 @@
 package admission
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -9,6 +8,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 func TestUnmarshalCleanupPolicy(t *testing.T) {

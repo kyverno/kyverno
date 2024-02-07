@@ -13,7 +13,8 @@ import (
 
 var (
 	// logging
-	loggingFormat string
+	loggingFormat   string
+	loggingTsFormat string
 	// profiling
 	profilingEnabled bool
 	profilingAddress string
@@ -56,11 +57,14 @@ var (
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
+	// global context
+	enableGlobalContext bool
 )
 
 func initLoggingFlags() {
 	logging.InitFlags(nil)
 	flag.StringVar(&loggingFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.StringVar(&loggingTsFormat, "loggingtsFormat", logging.DefaultTime, "This determines the timestamp format of the logger.")
 	checkErr(flag.Set("v", "2"), "failed to init flags")
 }
 
@@ -251,6 +255,10 @@ func LeaderElectionRetryPeriod() time.Duration {
 
 func CleanupServerPort() string {
 	return cleanupServerPort
+}
+
+func GlobalContextEnabled() bool {
+	return enableGlobalContext
 }
 
 func printFlagSettings(logger logr.Logger) {

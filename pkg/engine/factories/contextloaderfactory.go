@@ -42,11 +42,18 @@ func WithAPICallConfig(config apicall.APICallConfiguration) ContextLoaderFactory
 	}
 }
 
+func WithGlobalContextStore(gctxStore loaders.Store) ContextLoaderFactoryOptions {
+	return func(cl *contextLoader) {
+		cl.gctxStore = gctxStore
+	}
+}
+
 type contextLoader struct {
 	logger        logr.Logger
 	cmResolver    engineapi.ConfigmapResolver
 	initializers  []engineapi.Initializer
 	apiCallConfig apicall.APICallConfiguration
+	gctxStore     loaders.Store
 }
 
 func (l *contextLoader) Load(
@@ -63,7 +70,7 @@ func (l *contextLoader) Load(
 		}
 	}
 	for _, entry := range contextEntries {
-		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext)
+		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext, l.gctxStore)
 		if err != nil {
 			return fmt.Errorf("failed to create deferred loader for context entry %s", entry.Name)
 		}
@@ -89,6 +96,7 @@ func (l *contextLoader) newLoader(
 	rclientFactory engineapi.RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
+	gctx loaders.Store,
 ) (enginecontext.DeferredLoader, error) {
 	if entry.ConfigMap != nil {
 		if l.cmResolver != nil {
@@ -104,6 +112,14 @@ func (l *contextLoader) newLoader(
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.Info("disabled loading of APICall context entry", "name", entry.Name)
+			return nil, nil
+		}
+	} else if entry.GlobalReference != nil {
+		if gctx != nil {
+			ldr := loaders.NewGCTXLoader(ctx, l.logger, entry, jsonContext, jp, gctx)
+			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
+		} else {
+			l.logger.Info("disabled loading of GlobalContext context entry", "name", entry.Name)
 			return nil, nil
 		}
 	} else if entry.ImageRegistry != nil {

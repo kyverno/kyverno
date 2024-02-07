@@ -1655,6 +1655,22 @@ spec:
                       required:
                       - name
                       type: object
+                    globalReference:
+                      description: GlobalContextEntryReference is a reference to a
+                        cached global context entry.
+                      properties:
+                        jmesPath:
+                          description: JMESPath is an optional JSON Match Expression
+                            that can be used to transform the JSON response returned
+                            from the server. For example a JMESPath of "items | length(@)"
+                            applied to the API server response for the URLPath "/apis/apps/v1/deployments"
+                            will return the total count of deployments across all
+                            namespaces.
+                          type: string
+                        name:
+                          description: Name of the global context entry
+                          type: string
+                      type: object
                     imageRegistry:
                       description: ImageRegistry defines requests to an OCI/Docker
                         V2 registry to fetch image details.
@@ -2896,6 +2912,22 @@ spec:
                       required:
                       - name
                       type: object
+                    globalReference:
+                      description: GlobalContextEntryReference is a reference to a
+                        cached global context entry.
+                      properties:
+                        jmesPath:
+                          description: JMESPath is an optional JSON Match Expression
+                            that can be used to transform the JSON response returned
+                            from the server. For example a JMESPath of "items | length(@)"
+                            applied to the API server response for the URLPath "/apis/apps/v1/deployments"
+                            will return the total count of deployments across all
+                            namespaces.
+                          type: string
+                        name:
+                          description: Name of the global context entry
+                          type: string
+                      type: object
                     imageRegistry:
                       description: ImageRegistry defines requests to an OCI/Docker
                         V2 registry to fetch image details.
@@ -4136,6 +4168,22 @@ spec:
                           type: string
                       required:
                       - name
+                      type: object
+                    globalReference:
+                      description: GlobalContextEntryReference is a reference to a
+                        cached global context entry.
+                      properties:
+                        jmesPath:
+                          description: JMESPath is an optional JSON Match Expression
+                            that can be used to transform the JSON response returned
+                            from the server. For example a JMESPath of "items | length(@)"
+                            applied to the API server response for the URLPath "/apis/apps/v1/deployments"
+                            will return the total count of deployments across all
+                            namespaces.
+                          type: string
+                        name:
+                          description: Name of the global context entry
+                          type: string
                       type: object
                     imageRegistry:
                       description: ImageRegistry defines requests to an OCI/Docker
@@ -6635,6 +6683,22 @@ spec:
                       required:
                       - name
                       type: object
+                    globalReference:
+                      description: GlobalContextEntryReference is a reference to a
+                        cached global context entry.
+                      properties:
+                        jmesPath:
+                          description: JMESPath is an optional JSON Match Expression
+                            that can be used to transform the JSON response returned
+                            from the server. For example a JMESPath of "items | length(@)"
+                            applied to the API server response for the URLPath "/apis/apps/v1/deployments"
+                            will return the total count of deployments across all
+                            namespaces.
+                          type: string
+                        name:
+                          description: Name of the global context entry
+                          type: string
+                      type: object
                     imageRegistry:
                       description: ImageRegistry defines requests to an OCI/Docker
                         V2 registry to fetch image details.
@@ -7876,6 +7940,22 @@ spec:
                       required:
                       - name
                       type: object
+                    globalReference:
+                      description: GlobalContextEntryReference is a reference to a
+                        cached global context entry.
+                      properties:
+                        jmesPath:
+                          description: JMESPath is an optional JSON Match Expression
+                            that can be used to transform the JSON response returned
+                            from the server. For example a JMESPath of "items | length(@)"
+                            applied to the API server response for the URLPath "/apis/apps/v1/deployments"
+                            will return the total count of deployments across all
+                            namespaces.
+                          type: string
+                        name:
+                          description: Name of the global context entry
+                          type: string
+                      type: object
                     imageRegistry:
                       description: ImageRegistry defines requests to an OCI/Docker
                         V2 registry to fetch image details.
@@ -9116,6 +9196,22 @@ spec:
                           type: string
                       required:
                       - name
+                      type: object
+                    globalReference:
+                      description: GlobalContextEntryReference is a reference to a
+                        cached global context entry.
+                      properties:
+                        jmesPath:
+                          description: JMESPath is an optional JSON Match Expression
+                            that can be used to transform the JSON response returned
+                            from the server. For example a JMESPath of "items | length(@)"
+                            applied to the API server response for the URLPath "/apis/apps/v1/deployments"
+                            will return the total count of deployments across all
+                            namespaces.
+                          type: string
+                        name:
+                          description: Name of the global context entry
+                          type: string
                       type: object
                     imageRegistry:
                       description: ImageRegistry defines requests to an OCI/Docker
@@ -10430,6 +10526,23 @@ spec:
                                 type: string
                             required:
                             - name
+                            type: object
+                          globalReference:
+                            description: GlobalContextEntryReference is a reference
+                              to a cached global context entry.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the JSON response
+                                  returned from the server. For example a JMESPath
+                                  of "items | length(@)" applied to the API server
+                                  response for the URLPath "/apis/apps/v1/deployments"
+                                  will return the total count of deployments across
+                                  all namespaces.
+                                type: string
+                              name:
+                                description: Name of the global context entry
+                                type: string
                             type: object
                           imageRegistry:
                             description: ImageRegistry defines requests to an OCI/Docker
@@ -12139,6 +12252,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
+                                      type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
                                         to an OCI/Docker V2 registry to fetch image
@@ -12471,6 +12603,25 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
                                       type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
@@ -13036,6 +13187,25 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
                                       type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
@@ -14850,6 +15020,23 @@ spec:
                                 required:
                                 - name
                                 type: object
+                              globalReference:
+                                description: GlobalContextEntryReference is a reference
+                                  to a cached global context entry.
+                                properties:
+                                  jmesPath:
+                                    description: JMESPath is an optional JSON Match
+                                      Expression that can be used to transform the
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
+                                    type: string
+                                  name:
+                                    description: Name of the global context entry
+                                    type: string
+                                type: object
                               imageRegistry:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
@@ -16636,6 +16823,27 @@ spec:
                                           required:
                                           - name
                                           type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
+                                          type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
                                             to an OCI/Docker V2 registry to fetch
@@ -16983,6 +17191,27 @@ spec:
                                               type: string
                                           required:
                                           - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
                                           type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
@@ -17578,6 +17807,27 @@ spec:
                                               type: string
                                           required:
                                           - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
                                           type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
@@ -19542,6 +19792,23 @@ spec:
                             required:
                             - name
                             type: object
+                          globalReference:
+                            description: GlobalContextEntryReference is a reference
+                              to a cached global context entry.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the JSON response
+                                  returned from the server. For example a JMESPath
+                                  of "items | length(@)" applied to the API server
+                                  response for the URLPath "/apis/apps/v1/deployments"
+                                  will return the total count of deployments across
+                                  all namespaces.
+                                type: string
+                              name:
+                                description: Name of the global context entry
+                                type: string
+                            type: object
                           imageRegistry:
                             description: ImageRegistry defines requests to an OCI/Docker
                               V2 registry to fetch image details.
@@ -20824,6 +21091,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
+                                      type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
                                         to an OCI/Docker V2 registry to fetch image
@@ -21156,6 +21442,25 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
                                       type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
@@ -21900,6 +22205,25 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
                                       type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
@@ -23688,6 +24012,23 @@ spec:
                                 required:
                                 - name
                                 type: object
+                              globalReference:
+                                description: GlobalContextEntryReference is a reference
+                                  to a cached global context entry.
+                                properties:
+                                  jmesPath:
+                                    description: JMESPath is an optional JSON Match
+                                      Expression that can be used to transform the
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
+                                    type: string
+                                  name:
+                                    description: Name of the global context entry
+                                    type: string
+                                type: object
                               imageRegistry:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
@@ -25474,6 +25815,27 @@ spec:
                                           required:
                                           - name
                                           type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
+                                          type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
                                             to an OCI/Docker V2 registry to fetch
@@ -25821,6 +26183,27 @@ spec:
                                               type: string
                                           required:
                                           - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
                                           type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
@@ -26416,6 +26799,27 @@ spec:
                                               type: string
                                           required:
                                           - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
                                           type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
@@ -28204,13 +28608,6 @@ spec:
                       - value
                       type: object
                     type: array
-                  jmesPath:
-                    description: JMESPath is an optional JSON Match Expression that
-                      can be used to transform the JSON response returned from the
-                      server. For example a JMESPath of "items | length(@)" applied
-                      to the API server response for the URLPath "/apis/apps/v1/deployments"
-                      will return the total count of deployments across all namespaces.
-                    type: string
                   method:
                     default: GET
                     description: Method is the HTTP request type (GET or POST).
@@ -28218,12 +28615,12 @@ spec:
                     - GET
                     - POST
                     type: string
-                  refreshIntervalSeconds:
-                    default: 0
-                    description: RefreshIntervalSeconds defines the interval at which
-                      to poll the APICall
-                    format: int64
-                    type: integer
+                  refreshInterval:
+                    default: 10m
+                    description: RefreshInterval defines the interval in duration
+                      at which to poll the APICall
+                    format: duration
+                    type: string
                   service:
                     description: Service is an API call to a JSON web service
                     properties:
@@ -28617,6 +29014,23 @@ spec:
                                 type: string
                             required:
                             - name
+                            type: object
+                          globalReference:
+                            description: GlobalContextEntryReference is a reference
+                              to a cached global context entry.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the JSON response
+                                  returned from the server. For example a JMESPath
+                                  of "items | length(@)" applied to the API server
+                                  response for the URLPath "/apis/apps/v1/deployments"
+                                  will return the total count of deployments across
+                                  all namespaces.
+                                type: string
+                              name:
+                                description: Name of the global context entry
+                                type: string
                             type: object
                           imageRegistry:
                             description: ImageRegistry defines requests to an OCI/Docker
@@ -30326,6 +30740,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
+                                      type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
                                         to an OCI/Docker V2 registry to fetch image
@@ -30658,6 +31091,25 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
                                       type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
@@ -31223,6 +31675,25 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
                                       type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
@@ -33038,6 +33509,23 @@ spec:
                                 required:
                                 - name
                                 type: object
+                              globalReference:
+                                description: GlobalContextEntryReference is a reference
+                                  to a cached global context entry.
+                                properties:
+                                  jmesPath:
+                                    description: JMESPath is an optional JSON Match
+                                      Expression that can be used to transform the
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
+                                    type: string
+                                  name:
+                                    description: Name of the global context entry
+                                    type: string
+                                type: object
                               imageRegistry:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
@@ -34824,6 +35312,27 @@ spec:
                                           required:
                                           - name
                                           type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
+                                          type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
                                             to an OCI/Docker V2 registry to fetch
@@ -35171,6 +35680,27 @@ spec:
                                               type: string
                                           required:
                                           - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
                                           type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
@@ -35766,6 +36296,27 @@ spec:
                                               type: string
                                           required:
                                           - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
                                           type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
@@ -37731,6 +38282,23 @@ spec:
                             required:
                             - name
                             type: object
+                          globalReference:
+                            description: GlobalContextEntryReference is a reference
+                              to a cached global context entry.
+                            properties:
+                              jmesPath:
+                                description: JMESPath is an optional JSON Match Expression
+                                  that can be used to transform the JSON response
+                                  returned from the server. For example a JMESPath
+                                  of "items | length(@)" applied to the API server
+                                  response for the URLPath "/apis/apps/v1/deployments"
+                                  will return the total count of deployments across
+                                  all namespaces.
+                                type: string
+                              name:
+                                description: Name of the global context entry
+                                type: string
+                            type: object
                           imageRegistry:
                             description: ImageRegistry defines requests to an OCI/Docker
                               V2 registry to fetch image details.
@@ -39013,6 +39581,25 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
+                                      type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
                                         to an OCI/Docker V2 registry to fetch image
@@ -39345,6 +39932,25 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
                                       type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
@@ -40089,6 +40695,25 @@ spec:
                                           type: string
                                       required:
                                       - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: JMESPath is an optional JSON
+                                            Match Expression that can be used to transform
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
+                                            will return the total count of deployments
+                                            across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
                                       type: object
                                     imageRegistry:
                                       description: ImageRegistry defines requests
@@ -41877,6 +42502,23 @@ spec:
                                 required:
                                 - name
                                 type: object
+                              globalReference:
+                                description: GlobalContextEntryReference is a reference
+                                  to a cached global context entry.
+                                properties:
+                                  jmesPath:
+                                    description: JMESPath is an optional JSON Match
+                                      Expression that can be used to transform the
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
+                                    type: string
+                                  name:
+                                    description: Name of the global context entry
+                                    type: string
+                                type: object
                               imageRegistry:
                                 description: ImageRegistry defines requests to an
                                   OCI/Docker V2 registry to fetch image details.
@@ -43663,6 +44305,27 @@ spec:
                                           required:
                                           - name
                                           type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
+                                          type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
                                             to an OCI/Docker V2 registry to fetch
@@ -44010,6 +44673,27 @@ spec:
                                               type: string
                                           required:
                                           - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
                                           type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
@@ -44605,6 +45289,27 @@ spec:
                                               type: string
                                           required:
                                           - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: JMESPath is an optional
+                                                JSON Match Expression that can be
+                                                used to transform the JSON response
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
+                                                applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments"
+                                                will return the total count of deployments
+                                                across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
                                           type: object
                                         imageRegistry:
                                           description: ImageRegistry defines requests
@@ -50589,6 +51294,13 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
+      - list
+      - watch
+  - apiGroups:
       - reports.kyverno.io
     resources:
       - ephemeralreports
@@ -50712,6 +51424,13 @@ rules:
       - watch
       - deletecollection
   - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
+      - list
+      - watch
+  - apiGroups:
       - ''
     resources:
       - namespaces
@@ -50830,6 +51549,13 @@ rules:
     resources:
       - clustercleanuppolicies
       - cleanuppolicies
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
     verbs:
       - list
       - watch
@@ -51135,6 +51861,13 @@ rules:
       - namespaces
     verbs:
       - get
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
       - list
       - watch
   - apiGroups:
@@ -51808,6 +52541,7 @@ spec:
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -51959,6 +52693,7 @@ spec:
             - --metricsPort=8000
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
@@ -52066,6 +52801,7 @@ spec:
             - --metricsPort=8000
             - --enableDeferredLoading=true
             - --dumpPayload=false
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --protectManagedResources=false
@@ -52206,6 +52942,7 @@ spec:
             - --skipResourceFilters=true
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
+            - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped

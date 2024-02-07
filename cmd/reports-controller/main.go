@@ -14,7 +14,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
+	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
@@ -22,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -74,7 +75,6 @@ func createReportControllers(
 		vapInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies()
 		vapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings()
 	}
-
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2beta1 := kyvernoInformer.Kyverno().V2beta1()
 	if backgroundScan || admissionReports {
@@ -105,17 +105,6 @@ func createReportControllers(
 					reportsChunkSize,
 				),
 				aggregatereportcontroller.Workers,
-			))
-		}
-		if admissionReports {
-			ctrls = append(ctrls, internal.NewController(
-				admissionreportcontroller.ControllerName,
-				admissionreportcontroller.NewController(
-					kyvernoClient,
-					client,
-					metadataFactory,
-				),
-				admissionreportcontroller.Workers,
 			))
 		}
 		if backgroundScan {
@@ -282,6 +271,17 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
+	gcstore := store.New()
+	gceController := internal.NewController(
+		globalcontextcontroller.ControllerName,
+		globalcontextcontroller.NewController(
+			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+			setup.KyvernoDynamicClient,
+			gcstore,
+			maxAPICallResponseLength,
+		),
+		globalcontextcontroller.Workers,
+	)
 	// engine
 	engine := internal.NewEngine(
 		ctx,
@@ -296,6 +296,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		gcstore,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
@@ -371,6 +372,7 @@ func main() {
 	}
 	// start non leader controllers
 	eventController.Run(ctx, setup.Logger, &wg)
+	gceController.Run(ctx, setup.Logger, &wg)
 	// start leader election
 	le.Run(ctx)
 	// wait for everything to shut down and exit

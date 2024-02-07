@@ -46,6 +46,9 @@
 {{- with .generateValidatingAdmissionPolicy -}}
   {{- $flags = append $flags (print "--generateValidatingAdmissionPolicy=" .enabled) -}}
 {{- end -}}
+{{- with .globalContext -}}
+  {{- $flags = append $flags (print "--maxAPICallResponseLength=" (int .maxApiCallResponseLength)) -}}
+{{- end -}}
 {{- with .logging -}}
   {{- $flags = append $flags (print "--loggingFormat=" .format) -}}
   {{- $flags = append $flags (print "--v=" (join "," .verbosity)) -}}

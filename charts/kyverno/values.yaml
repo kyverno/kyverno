@@ -103,9 +103,17 @@ crds:
 
     # -- Resources to migrate
     resources:
-    - cleanuppolicies.kyverno.io
-    - clustercleanuppolicies.kyverno.io
-    - policyexceptions.kyverno.io
+      - admissionreports.kyverno.io
+      - backgroundscanreports.kyverno.io
+      - cleanuppolicies.kyverno.io
+      - clusteradmissionreports.kyverno.io
+      - clusterbackgroundscanreports.kyverno.io
+      - clustercleanuppolicies.kyverno.io
+      - clusterpolicies.kyverno.io
+      - globalcontextentries.kyverno.io
+      - policies.kyverno.io
+      - policyexceptions.kyverno.io
+      - updaterequests.kyverno.io
 
     image:
       # -- (string) Image registry
@@ -629,6 +637,9 @@ features:
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
+  globalContext:
+    # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
+    maxApiCallResponseLength: 2000000
   logging:
     # -- Logging format
     format: text

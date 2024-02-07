@@ -163,6 +163,7 @@ spec:
               "dumpPayload"
               "forceFailurePolicyIgnore"
               "generateValidatingAdmissionPolicy"
+              "globalContext"
               "logging"
               "omitEvents"
               "policyExceptions"

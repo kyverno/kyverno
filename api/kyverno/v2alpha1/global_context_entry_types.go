@@ -16,6 +16,8 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"time"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -78,7 +80,10 @@ func (c *GlobalContextEntrySpec) IsResource() bool {
 // Validate implements programmatic validation
 func (c *GlobalContextEntrySpec) Validate(path *field.Path) (errs field.ErrorList) {
 	if c.IsResource() && c.IsAPICall() {
-		errs = append(errs, field.Forbidden(path.Child("resource"), "An External API Call entry requires a url"))
+		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should either have KubernetesResource or APICall"))
+	}
+	if !c.IsResource() && !c.IsAPICall() {
+		errs = append(errs, field.Forbidden(path.Child("kubernetesResource"), "A global context entry should either have KubernetesResource or APICall"))
 	}
 	if c.IsResource() {
 		errs = append(errs, c.KubernetesResource.Validate(path.Child("resource"))...)
@@ -115,13 +120,13 @@ type KubernetesResource struct {
 // Validate implements programmatic validation
 func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
 	if k.Group == "" {
-		errs = append(errs, field.Required(path.Child("group"), "An Resource entry requires a group"))
+		errs = append(errs, field.Required(path.Child("group"), "A Resource entry requires a group"))
 	}
 	if k.Version == "" {
-		errs = append(errs, field.Required(path.Child("version"), "An Resource entry requires a version"))
+		errs = append(errs, field.Required(path.Child("version"), "A Resource entry requires a version"))
 	}
 	if k.Resource == "" {
-		errs = append(errs, field.Required(path.Child("resource"), "An Resource entry requires a resource"))
+		errs = append(errs, field.Required(path.Child("resource"), "A Resource entry requires a resource"))
 	}
 	return errs
 }
@@ -129,18 +134,16 @@ func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
 // ExternalAPICall stores infos about API call that should be cached
 type ExternalAPICall struct {
 	kyvernov1.APICall `json:",inline,omitempty"`
-	// RefreshIntervalSeconds defines the interval at which to poll the APICall
-	// +kubebuilder:default=0
-	RefreshIntervalSeconds int64 `json:"refreshIntervalSeconds,omitempty"`
+	// RefreshInterval defines the interval in duration at which to poll the APICall
+	// +kubebuilder:validation:Format=duration
+	// +kubebuilder:default=`10m`
+	RefreshInterval *metav1.Duration `json:"refreshInterval,omitempty"`
 }
 
 // Validate implements programmatic validation
 func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
-	if e.Service.URL == "" {
-		errs = append(errs, field.Required(path.Child("url"), "An External API Call entry requires a url"))
-	}
-	if e.RefreshIntervalSeconds <= 0 {
-		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "An Resource entry requires a refresh interval greater than 0 seconds"))
+	if e.RefreshInterval.Duration == 0*time.Second {
+		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "A Resource entry requires a refresh interval greater than 0 seconds"))
 	}
 	return errs
 }
