@@ -133,7 +133,7 @@ func NewController(
 			c.queue.AddAfter(res.Namespace+"/"+string(uid), enqueueDelay)
 		}
 	})
-	enqueueFromAdmr := func(obj metav1.Object) {
+	enqueueFromEphemeral := func(obj metav1.Object) {
 		switch reportutils.GetSource(obj) {
 		case "background-scan":
 			c.queue.AddAfter(controllerutils.MetaObjectToName(obj), enqueueDelay)
@@ -144,17 +144,17 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		ephrInformer.Informer(),
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
+		func(obj metav1.Object) { enqueueFromEphemeral(obj) },
+		func(_, obj metav1.Object) { enqueueFromEphemeral(obj) },
+		func(obj metav1.Object) { enqueueFromEphemeral(obj) },
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		cephrInformer.Informer(),
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
+		func(obj metav1.Object) { enqueueFromEphemeral(obj) },
+		func(_, obj metav1.Object) { enqueueFromEphemeral(obj) },
+		func(obj metav1.Object) { enqueueFromEphemeral(obj) },
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -244,7 +244,7 @@ func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, nam
 	}
 }
 
-func (c *controller) getAdmissionReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getEphemeralReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, error) {
 	selector, err := reportutils.SelectorResourceUidEquals(types.UID(name))
 	if err != nil {
 		return nil, err
@@ -305,7 +305,7 @@ func (c *controller) getPolicyReport(ctx context.Context, namespace, name string
 }
 
 func (c *controller) getReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, kyvernov1alpha2.ReportInterface, error) {
-	admissionReports, err := c.getAdmissionReports(ctx, namespace, name)
+	ephemeralReports, err := c.getEphemeralReports(ctx, namespace, name)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -313,14 +313,14 @@ func (c *controller) getReports(ctx context.Context, namespace, name string) ([]
 	if err != nil {
 		return nil, nil, err
 	}
-	return admissionReports, backgroundReport, nil
+	return ephemeralReports, backgroundReport, nil
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
 	if exists {
-		admissionReports, backgroundReport, err := c.getReports(ctx, namespace, name)
+		ephemeralReports, backgroundReport, err := c.getReports(ctx, namespace, name)
 		if err != nil {
 			return err
 		}
@@ -354,7 +354,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		var reports []kyvernov1alpha2.ReportInterface
 		reports = append(reports, policyReport)
 		reports = append(reports, backgroundReport)
-		reports = append(reports, admissionReports...)
+		reports = append(reports, ephemeralReports...)
 		mergeReports(policyMap, vapMap, merged, uid, reports...)
 		var results []policyreportv1alpha2.PolicyReportResult
 		for _, result := range merged {
@@ -378,8 +378,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 				}
 			}
 		}
-		for _, admissionReport := range admissionReports {
-			if err := deleteReport(ctx, admissionReport, c.client); err != nil {
+		for _, ephemeralReport := range ephemeralReports {
+			if err := deleteReport(ctx, ephemeralReport, c.client); err != nil {
 				return err
 			}
 		}
@@ -396,7 +396,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		if policyReport == nil {
 			return nil
 		}
-		admissionReports, backgroundReport, err := c.getReports(ctx, namespace, name)
+		ephemeralReports, backgroundReport, err := c.getReports(ctx, namespace, name)
 		if err != nil {
 			return err
 		}
@@ -413,7 +413,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		var reports []kyvernov1alpha2.ReportInterface
 		reports = append(reports, policyReport)
 		reports = append(reports, backgroundReport)
-		reports = append(reports, admissionReports...)
+		reports = append(reports, ephemeralReports...)
 		mergeReports(policyMap, vapMap, merged, uid, reports...)
 		var results []policyreportv1alpha2.PolicyReportResult
 		for _, result := range merged {
