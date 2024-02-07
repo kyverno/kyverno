@@ -99,7 +99,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	}
 	//For veriifying all policies and rules are mentioned in test are also in policy
-        for _, res := range testCase.Test.Results {
+	for _, res := range testCase.Test.Results {
 		if res.IsValidatingAdmissionPolicy {
 			continue
 		}
@@ -109,7 +109,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		for _, policy := range policies {
 			if policy.IsNamespaced() {
 				ns = policy.GetNamespace()
-				}
+			}
 			if res.Policy == policy.GetName() || res.Policy == "default/"+policy.GetName() || res.Policy == ns+"/"+policy.GetName() {
 				policySame = true
 				for _, rule := range autogen.ComputeRules(policy) {
