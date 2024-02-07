@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: psa-1
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: true
+  validationFailureAction: Enforce
+  rules:
+  - name: restricted
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      podSecurity:
+        level: restricted
+        version: latest
