@@ -15,26 +15,27 @@ import (
 
 func mergeReports(policyMap map[string]policyMapEntry, vapMap sets.Set[string], accumulator map[string]policyreportv1alpha2.PolicyReportResult, uid types.UID, reports ...kyvernov1alpha2.ReportInterface) {
 	for _, report := range reports {
-		if report != nil {
-			for _, result := range report.GetResults() {
-				if result.Source == "ValidatingAdmissionPolicy" {
-					if vapMap != nil && vapMap.Has(result.Policy) {
-						key := result.Source + "/" + result.Policy + "/" + string(uid)
-						if rule, exists := accumulator[key]; !exists {
-							accumulator[key] = result
-						} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-							accumulator[key] = result
-						}
+		if report == nil {
+			continue
+		}
+		for _, result := range report.GetResults() {
+			if result.Source == "ValidatingAdmissionPolicy" {
+				if vapMap != nil && vapMap.Has(result.Policy) {
+					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					if rule, exists := accumulator[key]; !exists {
+						accumulator[key] = result
+					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+						accumulator[key] = result
 					}
-				} else {
-					currentPolicy := policyMap[result.Policy]
-					if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
-						key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
-						if rule, exists := accumulator[key]; !exists {
-							accumulator[key] = result
-						} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-							accumulator[key] = result
-						}
+				}
+			} else {
+				currentPolicy := policyMap[result.Policy]
+				if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
+					key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
+					if rule, exists := accumulator[key]; !exists {
+						accumulator[key] = result
+					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+						accumulator[key] = result
 					}
 				}
 			}
