@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: container-exception
+spec:
+  exceptions:
+  - policyName: check-deployment-replicas
+    ruleNames:
+    - check-deployment-replicas
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        namespaces:
+        - dev-ns
+  conditions:
+    any:
+    - key: "{{ request.object.metadata.labels.env || '' }}"
+      operator: Equals
+      value: dev
