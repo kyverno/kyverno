@@ -371,7 +371,7 @@ func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, 
 		return c.deleteEphemeralReport(ctx, reportMeta.GetNamespace(), reportMeta.GetName())
 	}
 	// else try again later
-	c.frontQueue.AddAfter(reportMeta, enqueueDelay)
+	c.frontQueue.AddAfter(controllerutils.MetaObjectToName(reportMeta), enqueueDelay)
 	return nil
 }
 
