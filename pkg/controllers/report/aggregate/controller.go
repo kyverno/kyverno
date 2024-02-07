@@ -21,6 +21,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -121,7 +122,18 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
-	enqueueFromAdmr := func(obj metav1.Object) {
+	metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
+		// if it's a deletion, nothing to do
+		if eventType == resource.Deleted {
+			return
+		}
+		if res.Namespace == "" {
+			c.queue.AddAfter(string(uid), enqueueDelay)
+		} else {
+			c.queue.AddAfter(res.Namespace+"/"+string(uid), enqueueDelay)
+		}
+	})
+	enqueueFromEphemeral := func(obj metav1.Object) {
 		switch reportutils.GetSource(obj) {
 		case "background-scan":
 			c.queue.AddAfter(controllerutils.MetaObjectToName(obj), enqueueDelay)
@@ -132,17 +144,17 @@ func NewController(
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		ephrInformer.Informer(),
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
+		func(obj metav1.Object) { enqueueFromEphemeral(obj) },
+		func(_, obj metav1.Object) { enqueueFromEphemeral(obj) },
+		func(obj metav1.Object) { enqueueFromEphemeral(obj) },
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		cephrInformer.Informer(),
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
+		func(obj metav1.Object) { enqueueFromEphemeral(obj) },
+		func(_, obj metav1.Object) { enqueueFromEphemeral(obj) },
+		func(obj metav1.Object) { enqueueFromEphemeral(obj) },
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -232,7 +244,7 @@ func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, nam
 	}
 }
 
-func (c *controller) getAdmissionReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getEphemeralReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, error) {
 	selector, err := reportutils.SelectorResourceUidEquals(types.UID(name))
 	if err != nil {
 		return nil, err
@@ -293,7 +305,7 @@ func (c *controller) getPolicyReport(ctx context.Context, namespace, name string
 }
 
 func (c *controller) getReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, kyvernov1alpha2.ReportInterface, error) {
-	admissionReports, err := c.getAdmissionReports(ctx, namespace, name)
+	ephemeralReports, err := c.getEphemeralReports(ctx, namespace, name)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -301,14 +313,14 @@ func (c *controller) getReports(ctx context.Context, namespace, name string) ([]
 	if err != nil {
 		return nil, nil, err
 	}
-	return admissionReports, backgroundReport, nil
+	return ephemeralReports, backgroundReport, nil
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
 	if exists {
-		admissionReports, backgroundReport, err := c.getReports(ctx, namespace, name)
+		ephemeralReports, backgroundReport, err := c.getReports(ctx, namespace, name)
 		if err != nil {
 			return err
 		}
@@ -342,7 +354,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		var reports []kyvernov1alpha2.ReportInterface
 		reports = append(reports, policyReport)
 		reports = append(reports, backgroundReport)
-		reports = append(reports, admissionReports...)
+		reports = append(reports, ephemeralReports...)
 		mergeReports(policyMap, vapMap, merged, uid, reports...)
 		var results []policyreportv1alpha2.PolicyReportResult
 		for _, result := range merged {
@@ -366,8 +378,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 				}
 			}
 		}
-		for _, admissionReport := range admissionReports {
-			if err := deleteReport(ctx, admissionReport, c.client); err != nil {
+		for _, ephemeralReport := range ephemeralReports {
+			if err := deleteReport(ctx, ephemeralReport, c.client); err != nil {
 				return err
 			}
 		}
@@ -381,7 +393,33 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		if err != nil {
 			return err
 		}
-		if policyReport != nil {
+		if policyReport == nil {
+			return nil
+		}
+		ephemeralReports, backgroundReport, err := c.getReports(ctx, namespace, name)
+		if err != nil {
+			return err
+		}
+		// aggregate reports
+		policyMap, err := c.createPolicyMap()
+		if err != nil {
+			return err
+		}
+		vapMap, err := c.createVapMap()
+		if err != nil {
+			return err
+		}
+		merged := map[string]policyreportv1alpha2.PolicyReportResult{}
+		var reports []kyvernov1alpha2.ReportInterface
+		reports = append(reports, policyReport)
+		reports = append(reports, backgroundReport)
+		reports = append(reports, ephemeralReports...)
+		mergeReports(policyMap, vapMap, merged, uid, reports...)
+		var results []policyreportv1alpha2.PolicyReportResult
+		for _, result := range merged {
+			results = append(results, result)
+		}
+		if len(results) == 0 {
 			if err := deleteReport(ctx, policyReport, c.client); err != nil {
 				return err
 			}

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod-2
+  namespace: staging-ns
+spec:
+  volumes:
+  - name: host
+    hostPath:
+      path: /var/lib1
+  containers:
+  - name: nginx
+    image: nginx
+    args:
+    - sleep
+    - 1d
