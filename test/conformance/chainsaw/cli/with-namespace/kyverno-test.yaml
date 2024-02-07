@@ -8,7 +8,7 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  // policy name is incorrect
+  # policy name is incorrect
   policy: test/preconditions 
   resources:
   - test-invalid
