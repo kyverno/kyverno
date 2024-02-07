@@ -1,0 +1,26 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: nginx
+results:
+- policy: psa-1
+  properties:
+    exception: pod-security-exception
+  result: skip
+  rule: restricted
+  scored: true
+  source: kyverno
+scope:
+  apiVersion: v1
+  kind: Pod
+  name: nginx
+summary:
+  error: 0
+  fail: 0
+  pass: 0
+  skip: 1
+  warn: 0
