@@ -243,7 +243,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: validating-admission-policies
+          - name: specific-tests-above-1-28
             values:
               - standard
               - generate-validating-admission-policy
