@@ -27,15 +27,14 @@ import (
 )
 
 type engine struct {
-	configuration            config.Configuration
-	metricsConfiguration     config.MetricsConfiguration
-	jp                       jmespath.Interface
-	client                   engineapi.Client
-	rclientFactory           engineapi.RegistryClientFactory
-	ivCache                  imageverifycache.Client
-	contextLoader            engineapi.ContextLoaderFactory
-	exceptionSelector        engineapi.PolicyExceptionSelector
-	imageSignatureRepository string
+	configuration        config.Configuration
+	metricsConfiguration config.MetricsConfiguration
+	jp                   jmespath.Interface
+	client               engineapi.Client
+	rclientFactory       engineapi.RegistryClientFactory
+	ivCache              imageverifycache.Client
+	contextLoader        engineapi.ContextLoaderFactory
+	exceptionSelector    engineapi.PolicyExceptionSelector
 	// metrics
 	resultCounter     metric.Int64Counter
 	durationHistogram metric.Float64Histogram
@@ -52,7 +51,6 @@ func NewEngine(
 	ivCache imageverifycache.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
-	imageSignatureRepository string,
 ) engineapi.Engine {
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
@@ -70,17 +68,16 @@ func NewEngine(
 		logging.Error(err, "failed to register metric kyverno_policy_execution_duration_seconds")
 	}
 	return &engine{
-		configuration:            configuration,
-		metricsConfiguration:     metricsConfiguration,
-		jp:                       jp,
-		client:                   client,
-		rclientFactory:           rclientFactory,
-		ivCache:                  ivCache,
-		contextLoader:            contextLoader,
-		exceptionSelector:        exceptionSelector,
-		imageSignatureRepository: imageSignatureRepository,
-		resultCounter:            resultCounter,
-		durationHistogram:        durationHistogram,
+		configuration:        configuration,
+		metricsConfiguration: metricsConfiguration,
+		jp:                   jp,
+		client:               client,
+		rclientFactory:       rclientFactory,
+		ivCache:              ivCache,
+		contextLoader:        contextLoader,
+		exceptionSelector:    exceptionSelector,
+		resultCounter:        resultCounter,
+		durationHistogram:    durationHistogram,
 	}
 }
 

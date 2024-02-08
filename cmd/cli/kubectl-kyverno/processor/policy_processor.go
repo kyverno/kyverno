@@ -81,7 +81,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(p.Store, nil),
 		policyExceptionLister,
-		"",
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
