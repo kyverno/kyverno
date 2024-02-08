@@ -27,7 +27,7 @@ spec:
   validationFailureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
