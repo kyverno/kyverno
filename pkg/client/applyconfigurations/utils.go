@@ -85,6 +85,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.ForEachValidationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Generation"):
 		return &kyvernov1.GenerationApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("GlobalContextEntryReference"):
+		return &kyvernov1.GlobalContextEntryReferenceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ImageExtractorConfig"):
 		return &kyvernov1.ImageExtractorConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ImageRegistry"):
