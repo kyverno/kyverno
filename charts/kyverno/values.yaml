@@ -672,7 +672,7 @@ features:
     - github
   reports:
     # -- Reports chunk size
-    chunkSize: 1000
+    chunkSize: 0
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
