@@ -448,19 +448,19 @@ func (v *validator) buildAnyPatternErrorMessage(rule kyvernov1.Rule, errors []st
 	if rule.Validation.Message == "" {
 		return fmt.Sprintf("validation error: %s", errStr)
 	}
-    	msgRaw, sErr := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.rule.Validation.Message)
-    	if sErr != nil {
-	    	v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
+	msgRaw, sErr := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.rule.Validation.Message)
+	if sErr != nil {
+		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
 		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, errStr)
-    	} else {
+	} else {
 		msg := msgRaw.(string)
 		if strings.HasSuffix(msg, ".") {
 			return fmt.Sprintf("validation error: %s %s", msg, errStr)
 		}
-    		return fmt.Sprintf("validation error: %s. %s", msg, errStr)
+		return fmt.Sprintf("validation error: %s. %s", msg, errStr)
 	}
-}	
-        
+}
+
 func (v *validator) substitutePatterns() error {
 	if v.pattern != nil {
 		i, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.pattern)
