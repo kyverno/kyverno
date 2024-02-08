@@ -27,28 +27,4 @@ spec:
               test: ""
       message: All pod labels must match except test
   validationFailureAction: Enforce
----
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: namespace-validation
-spec:
-  admission: true
-  background: false
-  rules:
-  - match:
-      any:
-      - resources:
-          kinds:
-          - Namespace
-    name: namespace-validation #this is correct 
-    validate:
-      deny:
-        conditions:
-        - key: '{{regex_match(''^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$'',
-            ''{{request.object.metadata.labels.aadobjectid}}'')}}'
-          operator: Equals
-          value: false
-      message: For creating a namespace you need to set the objectid of the Azure
-        AD Group that needs access to this namespace as the aadobjectid label
-  validationFailureAction: Enforce
+
