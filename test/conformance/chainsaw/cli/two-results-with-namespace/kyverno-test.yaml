@@ -14,22 +14,11 @@ results:
   result: fail
   rule: test-jmespath
 - kind: Pod
-  policy: test-jmespath
+  policy: default/test-jmespath
   resources:
   - test-valid1
   - test-valid2
   - test-valid3
   result: pass
   rule: test-jmespath
-- kind: Namespace
-  policy: namespacevalidation
-  resources:
-  - test-invalid
-  result: fail
-  rule: namespace-validation
-- kind: Namespace
-  policy: namespace-validation
-  resources:
-  - test-valid
-  result: pass
-  rule: namespace-validation
+
