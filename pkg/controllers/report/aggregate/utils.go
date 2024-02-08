@@ -3,12 +3,14 @@ package aggregate
 import (
 	"context"
 	"errors"
+	"time"
 
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -55,4 +57,8 @@ func updateReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, c
 		return nil, errors.New("can't update report because it is not managed by kyverno")
 	}
 	return reportutils.UpdateReport(ctx, report, client)
+}
+
+func isTooOld(reportMeta *metav1.PartialObjectMetadata) bool {
+	return reportMeta.GetCreationTimestamp().Add(deletionGrace).Before(time.Now())
 }
