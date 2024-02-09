@@ -45,8 +45,13 @@ func New(
 	e := &entry{
 		stop: stop,
 	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	group.StartWithContext(ctx, func(ctx context.Context) {
-		// TODO: make sure we have called it at least once before returning
+		defer wg.Done()
+
 		config := apicall.NewAPICallConfiguration(maxResponseLength)
 		caller := apicall.NewCaller(logger, "globalcontext", client, config)
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
@@ -65,6 +70,9 @@ func New(
 			}
 		}, period)
 	})
+
+	wg.Wait()
+
 	return e, nil
 }
 
