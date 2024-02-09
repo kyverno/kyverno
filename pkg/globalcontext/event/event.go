@@ -17,5 +17,6 @@ func NewErrorEvent(regarding corev1.ObjectReference, reason event.Reason, err er
 		Reason:    reason,
 		Message:   err.Error(),
 		Action:    action,
+		Type:      corev1.EventTypeWarning,
 	}
 }
