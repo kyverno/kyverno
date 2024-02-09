@@ -476,7 +476,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 func isGlobalContextEntryReady(name string, gctxentries []*kyvernov2alpha1.GlobalContextEntry) bool {
 	for _, gctxentry := range gctxentries {
 		if gctxentry.Name == name {
-			return true
+			return gctxentry.Status.IsReady()
 		}
 	}
 	return false

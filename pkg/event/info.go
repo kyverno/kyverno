@@ -14,6 +14,7 @@ type Info struct {
 	Message   string
 	Action    Action
 	Source    Source
+	Type      string
 }
 
 func (i *Info) Resource() string {

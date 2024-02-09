@@ -57,6 +57,7 @@ func New(
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
 			if data, err := doCall(ctx, caller, call); err != nil {
 				logger.Error(err, "failed to get data from api caller")
+				gce.Status.SetReady(false, err.Error())
 				eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 					APIVersion: gce.APIVersion,
 					Kind:       gce.Kind,
@@ -66,6 +67,7 @@ func New(
 				}, entryevent.ReasonAPICallFailure, err))
 				e.setData(nil, err)
 			} else {
+				gce.Status.SetReady(true, "Data fetched successfully")
 				e.setData(data, nil)
 			}
 		}, period)

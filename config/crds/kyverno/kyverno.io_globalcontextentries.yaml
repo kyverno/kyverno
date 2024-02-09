@@ -18,7 +18,11 @@ spec:
     singular: globalcontextentry
   scope: Cluster
   versions:
-  - name: v2alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
+      name: READY
+      type: string
+    name: v2alpha1
     schema:
       openAPIV3Schema:
         description: GlobalContextEntry declares resources to be cached.
@@ -190,6 +194,9 @@ spec:
             type: object
         required:
         - spec
+        - status
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}

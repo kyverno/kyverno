@@ -28,18 +28,19 @@ import (
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=gctxentry,categories=kyverno,scope="Cluster"
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {
-	metav1.TypeMeta   `json:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
 	Spec GlobalContextEntrySpec `json:"spec" yaml:"spec"`
 
 	// Status contains globalcontextentry runtime data.
-	// +optional
-	Status GlobalContextEntryStatus `json:"status,omitempty"`
+	Status GlobalContextEntryStatus `json:"status" yaml:"status"`
 }
 
 // GetStatus returns the globalcontextentry status

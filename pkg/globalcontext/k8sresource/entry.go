@@ -63,6 +63,7 @@ func New(
 			Namespace:  gce.Namespace,
 			UID:        gce.UID,
 		}, entryevent.ReasonCacheSyncFailure, err))
+		gce.Status.SetReady(false, err.Error())
 		return invalid.New(err), nil
 	}
 	return &entry{
