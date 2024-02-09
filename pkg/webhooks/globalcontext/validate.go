@@ -32,5 +32,6 @@ func (h *gctxHandlers) Validate(ctx context.Context, logger logr.Logger, request
 	if err != nil {
 		logger.Error(err, "global context entry validation errors")
 	}
+	gctx.GetStatus().SetReady(false, "Loading")
 	return admissionutils.Response(request.UID, err, warnings...)
 }
