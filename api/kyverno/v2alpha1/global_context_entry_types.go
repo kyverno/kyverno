@@ -40,7 +40,8 @@ type GlobalContextEntry struct {
 	Spec GlobalContextEntrySpec `json:"spec" yaml:"spec"`
 
 	// Status contains globalcontextentry runtime data.
-	Status GlobalContextEntryStatus `json:"status" yaml:"status"`
+	// +optional
+	Status GlobalContextEntryStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // GetStatus returns the globalcontextentry status
