@@ -7,6 +7,8 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
+	"github.com/kyverno/kyverno/pkg/globalcontext/invalid"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -25,7 +27,6 @@ type entry struct {
 }
 
 // TODO: Handle Kyverno Pod Ready State
-// TODO: Error Handling
 func New(
 	ctx context.Context,
 	gce *kyvernov2alpha1.GlobalContextEntry,
@@ -33,7 +34,7 @@ func New(
 	client dynamic.Interface,
 	gvr schema.GroupVersionResource,
 	namespace string,
-) (*entry, error) {
+) (store.Entry, error) {
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
@@ -54,7 +55,15 @@ func New(
 	})
 	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		stop()
-		return nil, fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
+		err := fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
+		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: gce.APIVersion,
+			Kind:       gce.Kind,
+			Name:       gce.Name,
+			Namespace:  gce.Namespace,
+			UID:        gce.UID,
+		}, entryevent.ReasonCacheSyncFailure, err))
+		return invalid.New(err), nil
 	}
 	return &entry{
 		lister:   informer.Lister(),

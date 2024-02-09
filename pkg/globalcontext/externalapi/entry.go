@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -32,7 +33,7 @@ func New(
 	call kyvernov1.APICall,
 	period time.Duration,
 	maxResponseLength int64,
-) (*entry, error) {
+) (store.Entry, error) {
 	var group wait.Group
 	ctx, cancel := context.WithCancel(ctx)
 	stop := func() {
