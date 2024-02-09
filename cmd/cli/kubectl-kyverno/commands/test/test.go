@@ -221,5 +221,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		}
 		engineResponses = append(engineResponses, ers...)
 	}
+	
 	return engineResponses, nil
 }
