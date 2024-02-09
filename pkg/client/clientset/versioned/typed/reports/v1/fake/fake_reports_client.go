@@ -28,12 +28,20 @@ type FakeReportsV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeReportsV1) ClusterEphemeralReports() v1.ClusterEphemeralReportInterface {
-	return &FakeClusterEphemeralReports{c}
+func (c *FakeReportsV1) AdmissionReports(namespace string) v1.AdmissionReportInterface {
+	return &FakeAdmissionReports{c, namespace}
 }
 
-func (c *FakeReportsV1) EphemeralReports(namespace string) v1.EphemeralReportInterface {
-	return &FakeEphemeralReports{c, namespace}
+func (c *FakeReportsV1) BackgroundScanReports(namespace string) v1.BackgroundScanReportInterface {
+	return &FakeBackgroundScanReports{c, namespace}
+}
+
+func (c *FakeReportsV1) ClusterAdmissionReports() v1.ClusterAdmissionReportInterface {
+	return &FakeClusterAdmissionReports{c}
+}
+
+func (c *FakeReportsV1) ClusterBackgroundScanReports() v1.ClusterBackgroundScanReportInterface {
+	return &FakeClusterBackgroundScanReports{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

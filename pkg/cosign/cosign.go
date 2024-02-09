@@ -518,10 +518,7 @@ func matchSignatures(signatures []oci.Signature, subject, issuer string, extensi
 
 func matchCertificateData(cert *x509.Certificate, subject, issuer string, extensions map[string]string) error {
 	if subject != "" {
-		s := ""
-		if sans := cryptoutils.GetSubjectAlternateNames(cert); len(sans) > 0 {
-			s = sans[0]
-		}
+		s := sigs.CertSubject(cert)
 		if !wildcard.Match(subject, s) {
 			return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
 		}

@@ -110,28 +110,15 @@ func jpTimeAdd(arguments []interface{}) (interface{}, error) {
 }
 
 func jpTimeParse(arguments []interface{}) (interface{}, error) {
-	var err error
-	layout, err := validateArg(timeParse, arguments, 0, reflect.String)
-	if err != nil {
+	if layout, err := validateArg(timeParse, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-	ts, err := validateArg(timeParse, arguments, 1, reflect.String)
-	if err != nil {
+	} else if ts, err := validateArg(timeParse, arguments, 1, reflect.String); err != nil {
 		return nil, err
-	}
-	_, err = strconv.ParseInt(layout.String(), 10, 64)
-	if err == nil { // epoch time layout
-		epochTime, err := strconv.ParseInt(ts.String(), 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		return time.Unix(epochTime, 0).UTC().Format(time.RFC3339), nil
-	}
-	t, err := time.Parse(layout.String(), ts.String())
-	if err != nil {
+	} else if t, err := time.Parse(layout.String(), ts.String()); err != nil {
 		return nil, err
+	} else {
+		return t.Format(time.RFC3339), nil
 	}
-	return t.Format(time.RFC3339), nil
 }
 
 func jpTimeUtc(arguments []interface{}) (interface{}, error) {

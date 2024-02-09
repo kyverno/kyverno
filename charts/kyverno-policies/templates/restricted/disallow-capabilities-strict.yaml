@@ -65,9 +65,6 @@ spec:
           operator: NotEquals
           value: DELETE
       {{- end }}
-      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
-      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
-      {{- end }}
       validate:
         message: >-
           Containers must drop `ALL` capabilities.
@@ -109,9 +106,6 @@ spec:
         - key: "{{`{{ request.operation || 'BACKGROUND' }}`}}"
           operator: NotEquals
           value: DELETE
-      {{- end }}
-      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
-      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
         message: >-

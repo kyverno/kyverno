@@ -21,15 +21,17 @@ package v1
 import (
 	"net/http"
 
-	v1 "github.com/kyverno/kyverno/api/reports/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
 type ReportsV1Interface interface {
 	RESTClient() rest.Interface
-	ClusterEphemeralReportsGetter
-	EphemeralReportsGetter
+	AdmissionReportsGetter
+	BackgroundScanReportsGetter
+	ClusterAdmissionReportsGetter
+	ClusterBackgroundScanReportsGetter
 }
 
 // ReportsV1Client is used to interact with features provided by the reports.kyverno.io group.
@@ -37,12 +39,20 @@ type ReportsV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ReportsV1Client) ClusterEphemeralReports() ClusterEphemeralReportInterface {
-	return newClusterEphemeralReports(c)
+func (c *ReportsV1Client) AdmissionReports(namespace string) AdmissionReportInterface {
+	return newAdmissionReports(c, namespace)
 }
 
-func (c *ReportsV1Client) EphemeralReports(namespace string) EphemeralReportInterface {
-	return newEphemeralReports(c, namespace)
+func (c *ReportsV1Client) BackgroundScanReports(namespace string) BackgroundScanReportInterface {
+	return newBackgroundScanReports(c, namespace)
+}
+
+func (c *ReportsV1Client) ClusterAdmissionReports() ClusterAdmissionReportInterface {
+	return newClusterAdmissionReports(c)
+}
+
+func (c *ReportsV1Client) ClusterBackgroundScanReports() ClusterBackgroundScanReportInterface {
+	return newClusterBackgroundScanReports(c)
 }
 
 // NewForConfig creates a new ReportsV1Client for the given config.

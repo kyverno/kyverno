@@ -24,8 +24,10 @@ rules:
   - apiGroups:
       - reports.kyverno.io
     resources:
-      - ephemeralreports
-      - clusterephemeralreports
+      - admissionreports
+      - clusteradmissionreports
+      - backgroundscanreports
+      - clusterbackgroundscanreports
     verbs:
       - create
       - delete
@@ -56,8 +58,10 @@ rules:
   - apiGroups:
       - reports.kyverno.io
     resources:
-      - ephemeralreports
-      - clusterephemeralreports
+      - admissionreports
+      - clusteradmissionreports
+      - backgroundscanreports
+      - clusterbackgroundscanreports
     verbs:
       - get
       - list

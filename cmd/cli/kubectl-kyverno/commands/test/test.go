@@ -7,7 +7,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -75,17 +74,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			fmt.Fprintln(out, "  Warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
-	// exceptions
-	fmt.Fprintln(out, "  Loading exceptions", "...")
-	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
-	exceptions, err := exception.Load(exceptionFullPath...)
-	if err != nil {
-		return nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
-	}
-	// Validates that exceptions cannot be used with ValidatingAdmissionPolicies.
-	if len(validatingAdmissionPolicies) > 0 && len(exceptions) > 0 {
-		return nil, fmt.Errorf("Error: Currently, the use of exceptions in conjunction with ValidatingAdmissionPolicies is not supported.")
-	}
 	// init store
 	var store store.Store
 	store.SetLocal(true)
@@ -93,11 +81,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	if vars != nil {
 		vars.SetInStore(&store)
 	}
-	if len(exceptions) > 0 {
-		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "with", len(exceptions), pluralize.Pluralize(len(exceptions), "exception", "exceptions"), "...")
-	} else {
-		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
-	}
+	fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {
@@ -106,7 +90,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
-				// TODO: what if two policies have a rule with the same name ?
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
@@ -145,7 +128,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
@@ -160,7 +143,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			Store:                     &store,
 			Policies:                  validPolicies,
 			Resource:                  *resource,
-			PolicyExceptions:          exceptions,
 			MutateLogPath:             "",
 			Variables:                 vars,
 			UserInfo:                  userInfo,

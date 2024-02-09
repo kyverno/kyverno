@@ -4,17 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"runtime"
 	"time"
 
-	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -127,10 +124,10 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 			chains = append(chains, authn.DefaultKeychain)
 		}
 		if helpers.Has("google") {
-			chains = append(chains, google.Keychain)
+			chains = append(chains, GCPKeychain)
 		}
 		if helpers.Has("amazon") {
-			chains = append(chains, authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))))
+			chains = append(chains, AWSKeychain)
 		}
 		if helpers.Has("azure") {
 			chains = append(chains, AzureKeychain)

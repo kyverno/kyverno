@@ -20,7 +20,8 @@ spec:
   - name: step-02
     try:
     - script:
-        content: kubectl scale deployment nginx-test --replicas=1 -n test-validate
-        check:
-          # This check below ensures that the string "validation error: nginx-test needs to have 2 replicas" isn't found in stderr or else fails
-          (contains($stderr, 'nginx-test needs to have 2 replicas')): true
+        content: "if kubectl scale deployment nginx-test --replicas=1 -n test-validate
+          2>&1 | grep -q 'validation error: nginx-test needs to have 2 replicas' \nthen
+          \n  echo \"Test succeeded. Resource was blocked from scaling.\"\n  exit
+          0\nelse \n  echo \"Tested failed. Resource was allowed to scale.\"\n  exit
+          1 \nfi\n"

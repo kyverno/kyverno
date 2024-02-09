@@ -29,6 +29,20 @@ type apiCall struct {
 	config  APICallConfiguration
 }
 
+type APICallConfiguration struct {
+	maxAPICallResponseLength int64
+}
+
+func NewAPICallConfiguration(maxLen int64) APICallConfiguration {
+	return APICallConfiguration{
+		maxAPICallResponseLength: maxLen,
+	}
+}
+
+type ClientInterface interface {
+	RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error)
+}
+
 func New(
 	logger logr.Logger,
 	jp jmespath.Interface,
@@ -69,7 +83,7 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
-	data, err := a.Execute(ctx, call)
+	data, err := a.execute(ctx, call)
 	if err != nil {
 		return nil, err
 	}
@@ -84,10 +98,11 @@ func (a *apiCall) Store(data []byte) ([]byte, error) {
 	return results, nil
 }
 
-func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.ContextAPICall) ([]byte, error) {
+func (a *apiCall) execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
 	if call.URLPath != "" {
 		return a.executeK8sAPICall(ctx, call.URLPath, call.Method, call.Data)
 	}
+
 	return a.executeServiceCall(ctx, call)
 }
 
@@ -96,15 +111,17 @@ func (a *apiCall) executeK8sAPICall(ctx context.Context, path string, method kyv
 	if err != nil {
 		return nil, err
 	}
+
 	jsonData, err := a.client.RawAbsPath(ctx, path, string(method), requestData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to %v resource with raw url\n: %s: %v", method, path, err)
 	}
+
 	a.logger.V(4).Info("executed APICall", "name", a.entry.Name, "path", path, "method", method, "len", len(jsonData))
 	return jsonData, nil
 }
 
-func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.ContextAPICall) ([]byte, error) {
+func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.APICall) ([]byte, error) {
 	if apiCall.Service == nil {
 		return nil, fmt.Errorf("missing service for APICall %s", a.entry.Name)
 	}
@@ -152,7 +169,7 @@ func (a *apiCall) executeServiceCall(ctx context.Context, apiCall *kyvernov1.Con
 	return body, nil
 }
 
-func (a *apiCall) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.ContextAPICall) (req *http.Request, err error) {
+func (a *apiCall) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APICall) (req *http.Request, err error) {
 	if apiCall.Service == nil {
 		return nil, fmt.Errorf("missing service")
 	}

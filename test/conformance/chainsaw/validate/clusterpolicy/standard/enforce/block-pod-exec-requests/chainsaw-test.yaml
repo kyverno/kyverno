@@ -18,7 +18,8 @@ spec:
   - name: step-02
     try:
     - script:
-        content: kubectl -n test-validate exec nginx -it -- sh
-        check:
-          # This check below ensures that the string "Exec'ing into Pods protected with the label 'exec=false' is forbidden" isn't found in stderr or else fails
-          (contains($stderr, 'Exec\'ing into Pods protected with the label \'exec=false\' is forbidden')): false
+        content: "if kubectl -n test-validate exec nginx -it -- sh 2>&1 | grep -q
+          \"Exec'ing into Pods protected with the label 'exec=false' is forbidden\"
+          \nthen \n  echo \"Tested failed. Exec Request was not blocked.\"\n  exit
+          1 \nelse \n  echo \"Test succeeded. Exec Request was blocked.\"\n  exit
+          0\nfi\n"

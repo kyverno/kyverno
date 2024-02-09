@@ -62,6 +62,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(configMapResolver),
 			peLister,
+			"",
 		),
 	}
 }

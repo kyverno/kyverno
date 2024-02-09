@@ -33,9 +33,7 @@ spec:
   - name: step-05
     try:
     - script:
-        content: kubectl logs deployment/kyverno-admission-controller -n kyverno
-        check:
-          # This check ensures that the string 'reason="PolicyViolation"' is found
-          # in stdout or else fails
-          (contains($stdout, 'reason=\"PolicyViolation\"')): true
-
+        content: "if kubectl logs deployment/kyverno-admission-controller -n kyverno
+          | grep \"reason=\\\"PolicyViolation\\\"\" \nthen \n    echo \"Test succeeded.
+          PolicyViolation event was not created.\"\n    exit 0\nelse \n    echo \"Tested
+          failed. PolicyViolation event should have been created.\"\n    exit 1\nfi\n"

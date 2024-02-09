@@ -2,8 +2,6 @@ package exception
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
@@ -21,23 +19,7 @@ var (
 	exceptionV2      = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
 )
 
-func Load(paths ...string) ([]*kyvernov2beta1.PolicyException, error) {
-	var out []*kyvernov2beta1.PolicyException
-	for _, path := range paths {
-		bytes, err := os.ReadFile(filepath.Clean(path))
-		if err != nil {
-			return nil, fmt.Errorf("unable to read yaml (%w)", err)
-		}
-		exceptions, err := load(bytes)
-		if err != nil {
-			return nil, fmt.Errorf("unable to load exceptions (%w)", err)
-		}
-		out = append(out, exceptions...)
-	}
-	return out, nil
-}
-
-func load(content []byte) ([]*kyvernov2beta1.PolicyException, error) {
+func Load(content []byte) ([]*kyvernov2beta1.PolicyException, error) {
 	documents, err := yamlutils.SplitDocuments(content)
 	if err != nil {
 		return nil, err

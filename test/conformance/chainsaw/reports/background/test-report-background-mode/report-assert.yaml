@@ -14,7 +14,7 @@ scope:
 results:
 - category: Pod Security
   message: "Validation rule 'restricted' failed. It violates PodSecurity \"restricted:latest\":
-        (Forbidden reason: unrestricted capabilities, field error list: [spec.containers[0].securityContext.capabilities.drop:
+        \n(Forbidden reason: unrestricted capabilities, field error list: [spec.containers[0].securityContext.capabilities.drop:
         Required value])"
   policy: podsecurity-subrule-restricted
   properties:

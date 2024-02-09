@@ -13,10 +13,8 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -66,7 +64,6 @@ type ApplyCommandConfig struct {
 	GitBranch      string
 	warnExitCode   int
 	warnNoPassed   bool
-	Exception      []string
 }
 
 func Command() *cobra.Command {
@@ -86,7 +83,6 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
 				printReport(out, responses, applyCommandConfig.AuditWarn)
@@ -118,7 +114,6 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
-	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	return cmd
 }
 
@@ -161,21 +156,13 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	exceptions, err := exception.Load(c.Exception...)
-	if err != nil {
-		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
-	}
 	if !c.Stdin {
 		var policyRulesCount int
 		for _, policy := range policies {
 			policyRulesCount += len(autogen.ComputeRules(policy))
 		}
 		policyRulesCount += len(vaps)
-		if len(exceptions) > 0 {
-			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, len(resources), len(exceptions))
-		} else {
-			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
-		}
+		fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 	}
 
 	rc, resources1, responses1, err = c.applyPolicytoResource(
@@ -184,7 +171,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		variables,
 		policies,
 		resources,
-		exceptions,
 		&skipInvalidPolicies,
 		dClient,
 		userInfo,
@@ -243,7 +229,6 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	vars *variables.Variables,
 	policies []kyvernov1.PolicyInterface,
 	resources []*unstructured.Unstructured,
-	exceptions []*kyvernov2beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
 	userInfo *v1beta1.RequestInfo,
@@ -252,15 +237,13 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	if vars != nil {
 		vars.SetInStore(store)
 	}
-	var rc processor.ResultCounts
 	// validate policies
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
-			rc.IncrementError(1)
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
 				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, pol.GetName())
 			} else {
@@ -271,13 +254,13 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		validPolicies = append(validPolicies, pol)
 	}
 
+	var rc processor.ResultCounts
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
 			Store:                store,
 			Policies:             validPolicies,
 			Resource:             *resource,
-			PolicyExceptions:     exceptions,
 			MutateLogPath:        c.MutateLogPath,
 			MutateLogPathIsDir:   mutateLogPathIsDir,
 			Variables:            vars,
@@ -317,11 +300,13 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
+
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
 				return nil, nil, skipInvalidPolicies, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
+
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
@@ -462,14 +447,12 @@ func printViolations(out io.Writer, rc *processor.ResultCounts) {
 }
 
 func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
-	if rc.Fail() > 0 {
-		return fmt.Errorf("exit as there are policy violations")
-	} else if rc.Error() > 0 {
-		return fmt.Errorf("exit as there are policy errors")
+	if rc.Fail() > 0 || rc.Error() > 0 {
+		return fmt.Errorf("exit as fail or error count > 0")
 	} else if rc.Warn() > 0 && warnExitCode != 0 {
 		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	} else if rc.Pass() == 0 && warnNoPassed {
-		return fmt.Errorf("exit as no objects satisfied policy")
+		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
 	}
 	return nil
 }

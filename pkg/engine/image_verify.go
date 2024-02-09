@@ -43,6 +43,7 @@ func (e *engine) verifyAndPatchImages(
 				e.rclientFactory,
 				e.ivCache,
 				&ivm,
+				e.imageSignatureRepository,
 			)
 		}
 		resource, ruleResp := e.invokeRuleHandler(

@@ -24,8 +24,6 @@ const (
 	ValidatingWebhookConfigurationName = "kyverno-resource-validating-webhook-cfg"
 	// ExceptionValidatingWebhookConfigurationName ...
 	ExceptionValidatingWebhookConfigurationName = "kyverno-exception-validating-webhook-cfg"
-	// GlobalContextValidatingWebhookConfigurationName ...
-	GlobalContextValidatingWebhookConfigurationName = "kyverno-global-context-validating-webhook-cfg"
 	// CleanupValidatingWebhookConfigurationName ...
 	CleanupValidatingWebhookConfigurationName = "kyverno-cleanup-validating-webhook-cfg"
 	// PolicyMutatingWebhookConfigurationName default policy mutating webhook configuration name
@@ -60,8 +58,6 @@ const (
 	ValidatingWebhookServicePath = "/validate"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
-	// GlobalContextValidatingWebhookServicePath is the path for global context validation webhook(used to validate global context entries)
-	GlobalContextValidatingWebhookServicePath = "/globalcontextvalidate"
 	// CleanupValidatingWebhookServicePath is the path for cleanup policy validation webhook(used to validate cleanup policy resource)
 	CleanupValidatingWebhookServicePath = "/validate"
 	// TtlValidatingWebhookServicePath is the path for validation of cleanup.kyverno.io/ttl label value
@@ -78,8 +74,6 @@ const (
 	ReadinessServicePath = "/health/readiness"
 	// MetricsPath is the path for exposing metrics
 	MetricsPath = "/metrics"
-	// FineGrainedWebhookPath is the sub-path for fine-grained webhook configurationss
-	FineGrainedWebhookPath = "/finegrained"
 )
 
 // keys in config map

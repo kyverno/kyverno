@@ -6,10 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
-	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,8 +15,8 @@ import (
 var keychain = authn.NewMultiKeychain(
 	authn.DefaultKeychain,
 	github.Keychain,
-	authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))),
-	google.Keychain,
+	registryclient.AWSKeychain,
+	registryclient.GCPKeychain,
 	registryclient.AzureKeychain,
 )
 

@@ -27,13 +27,12 @@ spec:
       restartPolicy: Never
       containers:
         - name: kubectl
-          image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.policyReportsCleanup.image "defaultTag" (default .Chart.AppVersion .Values.policyReportsCleanup.image.tag))) | quote }}
+          image: {{ (include "kyverno.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.policyReportsCleanup.image "defaultTag" (default .Chart.AppVersion .Values.policyReportsCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.policyReportsCleanup.image.pullPolicy }}
           command:
             - /bin/bash
             - -c
             - |
-              set -euo pipefail
               NAMESPACES=$(kubectl get namespaces --no-headers=true | awk '{print $1}')
 
               for ns in ${NAMESPACES[@]};

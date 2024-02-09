@@ -331,7 +331,7 @@ func GetRestrictedFields(check policy.Check) []pssutils.RestrictedField {
 func FormatChecksPrint(checks []pssutils.PSSCheckResult) string {
 	var str string
 	for _, check := range checks {
-		str += fmt.Sprintf("(Forbidden reason: %s, field error list: [", check.CheckResult.ForbiddenReason)
+		str += fmt.Sprintf("\n(Forbidden reason: %s, field error list: [", check.CheckResult.ForbiddenReason)
 		for idx, err := range *check.CheckResult.ErrList {
 			badValueExist := true
 			switch err.BadValue.(type) {
@@ -345,7 +345,7 @@ func FormatChecksPrint(checks []pssutils.PSSCheckResult) string {
 			switch err.Type {
 			case field.ErrorTypeForbidden:
 				if badValueExist {
-					str += fmt.Sprintf("%s is forbidden, forbidden values found: %+v", err.Field, err.BadValue)
+					str += fmt.Sprintf("%s is forbidden, don't set the BadValue: %+v", err.Field, err.BadValue)
 				} else {
 					str += err.Error()
 				}

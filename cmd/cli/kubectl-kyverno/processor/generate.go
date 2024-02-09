@@ -135,6 +135,7 @@ func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[s
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(s, nil),
 		nil,
+		"",
 	))
 	return c, nil
 }

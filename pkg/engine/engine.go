@@ -27,14 +27,15 @@ import (
 )
 
 type engine struct {
-	configuration        config.Configuration
-	metricsConfiguration config.MetricsConfiguration
-	jp                   jmespath.Interface
-	client               engineapi.Client
-	rclientFactory       engineapi.RegistryClientFactory
-	ivCache              imageverifycache.Client
-	contextLoader        engineapi.ContextLoaderFactory
-	exceptionSelector    engineapi.PolicyExceptionSelector
+	configuration            config.Configuration
+	metricsConfiguration     config.MetricsConfiguration
+	jp                       jmespath.Interface
+	client                   engineapi.Client
+	rclientFactory           engineapi.RegistryClientFactory
+	ivCache                  imageverifycache.Client
+	contextLoader            engineapi.ContextLoaderFactory
+	exceptionSelector        engineapi.PolicyExceptionSelector
+	imageSignatureRepository string
 	// metrics
 	resultCounter     metric.Int64Counter
 	durationHistogram metric.Float64Histogram
@@ -51,6 +52,7 @@ func NewEngine(
 	ivCache imageverifycache.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
+	imageSignatureRepository string,
 ) engineapi.Engine {
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
@@ -68,16 +70,17 @@ func NewEngine(
 		logging.Error(err, "failed to register metric kyverno_policy_execution_duration_seconds")
 	}
 	return &engine{
-		configuration:        configuration,
-		metricsConfiguration: metricsConfiguration,
-		jp:                   jp,
-		client:               client,
-		rclientFactory:       rclientFactory,
-		ivCache:              ivCache,
-		contextLoader:        contextLoader,
-		exceptionSelector:    exceptionSelector,
-		resultCounter:        resultCounter,
-		durationHistogram:    durationHistogram,
+		configuration:            configuration,
+		metricsConfiguration:     metricsConfiguration,
+		jp:                       jp,
+		client:                   client,
+		rclientFactory:           rclientFactory,
+		ivCache:                  ivCache,
+		contextLoader:            contextLoader,
+		exceptionSelector:        exceptionSelector,
+		imageSignatureRepository: imageSignatureRepository,
+		resultCounter:            resultCounter,
+		durationHistogram:        durationHistogram,
 	}
 }
 
@@ -88,7 +91,7 @@ func (e *engine) Validate(
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse := e.validate(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
@@ -104,7 +107,7 @@ func (e *engine) Mutate(
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.mutate"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse, patchedResource := e.mutate(ctx, logger, policyContext)
 		response = response.
 			WithPolicyResponse(policyResponse).
@@ -122,7 +125,7 @@ func (e *engine) Generate(
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse := e.generateResponse(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
@@ -139,7 +142,7 @@ func (e *engine) VerifyAndPatchImages(
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	ivm := engineapi.ImageVerificationMetadata{}
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.verify"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse, patchedResource, innerIvm := e.verifyAndPatchImages(ctx, logger, policyContext)
 		response, ivm = response.
 			WithPolicyResponse(policyResponse).
@@ -157,7 +160,7 @@ func (e *engine) ApplyBackgroundChecks(
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
-	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}

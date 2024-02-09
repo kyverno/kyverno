@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/julienschmidt/httprouter"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -48,11 +47,8 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			"uid", admissionReview.Request.UID,
 			"user", admissionReview.Request.UserInfo,
 		)
-
-		params := httprouter.ParamsFromContext(request.Context())
 		admissionRequest := AdmissionRequest{
 			AdmissionRequest: *admissionReview.Request,
-			URLParams:        params.ByName("policy"),
 		}
 		admissionResponse := inner(request.Context(), logger, admissionRequest, startTime)
 		admissionReview.Response = &admissionResponse

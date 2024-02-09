@@ -22,7 +22,6 @@ func printCheckResult(
 	rc *resultCounts,
 	resultsTable *table.Table,
 ) error {
-	ctx := context.Background()
 	testCount := 1
 	for _, check := range checks {
 		// filter engine responses
@@ -31,7 +30,7 @@ func printCheckResult(
 		if check.Match.Resource != nil {
 			var filtered []engineapi.EngineResponse
 			for _, response := range matchingEngineResponses {
-				errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Resource.Value), response.Resource.UnstructuredContent(), nil)
+				errs, err := assert.Validate(context.Background(), check.Match.Resource.Value, response.Resource.UnstructuredContent(), nil)
 				if err != nil {
 					return err
 				}
@@ -49,7 +48,7 @@ func printCheckResult(
 				if err != nil {
 					return err
 				}
-				errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Policy.Value), data, nil)
+				errs, err := assert.Validate(context.Background(), check.Match.Policy.Value, data, nil)
 				if err != nil {
 					return err
 				}
@@ -68,7 +67,7 @@ func printCheckResult(
 					data := map[string]any{
 						"name": response.Name(),
 					}
-					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Rule.Value), data, nil)
+					errs, err := assert.Validate(context.Background(), check.Match.Rule.Value, data, nil)
 					if err != nil {
 						return err
 					}
@@ -94,7 +93,7 @@ func printCheckResult(
 					"exception ":        rule.Exception(),
 				}
 				if check.Assert.Value != nil {
-					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
+					errs, err := assert.Validate(context.Background(), check.Assert.Value, data, nil)
 					if err != nil {
 						return err
 					}
@@ -125,7 +124,7 @@ func printCheckResult(
 					testCount++
 				}
 				if check.Error.Value != nil {
-					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Error.Value), data, nil)
+					errs, err := assert.Validate(context.Background(), check.Error.Value, data, nil)
 					if err != nil {
 						return err
 					}

@@ -137,11 +137,11 @@ func (r *Rule) HasGenerate() bool {
 	return !datautils.DeepEqual(r.Generation, kyvernov1.Generation{})
 }
 
-func (r *Rule) GetGenerateTypeAndSync() (_ kyvernov1.GenerateType, sync bool, orphanDownstream bool) {
+func (r *Rule) GetGenerateTypeAndSync() (_ kyvernov1.GenerateType, sync bool) {
 	if !r.HasGenerate() {
 		return
 	}
-	return r.Generation.GetTypeAndSyncAndOrphanDownstream()
+	return r.Generation.GetTypeAndSync()
 }
 
 // ValidateRuleType checks only one type of rule is defined per rule

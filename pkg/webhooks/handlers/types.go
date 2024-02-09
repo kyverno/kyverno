@@ -23,8 +23,6 @@ type AdmissionRequest struct {
 
 	// GroupVersionKind is the top level GVK.
 	GroupVersionKind schema.GroupVersionKind
-
-	URLParams string
 }
 
 type AdmissionResponse = admissionv1.AdmissionResponse

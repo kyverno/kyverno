@@ -15,7 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
+	"github.com/kyverno/kyverno/pkg/utils/validatingadmissionpolicy"
 )
 
 // Validation provides methods to validate a rule

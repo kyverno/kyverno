@@ -62,8 +62,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CleanupPolicyList{},
 		&ClusterCleanupPolicy{},
 		&ClusterCleanupPolicyList{},
-		&GlobalContextEntry{},
-		&GlobalContextEntryList{},
 		&PolicyException{},
 		&PolicyExceptionList{},
 	)

@@ -18,9 +18,9 @@ import (
 
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
-	Run()
+	Run(<-chan struct{})
 	// Stop TLS server and returns control after the server is shut down
-	Stop()
+	Stop(context.Context)
 }
 
 type server struct {
@@ -110,7 +110,7 @@ func NewServer(
 	}
 }
 
-func (s *server) Run() {
+func (s *server) Run(stopCh <-chan struct{}) {
 	go func() {
 		if err := s.server.ListenAndServeTLS("", ""); err != nil {
 			logging.Error(err, "failed to start server")
@@ -118,9 +118,7 @@ func (s *server) Run() {
 	}()
 }
 
-func (s *server) Stop() {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+func (s *server) Stop(ctx context.Context) {
 	err := s.server.Shutdown(ctx)
 	if err != nil {
 		err = s.server.Close()

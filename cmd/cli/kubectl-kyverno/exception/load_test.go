@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_load(t *testing.T) {
+func Test_Load(t *testing.T) {
 	tests := []struct {
 		name       string
 		policies   string
@@ -31,7 +31,7 @@ func Test_load(t *testing.T) {
 			bytes, err := os.ReadFile(tt.policies)
 			require.NoError(t, err)
 			require.NoError(t, err)
-			if res, err := load(bytes); (err != nil) != tt.wantErr {
+			if res, err := Load(bytes); (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 			} else if len(res) != tt.wantLoaded {
 				t.Errorf("Load() loaded amount = %v, wantLoaded %v", len(res), tt.wantLoaded)

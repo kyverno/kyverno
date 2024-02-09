@@ -6,13 +6,13 @@ metadata:
   namespace: test-cm-lookup
 results:
 - policy: validate-labels
+  resources:
+  - apiVersion: v1
+    kind: Pod
+    name: test-cm-lookup-pod
+    namespace: test-cm-lookup
   result: pass
   rule: validate-labels
-scope:
-  apiVersion: v1
-  kind: Pod
-  name: test-cm-lookup-pod
-  namespace: test-cm-lookup
 summary:
   error: 0
   fail: 0

@@ -74,12 +74,7 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			if policy.IsReady() {
-				return c.cache.Set(key, policy, c.client.Discovery())
-			} else {
-				c.cache.Unset(key)
-				return nil
-			}
+			return c.cache.Set(key, policy, c.client.Discovery())
 		}
 	}
 	cpols, err := c.cpolLister.List(labels.Everything())
@@ -90,12 +85,7 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			if policy.IsReady() {
-				return c.cache.Set(key, policy, c.client.Discovery())
-			} else {
-				c.cache.Unset(key)
-				return nil
-			}
+			return c.cache.Set(key, policy, c.client.Discovery())
 		}
 	}
 	return nil
@@ -113,13 +103,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookConfiguration() {
-		if policy.IsReady() {
-			return c.cache.Set(key, policy, c.client.Discovery())
-		} else {
-			c.cache.Unset(key)
-			return nil
-		}
+	if policy.AdmissionProcessingEnabled() {
+		return c.cache.Set(key, policy, c.client.Discovery())
 	} else {
 		c.cache.Unset(key)
 		return nil

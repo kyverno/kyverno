@@ -28,7 +28,6 @@ import (
 type GenerationApplyConfiguration struct {
 	*ResourceSpecApplyConfiguration `json:"ResourceSpec,omitempty"`
 	Synchronize                     *bool                        `json:"synchronize,omitempty"`
-	OrphanDownstreamOnPolicyDelete  *bool                        `json:"orphanDownstreamOnPolicyDelete,omitempty"`
 	RawData                         *apiextensionsv1.JSON        `json:"data,omitempty"`
 	Clone                           *CloneFromApplyConfiguration `json:"clone,omitempty"`
 	CloneList                       *CloneListApplyConfiguration `json:"cloneList,omitempty"`
@@ -96,14 +95,6 @@ func (b *GenerationApplyConfiguration) ensureResourceSpecApplyConfigurationExist
 // If called multiple times, the Synchronize field is set to the value of the last call.
 func (b *GenerationApplyConfiguration) WithSynchronize(value bool) *GenerationApplyConfiguration {
 	b.Synchronize = &value
-	return b
-}
-
-// WithOrphanDownstreamOnPolicyDelete sets the OrphanDownstreamOnPolicyDelete field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the OrphanDownstreamOnPolicyDelete field is set to the value of the last call.
-func (b *GenerationApplyConfiguration) WithOrphanDownstreamOnPolicyDelete(value bool) *GenerationApplyConfiguration {
-	b.OrphanDownstreamOnPolicyDelete = &value
 	return b
 }
 

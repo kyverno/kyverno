@@ -13,8 +13,7 @@ import (
 
 var (
 	// logging
-	loggingFormat   string
-	loggingTsFormat string
+	loggingFormat string
 	// profiling
 	profilingEnabled bool
 	profilingAddress string
@@ -41,9 +40,10 @@ var (
 	exceptionNamespace     string
 	enableConfigMapCaching bool
 	// cosign
-	enableTUF bool
-	tufMirror string
-	tufRoot   string
+	imageSignatureRepository string
+	enableTUF                bool
+	tufMirror                string
+	tufRoot                  string
 	// registry client
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
@@ -56,14 +56,13 @@ var (
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
-	// global context
-	enableGlobalContext bool
+	// alternate report storage
+	alternateReportStorage bool
 )
 
 func initLoggingFlags() {
 	logging.InitFlags(nil)
 	flag.StringVar(&loggingFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
-	flag.StringVar(&loggingTsFormat, "loggingtsFormat", logging.DefaultTime, "This determines the timestamp format of the logger.")
 	checkErr(flag.Set("v", "2"), "failed to init flags")
 }
 
@@ -110,6 +109,7 @@ func initDeferredLoadingFlags() {
 }
 
 func initCosignFlags() {
+	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "(DEPRECATED, will be removed in 1.12) Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flag.BoolVar(&enableTUF, "enableTuf", false, "enable tuf for private sigstore deployments")
 	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification.")
 	flag.StringVar(&tufRoot, "tufRoot", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
@@ -133,6 +133,10 @@ func initLeaderElectionFlags() {
 
 func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
+}
+
+func initAltReportStoreFlag() {
+	flag.BoolVar(&alternateReportStorage, "alternateReportStorage", false, "Store kyverno intermediate reports in a separate api group reports.kyverno.io. defaults to false.")
 }
 
 type options struct {
@@ -218,7 +222,13 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
+	// alternate report storage
+	if config.UsesAlternateReportStore() {
+		initAltReportStoreFlag()
+	}
+
 	initCleanupFlags()
+
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
 			flag.CommandLine.Var(f.Value, f.Name, f.Usage)
@@ -227,6 +237,11 @@ func initFlags(config Configuration, opts ...Option) {
 }
 
 func showWarnings(config Configuration, logger logr.Logger) {
+	if config.UsesCosign() {
+		if imageSignatureRepository != "" {
+			logger.Info("Warning: imageSignatureRepository is deprecated and will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.")
+		}
+	}
 }
 
 func ParseFlags(config Configuration, opts ...Option) {
@@ -248,10 +263,6 @@ func LeaderElectionRetryPeriod() time.Duration {
 
 func CleanupServerPort() string {
 	return cleanupServerPort
-}
-
-func GlobalContextEnabled() bool {
-	return enableGlobalContext
 }
 
 func printFlagSettings(logger logr.Logger) {

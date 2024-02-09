@@ -1,5 +1,0 @@
-admissionController:
-  profiling:
-    enabled: true
-    serviceType: NodePort
-    nodePort: 30950

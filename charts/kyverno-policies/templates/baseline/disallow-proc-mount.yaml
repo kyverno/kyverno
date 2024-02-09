@@ -48,9 +48,6 @@ spec:
       preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
-      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
-      {{- end }}
       validate:
         message: >-
           Changing the proc mount from the default is not allowed. The fields

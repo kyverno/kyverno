@@ -1,22 +1,3 @@
-{{- if and (eq .Values.cleanupController.enabled true) (eq .Values.crds.groups.kyverno.cleanuppolicies false) }}
-{{- fail "CRD cleanuppolicies disabled while cleanupController enabled" }}
-{{- end }}
-{{- if and (eq .Values.cleanupController.enabled true) (eq .Values.crds.groups.kyverno.clustercleanuppolicies false) }}
-{{- fail "CRD clustercleanuppolicies disabled while cleanupController enabled" }}
-{{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.crds.groups.wgpolicyk8s.clusterpolicyreports false) }}
-{{- fail "CRD clusterpolicyreports disabled while reportsController enabled" }}
-{{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.crds.groups.wgpolicyk8s.clusterpolicyreports false) }}
-{{- fail "CRD clusterpolicyreports disabled while reportsController enabled" }}
-{{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.crds.groups.kyverno.backgroundscanreports false) }}
-{{- fail "CRD backgroundscanreports disabled while reportsController enabled" }}
-{{- end }}
-{{- if and (eq .Values.reportsController.enabled true) (eq .Values.crds.groups.kyverno.clusterbackgroundscanreports false) }}
-{{- fail "CRD backgroundscanreports disabled while reportsController enabled" }}
-{{- end }}
-
 {{- if hasKey .Values "mode" -}}
   {{- fail "mode is not supported anymore, please remove it from your release and use admissionController.replicas instead." -}}
 {{- end -}}

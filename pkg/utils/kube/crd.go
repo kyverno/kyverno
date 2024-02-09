@@ -10,9 +10,27 @@ import (
 )
 
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
-func CRDsInstalled(apiserverClient apiserver.Interface, names ...string) error {
+func CRDsInstalled(apiserverClient apiserver.Interface) error {
+	kyvernoCRDs := []string{
+		"admissionreports.kyverno.io",
+		"admissionreports.reports.kyverno.io",
+		"backgroundscanreports.kyverno.io",
+		"backgroundscanreports.reports.kyverno.io",
+		"cleanuppolicies.kyverno.io",
+		"clusteradmissionreports.kyverno.io",
+		"clusteradmissionreports.reports.kyverno.io",
+		"clusterbackgroundscanreports.kyverno.io",
+		"clusterbackgroundscanreports.reports.kyverno.io",
+		"clustercleanuppolicies.kyverno.io",
+		"clusterpolicies.kyverno.io",
+		"clusterpolicyreports.wgpolicyk8s.io",
+		"policies.kyverno.io",
+		"policyexceptions.kyverno.io",
+		"policyreports.wgpolicyk8s.io",
+		"updaterequests.kyverno.io",
+	}
 	var errs []error
-	for _, crd := range names {
+	for _, crd := range kyvernoCRDs {
 		err := isCRDInstalled(apiserverClient, crd)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to check CRD %s is installed: %s", crd, err))

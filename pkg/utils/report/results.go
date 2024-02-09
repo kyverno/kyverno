@@ -144,11 +144,6 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 					Seconds: time.Now().Unix(),
 				},
 			}
-			if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
-				result.Properties = map[string]string{
-					"binding": ruleResult.ValidatingAdmissionPolicyBinding().Name,
-				}
-			}
 			results = append(results, result)
 		}
 	}

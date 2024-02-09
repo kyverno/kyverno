@@ -24,10 +24,14 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ClusterEphemeralReports returns a ClusterEphemeralReportInformer.
-	ClusterEphemeralReports() ClusterEphemeralReportInformer
-	// EphemeralReports returns a EphemeralReportInformer.
-	EphemeralReports() EphemeralReportInformer
+	// AdmissionReports returns a AdmissionReportInformer.
+	AdmissionReports() AdmissionReportInformer
+	// BackgroundScanReports returns a BackgroundScanReportInformer.
+	BackgroundScanReports() BackgroundScanReportInformer
+	// ClusterAdmissionReports returns a ClusterAdmissionReportInformer.
+	ClusterAdmissionReports() ClusterAdmissionReportInformer
+	// ClusterBackgroundScanReports returns a ClusterBackgroundScanReportInformer.
+	ClusterBackgroundScanReports() ClusterBackgroundScanReportInformer
 }
 
 type version struct {
@@ -41,12 +45,22 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ClusterEphemeralReports returns a ClusterEphemeralReportInformer.
-func (v *version) ClusterEphemeralReports() ClusterEphemeralReportInformer {
-	return &clusterEphemeralReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// AdmissionReports returns a AdmissionReportInformer.
+func (v *version) AdmissionReports() AdmissionReportInformer {
+	return &admissionReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// EphemeralReports returns a EphemeralReportInformer.
-func (v *version) EphemeralReports() EphemeralReportInformer {
-	return &ephemeralReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// BackgroundScanReports returns a BackgroundScanReportInformer.
+func (v *version) BackgroundScanReports() BackgroundScanReportInformer {
+	return &backgroundScanReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterAdmissionReports returns a ClusterAdmissionReportInformer.
+func (v *version) ClusterAdmissionReports() ClusterAdmissionReportInformer {
+	return &clusterAdmissionReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterBackgroundScanReports returns a ClusterBackgroundScanReportInformer.
+func (v *version) ClusterBackgroundScanReports() ClusterBackgroundScanReportInformer {
+	return &clusterBackgroundScanReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

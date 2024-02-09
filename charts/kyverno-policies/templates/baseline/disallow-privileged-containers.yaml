@@ -46,9 +46,6 @@ spec:
       preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
-      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
-      {{- end }}
       validate:
         message: >-
           Privileged mode is disallowed. The fields spec.containers[*].securityContext.privileged

@@ -19,12 +19,6 @@ metadata:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
 rules:
   - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - get
-  - apiGroups:
       - kyverno.io
     resources:
       - policies
@@ -41,13 +35,6 @@ rules:
       - update
       - watch
       - deletecollection
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - globalcontextentries
-    verbs:
-      - list
-      - watch
   - apiGroups:
       - ''
     resources:
