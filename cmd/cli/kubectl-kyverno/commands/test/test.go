@@ -3,7 +3,7 @@ package test
 import (
 	"fmt"
 	"io"
-       
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -127,7 +127,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			return nil, fmt.Errorf("The rule %v cannot be found in the policy named %v.", res.Rule, res.Policy)
 		}
 	}
-	
+
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {
@@ -221,6 +221,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		}
 		engineResponses = append(engineResponses, ers...)
 	}
-	
+
 	return engineResponses, nil
 }
