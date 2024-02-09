@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: resource-correct
+  name: apicall-correct
 spec:
   steps:
   - name: scenario
@@ -13,6 +13,8 @@ spec:
         file: main-deployment.yaml
     - apply:
         file: gctxentry.yaml
+    - assert:
+        file: gctxentry-ready.yaml
     - apply:
         file: clusterpolicy.yaml
     - apply:

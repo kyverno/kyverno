@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/invalid"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -32,6 +35,8 @@ func New(
 	gce *kyvernov2alpha1.GlobalContextEntry,
 	eventGen event.Interface,
 	client dynamic.Interface,
+	kyvernoClient versioned.Interface,
+	logger logr.Logger,
 	gvr schema.GroupVersionResource,
 	namespace string,
 ) (store.Entry, error) {
@@ -55,7 +60,16 @@ func New(
 	})
 	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		stop()
-		err := fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
+		_, err := controllerutils.UpdateStatus(ctx, gce, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+			if latest != nil {
+				latest.Status.SetReady(false, entryevent.ReasonCacheSyncFailure)
+			}
+			return nil
+		})
+		if err != nil {
+			logger.Error(err, "failed to update status")
+		}
+		err = fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,
 			Kind:       gce.Kind,
@@ -63,8 +77,16 @@ func New(
 			Namespace:  gce.Namespace,
 			UID:        gce.UID,
 		}, entryevent.ReasonCacheSyncFailure, err))
-		gce.Status.SetReady(false, err.Error())
 		return invalid.New(err), nil
+	}
+	_, err := controllerutils.UpdateStatus(ctx, gce, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+		if latest != nil {
+			latest.Status.SetReady(true, "CacheSynced")
+		}
+		return nil
+	})
+	if err != nil {
+		logger.Error(err, "failed to update status")
 	}
 	return &entry{
 		lister:   informer.Lister(),

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -37,6 +38,7 @@ type controller struct {
 
 	// state
 	dclient           dclient.Interface
+	kyvernoClient     versioned.Interface
 	store             store.Store
 	eventGen          event.Interface
 	maxResponseLength int64
@@ -45,6 +47,7 @@ type controller struct {
 func NewController(
 	gceInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
 	dclient dclient.Interface,
+	kyvernoClient versioned.Interface,
 	storage store.Store,
 	eventGen event.Interface,
 	maxResponseLength int64,
@@ -58,6 +61,7 @@ func NewController(
 		gceLister:         gceInformer.Lister(),
 		queue:             queue,
 		dclient:           dclient,
+		kyvernoClient:     kyvernoClient,
 		store:             storage,
 		eventGen:          eventGen,
 		maxResponseLength: maxResponseLength,
@@ -104,6 +108,8 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			gce,
 			c.eventGen,
 			c.dclient.GetDynamicInterface(),
+			c.kyvernoClient,
+			logger,
 			gvr,
 			gce.Spec.KubernetesResource.Namespace,
 		)
@@ -112,6 +118,8 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 		ctx,
 		gce,
 		c.eventGen,
+		c.kyvernoClient,
+		c.gceLister,
 		logger,
 		adapters.Client(c.dclient),
 		gce.Spec.APICall.APICall,

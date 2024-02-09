@@ -9,3 +9,5 @@ spec:
     try:
     - apply:
         file: gctxentry.yaml
+    - assert:
+        file: gctxentry-not-ready.yaml

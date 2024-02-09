@@ -9,10 +9,13 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -28,6 +31,8 @@ func New(
 	ctx context.Context,
 	gce *kyvernov2alpha1.GlobalContextEntry,
 	eventGen event.Interface,
+	kyvernoClient versioned.Interface,
+	gceLister kyvernov2alpha1listers.GlobalContextEntryLister,
 	logger logr.Logger,
 	client apicall.ClientInterface,
 	call kyvernov1.APICall,
@@ -46,18 +51,17 @@ func New(
 		stop: stop,
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-
 	group.StartWithContext(ctx, func(ctx context.Context) {
-		defer wg.Done()
-
 		config := apicall.NewAPICallConfiguration(maxResponseLength)
 		caller := apicall.NewCaller(logger, "globalcontext", client, config)
+
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
+			latestGCE, err := gceLister.Get(gce.Name)
+			if err != nil {
+				logger.Error(err, "failed to get latest global context entry")
+			}
 			if data, err := doCall(ctx, caller, call); err != nil {
 				logger.Error(err, "failed to get data from api caller")
-				gce.Status.SetReady(false, err.Error())
 				eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 					APIVersion: gce.APIVersion,
 					Kind:       gce.Kind,
@@ -66,14 +70,29 @@ func New(
 					UID:        gce.UID,
 				}, entryevent.ReasonAPICallFailure, err))
 				e.setData(nil, err)
+				_, err = controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+					if latest != nil {
+						latest.Status.SetReady(false, entryevent.ReasonAPICallFailure)
+					}
+					return nil
+				})
+				if err != nil {
+					logger.Error(err, "failed to update status")
+				}
 			} else {
-				gce.Status.SetReady(true, "Data fetched successfully")
+				_, err := controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+					if latest != nil {
+						latest.Status.SetReady(true, "Data Fetched Successfully")
+					}
+					return nil
+				})
+				if err != nil {
+					logger.Error(err, "failed to update status")
+				}
 				e.setData(data, nil)
 			}
 		}, period)
 	})
-
-	wg.Wait()
 
 	return e, nil
 }
