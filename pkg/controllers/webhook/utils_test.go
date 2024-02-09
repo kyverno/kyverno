@@ -2,9 +2,12 @@ package webhook
 
 import (
 	"encoding/json"
+	"reflect"
+	"sort"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -12,9 +15,9 @@ import (
 )
 
 func Test_webhook_isEmpty(t *testing.T) {
-	empty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
+	empty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore, []admissionregistrationv1.MatchCondition{})
 	assert.Equal(t, empty.isEmpty(), true)
-	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
+	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore, []admissionregistrationv1.MatchCondition{})
 	notEmpty.set(GroupVersionResourceScope{
 		GroupVersionResource: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		Scope:                admissionregistrationv1.NamespacedScope,
@@ -159,4 +162,203 @@ func Test_RuleCount(t *testing.T) {
 	assert.Equal(t, status.RuleCount.Generate, 0)
 	assert.Equal(t, status.RuleCount.Mutate, 1)
 	assert.Equal(t, status.RuleCount.VerifyImages, 2)
+}
+
+func TestGetMinimumOperations(t *testing.T) {
+	testCases := []struct {
+		name           string
+		inputMap       map[string]bool
+		expectedResult []admissionregistrationv1.OperationType
+	}{
+		{
+			name: "Test Case 1",
+			inputMap: map[string]bool{
+				webhookCreate: true,
+				webhookUpdate: false,
+				webhookDelete: true,
+			},
+			expectedResult: []admissionregistrationv1.OperationType{webhookCreate, webhookDelete},
+		},
+		{
+			name: "Test Case 2",
+			inputMap: map[string]bool{
+				webhookCreate:  false,
+				webhookUpdate:  false,
+				webhookDelete:  false,
+				webhookConnect: true,
+			},
+			expectedResult: []admissionregistrationv1.OperationType{webhookConnect},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			result := getMinimumOperations(testCase.inputMap)
+			sort.Slice(result, func(i, j int) bool {
+				return result[i] < result[j]
+			})
+			sort.Slice(testCase.expectedResult, func(i, j int) bool {
+				return testCase.expectedResult[i] < testCase.expectedResult[j]
+			})
+
+			if !reflect.DeepEqual(result, testCase.expectedResult) {
+				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
+			}
+		})
+	}
+}
+
+func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
+	testCases := []struct {
+		name           string
+		rules          []kyverno.Rule
+		expectedResult map[string]bool
+	}{
+		{
+			name: "Test Case 1",
+			rules: []kyverno.Rule{
+				{
+					Mutation: kyverno.Mutation{
+						PatchesJSON6902: "add",
+					},
+					MatchResources: kyverno.MatchResources{
+						ResourceDescription: kyverno.ResourceDescription{
+							Operations: []v1.AdmissionOperation{webhookCreate},
+						},
+					},
+				},
+			},
+			expectedResult: map[string]bool{
+				webhookCreate: true,
+			},
+		},
+		{
+			name: "Test Case 2",
+			rules: []kyverno.Rule{
+				{
+					Mutation: kyverno.Mutation{
+						PatchesJSON6902: "add",
+					},
+					MatchResources:   kyverno.MatchResources{},
+					ExcludeResources: kyverno.MatchResources{},
+				},
+				{
+					Mutation: kyverno.Mutation{
+						PatchesJSON6902: "add",
+					},
+					MatchResources:   kyverno.MatchResources{},
+					ExcludeResources: kyverno.MatchResources{},
+				},
+			},
+			expectedResult: map[string]bool{
+				webhookCreate: true,
+				webhookUpdate: true,
+			},
+		},
+		{
+			name: "Test Case 2",
+			rules: []kyverno.Rule{
+				{
+					Mutation: kyverno.Mutation{
+						PatchesJSON6902: "add",
+					},
+					MatchResources: kyverno.MatchResources{},
+					ExcludeResources: kyverno.MatchResources{
+						ResourceDescription: kyverno.ResourceDescription{
+							Operations: []v1.AdmissionOperation{webhookCreate},
+						},
+					},
+				},
+			},
+			expectedResult: map[string]bool{
+				webhookCreate: false,
+				webhookUpdate: true,
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var result map[string]bool
+			for _, r := range testCase.rules {
+				result = computeOperationsForMutatingWebhookConf(r, make(map[string]bool))
+			}
+			if !reflect.DeepEqual(result, testCase.expectedResult) {
+				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
+			}
+		})
+	}
+}
+
+func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
+	testCases := []struct {
+		name           string
+		rules          []kyverno.Rule
+		expectedResult map[string]bool
+	}{
+		{
+			name: "Test Case 1",
+			rules: []kyverno.Rule{
+				{
+					MatchResources: kyverno.MatchResources{
+						ResourceDescription: kyverno.ResourceDescription{
+							Operations: []v1.AdmissionOperation{webhookCreate},
+						},
+					},
+				},
+			},
+			expectedResult: map[string]bool{
+				webhookCreate: true,
+			},
+		},
+		{
+			name: "Test Case 2",
+			rules: []kyverno.Rule{
+				{
+					MatchResources:   kyverno.MatchResources{},
+					ExcludeResources: kyverno.MatchResources{},
+				},
+			},
+			expectedResult: map[string]bool{
+				webhookCreate:  true,
+				webhookUpdate:  true,
+				webhookConnect: true,
+				webhookDelete:  true,
+			},
+		},
+		{
+			name: "Test Case 3",
+			rules: []kyverno.Rule{
+				{
+					MatchResources: kyverno.MatchResources{
+						ResourceDescription: kyverno.ResourceDescription{
+							Operations: []v1.AdmissionOperation{webhookCreate, webhookUpdate},
+						},
+					},
+					ExcludeResources: kyverno.MatchResources{
+						ResourceDescription: kyverno.ResourceDescription{
+							Operations: []v1.AdmissionOperation{webhookDelete},
+						},
+					},
+				},
+			},
+			expectedResult: map[string]bool{
+				webhookCreate: true,
+				webhookUpdate: true,
+				webhookDelete: false,
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var result map[string]bool
+			for _, r := range testCase.rules {
+				result = computeOperationsForValidatingWebhookConf(r, make(map[string]bool))
+			}
+			if !reflect.DeepEqual(result, testCase.expectedResult) {
+				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
+			}
+		})
+	}
 }

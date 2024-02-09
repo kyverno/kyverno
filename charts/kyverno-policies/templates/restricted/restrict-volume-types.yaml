@@ -66,6 +66,9 @@ spec:
           operator: NotEquals
           value: DELETE
       {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
+      {{- end }}
       validate:
         message: >-
           Only the following types of volumes may be used: configMap, csi, downwardAPI,

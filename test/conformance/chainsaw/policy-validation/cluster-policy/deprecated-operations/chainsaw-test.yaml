@@ -1,0 +1,34 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: background-variables-update
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: |
+          if kubectl apply -f policy-deprecated-operator.yaml 2>&1 | grep -q "Warning: Operator NotIn has been deprecated and will be removed soon."
+          then
+            echo "Test succeeded. Warning was displayed."
+            exit 0
+          else
+            echo "Tested failed. Warning was not displayed."
+            exit 1
+          fi
+  - name: step-01
+    try:
+    - script:
+        content: |
+          mkfifo test-pipe
+          if kubectl apply -f policy-invalid-operator.yaml 2> test-pipe | grep -q  "entered value of \`operator\` is invalid" test-pipe
+          then
+            echo "Test succeeded. Warning was displayed."
+            rm test-pipe
+            exit 0
+          else
+            echo "Tested failed. Warning was not displayed."
+            rm test-pipe
+            exit 1
+          fi

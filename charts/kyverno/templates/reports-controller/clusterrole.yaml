@@ -19,13 +19,11 @@ metadata:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
 rules:
   - apiGroups:
-      - '*'
+      - apiextensions.k8s.io
     resources:
-      - '*'
+      - customresourcedefinitions
     verbs:
       - get
-      - list
-      - watch
   - apiGroups:
       - ''
     resources:
@@ -34,6 +32,13 @@ rules:
       - namespaces
     verbs:
       - get
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
       - list
       - watch
   - apiGroups:
@@ -58,10 +63,8 @@ rules:
   - apiGroups:
       - reports.kyverno.io
     resources:
-      - admissionreports
-      - clusteradmissionreports
-      - backgroundscanreports
-      - clusterbackgroundscanreports
+      - ephemeralreports
+      - clusterephemeralreports
     verbs:
       - create
       - delete
@@ -95,6 +98,9 @@ rules:
     verbs:
       - create
       - patch
+{{- with .Values.reportsController.rbac.coreClusterRole.extraResources }}
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- with .Values.reportsController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

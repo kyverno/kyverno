@@ -1,0 +1,30 @@
+---
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: validate-global-context-crd
+spec:
+  steps:
+    - name: step-01
+      try:
+        - apply:
+            file: valid-context.yaml
+        - assert:
+            file: valid-context-assert.yaml
+    - name: step-02
+      try:
+        - apply:
+            file: multiple-resources.yaml
+            expect:
+              - check:
+                  ($error): |-
+                    admission webhook "kyverno-svc.kyverno.svc" denied the request: spec.kubernetesResource: Forbidden: A global context entry should either have KubernetesResource or APICall
+    - name: step-03
+      try:
+        - apply:
+            file: no-resource.yaml
+            expect:
+              - check:
+                  ($error): |-
+                    admission webhook "kyverno-svc.kyverno.svc" denied the request: spec.kubernetesResource: Forbidden: A global context entry should either have KubernetesResource or APICall

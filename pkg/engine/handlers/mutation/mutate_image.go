@@ -24,12 +24,11 @@ import (
 )
 
 type mutateImageHandler struct {
-	configuration            config.Configuration
-	rclientFactory           engineapi.RegistryClientFactory
-	ivCache                  imageverifycache.Client
-	ivm                      *engineapi.ImageVerificationMetadata
-	images                   []apiutils.ImageInfo
-	imageSignatureRepository string
+	configuration  config.Configuration
+	rclientFactory engineapi.RegistryClientFactory
+	ivCache        imageverifycache.Client
+	ivm            *engineapi.ImageVerificationMetadata
+	images         []apiutils.ImageInfo
 }
 
 func NewMutateImageHandler(
@@ -40,7 +39,6 @@ func NewMutateImageHandler(
 	rclientFactory engineapi.RegistryClientFactory,
 	ivCache imageverifycache.Client,
 	ivm *engineapi.ImageVerificationMetadata,
-	imageSignatureRepository string,
 ) (handlers.Handler, error) {
 	if len(rule.VerifyImages) == 0 {
 		return nil, nil
@@ -53,12 +51,11 @@ func NewMutateImageHandler(
 		return nil, nil
 	}
 	return mutateImageHandler{
-		configuration:            configuration,
-		rclientFactory:           rclientFactory,
-		ivm:                      ivm,
-		ivCache:                  ivCache,
-		images:                   ruleImages,
-		imageSignatureRepository: imageSignatureRepository,
+		configuration:  configuration,
+		rclientFactory: rclientFactory,
+		ivm:            ivm,
+		ivCache:        ivCache,
+		images:         ruleImages,
 	}, nil
 }
 
@@ -102,7 +99,7 @@ func (h mutateImageHandler) Process(
 				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err),
 			)
 		}
-		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm, h.imageSignatureRepository)
+		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm)
 		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
 		patches = append(patches, patch...)
 		engineResponses = append(engineResponses, ruleResponse...)
