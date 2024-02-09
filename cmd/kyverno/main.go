@@ -508,6 +508,7 @@ func main() {
 	)
 	policyHandlers := webhookspolicy.NewHandlers(
 		setup.KyvernoDynamicClient,
+		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 		backgroundServiceAccountName,
 	)
 	resourceHandlers := webhooksresource.NewHandlers(
