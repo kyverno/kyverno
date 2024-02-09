@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/externalapi"
 	"github.com/kyverno/kyverno/pkg/globalcontext/k8sresource"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -37,6 +38,7 @@ type controller struct {
 	// state
 	dclient           dclient.Interface
 	store             store.Store
+	eventGen          event.Interface
 	maxResponseLength int64
 }
 
@@ -44,6 +46,7 @@ func NewController(
 	gceInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
 	dclient dclient.Interface,
 	storage store.Store,
+	eventGen event.Interface,
 	maxResponseLength int64,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -56,6 +59,7 @@ func NewController(
 		queue:             queue,
 		dclient:           dclient,
 		store:             storage,
+		eventGen:          eventGen,
 		maxResponseLength: maxResponseLength,
 	}
 }
@@ -95,10 +99,19 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			Version:  gce.Spec.KubernetesResource.Version,
 			Resource: gce.Spec.KubernetesResource.Resource,
 		}
-		return k8sresource.New(ctx, c.dclient.GetDynamicInterface(), gvr, gce.Spec.KubernetesResource.Namespace)
+		return k8sresource.New(
+			ctx,
+			gce,
+			c.eventGen,
+			c.dclient.GetDynamicInterface(),
+			gvr,
+			gce.Spec.KubernetesResource.Namespace,
+		)
 	}
 	return externalapi.New(
 		ctx,
+		gce,
+		c.eventGen,
 		logger,
 		adapters.Client(c.dclient),
 		gce.Spec.APICall.APICall,

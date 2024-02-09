@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/event"
+	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -14,11 +18,22 @@ import (
 )
 
 type entry struct {
-	lister cache.GenericLister
-	stop   func()
+	lister   cache.GenericLister
+	stop     func()
+	gce      *kyvernov2alpha1.GlobalContextEntry
+	eventGen event.Interface
 }
 
-func New(ctx context.Context, client dynamic.Interface, gvr schema.GroupVersionResource, namespace string) (*entry, error) {
+// TODO: Handle Kyverno Pod Ready State
+// TODO: Error Handling
+func New(
+	ctx context.Context,
+	gce *kyvernov2alpha1.GlobalContextEntry,
+	eventGen event.Interface,
+	client dynamic.Interface,
+	gvr schema.GroupVersionResource,
+	namespace string,
+) (*entry, error) {
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
@@ -42,14 +57,22 @@ func New(ctx context.Context, client dynamic.Interface, gvr schema.GroupVersionR
 		return nil, fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
 	}
 	return &entry{
-		lister: informer.Lister(),
-		stop:   stop,
+		lister:   informer.Lister(),
+		stop:     stop,
+		eventGen: eventGen,
 	}, nil
 }
 
 func (e *entry) Get() (any, error) {
 	obj, err := e.lister.List(labels.Everything())
 	if err != nil {
+		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: e.gce.APIVersion,
+			Kind:       e.gce.Kind,
+			Name:       e.gce.Name,
+			Namespace:  e.gce.Namespace,
+			UID:        e.gce.UID,
+		}, entryevent.ReasonResourceListFailure, err))
 		return nil, err
 	}
 	return obj, nil

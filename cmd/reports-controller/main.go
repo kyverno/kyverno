@@ -279,6 +279,7 @@ func main() {
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 			setup.KyvernoDynamicClient,
 			gcstore,
+			eventGenerator,
 			maxAPICallResponseLength,
 		),
 		globalcontextcontroller.Workers,
