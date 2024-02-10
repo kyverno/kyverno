@@ -198,10 +198,7 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 		applyCount += count
 	}
 	if applyCount == 0 {
-		if v.forEach == nil {
-			return nil
-		}
-		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "rule skipped")
+		return nil
 	}
 	return engineapi.RulePass(v.rule.Name, engineapi.Validation, "rule passed")
 }
