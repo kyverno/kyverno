@@ -392,7 +392,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 			}
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", v.rule.Name, errorStr))
-			msg := buildAnyPatternErrorMessage(v.rule, errorStr)
+			msg := v.buildAnyPatternErrorMessage(v.rule, errorStr)
 			return engineapi.RuleFail(v.rule.Name, engineapi.Validation, msg)
 		}
 	}
