@@ -203,7 +203,6 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 	return engineapi.RulePass(v.rule.Name, engineapi.Validation, "rule passed")
 }
 
-
 func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*engineapi.RuleResponse, int) {
 	v.policyContext.JSONContext().Checkpoint()
 	defer v.policyContext.JSONContext().Restore()
