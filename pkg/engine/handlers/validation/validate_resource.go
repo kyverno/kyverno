@@ -443,17 +443,22 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	}
 }
 
-func buildAnyPatternErrorMessage(rule kyvernov1.Rule, errors []string) string {
+func (v *validator) buildAnyPatternErrorMessage(rule kyvernov1.Rule, errors []string) string {
 	errStr := strings.Join(errors, " ")
 	if rule.Validation.Message == "" {
 		return fmt.Sprintf("validation error: %s", errStr)
 	}
-
-	if strings.HasSuffix(rule.Validation.Message, ".") {
-		return fmt.Sprintf("validation error: %s %s", rule.Validation.Message, errStr)
+	msgRaw, sErr := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.rule.Validation.Message)
+	if sErr != nil {
+		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
+		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, errStr)
+	} else {
+		msg := msgRaw.(string)
+		if strings.HasSuffix(msg, ".") {
+			return fmt.Sprintf("validation error: %s %s", msg, errStr)
+		}
+		return fmt.Sprintf("validation error: %s. %s", msg, errStr)
 	}
-
-	return fmt.Sprintf("validation error: %s. %s", rule.Validation.Message, errStr)
 }
 
 func (v *validator) substitutePatterns() error {
