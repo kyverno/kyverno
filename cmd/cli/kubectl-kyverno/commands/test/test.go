@@ -99,35 +99,56 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	}
 	//Verify all policies and rules referenced in tests are present
+
+	rulesmap := make(map[string]string)
+	policymap := make(map[string]string)
 	for _, res := range testCase.Test.Results {
 		if res.IsValidatingAdmissionPolicy {
 			continue
 		}
 		var ns string
-		ruleSame := false
-		policySame := false
+		var n bool
+
 		for _, policy := range policies {
 			if policy.IsNamespaced() {
 				ns = policy.GetNamespace()
 			}
 			if res.Policy == policy.GetName() || res.Policy == "default/"+policy.GetName() || res.Policy == ns+"/"+policy.GetName() {
-				policySame = true
+				n = true
+				v := false
 				for _, rule := range autogen.ComputeRules(policy) {
 					if res.Rule == rule.Name {
-						ruleSame = true
-						break
+						v = true
+						continue
 					}
 				}
+				if !v {
+					rulesmap[res.Policy] = res.Rule
+				}
+
 			}
 		}
-		if !policySame {
-			return nil, fmt.Errorf("The policy named %v cannot be found.", res.Policy)
-		}
-		if !ruleSame {
-			return nil, fmt.Errorf("The rule %v cannot be found in the policy named %v.", res.Rule, res.Policy)
+		if !n {
+			policymap[res.Policy] = res.Policy
 		}
 	}
+	if len(policymap) != 0 || len(rulesmap) != 0 {
+		if len(policymap) != 0 {
 
+			for _, policy := range policymap {
+				fmt.Printf("The policy named %v cannot be found.\n", policy)
+			}
+
+		}
+		if len(rulesmap) != 0 {
+
+			for policy, rule := range rulesmap {
+				fmt.Printf("The rule %v cannot be found in the policy named %v.\n", rule, policy)
+			}
+		}
+		return nil, fmt.Errorf("Error: Currently, the use of exceptions in conjunction with ValidatingAdmissionPolicies is not supported.")
+
+	}
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {
@@ -221,6 +242,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		}
 		engineResponses = append(engineResponses, ers...)
 	}
-	
+
 	return engineResponses, nil
 }
