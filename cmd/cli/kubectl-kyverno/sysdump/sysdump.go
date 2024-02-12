@@ -10,8 +10,8 @@ import (
 )
 
 type client struct {
-	kubernetesClientSet *kubernetes.Clientset
-	kyvernoClientSet    *kyverno.Clientset
+	kubernetesClientSet kubernetes.Interface
+	kyvernoClientSet    kyverno.Interface
 }
 
 type sysdumpConfig struct {
