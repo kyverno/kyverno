@@ -1,0 +1,22 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: gctxentry-not-exist
+spec:
+  steps:
+  - name: setup
+    try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: main-deployment.yaml
+    - apply:
+        file: gctxentry.yaml
+  - name: negative
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: clusterpolicy.yaml

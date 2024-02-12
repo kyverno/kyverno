@@ -1,0 +1,23 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: resource-correct
+spec:
+  steps:
+  - name: scenario
+    try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: main-deployment.yaml
+    - apply:
+        file: gctxentry.yaml
+    - apply:
+        file: clusterpolicy.yaml
+    - apply:
+        file: new-deployment.yaml
+    - assert:
+        file: clusterpolicy-succeeded.yaml
+    - assert:
+        file: new-deployment-exists.yaml

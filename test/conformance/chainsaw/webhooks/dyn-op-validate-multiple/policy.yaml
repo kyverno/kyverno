@@ -1,0 +1,53 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Audit
+  background: false
+  rules:
+    - name: require-team
+      match:
+        any:
+          - resources:
+              kinds:
+              - ConfigMap
+      exclude:
+        any:
+          - resources:
+              operations:
+              - DELETE
+      validate:
+        message: 'The label `team` is required.'
+        pattern:
+          metadata:
+            labels:
+              team: '?*'
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-match
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Audit
+  background: false
+  rules:
+    - name: require-match
+      match:
+        any:
+          - resources:
+              kinds:
+                - '*/scale'
+              operations:
+              - CREATE
+      validate:
+        message: 'The label `match` is required.'
+        pattern:
+          metadata:
+            labels:
+              match: '?*'
+              

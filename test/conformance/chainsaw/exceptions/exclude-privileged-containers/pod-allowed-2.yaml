@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod-2
+  namespace: staging-ns
+spec:
+  containers:
+  - name: nginx1
+    image: nginx
+    args:
+    - sleep
+    - "3000"
+    securityContext:
+      privileged: true
+  initContainers:
+  - name: nginx2
+    image: nginx
+    args:
+    - sleep
+    - "3000"
+    securityContext:
+      privileged: true

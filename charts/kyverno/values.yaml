@@ -6,6 +6,7 @@ templating:
   version: ~
 
 global:
+
   image:
     # -- (string) Global value that allows to set a single image registry across all deployments.
     # When set, it will override any values set under `.image.registry` across the chart.
@@ -64,13 +65,28 @@ crds:
   groups:
 
     # -- Install CRDs in group `kyverno.io`
-    kyverno: true
-
-    # -- Install CRDs in group `wgpolicyk8s.io`
-    policyreport: true
+    kyverno:
+      admissionreports: true
+      backgroundscanreports: true
+      cleanuppolicies: true
+      clusteradmissionreports: true
+      clusterbackgroundscanreports: true
+      clustercleanuppolicies: true
+      clusterpolicies: true
+      globalcontextentries: true
+      policies: true
+      policyexceptions: true
+      updaterequests: true
 
     # -- Install CRDs in group `reports.kyverno.io`
-    reports: true
+    reports:
+      clusterephemeralreports: true
+      ephemeralreports: true
+
+    # -- Install CRDs in group `wgpolicyk8s.io`
+    wgpolicyk8s:
+      clusterpolicyreports: true
+      policyreports: true
 
   # -- Additional CRDs annotations
   annotations: {}
@@ -87,9 +103,17 @@ crds:
 
     # -- Resources to migrate
     resources:
-    - cleanuppolicies.kyverno.io
-    - clustercleanuppolicies.kyverno.io
-    - policyexceptions.kyverno.io
+      - admissionreports.kyverno.io
+      - backgroundscanreports.kyverno.io
+      - cleanuppolicies.kyverno.io
+      - clusteradmissionreports.kyverno.io
+      - clusterbackgroundscanreports.kyverno.io
+      - clustercleanuppolicies.kyverno.io
+      - clusterpolicies.kyverno.io
+      - globalcontextentries.kyverno.io
+      - policies.kyverno.io
+      - policyexceptions.kyverno.io
+      - updaterequests.kyverno.io
 
     image:
       # -- (string) Image registry
@@ -580,9 +604,6 @@ features:
   aggregateReports:
     # -- Enables the feature
     enabled: true
-  alternateReportStorage:
-    # -- Enables the feature
-    enabled: false
   policyReports:
     # -- Enables the feature
     enabled: true
@@ -616,6 +637,9 @@ features:
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
+  globalContext:
+    # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
+    maxApiCallResponseLength: 2000000
   logging:
     # -- Logging format
     format: text
@@ -648,7 +672,7 @@ features:
     - github
   reports:
     # -- Reports chunk size
-    chunkSize: 1000
+    chunkSize: 0
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
@@ -667,6 +691,9 @@ cleanupJobs:
 
     # -- Enable cleanup cronjob
     enabled: true
+
+    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
+    backoffLimit: 3
 
     image:
       # -- (string) Image registry
@@ -741,6 +768,9 @@ cleanupJobs:
 
     # -- Enable cleanup cronjob
     enabled: true
+
+    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
+    backoffLimit: 3
 
     image:
       # -- (string) Image registry
