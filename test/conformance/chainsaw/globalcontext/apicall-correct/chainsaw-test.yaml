@@ -13,6 +13,8 @@ spec:
         file: main-deployment.yaml
     - apply:
         file: gctxentry.yaml
+    - sleep:
+        duration: 5s
     - assert:
         file: gctxentry-ready.yaml
     - apply:
