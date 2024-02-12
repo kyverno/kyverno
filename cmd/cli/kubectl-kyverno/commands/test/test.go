@@ -107,7 +107,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		}
 		var ns string
 		var n bool
-		v := false
+		r := false
 		for _, policy := range policies {
 			if policy.IsNamespaced() {
 				ns = policy.GetNamespace()
@@ -116,13 +116,13 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 				n = true
 				for _, rule := range autogen.ComputeRules(policy) {
 					if res.Rule == rule.Name {
-						v = true
+						r = true
 						continue
 					}
 				}
 			}
 		}
-		if !v {
+		if !r {
 			rulesmap[res.Policy] = res.Rule
 		}
 		if !n {
