@@ -115,38 +115,42 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			}
 			if res.Policy == policy.GetName() || res.Policy == "default/"+policy.GetName() || res.Policy == ns+"/"+policy.GetName() {
 				n = true
-				v := false
-				for _, rule := range autogen.ComputeRules(policy) {
-					if res.Rule == rule.Name {
-						v = true
-						continue
-					}
-				}
-				if !v {
-					rulesmap[res.Policy] = res.Rule
-				}
 
 			}
+			v := false
+			for _, rule := range autogen.ComputeRules(policy) {
+				if res.Rule == rule.Name {
+					v = true
+					continue
+				}
+			}
+			if !v {
+				rulesmap[res.Policy] = res.Rule
+			}
+
 		}
+
 		if !n {
 			policymap[res.Policy] = res.Policy
 		}
 	}
+	var s string
 	if len(policymap) != 0 || len(rulesmap) != 0 {
 		if len(policymap) != 0 {
 
+			fmt.Printf("Error: ")
 			for _, policy := range policymap {
-				fmt.Printf("The policy named %v cannot be found.\n", policy)
+				s = s + fmt.Sprintf("The policy named %v cannot be found.\n", policy)
 			}
 
 		}
 		if len(rulesmap) != 0 {
 
 			for policy, rule := range rulesmap {
-				fmt.Printf("The rule %v cannot be found in the policy named %v.\n", rule, policy)
+				s = s + fmt.Sprintf("The rule %v cannot be found in the policy named %v.\n", rule, policy)
 			}
 		}
-		return nil, fmt.Errorf("Error: Currently, the use of exceptions in conjunction with ValidatingAdmissionPolicies is not supported.")
+		return nil, fmt.Errorf(s)
 
 	}
 	// TODO document the code below

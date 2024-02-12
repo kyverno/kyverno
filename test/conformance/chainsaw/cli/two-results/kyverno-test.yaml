@@ -8,15 +8,16 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  # policy name is incorrect
-  policy: precondition 
+  policy: precondition # incorrect name
   resources:
   - test-invalid
   result: fail
-  rule: any-rule
+  rule: any-ule # incorrect name
 - kind: Pod
-  policy: preconditions
+  policy: preconditi\ons # incorrect name
   resources:
   - test-valid
   result: pass
-  rule: any-rule
+  rule: any-rle # incorrect name
+
+  
