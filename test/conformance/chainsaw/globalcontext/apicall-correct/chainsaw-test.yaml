@@ -14,7 +14,7 @@ spec:
     - apply:
         file: gctxentry.yaml
     - sleep:
-        duration: 5s
+        duration: 10s
     - assert:
         file: gctxentry-ready.yaml
     - apply:

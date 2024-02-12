@@ -17,8 +17,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/globalcontext/k8sresource"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -53,11 +55,7 @@ func NewController(
 	maxResponseLength int64,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-	_, _, err := controllerutils.AddDefaultEventHandlers(logger, gceInformer.Informer(), queue)
-	if err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-	return &controller{
+	c := &controller{
 		gceLister:         gceInformer.Lister(),
 		queue:             queue,
 		dclient:           dclient,
@@ -66,6 +64,38 @@ func NewController(
 		eventGen:          eventGen,
 		maxResponseLength: maxResponseLength,
 	}
+
+	if _, err := controllerutils.AddEventHandlersT(gceInformer.Informer(), c.addGTXEntry, c.updateGTXEntry, c.deleteGTXEntry); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+
+	return c
+}
+
+func (c *controller) addGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
+	logger.Info("policy created", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	c.enqueueGCTXEntry(obj)
+}
+
+func (c *controller) updateGTXEntry(old, obj *kyvernov2alpha1.GlobalContextEntry) {
+	if datautils.DeepEqual(old.Spec, obj.Spec) {
+		return
+	}
+	logger.Info("policy updated", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	c.enqueueGCTXEntry(obj)
+}
+
+func (c *controller) deleteGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
+	c.enqueueGCTXEntry(obj)
+}
+
+func (c *controller) enqueueGCTXEntry(gctxentry *kyvernov2alpha1.GlobalContextEntry) {
+	key, err := cache.MetaNamespaceKeyFunc(gctxentry)
+	if err != nil {
+		logger.Error(err, "failed to enqueue global context entry")
+		return
+	}
+	c.queue.Add(key)
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {

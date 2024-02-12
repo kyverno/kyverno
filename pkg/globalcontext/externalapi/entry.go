@@ -80,6 +80,7 @@ func New(
 					logger.Error(err, "failed to update status")
 				}
 			} else {
+				e.setData(data, nil)
 				_, err := controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
 					if latest != nil {
 						latest.Status.SetReady(true, "Data Fetched Successfully")
@@ -89,7 +90,6 @@ func New(
 				if err != nil {
 					logger.Error(err, "failed to update status")
 				}
-				e.setData(data, nil)
 			}
 		}, period)
 	})
