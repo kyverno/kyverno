@@ -29,13 +29,12 @@ import (
 )
 
 type ImageVerifier struct {
-	logger                   logr.Logger
-	rclient                  engineapi.RegistryClient
-	ivCache                  imageverifycache.Client
-	policyContext            engineapi.PolicyContext
-	rule                     kyvernov1.Rule
-	ivm                      *engineapi.ImageVerificationMetadata
-	imageSignatureRepository string
+	logger        logr.Logger
+	rclient       engineapi.RegistryClient
+	ivCache       imageverifycache.Client
+	policyContext engineapi.PolicyContext
+	rule          kyvernov1.Rule
+	ivm           *engineapi.ImageVerificationMetadata
 }
 
 func NewImageVerifier(
@@ -45,16 +44,14 @@ func NewImageVerifier(
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
 	ivm *engineapi.ImageVerificationMetadata,
-	imageSignatureRepository string,
 ) *ImageVerifier {
 	return &ImageVerifier{
-		logger:                   logger,
-		rclient:                  rclient,
-		ivCache:                  ivCache,
-		policyContext:            policyContext,
-		rule:                     rule,
-		ivm:                      ivm,
-		imageSignatureRepository: imageSignatureRepository,
+		logger:        logger,
+		rclient:       rclient,
+		ivCache:       ivCache,
+		policyContext: policyContext,
+		rule:          rule,
+		ivm:           ivm,
 	}
 }
 
@@ -552,13 +549,9 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
-	repository := iv.imageSignatureRepository
-	if imageVerify.Repository != "" {
-		repository = imageVerify.Repository
-	}
 	opts := &images.Options{
 		ImageRef:    image,
-		Repository:  repository,
+		Repository:  imageVerify.Repository,
 		Annotations: imageVerify.Annotations,
 		Client:      iv.rclient,
 	}

@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Lint
 
 permissions: {}
@@ -31,7 +33,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
+        uses: golangci/golangci-lint-action@3cfe3a4abbb849e10058ce4af15d205b6da42804 # v3.7.1
         with:
           version: v1.54.2
           skip-cache: true

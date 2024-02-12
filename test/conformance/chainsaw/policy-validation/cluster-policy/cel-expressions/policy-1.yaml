@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-secret-service-account-token
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-service-account-token
+      match:
+        any:
+        - resources:
+            kinds:
+              - Secret
+      validate:
+        cel:
+          expressions:
+            - message: "long lived API tokens are not allowed"
+              expression: >-
+                !has(object.type) || object.type != "kubernetes.io/service-account-token"
+            - message: "automounting of tokens is not allowed"
+              expression: >-
+                !has(object.automountServiceAccountToken)

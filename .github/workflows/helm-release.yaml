@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: helm-release
 
 permissions: {}
@@ -68,7 +70,7 @@ jobs:
           version: v3.10.3
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@9614fae9e5c5eddabb09f90a270fcb487c9f7149 # v3.3.0
+        uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 # v3.4.0
 
       - name: Set version
         run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV

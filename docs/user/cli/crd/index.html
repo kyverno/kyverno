@@ -147,6 +147,19 @@ string
 </tr>
 <tr>
 <td>
+<code>checks</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.CheckResult">
+[]CheckResult
+</a>
+</em>
+</td>
+<td>
+<p>Checks are the verifications to be checked in the test</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>values</code><br/>
 <em>
 <a href="#cli.kyverno.io/v1alpha1.ValuesSpec">
@@ -156,6 +169,17 @@ ValuesSpec
 </td>
 <td>
 <p>Values are the values to be used in the test</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Policy Exceptions are the policy exceptions to be used in the test</p>
 </td>
 </tr>
 </tbody>
@@ -280,6 +304,112 @@ ValuesSpec
 (Members of <code>ValuesSpec</code> are embedded into this type.)
 </p>
 <p>ValuesSpec declares values</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.CheckMatch">CheckMatch
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.CheckResult">CheckResult</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>resource</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any
+</em>
+</td>
+<td>
+<p>Resource filters engine responses</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>policy</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any
+</em>
+</td>
+<td>
+<p>Policy filters engine responses</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>rule</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any
+</em>
+</td>
+<td>
+<p>Rule filters rule responses</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.CheckResult">CheckResult
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.Test">Test</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.CheckMatch">
+CheckMatch
+</a>
+</em>
+</td>
+<td>
+<p>Match tells how to match relevant rule responses</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>assert</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any
+</em>
+</td>
+<td>
+<p>Assert contains assertion to be performed on the relevant rule responses</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>error</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/v1alpha1.Any
+</em>
+</td>
+<td>
+<p>Error contains negative assertion to be performed on the relevant rule responses</p>
 </td>
 </tr>
 </tbody>

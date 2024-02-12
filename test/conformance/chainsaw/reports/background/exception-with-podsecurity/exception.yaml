@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+spec:
+  exceptions:
+  - policyName: psa-1
+    ruleNames:
+    - restricted
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+  podSecurity:
+    - controlName: Capabilities
+      images:
+          - nginx*
+          - redis*

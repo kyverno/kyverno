@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/kyverno/kyverno/pkg/report"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -49,7 +48,6 @@ type SetupResult struct {
 	MetadataClient         metadataclient.UpstreamInterface
 	KyvernoDynamicClient   dclient.Interface
 	EventsClient           eventsv1.EventsV1Interface
-	ReportManager          report.Interface
 }
 
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
@@ -84,13 +82,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 		leaderElectionClient = createKubernetesClient(logger, clientRateLimitQPS, clientRateLimitBurst, kubeclient.WithMetrics(metricsManager, metrics.KubeClient), kubeclient.WithTracing())
 	}
 	var kyvernoClient kyvernoclient.UpstreamInterface
-	var reportManager report.Interface
 	if config.UsesKyvernoClient() {
 		kyvernoClient = createKyvernoClient(logger, kyvernoclient.WithMetrics(metricsManager, metrics.KyvernoClient), kyvernoclient.WithTracing())
-
-		if config.UsesAlternateReportStore() {
-			reportManager = report.NewReportManager(alternateReportStorage, kyvernoClient)
-		}
 	}
 	var dynamicClient dynamicclient.UpstreamInterface
 	if config.UsesDynamicClient() {
@@ -130,7 +123,6 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			MetadataClient:         metadataClient,
 			KyvernoDynamicClient:   dClient,
 			EventsClient:           eventsClient,
-			ReportManager:          reportManager,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }
