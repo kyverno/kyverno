@@ -138,7 +138,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			}
 		}
 		if len(rulesmap) != 0 {
-
 			for policy, rule := range rulesmap {
 				s = s + fmt.Sprintf("The rule %v cannot be found in the policy named %v.\n", rule, policy)
 			}
