@@ -76,6 +76,7 @@ func initClients(kubeConfig string, context string) (*client, error) {
 	return &clients, nil
 }
 
+// TODO: Handle all err
 func fetchDefaultClusterInformation(wg *sync.WaitGroup, clients *client, dirPath string) {
 	// K8s Server Version
 	wg.Add(1)
