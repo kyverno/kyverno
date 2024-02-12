@@ -33,15 +33,15 @@ import (
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {
-	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
 	Spec GlobalContextEntrySpec `json:"spec" yaml:"spec"`
 
 	// Status contains globalcontextentry runtime data.
 	// +optional
-	Status GlobalContextEntryStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Status GlobalContextEntryStatus `json:"status,omitempty"`
 }
 
 // GetStatus returns the globalcontextentry status
