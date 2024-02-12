@@ -44,7 +44,13 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 		ruleToReason := make(map[string]string)
 		for _, rule := range er.PolicyResponse.Rules {
 			if rule.Status() != engineapi.RuleStatusPass {
-				ruleToReason[rule.Name()] = rule.Message()
+				if len(er.PolicyResponse.Rules) > 1 {
+					if rule.Message() != "preconditions not met" {
+						ruleToReason[rule.Name()] = rule.Message()
+					}
+				} else {
+					ruleToReason[rule.Name()] = rule.Message()
+				}
 			}
 		}
 		if len(ruleToReason) != 0 {
