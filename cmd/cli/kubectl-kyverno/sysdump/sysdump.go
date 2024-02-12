@@ -1,12 +1,21 @@
 package sysdump
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"os"
+	"path"
+	"sync"
 
 	kyverno "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 type client struct {
@@ -32,6 +41,16 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			dirPath, err := os.MkdirTemp("", "kyverno-sysdump")
+			if err != nil {
+				return err
+			}
+
+			var wg sync.WaitGroup
+			fetchDefaultClusterInformation(&wg, clients, dirPath)
+			wg.Wait()
+
 			return nil
 		},
 	}
@@ -55,4 +74,46 @@ func initClients(kubeConfig string, context string) (*client, error) {
 		return nil, fmt.Errorf("failed to create kyverno clientset: %v", err)
 	}
 	return &clients, nil
+}
+
+func fetchDefaultClusterInformation(wg *sync.WaitGroup, clients *client, dirPath string) {
+	// K8s Server Version
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		version, err := clients.kubernetesClientSet.Discovery().ServerVersion()
+		if err != nil {
+			return
+		}
+		if err := writeToFile(path.Join(dirPath, "version.txt"), version.String()); err != nil {
+			return
+		}
+	}()
+
+	// Nodes
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		nodes, err := clients.kubernetesClientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return
+		}
+		if err := writeYaml(path.Join(dirPath, "nodes-info.yaml"), nodes); err != nil {
+			fmt.Println("writeYaml error:", err)
+			return
+		}
+	}()
+}
+
+func writeToFile(path, data string) error {
+	return os.WriteFile(path, []byte(data), 0600)
+}
+
+func writeYaml(path string, obj runtime.Object) error {
+	printer := printers.NewTypeSetter(scheme.Scheme).ToPrinter(&printers.YAMLPrinter{})
+	var b bytes.Buffer
+	if err := printer.PrintObj(obj, &b); err != nil {
+		return err
+	}
+	return writeToFile(path, b.String())
 }
