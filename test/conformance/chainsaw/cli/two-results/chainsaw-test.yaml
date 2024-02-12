@@ -7,9 +7,9 @@ spec:
   - name: two-results
     try:
     - script:
-        content: kubectl kyverno test .
+        content: kyverno test .
         check:
           ($error != null): true
-          ($stderr): "Error: failed to run test (The policy named preconditi\\ons cannot be found.\nThe policy named precondition cannot be found.\nThe rule any-ule cannot be found in the policy named precondition.\nThe rule any-rle cannot be found in the policy named preconditi\\ons.\n)"
+          ($stderr): "Error: failed to run test (The policy named preconditi cannot be found.\nThe policy named precondition cannot be found.\nThe rule any-ule cannot be found in the policy named preconditi.\nThe rule any-rle cannot be found in the policy named precondition.\n)"
 
   

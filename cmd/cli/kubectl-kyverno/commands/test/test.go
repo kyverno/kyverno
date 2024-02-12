@@ -99,7 +99,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	}
 	//Verify all policies and rules referenced in tests are present
-
 	rulesmap := make(map[string]string)
 	policymap := make(map[string]string)
 	for _, res := range testCase.Test.Results {
@@ -109,27 +108,23 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		var ns string
 		var n bool
 		v := false
-
 		for _, policy := range policies {
 			if policy.IsNamespaced() {
 				ns = policy.GetNamespace()
 			}
 			if res.Policy == policy.GetName() || res.Policy == "default/"+policy.GetName() || res.Policy == ns+"/"+policy.GetName() {
 				n = true
-
 				for _, rule := range autogen.ComputeRules(policy) {
 					if res.Rule == rule.Name {
 						v = true
 						continue
 					}
 				}
-
 			}
 		}
 		if !v {
 			rulesmap[res.Policy] = res.Rule
 		}
-
 		if !n {
 			policymap[res.Policy] = res.Policy
 		}
@@ -137,12 +132,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	var s string
 	if len(policymap) != 0 || len(rulesmap) != 0 {
 		if len(policymap) != 0 {
-
 			fmt.Printf("Error: ")
 			for _, policy := range policymap {
 				s = s + fmt.Sprintf("The policy named %v cannot be found.\n", policy)
 			}
-
 		}
 		if len(rulesmap) != 0 {
 
@@ -151,7 +144,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			}
 		}
 		return nil, fmt.Errorf(s)
-
 	}
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
@@ -161,7 +153,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 				if res.IsValidatingAdmissionPolicy {
 					continue
 				}
-
 				if rule.Name == res.Rule {
 					if rule.HasGenerate() {
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
@@ -246,6 +237,5 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		}
 		engineResponses = append(engineResponses, ers...)
 	}
-
 	return engineResponses, nil
 }
