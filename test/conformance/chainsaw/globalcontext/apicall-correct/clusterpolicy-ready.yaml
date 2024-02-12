@@ -1,7 +1,7 @@
-apiVersion: kyverno.io/v2alpha1
-kind: GlobalContextEntry
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
 metadata:
-  name: deployments
+  name: namespace-has-coordinator
 status:
   conditions:
   - reason: Succeeded

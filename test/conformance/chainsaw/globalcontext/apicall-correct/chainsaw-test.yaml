@@ -14,11 +14,11 @@ spec:
     - apply:
         file: gctxentry.yaml
     - sleep:
-        duration: 10s
-    - assert:
-        file: gctxentry-ready.yaml
+        duration: 7s
     - apply:
         file: clusterpolicy.yaml
+    - assert:
+        file: clusterpolicy-ready.yaml
     - apply:
         file: new-deployment.yaml
     - assert:
