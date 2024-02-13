@@ -44,20 +44,23 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 		ruleToReason := make(map[string]string)
 		for _, rule := range er.PolicyResponse.Rules {
 			if len(engineResponses) > 1 {
-				if rule.Status() != engineapi.RuleStatusPass{ 
+				if rule.Status() != engineapi.RuleStatusPass {
 					if rule.Message() != "preconditions not met" {
 						ruleToReason[rule.Name()] = rule.Message()
 					}
 				}
 			} else {
-				if rule.Status() != engineapi.RuleStatusPass{ 
+				if rule.Status() != engineapi.RuleStatusPass {
 					ruleToReason[rule.Name()] = rule.Message()
 				}
-			}		
+			}
 		}
 		if len(ruleToReason) != 0 {
 			failures[er.Policy().GetName()] = ruleToReason
 		}
+	}
+	if len(failures) == 0 {
+		return ""
 	}
 	r := engineResponses[0].Resource
 	resourceName := fmt.Sprintf("%s/%s/%s", r.GetKind(), r.GetNamespace(), r.GetName())
