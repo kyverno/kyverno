@@ -13,10 +13,12 @@ spec:
         file: main-deployment.yaml
     - apply:
         file: gctxentry.yaml
-    - assert:
-        file: gctxentry-exists.yaml
+    - sleep:
+        duration: 15s
     - apply:
         file: clusterpolicy.yaml
+    - assert:
+        file: clusterpolicy-ready.yaml
     - delete:
         ref:
           apiVersion: kyverno.io/v2alpha1
