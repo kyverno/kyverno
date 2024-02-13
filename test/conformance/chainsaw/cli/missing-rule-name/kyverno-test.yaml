@@ -12,4 +12,4 @@ results:
   resources:
   - test
   result: pass
-  rule: missing #this is incorrect 
+  rule: missing 
