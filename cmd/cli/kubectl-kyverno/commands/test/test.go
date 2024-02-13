@@ -98,7 +98,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	} else {
 		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	}
-	//Verify all policies and rules referenced in tests are present
 	rulesmap := make(map[string]string)
 	policymap := make(map[string]string)
 	for _, res := range testCase.Test.Results {
