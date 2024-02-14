@@ -5,6 +5,7 @@ import (
 
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"
@@ -44,6 +45,8 @@ type RuleResponse struct {
 	podSecurityChecks *PodSecurityChecks
 	// exception is the exception applied (if any)
 	exception *kyvernov2beta1.PolicyException
+	// binding is the validatingadmissionpolicybinding (if any)
+	binding *v1alpha1.ValidatingAdmissionPolicyBinding
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
 }
@@ -90,6 +93,11 @@ func (r RuleResponse) WithException(exception *kyvernov2beta1.PolicyException) *
 	return &r
 }
 
+func (r RuleResponse) WithBinding(binding *v1alpha1.ValidatingAdmissionPolicyBinding) *RuleResponse {
+	r.binding = binding
+	return &r
+}
+
 func (r RuleResponse) WithPodSecurityChecks(checks PodSecurityChecks) *RuleResponse {
 	r.podSecurityChecks = &checks
 	return &r
@@ -123,6 +131,10 @@ func (r *RuleResponse) Stats() ExecutionStats {
 
 func (r *RuleResponse) Exception() *kyvernov2beta1.PolicyException {
 	return r.exception
+}
+
+func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *v1alpha1.ValidatingAdmissionPolicyBinding {
+	return r.binding
 }
 
 func (r *RuleResponse) IsException() bool {

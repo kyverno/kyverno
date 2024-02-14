@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
+	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -108,7 +109,7 @@ func (h validateCELHandler) Process(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
 	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	// compile CEL expressions
-	compiler, err := celutils.NewCompiler(validations, auditAnnotations, matchConditions, variables)
+	compiler, err := celutils.NewCompiler(validations, auditAnnotations, vaputils.ConvertMatchConditionsV1(matchConditions), variables)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}

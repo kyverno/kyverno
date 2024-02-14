@@ -1,0 +1,26 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-invalid
+spec:
+  admission: true
+  background: false
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: test-invalid
+    validate:
+      deny:
+        conditions:
+          any:
+          - key:
+            - '{{request.object.metadata.labels.app}}'
+            operator: Invalid
+            value:
+            - busybox
+            - busybox1
+  validationFailureAction: Enforce

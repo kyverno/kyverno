@@ -31,12 +31,13 @@ spec:
       {{- end }}
       containers:
         - name: kubectl
-          image: {{ (include "kyverno.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
+          image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
           command:
-            - sh
+            - /bin/bash
             - '-c'
             - |-
+              set -euo pipefail
               kubectl scale -n {{ template "kyverno.namespace" . }} deployment -l app.kubernetes.io/part-of={{ template "kyverno.fullname" . }} --replicas=0
               sleep 30
               kubectl delete validatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
