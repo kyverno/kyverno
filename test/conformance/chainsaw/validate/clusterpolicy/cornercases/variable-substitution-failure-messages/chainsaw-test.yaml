@@ -21,7 +21,7 @@ spec:
           ($stderr): |-
             Error from server: error when creating "pod.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
 
-            resource Pod/test/ba was blocked due to the following policies 
+            resource Pod/default/ba was blocked due to the following policies 
 
             uid-groups-fsgroup-validate:
               check-runasuser: 'validation error: Running with specific user IDs 9999 | 4000.
