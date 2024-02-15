@@ -1,0 +1,99 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: uid-groups-fsgroup-validate
+  namespace: test
+  annotations:
+    policies.kyverno.io/title: Restrict test workloads to run with specific  user, group, supplementary groups and fsgroup.
+    policies.kyverno.io/category: Sample, EKS Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Containers should be forbidden from running with a root primary or supplementary GID.
+      This policy ensures the `runAsGroup`, `supplementalGroups`, and `fsGroup` fields are set to a number
+      greater than zero (i.e., non root). A known issue prevents a policy such as this
+      using `anyPattern` from being persisted properly in Kubernetes 1.23.0-1.23.2.      
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+    - name: check-runasuser
+      context:
+      - name: allowedUIDs
+        variable:
+          value: "9999 | 4000"
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: >-
+          Running with specific user IDs {{ allowedUIDs }}. The fields
+          spec.securityContext.runAsGroup, spec.containers[*].securityContext.runAsGroup,
+          spec.initContainers[*].securityContext.runAsGroup, and
+          spec.ephemeralContainers[*].securityContext.runAsGroup must be
+          set to one of the {{ allowedUIDs }} values.
+        anyPattern:
+        - spec:
+            securityContext:
+              runAsUser: "{{ allowedUIDs }}"
+            =(ephemeralContainers):
+              - =(securityContext):
+                  =(runAsUser): "{{ allowedUIDs }}"
+            =(initContainers):
+              - =(securityContext):
+                  =(runAsUser):  "{{ allowedUIDs }}"
+            containers:
+              - =(securityContext):
+                  =(runAsUser): "{{ allowedUIDs }}"
+        - spec:
+            =(ephemeralContainers):
+              - securityContext:
+                  runAsUser: "{{ allowedUIDs }}"
+            =(initContainers):
+              - securityContext:
+                  runAsUser: "{{ allowedUIDs }}"
+            containers:
+              - securityContext:
+                  runAsUser: "{{ allowedUIDs }}"
+    - name: check-runasgroup
+      context:
+      - name: allowedGIDs
+        variable:
+          value: "3000 | 3004"
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: >-
+          Running with specific group IDs {{ allowedGIDs }} is allowed. The fields
+          spec.securityContext.runAsGroup, spec.containers[*].securityContext.runAsGroup,
+          spec.initContainers[*].securityContext.runAsGroup, and
+          spec.ephemeralContainers[*].securityContext.runAsGroup must be
+          set to one of the {{ allowedGIDs }} values.
+        anyPattern:
+        - spec:
+            securityContext:
+             runAsGroup: "{{ allowedGIDs }}"
+            =(ephemeralContainers):
+              - =(securityContext):
+                  =(runAsGroup): "{{ allowedGIDs }}"
+            =(initContainers):
+              - =(securityContext):
+                  =(runAsGroup): "{{ allowedGIDs }}"
+            containers:
+              - =(securityContext):
+                  =(runAsGroup): "{{ allowedGIDs }}"
+        - spec:
+            =(ephemeralContainers):
+              - securityContext:
+                  runAsGroup: "{{ allowedGIDs }}"
+            =(initContainers):
+              - securityContext:
+                  runAsGroup: "{{ allowedGIDs }}"
+            containers:
+              - securityContext:
+                  runAsGroup: "{{ allowedGIDs }}"
