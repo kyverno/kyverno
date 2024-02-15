@@ -118,7 +118,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
-	cmd.Flags().StringSliceVar(&applyCommandConfig.Exception, "exception", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	return cmd
 }
 
@@ -257,7 +257,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)

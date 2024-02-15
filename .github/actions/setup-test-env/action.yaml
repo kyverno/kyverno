@@ -5,7 +5,7 @@ description: Create kind cluster, deploy kyverno, and wait pods are ready.
 inputs:
   version:
     description: kubernetes version
-    default: v1.26.0
+    default: v1.29.1
   free-disk-space:
     description: free disk space
     default: 'false'

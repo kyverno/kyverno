@@ -41,7 +41,6 @@ func testValidate(
 		imageverifycache.DisabledImageVerifyCache(),
 		contextLoader,
 		nil,
-		"",
 	)
 	return e.Validate(
 		ctx,
