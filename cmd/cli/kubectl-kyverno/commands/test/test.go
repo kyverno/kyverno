@@ -58,7 +58,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	// policies
 	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
-	policies, validatingAdmissionPolicies, _, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
+	policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
@@ -181,6 +181,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	for _, resource := range uniques {
 		processor := processor.ValidatingAdmissionPolicyProcessor{
 			Policies:     validatingAdmissionPolicies,
+			Bindings:     validatingAdmissionPolicyBindings,
 			Resource:     resource,
 			PolicyReport: true,
 			Rc:           &resultCounts,
