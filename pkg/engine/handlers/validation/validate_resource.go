@@ -392,7 +392,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 			}
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", v.rule.Name, errorStr))
-			msg := v.buildAnyPatternErrorMessage(v.rule, errorStr)
+			msg := v.buildAnyPatternErrorMessage(errorStr)
 			return engineapi.RuleFail(v.rule.Name, engineapi.Validation, msg)
 		}
 	}
@@ -443,9 +443,9 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	}
 }
 
-func (v *validator) buildAnyPatternErrorMessage(rule kyvernov1.Rule, errors []string) string {
+func (v *validator) buildAnyPatternErrorMessage(errors []string) string {
 	errStr := strings.Join(errors, " ")
-	if rule.Validation.Message == "" {
+	if v.rule.Validation.Message == "" {
 		return fmt.Sprintf("validation error: %s", errStr)
 	}
 	msgRaw, sErr := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.rule.Validation.Message)

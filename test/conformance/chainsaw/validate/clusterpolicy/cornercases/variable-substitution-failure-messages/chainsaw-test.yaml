@@ -8,16 +8,16 @@ spec:
   - name: step-01
     try: 
     - apply:
-        file: aa.yaml
+        file: policy.yaml
   - name: step-03  
     try:  
     - script:  
-        content: kubectl apply -f b.yaml  
+        content: kubectl apply -f pod.yaml  
         check:  
           ($error != null): true
           # This check ensures the contents of stderr are exactly as shown.  
           ($stderr): |-
-            Error from server: error when creating "b.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+            Error from server: error when creating "pod.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
 
             resource Pod/test/ba was blocked due to the following policies 
 
