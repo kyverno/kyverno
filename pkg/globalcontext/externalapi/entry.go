@@ -17,7 +17,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 )
 
 type entry struct {
@@ -56,10 +58,6 @@ func New(
 		caller := apicall.NewCaller(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
-			latestGCE, err := gceLister.Get(gce.Name)
-			if err != nil {
-				logger.Error(err, "failed to get latest global context entry")
-			}
 			if data, err := doCall(ctx, caller, call); err != nil {
 				logger.Error(err, "failed to get data from api caller")
 				eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
@@ -70,24 +68,44 @@ func New(
 					UID:        gce.UID,
 				}, entryevent.ReasonAPICallFailure, err))
 				e.setData(nil, err)
-				_, err = controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
-					if latest != nil {
-						latest.Status.SetReady(false, entryevent.ReasonAPICallFailure)
+
+				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					latestGCE, getErr := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().Get(ctx, gce.Name, metav1.GetOptions{})
+					if getErr != nil {
+						logger.Error(err, "failed to get latest global context entry")
 					}
-					return nil
+
+					_, updateErr := controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+						if latest != nil {
+							latest.Status.SetReady(false, entryevent.ReasonAPICallFailure)
+						}
+						return nil
+					})
+
+					return updateErr
 				})
-				if err != nil {
+				if retryErr != nil {
 					logger.Error(err, "failed to update status")
 				}
 			} else {
 				e.setData(data, nil)
-				_, err := controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
-					if latest != nil {
-						latest.Status.SetReady(true, "Data Fetched Successfully")
+
+				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					latestGCE, getErr := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().Get(ctx, gce.Name, metav1.GetOptions{})
+					if getErr != nil {
+						logger.Error(err, "failed to get latest global context entry")
 					}
-					return nil
+
+					_, updateErr := controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+						if latest != nil {
+							latest.Status.SetReady(true, "DataFetchedSuccessfully")
+						}
+						return nil
+					})
+
+					return updateErr
 				})
-				if err != nil {
+				if retryErr != nil {
 					logger.Error(err, "failed to update status")
 				}
 			}
