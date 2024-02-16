@@ -16,7 +16,7 @@ spec:
     - apply:
         file: Policy2.yaml
     - assert:
-        file: policy-assert.yaml    
+        file: policy-assert2.yaml    
   - name: step-03
     try:
     - script:
