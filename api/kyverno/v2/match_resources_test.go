@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"gotest.tools/assert"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -19,7 +20,7 @@ func Test_MatchResources(t *testing.T) {
 		name:       "valid",
 		namespaced: true,
 		subject: MatchResources{
-			Any: kyvernov1.ResourceFilters{{
+			Any: kyvernov2beta1.ResourceFilters{{
 				UserInfo: kyvernov1.UserInfo{
 					Subjects: []rbacv1.Subject{{
 						Kind:      "ServiceAccount",
@@ -33,7 +34,7 @@ func Test_MatchResources(t *testing.T) {
 		name:       "any-all",
 		namespaced: true,
 		subject: MatchResources{
-			Any: kyvernov1.ResourceFilters{{
+			Any: kyvernov2beta1.ResourceFilters{{
 				UserInfo: kyvernov1.UserInfo{
 					Subjects: []rbacv1.Subject{{
 						Kind:      "ServiceAccount",
@@ -42,7 +43,7 @@ func Test_MatchResources(t *testing.T) {
 					}},
 				},
 			}},
-			All: kyvernov1.ResourceFilters{{
+			All: kyvernov2beta1.ResourceFilters{{
 				UserInfo: kyvernov1.UserInfo{
 					Subjects: []rbacv1.Subject{{
 						Kind:      "ServiceAccount",
@@ -53,7 +54,7 @@ func Test_MatchResources(t *testing.T) {
 			}},
 		},
 		errors: []string{
-			`dummy: Invalid value: v2.MatchResources{Any:v1.ResourceFilters{v1.ResourceFilter{UserInfo:v1.UserInfo{Roles:[]string(nil), ClusterRoles:[]string(nil), Subjects:[]v1.Subject{v1.Subject{Kind:"ServiceAccount", APIGroup:"", Name:"sa-1", Namespace:"ns"}}}, ResourceDescription:v1.ResourceDescription{Kinds:[]string(nil), Name:"", Names:[]string(nil), Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil), Operations:[]v1.AdmissionOperation(nil)}}}, All:v1.ResourceFilters{v1.ResourceFilter{UserInfo:v1.UserInfo{Roles:[]string(nil), ClusterRoles:[]string(nil), Subjects:[]v1.Subject{v1.Subject{Kind:"ServiceAccount", APIGroup:"", Name:"sa-1", Namespace:"ns"}}}, ResourceDescription:v1.ResourceDescription{Kinds:[]string(nil), Name:"", Names:[]string(nil), Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil), Operations:[]v1.AdmissionOperation(nil)}}}}: Can't specify any and all together`,
+			`dummy: Invalid value: v2.MatchResources{Any:v2beta1.ResourceFilters{v2beta1.ResourceFilter{UserInfo:v1.UserInfo{Roles:[]string(nil), ClusterRoles:[]string(nil), Subjects:[]v1.Subject{v1.Subject{Kind:"ServiceAccount", APIGroup:"", Name:"sa-1", Namespace:"ns"}}}, ResourceDescription:v2beta1.ResourceDescription{Kinds:[]string(nil), Names:[]string(nil), Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil), Operations:[]v1.AdmissionOperation(nil)}}}, All:v2beta1.ResourceFilters{v2beta1.ResourceFilter{UserInfo:v1.UserInfo{Roles:[]string(nil), ClusterRoles:[]string(nil), Subjects:[]v1.Subject{v1.Subject{Kind:"ServiceAccount", APIGroup:"", Name:"sa-1", Namespace:"ns"}}}, ResourceDescription:v2beta1.ResourceDescription{Kinds:[]string(nil), Names:[]string(nil), Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil), Operations:[]v1.AdmissionOperation(nil)}}}}: Can't specify any and all together`,
 		},
 	}}
 

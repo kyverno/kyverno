@@ -70,8 +70,12 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ClusterBackgroundScanReportList{},
 		&ClusterCleanupPolicy{},
 		&ClusterCleanupPolicyList{},
+		&ClusterPolicy{},
+		&ClusterPolicyList{},
+		&Policy{},
 		&PolicyException{},
 		&PolicyExceptionList{},
+		&PolicyList{},
 		&UpdateRequest{},
 		&UpdateRequestList{},
 	)

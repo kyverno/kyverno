@@ -19,14 +19,14 @@ limitations under the License.
 package v2
 
 import (
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 )
 
 // MatchResourcesApplyConfiguration represents an declarative configuration of the MatchResources type for use
 // with apply.
 type MatchResourcesApplyConfiguration struct {
-	Any *v1.ResourceFilters `json:"any,omitempty"`
-	All *v1.ResourceFilters `json:"all,omitempty"`
+	Any *v2beta1.ResourceFilters `json:"any,omitempty"`
+	All *v2beta1.ResourceFilters `json:"all,omitempty"`
 }
 
 // MatchResourcesApplyConfiguration constructs an declarative configuration of the MatchResources type for use with
@@ -38,7 +38,7 @@ func MatchResources() *MatchResourcesApplyConfiguration {
 // WithAny sets the Any field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Any field is set to the value of the last call.
-func (b *MatchResourcesApplyConfiguration) WithAny(value v1.ResourceFilters) *MatchResourcesApplyConfiguration {
+func (b *MatchResourcesApplyConfiguration) WithAny(value v2beta1.ResourceFilters) *MatchResourcesApplyConfiguration {
 	b.Any = &value
 	return b
 }
@@ -46,7 +46,7 @@ func (b *MatchResourcesApplyConfiguration) WithAny(value v1.ResourceFilters) *Ma
 // WithAll sets the All field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the All field is set to the value of the last call.
-func (b *MatchResourcesApplyConfiguration) WithAll(value v1.ResourceFilters) *MatchResourcesApplyConfiguration {
+func (b *MatchResourcesApplyConfiguration) WithAll(value v2beta1.ResourceFilters) *MatchResourcesApplyConfiguration {
 	b.All = &value
 	return b
 }

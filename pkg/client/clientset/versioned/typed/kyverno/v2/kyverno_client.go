@@ -34,6 +34,8 @@ type KyvernoV2Interface interface {
 	ClusterAdmissionReportsGetter
 	ClusterBackgroundScanReportsGetter
 	ClusterCleanupPoliciesGetter
+	ClusterPoliciesGetter
+	PoliciesGetter
 	PolicyExceptionsGetter
 	UpdateRequestsGetter
 }
@@ -65,6 +67,14 @@ func (c *KyvernoV2Client) ClusterBackgroundScanReports() ClusterBackgroundScanRe
 
 func (c *KyvernoV2Client) ClusterCleanupPolicies() ClusterCleanupPolicyInterface {
 	return newClusterCleanupPolicies(c)
+}
+
+func (c *KyvernoV2Client) ClusterPolicies() ClusterPolicyInterface {
+	return newClusterPolicies(c)
+}
+
+func (c *KyvernoV2Client) Policies(namespace string) PolicyInterface {
+	return newPolicies(c, namespace)
 }
 
 func (c *KyvernoV2Client) PolicyExceptions(namespace string) PolicyExceptionInterface {
