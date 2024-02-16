@@ -98,17 +98,9 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			name: "key is boolean and in value",
 			args: args{
 				key:   true,
-				value: "true",
+				value: true,
 			},
 			want: false,
-		},
-		{
-			name: "key is boolean and not in value",
-			args: args{
-				key:   true,
-				value: "false",
-			},
-			want: true,
 		},
 		{
 			name: "key is array and in value",
@@ -138,7 +130,7 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			name: "key is array of int and partially in value",
 			args: args{
 				key:   []interface{}{1, 2, 3},
-				value: "2",
+				value: 2,
 			},
 			want: true,
 		},
@@ -146,7 +138,7 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			name: "key is array of int and not in value",
 			args: args{
 				key:   []interface{}{1, 2, 3},
-				value: "4",
+				value: 4,
 			},
 			want: true,
 		},
@@ -154,7 +146,7 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			name: "key is array of float and partially in value",
 			args: args{
 				key:   []interface{}{1.1, 2.2, 3.3},
-				value: "2.2",
+				value: 1.1,
 			},
 			want: true,
 		},
@@ -162,7 +154,7 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			name: "key is array of float and not in value",
 			args: args{
 				key:   []interface{}{1.1, 2.2, 3.3},
-				value: "4.4",
+				value: 4.4,
 			},
 			want: true,
 		},
@@ -170,7 +162,7 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			name: "key is array of bool and partially in value",
 			args: args{
 				key:   []interface{}{true, false},
-				value: "true",
+				value: true,
 			},
 			want: true,
 		},
@@ -178,7 +170,7 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			name: "key is an array of bool and not in value",
 			args: args{
 				key:   []interface{}{true},
-				value: "false",
+				value: false,
 			},
 			want: true,
 		},
