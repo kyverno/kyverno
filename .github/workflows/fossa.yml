@@ -36,6 +36,6 @@ jobs:
           free-disk-space: false
       - name: Run FOSSA analysis
         if: steps.checksecret.outputs.result == 'true'
-        uses: fossas/fossa-action@f61a4c0c263690f2ddb54b9822a719c25a7b608f # v1.3.1
+        uses: fossas/fossa-action@32c7979e971182f1e7602ed5d2b9ae0f5a6933d1 # v1.3.2
         with:
           api-key: ${{ secrets.FOSSA_API_KEY }}
