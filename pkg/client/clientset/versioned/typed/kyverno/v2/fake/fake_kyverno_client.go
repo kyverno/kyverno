@@ -52,6 +52,14 @@ func (c *FakeKyvernoV2) ClusterCleanupPolicies() v2.ClusterCleanupPolicyInterfac
 	return &FakeClusterCleanupPolicies{c}
 }
 
+func (c *FakeKyvernoV2) ClusterPolicies() v2.ClusterPolicyInterface {
+	return &FakeClusterPolicies{c}
+}
+
+func (c *FakeKyvernoV2) Policies(namespace string) v2.PolicyInterface {
+	return &FakePolicies{c, namespace}
+}
+
 func (c *FakeKyvernoV2) PolicyExceptions(namespace string) v2.PolicyExceptionInterface {
 	return &FakePolicyExceptions{c, namespace}
 }
