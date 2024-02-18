@@ -4,7 +4,7 @@ This test ensures that the policies that are skipped because of preconditions ar
 
 ## Expected Behavior
 
-fails and should not show preconditions not met
+The resource will be blocked because it violates the `require-ns-owner-label` policy. As a result, its message will only be displayed.
 
 ## Reference Issue(s)
 
