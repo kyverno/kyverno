@@ -8,13 +8,13 @@ spec:
   - name: step-01
     try: 
     - apply:
-        file: Policy1.yaml
+        file: policy-1.yaml
     - assert:
         file: policy-assert1.yaml    
   - name: step-02
     try:
     - apply:
-        file: Policy2.yaml
+        file: policy-2.yaml
     - assert:
         file: policy-assert2.yaml    
   - name: step-03
