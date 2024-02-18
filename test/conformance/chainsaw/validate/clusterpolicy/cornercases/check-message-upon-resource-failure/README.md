@@ -1,6 +1,6 @@
 ## Description
 
-This test ensures that  policies skipped because of preconditions not met should not be included in admission requests denial responses
+This test ensures that the policies that are skipped because of preconditions aren't included in admission requests denial responses
 
 ## Expected Behavior
 
