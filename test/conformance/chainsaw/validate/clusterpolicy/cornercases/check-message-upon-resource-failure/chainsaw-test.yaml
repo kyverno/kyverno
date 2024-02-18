@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: any
+  name: check-message-upon-resource-failure
 spec:
   steps:
   - name: step-01
