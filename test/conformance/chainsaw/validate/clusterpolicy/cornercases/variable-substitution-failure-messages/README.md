@@ -1,6 +1,6 @@
 ## Description
 
-This test ensure Schema validation should validate the target resource rather than the trigger for the mutateExisting type of policy.
+This test ensures that variables are substituted correctly in the validation messages for `anyPattern`.
 
 ## Expected Behavior
 
