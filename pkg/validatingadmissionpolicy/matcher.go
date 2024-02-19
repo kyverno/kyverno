@@ -17,32 +17,36 @@ import (
 func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[string]string, matchCriteria admissionregistrationv1alpha1.MatchResources) (bool, error) {
 	// check if the namespace selector matches the resource namespace
 	if matchCriteria.NamespaceSelector != nil {
-		selector, err := metav1.LabelSelectorAsSelector(matchCriteria.NamespaceSelector)
-		if err != nil {
-			return false, err
-		}
-		if nsLabels, ok := namespaceSelectorMap[attr.GetNamespace()]; ok {
-			if !selector.Matches(labels.Set(nsLabels)) {
+		if len(matchCriteria.NamespaceSelector.MatchLabels) > 0 || len(matchCriteria.NamespaceSelector.MatchExpressions) > 0 {
+			selector, err := metav1.LabelSelectorAsSelector(matchCriteria.NamespaceSelector)
+			if err != nil {
+				return false, err
+			}
+			if nsLabels, ok := namespaceSelectorMap[attr.GetNamespace()]; ok {
+				if !selector.Matches(labels.Set(nsLabels)) {
+					return false, nil
+				}
+			} else {
 				return false, nil
 			}
-		} else {
-			return false, nil
 		}
 	}
 
 	// check if the object selector matches the resource
 	if matchCriteria.ObjectSelector != nil {
-		selector, err := metav1.LabelSelectorAsSelector(matchCriteria.ObjectSelector)
-		if err != nil {
-			return false, err
-		}
-		accessor, err := meta.Accessor(attr.GetObject())
-		if err != nil {
-			return false, err
-		}
-		if len(accessor.GetLabels()) != 0 {
-			if !selector.Matches(labels.Set(accessor.GetLabels())) {
-				return false, nil
+		if len(matchCriteria.ObjectSelector.MatchLabels) > 0 || len(matchCriteria.ObjectSelector.MatchExpressions) > 0 {
+			selector, err := metav1.LabelSelectorAsSelector(matchCriteria.ObjectSelector)
+			if err != nil {
+				return false, err
+			}
+			accessor, err := meta.Accessor(attr.GetObject())
+			if err != nil {
+				return false, err
+			}
+			if len(accessor.GetLabels()) != 0 {
+				if !selector.Matches(labels.Set(accessor.GetLabels())) {
+					return false, nil
+				}
 			}
 		}
 	}
