@@ -4,7 +4,7 @@ This test ensures that variables are substituted correctly in the validation mes
 
 ## Expected Behavior
 
-ClusterPolicy should be successfully created.
+The variable `allowedUIDs` will be successfully substituted by `9999 | 4000` in the validation message.
 
 ## Reference Issue(s)
 
