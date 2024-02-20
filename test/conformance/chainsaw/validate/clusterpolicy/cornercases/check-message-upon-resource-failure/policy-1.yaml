@@ -1,0 +1,46 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-ns-owner-label
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: check-for-namespace-owner-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    validate:
+      message: >-
+        The label `uw.systems/owner` is required. Check policy at
+        https://github.com/utilitywarehouse/system-manifests/tree/master/kyverno/policies/namespaces/require-ns-owner-label.yaml
+        for allowed label values.
+      pattern:
+        metadata:
+          labels:
+            uw.systems/owner: >-
+              account-platform
+                |bill
+                |billing
+                |btg-operations
+                |btg-security
+                |cbc
+                |contact-channels
+                |crm
+                |customer
+                |customer-platform
+                |customer-support
+                |data
+                |data-infra
+                |dev-enablement
+                |digital-support
+                |energy
+                |iam
+                |insurance
+                |partner
+                |payment
+                |system
+                |telecom
+                |unicom
