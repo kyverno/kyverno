@@ -32,13 +32,18 @@ type DebugModeOptions struct {
 
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
-	Run(<-chan struct{})
+	Run()
 	// Stop TLS server and returns control after the server is shut down
 	Stop()
 }
 
 type ExceptionHandlers interface {
 	// Validate performs the validation check on exception resources
+	Validate(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) admissionv1.AdmissionResponse
+}
+
+type GlobalContextHandlers interface {
+	// Validate performs the validation check on global context entries
 	Validate(context.Context, logr.Logger, handlers.AdmissionRequest, time.Time) admissionv1.AdmissionResponse
 }
 
@@ -72,6 +77,7 @@ func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
 	exceptionHandlers ExceptionHandlers,
+	globalContextHandlers GlobalContextHandlers,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
@@ -89,6 +95,7 @@ func NewServer(
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	exceptionLogger := logger.WithName("exception")
+	globalContextLogger := logger.WithName("globalcontext")
 	verifyLogger := logger.WithName("verify")
 	registerWebhookHandlers(
 		mux,
@@ -154,6 +161,16 @@ func NewServer(
 	)
 	mux.HandlerFunc(
 		"POST",
+		config.GlobalContextValidatingWebhookServicePath,
+		handlers.FromAdmissionFunc("VALIDATE", globalContextHandlers.Validate).
+			WithDump(debugModeOpts.DumpPayload).
+			WithSubResourceFilter().
+			WithMetrics(globalContextLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(globalContextLogger.WithName("validate")).
+			ToHandlerFunc("VALIDATE"),
+	)
+	mux.HandlerFunc(
+		"POST",
 		config.VerifyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VERIFY", handlers.Verify).
 			WithAdmission(verifyLogger.WithName("mutate")).
@@ -201,23 +218,17 @@ func NewServer(
 	}
 }
 
-func (s *server) Run(stopCh <-chan struct{}) {
+func (s *server) Run() {
 	go func() {
-		logger.V(3).Info("started serving requests", "addr", s.server.Addr)
-		if err := s.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-			logger.Error(err, "failed to listen to requests")
+		if err := s.server.ListenAndServeTLS("", ""); err != nil {
+			logging.Error(err, "failed to start server")
 		}
 	}()
-	logger.Info("starting service")
-
-	<-stopCh
-	s.Stop()
 }
 
 func (s *server) Stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-
 	s.cleanup(ctx)
 	err := s.server.Shutdown(ctx)
 	if err != nil {
@@ -285,4 +296,6 @@ func registerWebhookHandlers(
 	mux.HandlerFunc("POST", basePath, builder(all).ToHandlerFunc(name))
 	mux.HandlerFunc("POST", basePath+"/ignore", builder(ignore).ToHandlerFunc(name))
 	mux.HandlerFunc("POST", basePath+"/fail", builder(fail).ToHandlerFunc(name))
+	mux.HandlerFunc("POST", basePath+"/ignore"+config.FineGrainedWebhookPath+"/*policy", builder(ignore).ToHandlerFunc(name))
+	mux.HandlerFunc("POST", basePath+"/fail"+config.FineGrainedWebhookPath+"/*policy", builder(fail).ToHandlerFunc(name))
 }

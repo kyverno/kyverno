@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+  namespace: policy-exception-ns
+spec:
+  exceptions:
+  - policyName: psa
+    ruleNames:
+    - baseline
+  match:
+    any:
+    - resources:
+        namespaces:
+        - staging-ns
+  podSecurity:
+    - controlName: "Seccomp"
+      restrictedField: "spec.securityContext.seccompProfile.type"
+      values:
+      - "Unconfined"

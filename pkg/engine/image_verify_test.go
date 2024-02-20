@@ -322,7 +322,6 @@ func testVerifyAndPatchImages(
 		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
-		"",
 	)
 	return e.VerifyAndPatchImages(
 		ctx,
@@ -1075,7 +1074,6 @@ func testImageVerifyCache(
 		ivCache,
 		factories.DefaultContextLoaderFactory(cmResolver),
 		nil,
-		"",
 	)
 	return e.VerifyAndPatchImages(
 		ctx,
