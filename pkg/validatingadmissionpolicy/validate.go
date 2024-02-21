@@ -63,16 +63,32 @@ func GetKinds(policy v1alpha1.ValidatingAdmissionPolicy) []string {
 	return kindList
 }
 
-func Validate(policyData PolicyData, resource unstructured.Unstructured, client dclient.Interface) (engineapi.EngineResponse, error) {
-	var (
-		gvr schema.GroupVersionResource
-		a   admission.Attributes
-		err error
-	)
-
+func Validate(policyData PolicyData, resource unstructured.Unstructured, namespaceSelectorMap map[string]map[string]string, client dclient.Interface) (engineapi.EngineResponse, error) {
+	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	policy := policyData.definition
 	bindings := policyData.bindings
 	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{
+		Group:    gvk.Group,
+		Version:  gvk.Version,
+		Resource: strings.ToLower(gvk.Kind) + "s",
+	}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+	if len(bindings) == 0 {
+		isMatch, err := matches(a, namespaceSelectorMap, *policy.Spec.MatchConstraints)
+		if err != nil {
+			return engineResponse, err
+		}
+		if !isMatch {
+			return engineResponse, nil
+		}
+		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
+		return validateResource(policy, nil, resource, a)
+	}
+
 	if client != nil {
 		nsLister := NewCustomNamespaceLister(client)
 		matcher := validatingadmissionpolicy.NewMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
@@ -81,11 +97,11 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 		v1beta1policy := ConvertValidatingAdmissionPolicy(policy)
 
 		// construct admission attributes
-		gvr, err = client.Discovery().GetGVRFromGVK(resource.GroupVersionKind())
+		gvr, err := client.Discovery().GetGVRFromGVK(gvk)
 		if err != nil {
 			return engineResponse, err
 		}
-		a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+		a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 		// check if policy matches the incoming resource
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
@@ -97,33 +113,32 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, client 
 			return engineResponse, nil
 		}
 
-		if len(bindings) == 0 {
-			a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-			resPath := fmt.Sprintf("%s/%s/%s", a.GetNamespace(), a.GetKind().Kind, a.GetName())
-			logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-			return validateResource(policy, nil, resource, a)
-		} else {
-			for i, binding := range bindings {
-				// convert policy binding from v1alpha1 to v1beta1
-				v1beta1binding := ConvertValidatingAdmissionPolicyBinding(binding)
-				isMatch, err := matcher.BindingMatches(a, o, &v1beta1binding)
-				if err != nil {
-					return engineResponse, err
-				}
-				if !isMatch {
-					continue
-				}
-
-				resPath := fmt.Sprintf("%s/%s/%s", a.GetNamespace(), a.GetKind().Kind, a.GetName())
-				logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-				return validateResource(policy, &bindings[i], resource, a)
+		for i, binding := range bindings {
+			// convert policy binding from v1alpha1 to v1beta1
+			v1beta1binding := ConvertValidatingAdmissionPolicyBinding(binding)
+			isMatch, err := matcher.BindingMatches(a, o, &v1beta1binding)
+			if err != nil {
+				return engineResponse, err
 			}
+			if !isMatch {
+				continue
+			}
+
+			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+			return validateResource(policy, &bindings[i], resource, a)
 		}
 	} else {
-		a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-		resPath := fmt.Sprintf("%s/%s/%s", a.GetNamespace(), a.GetKind().Kind, a.GetName())
-		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-		return validateResource(policy, nil, resource, a)
+		for i, binding := range bindings {
+			isMatch, err := matches(a, namespaceSelectorMap, *binding.Spec.MatchResources)
+			if err != nil {
+				return engineResponse, err
+			}
+			if !isMatch {
+				continue
+			}
+			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+			return validateResource(policy, &bindings[i], resource, a)
+		}
 	}
 
 	return engineResponse, nil
