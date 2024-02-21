@@ -195,7 +195,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	responses2, err := c.applyValidatingAdmissionPolicytoResource(vaps, vapBindings, resources1, rc, dClient)
+	responses2, err := c.applyValidatingAdmissionPolicytoResource(vaps, vapBindings, resources1, variables.NamespaceSelectors(), rc, dClient)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
@@ -217,18 +217,20 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 	vaps []v1alpha1.ValidatingAdmissionPolicy,
 	vapBindings []v1alpha1.ValidatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
+	namespaceSelectorMap map[string]map[string]string,
 	rc *processor.ResultCounts,
 	dClient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.ValidatingAdmissionPolicyProcessor{
-			Policies:     vaps,
-			Bindings:     vapBindings,
-			Resource:     resource,
-			PolicyReport: c.PolicyReport,
-			Rc:           rc,
-			Client:       dClient,
+			Policies:             vaps,
+			Bindings:             vapBindings,
+			Resource:             resource,
+			NamespaceSelectorMap: namespaceSelectorMap,
+			PolicyReport:         c.PolicyReport,
+			Rc:                   rc,
+			Client:               dClient,
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
