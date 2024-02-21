@@ -1,0 +1,28 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
+policies:
+- policy.yaml
+resources:
+- deployment1.yaml
+- deployment2.yaml
+results:
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: check-deployment-replicas
+  resources:
+  - busybox-deployment-1
+  result: fail
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: check-deployment-replicas
+  resources:
+  - busybox-deployment-2
+  result: pass
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: check-deployment-replicas
+  resources:
+  - nginx-deployment
+  result: skip
