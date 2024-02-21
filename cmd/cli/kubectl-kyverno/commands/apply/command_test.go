@@ -326,7 +326,7 @@ func Test_Apply(t *testing.T) {
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
-					Pass:  0,
+					Pass:  2,
 					Fail:  2,
 					Skip:  0,
 					Error: 0,
@@ -345,7 +345,7 @@ func Test_Apply(t *testing.T) {
 			},
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
 				Summary: policyreportv1alpha2.PolicyReportSummary{
-					Pass:  0,
+					Pass:  1,
 					Fail:  1,
 					Skip:  0,
 					Error: 0,
