@@ -11,6 +11,9 @@ spec:
         file: namespace.yaml
     - apply:
         file: main-deployment.yaml
+    - script:
+        content: |
+          kubectl get -v9 --raw /apis/apps/v1/namespaces/test-globalcontext/deployments
     - apply:
         file: gctxentry.yaml
     - sleep:
