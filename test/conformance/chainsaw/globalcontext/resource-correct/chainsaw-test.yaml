@@ -14,7 +14,7 @@ spec:
     - apply:
         file: gctxentry.yaml
     - sleep:
-        duration: 15s
+        duration: 5s
     - apply:
         file: clusterpolicy.yaml
     - assert:
