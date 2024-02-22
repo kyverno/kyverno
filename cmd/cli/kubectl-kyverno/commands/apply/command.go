@@ -477,3 +477,5 @@ func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error
 	}
 	return nil
 }
+
+//
