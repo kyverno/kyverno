@@ -13,8 +13,8 @@ spec:
         file: main-deployment.yaml
     - apply:
         file: gctxentry.yaml
-    - sleep:
-        duration: 15s
+    # - sleep:
+    #     duration: 15s
     - apply:
         file: clusterpolicy.yaml
     - assert:
@@ -23,7 +23,9 @@ spec:
         ref:
           apiVersion: kyverno.io/v2alpha1
           kind: GlobalContextEntry
-          name: deployments
+          name: gctx-not-ready
+    - sleep:
+        duration: 5s
     - assert:
         file: clusterpolicy-failed.yaml
     - apply:
