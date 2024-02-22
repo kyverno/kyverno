@@ -109,7 +109,7 @@ func New(
 							logger.Error(err, "failed to get latest global context entry")
 						}
 
-						logger.V(0).Info("updated status", "status", latestGCE.Status)
+						logger.V(0).Info("updated status", "status", latestGCE)
 					}
 
 					return updateErr
