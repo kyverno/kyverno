@@ -5,7 +5,7 @@ metadata:
   name: apicall-correct
 spec:
   steps:
-  - name: step-01
+  - name: scenario
     try:
     - apply:
         file: namespace.yaml
@@ -14,12 +14,9 @@ spec:
     - script:
         content: |
           kubectl get pod -n kyverno
-  - name: step-02
-    try:
+    # wait til Kyverno is ready
     - sleep:
-        duration: 40s
-  - name: step-03
-    try:
+        duration: 1m
     - apply:
         file: gctxentry.yaml
     - apply:
