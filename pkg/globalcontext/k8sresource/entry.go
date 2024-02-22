@@ -39,6 +39,7 @@ func New(
 	logger logr.Logger,
 	gvr schema.GroupVersionResource,
 	namespace string,
+	shouldUpdateStatus bool,
 ) (store.Entry, error) {
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
@@ -60,16 +61,14 @@ func New(
 	})
 	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		stop()
-		_, err := controllerutils.UpdateStatus(ctx, gce, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
-			if latest != nil {
-				latest.Status.SetReady(false, entryevent.ReasonCacheSyncFailure)
+
+		if shouldUpdateStatus {
+			if err := updateStatus(ctx, gce, kyvernoClient, false, "CacheSyncFailure"); err != nil {
+				logger.Error(err, "failed to update status")
 			}
-			return nil
-		})
-		if err != nil {
-			logger.Error(err, "failed to update status")
 		}
-		err = fmt.Errorf("failed to wait for cache sync: %s", gvr.Resource)
+
+		err := fmt.Errorf("failed to sync cache for %s", gvr)
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,
 			Kind:       gce.Kind,
@@ -77,17 +76,16 @@ func New(
 			Namespace:  gce.Namespace,
 			UID:        gce.UID,
 		}, entryevent.ReasonCacheSyncFailure, err))
+
 		return invalid.New(err), nil
 	}
-	_, err := controllerutils.UpdateStatus(ctx, gce, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
-		if latest != nil {
-			latest.Status.SetReady(true, "CacheSynced")
+
+	if shouldUpdateStatus {
+		if err := updateStatus(ctx, gce, kyvernoClient, true, "CacheSyncSuccess"); err != nil {
+			logger.Error(err, "failed to update status")
 		}
-		return nil
-	})
-	if err != nil {
-		logger.Error(err, "failed to update status")
 	}
+
 	return &entry{
 		lister:   informer.Lister(),
 		stop:     stop,
@@ -112,4 +110,15 @@ func (e *entry) Get() (any, error) {
 
 func (e *entry) Stop() {
 	e.stop()
+}
+
+func updateStatus(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry, kyvernoClient versioned.Interface, ready bool, reason string) error {
+	_, err := controllerutils.UpdateStatus(ctx, gce, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+		if latest == nil {
+			return fmt.Errorf("failed to update status: %s", gce.Name)
+		}
+		latest.Status.SetReady(ready, reason)
+		return nil
+	})
+	return err
 }

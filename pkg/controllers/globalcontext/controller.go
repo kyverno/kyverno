@@ -39,11 +39,12 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// state
-	dclient           dclient.Interface
-	kyvernoClient     versioned.Interface
-	store             store.Store
-	eventGen          event.Interface
-	maxResponseLength int64
+	dclient            dclient.Interface
+	kyvernoClient      versioned.Interface
+	store              store.Store
+	eventGen           event.Interface
+	maxResponseLength  int64
+	shouldUpdateStatus bool
 }
 
 func NewController(
@@ -53,16 +54,18 @@ func NewController(
 	storage store.Store,
 	eventGen event.Interface,
 	maxResponseLength int64,
+	shouldUpdateStatus bool,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := &controller{
-		gceLister:         gceInformer.Lister(),
-		queue:             queue,
-		dclient:           dclient,
-		kyvernoClient:     kyvernoClient,
-		store:             storage,
-		eventGen:          eventGen,
-		maxResponseLength: maxResponseLength,
+		gceLister:          gceInformer.Lister(),
+		queue:              queue,
+		dclient:            dclient,
+		kyvernoClient:      kyvernoClient,
+		store:              storage,
+		eventGen:           eventGen,
+		maxResponseLength:  maxResponseLength,
+		shouldUpdateStatus: shouldUpdateStatus,
 	}
 
 	if _, err := controllerutils.AddEventHandlersT(gceInformer.Informer(), c.addGTXEntry, c.updateGTXEntry, c.deleteGTXEntry); err != nil {
@@ -142,6 +145,7 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			logger,
 			gvr,
 			gce.Spec.KubernetesResource.Namespace,
+			c.shouldUpdateStatus,
 		)
 	}
 	return externalapi.New(
@@ -155,5 +159,6 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 		gce.Spec.APICall.APICall,
 		gce.Spec.APICall.RefreshInterval.Duration,
 		c.maxResponseLength,
+		c.shouldUpdateStatus,
 	)
 }
