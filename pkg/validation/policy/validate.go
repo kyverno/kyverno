@@ -16,8 +16,10 @@ import (
 	"github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -31,6 +33,7 @@ import (
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -125,7 +128,7 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, username string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, gctxentryLister kyvernov2alpha1listers.GlobalContextEntryLister, mock bool, username string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -400,6 +403,26 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		checkForDeprecatedOperatorsInRule(rule, &warnings)
 	}
 
+	// global context entry validation
+	if gctxentryLister != nil {
+		gctxentries, err := gctxentryLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, rule := range rules {
+			if rule.Context == nil {
+				continue
+			}
+			for _, ctxEntry := range rule.Context {
+				if ctxEntry.GlobalReference != nil {
+					if !isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
+						return nil, fmt.Errorf("global context entry %s is not ready", ctxEntry.Name)
+					}
+				}
+			}
+		}
+	}
+
 	// check for CEL expression warnings in case of CEL subrules
 	if ok, _ := vaputils.CanGenerateVAP(spec); ok && client != nil {
 		resolver := &resolver.ClientDiscoveryResolver{
@@ -448,6 +471,15 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 	}
 	return warnings, nil
+}
+
+func isGlobalContextEntryReady(name string, gctxentries []*kyvernov2alpha1.GlobalContextEntry) bool {
+	for _, gctxentry := range gctxentries {
+		if gctxentry.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
@@ -680,7 +712,7 @@ func getAllowedVariables(background bool, target bool) *regexp.Regexp {
 
 func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.MockContext) {
 	for _, contextEntry := range entries {
-		if contextEntry.APICall != nil || contextEntry.ImageRegistry != nil || contextEntry.Variable != nil {
+		if contextEntry.APICall != nil || contextEntry.GlobalReference != nil || contextEntry.ImageRegistry != nil || contextEntry.Variable != nil {
 			ctx.AddVariable(contextEntry.Name + "*")
 		}
 
@@ -1197,13 +1229,15 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		}
 
 		var err error
-		if entry.ConfigMap != nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil {
+		if entry.ConfigMap != nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable == nil {
 			err = validateConfigMap(entry)
-		} else if entry.ConfigMap == nil && entry.APICall != nil && entry.ImageRegistry == nil && entry.Variable == nil {
+		} else if entry.ConfigMap == nil && entry.APICall != nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable == nil {
 			err = validateAPICall(entry)
-		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry != nil && entry.Variable == nil {
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference != nil && entry.ImageRegistry == nil && entry.Variable == nil {
+			err = validateGlobalReference(entry)
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry != nil && entry.Variable == nil {
 			err = validateImageRegistry(entry)
-		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable != nil {
+		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable != nil {
 			err = validateVariable(entry)
 		} else {
 			return fmt.Errorf("exactly one of configMap or apiCall or imageRegistry or variable is required for context entries")
@@ -1305,6 +1339,26 @@ func validateAPICall(entry kyvernov1.ContextEntry) error {
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.APICall.JMESPath != "" {
 		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
+		}
+	}
+
+	return nil
+}
+
+func validateGlobalReference(entry kyvernov1.ContextEntry) error {
+	if entry.GlobalReference == nil {
+		return nil
+	}
+
+	// If JMESPath contains variables, the validation will fail because it's not
+	// possible to infer which value will be inserted by the variable
+	// Skip validation if a variable is detected
+
+	jmesPath := variables.ReplaceAllVars(entry.GlobalReference.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
+
+	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.GlobalReference.JMESPath != "" {
+		if _, err := jmespath.NewParser().Parse(entry.GlobalReference.JMESPath); err != nil {
+			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.GlobalReference.JMESPath, err)
 		}
 	}
 

@@ -41,10 +41,9 @@ var (
 	exceptionNamespace     string
 	enableConfigMapCaching bool
 	// cosign
-	imageSignatureRepository string
-	enableTUF                bool
-	tufMirror                string
-	tufRoot                  string
+	enableTUF bool
+	tufMirror string
+	tufRoot   string
 	// registry client
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
@@ -111,7 +110,6 @@ func initDeferredLoadingFlags() {
 }
 
 func initCosignFlags() {
-	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "(DEPRECATED, will be removed in 1.12) Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flag.BoolVar(&enableTUF, "enableTuf", false, "enable tuf for private sigstore deployments")
 	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification.")
 	flag.StringVar(&tufRoot, "tufRoot", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
@@ -135,10 +133,6 @@ func initLeaderElectionFlags() {
 
 func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
-}
-
-func initGlobalContextFlags() {
-	flag.BoolVar(&enableGlobalContext, "enableGlobalContext", true, "Enable global context feature.")
 }
 
 type options struct {
@@ -224,10 +218,6 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
-	// leader election
-	if config.UsesGlobalContext() {
-		initGlobalContextFlags()
-	}
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
@@ -237,11 +227,6 @@ func initFlags(config Configuration, opts ...Option) {
 }
 
 func showWarnings(config Configuration, logger logr.Logger) {
-	if config.UsesCosign() {
-		if imageSignatureRepository != "" {
-			logger.Info("Warning: imageSignatureRepository is deprecated and will be removed in 1.12. Use per rule configuration `verifyImages.Repository` instead.")
-		}
-	}
 }
 
 func ParseFlags(config Configuration, opts ...Option) {

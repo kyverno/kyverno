@@ -9,12 +9,13 @@ import (
 )
 
 type ValidatingAdmissionPolicyProcessor struct {
-	Policies     []v1alpha1.ValidatingAdmissionPolicy
-	Bindings     []v1alpha1.ValidatingAdmissionPolicyBinding
-	Resource     *unstructured.Unstructured
-	PolicyReport bool
-	Rc           *ResultCounts
-	Client       dclient.Interface
+	Policies             []v1alpha1.ValidatingAdmissionPolicy
+	Bindings             []v1alpha1.ValidatingAdmissionPolicyBinding
+	Resource             *unstructured.Unstructured
+	NamespaceSelectorMap map[string]map[string]string
+	PolicyReport         bool
+	Rc                   *ResultCounts
+	Client               dclient.Interface
 }
 
 func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
@@ -26,7 +27,7 @@ func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineap
 				policyData.AddBinding(binding)
 			}
 		}
-		response, _ := validatingadmissionpolicy.Validate(policyData, *p.Resource, p.Client)
+		response, _ := validatingadmissionpolicy.Validate(policyData, *p.Resource, p.NamespaceSelectorMap, p.Client)
 		responses = append(responses, response)
 		p.Rc.addValidatingAdmissionResponse(policy, response)
 	}
