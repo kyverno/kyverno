@@ -88,6 +88,7 @@ func New(
 					logger.Error(err, "failed to update status")
 				}
 			} else {
+				logger.V(0).Info("data fetched successfully")
 				e.setData(data, nil)
 
 				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
