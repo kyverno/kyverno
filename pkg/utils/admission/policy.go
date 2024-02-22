@@ -1,11 +1,11 @@
 package admission
 
 import (
-	"encoding/json"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 func UnmarshalPolicy(kind string, raw []byte) (kyvernov1.PolicyInterface, error) {

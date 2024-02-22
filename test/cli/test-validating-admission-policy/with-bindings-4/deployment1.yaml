@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: busybox-deployment-1
+  labels:
+    app: busybox
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      containers:
+      - name: busybox
+        image: busybox:latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: busybox-deployment-2
+  labels:
+    app: busybox
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      containers:
+      - name: busybox
+        image: busybox:latest

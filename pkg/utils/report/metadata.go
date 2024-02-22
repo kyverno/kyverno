@@ -194,7 +194,7 @@ func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
 	return schema.GroupVersionResource{Resource: arg}
 }
 
-func GetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface) (string, string) {
+func GetResourceNamespaceAndName(report metav1.Object) (string, string) {
 	return controllerutils.GetAnnotation(report, AnnotationResourceNamespace), controllerutils.GetAnnotation(report, AnnotationResourceName)
 }
 

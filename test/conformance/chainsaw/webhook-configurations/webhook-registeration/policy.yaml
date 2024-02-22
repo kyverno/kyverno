@@ -1,0 +1,41 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: cpol-fine-grained-match-conditions-disallow-latest-image-tag-1
+spec:
+  admission: true
+  background: true
+  webhookConfiguration:
+    matchConditions:
+    - name: 'exclude-requests-by-groups'
+      expression: '!("system:nodes" in request.userInfo.groups)' 
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: require-image-tag
+    validate:
+      message: An image tag is required
+      pattern:
+        spec:
+          containers:
+          - image: '*:*'
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: validate-image-tag
+    validate:
+      message: Using a mutable image tag e.g. 'latest' is not allowed
+      pattern:
+        spec:
+          containers:
+          - image: '!*:latest'
+  validationFailureAction: Enforce
+  failurePolicy: Ignore
