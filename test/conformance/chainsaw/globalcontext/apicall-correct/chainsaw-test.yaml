@@ -7,6 +7,9 @@ spec:
   steps:
   - name: scenario
     try:
+    # wait til Kyverno is ready
+    - sleep:
+        duration: 20s
     - apply:
         file: namespace.yaml
     - apply:
@@ -16,8 +19,6 @@ spec:
           kubectl get -v9 --raw /apis/apps/v1/namespaces/test-globalcontext-apicall-correct/deployments
     - apply:
         file: gctxentry.yaml
-    - sleep:
-        duration: 15s
     - apply:
         file: clusterpolicy.yaml
     - assert:
