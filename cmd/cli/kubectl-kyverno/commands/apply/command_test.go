@@ -403,14 +403,27 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 }
 
 func TestCommandHelp(t *testing.T) {
+	cmd := Command() // initializes a command instance
+	assert.NotNil(t, cmd) //checks if cmd is not nil using the assert package. If cmd is nil, the test will fail.
+	b := bytes.NewBufferString("") //creates a new empty bytes.Buffer
+	cmd.SetOut(b) //sets the output of the command cmd to the buffer b
+	cmd.SetArgs([]string{"--help"}) //sets the command-line arguments for cmd to ["--help"]
+	err := cmd.Execute() //executes the command. The test checks if there is no error during execution using assert.NoError(t, err). If there is an error, the test will fail.
+	assert.NoError(t, err) 
+	out, err := io.ReadAll(b) // reads the content of the buffer b. It checks if there is no error during reading using assert.NoError(t, err).
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(string(out), cmd.Long)) //  checks if the output starts with the expected cmd.Long string. If it doesn't, the test will fail.
+}
+
+func TestCommandWithExceptions(t *testing.T) {
 	cmd := Command()
-	assert.NotNil(t, cmd)
-	b := bytes.NewBufferString("")
-	cmd.SetOut(b)
-	cmd.SetArgs([]string{"--help"})
-	err := cmd.Execute()
-	assert.NoError(t, err)
-	out, err := io.ReadAll(b)
-	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
+	cmd.SetArgs([]string{
+		"../../_testdata/apply/test-1/policy.yaml",
+		"--resource",
+		"../../_testdata/apply/test-1/resources.yaml",
+		"--exception",
+		"../../_testdata/exceptions/exception.yaml",
+	})
+	err := cmd.Execute() // Execute uses the args (os.Args[1:] by default) and run through the command tree finding appropriate matches and then executes the command
+	assert.NoError(t, err) // this finds if the function returned no error (true or false)
 }
