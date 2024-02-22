@@ -404,18 +404,20 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 
 	// global context entry validation
-	gctxentries, err := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	for _, rule := range rules {
-		if rule.Context == nil {
-			continue
+	if kyvernoClient != nil {
+		gctxentries, err := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
 		}
-		for _, ctxEntry := range rule.Context {
-			if ctxEntry.GlobalReference != nil {
-				if !isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
-					return nil, fmt.Errorf("global context entry %s is not ready", ctxEntry.GlobalReference.Name)
+		for _, rule := range rules {
+			if rule.Context == nil {
+				continue
+			}
+			for _, ctxEntry := range rule.Context {
+				if ctxEntry.GlobalReference != nil {
+					if !isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
+						return nil, fmt.Errorf("global context entry %s is not ready", ctxEntry.GlobalReference.Name)
+					}
 				}
 			}
 		}

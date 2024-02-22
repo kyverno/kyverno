@@ -97,7 +97,6 @@ func New(
 					}
 
 					_, updateErr := controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
-						logger.V(0).Info("Updating GTX Status", "GCTXEntry", latest)
 						if latest != nil {
 							latest.Status.SetReady(true, "DataFetchedSuccessfully")
 						}
@@ -105,7 +104,12 @@ func New(
 					})
 
 					if updateErr == nil {
-						logger.V(0).Info("Status Updates Successfully")
+						latestGCE, getErr = kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().Get(ctx, gce.Name, metav1.GetOptions{})
+						if getErr != nil {
+							logger.Error(err, "failed to get latest global context entry")
+						}
+
+						logger.V(0).Info("updated status", "status", latestGCE.Status)
 					}
 
 					return updateErr
