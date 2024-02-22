@@ -50,7 +50,6 @@ func (a *caller) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, 
 }
 
 func (a *caller) executeK8sAPICall(ctx context.Context, path string, method kyvernov1.Method, data []kyvernov1.RequestData) ([]byte, error) {
-	a.logger.V(0).Info("Executing APICall", "name", a.name, "path", path, "method", method, "data", data)
 	requestData, err := a.buildRequestData(data)
 	if err != nil {
 		return nil, err

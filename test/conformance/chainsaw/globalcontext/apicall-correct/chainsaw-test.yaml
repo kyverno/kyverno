@@ -19,6 +19,11 @@ spec:
         duration: 1m
     - apply:
         file: gctxentry.yaml
+    - sleep:
+        duration: 40s
+    - script:
+        content: |
+          kubectl get gctxentry
     - apply:
         file: clusterpolicy.yaml
     - assert:
