@@ -97,6 +97,7 @@ func New(
 					}
 
 					_, updateErr := controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+						logger.V(0).Info("Updating GTX Status", "GCTXEntry", latest)
 						if latest != nil {
 							latest.Status.SetReady(true, "DataFetchedSuccessfully")
 						}

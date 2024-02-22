@@ -17,7 +17,7 @@ spec:
     - apply:
         file: gctxentry.yaml
     - sleep:
-        duration: 1m
+        duration: 15s
     - script:
         content: |
           kubectl get gctxentry

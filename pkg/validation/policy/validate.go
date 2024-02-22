@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +20,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -33,7 +34,6 @@ import (
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -128,7 +128,7 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, gctxentryLister kyvernov2alpha1listers.GlobalContextEntryLister, mock bool, username string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient versioned.Interface, mock bool, username string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -404,20 +404,18 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 
 	// global context entry validation
-	if gctxentryLister != nil {
-		gctxentries, err := gctxentryLister.List(labels.Everything())
-		if err != nil {
-			return nil, err
+	gctxentries, err := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, rule := range rules {
+		if rule.Context == nil {
+			continue
 		}
-		for _, rule := range rules {
-			if rule.Context == nil {
-				continue
-			}
-			for _, ctxEntry := range rule.Context {
-				if ctxEntry.GlobalReference != nil {
-					if !isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
-						return nil, fmt.Errorf("global context entry %s is not ready", ctxEntry.GlobalReference.Name)
-					}
+		for _, ctxEntry := range rule.Context {
+			if ctxEntry.GlobalReference != nil {
+				if !isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
+					return nil, fmt.Errorf("global context entry %s is not ready", ctxEntry.GlobalReference.Name)
 				}
 			}
 		}
@@ -473,8 +471,8 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	return warnings, nil
 }
 
-func isGlobalContextEntryReady(name string, gctxentries []*kyvernov2alpha1.GlobalContextEntry) bool {
-	for _, gctxentry := range gctxentries {
+func isGlobalContextEntryReady(name string, gctxentries *kyvernov2alpha1.GlobalContextEntryList) bool {
+	for _, gctxentry := range gctxentries.Items {
 		if gctxentry.Name == name {
 			logging.V(0).Info("validating global context entry status", "name", name, "status", gctxentry.Status)
 			return gctxentry.Status.IsReady()
