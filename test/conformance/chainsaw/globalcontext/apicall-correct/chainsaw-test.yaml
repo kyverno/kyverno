@@ -13,10 +13,10 @@ spec:
         file: main-deployment.yaml
     - script:
         content: |
-          kubectl get -v9 --raw /apis/apps/v1/namespaces/test-globalcontext-apicall-correct/deployments
+          kubectl get pod -n kyverno
     # wait til Kyverno is ready
     - sleep:
-        duration: 30s
+        duration: 40s
     - apply:
         file: gctxentry.yaml
     - apply:
