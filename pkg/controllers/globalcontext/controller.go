@@ -73,7 +73,7 @@ func NewController(
 }
 
 func (c *controller) addGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
-	logger.Info("policy created", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	logger.Info("globalcontextentry created", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
@@ -81,7 +81,7 @@ func (c *controller) updateGTXEntry(old, obj *kyvernov2alpha1.GlobalContextEntry
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
-	logger.Info("policy updated", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
+	logger.Info("globalcontextentry updated", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
