@@ -492,3 +492,16 @@ func TestCommandHelp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
 }
+
+func TestCommandWithExceptions(t *testing.T) {
+	cmd := Command()
+	cmd.SetArgs([]string{
+		"../../_testdata/apply/test-1/policy.yaml",
+		"--resource",
+		"../../_testdata/apply/test-1/resources.yaml",
+		"--exception",
+		"../../_testdata/exceptions/exception.yaml",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+}
