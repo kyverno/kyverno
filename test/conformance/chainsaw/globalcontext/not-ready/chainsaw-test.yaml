@@ -11,8 +11,16 @@ spec:
         file: namespace.yaml
     - apply:
         file: main-deployment.yaml
+    - script:
+        content: |
+          kubectl get pod -n kyverno
     - apply:
         file: gctxentry.yaml
+    - sleep:
+        duration: 1m
+    - script:
+        content: |
+          kubectl get gctxentry
     - apply:
         file: clusterpolicy.yaml
     - assert:

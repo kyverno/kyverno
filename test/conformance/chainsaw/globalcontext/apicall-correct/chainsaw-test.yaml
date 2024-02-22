@@ -14,13 +14,10 @@ spec:
     - script:
         content: |
           kubectl get pod -n kyverno
-    # wait til Kyverno is ready
-    - sleep:
-        duration: 1m
     - apply:
         file: gctxentry.yaml
     - sleep:
-        duration: 40s
+        duration: 1m
     - script:
         content: |
           kubectl get gctxentry
