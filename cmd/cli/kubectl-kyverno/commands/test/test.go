@@ -58,14 +58,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	// policies
 	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
-	policies, validatingAdmissionPolicies, _, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
+	policies, vaps, vapBindings, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load policies (%s)", err)
 	}
 	// resources
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
-	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, testDir)
+	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, policies, vaps, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("Error: failed to load resources (%s)", err)
 	}
@@ -83,7 +83,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		return nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
 	// Validates that exceptions cannot be used with ValidatingAdmissionPolicies.
-	if len(validatingAdmissionPolicies) > 0 && len(exceptions) > 0 {
+	if len(vaps) > 0 && len(exceptions) > 0 {
 		return nil, fmt.Errorf("Error: Currently, the use of exceptions in conjunction with ValidatingAdmissionPolicies is not supported.")
 	}
 	// init store
@@ -94,9 +94,9 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		vars.SetInStore(&store)
 	}
 	if len(exceptions) > 0 {
-		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "with", len(exceptions), pluralize.Pluralize(len(exceptions), "exception", "exceptions"), "...")
+		fmt.Fprintln(out, "  Applying", len(policies)+len(vaps), pluralize.Pluralize(len(policies)+len(vaps), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "with", len(exceptions), pluralize.Pluralize(len(exceptions), "exception", "exceptions"), "...")
 	} else {
-		fmt.Fprintln(out, "  Applying", len(policies)+len(validatingAdmissionPolicies), pluralize.Pluralize(len(policies)+len(validatingAdmissionPolicies), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
+		fmt.Fprintln(out, "  Applying", len(policies)+len(vaps), pluralize.Pluralize(len(policies)+len(vaps), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	}
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
@@ -145,7 +145,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
@@ -180,10 +180,12 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	}
 	for _, resource := range uniques {
 		processor := processor.ValidatingAdmissionPolicyProcessor{
-			Policies:     validatingAdmissionPolicies,
-			Resource:     resource,
-			PolicyReport: true,
-			Rc:           &resultCounts,
+			Policies:             vaps,
+			Bindings:             vapBindings,
+			Resource:             resource,
+			NamespaceSelectorMap: vars.NamespaceSelectors(),
+			PolicyReport:         true,
+			Rc:                   &resultCounts,
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {

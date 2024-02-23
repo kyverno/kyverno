@@ -99,6 +99,7 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resources", "", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	// currently `set` flag supports variable for single policy applied on single resource
@@ -119,6 +120,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	return cmd
 }
 
@@ -193,7 +195,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	responses2, err := c.applyValidatingAdmissionPolicytoResource(vaps, vapBindings, resources1, rc, dClient)
+	responses2, err := c.applyValidatingAdmissionPolicytoResource(vaps, vapBindings, resources1, variables.NamespaceSelectors(), rc, dClient)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
@@ -215,18 +217,20 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 	vaps []v1alpha1.ValidatingAdmissionPolicy,
 	vapBindings []v1alpha1.ValidatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
+	namespaceSelectorMap map[string]map[string]string,
 	rc *processor.ResultCounts,
 	dClient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.ValidatingAdmissionPolicyProcessor{
-			Policies:     vaps,
-			Bindings:     vapBindings,
-			Resource:     resource,
-			PolicyReport: c.PolicyReport,
-			Rc:           rc,
-			Client:       dClient,
+			Policies:             vaps,
+			Bindings:             vapBindings,
+			Resource:             resource,
+			NamespaceSelectorMap: namespaceSelectorMap,
+			PolicyReport:         c.PolicyReport,
+			Rc:                   rc,
+			Client:               dClient,
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
@@ -257,7 +261,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	var validPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(pol, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)
