@@ -19,8 +19,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
+	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -158,19 +160,20 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
-	// gcstore := store.New()
-	// gceController := internal.NewController(
-	// 	globalcontextcontroller.ControllerName,
-	// 	globalcontextcontroller.NewController(
-	// 		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
-	// 		setup.KyvernoDynamicClient,
-	// 		setup.KyvernoClient,
-	// 		gcstore,
-	// 		eventGenerator,
-	// 		maxAPICallResponseLength,
-	// 	),
-	// 	globalcontextcontroller.Workers,
-	// )
+	gcstore := store.New()
+	gceController := internal.NewController(
+		globalcontextcontroller.ControllerName,
+		globalcontextcontroller.NewController(
+			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+			setup.KyvernoDynamicClient,
+			setup.KyvernoClient,
+			gcstore,
+			eventGenerator,
+			maxAPICallResponseLength,
+			false,
+		),
+		globalcontextcontroller.Workers,
+	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
@@ -305,6 +308,7 @@ func main() {
 					cmResolver,
 					setup.Jp,
 					eventGenerator,
+					gcstore,
 				),
 				cleanup.Workers,
 			)
@@ -364,7 +368,7 @@ func main() {
 	defer server.Stop()
 	// start non leader controllers
 	eventController.Run(ctx, setup.Logger, &wg)
-	// gceController.Run(ctx, setup.Logger, &wg)
+	gceController.Run(ctx, setup.Logger, &wg)
 	// start leader election
 	le.Run(ctx)
 	// wait for everything to shut down and exit
