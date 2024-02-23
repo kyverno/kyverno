@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: namespace-has-coordinator
+  name: cpol-gctxentry-not-exist
 spec:
   validationFailureAction: Enforce
   failurePolicy: Fail
