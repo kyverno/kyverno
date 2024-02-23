@@ -50,6 +50,8 @@ spec:
       resources:
         - clusterpolicies
         - clusterpolicies/status
+        - globalcontextentries
+        - globalcontextentries/status
         - clusteradmissionreports
         - clusterbackgroundscanreports
       verbs:

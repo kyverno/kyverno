@@ -28569,7 +28569,11 @@ spec:
     singular: globalcontextentry
   scope: Cluster
   versions:
-  - name: v2alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
+      name: READY
+      type: string
+    name: v2alpha1
     schema:
       openAPIV3Schema:
         description: GlobalContextEntry declares resources to be cached.
@@ -28744,6 +28748,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -51279,6 +51285,8 @@ rules:
       - clusterpolicies/status
       - updaterequests
       - updaterequests/status
+      - globalcontextentries
+      - globalcontextentries/status
       - admissionreports
       - clusteradmissionreports
       - backgroundscanreports
@@ -51293,13 +51301,6 @@ rules:
       - update
       - watch
       - deletecollection
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - globalcontextentries
-    verbs:
-      - list
-      - watch
   - apiGroups:
       - reports.kyverno.io
     resources:
@@ -51414,6 +51415,8 @@ rules:
       - policyexceptions
       - updaterequests
       - updaterequests/status
+      - globalcontextentries
+      - globalcontextentries/status
     verbs:
       - create
       - delete
@@ -51423,13 +51426,6 @@ rules:
       - update
       - watch
       - deletecollection
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - globalcontextentries
-    verbs:
-      - list
-      - watch
   - apiGroups:
       - ''
     resources:
@@ -51556,9 +51552,16 @@ rules:
       - kyverno.io
     resources:
       - globalcontextentries
+      - globalcontextentries/status
     verbs:
+      - create
+      - delete
+      - get
       - list
+      - patch
+      - update
       - watch
+      - deletecollection
   - apiGroups:
       - kyverno.io
     resources:
@@ -51867,12 +51870,7 @@ rules:
       - kyverno.io
     resources:
       - globalcontextentries
-    verbs:
-      - list
-      - watch
-  - apiGroups:
-      - kyverno.io
-    resources:
+      - globalcontextentries/status
       - admissionreports
       - clusteradmissionreports
       - backgroundscanreports

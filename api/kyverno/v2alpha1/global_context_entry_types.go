@@ -28,6 +28,8 @@ import (
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=gctxentry,categories=kyverno,scope="Cluster"
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {
