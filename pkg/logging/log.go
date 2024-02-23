@@ -79,7 +79,7 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 	case RFC3339NANO:
 		zc.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 	case "default":
-		zc.EncoderConfig.EncodeTime = zapcore.EpochNanosTimeEncoder
+		zc.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	default:
 		return errors.New("timestamp format not recognized, pass `iso8601` for ISO8601, `rfc3339` for RFC3339, `rfc3339nano` for RFC3339NANO, `millis` for Epoch Millis, `nanos` for Epoch Nanos, or omit the flag for the Unix Epoch timestamp format")
 	}
