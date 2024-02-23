@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: namespace-has-coordinator
+  name: cpol-not-ready
 spec:
   validationFailureAction: Enforce
   failurePolicy: Fail
@@ -10,7 +10,7 @@ spec:
     context:
     - name: deploymentCount
       globalReference:
-        name: deployments
+        name: gctx-not-ready
         jmesPath: "items | length(@)"
     match:
       all:

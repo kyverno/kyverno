@@ -11,8 +11,6 @@ spec:
         file: namespace.yaml
     - apply:
         file: main-deployment.yaml
-    - apply:
-        file: gctxentry.yaml
   - name: negative
     try:
     - apply:

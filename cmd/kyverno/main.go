@@ -362,8 +362,11 @@ func main() {
 		globalcontextcontroller.NewController(
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 			setup.KyvernoDynamicClient,
+			setup.KyvernoClient,
 			gcstore,
+			eventGenerator,
 			maxAPICallResponseLength,
+			true,
 		),
 		globalcontextcontroller.Workers,
 	)
@@ -508,7 +511,7 @@ func main() {
 	)
 	policyHandlers := webhookspolicy.NewHandlers(
 		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+		setup.KyvernoClient,
 		backgroundServiceAccountName,
 	)
 	resourceHandlers := webhooksresource.NewHandlers(

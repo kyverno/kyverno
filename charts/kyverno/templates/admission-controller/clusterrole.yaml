@@ -60,6 +60,8 @@ rules:
       - clusterpolicies/status
       - updaterequests
       - updaterequests/status
+      - globalcontextentries
+      - globalcontextentries/status
       - admissionreports
       - clusteradmissionreports
       - backgroundscanreports
@@ -74,13 +76,6 @@ rules:
       - update
       - watch
       - deletecollection
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - globalcontextentries
-    verbs:
-      - list
-      - watch
   - apiGroups:
       - reports.kyverno.io
     resources:

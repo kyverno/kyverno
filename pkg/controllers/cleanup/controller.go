@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -57,6 +58,7 @@ type controller struct {
 	eventGen      event.Interface
 	jp            jmespath.Interface
 	metrics       cleanupMetrics
+	gctxStore     loaders.Store
 }
 
 type cleanupMetrics struct {
@@ -80,6 +82,7 @@ func NewController(
 	cmResolver engineapi.ConfigmapResolver,
 	jp jmespath.Interface,
 	eventGen event.Interface,
+	gctxStore loaders.Store,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2alpha1.CleanupPolicyInterface]
@@ -112,6 +115,7 @@ func NewController(
 		eventGen:      eventGen,
 		metrics:       newCleanupMetrics(logger),
 		jp:            jp,
+		gctxStore:     gctxStore,
 	}
 	if _, err := controllerutils.AddEventHandlersT(
 		cpolInformer.Informer(),
@@ -181,7 +185,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	var errs []error
 
 	enginectx := enginecontext.NewContext(c.jp)
-	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver)
+	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
 
 	loader := ctxFactory(nil, kyvernov1.Rule{})
 	if err := loader.Load(
