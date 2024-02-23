@@ -1,0 +1,13 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: apicall-failed
+spec:
+  steps:
+  - name: scenario
+    try:
+    - apply:
+        file: gctxentry.yaml
+    - assert:
+        file: gctxentry-not-ready.yaml
