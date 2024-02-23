@@ -38,12 +38,7 @@ rules:
       - kyverno.io
     resources:
       - globalcontextentries
-    verbs:
-      - list
-      - watch
-  - apiGroups:
-      - kyverno.io
-    resources:
+      - globalcontextentries/status
       - admissionreports
       - clusteradmissionreports
       - backgroundscanreports

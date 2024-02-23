@@ -32,6 +32,8 @@ rules:
       - policyexceptions
       - updaterequests
       - updaterequests/status
+      - globalcontextentries
+      - globalcontextentries/status
     verbs:
       - create
       - delete
@@ -41,13 +43,6 @@ rules:
       - update
       - watch
       - deletecollection
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - globalcontextentries
-    verbs:
-      - list
-      - watch
   - apiGroups:
       - ''
     resources:

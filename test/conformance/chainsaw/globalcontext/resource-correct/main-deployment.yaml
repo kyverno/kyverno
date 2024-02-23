@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: main-deployment
-  namespace: test-globalcontext
+  namespace: test-globalcontext-resource-correct
   labels:
     app: main-deployment
 spec:
