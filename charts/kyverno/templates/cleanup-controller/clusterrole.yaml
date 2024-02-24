@@ -55,9 +55,16 @@ rules:
       - kyverno.io
     resources:
       - globalcontextentries
+      - globalcontextentries/status
     verbs:
+      - create
+      - delete
+      - get
       - list
+      - patch
+      - update
       - watch
+      - deletecollection
   - apiGroups:
       - kyverno.io
     resources:
