@@ -9,6 +9,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+	"sort"
+	"strings"
 )
 
 func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) policyreportv1alpha2.PolicyReportResult {
@@ -54,6 +56,23 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 	result.Message = ruleResponse.Message()
 	result.Source = kyverno.ValueKyvernoApp
 	result.Timestamp = metav1.Timestamp{Seconds: ruleResponse.Stats().Timestamp()}
+	pss := ruleResponse.PodSecurityChecks()
+	if pss != nil {
+		var controls []string
+		for _, check := range pss.Checks {
+			if !check.CheckResult.Allowed {
+				controls = append(controls, check.ID)
+			}
+		}
+		if len(controls) > 0 {
+			sort.Strings(controls)
+			result.Properties = map[string]string{
+				"standard": string(pss.Level),
+				"version":  pss.Version,
+				"controls": strings.Join(controls, ","),
+			}
+		}
+	}
 	return result
 }
 
