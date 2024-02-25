@@ -3,7 +3,9 @@ package utils
 import (
 	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 )
@@ -14,6 +16,7 @@ func MatchesException(
 	polexs []kyvernov2beta1.PolicyException,
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
+	imageInfo apiutils.ImageInfo,
 ) *kyvernov2beta1.PolicyException {
 	gvk, subresource := policyContext.ResourceKind()
 	resource := policyContext.NewResource()
@@ -38,6 +41,14 @@ func MatchesException(
 				}
 				if !passed {
 					return nil
+				}
+			}
+			image := imageInfo.String()
+			if polex.Spec.VerifyImages.ImageReferences != nil {
+				for _, imageRef := range polex.Spec.VerifyImages.ImageReferences {
+					if !wildcard.Match(imageRef, image) {
+						return nil
+					}
 				}
 			}
 			return &polex
