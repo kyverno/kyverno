@@ -268,6 +268,23 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Category:  "Pod Security Standards (Restricted)",
 			Severity:  policyreportv1alpha2.SeverityMedium,
 		},
+	}, {
+		name:           "fail",
+		auditWarn:      false,
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		ruleResponse:   *engineapi.RuleWarn("xxx", engineapi.Mutation, "test"),
+		want: policyreportv1alpha2.PolicyReportResult{
+			Source:     "kyverno",
+			Policy:     "psa",
+			Properties: map[string]string{},
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusError,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Severity:   policyreportv1alpha2.SeverityMedium,
+		},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
