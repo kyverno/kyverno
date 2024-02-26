@@ -436,8 +436,8 @@ type PodSecurity struct {
 	Level api.Level `json:"level,omitempty" yaml:"level,omitempty"`
 
 	// Version defines the Pod Security Standard versions that Kubernetes supports.
-	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, latest. Defaults to latest.
-	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;v1.26;latest
+	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.
+	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;v1.26;v1.27;v1.28;v1.29;latest
 	// +optional
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 
@@ -467,15 +467,6 @@ type PodSecurityStandard struct {
 	// Values defines the allowed values that can be excluded.
 	// +optional
 	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
-}
-
-// Validate checks if the values in the PodSecurityStandard struct are valid.
-func (pss *PodSecurityStandard) Validate(exclude PodSecurityStandard) error {
-	if (exclude.RestrictedField != "" && len(exclude.Values) == 0) || (exclude.RestrictedField == "" && len(exclude.Values) != 0) {
-		return fmt.Errorf("Values[] and RestrictedField must be set together")
-	}
-
-	return nil
 }
 
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).

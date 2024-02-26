@@ -72,11 +72,6 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSCheckResult, exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod, matching *corev1.Pod, isContainerLevelExclusion bool) ([]pssutils.PSSCheckResult, error) {
 	defaultCheckResultsMap := make(map[string]pssutils.PSSCheckResult, len(defaultCheckResults))
 
-	if err := exclude.Validate(exclude); err != nil {
-		fmt.Print(err)
-		return nil, err
-	}
-
 	for _, result := range defaultCheckResults {
 		defaultCheckResultsMap[result.ID] = result
 	}
