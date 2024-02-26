@@ -13850,7 +13850,7 @@ spec:
                               description: Version defines the Pod Security Standard
                                 versions that Kubernetes supports. Allowed values
                                 are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25,
-                                v1.26, latest. Defaults to latest.
+                                v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.
                               enum:
                               - v1.19
                               - v1.20
@@ -13860,6 +13860,9 @@ spec:
                               - v1.24
                               - v1.25
                               - v1.26
+                              - v1.27
+                              - v1.28
+                              - v1.29
                               - latest
                               type: string
                           type: object
@@ -18502,7 +18505,8 @@ spec:
                                   description: Version defines the Pod Security Standard
                                     versions that Kubernetes supports. Allowed values
                                     are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24,
-                                    v1.25, v1.26, latest. Defaults to latest.
+                                    v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults
+                                    to latest.
                                   enum:
                                   - v1.19
                                   - v1.20
@@ -18512,6 +18516,9 @@ spec:
                                   - v1.24
                                   - v1.25
                                   - v1.26
+                                  - v1.27
+                                  - v1.28
+                                  - v1.29
                                   - latest
                                   type: string
                               type: object
@@ -22868,7 +22875,7 @@ spec:
                               description: Version defines the Pod Security Standard
                                 versions that Kubernetes supports. Allowed values
                                 are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25,
-                                v1.26, latest. Defaults to latest.
+                                v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.
                               enum:
                               - v1.19
                               - v1.20
@@ -22878,6 +22885,9 @@ spec:
                               - v1.24
                               - v1.25
                               - v1.26
+                              - v1.27
+                              - v1.28
+                              - v1.29
                               - latest
                               type: string
                           type: object
@@ -27494,7 +27504,8 @@ spec:
                                   description: Version defines the Pod Security Standard
                                     versions that Kubernetes supports. Allowed values
                                     are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24,
-                                    v1.25, v1.26, latest. Defaults to latest.
+                                    v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults
+                                    to latest.
                                   enum:
                                   - v1.19
                                   - v1.20
@@ -27504,6 +27515,9 @@ spec:
                                   - v1.24
                                   - v1.25
                                   - v1.26
+                                  - v1.27
+                                  - v1.28
+                                  - v1.29
                                   - latest
                                   type: string
                               type: object
@@ -28569,7 +28583,11 @@ spec:
     singular: globalcontextentry
   scope: Cluster
   versions:
-  - name: v2alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
+      name: READY
+      type: string
+    name: v2alpha1
     schema:
       openAPIV3Schema:
         description: GlobalContextEntry declares resources to be cached.
@@ -28744,6 +28762,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -32338,7 +32358,7 @@ spec:
                               description: Version defines the Pod Security Standard
                                 versions that Kubernetes supports. Allowed values
                                 are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25,
-                                v1.26, latest. Defaults to latest.
+                                v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.
                               enum:
                               - v1.19
                               - v1.20
@@ -32348,6 +32368,9 @@ spec:
                               - v1.24
                               - v1.25
                               - v1.26
+                              - v1.27
+                              - v1.28
+                              - v1.29
                               - latest
                               type: string
                           type: object
@@ -36991,7 +37014,8 @@ spec:
                                   description: Version defines the Pod Security Standard
                                     versions that Kubernetes supports. Allowed values
                                     are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24,
-                                    v1.25, v1.26, latest. Defaults to latest.
+                                    v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults
+                                    to latest.
                                   enum:
                                   - v1.19
                                   - v1.20
@@ -37001,6 +37025,9 @@ spec:
                                   - v1.24
                                   - v1.25
                                   - v1.26
+                                  - v1.27
+                                  - v1.28
+                                  - v1.29
                                   - latest
                                   type: string
                               type: object
@@ -41358,7 +41385,7 @@ spec:
                               description: Version defines the Pod Security Standard
                                 versions that Kubernetes supports. Allowed values
                                 are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25,
-                                v1.26, latest. Defaults to latest.
+                                v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.
                               enum:
                               - v1.19
                               - v1.20
@@ -41368,6 +41395,9 @@ spec:
                               - v1.24
                               - v1.25
                               - v1.26
+                              - v1.27
+                              - v1.28
+                              - v1.29
                               - latest
                               type: string
                           type: object
@@ -45984,7 +46014,8 @@ spec:
                                   description: Version defines the Pod Security Standard
                                     versions that Kubernetes supports. Allowed values
                                     are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24,
-                                    v1.25, v1.26, latest. Defaults to latest.
+                                    v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults
+                                    to latest.
                                   enum:
                                   - v1.19
                                   - v1.20
@@ -45994,6 +46025,9 @@ spec:
                                   - v1.24
                                   - v1.25
                                   - v1.26
+                                  - v1.27
+                                  - v1.28
+                                  - v1.29
                                   - latest
                                   type: string
                               type: object
@@ -51279,6 +51313,8 @@ rules:
       - clusterpolicies/status
       - updaterequests
       - updaterequests/status
+      - globalcontextentries
+      - globalcontextentries/status
       - admissionreports
       - clusteradmissionreports
       - backgroundscanreports
@@ -51293,13 +51329,6 @@ rules:
       - update
       - watch
       - deletecollection
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - globalcontextentries
-    verbs:
-      - list
-      - watch
   - apiGroups:
       - reports.kyverno.io
     resources:
@@ -51414,6 +51443,8 @@ rules:
       - policyexceptions
       - updaterequests
       - updaterequests/status
+      - globalcontextentries
+      - globalcontextentries/status
     verbs:
       - create
       - delete
@@ -51423,13 +51454,6 @@ rules:
       - update
       - watch
       - deletecollection
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - globalcontextentries
-    verbs:
-      - list
-      - watch
   - apiGroups:
       - ''
     resources:
@@ -51556,9 +51580,16 @@ rules:
       - kyverno.io
     resources:
       - globalcontextentries
+      - globalcontextentries/status
     verbs:
+      - create
+      - delete
+      - get
       - list
+      - patch
+      - update
       - watch
+      - deletecollection
   - apiGroups:
       - kyverno.io
     resources:
@@ -51867,12 +51898,7 @@ rules:
       - kyverno.io
     resources:
       - globalcontextentries
-    verbs:
-      - list
-      - watch
-  - apiGroups:
-      - kyverno.io
-    resources:
+      - globalcontextentries/status
       - admissionreports
       - clusteradmissionreports
       - backgroundscanreports

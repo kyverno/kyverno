@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: test-exclusion-procmount
+  name: cpol-apicall-correct
 status:
   conditions:
   - reason: Succeeded
