@@ -160,7 +160,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}'
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -229,7 +229,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -301,7 +301,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -372,7 +372,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -443,7 +443,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -519,7 +519,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -594,7 +594,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -690,7 +690,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -763,7 +763,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
