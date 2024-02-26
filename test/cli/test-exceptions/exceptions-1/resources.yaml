@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: important-tool
+  namespace: delta
+  labels:
+    app: busybox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      hostIPC: true
+      containers:
+      - image: busybox:1.35
+        name: busybox
+        command: ["sleep", "1d"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-deployment
+  labels:
+    app: busybox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      hostIPC: true
+      containers:
+      - image: busybox:1.35
+        name: busybox
+        command: ["sleep", "1d"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: good-deployment
+  labels:
+    app: busybox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      hostIPC: false
+      containers:
+      - image: busybox:1.35
+        name: busybox
+        command: ["sleep", "1d"]
