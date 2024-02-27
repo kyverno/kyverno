@@ -56,6 +56,24 @@ func New(
 		// Wait for the group to terminate
 		group.Wait()
 	}
+	informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		cancel()
+
+		if shouldUpdateStatus {
+			if err := updateStatus(context.Background(), gce, kyvernoClient, false, "CacheSyncFailure"); err != nil {
+				logger.Error(err, "failed to update status")
+			}
+		}
+
+		eventErr := fmt.Errorf("failed to run informer for %s", gvr)
+		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+			APIVersion: gce.APIVersion,
+			Kind:       gce.Kind,
+			Name:       gce.Name,
+			Namespace:  gce.Namespace,
+			UID:        gce.UID,
+		}, entryevent.ReasonInformerRunFailure, eventErr))
+	})
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		informer.Informer().Run(ctx.Done())
 	})
