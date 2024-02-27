@@ -31,6 +31,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="REFRESH",type="date",JSONPath=".status.lastRefreshTime"
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {
