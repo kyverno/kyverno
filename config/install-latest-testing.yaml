@@ -28759,7 +28759,7 @@ spec:
                 type: array
               lastRefreshTime:
                 description: Indicates the time when the globalcontextentry was last
-                  refreshed
+                  refreshed successfully for the API Call
                 format: date-time
                 type: string
               ready:
