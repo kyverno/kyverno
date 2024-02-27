@@ -22,7 +22,7 @@ type GlobalContextEntryStatus struct {
 	Ready bool `json:"ready" yaml:"ready"`
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// Indicates the time when the globalcontextentry was last refreshed
+	// Indicates the time when the globalcontextentry was last refreshed successfully for the API Call
 	// +optional
 	LastRefreshTime metav1.Time `json:"lastRefreshTime,omitempty"`
 }
