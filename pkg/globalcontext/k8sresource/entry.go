@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
-	"github.com/kyverno/kyverno/pkg/globalcontext/invalid"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +55,7 @@ func New(
 		// Wait for the group to terminate
 		group.Wait()
 	}
-	informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		cancel()
 
 		if shouldUpdateStatus {
@@ -74,6 +73,11 @@ func New(
 			UID:        gce.UID,
 		}, entryevent.ReasonInformerRunFailure, eventErr))
 	})
+	if err != nil {
+		logger.Error(err, "failed to set watch error handler")
+		return nil, err
+	}
+
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		informer.Informer().Run(ctx.Done())
 	})
@@ -95,7 +99,7 @@ func New(
 			UID:        gce.UID,
 		}, entryevent.ReasonCacheSyncFailure, err))
 
-		return invalid.New(err), nil
+		return nil, err
 	}
 
 	if shouldUpdateStatus {
