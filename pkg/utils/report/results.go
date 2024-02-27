@@ -87,13 +87,7 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	return ""
 }
 
-func ToPolicyReportResult(
-	policyType engineapi.PolicyType,
-	policyName string,
-	ruleResult engineapi.RuleResponse,
-	annotations map[string]string,
-	resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
-
+func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ruleResult engineapi.RuleResponse, annotations map[string]string, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
 	result := policyreportv1alpha2.PolicyReportResult{
 		Source:  kyverno.ValueKyvernoApp,
 		Policy:  policyName,
