@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  creationTimestamp: null
+  name: exception-1
+spec:
+  exceptions:
+  - policyName: psa
+    ruleNames:
+    - restricted
+  match:
+    all:
+    - resources:
+        kinds:
+        - Pod
+  podSecurity:
+  - controlName: Capabilities
+  - controlName: Host Namespaces
+  - controlName: HostPath Volumes
+  - controlName: Privilege Escalation
+  - controlName: Running as Non-root
+  - controlName: Seccomp
+  - controlName: Volume Types
