@@ -483,7 +483,7 @@ func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPas
 			ExitCode: warnExitCode,
 		}
 	} else if rc.Pass() == 0 && warnNoPassed {
-		//fmt.Println(out, "exit as no objects satisfied policy")
+		fmt.Println(out, "exit as no objects satisfied policy")
 		return WarnExitCodeError{
 			ExitCode: warnExitCode,
 		}
