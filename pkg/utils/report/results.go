@@ -111,9 +111,7 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 		}
 	}
 	if ruleResult.Exception() != nil {
-		result.Properties = map[string]string{
-			"exception": ruleResult.Exception().Name,
-		}
+		result.Properties["exception"] = ruleResult.Exception().Name
 	}
 	pss := ruleResult.PodSecurityChecks()
 	if pss != nil && len(pss.Checks) > 0 {
@@ -125,19 +123,15 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 		}
 		if len(controls) > 0 {
 			sort.Strings(controls)
-			result.Properties = map[string]string{
-				"standard": string(pss.Level),
-				"version":  pss.Version,
-				"controls": strings.Join(controls, ","),
-			}
+			result.Properties["standard"] = string(pss.Level)
+			result.Properties["version"] = pss.Version
+			result.Properties["controls"] = strings.Join(controls, ",")
 		}
 	}
 	if policyType == engineapi.ValidatingAdmissionPolicyType {
 		result.Source = "ValidatingAdmissionPolicy"
 		if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
-			result.Properties = map[string]string{
-				"binding": ruleResult.ValidatingAdmissionPolicyBinding().Name,
-			}
+			result.Properties["binding"] = ruleResult.ValidatingAdmissionPolicyBinding().Name
 		}
 	}
 
