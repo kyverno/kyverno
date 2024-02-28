@@ -68,20 +68,6 @@ func (v *Validate) Validate(ctx context.Context) (string, error) {
 		}
 	}
 
-	if v.rule.PodSecurity != nil {
-		if len(v.rule.PodSecurity.Exclude) != 0 {
-			for _, exclude := range v.rule.PodSecurity.Exclude {
-				if exclude.RestrictedField != "" && len(exclude.Values) == 0 {
-					return "", fmt.Errorf("podSecurity.exclude.values is required")
-				}
-
-				if exclude.RestrictedField == "" && len(exclude.Values) != 0 {
-					return "", fmt.Errorf("podSecurity.exclude.restrictedField is required")
-				}
-			}
-		}
-	}
-
 	if v.rule.CEL != nil {
 		for _, expression := range v.rule.CEL.Expressions {
 			if expression.Expression == "" {
