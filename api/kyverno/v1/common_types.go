@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	"github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -467,6 +468,28 @@ type PodSecurityStandard struct {
 	// Values defines the allowed values that can be excluded.
 	// +optional
 	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
+}
+
+func (pss *PodSecurityStandard) Validate(path *field.Path) (errs field.ErrorList) {
+	// container level control must specify images
+	if containsString(utils.PSS_container_level_control, pss.ControlName) {
+		if len(pss.Images) == 0 {
+			errs = append(errs, field.Invalid(path.Child("controlName"), pss.ControlName, "exclude.images must be specified for the container level control"))
+		}
+	} else if containsString(utils.PSS_pod_level_control, pss.ControlName) {
+		if len(pss.Images) != 0 {
+			errs = append(errs, field.Invalid(path.Child("controlName"), pss.ControlName, "exclude.images must not be specified for the pod level control"))
+		}
+	}
+
+	if pss.RestrictedField != "" && len(pss.Values) == 0 {
+		errs = append(errs, field.Forbidden(path.Child("values"), "values is required"))
+	}
+
+	if pss.RestrictedField == "" && len(pss.Values) != 0 {
+		errs = append(errs, field.Forbidden(path.Child("restrictedField"), "restrictedField is required"))
+	}
+	return errs
 }
 
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).

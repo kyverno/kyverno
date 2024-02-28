@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  creationTimestamp: null
+  name: exception-3
+spec:
+  exceptions:
+  - policyName: psa
+    ruleNames:
+    - restricted
+  match:
+    all:
+    - resources:
+        kinds:
+        - Pod
+  podSecurity:
+  - controlName: "/proc Mount Type"
+    images:
+    - nginx
+    values:
+    - "bar"
