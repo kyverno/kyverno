@@ -1,0 +1,16 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-name
+spec:
+  steps:
+    - try:
+      - script:
+          content: |
+            /Users/matt.veitas/projects/kyverno/cmd/cli/kubectl-kyverno/kubectl-kyverno apply policy.yaml --resource resource.yaml --audit-warn --warn-exit-code 3
+          check:
+            # an error is expected, this will:
+            # - succeed if the operation failed
+            # - fail if the operation succeeded
+            ($error != null): true
+            (contains($stdout, 'exit as warnExitCode is 3')): true

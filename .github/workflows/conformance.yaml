@@ -97,6 +97,7 @@ jobs:
           - ^autogen$
           - ^background-only$
           - ^cleanup$
+          - ^cli$
           - ^deferred$
           - ^events$
           - ^exceptions$

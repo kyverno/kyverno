@@ -479,6 +479,7 @@ func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPas
 	} else if rc.Error() > 0 {
 		return fmt.Errorf("exit as there are policy errors")
 	} else if rc.Warn() > 0 && warnExitCode != 0 {
+		fmt.Printf("exit as warnExitCode is %d", warnExitCode)
 		return WarnExitCodeError{
 			ExitCode: warnExitCode,
 		}
