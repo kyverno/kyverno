@@ -115,7 +115,9 @@ jobs:
           - ^verify-manifests$
           - ^verifyImages$
           - ^webhooks$
-    needs: prepare-images
+    needs:
+    - prepare-images
+    - prepare-cli
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
