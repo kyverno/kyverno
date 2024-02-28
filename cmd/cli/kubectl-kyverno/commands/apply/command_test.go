@@ -500,7 +500,7 @@ func TestCommandWarnExitCode(t *testing.T) {
 		case WarnExitCodeError:
 			assert.Equal(t, warnExitCode, e.ExitCode)
 		default:
-			assert.Fail(t, "Unexpected error")
+			assert.Fail(t, "Expecting WarnExitCodeError")
 		}
 	}
 }

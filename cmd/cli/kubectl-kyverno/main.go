@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/apply"
 	"os"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/apply"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/spf13/cobra"
@@ -16,16 +16,15 @@ func main() {
 	cmd, err := setup()
 	if err != nil {
 		fmt.Println("Error:", err)
-
+		os.Exit(1)
+	}
+	if err := cmd.Execute(); err != nil {
 		switch e := err.(type) {
 		case apply.WarnExitCodeError:
 			os.Exit(e.ExitCode)
 		default:
 			os.Exit(1)
 		}
-	}
-	if err := cmd.Execute(); err != nil {
-		os.Exit(1)
 	}
 }
 
