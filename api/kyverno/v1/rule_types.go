@@ -396,16 +396,7 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 		}
 
 		for idx, exclude := range podSecurity.Exclude {
-			// container level control must specify images
-			if containsString(utils.PSS_container_level_control, exclude.ControlName) {
-				if len(exclude.Images) == 0 {
-					errs = append(errs, field.Invalid(path.Child("podSecurity").Child("exclude").Index(idx).Child("controlName"), exclude.ControlName, "exclude.images must be specified for the container level control"))
-				}
-			} else if containsString(utils.PSS_pod_level_control, exclude.ControlName) {
-				if len(exclude.Images) != 0 {
-					errs = append(errs, field.Invalid(path.Child("podSecurity").Child("exclude").Index(idx).Child("controlName"), exclude.ControlName, "exclude.images must not be specified for the pod level control"))
-				}
-			}
+			errs = append(errs, exclude.Validate(path.Child("podSecurity").Child("exclude").Index(idx))...)
 
 			if containsString([]string{"Seccomp", "Capabilities"}, exclude.ControlName) {
 				continue
