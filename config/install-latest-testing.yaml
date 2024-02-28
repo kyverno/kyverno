@@ -28587,6 +28587,12 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    - jsonPath: .status.lastRefreshTime
+      name: REFRESH
+      type: date
     name: v2alpha1
     schema:
       openAPIV3Schema:
@@ -28751,6 +28757,11 @@ spec:
                   - type
                   type: object
                 type: array
+              lastRefreshTime:
+                description: Indicates the time when the globalcontextentry was last
+                  refreshed successfully for the API Call
+                format: date-time
+                type: string
               ready:
                 description: Deprecated in favor of Conditions
                 type: boolean

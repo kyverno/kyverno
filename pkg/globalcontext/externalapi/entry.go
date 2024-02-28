@@ -140,6 +140,9 @@ func updateStatus(ctx context.Context, gceName string, kyvernoClient versioned.I
 				return fmt.Errorf("failed to update status: %s", latestGCE.Name)
 			}
 			latest.Status.SetReady(ready, reason)
+			if ready {
+				latest.Status.UpdateRefreshTime()
+			}
 			return nil
 		})
 
