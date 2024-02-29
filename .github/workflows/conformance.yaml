@@ -97,7 +97,6 @@ jobs:
           - ^autogen$
           - ^background-only$
           - ^cleanup$
-          - ^cli$
           - ^deferred$
           - ^events$
           - ^exceptions$
@@ -117,7 +116,6 @@ jobs:
           - ^webhooks$
     needs:
     - prepare-images
-    - prepare-cli
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
@@ -130,16 +128,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@204730d723e1fd712e54e069031290ba2c1c14bd # v0.1.6
-      - name: Download kyverno CLI archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: kubectl-kyverno
-      - name: Install Kyverno CLI
-        shell: bash
-        run: |
-          set -e
-          chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
-          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
@@ -955,24 +943,40 @@ jobs:
             echo "Helm secret size ($SIZE bytes) is below the max allowed ($MAX_ALLOWED bytes)"
           fi
 
-  check-tests:
+  check-tests-cli:
     runs-on: ubuntu-latest
     permissions:
       packages: read
-    needs: prepare-cli
+    strategy:
+      fail-fast: false
+        tests:
+          - ^cli$
+    needs:
+    - prepare-cli
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      # install tools
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: kubectl-kyverno
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@204730d723e1fd712e54e069031290ba2c1c14bd # v0.1.6
       - name: Install Kyverno CLI
         shell: bash
         run: |
           set -e
           chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
           echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+      # run tests
+      - name: Test with Chainsaw
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
       - name: Fix test files
         shell: bash
         run: |
