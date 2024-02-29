@@ -130,6 +130,16 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@204730d723e1fd712e54e069031290ba2c1c14bd # v0.1.6
+      - name: Download kyverno CLI archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kubectl-kyverno
+      - name: Install Kyverno CLI
+        shell: bash
+        run: |
+          set -e
+          chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
