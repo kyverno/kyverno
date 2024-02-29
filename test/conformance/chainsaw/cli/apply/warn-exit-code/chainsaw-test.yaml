@@ -7,10 +7,6 @@ spec:
     - try:
       - script:
           content: |
-            kubectl-kyverno apply policy.yaml --resource resource.yaml --audit-warn --warn-exit-code 3
+            ./cmd/cli/kubectl-kyverno/kubectl-kyverno apply policy.yaml --resource resource.yaml --audit-warn --warn-exit-code 3
           check:
-            # an error is expected, this will:
-            # - succeed if the operation failed
-            # - fail if the operation succeeded
-            ($error != null): true
-            (contains($stdout, 'exit as warnExitCode is 3')): true
+            ($error): "exit status 3"
