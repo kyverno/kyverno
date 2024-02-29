@@ -7,6 +7,6 @@ spec:
     - try:
       - script:
           content: |
-            ./cmd/cli/kubectl-kyverno/kubectl-kyverno apply policy.yaml --resource resource.yaml --audit-warn --warn-exit-code 3
+            kubectl-kyverno apply policy.yaml --resource resource.yaml --audit-warn --warn-exit-code 3
           check:
             ($error): "exit status 3"
