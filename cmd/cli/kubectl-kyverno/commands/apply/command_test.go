@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -114,6 +115,7 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
 				PolicyReport:  true,
 				AuditWarn:     true,
+				warnExitCode:  3,
 			},
 			stdinFile: "../../../../../test/best_practices/disallow_latest_tag.yaml",
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
@@ -478,6 +480,29 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 	assert.NoError(t, err)
 	expected := `Error: unknown flag: --xxx`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+}
+
+func TestCommandWarnExitCode(t *testing.T) {
+	var warnExitCode = 3
+
+	cmd := Command()
+	cmd.SetArgs([]string{
+		"../../_testdata/apply/test-2/policy.yaml",
+		"--resource",
+		"../../_testdata/apply/test-2/resources.yaml",
+		"--audit-warn",
+		"--warn-exit-code",
+		strconv.Itoa(warnExitCode),
+	})
+	err := cmd.Execute()
+	if err != nil {
+		switch e := err.(type) {
+		case WarnExitCodeError:
+			assert.Equal(t, warnExitCode, e.ExitCode)
+		default:
+			assert.Fail(t, "Expecting WarnExitCodeError")
+		}
+	}
 }
 
 func TestCommandHelp(t *testing.T) {
