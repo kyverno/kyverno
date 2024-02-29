@@ -47,7 +47,7 @@ require (
 	github.com/sigstore/rekor v1.3.5
 	github.com/sigstore/sigstore v1.8.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.1
-	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.1
+	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.2
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.1
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.2
 	github.com/spf13/cobra v1.8.0
@@ -103,10 +103,10 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/AliyunContainerService/ack-ram-tool/pkg/credentials/alibabacloudsdkgo/helper v0.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.0.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.2 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.0.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
