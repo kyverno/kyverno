@@ -280,6 +280,46 @@ func TestComputePolicyReportResult(t *testing.T) {
 	}
 }
 
+func TestPSSComputePolicyReportResult(t *testing.T) {
+	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/restricted.yaml")
+	assert.NilError(t, err)
+	assert.Equal(t, len(policies), 1)
+	policy := policies[0]
+	tests := []struct {
+		name           string
+		auditWarn      bool
+		engineResponse engineapi.EngineResponse
+		ruleResponse   engineapi.RuleResponse
+		want           policyreportv1alpha2.PolicyReportResult
+	}{{
+		name:           "fail",
+		auditWarn:      false,
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test"),
+		want: policyreportv1alpha2.PolicyReportResult{
+			Source:     "kyverno",
+			Policy:     "psa",
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusFail,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Severity:   policyreportv1alpha2.SeverityMedium,
+			Properties: nil,
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
+			got.Timestamp = metav1.Timestamp{}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ComputePolicyReportResult() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestComputePolicyReportResultsPerPolicy(t *testing.T) {
 	tests := []struct {
 		name            string
