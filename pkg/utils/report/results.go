@@ -87,6 +87,14 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	return ""
 }
 
+func addProperty(k, v string, result *policyreportv1alpha2.PolicyReportResult) {
+	if result.Properties == nil {
+		result.Properties = map[string]string{}
+	}
+
+	result.Properties[k] = v
+}
+
 func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ruleResult engineapi.RuleResponse, annotations map[string]string, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
 	result := policyreportv1alpha2.PolicyReportResult{
 		Source:  kyverno.ValueKyvernoApp,
@@ -98,9 +106,8 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 		Timestamp: metav1.Timestamp{
 			Seconds: time.Now().Unix(),
 		},
-		Category:   annotations[kyverno.AnnotationPolicyCategory],
-		Severity:   SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
-		Properties: map[string]string{},
+		Category: annotations[kyverno.AnnotationPolicyCategory],
+		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 	}
 	if result.Result == "fail" && !result.Scored {
 		result.Result = "warn"
@@ -111,7 +118,7 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 		}
 	}
 	if ruleResult.Exception() != nil {
-		result.Properties["exception"] = ruleResult.Exception().Name
+		addProperty("exception", ruleResult.Exception().Name, &result)
 	}
 	pss := ruleResult.PodSecurityChecks()
 	if pss != nil && len(pss.Checks) > 0 {
@@ -123,15 +130,15 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 		}
 		if len(controls) > 0 {
 			sort.Strings(controls)
-			result.Properties["standard"] = string(pss.Level)
-			result.Properties["version"] = pss.Version
-			result.Properties["controls"] = strings.Join(controls, ",")
+			addProperty("standard", string(pss.Level), &result)
+			addProperty("version", pss.Version, &result)
+			addProperty("controls", strings.Join(controls, ","), &result)
 		}
 	}
 	if policyType == engineapi.ValidatingAdmissionPolicyType {
 		result.Source = "ValidatingAdmissionPolicy"
 		if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
-			result.Properties["binding"] = ruleResult.ValidatingAdmissionPolicyBinding().Name
+			addProperty("binding", ruleResult.ValidatingAdmissionPolicyBinding().Name, &result)
 		}
 	}
 
