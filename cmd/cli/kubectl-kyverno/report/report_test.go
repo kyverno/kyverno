@@ -2,7 +2,6 @@ package report
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -278,7 +277,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Source: "kyverno",
 			Policy: "psa",
 			Properties: map[string]string{
-				"controls": strings.Join([]string{"allowPrivilegeEscalation", "capabilities_restricted", "runAsNonRoot", "seccompProfile_restricted"}, ","),
+				"controls": "allowPrivilegeEscalation, capabilities_restricted, runAsNonRoot, seccompProfile_restricted",
 				"standard": "restricted",
 				"version":  "xxx",
 			},
