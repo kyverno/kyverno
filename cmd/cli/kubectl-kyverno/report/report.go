@@ -1,9 +1,7 @@
 package report
 
 import (
-	// "github.com/kyverno/kyverno/api/kyverno"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	// "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
