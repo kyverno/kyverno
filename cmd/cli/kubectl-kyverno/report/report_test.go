@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	// report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
