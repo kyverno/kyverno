@@ -8,9 +8,7 @@ metadata:
     policies.kyverno.io/severity: medium
   name: psa
 spec:
-  admission: false
   background: true
-  validationFailureAction: Enforce
   rules:
   - name: restricted
     match:
@@ -22,3 +20,4 @@ spec:
       podSecurity:
         level: restricted
         version: latest
+  validationFailureAction: Audit
