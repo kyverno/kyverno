@@ -8,6 +8,7 @@ metadata:
     policies.kyverno.io/severity: medium
   name: psa
 spec:
+  admission: false
   background: true
   validationFailureAction: Enforce
   rules:
