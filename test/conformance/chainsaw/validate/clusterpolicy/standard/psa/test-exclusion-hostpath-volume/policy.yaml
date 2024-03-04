@@ -20,4 +20,4 @@ spec:
         - controlName: "HostPath Volumes"
           restrictedField: "spec.volumes[*].hostPath"
           values:
-          - "path"
+          - "/var/lib1"
