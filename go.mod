@@ -382,4 +382,4 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
 
-replace k8s.io/pod-security-admission v0.29.2 => github.com/YTGhost/pod-security-admission v0.0.0-20231116105308-8b1daa0177f2
+replace k8s.io/pod-security-admission v0.29.2 => github.com/YTGhost/pod-security-admission v0.22.0-beta.0.0.20240304113848-33168815d7c7
