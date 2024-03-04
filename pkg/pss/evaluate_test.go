@@ -13,10 +13,10 @@ import (
 func Test_EvaluatePod(t *testing.T) {
 	testCases := []testCase{}
 	tests := [][]testCase{
-		// baseline_hostProcess,
-		// baseline_host_namespaces,
-		// baseline_privileged,
-		// baseline_capabilities,
+		baseline_hostProcess,
+		baseline_host_namespaces,
+		baseline_privileged,
+		baseline_capabilities,
 		baseline_hostPath_volumes,
 		baseline_host_ports,
 		baseline_appArmor,
