@@ -96,52 +96,61 @@ func addProperty(k, v string, result *policyreportv1alpha2.PolicyReportResult) {
 }
 
 func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ruleResult engineapi.RuleResponse, annotations map[string]string, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
-	result := policyreportv1alpha2.PolicyReportResult{
-		Source:  kyverno.ValueKyvernoApp,
-		Policy:  policyName,
-		Rule:    ruleResult.Name(),
-		Message: ruleResult.Message(),
-		Result:  toPolicyResult(ruleResult.Status()),
-		Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
-		Timestamp: metav1.Timestamp{
-			Seconds: time.Now().Unix(),
-		},
-		Category: annotations[kyverno.AnnotationPolicyCategory],
-		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
-	}
-	if result.Result == "fail" && !result.Scored {
-		result.Result = "warn"
-	}
-	if resource != nil {
-		result.Resources = []corev1.ObjectReference{
-			*resource,
+	var result policyreportv1alpha2.PolicyReportResult
+	if policyType == engineapi.KyvernoPolicyType {
+		result = policyreportv1alpha2.PolicyReportResult{
+			Source:  kyverno.ValueKyvernoApp,
+			Policy:  policyName,
+			Rule:    ruleResult.Name(),
+			Message: ruleResult.Message(),
+			Result:  toPolicyResult(ruleResult.Status()),
+			Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
+			Timestamp: metav1.Timestamp{
+				Seconds: time.Now().Unix(),
+			},
+			Category: annotations[kyverno.AnnotationPolicyCategory],
+			Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 		}
-	}
-	if ruleResult.Exception() != nil {
-		addProperty("exception", ruleResult.Exception().Name, &result)
-	}
-	pss := ruleResult.PodSecurityChecks()
-	if pss != nil && len(pss.Checks) > 0 {
-		var controls []string
-		for _, check := range pss.Checks {
-			if !check.CheckResult.Allowed {
-				controls = append(controls, check.ID)
+		if result.Result == "fail" && !result.Scored {
+			result.Result = "warn"
+		}
+		if resource != nil {
+			result.Resources = []corev1.ObjectReference{
+				*resource,
 			}
 		}
-		if len(controls) > 0 {
-			sort.Strings(controls)
-			addProperty("standard", string(pss.Level), &result)
-			addProperty("version", pss.Version, &result)
-			addProperty("controls", strings.Join(controls, ","), &result)
+		if ruleResult.Exception() != nil {
+			addProperty("exception", ruleResult.Exception().Name, &result)
 		}
-	}
-	if policyType == engineapi.ValidatingAdmissionPolicyType {
-		result.Source = "ValidatingAdmissionPolicy"
+		pss := ruleResult.PodSecurityChecks()
+		if pss != nil && len(pss.Checks) > 0 {
+			var controls []string
+			for _, check := range pss.Checks {
+				if !check.CheckResult.Allowed {
+					controls = append(controls, check.ID)
+				}
+			}
+			if len(controls) > 0 {
+				sort.Strings(controls)
+				addProperty("standard", string(pss.Level), &result)
+				addProperty("version", pss.Version, &result)
+				addProperty("controls", strings.Join(controls, ","), &result)
+			}
+		}
+	} else {
+		result = policyreportv1alpha2.PolicyReportResult{
+			Source:  "ValidatingAdmissionPolicy",
+			Policy:  ruleResult.Name(),
+			Message: ruleResult.Message(),
+			Result:  toPolicyResult(ruleResult.Status()),
+			Timestamp: metav1.Timestamp{
+				Seconds: time.Now().Unix(),
+			},
+		}
 		if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
 			addProperty("binding", ruleResult.ValidatingAdmissionPolicyBinding().Name, &result)
 		}
 	}
-
 	return result
 }
 
