@@ -156,7 +156,7 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 
 func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
 	pol := response.Policy()
-	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	policyName := pol.GetName()
 	policyType := pol.GetType()
 	annotations := pol.GetAnnotations()
 
