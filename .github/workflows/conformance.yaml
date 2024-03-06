@@ -161,7 +161,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       # debug
       - name: Debug failure
         if: failure()
@@ -230,7 +232,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       # debug
       - name: Debug failure
         if: failure()
@@ -302,7 +306,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       # debug
       - name: Debug failure
         if: failure()
@@ -373,7 +379,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       # debug
       - name: Debug failure
         if: failure()
@@ -444,7 +452,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       # debug
       - name: Debug failure
         if: failure()
@@ -520,7 +530,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       # debug
       - name: Debug failure
         if: failure()
@@ -595,7 +607,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       # debug
       - name: Debug failure
         if: failure()
@@ -691,7 +705,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -764,7 +780,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       # debug
       - name: Debug failure
         if: failure()
@@ -887,7 +905,9 @@ jobs:
         run: |
           set -e
           cd policies
-          chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --no-color=false
+          chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --no-color=false --values - <<EOF
+          kubeVersion: ${{ matrix.k8s-version.version }}
+          EOF
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -978,7 +998,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml --no-cluster
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
       - name: Fix test files
         shell: bash
         run: |
