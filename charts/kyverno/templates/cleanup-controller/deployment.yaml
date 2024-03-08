@@ -80,10 +80,10 @@ spec:
           image: {{ include "kyverno.cleanup-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.cleanupController.image.pullPolicy }}
           ports:
-          - containerPort: 9443
+          - containerPort: {{ .Values.cleanupController.webhookServer.port }}
             name: https
             protocol: TCP
-          - containerPort: 8000
+          - containerPort: {{ .Values.cleanupController.metering.port }}
             name: metrics
             protocol: TCP
           {{ if .Values.cleanupController.profiling.enabled }}
