@@ -148,6 +148,9 @@ crds:
     # -- Pod labels.
     podLabels: {}
 
+    # -- Pod annotations.
+    podAnnotations: {}
+
     # -- Node affinity constraints.
     nodeAffinity: {}
 
@@ -499,6 +502,9 @@ webhooksCleanup:
   # -- Pod labels.
   podLabels: {}
 
+  # -- Pod annotations.
+  podAnnotations: {}
+
   # -- Node affinity constraints.
   nodeAffinity: {}
 
@@ -553,6 +559,9 @@ policyReportsCleanup:
 
   # -- Pod labels.
   podLabels: {}
+
+  # -- Pod annotations.
+  podAnnotations: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
