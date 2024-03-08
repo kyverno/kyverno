@@ -11,15 +11,15 @@ func (e *engine) GetPolicyExceptions(
 	policy kyvernov1.PolicyInterface,
 	rule string,
 ) ([]*kyvernov2beta1.PolicyException, error) {
-	var exceptions []*kyvernov2beta1.PolicyException
 	if e.exceptionSelector == nil {
-		return exceptions, nil
+		return nil, nil
 	}
 	policyName := cache.MetaObjectToName(policy).String()
 	polexs, err := e.exceptionSelector.Find(policyName)
 	if err != nil {
-		return exceptions, err
+		return nil, err
 	}
+	exceptions := make([]*kyvernov2beta1.PolicyException, 0, len(polexs))
 	for _, polex := range polexs {
 		if polex.Contains(policyName, rule) {
 			exceptions = append(exceptions, polex)
