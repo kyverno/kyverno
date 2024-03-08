@@ -6,6 +6,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
+	"k8s.io/client-go/tools/cache"
 )
 
 // MatchesException takes a list of exceptions and checks if there is an exception applies to the incoming resource.
@@ -13,6 +14,7 @@ import (
 func MatchesException(
 	polexs []*kyvernov2beta1.PolicyException,
 	policyContext engineapi.PolicyContext,
+	rule string,
 	logger logr.Logger,
 ) *kyvernov2beta1.PolicyException {
 	gvk, subresource := policyContext.ResourceKind()
@@ -20,27 +22,31 @@ func MatchesException(
 	if resource.Object == nil {
 		resource = policyContext.OldResource()
 	}
+	policy := policyContext.Policy()
+	policyName := cache.MetaObjectToName(policy).String()
 	for _, polex := range polexs {
-		err := matched.CheckMatchesResources(
-			resource,
-			polex.Spec.Match,
-			policyContext.NamespaceLabels(),
-			policyContext.AdmissionInfo(),
-			gvk,
-			subresource,
-		)
-		// if there's no error it means a match
-		if err == nil {
-			if polex.Spec.Conditions != nil {
-				passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *polex.Spec.Conditions)
-				if err != nil {
-					return nil
+		if polex.Contains(policyName, rule) {
+			err := matched.CheckMatchesResources(
+				resource,
+				polex.Spec.Match,
+				policyContext.NamespaceLabels(),
+				policyContext.AdmissionInfo(),
+				gvk,
+				subresource,
+			)
+			// if there's no error it means a match
+			if err == nil {
+				if polex.Spec.Conditions != nil {
+					passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *polex.Spec.Conditions)
+					if err != nil {
+						return nil
+					}
+					if !passed {
+						return nil
+					}
 				}
-				if !passed {
-					return nil
-				}
+				return polex
 			}
-			return polex
 		}
 	}
 	return nil

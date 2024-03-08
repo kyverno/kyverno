@@ -52,7 +52,7 @@ func (h validateCELHandler) Process(
 	}
 
 	// check if there is a policy exception matches the incoming resource
-	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	exception := engineutils.MatchesException(exceptions, policyContext, rule.Name, logger)
 	if exception != nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {

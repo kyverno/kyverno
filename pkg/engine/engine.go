@@ -281,7 +281,7 @@ func (e *engine) invokeRuleHandler(
 					return resource, handlers.WithSkip(rule, ruleType, s)
 				}
 				// get policy exceptions that matches both policy and rule name
-				exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
+				exceptions, err := e.GetPolicyExceptions(policyContext.Policy())
 				if err != nil {
 					logger.Error(err, "failed to get exceptions")
 					return resource, nil
