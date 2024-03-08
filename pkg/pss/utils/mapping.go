@@ -110,14 +110,18 @@ var PSS_control_name_to_ids = map[string][]string{
 	},
 }
 
-var PSS_control_id_to_name = map[string]string{}
+// reverse mapping of PSS_control_name_to_ids
+var pss_control_id_to_name = map[string]string{}
 
-func init() {
-	for name, ids := range PSS_control_name_to_ids {
-		for _, id := range ids {
-			PSS_control_id_to_name[id] = name
+func PSSControlIDToName(id string) string {
+	if len(pss_control_id_to_name) == 0 {
+		for name, ids := range PSS_control_name_to_ids {
+			for _, id := range ids {
+				pss_control_id_to_name[id] = name
+			}
 		}
 	}
+	return pss_control_id_to_name[id]
 }
 
 var PSS_controls = map[string][]RestrictedField{
