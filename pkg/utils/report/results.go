@@ -149,11 +149,11 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyre
 		result.Properties = map[string]string{}
 	}
 	var controls []Control
-	var controlNames []string
+	var controlIDs []string
 	for _, check := range pss.Checks {
 		if !check.CheckResult.Allowed {
 			controlName := utils.PSSControlIDToName(check.ID)
-			controlNames = append(controlNames, controlName)
+			controlIDs = append(controlIDs, check.ID)
 			controls = append(controls, Control{
 				ID:     check.ID,
 				Name:   controlName,
@@ -165,7 +165,7 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyre
 		controlsJson, _ := json.Marshal(controls)
 		result.Properties["standard"] = string(pss.Level)
 		result.Properties["version"] = pss.Version
-		result.Properties["controls"] = strings.Join(controlNames, ",")
+		result.Properties["controls"] = strings.Join(controlIDs, ",")
 		result.Properties["controlsJSON"] = string(controlsJson)
 	}
 }
