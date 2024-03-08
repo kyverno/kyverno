@@ -10,8 +10,8 @@ import (
 func (e *engine) GetPolicyExceptions(
 	policy kyvernov1.PolicyInterface,
 	rule string,
-) ([]kyvernov2beta1.PolicyException, error) {
-	var exceptions []kyvernov2beta1.PolicyException
+) ([]*kyvernov2beta1.PolicyException, error) {
+	var exceptions []*kyvernov2beta1.PolicyException
 	if e.exceptionSelector == nil {
 		return exceptions, nil
 	}
@@ -22,7 +22,7 @@ func (e *engine) GetPolicyExceptions(
 	}
 	for _, polex := range polexs {
 		if polex.Contains(policyName, rule) {
-			exceptions = append(exceptions, *polex)
+			exceptions = append(exceptions, polex)
 		}
 	}
 	return exceptions, nil
