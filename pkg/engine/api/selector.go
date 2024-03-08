@@ -14,4 +14,6 @@ type NamespacedResourceSelector[T any] interface {
 }
 
 // PolicyExceptionSelector is an abstract interface used to resolve poliicy exceptions
-type PolicyExceptionSelector = NamespacedResourceSelector[*kyvernov2beta1.PolicyException]
+type PolicyExceptionSelector interface {
+	Find(string) ([]*kyvernov2beta1.PolicyException, error)
+}

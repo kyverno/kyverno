@@ -1,11 +1,8 @@
 package engine
 
 import (
-	"fmt"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -18,13 +15,10 @@ func (e *engine) GetPolicyExceptions(
 	if e.exceptionSelector == nil {
 		return exceptions, nil
 	}
-	polexs, err := e.exceptionSelector.List(labels.Everything())
+	policyName := cache.MetaObjectToName(policy).String()
+	polexs, err := e.exceptionSelector.Find(policyName)
 	if err != nil {
 		return exceptions, err
-	}
-	policyName, err := cache.MetaNamespaceKeyFunc(policy)
-	if err != nil {
-		return exceptions, fmt.Errorf("failed to compute policy key: %w", err)
 	}
 	for _, polex := range polexs {
 		if polex.Contains(policyName, rule) {

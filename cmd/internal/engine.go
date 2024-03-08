@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -19,9 +18,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 func NewEngine(
@@ -63,21 +64,17 @@ func NewExceptionSelector(
 ) engineapi.PolicyExceptionSelector {
 	logger = logger.WithName("exception-selector").WithValues("enablePolicyException", enablePolicyException, "exceptionNamespace", exceptionNamespace)
 	logger.Info("setup exception selector...")
-	var exceptionsLister engineapi.PolicyExceptionSelector
+	var selector engineapi.PolicyExceptionSelector
 	if enablePolicyException {
-		factory := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-		lister := factory.Kyverno().V2beta1().PolicyExceptions().Lister()
-		if exceptionNamespace != "" {
-			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
-		} else {
-			exceptionsLister = lister
-		}
+		informer := informers.NewPolicyExceptionInformer(kyvernoClient, exceptionNamespace, resyncPeriod)
 		// start informers and wait for cache sync
-		if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
-			checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-		}
+		go func() {
+			informer.Informer().Run(ctx.Done())
+		}()
+		cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced)
+		selector = informer
 	}
-	return exceptionsLister
+	return selector
 }
 
 func NewConfigMapResolver(

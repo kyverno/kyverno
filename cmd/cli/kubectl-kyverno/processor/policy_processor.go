@@ -61,9 +61,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
-	policyExceptionLister := &policyExceptionLister{
-		exceptions: p.PolicyExceptions,
-	}
+	// policyExceptionLister := &policyExceptionLister{
+	// 	exceptions: p.PolicyExceptions,
+	// }
 	var client engineapi.Client
 	if p.Client != nil {
 		client = adapters.Client(p.Client)
@@ -80,7 +80,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(p.Store, nil),
-		policyExceptionLister,
+		nil,
+		// policyExceptionLister,
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
