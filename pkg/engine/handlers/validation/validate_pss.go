@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -14,6 +15,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/pss"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
+	"github.com/kyverno/kyverno/pkg/utils/api"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -76,6 +78,7 @@ func (h validatePssHandler) Process(
 	}
 	allowed, pssChecks := pss.EvaluatePod(levelVersion, podSecurity.Exclude, pod)
 	pssChecks = convertChecks(pssChecks, resource.GetKind())
+	pssChecks = addImages(pssChecks, policyContext.JSONContext().ImageInfo())
 	podSecurityChecks := engineapi.PodSecurityChecks{
 		Level:   podSecurity.Level,
 		Version: podSecurity.Version,
@@ -134,12 +137,64 @@ func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []p
 	return checks
 }
 
+// Extract container names from PSS error details. Here are some example inputs:
+// - "containers \"nginx\", \"busybox\" must set securityContext.allowPrivilegeEscalation=false"
+// - "containers \"nginx\", \"busybox\" must set securityContext.capabilities.drop=[\"ALL\"]"
+// - "pod or containers \"nginx\", \"busybox\" must set securityContext.runAsNonRoot=true"
+// - "pod or containers \"nginx\", \"busybox\" must set securityContext.seccompProfile.type to \"RuntimeDefault\" or \"Localhost\""
+// - "pod or container \"nginx\" must set securityContext.seccompProfile.type to \"RuntimeDefault\" or \"Localhost\""
+// - "container \"nginx\" must set securityContext.allowPrivilegeEscalation=false"
+var regexContainerNames = regexp.MustCompile(`container(?:s)?\s*(.*?)\s*must`)
+
+func addImages(checks []pssutils.PSSCheckResult, imageInfos map[string]map[string]api.ImageInfo) []pssutils.PSSCheckResult {
+	for i, check := range checks {
+		text := check.CheckResult.ForbiddenDetail
+		matches := regexContainerNames.FindAllStringSubmatch(text, -1)
+		if len(matches) > 0 {
+			s := strings.ReplaceAll(matches[0][1], "\"", "")
+			s = strings.ReplaceAll(s, " ", "")
+			containerNames := strings.Split(s, ",")
+			checks[i].Images = getImages(containerNames, imageInfos)
+		}
+	}
+	return checks
+}
+
+// return image references for containers
+func getImages(containerNames []string, imageInfos map[string]map[string]api.ImageInfo) []string {
+	var images []string
+	for _, cn := range containerNames {
+		image := getImageReference(cn, imageInfos)
+		images = append(images, image)
+	}
+	return images
+}
+
+// return an image references for a container name
+func getImageReference(name string, imageInfos map[string]map[string]api.ImageInfo) string {
+	if containers, ok := imageInfos["containers"]; ok {
+		if imageInfo, ok := containers[name]; ok {
+			return imageInfo.String()
+		}
+	}
+	if initContainers, ok := imageInfos["initContainers"]; ok {
+		if imageInfo, ok := initContainers[name]; ok {
+			return imageInfo.String()
+		}
+	}
+	if ephemeralContainers, ok := imageInfos["ephemeralContainers"]; ok {
+		if imageInfo, ok := ephemeralContainers[name]; ok {
+			return imageInfo.String()
+		}
+	}
+	return ""
+}
+
 func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
 	kind := resource.GetKind()
 
 	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
 		var deployment appsv1.Deployment
-
 		resourceBytes, err := resource.MarshalJSON()
 		if err != nil {
 			return nil, nil, err
@@ -153,7 +208,6 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		return podSpec, metadata, nil
 	} else if kind == "CronJob" {
 		var cronJob batchv1.CronJob
-
 		resourceBytes, err := resource.MarshalJSON()
 		if err != nil {
 			return nil, nil, err
@@ -164,9 +218,9 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		}
 		podSpec = &cronJob.Spec.JobTemplate.Spec.Template.Spec
 		metadata = &cronJob.Spec.JobTemplate.ObjectMeta
+		return podSpec, metadata, nil
 	} else if kind == "Pod" {
 		var pod corev1.Pod
-
 		resourceBytes, err := resource.MarshalJSON()
 		if err != nil {
 			return nil, nil, err
@@ -178,11 +232,7 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		podSpec = &pod.Spec
 		metadata = &pod.ObjectMeta
 		return podSpec, metadata, nil
-	} else {
-		return nil, nil, fmt.Errorf("could not find correct resource type")
 	}
-	if err != nil {
-		return nil, nil, err
-	}
-	return podSpec, metadata, err
+
+	return nil, nil, fmt.Errorf("could not find correct resource type")
 }

@@ -77,7 +77,7 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 	}
 
 	for _, excludeResult := range excludeCheckResults {
-		for _, checkID := range pssutils.PSS_controls_to_check_id[exclude.ControlName] {
+		for _, checkID := range pssutils.PSS_control_name_to_ids[exclude.ControlName] {
 			if excludeResult.ID == checkID {
 				for _, excludeFieldErr := range *excludeResult.CheckResult.ErrList {
 					var excludeField, excludeContainerType string
@@ -313,7 +313,7 @@ func GetPodWithMatchingContainers(exclude kyvernov1.PodSecurityStandard, pod *co
 
 // Get restrictedFields from Check.ID
 func GetRestrictedFields(check policy.Check) []pssutils.RestrictedField {
-	for _, control := range pssutils.PSS_controls_to_check_id {
+	for _, control := range pssutils.PSS_control_name_to_ids {
 		for _, checkID := range control {
 			if string(check.ID) == checkID {
 				return pssutils.PSS_controls[checkID]
