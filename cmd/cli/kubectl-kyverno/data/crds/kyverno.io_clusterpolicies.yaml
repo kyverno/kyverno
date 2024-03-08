@@ -208,6 +208,25 @@ spec:
                                   - value
                                   type: object
                                 type: array
+                              headers:
+                                description: Data specifies the POST data sent to
+                                  the server.
+                                items:
+                                  description: RequestData contains the HTTP POST
+                                    data
+                                  properties:
+                                    key:
+                                      description: Key is a unique identifier for
+                                        the data value
+                                      type: string
+                                    value:
+                                      description: Value is the data value
+                                      x-kubernetes-preserve-unknown-fields: true
+                                  required:
+                                    - key
+                                    - value
+                                  type: object
+                                type: array
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response

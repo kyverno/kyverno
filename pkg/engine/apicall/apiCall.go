@@ -162,6 +162,17 @@ func (a *apiCall) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.Conte
 		if token != "" && req != nil {
 			req.Header.Add("Authorization", "Bearer "+token)
 		}
+
+		if apiCall.Headers != nil && req != nil {
+			for _, header := range apiCall.Headers {
+				if header.Key == "Authorization" {
+					req.Header.Set(header.Key, header.Value)
+				} else {
+					// TODO: Pull values if they are secrets
+					req.Header.Add(header.Key, header.Value)
+				}
+			}
+		}
 	}()
 
 	if apiCall.Method == "GET" {
