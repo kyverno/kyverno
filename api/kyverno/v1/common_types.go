@@ -163,6 +163,9 @@ type APICall struct {
 	// +kubebuilder:validation:Optional
 	Data []RequestData `json:"data,omitempty" yaml:"data,omitempty"`
 
+	// Headers specifies the header values to send to the server
+	Headers []HeaderData `json:"headers,omitempty" yaml:"headers:omitempty"`
+
 	// Service is an API call to a JSON web service
 	// +kubebuilder:validation:Optional
 	Service *ServiceCall `json:"service,omitempty" yaml:"service,omitempty"`
@@ -215,6 +218,15 @@ type RequestData struct {
 
 	// Value is the data value
 	Value *apiextv1.JSON `json:"value" yaml:"value"`
+}
+
+// HeaderData contains the HTTP header fields
+type HeaderData struct {
+	// Key is the header value
+	Key string `json:"key" yaml:"key"`
+
+	// Value is the header value
+	Value string `json:"value" yaml:"value"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.

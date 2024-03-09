@@ -30,9 +30,13 @@ var (
 	}
 )
 
-func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
+func buildTestServer(t *testing.T, responseData []byte, useChunked bool, verifyRequest func(t *testing.T, r *http.Request)) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resource", func(w http.ResponseWriter, r *http.Request) {
+		if verifyRequest != nil {
+			verifyRequest(t, r)
+		}
+
 		if r.Method == "GET" {
 			w.Write(responseData)
 
@@ -63,7 +67,7 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 func Test_serviceGetRequest(t *testing.T) {
 	testfn := func(t *testing.T, useChunked bool) {
 		serverResponse := []byte(`{ "day": "Sunday" }`)
-		s := buildTestServer(serverResponse, false)
+		s := buildTestServer(t, serverResponse, false, nil)
 		defer s.Close()
 
 		entry := kyvernov1.ContextEntry{}
@@ -120,7 +124,7 @@ func Test_serviceGetRequest(t *testing.T) {
 
 func Test_servicePostRequest(t *testing.T) {
 	serverResponse := []byte(`{ "day": "Monday" }`)
-	s := buildTestServer(serverResponse, false)
+	s := buildTestServer(t, serverResponse, false, nil)
 	defer s.Close()
 
 	entry := kyvernov1.ContextEntry{
@@ -191,4 +195,102 @@ func Test_servicePostRequest(t *testing.T) {
 
 	expectedResults := `{"images":["https://ghcr.io/tomcat/tomcat:9","https://ghcr.io/vault/vault:v3","https://ghcr.io/busybox/busybox:latest"]}`
 	assert.Equal(t, string(expectedResults)+"\n", string(data))
+}
+
+func test_serviceRequestHeaders(t *testing.T, headers []kyvernov1.HeaderData, verifyRequest func(t *testing.T, r *http.Request)) func(t *testing.T, useChunked bool) {
+	return func(t *testing.T, useChunked bool) {
+		serverResponse := []byte(`{ "day": "Sunday" }`)
+		s := buildTestServer(t, serverResponse, false, verifyRequest)
+		defer s.Close()
+
+		entry := kyvernov1.ContextEntry{}
+		ctx := enginecontext.NewContext(jp)
+
+		_, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.ErrorContains(t, err, "missing APICall")
+
+		entry.Name = "test"
+		entry.APICall = &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Headers: headers,
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL,
+				},
+			},
+		}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+
+		entry.APICall.Method = "GET"
+		entry.APICall.Service.URL = s.URL + "/resource"
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.NilError(t, err)
+
+		data, err := call.FetchAndLoad(context.TODO())
+		assert.NilError(t, err)
+		assert.Assert(t, data != nil, "nil data")
+		assert.Equal(t, string(serverResponse), string(data))
+	}
+}
+
+func Test_serviceRequestCustomHeaders(t *testing.T) {
+	var singleHeader = []kyvernov1.HeaderData{
+		{
+			Key:   "foo",
+			Value: "bar",
+		},
+	}
+
+	testFunc := test_serviceRequestHeaders(t, singleHeader, func(t *testing.T, r *http.Request) {
+		assert.Equal(t, "bar", r.Header.Get("foo"))
+	})
+	t.Run("Single Header", func(t *testing.T) { testFunc(t, false) })
+
+	var multipleHeader = []kyvernov1.HeaderData{
+		{
+			Key:   "foo",
+			Value: "bar",
+		},
+		{
+			Key:   "User-Agent",
+			Value: "Kyverno Test",
+		},
+	}
+
+	testFunc = test_serviceRequestHeaders(t, multipleHeader, func(t *testing.T, r *http.Request) {
+		assert.Equal(t, "bar", r.Header.Get("foo"))
+		assert.Equal(t, "Kyverno Test", r.Header.Get("User-Agent"))
+	})
+	t.Run("Multiple Header", func(t *testing.T) { testFunc(t, false) })
+
+	var duplicateHeader = []kyvernov1.HeaderData{
+		{
+			Key:   "foo",
+			Value: "bar",
+		},
+		{
+			Key:   "foo",
+			Value: "baz",
+		},
+	}
+
+	testFunc = test_serviceRequestHeaders(t, duplicateHeader, func(t *testing.T, r *http.Request) {
+		headerValues := r.Header.Values("foo")
+		assert.Equal(t, 2, len(headerValues))
+		assert.Equal(t, "bar", headerValues[0])
+		assert.Equal(t, "baz", headerValues[1])
+	})
+	t.Run("Duplicate Header", func(t *testing.T) { testFunc(t, false) })
+
+	var overrideAuthorizationHeader = []kyvernov1.HeaderData{
+		{
+			Key:   "Authorization",
+			Value: "abc12345",
+		},
+	}
+
+	testFunc = test_serviceRequestHeaders(t, overrideAuthorizationHeader, func(t *testing.T, r *http.Request) {
+		assert.Equal(t, "abc12345", r.Header.Get("Authorization"))
+	})
+	t.Run("Authorization Override", func(t *testing.T) { testFunc(t, false) })
 }
