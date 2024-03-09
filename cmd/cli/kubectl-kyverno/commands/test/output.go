@@ -192,7 +192,7 @@ func printTestResult(
 					// perform test checks
 					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
 					// if and only if the actual and expexted results matches then it's considered a success
-					success := ok 
+					success := ok
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
