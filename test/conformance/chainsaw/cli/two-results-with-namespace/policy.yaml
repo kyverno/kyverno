@@ -1,0 +1,30 @@
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: test-jmespath
+  namespace: test 
+spec:
+  admission: true
+  background: false
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: testjmespath #the rulename is not correct
+    validate:
+      deny:
+        conditions:
+          all:
+          - key: '{{ request.object.metadata.labels | merge(@, `{"test": ""}`)}}'
+            operator: NotEquals
+            value:
+              a: "1"
+              test: ""
+      message: All pod labels must match except test
+  validationFailureAction: Enforce
+

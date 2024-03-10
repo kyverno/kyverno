@@ -98,6 +98,52 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	} else {
 		fmt.Fprintln(out, "  Applying", len(policies)+len(vaps), pluralize.Pluralize(len(policies)+len(vaps), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
 	}
+	policyToUnknownRules := make(map[string]string)
+	var policyerr string
+	for _, res := range testCase.Test.Results {
+		if res.IsValidatingAdmissionPolicy {
+			continue
+		}
+		var ns string
+		var policyExist bool
+		ruleExists := false
+		for _, policy := range policies {
+			if policy.IsNamespaced() {
+				ns = policy.GetNamespace()
+			}
+			// ensure that the policy specified in the results matches one of the policies provided in the given files.
+			if res.Policy == policy.GetName() || res.Policy == "default/"+policy.GetName() || res.Policy == ns+"/"+policy.GetName() {
+				policyExist = true
+
+				// ensure that the rule specified in the results exists in the policy.
+				for _, rule := range autogen.ComputeRules(policy) {
+					if res.Rule == rule.Name {
+						ruleExists = true
+						continue
+					}
+				}
+			}
+		}
+		if !ruleExists {
+			policyToUnknownRules[res.Policy] = res.Rule
+		}
+		if !policyExist {
+			policyerr = policyerr + "The policy named " + res.Policy + " cannot be found.\n"
+		}
+	}
+	var s string
+	if len(policyerr) != 0 || len(policyToUnknownRules) != 0 {
+		if len(policyerr) != 0 {
+			fmt.Printf("Error: ")
+			s = s + fmt.Sprintf(policyerr)
+		}
+		if len(policyToUnknownRules) != 0 {
+			for policy, rule := range policyToUnknownRules {
+				s = s + fmt.Sprintf("The rule %v cannot be found in the policy named %v.\n", rule, policy)
+			}
+		}
+		return nil, fmt.Errorf(s)
+	}
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {

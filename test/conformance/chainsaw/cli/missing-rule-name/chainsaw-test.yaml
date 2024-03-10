@@ -1,0 +1,13 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test
+spec:
+  steps:
+  - name: invalid rule name
+    try:
+    - script:
+        content: kyverno test .
+        check:
+          ($error != null): true
+          ($stderr): "Error: failed to run test (The rule missing cannot be found in the policy named disallow-latest-tag.\n)"

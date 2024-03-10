@@ -1,0 +1,13 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test
+spec:
+  steps:
+  - name: with-namespace
+    try:
+    - script:
+        content: kyverno test .
+        check:
+          ($error != null): true
+          ($stderr): "Error: failed to run test (The policy named test/preconditions cannot be found.)"
