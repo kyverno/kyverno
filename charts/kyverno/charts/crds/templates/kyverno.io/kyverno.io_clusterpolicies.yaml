@@ -336,6 +336,9 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          default:
+                            description: Default is a default value which is used when failed to fetch data from APICall.
+                            type: string
                           variable:
                             description: Variable defines an arbitrary JMESPath context
                               variable that can be defined inline.
@@ -2068,6 +2071,9 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    default:
+                                      description: Default is a default value which is used when failed to fetch data from APICall.
+                                      type: string
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
                                         context variable that can be defined inline.
@@ -2419,6 +2425,9 @@ spec:
                                       type: object
                                     name:
                                       description: Name is the variable name.
+                                      type: string
+                                    default:
+                                      description: Default is a default value which is used when failed to fetch data from APICall.
                                       type: string
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -3003,6 +3012,9 @@ spec:
                                       type: object
                                     name:
                                       description: Name is the variable name.
+                                      type: string
+                                    default:
+                                      description: Default is a default value which is used when failed to fetch data from APICall.
                                       type: string
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -4835,6 +4847,9 @@ spec:
                               name:
                                 description: Name is the variable name.
                                 type: string
+                              default:
+                                description: Default is a default value which is used when failed to fetch data from APICall.
+                                type: string
                               variable:
                                 description: Variable defines an arbitrary JMESPath
                                   context variable that can be defined inline.
@@ -6646,6 +6661,9 @@ spec:
                                         name:
                                           description: Name is the variable name.
                                           type: string
+                                        default:
+                                          description: Default is a default value which is used when failed to fetch data from APICall.
+                                          type: string
                                         variable:
                                           description: Variable defines an arbitrary
                                             JMESPath context variable that can be
@@ -7014,6 +7032,9 @@ spec:
                                           type: object
                                         name:
                                           description: Name is the variable name.
+                                          type: string
+                                        default:
+                                          description: Default is a default value which is used when failed to fetch data from APICall.
                                           type: string
                                         variable:
                                           description: Variable defines an arbitrary
@@ -7630,6 +7651,9 @@ spec:
                                           type: object
                                         name:
                                           description: Name is the variable name.
+                                          type: string
+                                        default:
+                                          description: Default is a default value which is used when failed to fetch data from APICall.
                                           type: string
                                         variable:
                                           description: Variable defines an arbitrary
@@ -9608,6 +9632,9 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          default:
+                            description: Default is a default value which is used when failed to fetch data from APICall.
+                            type: string
                           variable:
                             description: Variable defines an arbitrary JMESPath context
                               variable that can be defined inline.
@@ -10914,6 +10941,9 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    default:
+                                      description: Default is a default value which is used when failed to fetch data from APICall.
+                                      type: string
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
                                         context variable that can be defined inline.
@@ -11265,6 +11295,9 @@ spec:
                                       type: object
                                     name:
                                       description: Name is the variable name.
+                                      type: string
+                                    default:
+                                      description: Default is a default value which is used when failed to fetch data from APICall.
                                       type: string
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -12028,6 +12061,9 @@ spec:
                                       type: object
                                     name:
                                       description: Name is the variable name.
+                                      type: string
+                                    default:
+                                      description: Default is a default value which is used when failed to fetch data from APICall.
                                       type: string
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
@@ -13833,6 +13869,9 @@ spec:
                                 type: object
                               name:
                                 description: Name is the variable name.
+                                type: string
+                              default:
+                                description: Default is a default value which is used when failed to fetch data from APICall.
                                 type: string
                               variable:
                                 description: Variable defines an arbitrary JMESPath
@@ -15645,6 +15684,9 @@ spec:
                                         name:
                                           description: Name is the variable name.
                                           type: string
+                                        default:
+                                          description: Default is a default value which is used when failed to fetch data from APICall.
+                                          type: string
                                         variable:
                                           description: Variable defines an arbitrary
                                             JMESPath context variable that can be
@@ -16013,6 +16055,9 @@ spec:
                                           type: object
                                         name:
                                           description: Name is the variable name.
+                                          type: string
+                                        default:
+                                          description: Default is a default value which is used when failed to fetch data from APICall.
                                           type: string
                                         variable:
                                           description: Variable defines an arbitrary
@@ -16629,6 +16674,9 @@ spec:
                                           type: object
                                         name:
                                           description: Name is the variable name.
+                                          type: string
+                                        default:
+                                          description: Default is a default value which is used when failed to fetch data from APICall.
                                           type: string
                                         variable:
                                           description: Variable defines an arbitrary
