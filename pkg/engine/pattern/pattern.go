@@ -217,13 +217,13 @@ func validateString(log logr.Logger, value interface{}, pattern string, op opera
 func compareDuration(_ logr.Logger, value interface{}, pattern string, op operator.Operator) (res bool, processed bool) {
 	if pattern, err := time.ParseDuration(pattern); err != nil {
 		return false, false
- }else if value, err := time.ParseDuration(value); err != nil {
-		return false, false
 	} else if value, err := convertNumberToString(value); err != nil {
 		return false, false
 	} else if value, err := time.ParseDuration(value); err != nil {
 		return false, false
 	} else {
+		pattern := pattern.Seconds()
+		value := value.Seconds()
 		switch op {
 		case operator.Equal:
 			return value == pattern, true
