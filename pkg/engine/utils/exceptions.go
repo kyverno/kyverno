@@ -14,7 +14,7 @@ func MatchesException(
 	polexs []kyvernov2beta1.PolicyException,
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
-) *kyvernov2beta1.PolicyException {
+) (*kyvernov2beta1.PolicyException, error) {
 	gvk, subresource := policyContext.ResourceKind()
 	resource := policyContext.NewResource()
 	if resource.Object == nil {
@@ -34,14 +34,14 @@ func MatchesException(
 			if polex.Spec.Conditions != nil {
 				passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *polex.Spec.Conditions)
 				if err != nil {
-					return nil
+					return nil, err
 				}
 				if !passed {
 					continue
 				}
 			}
-			return &polex
+			return &polex, nil
 		}
 	}
-	return nil
+	return nil, nil
 }

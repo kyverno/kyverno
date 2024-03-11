@@ -41,7 +41,12 @@ func (h validateResourceHandler) Process(
 	exceptions []kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there is a policy exception matches the incoming resource
-	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	exception, err := engineutils.MatchesException(exceptions, policyContext, logger)
+	if err != nil {
+		logger.Error(err, "failed to get matching exceptions")
+		return resource, handlers.WithError(rule, engineapi.Validation, "failed to get matching exceptions", err)
+	}
+
 	if exception != nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
