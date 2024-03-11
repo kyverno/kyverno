@@ -192,7 +192,7 @@ func printTestResult(
 					// perform test checks
 					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
 					var success bool
-					if message == "Want fail, got pass" {
+					if reason == "Want fail, got pass" {
 						success = ok
 					} else {
 						// if checks failed but we were expecting a fail it's considered a success
