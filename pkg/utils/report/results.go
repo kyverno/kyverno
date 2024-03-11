@@ -2,8 +2,8 @@ package report
 
 import (
 	"cmp"
+	"encoding/json"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -12,6 +12,7 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/pss/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -87,14 +88,6 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	return ""
 }
 
-func addProperty(k, v string, result *policyreportv1alpha2.PolicyReportResult) {
-	if result.Properties == nil {
-		result.Properties = map[string]string{}
-	}
-
-	result.Properties[k] = v
-}
-
 func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ruleResult engineapi.RuleResponse, annotations map[string]string, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
 	result := policyreportv1alpha2.PolicyReportResult{
 		Source:  kyverno.ValueKyvernoApp,
@@ -122,18 +115,7 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 	}
 	pss := ruleResult.PodSecurityChecks()
 	if pss != nil && len(pss.Checks) > 0 {
-		var controls []string
-		for _, check := range pss.Checks {
-			if !check.CheckResult.Allowed {
-				controls = append(controls, check.ID)
-			}
-		}
-		if len(controls) > 0 {
-			sort.Strings(controls)
-			addProperty("standard", string(pss.Level), &result)
-			addProperty("version", pss.Version, &result)
-			addProperty("controls", strings.Join(controls, ","), &result)
-		}
+		addPodSecurityProperties(pss, &result)
 	}
 	if policyType == engineapi.ValidatingAdmissionPolicyType {
 		result.Source = "ValidatingAdmissionPolicy"
@@ -143,6 +125,49 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 		}
 	}
 	return result
+}
+
+func addProperty(k, v string, result *policyreportv1alpha2.PolicyReportResult) {
+	if result.Properties == nil {
+		result.Properties = map[string]string{}
+	}
+
+	result.Properties[k] = v
+}
+
+type Control struct {
+	ID     string
+	Name   string
+	Images []string
+}
+
+func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyreportv1alpha2.PolicyReportResult) {
+	if pss == nil {
+		return
+	}
+	if result.Properties == nil {
+		result.Properties = map[string]string{}
+	}
+	var controls []Control
+	var controlIDs []string
+	for _, check := range pss.Checks {
+		if !check.CheckResult.Allowed {
+			controlName := utils.PSSControlIDToName(check.ID)
+			controlIDs = append(controlIDs, check.ID)
+			controls = append(controls, Control{
+				ID:     check.ID,
+				Name:   controlName,
+				Images: check.Images,
+			})
+		}
+	}
+	if len(controls) > 0 {
+		controlsJson, _ := json.Marshal(controls)
+		result.Properties["standard"] = string(pss.Level)
+		result.Properties["version"] = pss.Version
+		result.Properties["controls"] = strings.Join(controlIDs, ",")
+		result.Properties["controlsJSON"] = string(controlsJson)
+	}
 }
 
 func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
