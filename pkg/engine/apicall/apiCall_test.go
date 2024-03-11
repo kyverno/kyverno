@@ -103,8 +103,8 @@ func Test_serviceGetRequest(t *testing.T) {
 
 		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigMaxSizeExceed)
 		assert.NilError(t, err)
-		data, err = call.FetchAndLoad(context.TODO())
-		assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10.")
+		_, err = call.FetchAndLoad(context.TODO())
+		assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10")
 
 		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigWithoutSecurityCheck)
 		assert.NilError(t, err)
