@@ -191,8 +191,13 @@ func printTestResult(
 				for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
 					// perform test checks
 					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
-					// if and only if the actual and expexted results matches then it's considered a success
-					success := ok
+					var success bool
+					if message == "Want fail, got pass" {
+						success = ok
+					} else {
+						// if checks failed but we were expecting a fail it's considered a success
+						success = ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+					}
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
