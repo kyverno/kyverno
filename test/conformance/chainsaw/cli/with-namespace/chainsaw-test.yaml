@@ -10,4 +10,4 @@ spec:
         content: kyverno test .
         check:
           ($error != null): true
-          ($stderr): "Error: failed to run test (The policy named test/preconditions cannot be found.)"
+          ($stderr): "Error: failed to run test (The policy named test/preconditions cannot be found.\nThe rule any-rule cannot be found in the policy named test/preconditions.\n)"

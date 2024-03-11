@@ -135,7 +135,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	if len(policyerr) != 0 || len(policyToUnknownRules) != 0 {
 		if len(policyerr) != 0 {
 			fmt.Printf("Error: ")
-			s = s + fmt.Sprintf(policyerr)
+			s = s + fmt.Sprint(policyerr)
 		}
 		if len(policyToUnknownRules) != 0 {
 			for policy, rule := range policyToUnknownRules {

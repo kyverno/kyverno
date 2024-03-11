@@ -3,7 +3,6 @@ apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: preconditions
-  #there is no namespace
 spec:
   admission: true
   background: false
