@@ -149,6 +149,7 @@ func createrLeaderControllers(
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
+		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 		serverIP,
 		int32(webhookTimeout),
 		servicePort,
@@ -291,7 +292,6 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
-		internal.WithGlobalContext(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -356,13 +356,17 @@ func main() {
 		logging.WithName("EventGenerator"),
 		strings.Split(omitEvents, ",")...,
 	)
+	gcstore := store.New()
 	gceController := internal.NewController(
 		globalcontextcontroller.ControllerName,
 		globalcontextcontroller.NewController(
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 			setup.KyvernoDynamicClient,
-			store.New(),
+			setup.KyvernoClient,
+			gcstore,
+			eventGenerator,
 			maxAPICallResponseLength,
+			true,
 		),
 		globalcontextcontroller.Workers,
 	)
@@ -411,6 +415,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		gcstore,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -506,6 +511,7 @@ func main() {
 	)
 	policyHandlers := webhookspolicy.NewHandlers(
 		setup.KyvernoDynamicClient,
+		setup.KyvernoClient,
 		backgroundServiceAccountName,
 	)
 	resourceHandlers := webhooksresource.NewHandlers(

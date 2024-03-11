@@ -135,7 +135,9 @@ func (gen *controller) processNextWorkItem(ctx context.Context) bool {
 func (gen *controller) emitEvent(key Info) {
 	logger := gen.logger
 	eventType := corev1.EventTypeWarning
-	if key.Reason == PolicyApplied || key.Reason == PolicySkipped {
+	if key.Type != "" {
+		eventType = key.Type
+	} else if key.Reason == PolicyApplied || key.Reason == PolicySkipped {
 		eventType = corev1.EventTypeNormal
 	}
 

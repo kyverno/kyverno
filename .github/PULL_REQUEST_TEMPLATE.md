@@ -25,7 +25,7 @@ Add the milestone label by commenting `/milestone 1.2.3`.
 
 -->
 
-## Documentation (optional)
+## Documentation (required for features)
 
 My PR contains new or altered behavior to Kyverno. 
 - [ ] I have sent the draft PR to add or update [the documentation](https://github.com/kyverno/website) and the link is:

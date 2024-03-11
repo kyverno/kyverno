@@ -1522,6 +1522,19 @@ Variable
 <p>Variable defines an arbitrary JMESPath context variable that can be defined inline.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>globalReference</code><br/>
+<em>
+<a href="#kyverno.io/v1.GlobalContextEntryReference">
+GlobalContextEntryReference
+</a>
+</em>
+</td>
+<td>
+<p>GlobalContextEntryReference is a reference to a cached global context entry.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1994,6 +2007,10 @@ CloneList
 <hr />
 <h3 id="kyverno.io/v1.GlobalContextEntryReference">GlobalContextEntryReference
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>)
+</p>
 <p>
 </p>
 <table class="table table-striped">
@@ -2923,7 +2940,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>Version defines the Pod Security Standard versions that Kubernetes supports.
-Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, latest. Defaults to latest.</p>
+Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.</p>
 </td>
 </tr>
 <tr>
@@ -8145,6 +8162,20 @@ bool
 <em>(Optional)</em>
 </td>
 </tr>
+<tr>
+<td>
+<code>lastRefreshTime</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Indicates the time when the globalcontextentry was last refreshed successfully for the API Call</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -8206,6 +8237,7 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.</p>
 </td>
 </tr>

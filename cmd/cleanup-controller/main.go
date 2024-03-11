@@ -105,7 +105,6 @@ func main() {
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
 		internal.WithApiServerClient(),
-		internal.WithGlobalContext(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -161,13 +160,17 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
+	gcstore := store.New()
 	gceController := internal.NewController(
 		globalcontextcontroller.ControllerName,
 		globalcontextcontroller.NewController(
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 			setup.KyvernoDynamicClient,
-			store.New(),
+			setup.KyvernoClient,
+			gcstore,
+			eventGenerator,
 			maxAPICallResponseLength,
+			false,
 		),
 		globalcontextcontroller.Workers,
 	)
@@ -305,6 +308,7 @@ func main() {
 					cmResolver,
 					setup.Jp,
 					eventGenerator,
+					gcstore,
 				),
 				cleanup.Workers,
 			)

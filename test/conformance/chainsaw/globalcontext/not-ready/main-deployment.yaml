@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: main-deployment
+  namespace: test-globalcontext-not-ready
+  labels:
+    app: main-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: main-deployment
+  template:
+    metadata:
+      labels:
+        app: main-deployment
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80

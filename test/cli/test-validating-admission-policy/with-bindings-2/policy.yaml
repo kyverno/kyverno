@@ -1,0 +1,39 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "check-deployment-replicas"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - apps
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - deployments
+  validations:
+  - expression: object.spec.replicas <= 2
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "check-deployment-replicas-binding"
+spec:
+  policyName: "check-deployment-replicas"
+  validationActions: [Deny]
+  matchResources:
+    resourceRules:
+      - apiGroups:
+        - apps
+        apiVersions:
+        - v1
+        operations:
+        - CREATE
+        - UPDATE
+        resources:
+        - deployments
+        resourceNames:
+        - nginx-deployment

@@ -1,0 +1,8 @@
+apiVersion: kyverno.io/v2alpha1
+kind: GlobalContextEntry
+metadata:
+  name: gctxentry-apicall-failed
+spec:
+  apiCall:
+    urlPath: "/apis/apps/v1/namespaces/default/unknown"
+    refreshInterval: 10s

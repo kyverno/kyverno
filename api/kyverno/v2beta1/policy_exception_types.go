@@ -100,6 +100,11 @@ func (p *PolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) 
 	for i, e := range p.Exceptions {
 		errs = append(errs, e.Validate(exceptionsPath.Index(i))...)
 	}
+
+	podSecuityPath := path.Child("podSecurity")
+	for i, p := range p.PodSecurity {
+		errs = append(errs, p.Validate(podSecuityPath.Index(i))...)
+	}
 	return errs
 }
 

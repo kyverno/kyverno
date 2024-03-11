@@ -30,7 +30,7 @@ jobs:
         echo "releasebranch2=$releasebranch2" >> $GITHUB_OUTPUT
     
     - name: Scan for vulnerabilities in latest image
-      uses: aquasecurity/trivy-action@d43c1f16c00cfd3978dde6c07f4bbcf9eb6993ca # v0.8.0 (Trivy v0.34.0)
+      uses: aquasecurity/trivy-action@062f2592684a31eb3aa050cc61e7ca1451cecd3d # v0.8.0 (Trivy v0.34.0)
 
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -40,7 +40,7 @@ jobs:
         output: scan1.json
 
     - name: Scan for vulnerabilities in latest-1 image
-      uses: aquasecurity/trivy-action@d43c1f16c00cfd3978dde6c07f4bbcf9eb6993ca # v0.8.0 (Trivy v0.34.0)
+      uses: aquasecurity/trivy-action@062f2592684a31eb3aa050cc61e7ca1451cecd3d # v0.8.0 (Trivy v0.34.0)
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
         format: json
@@ -49,7 +49,7 @@ jobs:
         output: scan2.json
 
     - name: Scan for vulnerabilities in latest-2 image
-      uses: aquasecurity/trivy-action@d43c1f16c00cfd3978dde6c07f4bbcf9eb6993ca # v0.8.0 (Trivy v0.34.0)
+      uses: aquasecurity/trivy-action@062f2592684a31eb3aa050cc61e7ca1451cecd3d # v0.8.0 (Trivy v0.34.0)
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
         format: json
@@ -101,7 +101,7 @@ jobs:
       - name: Set scan output
         id: set-scan-output
         run: echo "results=$(cat scan.json | jq -c)" >> $GITHUB_OUTPUT
-      - uses: JasonEtco/create-an-issue@e27dddc79c92bc6e4562f268fffa5ed752639abd # v2.9.1
+      - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RESULTS: ${{ steps.set-scan-output.outputs.results }}
