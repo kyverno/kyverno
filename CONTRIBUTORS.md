@@ -13,3 +13,4 @@ Contributors are those who have made enough contributions to the project as defi
 | Sanskar Gurdasani        | [@Sanskarzz](https://github.com/Sanskarzz) |
 | D N Siva Sathyaseelan    | [@sivasathyaseeelan](https://github.com/sivasathyaseeelan)|
 | Mohamed Asif S           | [@mohamedasifs123](https://github.com/mohamedasifs123)|
+| Suruchi Kumari           | [@coder12git](https://github.com/coder12git)|

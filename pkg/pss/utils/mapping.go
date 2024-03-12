@@ -42,7 +42,7 @@ var PSS_container_level_control = []string{
 // Translate PSS control to CheckResult.ID so that we can use PSS control in Kyverno policy
 // For PSS controls see: https://kubernetes.io/docs/concepts/security/pod-security-standards/
 // For CheckResult.ID see: https://github.com/kubernetes/pod-security-admission/tree/master/policy
-var PSS_controls_to_check_id = map[string][]string{
+var PSS_control_name_to_ids = map[string][]string{
 	// Controls with 2 different controls for each level
 	// container-level control
 	"Capabilities": {
@@ -108,6 +108,20 @@ var PSS_controls_to_check_id = map[string][]string{
 	"Volume Types": {
 		"restrictedVolumes",
 	},
+}
+
+// reverse mapping of PSS_control_name_to_ids
+var pss_control_id_to_name = map[string]string{}
+
+func PSSControlIDToName(id string) string {
+	if len(pss_control_id_to_name) == 0 {
+		for name, ids := range PSS_control_name_to_ids {
+			for _, id := range ids {
+				pss_control_id_to_name[id] = name
+			}
+		}
+	}
+	return pss_control_id_to_name[id]
 }
 
 var PSS_controls = map[string][]RestrictedField{

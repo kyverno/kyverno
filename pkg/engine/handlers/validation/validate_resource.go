@@ -331,7 +331,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 				return engineapi.RuleFail(v.rule.Name, engineapi.Validation, v.buildErrorMessage(err, pe.Path))
 			}
 
-			return engineapi.RuleError(v.rule.Name, engineapi.Validation, v.buildErrorMessage(err, pe.Path), nil)
+			return engineapi.RuleError(v.rule.Name, engineapi.Validation, v.buildErrorMessage(err, ""), nil)
 		}
 
 		v.log.V(4).Info("successfully processed rule")
