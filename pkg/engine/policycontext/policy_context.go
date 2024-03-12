@@ -150,10 +150,6 @@ func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }
 
-func (c PolicyContext) Copy() engineapi.PolicyContext {
-	return c.copy()
-}
-
 // Mutators
 
 func (c *PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {
@@ -199,10 +195,6 @@ func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, old
 func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
 	c.admissionOperation = admissionOperation
 	return c
-}
-
-func (c PolicyContext) copy() *PolicyContext {
-	return &c
 }
 
 // Constructors
