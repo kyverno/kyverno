@@ -167,7 +167,6 @@ func (c *PolicyContext) WithNewResource(resource unstructured.Unstructured) *Pol
 func (c *PolicyContext) WithOldResource(resource unstructured.Unstructured) *PolicyContext {
 	copy := c.copy()
 	copy.oldResource = resource
-	copy.jsonContext.AddOldResource(resource.Object)
 	return copy
 }
 
