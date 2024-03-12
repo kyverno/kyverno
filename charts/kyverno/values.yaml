@@ -926,6 +926,21 @@ cleanupJobs:
 
 # Admission controller configuration
 admissionController:
+  autoscaling:
+    # -- Enable horizontal pod autoscaling
+    enabled: false
+
+    # -- Minimum number of pods
+    minReplicas: 1
+
+    # -- Maximum number of pods
+    maxReplicas: 10
+
+    # -- Target CPU utilization percentage
+    targetCPUUtilizationPercentage: 80
+
+    # -- Configurable scaling behavior
+    behavior: {}
 
   # -- Overrides features defined at the root level
   featuresOverride:

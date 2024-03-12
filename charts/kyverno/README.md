@@ -354,6 +354,11 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| admissionController.autoscaling.enabled | bool | `false` | Enable horizontal pod autoscaling |
+| admissionController.autoscaling.minReplicas | int | `1` | Minimum number of pods |
+| admissionController.autoscaling.maxReplicas | int | `10` | Maximum number of pods |
+| admissionController.autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage |
+| admissionController.autoscaling.behavior | object | `{}` | Configurable scaling behavior |
 | admissionController.featuresOverride | object | `{"admissionReports":{"backPressureThreshold":1000}}` | Overrides features defined at the root level |
 | admissionController.featuresOverride.admissionReports.backPressureThreshold | int | `1000` | Max number of admission reports allowed in flight until the admission controller stops creating new ones |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
