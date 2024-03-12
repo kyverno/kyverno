@@ -170,19 +170,18 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 }
 
 func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
-	oldPc, err := v.policyContext.OldPolicyContext()
+	var err error
+	v.policyContext, err = v.policyContext.OldPolicyContext()
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get old policy context")
 	}
 
-	v.policyContext = oldPc
 	resp := v.validate(ctx)
 
-	pc, err := v.policyContext.RefreshPolicyContext()
+	v.policyContext, err = v.policyContext.RefreshPolicyContext()
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot refresh policy context")
 	}
-	v.policyContext = pc
 	return resp, nil
 }
 
