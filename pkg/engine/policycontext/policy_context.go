@@ -28,6 +28,9 @@ type PolicyContext struct {
 	// oldResource is the prior resource for an update, or nil
 	oldResource unstructured.Unstructured
 
+	// saveNewResource is a variable used to store the new resource when generating old policy context
+	saveNewResource unstructured.Unstructured
+
 	// element is set when the context is used for processing a foreach loop
 	element unstructured.Unstructured
 
@@ -66,20 +69,33 @@ func (c *PolicyContext) OldPolicyContext() (engineapi.PolicyContext, error) {
 	if c.Operation() != kyvernov1.Update {
 		return nil, errors.New("cannot create old policy context")
 	}
-	copy := c.copy()
-	oldJsonContext := copy.jsonContext
-	copy.oldResource = unstructured.Unstructured{}
-	copy.newResource = c.oldResource
 
-	if err := oldJsonContext.AddResource(nil); err != nil {
+	c.saveNewResource = c.newResource
+	c.newResource = c.oldResource
+	c.oldResource = unstructured.Unstructured{}
+
+	if err := c.jsonContext.AddResource(c.newResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
 	}
-	if err := oldJsonContext.AddOldResource(copy.OldResource().Object); err != nil {
+	if err := c.jsonContext.AddOldResource(c.oldResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
 	}
 
-	copy.jsonContext = oldJsonContext
-	return copy, nil
+	return c, nil
+}
+
+func (c *PolicyContext) RefreshPolicyContext() (engineapi.PolicyContext, error) {
+	c.oldResource = c.newResource
+	c.newResource = c.saveNewResource
+
+	if err := c.jsonContext.AddResource(c.newResource.Object); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
+	}
+	if err := c.jsonContext.AddOldResource(c.oldResource.Object); err != nil {
+		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+
+	return c, nil
 }
 
 func (c *PolicyContext) NewResource() unstructured.Unstructured {
@@ -141,46 +157,39 @@ func (c PolicyContext) Copy() engineapi.PolicyContext {
 // Mutators
 
 func (c *PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {
-	copy := c.copy()
-	copy.policy = policy
-	return copy
+	c.policy = policy
+	return c
 }
 
 func (c *PolicyContext) WithNamespaceLabels(namespaceLabels map[string]string) *PolicyContext {
-	copy := c.copy()
-	copy.namespaceLabels = namespaceLabels
-	return copy
+	c.namespaceLabels = namespaceLabels
+	return c
 }
 
 func (c *PolicyContext) WithAdmissionInfo(admissionInfo kyvernov1beta1.RequestInfo) *PolicyContext {
-	copy := c.copy()
-	copy.admissionInfo = admissionInfo
-	return copy
+	c.admissionInfo = admissionInfo
+	return c
 }
 
 func (c *PolicyContext) WithNewResource(resource unstructured.Unstructured) *PolicyContext {
-	copy := c.copy()
-	copy.newResource = resource
-	return copy
+	c.newResource = resource
+	return c
 }
 
 func (c *PolicyContext) WithOldResource(resource unstructured.Unstructured) *PolicyContext {
-	copy := c.copy()
-	copy.oldResource = resource
-	return copy
+	c.oldResource = resource
+	return c
 }
 
 func (c *PolicyContext) WithResourceKind(gvk schema.GroupVersionKind, subresource string) *PolicyContext {
-	copy := c.copy()
-	copy.gvk = gvk
-	copy.subresource = subresource
-	return copy
+	c.gvk = gvk
+	c.subresource = subresource
+	return c
 }
 
 func (c *PolicyContext) WithRequestResource(gvr metav1.GroupVersionResource) *PolicyContext {
-	copy := c.copy()
-	copy.requestResource = gvr
-	return copy
+	c.requestResource = gvr
+	return c
 }
 
 func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, oldResource unstructured.Unstructured) *PolicyContext {
@@ -188,9 +197,8 @@ func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, old
 }
 
 func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
-	copy := c.copy()
-	copy.admissionOperation = admissionOperation
-	return copy
+	c.admissionOperation = admissionOperation
+	return c
 }
 
 func (c PolicyContext) copy() *PolicyContext {

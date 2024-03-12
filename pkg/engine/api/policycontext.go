@@ -26,6 +26,7 @@ type PolicyContext interface {
 	SetElement(element unstructured.Unstructured)
 
 	OldPolicyContext() (PolicyContext, error)
+	RefreshPolicyContext() (PolicyContext, error)
 	JSONContext() enginecontext.Interface
 	Copy() PolicyContext
 }
