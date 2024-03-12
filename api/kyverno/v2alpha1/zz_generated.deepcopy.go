@@ -268,6 +268,7 @@ func (in *GlobalContextEntryStatus) DeepCopyInto(out *GlobalContextEntryStatus) 
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.LastRefreshTime.DeepCopyInto(&out.LastRefreshTime)
 	return
 }
 

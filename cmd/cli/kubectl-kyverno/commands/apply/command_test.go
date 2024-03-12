@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -114,6 +115,7 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
 				PolicyReport:  true,
 				AuditWarn:     true,
+				warnExitCode:  3,
 			},
 			stdinFile: "../../../../../test/best_practices/disallow_latest_tag.yaml",
 			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
@@ -277,6 +279,84 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-1/policy.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-1/deployment1.yaml",
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-1/deployment2.yaml",
+				},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/policy.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/deployment1.yaml",
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/deployment2.yaml",
+				},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-3/policy.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-3/deployment1.yaml",
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-3/deployment2.yaml",
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-3/deployment3.yaml",
+				},
+				ValuesFile:   "../../../../../test/cli/test-validating-admission-policy/with-bindings-3/values.yaml",
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  2,
+					Fail:  2,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/policy.yaml"},
+				ResourcePaths: []string{
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/deployment1.yaml",
+					"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/deployment2.yaml",
+				},
+				PolicyReport: true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  1,
+					Fail:  1,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"https://github.com/kyverno/policies/best-practices/require-labels/", "../../../../../test/best_practices/disallow_latest_tag.yaml"},
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				GitBranch:     "main",
@@ -400,6 +480,29 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 	assert.NoError(t, err)
 	expected := `Error: unknown flag: --xxx`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+}
+
+func TestCommandWarnExitCode(t *testing.T) {
+	var warnExitCode = 3
+
+	cmd := Command()
+	cmd.SetArgs([]string{
+		"../../_testdata/apply/test-2/policy.yaml",
+		"--resource",
+		"../../_testdata/apply/test-2/resources.yaml",
+		"--audit-warn",
+		"--warn-exit-code",
+		strconv.Itoa(warnExitCode),
+	})
+	err := cmd.Execute()
+	if err != nil {
+		switch e := err.(type) {
+		case WarnExitCodeError:
+			assert.Equal(t, warnExitCode, e.ExitCode)
+		default:
+			assert.Fail(t, "Expecting WarnExitCodeError")
+		}
+	}
 }
 
 func TestCommandHelp(t *testing.T) {

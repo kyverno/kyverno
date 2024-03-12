@@ -114,7 +114,8 @@ jobs:
           - ^verify-manifests$
           - ^verifyImages$
           - ^webhooks$
-    needs: prepare-images
+    needs:
+    - prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
@@ -126,7 +127,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
@@ -160,7 +161,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}'
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -195,7 +196,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
@@ -229,7 +230,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -267,7 +268,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
@@ -301,7 +302,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -338,7 +339,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
@@ -372,7 +373,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -409,7 +410,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
@@ -443,7 +444,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -485,7 +486,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
@@ -519,7 +520,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -560,7 +561,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
@@ -594,7 +595,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -639,10 +640,10 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@2d10614e854828e2389881abe6c5cf76240897a7
+        uses: sigstore/scaffolding/actions/setup@a20ae166ad6fe8f7165f4b3ee218acf72d9c45e8
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version.version }}
@@ -690,7 +691,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
@@ -729,7 +730,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
@@ -763,7 +764,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }}
+          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
       # debug
       - name: Debug failure
         if: failure()
@@ -838,7 +839,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@8307cf9038333ce168dd4339ae24f9ab16ab7a00 # v0.1.4
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -946,20 +947,38 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: read
-    needs: prepare-cli
+    strategy:
+      fail-fast: false
+      matrix:
+        tests:
+          - ^cli$
+    needs:
+    - prepare-cli
+    name: ${{ matrix.tests }} - chainsaw
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      # install tools
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: kubectl-kyverno
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@4932dd3a67eedf380e704f5c294851a2f83c638f # v0.1.8
       - name: Install Kyverno CLI
         shell: bash
         run: |
           set -e
           chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
           echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+      # run tests
+      - name: Test with Chainsaw
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml --no-cluster
       - name: Fix test files
         shell: bash
         run: |

@@ -28,6 +28,10 @@ import (
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=gctxentry,categories=kyverno,scope="Cluster"
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="REFRESH",type="date",JSONPath=".status.lastRefreshTime"
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {
@@ -114,6 +118,7 @@ type KubernetesResource struct {
 	Resource string `json:"resource,omitempty"`
 	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 	// +kubebuilder:validation:Optional
+	// +optional
 	Namespace string `json:"namespace,omitempty"`
 }
 
