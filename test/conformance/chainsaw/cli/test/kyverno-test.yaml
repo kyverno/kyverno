@@ -4,8 +4,7 @@ kind: Test
 metadata:
   name: test-no-cpu-limits
 policies:
-  - policy
-  .yaml
+  - policy.yaml
 resources:
   - resources.yaml
 results:
