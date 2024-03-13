@@ -468,6 +468,11 @@ func (in *ContextEntry) DeepCopyInto(out *ContextEntry) {
 		*out = new(ConfigMapReference)
 		**out = **in
 	}
+	if in.Default != nil {
+		in, out := &in.Default, &out.Default
+		*out = new(apiextensionsv1.JSON)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.APICall != nil {
 		in, out := &in.APICall, &out.APICall
 		*out = new(ContextAPICall)
