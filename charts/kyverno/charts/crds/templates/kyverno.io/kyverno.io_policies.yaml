@@ -338,8 +338,9 @@ spec:
                             description: Name is the variable name.
                             type: string
                           default:
-                            description: Default is a default value which is used when failed to fetch data from APICall.
-                            type: string
+                            description: Default is an optional arbitrary JSON object 
+                              that the context may take if the apiCall returns error.
+                            x-kubernetes-preserve-unknown-fields: true
                           variable:
                             description: Variable defines an arbitrary JMESPath context
                               variable that can be defined inline.
@@ -2073,8 +2074,9 @@ spec:
                                       description: Name is the variable name.
                                       type: string
                                     default:
-                                      description: Default is a default value which is used when failed to fetch data from APICall.
-                                      type: string
+                                      description: Default is an optional arbitrary JSON object 
+                                        that the context may take if the apiCall returns error.
+                                      x-kubernetes-preserve-unknown-fields: true
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
                                         context variable that can be defined inline.
@@ -2428,8 +2430,9 @@ spec:
                                       description: Name is the variable name.
                                       type: string
                                     default:
-                                      description: Default is a default value which is used when failed to fetch data from APICall.
-                                      type: string
+                                      description: Default is an optional arbitrary JSON object 
+                                        that the context may take if the apiCall returns error.
+                                      x-kubernetes-preserve-unknown-fields: true
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
                                         context variable that can be defined inline.
@@ -3015,8 +3018,9 @@ spec:
                                       description: Name is the variable name.
                                       type: string
                                     default:
-                                      description: Default is a default value which is used when failed to fetch data from APICall.
-                                      type: string
+                                      description: Default is an optional arbitrary JSON object 
+                                        that the context may take if the apiCall returns error.
+                                      x-kubernetes-preserve-unknown-fields: true
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
                                         context variable that can be defined inline.
@@ -4850,8 +4854,9 @@ spec:
                                 description: Name is the variable name.
                                 type: string
                               default:
-                                description: Default is a default value which is used when failed to fetch data from APICall.
-                                type: string
+                                description: Default is an optional arbitrary JSON object 
+                                  that the context may take if the apiCall returns error.
+                                x-kubernetes-preserve-unknown-fields: true
                               variable:
                                 description: Variable defines an arbitrary JMESPath
                                   context variable that can be defined inline.
@@ -6664,8 +6669,9 @@ spec:
                                           description: Name is the variable name.
                                           type: string
                                         default:
-                                          description: Default is a default value which is used when failed to fetch data from APICall.
-                                          type: string
+                                          description: Default is an optional arbitrary JSON object 
+                                            that the context may take if the apiCall returns error.
+                                          x-kubernetes-preserve-unknown-fields: true
                                         variable:
                                           description: Variable defines an arbitrary
                                             JMESPath context variable that can be
@@ -7036,8 +7042,9 @@ spec:
                                           description: Name is the variable name.
                                           type: string
                                         default:
-                                          description: Default is a default value which is used when failed to fetch data from APICall.
-                                          type: string
+                                          description: Default is an optional arbitrary JSON object 
+                                            that the context may take if the apiCall returns error.
+                                          x-kubernetes-preserve-unknown-fields: true
                                         variable:
                                           description: Variable defines an arbitrary
                                             JMESPath context variable that can be
@@ -7655,8 +7662,9 @@ spec:
                                           description: Name is the variable name.
                                           type: string
                                         default:
-                                          description: Default is a default value which is used when failed to fetch data from APICall.
-                                          type: string
+                                          description: Default is an optional arbitrary JSON object 
+                                            that the context may take if the apiCall returns error.
+                                          x-kubernetes-preserve-unknown-fields: true
                                         variable:
                                           description: Variable defines an arbitrary
                                             JMESPath context variable that can be
@@ -9636,8 +9644,9 @@ spec:
                             description: Name is the variable name.
                             type: string
                           default:
-                            description: Default is a default value which is used when failed to fetch data from APICall.
-                            type: string
+                            description: Default is an optional arbitrary JSON object 
+                              that the context may take if the apiCall returns error.
+                            x-kubernetes-preserve-unknown-fields: true
                           variable:
                             description: Variable defines an arbitrary JMESPath context
                               variable that can be defined inline.
@@ -10945,8 +10954,9 @@ spec:
                                       description: Name is the variable name.
                                       type: string
                                     default:
-                                      description: Default is a default value which is used when failed to fetch data from APICall.
-                                      type: string
+                                      description: Default is an optional arbitrary JSON object 
+                                        that the context may take if the apiCall returns error.
+                                      x-kubernetes-preserve-unknown-fields: true
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
                                         context variable that can be defined inline.
@@ -11300,8 +11310,9 @@ spec:
                                       description: Name is the variable name.
                                       type: string
                                     default:
-                                      description: Default is a default value which is used when failed to fetch data from APICall.
-                                      type: string
+                                      description: Default is an optional arbitrary JSON object 
+                                        that the context may take if the apiCall returns error.
+                                      x-kubernetes-preserve-unknown-fields: true
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
                                         context variable that can be defined inline.
@@ -12066,8 +12077,9 @@ spec:
                                       description: Name is the variable name.
                                       type: string
                                     default:
-                                      description: Default is a default value which is used when failed to fetch data from APICall.
-                                      type: string
+                                      description: Default is an optional arbitrary JSON object 
+                                        that the context may take if the apiCall returns error.
+                                      x-kubernetes-preserve-unknown-fields: true
                                     variable:
                                       description: Variable defines an arbitrary JMESPath
                                         context variable that can be defined inline.
@@ -13874,8 +13886,9 @@ spec:
                                 description: Name is the variable name.
                                 type: string
                               default:
-                                description: Default is a default value which is used when failed to fetch data from APICall.
-                                type: string
+                                description: Default is an optional arbitrary JSON object 
+                                  that the context may take if the apiCall returns error.
+                                x-kubernetes-preserve-unknown-fields: true
                               variable:
                                 description: Variable defines an arbitrary JMESPath
                                   context variable that can be defined inline.
@@ -15688,8 +15701,9 @@ spec:
                                           description: Name is the variable name.
                                           type: string
                                         default:
-                                          description: Default is a default value which is used when failed to fetch data from APICall.
-                                          type: string
+                                          description: Default is an optional arbitrary JSON object 
+                                            that the context may take if the apiCall returns error.
+                                          x-kubernetes-preserve-unknown-fields: true
                                         variable:
                                           description: Variable defines an arbitrary
                                             JMESPath context variable that can be
@@ -16060,8 +16074,9 @@ spec:
                                           description: Name is the variable name.
                                           type: string
                                         default:
-                                          description: Default is a default value which is used when failed to fetch data from APICall.
-                                          type: string
+                                          description: Default is an optional arbitrary JSON object 
+                                            that the context may take if the apiCall returns error.
+                                          x-kubernetes-preserve-unknown-fields: true
                                         variable:
                                           description: Variable defines an arbitrary
                                             JMESPath context variable that can be
@@ -16679,8 +16694,9 @@ spec:
                                           description: Name is the variable name.
                                           type: string
                                         default:
-                                          description: Default is a default value which is used when failed to fetch data from APICall.
-                                          type: string
+                                          description: Default is an optional arbitrary JSON object 
+                                            that the context may take if the apiCall returns error.
+                                          x-kubernetes-preserve-unknown-fields: true
                                         variable:
                                           description: Variable defines an arbitrary
                                             JMESPath context variable that can be
