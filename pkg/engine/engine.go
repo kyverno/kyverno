@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	polexstore "github.com/kyverno/kyverno/pkg/polex/store"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"go.opentelemetry.io/otel"
@@ -34,7 +35,7 @@ type engine struct {
 	rclientFactory       engineapi.RegistryClientFactory
 	ivCache              imageverifycache.Client
 	contextLoader        engineapi.ContextLoaderFactory
-	exceptionSelector    engineapi.PolicyExceptionSelector
+	exceptionStore       polexstore.Store
 	// metrics
 	resultCounter     metric.Int64Counter
 	durationHistogram metric.Float64Histogram
@@ -50,7 +51,7 @@ func NewEngine(
 	rclientFactory engineapi.RegistryClientFactory,
 	ivCache imageverifycache.Client,
 	contextLoader engineapi.ContextLoaderFactory,
-	exceptionSelector engineapi.PolicyExceptionSelector,
+	exceptionStore polexstore.Store,
 ) engineapi.Engine {
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
@@ -75,7 +76,7 @@ func NewEngine(
 		rclientFactory:       rclientFactory,
 		ivCache:              ivCache,
 		contextLoader:        contextLoader,
-		exceptionSelector:    exceptionSelector,
+		exceptionStore:       exceptionStore,
 		resultCounter:        resultCounter,
 		durationHistogram:    durationHistogram,
 	}

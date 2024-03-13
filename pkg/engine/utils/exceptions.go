@@ -11,7 +11,7 @@ import (
 // MatchesException takes a list of exceptions and checks if there is an exception applies to the incoming resource.
 // It returns the matched policy exception.
 func MatchesException(
-	polexs []kyvernov2beta1.PolicyException,
+	polexs []*kyvernov2beta1.PolicyException,
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 ) *kyvernov2beta1.PolicyException {
@@ -20,10 +20,10 @@ func MatchesException(
 	if resource.Object == nil {
 		resource = policyContext.OldResource()
 	}
-	for _, polex := range polexs {
+	for i := range polexs {
 		err := matched.CheckMatchesResources(
 			resource,
-			polex.Spec.Match,
+			polexs[i].Spec.Match,
 			policyContext.NamespaceLabels(),
 			policyContext.AdmissionInfo(),
 			gvk,
@@ -31,8 +31,8 @@ func MatchesException(
 		)
 		// if there's no error it means a match
 		if err == nil {
-			if polex.Spec.Conditions != nil {
-				passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *polex.Spec.Conditions)
+			if polexs[i].Spec.Conditions != nil {
+				passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *polexs[i].Spec.Conditions)
 				if err != nil {
 					return nil
 				}
@@ -40,7 +40,7 @@ func MatchesException(
 					return nil
 				}
 			}
-			return &polex
+			return polexs[i]
 		}
 	}
 	return nil

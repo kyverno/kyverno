@@ -5,7 +5,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"k8s.io/apimachinery/pkg/labels"
+	"github.com/kyverno/kyverno/pkg/polex/store"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -13,23 +13,24 @@ import (
 func (e *engine) GetPolicyExceptions(
 	policy kyvernov1.PolicyInterface,
 	rule string,
-) ([]kyvernov2beta1.PolicyException, error) {
-	var exceptions []kyvernov2beta1.PolicyException
-	if e.exceptionSelector == nil {
+) ([]*kyvernov2beta1.PolicyException, error) {
+	var exceptions []*kyvernov2beta1.PolicyException
+	if e.exceptionStore == nil {
 		return exceptions, nil
 	}
-	polexs, err := e.exceptionSelector.List(labels.Everything())
-	if err != nil {
-		return exceptions, err
-	}
+
 	policyName, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
 		return exceptions, fmt.Errorf("failed to compute policy key: %w", err)
 	}
-	for _, polex := range polexs {
-		if polex.Contains(policyName, rule) {
-			exceptions = append(exceptions, *polex)
-		}
+
+	storeExceptions, ok := e.exceptionStore.Get(store.Key{
+		PolicyName: policyName,
+		RuleName:   rule,
+	})
+	if ok {
+		return storeExceptions, nil
 	}
+
 	return exceptions, nil
 }

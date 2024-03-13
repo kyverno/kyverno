@@ -22,6 +22,7 @@ import (
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
+	polexcontroller "github.com/kyverno/kyverno/pkg/controllers/polex"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
@@ -32,6 +33,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	polexstore "github.com/kyverno/kyverno/pkg/polex/store"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -370,6 +372,30 @@ func main() {
 		),
 		globalcontextcontroller.Workers,
 	)
+
+	// polexIndexer := kyvernoInformer.Kyverno().V2beta1().PolicyExceptions().Informer().GetIndexer()
+	// polexIndexer.AddIndexers(cache.Indexers{
+	// 	informers.PolicyExceptionIndexName: informers.PolicyRulePairIndexer,
+	// })
+
+	var polexStore polexstore.Store
+	var polexController internal.Controller
+	if internal.PolicyExceptionEnabled() {
+		polexStore = polexstore.New()
+		polexController = internal.NewController(
+			polexcontroller.ControllerName,
+			polexcontroller.NewController(
+				kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
+				internal.ExceptionNamespace(),
+				polexStore,
+			),
+			polexcontroller.Workers,
+		)
+	} else {
+		polexStore = nil
+		polexController = nil
+	}
+
 	eventController := internal.NewController(
 		event.ControllerName,
 		eventGenerator,
@@ -416,6 +442,7 @@ func main() {
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
 		gcstore,
+		polexStore,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -577,6 +604,9 @@ func main() {
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
 	gceController.Run(signalCtx, setup.Logger, &wg)
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
+	}
 	for _, controller := range nonLeaderControllers {
 		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
 	}

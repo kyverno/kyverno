@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
+	polexcontroller "github.com/kyverno/kyverno/pkg/controllers/polex"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -25,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	polexstore "github.com/kyverno/kyverno/pkg/polex/store"
 	"github.com/kyverno/kyverno/pkg/policy"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -168,6 +170,25 @@ func main() {
 		),
 		globalcontextcontroller.Workers,
 	) // this controller only subscribe to events, nothing is returned...
+
+	var polexStore polexstore.Store
+	var polexController internal.Controller
+	if internal.PolicyExceptionEnabled() {
+		polexStore = polexstore.New()
+		polexController = internal.NewController(
+			polexcontroller.ControllerName,
+			polexcontroller.NewController(
+				kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
+				internal.ExceptionNamespace(),
+				polexStore,
+			),
+			polexcontroller.Workers,
+		)
+	} else {
+		polexStore = nil
+		polexController = nil
+	}
+
 	policymetricscontroller.NewController(
 		setup.MetricsManager,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
@@ -188,6 +209,7 @@ func main() {
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
 		gcstore,
+		polexStore,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
@@ -247,6 +269,9 @@ func main() {
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
 	gceController.Run(signalCtx, setup.Logger, &wg)
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
+	}
 	// start leader election
 	le.Run(signalCtx)
 	// wait for everything to shut down and exit

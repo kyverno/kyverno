@@ -27,6 +27,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	polexstore "github.com/kyverno/kyverno/pkg/polex/store"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gomodules.xyz/jsonpatch/v2"
@@ -61,9 +62,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
-	policyExceptionLister := &policyExceptionLister{
-		exceptions: p.PolicyExceptions,
+
+	polexStore := polexstore.New()
+	for _, exception := range p.PolicyExceptions {
+		polexStore.Add(exception)
 	}
+
 	var client engineapi.Client
 	if p.Client != nil {
 		client = adapters.Client(p.Client)
@@ -80,7 +84,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(p.Store, nil),
-		policyExceptionLister,
+		polexStore,
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource

@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
+	polexcontroller "github.com/kyverno/kyverno/pkg/controllers/polex"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
@@ -25,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	polexstore "github.com/kyverno/kyverno/pkg/polex/store"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -286,6 +288,25 @@ func main() {
 		),
 		globalcontextcontroller.Workers,
 	)
+
+	var polexStore polexstore.Store
+	var polexController internal.Controller
+	if internal.PolicyExceptionEnabled() {
+		polexStore = polexstore.New()
+		polexController = internal.NewController(
+			polexcontroller.ControllerName,
+			polexcontroller.NewController(
+				kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
+				internal.ExceptionNamespace(),
+				polexStore,
+			),
+			polexcontroller.Workers,
+		)
+	} else {
+		polexStore = nil
+		polexController = nil
+	}
+
 	// engine
 	engine := internal.NewEngine(
 		ctx,
@@ -301,6 +322,7 @@ func main() {
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
 		gcstore,
+		polexStore,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
@@ -376,6 +398,10 @@ func main() {
 	// start non leader controllers
 	eventController.Run(ctx, setup.Logger, &wg)
 	gceController.Run(ctx, setup.Logger, &wg)
+	if polexController != nil {
+		polexController.Run(ctx, setup.Logger, &wg)
+
+	}
 	// start leader election
 	le.Run(ctx)
 	// wait for everything to shut down and exit
