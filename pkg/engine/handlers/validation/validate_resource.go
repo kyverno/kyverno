@@ -170,15 +170,23 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 }
 
 func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
-	pc := v.policyContext
-	oldPc, err := v.policyContext.OldPolicyContext()
-	if err != nil {
-		return nil, errors.Wrapf(err, "cannot get old policy context")
+	if v.policyContext.Operation() != kyvernov1.Update {
+		return nil, errors.New("invalid operation")
 	}
 
-	v.policyContext = oldPc
+	newResource := v.policyContext.NewResource()
+	oldResource := v.policyContext.OldResource()
+	emptyResource := unstructured.Unstructured{}
+
+	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to set resources")
+	}
+
 	resp := v.validate(ctx)
-	v.policyContext = pc
+
+	if err := v.policyContext.SetResources(oldResource, newResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to reset resources")
+	}
 
 	return resp, nil
 }
@@ -214,7 +222,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 		}
 
 		v.policyContext.JSONContext().Reset()
-		policyContext := v.policyContext.Copy()
+		policyContext := v.policyContext
 		if err := engineutils.AddElementToContext(policyContext, element, index, v.nesting, elementScope); err != nil {
 			v.log.Error(err, "failed to add element to context")
 			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to process foreach", err), applyCount
