@@ -44,6 +44,8 @@ type EvalInterface interface {
 // Interface to manage context operations
 // TODO: move to contextapi to prevent circular dependencies
 type Interface interface {
+	EvalInterface
+
 	// AddRequest marshals and adds the admission request to the context
 	AddRequest(request admissionv1.AdmissionRequest) error
 
@@ -105,8 +107,6 @@ type Interface interface {
 
 	// Reset sets the internal state to the last checkpoint, but does not remove the checkpoint.
 	Reset()
-
-	EvalInterface
 
 	// AddJSON  merges the json map with context
 	addJSON(dataMap map[string]interface{}) error
