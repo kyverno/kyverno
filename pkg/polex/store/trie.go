@@ -68,10 +68,6 @@ func (t *Trie) searchHelper(node *Node, key string, index int, results *[]*kyver
 		t.searchHelper(node, key, index+1, results, uniquePolexes)
 		t.searchHelper(child, key, index+1, results, uniquePolexes)
 	}
-
-	// if child := node.children['?']; child != nil {
-	// 	t.searchHelper(child, key, index+1, results, uniquePolexes)
-	// }
 }
 
 func (t *Trie) Delete(key string, uid types.UID) {

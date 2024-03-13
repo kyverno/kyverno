@@ -400,7 +400,6 @@ func main() {
 	gceController.Run(ctx, setup.Logger, &wg)
 	if polexController != nil {
 		polexController.Run(ctx, setup.Logger, &wg)
-
 	}
 	// start leader election
 	le.Run(ctx)

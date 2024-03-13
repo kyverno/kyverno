@@ -373,11 +373,6 @@ func main() {
 		globalcontextcontroller.Workers,
 	)
 
-	// polexIndexer := kyvernoInformer.Kyverno().V2beta1().PolicyExceptions().Informer().GetIndexer()
-	// polexIndexer.AddIndexers(cache.Indexers{
-	// 	informers.PolicyExceptionIndexName: informers.PolicyRulePairIndexer,
-	// })
-
 	var polexStore polexstore.Store
 	var polexController internal.Controller
 	if internal.PolicyExceptionEnabled() {
