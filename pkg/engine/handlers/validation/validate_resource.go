@@ -170,18 +170,24 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 }
 
 func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
-	var err error
-	v.policyContext, err = v.policyContext.OldPolicyContext()
-	if err != nil {
-		return nil, errors.Wrapf(err, "cannot get old policy context")
+	if v.policyContext.Operation() != kyvernov1.Update {
+		return nil, errors.New("invalid operation")
+	}
+
+	newResource := v.policyContext.NewResource()
+	oldResource := v.policyContext.OldResource()
+	emptyResource := unstructured.Unstructured{}
+
+	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to set resources")
 	}
 
 	resp := v.validate(ctx)
 
-	v.policyContext, err = v.policyContext.RefreshPolicyContext()
-	if err != nil {
-		return nil, errors.Wrapf(err, "cannot refresh policy context")
+	if err := v.policyContext.SetResources(oldResource, newResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to reset resources")
 	}
+
 	return resp, nil
 }
 

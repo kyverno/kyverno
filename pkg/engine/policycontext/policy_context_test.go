@@ -1,14 +1,13 @@
 package policycontext
 
 import (
-	"encoding/json"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -16,133 +15,74 @@ var (
 	jp  = jmespath.New(cfg)
 )
 
-func TestPolicyContextRefresh(t *testing.T) {
-	// If image tag is latest then imagepull policy needs to be checked
-	rawPolicy := []byte(`{
-		"apiVersion": "kyverno.io/v1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		   "name": "validate-image"
-		},
-		"spec": {
-		   "rules": [
-			  {
-				 "name": "validate-tag",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {
-					"message": "An image tag is required",
-					"pattern": {
-					   "spec": {
-						  "containers": [
-							 {
-								"image": "*:*"
-							 }
-						  ]
-					   }
-					}
-				 }
-			  },
-			  {
-				 "name": "validate-latest",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {
-					"message": "imagePullPolicy 'Always' required with tag 'latest'",
-					"pattern": {
-					   "spec": {
-						  "containers": [
-							 {
-								"(image)": "*latest",
-								"imagePullPolicy": "NotPresent"
-							 }
-						  ]
-					   }
-					}
-				 }
-			  }
-		   ]
-		}
-	 }
-	`)
-
-	rawNewResource := []byte(`
-	{
+func Test_setResources(t *testing.T) {
+	newResource, err := kubeutils.BytesToUnstructured([]byte(`{
 		"apiVersion": "v1",
-		"kind": "Pod",
+		"kind": "Namespace",
 		"metadata": {
-		   "name": "test-pod",
-		   "labels": {
-			  "version": "new"
-		   }
+		  "labels": {
+			"kubernetes.io/metadata.name": "test",
+			"size": "small"
+		  },
+		  "name": "namespace1"
 		},
-		"spec": {
-		   "containers": [
-			  {
-				 "name": "nginx",
-				 "image": "nginx:latest",
-				 "imagePullPolicy": "Always"
-			  }
-		   ]
-		}
-	 }
-	`)
+		"spec": {}
+	  }`))
+	assert.Nil(t, err)
 
-	rawOldResource := []byte(`
-	{
+	oldResource, err := kubeutils.BytesToUnstructured([]byte(`{
 		"apiVersion": "v1",
-		"kind": "Pod",
+		"kind": "Namespace",
 		"metadata": {
-		   "name": "test-pod",
-		   "labels": {
-			  "version": "old"
-		   }
+		  "labels": {
+			"kubernetes.io/metadata.name": "test",
+			"size": "small"
+		  },
+		  "name": "namespace2"
 		},
-		"spec": {
-		   "containers": [
-			  {
-				 "name": "nginx",
-				 "image": "nginx:latest",
-				 "imagePullPolicy": "Always"
-			  }
-		   ]
-		}
-	 }
-	`)
+		"spec": {}
+	  }`))
+	assert.Nil(t, err)
 
-	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	pc, err := NewPolicyContext(jp, *newResource, kyvernov1.Update, nil, cfg)
+	assert.Nil(t, err)
+	pc = pc.WithOldResource(*oldResource)
 
-	newResourceUnstructured, err := kubeutils.BytesToUnstructured(rawNewResource)
-	assert.NilError(t, err)
-	oldResourceUnstructured, err := kubeutils.BytesToUnstructured(rawOldResource)
-	assert.NilError(t, err)
+	n := pc.NewResource()
+	assert.Equal(t, "namespace1", n.GetName())
 
-	pc, err := NewPolicyContext(jp, *newResourceUnstructured, kyvernov1.Update, nil, cfg)
-	assert.NilError(t, err)
-	pc = pc.WithOldResource(*oldResourceUnstructured)
+	o := pc.OldResource()
+	assert.Equal(t, "namespace2", o.GetName())
 
-	policyContext, err := pc.OldPolicyContext()
-	assert.NilError(t, err)
-	newResourceVersionLabel := policyContext.NewResource().Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{})["version"].(string)
-	assert.Equal(t, newResourceVersionLabel, "old")
-	assert.Equal(t, len(policyContext.OldResource().Object), 0)
+	// swap resources
+	pc.SetResources(*newResource, *oldResource)
 
-	policyContext, err = policyContext.RefreshPolicyContext()
-	newResourceVersionLabel = policyContext.NewResource().Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{})["version"].(string)
-	assert.Equal(t, newResourceVersionLabel, "new")
-	oldResourceVersionLabel := policyContext.OldResource().Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{})["version"].(string)
-	assert.Equal(t, oldResourceVersionLabel, "old")
-	assert.NilError(t, err)
+	n = pc.NewResource()
+	assert.Equal(t, "namespace2", n.GetName())
+
+	name, err := pc.JSONContext().Query("request.object.metadata.name")
+	assert.Nil(t, err)
+	assert.Equal(t, "namespace2", name)
+
+	o = pc.OldResource()
+	assert.Equal(t, "namespace1", o.GetName())
+	name, err = pc.JSONContext().Query("request.oldObject.metadata.name")
+	assert.Nil(t, err)
+	assert.Equal(t, "namespace1", name)
+
+	// swap back resources
+	pc.SetResources(*oldResource, *newResource)
+
+	n = pc.NewResource()
+	assert.Equal(t, "namespace1", n.GetName())
+
+	name, err = pc.JSONContext().Query("request.object.metadata.name")
+	assert.Nil(t, err)
+	assert.Equal(t, "namespace1", name)
+
+	o = pc.OldResource()
+	assert.Equal(t, "namespace2", o.GetName())
+	name, err = pc.JSONContext().Query("request.oldObject.metadata.name")
+	assert.Nil(t, err)
+	assert.Equal(t, "namespace2", name)
 }

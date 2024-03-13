@@ -6,7 +6,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -27,9 +26,6 @@ type PolicyContext struct {
 
 	// oldResource is the prior resource for an update, or nil
 	oldResource unstructured.Unstructured
-
-	// saveNewResource is a variable used to store the new resource when generating old policy context
-	saveNewResource unstructured.Unstructured
 
 	// element is set when the context is used for processing a foreach loop
 	element unstructured.Unstructured
@@ -65,45 +61,24 @@ func (c *PolicyContext) Policy() kyvernov1.PolicyInterface {
 	return c.policy
 }
 
-func (c *PolicyContext) OldPolicyContext() (engineapi.PolicyContext, error) {
-	if c.Operation() != kyvernov1.Update {
-		return nil, errors.New("cannot create old policy context")
-	}
-
-	c.saveNewResource = c.newResource
-	c.newResource = c.oldResource
-	c.oldResource = unstructured.Unstructured{}
-
-	if err := c.jsonContext.AddResource(c.newResource.Object); err != nil {
-		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
-	}
-	if err := c.jsonContext.AddOldResource(c.oldResource.Object); err != nil {
-		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
-	}
-
-	return c, nil
-}
-
-func (c *PolicyContext) RefreshPolicyContext() (engineapi.PolicyContext, error) {
-	c.oldResource = c.newResource
-	c.newResource = c.saveNewResource
-
-	if err := c.jsonContext.AddResource(c.newResource.Object); err != nil {
-		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
-	}
-	if err := c.jsonContext.AddOldResource(c.oldResource.Object); err != nil {
-		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
-	}
-
-	return c, nil
-}
-
 func (c *PolicyContext) NewResource() unstructured.Unstructured {
 	return c.newResource
 }
 
 func (c *PolicyContext) OldResource() unstructured.Unstructured {
 	return c.oldResource
+}
+
+func (c *PolicyContext) SetResources(oldResource, newResource unstructured.Unstructured) error {
+	c.newResource = newResource
+	if err := c.jsonContext.AddResource(c.newResource.Object); err != nil {
+		return errors.Wrapf(err, "failed to replace object in the JSON context")
+	}
+	c.oldResource = oldResource
+	if err := c.jsonContext.AddOldResource(c.oldResource.Object); err != nil {
+		return errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+	return nil
 }
 
 func (c *PolicyContext) RequestResource() metav1.GroupVersionResource {
