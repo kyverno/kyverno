@@ -86,8 +86,10 @@ type ContextEntry struct {
 	// ConfigMap is the ConfigMap reference.
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
 
-	// Default is a default value which is used when failed to fetch data from APICall.
-	Default string `json:"default,omitempty" yaml:"default,omitempty"`
+	// Default is an optional arbitrary JSON object that the context may take if the apiCall
+	// returns error
+	// +optional
+	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
 
 	// APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
 	// The data returned is stored in the context with the name for the context entry.
