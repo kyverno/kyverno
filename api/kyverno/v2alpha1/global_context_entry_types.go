@@ -120,7 +120,7 @@ type KubernetesResource struct {
 	// +kubebuilder:validation:Required
 	Version string `json:"version,omitempty"`
 	// Resource defines the type of the resource.
-	// It's the plural form of the resource, lowercase.
+	// Requires the pluralized form of the resource kind in lowercase. (Ex., "deployments")
 	// +kubebuilder:validation:Required
 	Resource string `json:"resource,omitempty"`
 	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
