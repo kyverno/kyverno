@@ -13,7 +13,6 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	"k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -169,7 +168,7 @@ func SetPolicyExceptionLabel(report kyvernov1alpha2.ReportInterface, exception k
 	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
-func SetValidatingAdmissionPolicyBindingLabel(report kyvernov1alpha2.ReportInterface, binding v1alpha1.ValidatingAdmissionPolicyBinding) {
+func SetValidatingAdmissionPolicyBindingLabel(report kyvernov1alpha2.ReportInterface, binding admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding) {
 	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
 }
 
