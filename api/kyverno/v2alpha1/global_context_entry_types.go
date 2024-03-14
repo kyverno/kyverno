@@ -72,6 +72,10 @@ type GlobalContextEntrySpec struct {
 
 	// Stores results from an API call which will be cached.
 	// Mutually exclusive with KubernetesResource.
+	// This can be used to make calls to external (non-Kubernetes API server) services.
+	// It can also be used to make calls to the Kubernetes API server in such cases:
+	// 1. A POST is needed to create a resource.
+	// 2. Finer-grained control is needed. Example: To restrict the number of resources cached.
 	// +kubebuilder:validation:Optional
 	APICall *ExternalAPICall `json:"apiCall,omitempty"`
 }
@@ -144,10 +148,6 @@ func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
 	return errs
 }
 
-// This can be used to make calls to external (non-Kubernetes API server) services.
-// It can also be used to make calls to the Kubernetes API server in such cases:
-// 1. A POST is needed to create a resource.
-// 2. Finer-grained control is needed. Example: To restrict the number of resources cached.
 type ExternalAPICall struct {
 	kyvernov1.APICall `json:",inline,omitempty"`
 	// RefreshInterval defines the interval in duration at which to poll the APICall.

@@ -52,8 +52,13 @@ spec:
             description: Spec declares policy exception behaviors.
             properties:
               apiCall:
-                description: Stores results from an API call which will be cached.
-                  Mutually exclusive with KubernetesResource.
+                description: 'Stores results from an API call which will be cached.
+                  Mutually exclusive with KubernetesResource. This can be used to
+                  make calls to external (non-Kubernetes API server) services. It
+                  can also be used to make calls to the Kubernetes API server in such
+                  cases: 1. A POST is needed to create a resource. 2. Finer-grained
+                  control is needed. Example: To restrict the number of resources
+                  cached.'
                 properties:
                   data:
                     description: The data object specifies the POST data sent to the
