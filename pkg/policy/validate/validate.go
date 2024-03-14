@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/policy/common"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // Validate validates a 'validate' rule
@@ -187,6 +188,14 @@ func (v *Validate) validateForEach(foreach kyvernov1.ForEachValidation) error {
 		return fmt.Errorf("only one of pattern, anyPattern, deny, or a nested foreach can be specified")
 	}
 
+	for _, ctx := range foreach.Context {
+		if ctx.GlobalReference != nil {
+			errs := ctx.GlobalReference.Validate(field.NewPath("foreach").Child("context"))
+			if len(errs) > 0 {
+				return fmt.Errorf("%v", errs)
+			}
+		}
+	}
 	return nil
 }
 

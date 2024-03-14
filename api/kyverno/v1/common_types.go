@@ -182,6 +182,7 @@ type ContextAPICall struct {
 
 type GlobalContextEntryReference struct {
 	// Name of the global context entry
+	// Required
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
@@ -191,6 +192,13 @@ type GlobalContextEntryReference struct {
 	// of deployments across all namespaces.
 	// +kubebuilder:validation:Optional
 	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+}
+
+func (g *GlobalContextEntryReference) Validate(path *field.Path) (errs field.ErrorList) {
+	if g.Name == "" {
+		errs = append(errs, field.Forbidden(path.Child("globalReference"), "name is required"))
+	}
+	return errs
 }
 
 type ServiceCall struct {

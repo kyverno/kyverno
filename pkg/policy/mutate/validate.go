@@ -12,6 +12,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // Mutate provides implementation to validate 'mutate' rule
@@ -66,6 +67,15 @@ func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation
 		psm := fe.GetPatchStrategicMerge()
 		if (fe.PatchesJSON6902 == "" && psm == nil) || (fe.PatchesJSON6902 != "" && psm != nil) {
 			return tag, fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
+		}
+
+		for _, ctx := range fe.Context {
+			if ctx.GlobalReference != nil {
+				errs := ctx.GlobalReference.Validate(field.NewPath(tag).Child("context"))
+				if len(errs) > 0 {
+					return tag, fmt.Errorf("%v", errs)
+				}
+			}
 		}
 	}
 

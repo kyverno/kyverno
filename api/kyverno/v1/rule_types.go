@@ -418,6 +418,15 @@ func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespa
 	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
 }
 
+func (r *Rule) ValidateContextEntry(path *field.Path) (errs field.ErrorList) {
+	for _, ctx := range r.Context {
+		if ctx.GlobalReference != nil {
+			errs = append(errs, ctx.GlobalReference.Validate(path.Child("context"))...)
+		}
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
@@ -427,5 +436,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
 	errs = append(errs, r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)...)
+	errs = append(errs, r.ValidateContextEntry(path)...)
 	return errs
 }
