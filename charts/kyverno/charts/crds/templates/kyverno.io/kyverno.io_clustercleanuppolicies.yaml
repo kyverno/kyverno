@@ -155,7 +155,9 @@ spec:
                         in the context with the name for the context entry.
                       properties:
                         data:
-                          description: Data specifies the POST data sent to the server.
+                          description: The data object specifies the POST data sent
+                            to the server. Only applicable when the method field is
+                            set to POST.
                           items:
                             description: RequestData contains the HTTP POST data
                             properties:
@@ -187,7 +189,9 @@ spec:
                           - POST
                           type: string
                         service:
-                          description: Service is an API call to a JSON web service
+                          description: Service is an API call to a JSON web service.
+                            This is used for non-Kubernetes API server calls. It's
+                            mutually exclusive with the URLPath field.
                           properties:
                             caBundle:
                               description: CABundle is a PEM encoded CA bundle which
@@ -206,7 +210,8 @@ spec:
                             "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                             The format required is the same format used by the `kubectl
                             get --raw` command. See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
-                            for details.
+                            for details. It's mutually exclusive with the Service
+                            field.
                           type: string
                       type: object
                     configMap:
@@ -1412,7 +1417,9 @@ spec:
                         in the context with the name for the context entry.
                       properties:
                         data:
-                          description: Data specifies the POST data sent to the server.
+                          description: The data object specifies the POST data sent
+                            to the server. Only applicable when the method field is
+                            set to POST.
                           items:
                             description: RequestData contains the HTTP POST data
                             properties:
@@ -1444,7 +1451,9 @@ spec:
                           - POST
                           type: string
                         service:
-                          description: Service is an API call to a JSON web service
+                          description: Service is an API call to a JSON web service.
+                            This is used for non-Kubernetes API server calls. It's
+                            mutually exclusive with the URLPath field.
                           properties:
                             caBundle:
                               description: CABundle is a PEM encoded CA bundle which
@@ -1463,7 +1472,8 @@ spec:
                             "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                             The format required is the same format used by the `kubectl
                             get --raw` command. See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
-                            for details.
+                            for details. It's mutually exclusive with the Service
+                            field.
                           type: string
                       type: object
                     configMap:
@@ -2669,7 +2679,9 @@ spec:
                         in the context with the name for the context entry.
                       properties:
                         data:
-                          description: Data specifies the POST data sent to the server.
+                          description: The data object specifies the POST data sent
+                            to the server. Only applicable when the method field is
+                            set to POST.
                           items:
                             description: RequestData contains the HTTP POST data
                             properties:
@@ -2701,7 +2713,9 @@ spec:
                           - POST
                           type: string
                         service:
-                          description: Service is an API call to a JSON web service
+                          description: Service is an API call to a JSON web service.
+                            This is used for non-Kubernetes API server calls. It's
+                            mutually exclusive with the URLPath field.
                           properties:
                             caBundle:
                               description: CABundle is a PEM encoded CA bundle which
@@ -2720,7 +2734,8 @@ spec:
                             "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
                             The format required is the same format used by the `kubectl
                             get --raw` command. See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
-                            for details.
+                            for details. It's mutually exclusive with the Service
+                            field.
                           type: string
                       type: object
                     configMap:
