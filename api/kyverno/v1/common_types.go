@@ -86,11 +86,6 @@ type ContextEntry struct {
 	// ConfigMap is the ConfigMap reference.
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
 
-	// Default is an optional arbitrary JSON object that the context may take if the apiCall
-	// returns error
-	// +optional
-	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
-
 	// APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
 	// The data returned is stored in the context with the name for the context entry.
 	APICall *ContextAPICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
@@ -179,6 +174,11 @@ type APICall struct {
 
 type ContextAPICall struct {
 	APICall `json:",inline" yaml:",inline"`
+
+	// Default is an optional arbitrary JSON object that the context may take if the apiCall
+	// returns error
+	// +optional
+	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example
