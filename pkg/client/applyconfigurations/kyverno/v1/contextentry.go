@@ -18,16 +18,11 @@ limitations under the License.
 
 package v1
 
-import (
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-)
-
 // ContextEntryApplyConfiguration represents an declarative configuration of the ContextEntry type for use
 // with apply.
 type ContextEntryApplyConfiguration struct {
 	Name            *string                                        `json:"name,omitempty"`
 	ConfigMap       *ConfigMapReferenceApplyConfiguration          `json:"configMap,omitempty"`
-	Default         *apiextensionsv1.JSON                          `json:"default,omitempty"`
 	APICall         *ContextAPICallApplyConfiguration              `json:"apiCall,omitempty"`
 	ImageRegistry   *ImageRegistryApplyConfiguration               `json:"imageRegistry,omitempty"`
 	Variable        *VariableApplyConfiguration                    `json:"variable,omitempty"`
@@ -53,14 +48,6 @@ func (b *ContextEntryApplyConfiguration) WithName(value string) *ContextEntryApp
 // If called multiple times, the ConfigMap field is set to the value of the last call.
 func (b *ContextEntryApplyConfiguration) WithConfigMap(value *ConfigMapReferenceApplyConfiguration) *ContextEntryApplyConfiguration {
 	b.ConfigMap = value
-	return b
-}
-
-// WithDefault sets the Default field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Default field is set to the value of the last call.
-func (b *ContextEntryApplyConfiguration) WithDefault(value apiextensionsv1.JSON) *ContextEntryApplyConfiguration {
-	b.Default = &value
 	return b
 }
 

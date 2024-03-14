@@ -209,6 +209,11 @@ spec:
                                   - value
                                   type: object
                                 type: array
+                              default:
+                                description: Default is an optional arbitrary JSON
+                                  object that the context may take if the apiCall
+                                  returns error
+                                x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response
@@ -262,10 +267,6 @@ spec:
                             required:
                             - name
                             type: object
-                          default:
-                            description: Default is an optional arbitrary JSON object
-                              that the context may take if the apiCall returns error
-                            x-kubernetes-preserve-unknown-fields: true
                           globalReference:
                             description: GlobalContextEntryReference is a reference
                               to a cached global context entry.
@@ -1933,6 +1934,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the context may take
+                                            if the apiCall returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -1991,11 +1997,6 @@ spec:
                                       required:
                                       - name
                                       type: object
-                                    default:
-                                      description: Default is an optional arbitrary
-                                        JSON object that the context may take if the
-                                        apiCall returns error
-                                      x-kubernetes-preserve-unknown-fields: true
                                     globalReference:
                                       description: GlobalContextEntryReference is
                                         a reference to a cached global context entry.
@@ -2290,6 +2291,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the context may take
+                                            if the apiCall returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -2348,11 +2354,6 @@ spec:
                                       required:
                                       - name
                                       type: object
-                                    default:
-                                      description: Default is an optional arbitrary
-                                        JSON object that the context may take if the
-                                        apiCall returns error
-                                      x-kubernetes-preserve-unknown-fields: true
                                     globalReference:
                                       description: GlobalContextEntryReference is
                                         a reference to a cached global context entry.
@@ -2879,6 +2880,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the context may take
+                                            if the apiCall returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -2937,11 +2943,6 @@ spec:
                                       required:
                                       - name
                                       type: object
-                                    default:
-                                      description: Default is an optional arbitrary
-                                        JSON object that the context may take if the
-                                        apiCall returns error
-                                      x-kubernetes-preserve-unknown-fields: true
                                     globalReference:
                                       description: GlobalContextEntryReference is
                                         a reference to a cached global context entry.
@@ -4724,6 +4725,11 @@ spec:
                                       - value
                                       type: object
                                     type: array
+                                  default:
+                                    description: Default is an optional arbitrary
+                                      JSON object that the context may take if the
+                                      apiCall returns error
+                                    x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
@@ -4778,11 +4784,6 @@ spec:
                                 required:
                                 - name
                                 type: object
-                              default:
-                                description: Default is an optional arbitrary JSON
-                                  object that the context may take if the apiCall
-                                  returns error
-                                x-kubernetes-preserve-unknown-fields: true
                               globalReference:
                                 description: GlobalContextEntryReference is a reference
                                   to a cached global context entry.
@@ -6525,6 +6526,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: Default is an optional
+                                                arbitrary JSON object that the context
+                                                may take if the apiCall returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -6586,11 +6592,6 @@ spec:
                                           required:
                                           - name
                                           type: object
-                                        default:
-                                          description: Default is an optional arbitrary
-                                            JSON object that the context may take
-                                            if the apiCall returns error
-                                          x-kubernetes-preserve-unknown-fields: true
                                         globalReference:
                                           description: GlobalContextEntryReference
                                             is a reference to a cached global context
@@ -6899,6 +6900,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: Default is an optional
+                                                arbitrary JSON object that the context
+                                                may take if the apiCall returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -6960,11 +6966,6 @@ spec:
                                           required:
                                           - name
                                           type: object
-                                        default:
-                                          description: Default is an optional arbitrary
-                                            JSON object that the context may take
-                                            if the apiCall returns error
-                                          x-kubernetes-preserve-unknown-fields: true
                                         globalReference:
                                           description: GlobalContextEntryReference
                                             is a reference to a cached global context
@@ -7520,6 +7521,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: Default is an optional
+                                                arbitrary JSON object that the context
+                                                may take if the apiCall returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -7581,11 +7587,6 @@ spec:
                                           required:
                                           - name
                                           type: object
-                                        default:
-                                          description: Default is an optional arbitrary
-                                            JSON object that the context may take
-                                            if the apiCall returns error
-                                          x-kubernetes-preserve-unknown-fields: true
                                         globalReference:
                                           description: GlobalContextEntryReference
                                             is a reference to a cached global context
@@ -9522,6 +9523,11 @@ spec:
                                   - value
                                   type: object
                                 type: array
+                              default:
+                                description: Default is an optional arbitrary JSON
+                                  object that the context may take if the apiCall
+                                  returns error
+                                x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response
@@ -9575,10 +9581,6 @@ spec:
                             required:
                             - name
                             type: object
-                          default:
-                            description: Default is an optional arbitrary JSON object
-                              that the context may take if the apiCall returns error
-                            x-kubernetes-preserve-unknown-fields: true
                           globalReference:
                             description: GlobalContextEntryReference is a reference
                               to a cached global context entry.
@@ -10820,6 +10822,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the context may take
+                                            if the apiCall returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -10878,11 +10885,6 @@ spec:
                                       required:
                                       - name
                                       type: object
-                                    default:
-                                      description: Default is an optional arbitrary
-                                        JSON object that the context may take if the
-                                        apiCall returns error
-                                      x-kubernetes-preserve-unknown-fields: true
                                     globalReference:
                                       description: GlobalContextEntryReference is
                                         a reference to a cached global context entry.
@@ -11177,6 +11179,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the context may take
+                                            if the apiCall returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -11235,11 +11242,6 @@ spec:
                                       required:
                                       - name
                                       type: object
-                                    default:
-                                      description: Default is an optional arbitrary
-                                        JSON object that the context may take if the
-                                        apiCall returns error
-                                      x-kubernetes-preserve-unknown-fields: true
                                     globalReference:
                                       description: GlobalContextEntryReference is
                                         a reference to a cached global context entry.
@@ -11945,6 +11947,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the context may take
+                                            if the apiCall returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
@@ -12003,11 +12010,6 @@ spec:
                                       required:
                                       - name
                                       type: object
-                                    default:
-                                      description: Default is an optional arbitrary
-                                        JSON object that the context may take if the
-                                        apiCall returns error
-                                      x-kubernetes-preserve-unknown-fields: true
                                     globalReference:
                                       description: GlobalContextEntryReference is
                                         a reference to a cached global context entry.
@@ -13763,6 +13765,11 @@ spec:
                                       - value
                                       type: object
                                     type: array
+                                  default:
+                                    description: Default is an optional arbitrary
+                                      JSON object that the context may take if the
+                                      apiCall returns error
+                                    x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
@@ -13817,11 +13824,6 @@ spec:
                                 required:
                                 - name
                                 type: object
-                              default:
-                                description: Default is an optional arbitrary JSON
-                                  object that the context may take if the apiCall
-                                  returns error
-                                x-kubernetes-preserve-unknown-fields: true
                               globalReference:
                                 description: GlobalContextEntryReference is a reference
                                   to a cached global context entry.
@@ -15564,6 +15566,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: Default is an optional
+                                                arbitrary JSON object that the context
+                                                may take if the apiCall returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -15625,11 +15632,6 @@ spec:
                                           required:
                                           - name
                                           type: object
-                                        default:
-                                          description: Default is an optional arbitrary
-                                            JSON object that the context may take
-                                            if the apiCall returns error
-                                          x-kubernetes-preserve-unknown-fields: true
                                         globalReference:
                                           description: GlobalContextEntryReference
                                             is a reference to a cached global context
@@ -15938,6 +15940,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: Default is an optional
+                                                arbitrary JSON object that the context
+                                                may take if the apiCall returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -15999,11 +16006,6 @@ spec:
                                           required:
                                           - name
                                           type: object
-                                        default:
-                                          description: Default is an optional arbitrary
-                                            JSON object that the context may take
-                                            if the apiCall returns error
-                                          x-kubernetes-preserve-unknown-fields: true
                                         globalReference:
                                           description: GlobalContextEntryReference
                                             is a reference to a cached global context
@@ -16559,6 +16561,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: Default is an optional
+                                                arbitrary JSON object that the context
+                                                may take if the apiCall returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
@@ -16620,11 +16627,6 @@ spec:
                                           required:
                                           - name
                                           type: object
-                                        default:
-                                          description: Default is an optional arbitrary
-                                            JSON object that the context may take
-                                            if the apiCall returns error
-                                          x-kubernetes-preserve-unknown-fields: true
                                         globalReference:
                                           description: GlobalContextEntryReference
                                             is a reference to a cached global context

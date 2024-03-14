@@ -55,8 +55,8 @@ func (a *apiLoader) LoadData() error {
 	if a.data == nil {
 		var err error
 		if a.data, err = executor.Fetch(a.ctx); err != nil {
-			if a.entry.Default != nil {
-				a.data = a.entry.Default.Raw
+			if a.entry.APICall.Default != nil {
+				a.data = a.entry.APICall.Default.Raw
 			} else {
 				return fmt.Errorf("failed to fetch data for APICall: %w", err)
 			}
