@@ -7873,7 +7873,11 @@ ExternalAPICall
 </td>
 <td>
 <p>Stores results from an API call which will be cached.
-Mutually exclusive with KubernetesResource.</p>
+Mutually exclusive with KubernetesResource.
+This can be used to make calls to external (non-Kubernetes API server) services.
+It can also be used to make calls to the Kubernetes API server in such cases:
+1. A POST is needed to create a resource.
+2. Finer-grained control is needed. Example: To restrict the number of resources cached.</p>
 </td>
 </tr>
 </table>
@@ -8041,10 +8045,6 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
 <a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
 </p>
 <p>
-<p>This can be used to make calls to external (non-Kubernetes API server) services.
-It can also be used to make calls to the Kubernetes API server in such cases:
-1. A POST is needed to create a resource.
-2. Finer-grained control is needed. Example: To restrict the number of resources cached.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -8129,7 +8129,11 @@ ExternalAPICall
 </td>
 <td>
 <p>Stores results from an API call which will be cached.
-Mutually exclusive with KubernetesResource.</p>
+Mutually exclusive with KubernetesResource.
+This can be used to make calls to external (non-Kubernetes API server) services.
+It can also be used to make calls to the Kubernetes API server in such cases:
+1. A POST is needed to create a resource.
+2. Finer-grained control is needed. Example: To restrict the number of resources cached.</p>
 </td>
 </tr>
 </tbody>
@@ -8240,7 +8244,7 @@ string
 </td>
 <td>
 <p>Resource defines the type of the resource.
-It&rsquo;s the plural form of the resource, lowercase.</p>
+Requires the pluralized form of the resource kind in lowercase. (Ex., &ldquo;deployments&rdquo;)</p>
 </td>
 </tr>
 <tr>

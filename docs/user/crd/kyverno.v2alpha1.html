@@ -767,7 +767,13 @@ Mutually exclusive with APICall.</p>
           
 
           <p>Stores results from an API call which will be cached.
-Mutually exclusive with KubernetesResource.</p>
+Mutually exclusive with KubernetesResource.
+This can be used to make calls to external (non-Kubernetes API server) services.
+It can also be used to make calls to the Kubernetes API server in such cases:</p>
+<ol>
+<li>A POST is needed to create a resource.</li>
+<li>Finer-grained control is needed. Example: To restrict the number of resources cached.</li>
+</ol>
 
 
           
@@ -1090,13 +1096,7 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
     </p>
   
 
-  <p><p>This can be used to make calls to external (non-Kubernetes API server) services.
-It can also be used to make calls to the Kubernetes API server in such cases:</p>
-<ol>
-<li>A POST is needed to create a resource.</li>
-<li>Finer-grained control is needed. Example: To restrict the number of resources cached.</li>
-</ol>
-</p>
+  <p></p>
 
   
     <table class="table table-striped">
@@ -1268,7 +1268,13 @@ Mutually exclusive with APICall.</p>
           
 
           <p>Stores results from an API call which will be cached.
-Mutually exclusive with KubernetesResource.</p>
+Mutually exclusive with KubernetesResource.
+This can be used to make calls to external (non-Kubernetes API server) services.
+It can also be used to make calls to the Kubernetes API server in such cases:</p>
+<ol>
+<li>A POST is needed to create a resource.</li>
+<li>Finer-grained control is needed. Example: To restrict the number of resources cached.</li>
+</ol>
 
 
           
@@ -1509,7 +1515,7 @@ Mutually exclusive with KubernetesResource.</p>
           
 
           <p>Resource defines the type of the resource.
-It's the plural form of the resource, lowercase.</p>
+Requires the pluralized form of the resource kind in lowercase. (Ex., &quot;deployments&quot;)</p>
 
 
           
