@@ -126,8 +126,9 @@ spec:
                       be cached.
                     type: string
                   resource:
-                    description: Resource defines the type of the resource. It's the
-                      plural form of the resource, lowercase.
+                    description: Resource defines the type of the resource. Requires
+                      the pluralized form of the resource kind in lowercase. (Ex.,
+                      "deployments")
                     type: string
                   version:
                     description: Version defines the version of the resource.
