@@ -31,7 +31,8 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="REFRESH",type="date",JSONPath=".status.lastRefreshTime"
+// +kubebuilder:printcolumn:name="REFRESH INTERVAL",type="string",JSONPath=".spec.apiCall.refreshInterval"
+// +kubebuilder:printcolumn:name="LAST REFRESH",type="date",JSONPath=".status.lastRefreshTime"
 
 // GlobalContextEntry declares resources to be cached.
 type GlobalContextEntry struct {
@@ -64,11 +65,13 @@ func (c *GlobalContextEntry) IsNamespaced() bool {
 
 // GlobalContextEntrySpec stores policy exception spec
 type GlobalContextEntrySpec struct {
-	// KubernetesResource stores infos about kubernetes resource that should be cached
+	// Stores a list of Kubernetes resources which will be cached.
+	// Mutually exclusive with APICall.
 	// +kubebuilder:validation:Optional
 	KubernetesResource *KubernetesResource `json:"kubernetesResource,omitempty"`
 
-	// APICall stores infos about API call that should be cached
+	// Stores results from an API call which will be cached.
+	// Mutually exclusive with KubernetesResource.
 	// +kubebuilder:validation:Optional
 	APICall *ExternalAPICall `json:"apiCall,omitempty"`
 }
@@ -110,13 +113,18 @@ type GlobalContextEntryList struct {
 
 // KubernetesResource stores infos about kubernetes resource that should be cached
 type KubernetesResource struct {
-	// Group defines the group of the resource
+	// Group defines the group of the resource.
+	// +kubebuilder:validation:Required
 	Group string `json:"group,omitempty"`
-	// Version defines the version of the resource
+	// Version defines the version of the resource.
+	// +kubebuilder:validation:Required
 	Version string `json:"version,omitempty"`
-	// Resource defines the type of the resource
+	// Resource defines the type of the resource.
+	// It's the plural form of the resource, lowercase.
+	// +kubebuilder:validation:Required
 	Resource string `json:"resource,omitempty"`
 	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
+	// If left empty for namespaced resources, all resources from all namespaces will be cached.
 	// +kubebuilder:validation:Optional
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
@@ -136,10 +144,15 @@ func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
 	return errs
 }
 
-// ExternalAPICall stores infos about API call that should be cached
+// This can be used to make calls to external (non-Kubernetes API server) services.
+// It can also be used to make calls to the Kubernetes API server in such cases:
+// 1. A POST is needed to create a resource.
+// 2. Finer-grained control is needed. Example: To restrict the number of resources cached.
 type ExternalAPICall struct {
 	kyvernov1.APICall `json:",inline,omitempty"`
-	// RefreshInterval defines the interval in duration at which to poll the APICall
+	// RefreshInterval defines the interval in duration at which to poll the APICall.
+	// The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+	// such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 	// +kubebuilder:validation:Format=duration
 	// +kubebuilder:default=`10m`
 	RefreshInterval *metav1.Duration `json:"refreshInterval,omitempty"`
@@ -150,5 +163,14 @@ func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
 	if e.RefreshInterval.Duration == 0*time.Second {
 		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "A Resource entry requires a refresh interval greater than 0 seconds"))
 	}
+
+	if (e.Service == nil && e.URLPath == "") || (e.Service != nil && e.URLPath != "") {
+		errs = append(errs, field.Forbidden(path.Child("service"), "An External API call should either have Service or URLPath"))
+	}
+
+	if e.Data != nil && e.Method != "POST" {
+		errs = append(errs, field.Forbidden(path.Child("method"), "An External API call with data should have method as POST"))
+	}
+
 	return errs
 }
