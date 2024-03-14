@@ -1,0 +1,24 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: invalid-global-context-entry-reference
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: main-deployment.yaml
+    - apply:
+        file: gctxentry.yaml
+    - sleep:
+        duration: 15s
+  - name: step-02
+    try:
+    - script:
+        content: kubectl apply -f clusterpolicy.yaml
+        check:
+          ($error != null): true
+          # This check ensures the contents of stderr are exactly as shown.  
+          ($stderr): |-
+            Error from server: error when creating "clusterpolicy.yaml": admission webhook "validate-policy.kyverno.svc" denied the request: spec.rules[0].context.globalReference: Forbidden: name is required
