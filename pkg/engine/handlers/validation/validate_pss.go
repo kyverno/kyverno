@@ -171,6 +171,7 @@ func getImages(containerNames []string, imageInfos map[string]map[string]api.Ima
 }
 
 // return an image references for a container name
+// if the image is not found, the name is returned
 func getImageReference(name string, imageInfos map[string]map[string]api.ImageInfo) string {
 	if containers, ok := imageInfos["containers"]; ok {
 		if imageInfo, ok := containers[name]; ok {
@@ -187,7 +188,7 @@ func getImageReference(name string, imageInfos map[string]map[string]api.ImageIn
 			return imageInfo.String()
 		}
 	}
-	return ""
+	return name
 }
 
 func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {

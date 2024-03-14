@@ -415,8 +415,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 			for _, ctxEntry := range rule.Context {
 				if ctxEntry.GlobalReference != nil {
+					if ctxEntry.GlobalReference.Name == "" {
+						warnings = append(warnings, "Global context entry name is not provided")
+						return warnings, nil
+					}
 					if !isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
-						return nil, fmt.Errorf("global context entry %s is not ready", ctxEntry.GlobalReference.Name)
+						warnings = append(warnings, fmt.Sprintf("Global context entry %s does not exist or is not ready", ctxEntry.GlobalReference.Name))
+						return warnings, nil
 					}
 				}
 			}
