@@ -95,7 +95,7 @@ func (e *engine) filterRule(
 			}
 		}
 		logger.V(4).Info("rule not matched", "reason", err.Error())
-		return nil
+		return engineapi.RuleSkip(rule.Name, ruleType, "no resource matched")
 	}
 
 	policyContext.JSONContext().Checkpoint()
