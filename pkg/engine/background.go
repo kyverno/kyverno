@@ -62,13 +62,13 @@ func (e *engine) filterRule(
 	}
 
 	// get policy exceptions that matches both policy and rule name
-	exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
+	exceptions, err := e.GetPolicyExceptions(policyContext.Policy())
 	if err != nil {
 		logger.Error(err, "failed to get exceptions")
 		return nil
 	}
 	// check if there is a policy exception matches the incoming resource
-	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	exception := engineutils.MatchesException(exceptions, policyContext, rule.Name, logger)
 	if exception != nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {

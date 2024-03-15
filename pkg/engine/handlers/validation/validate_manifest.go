@@ -57,10 +57,10 @@ func (h validateManifestHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	_ engineapi.EngineContextLoader,
-	exceptions []kyvernov2beta1.PolicyException,
+	exceptions []*kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there is a policy exception matches the incoming resource
-	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	exception := engineutils.MatchesException(exceptions, policyContext, rule.Name, logger)
 	if exception != nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
