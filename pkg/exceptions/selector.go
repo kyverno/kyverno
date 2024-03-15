@@ -26,7 +26,7 @@ func (s selector) Find(policyName string) ([]*kyvernov2beta1.PolicyException, er
 	}
 	var results []*kyvernov2beta1.PolicyException
 	for _, polex := range polexs {
-		if polex.Name == policyName {
+		if polex.Contains(policyName, "*") {
 			results = append(results, polex)
 		}
 	}

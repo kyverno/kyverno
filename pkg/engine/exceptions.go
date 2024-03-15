@@ -16,9 +16,6 @@ func (e *engine) GetPolicyExceptions(
 		return exceptions, nil
 	}
 	policyName := cache.MetaObjectToName(policy).String()
-	if err != nil {
-		return exceptions, fmt.Errorf("failed to compute policy key: %w", err)
-	}
 	polexs, err := e.exceptionSelector.Find(policyName)
 	if err != nil {
 		return exceptions, err
