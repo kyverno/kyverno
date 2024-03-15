@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"fmt"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"k8s.io/client-go/tools/cache"
@@ -17,7 +15,7 @@ func (e *engine) GetPolicyExceptions(
 	if e.exceptionSelector == nil {
 		return exceptions, nil
 	}
-	policyName, err := cache.MetaNamespaceKeyFunc(policy)
+	policyName := cache.MetaObjectToName(policy).String()
 	if err != nil {
 		return exceptions, fmt.Errorf("failed to compute policy key: %w", err)
 	}
