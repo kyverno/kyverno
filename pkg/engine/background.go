@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -68,9 +67,8 @@ func (e *engine) filterRule(
 		logger.Error(err, "failed to get exceptions")
 		return nil
 	}
-	var imageInfo apiutils.ImageInfo
 	// check if there is a policy exception matches the incoming resource
-	exception := engineutils.MatchesException(exceptions, policyContext, logger, imageInfo)
+	exception := engineutils.MatchesException(exceptions, policyContext, logger)
 	if exception != nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
