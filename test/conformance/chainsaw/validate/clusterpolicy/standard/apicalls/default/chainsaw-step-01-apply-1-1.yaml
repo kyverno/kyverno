@@ -1,15 +1,41 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
 metadata:
-  labels:
-    app.kubernetes.io/component: admission-controller
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-  name: kyverno:subjectaccessreviews
-rules:
-- apiGroups:
-  - authorization.k8s.io
-  resources:
-  - subjectaccessreviews
-  verbs:
-  - '*'
+  name: check-subjectaccessreview
+spec:
+  background: false
+  rules:
+  - context:
+    - apiCall:
+        data:
+        - key: kind
+          value: SubjectAccessReview
+        - key: apiVersion
+          value: authorization.k8s.io/v1
+        - key: spec
+          value:
+            resourceAttributes:
+              group: ""
+              name: '{{ request.namespace }}'
+              resource: namespaces
+              verb: delete
+            user: system:serviceaccount:kyverno:kyverno-admission-controller
+        method: POST
+        urlPath: /apis/authorization.k8s.io/v1/subjectaccessreview
+        default: ''
+      name: subjectaccessreview
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    name: check-sar
+    validate:
+      deny:
+        conditions:
+          any:
+          - key: '{{ subjectaccessreview.status.allowed }}'
+            operator: NotEquals
+            value: true
+      message: User is not authorized.
+  validationFailureAction: Enforce
