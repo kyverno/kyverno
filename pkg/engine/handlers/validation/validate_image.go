@@ -80,6 +80,15 @@ func (h validateImageHandler) Process(
 					skippedImages = append(skippedImages, image)
 					continue
 				}
+
+				logger.V(4).Info("validating image", "image", image)
+				if v, err := validateImage(policyContext, imageVerify, imageInfo, logger); err != nil {
+					return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
+				} else if v == engineapi.ImageVerificationSkip {
+					skippedImages = append(skippedImages, image)
+				} else if v == engineapi.ImageVerificationPass {
+					passedImages = append(passedImages, image)
+				}
 			}
 		}
 	}
