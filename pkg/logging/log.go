@@ -85,6 +85,8 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 	}
 	// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).
 	zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-1 * level))
+	// disable stacktrace
+	zc.DisableStacktrace = true
 	zapLog, err := zc.Build()
 	if err != nil {
 		return err

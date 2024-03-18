@@ -56,7 +56,7 @@ func New(
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		config := apicall.NewAPICallConfiguration(maxResponseLength)
-		caller := apicall.NewCaller(logger, "globalcontext", client, config)
+		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
 			if data, err := doCall(ctx, caller, call); err != nil {
@@ -79,6 +79,8 @@ func New(
 				}
 			} else {
 				e.setData(data, nil)
+
+				logger.V(4).Info("api call success", "data", data)
 
 				if shouldUpdateStatus {
 					if updateErr := updateStatus(ctx, gce.Name, kyvernoClient, true, "APICallSuccess"); updateErr != nil {
@@ -124,7 +126,7 @@ func (e *entry) setData(data any, err error) {
 	}
 }
 
-func doCall(ctx context.Context, caller apicall.Caller, call kyvernov1.APICall) (any, error) {
+func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall) (any, error) {
 	return caller.Execute(ctx, &call)
 }
 

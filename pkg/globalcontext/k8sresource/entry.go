@@ -56,10 +56,8 @@ func New(
 		group.Wait()
 	}
 	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-		cancel()
-
 		if shouldUpdateStatus {
-			if err := updateStatus(context.Background(), gce, kyvernoClient, false, "CacheSyncFailure"); err != nil {
+			if err := updateStatus(ctx, gce, kyvernoClient, false, "CacheSyncFailure"); err != nil {
 				logger.Error(err, "failed to update status")
 			}
 		}
@@ -72,6 +70,8 @@ func New(
 			Namespace:  gce.Namespace,
 			UID:        gce.UID,
 		}, entryevent.ReasonInformerRunFailure, eventErr))
+
+		stop()
 	})
 	if err != nil {
 		logger.Error(err, "failed to set watch error handler")
