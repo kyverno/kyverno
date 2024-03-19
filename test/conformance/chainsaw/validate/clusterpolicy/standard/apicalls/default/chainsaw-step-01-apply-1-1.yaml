@@ -21,7 +21,7 @@ spec:
               verb: delete
             user: system:serviceaccount:kyverno:kyverno-admission-controller
         method: POST
-        urlPath: /apis/authorization.k8s.io/v1/subjectaccessreviews/wrongurl
+        urlPath: /apis/authorization.k8s.io/v1/subjectaccessreviews/invalidurl
         default: ''
       name: subjectaccessreview
     match:
