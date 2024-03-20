@@ -61,7 +61,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	jp := jmespath.New(cfg)
 	resource := p.Resource
 	namespaceLabels := p.NamespaceSelectorMap[p.Resource.GetNamespace()]
-	policyExceptionLister := &policyExceptionLister{
+	policyExceptionLister := &policyExceptionSelector{
 		exceptions: p.PolicyExceptions,
 	}
 	var client engineapi.Client

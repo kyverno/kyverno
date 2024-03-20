@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -62,22 +63,21 @@ func NewExceptionSelector(
 	resyncPeriod time.Duration,
 ) engineapi.PolicyExceptionSelector {
 	logger = logger.WithName("exception-selector").WithValues("enablePolicyException", enablePolicyException, "exceptionNamespace", exceptionNamespace)
+
 	logger.Info("setup exception selector...")
-	var exceptionsLister engineapi.PolicyExceptionSelector
+
+	var exceptionsSelector engineapi.PolicyExceptionSelector
 	if enablePolicyException {
-		factory := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-		lister := factory.Kyverno().V2beta1().PolicyExceptions().Lister()
-		if exceptionNamespace != "" {
-			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
-		} else {
-			exceptionsLister = lister
-		}
+		factory := kyvernoinformer.NewFilteredSharedInformerFactory(kyvernoClient, resyncPeriod, exceptionNamespace, nil)
+
+		exceptionsSelector = informers.NewPolicyExceptionInformer(factory)
+
 		// start informers and wait for cache sync
 		if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
 			checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		}
 	}
-	return exceptionsLister
+	return exceptionsSelector
 }
 
 func NewConfigMapResolver(
