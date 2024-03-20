@@ -222,7 +222,7 @@ spec:
                               method:
                                 default: GET
                                 description: Method is the HTTP request type (GET
-                                  or POST).
+                                  or POST). Defaults to GET.
                                 enum:
                                 - GET
                                 - POST
@@ -1947,7 +1947,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST).
+                                            type (GET or POST). Defaults to GET.
                                           enum:
                                           - GET
                                           - POST
@@ -2303,7 +2303,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST).
+                                            type (GET or POST). Defaults to GET.
                                           enum:
                                           - GET
                                           - POST
@@ -2891,7 +2891,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST).
+                                            type (GET or POST). Defaults to GET.
                                           enum:
                                           - GET
                                           - POST
@@ -4734,7 +4734,7 @@ spec:
                                   method:
                                     default: GET
                                     description: Method is the HTTP request type (GET
-                                      or POST).
+                                      or POST). Defaults to GET.
                                     enum:
                                     - GET
                                     - POST
@@ -6537,7 +6537,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST).
+                                                type (GET or POST). Defaults to GET.
                                               enum:
                                               - GET
                                               - POST
@@ -6912,7 +6912,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST).
+                                                type (GET or POST). Defaults to GET.
                                               enum:
                                               - GET
                                               - POST
@@ -7534,7 +7534,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST).
+                                                type (GET or POST). Defaults to GET.
                                               enum:
                                               - GET
                                               - POST
@@ -9534,7 +9534,7 @@ spec:
                               method:
                                 default: GET
                                 description: Method is the HTTP request type (GET
-                                  or POST).
+                                  or POST). Defaults to GET.
                                 enum:
                                 - GET
                                 - POST
@@ -10833,7 +10833,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST).
+                                            type (GET or POST). Defaults to GET.
                                           enum:
                                           - GET
                                           - POST
@@ -11189,7 +11189,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST).
+                                            type (GET or POST). Defaults to GET.
                                           enum:
                                           - GET
                                           - POST
@@ -11956,7 +11956,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST).
+                                            type (GET or POST). Defaults to GET.
                                           enum:
                                           - GET
                                           - POST
@@ -13772,7 +13772,7 @@ spec:
                                   method:
                                     default: GET
                                     description: Method is the HTTP request type (GET
-                                      or POST).
+                                      or POST). Defaults to GET.
                                     enum:
                                     - GET
                                     - POST
@@ -15575,7 +15575,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST).
+                                                type (GET or POST). Defaults to GET.
                                               enum:
                                               - GET
                                               - POST
@@ -15950,7 +15950,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST).
+                                                type (GET or POST). Defaults to GET.
                                               enum:
                                               - GET
                                               - POST
@@ -16572,7 +16572,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST).
+                                                type (GET or POST). Defaults to GET.
                                               enum:
                                               - GET
                                               - POST
