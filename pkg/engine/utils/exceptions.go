@@ -20,28 +20,34 @@ func MatchesException(
 	if resource.Object == nil {
 		resource = policyContext.OldResource()
 	}
-	for _, polex := range polexs {
+
+	for i := range polexs {
 		err := matched.CheckMatchesResources(
 			resource,
-			polex.Spec.Match,
+			polexs[i].Spec.Match,
 			policyContext.NamespaceLabels(),
 			policyContext.AdmissionInfo(),
 			gvk,
 			subresource,
 		)
-		// if there's no error it means a match
-		if err == nil {
-			if polex.Spec.Conditions != nil {
-				passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *polex.Spec.Conditions)
-				if err != nil {
-					return nil
-				}
-				if !passed {
-					return nil
-				}
-			}
-			return polex
+		// if there is an error it means a no-match
+		if err != nil {
+			continue
 		}
+
+		if polexs[i].Spec.Conditions != nil {
+			passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *polexs[i].Spec.Conditions)
+			if err != nil {
+				logger.Error(err, "failed to evaluate conditions")
+				continue
+			}
+			if !passed {
+				continue
+			}
+		}
+
+		return polexs[i]
 	}
+
 	return nil
 }
