@@ -43,13 +43,13 @@ func New(
 	}, nil
 }
 
-func (a *apiCall) FetchAndLoad(ctx context.Context) ([]byte, error) {
+func (a *apiCall) FetchAndLoad(ctx context.Context, invalid bool) ([]byte, error) {
 	data, err := a.Fetch(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	results, err := a.Store(data)
+	results, err := a.Store(data, invalid)
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +69,8 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	return data, nil
 }
 
-func (a *apiCall) Store(data []byte, invalid ...bool) ([]byte, error) {
-	results, err := a.transformAndStore(data, invalid[0])
+func (a *apiCall) Store(data []byte, invalid bool) ([]byte, error) {
+	results, err := a.transformAndStore(data, invalid)
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +81,9 @@ func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte,
 	return a.executor.Execute(ctx, call)
 }
 
-func (a *apiCall) transformAndStore(jsonData []byte, invalid ...bool) ([]byte, error) {
+func (a *apiCall) transformAndStore(jsonData []byte, invalid bool) ([]byte, error) {
 	//If the urlPath is invalid then JMESPath should be ""
-	if invalid[0] {
+	if invalid {
 		a.entry.APICall.JMESPath = ""
 	}
 

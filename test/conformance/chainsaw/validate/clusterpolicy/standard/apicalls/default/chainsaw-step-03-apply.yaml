@@ -18,7 +18,7 @@ spec:
       apiCall:
         urlPath: "/api/v1/namespaces/{{ request.namespace }}/services/invalidurl"
         jmesPath: "items[?spec.type == 'LoadBalancer'] | length(@)"
-        default: '{{ subjectaccessreview.status.allowed }}'
+        default: '{ subjectaccessreview.status.allowed }'
     validate:
       message: "Only one LoadBalancer service is allowed per namespace"
       deny:
