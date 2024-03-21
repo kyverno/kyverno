@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kyvernoreports "github.com/kyverno/kyverno/pkg/utils/report"
+	"github.com/opentracing/opentracing-go/log"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -59,7 +60,9 @@ func printExceptions(out io.Writer, engineResponses []engineapi.EngineResponse, 
 	for _, report := range clustered {
 		for _, result := range report.Results {
 			if result.Result == "fail" {
-				printException(out, result, ttl)
+				if err := printException(out, result, ttl); err != nil {
+					log.Error(err)
+				}
 			}
 		}
 	}
@@ -103,7 +106,7 @@ func printException(out io.Writer, result v1alpha2.PolicyReportResult, ttl time.
 			}
 		}
 
-		if controlList, ok := result.Properties["controls"]; ok {
+		if controlList, ok := result.Properties["controlsJSON"]; ok {
 			pssList := make([]kyvernov1.PodSecurityStandard, 0)
 			var controls []kyvernoreports.Control
 			err := json.Unmarshal([]byte(controlList), &controls)
