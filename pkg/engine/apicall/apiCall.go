@@ -69,8 +69,8 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	return data, nil
 }
 
-func (a *apiCall) Store(data []byte) ([]byte, error) {
-	results, err := a.transformAndStore(data)
+func (a *apiCall) Store(data []byte, invalid ...bool) ([]byte, error) {
+	results, err := a.transformAndStore(data, invalid[0])
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,12 @@ func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte,
 	return a.executor.Execute(ctx, call)
 }
 
-func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
+func (a *apiCall) transformAndStore(jsonData []byte, invalid ...bool) ([]byte, error) {
+	//If the urlPath is invalid then JMESPath should be ""
+	if invalid[0] {
+		a.entry.APICall.JMESPath = ""
+	}
+
 	if a.entry.APICall.JMESPath == "" {
 		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
 		if err != nil {
