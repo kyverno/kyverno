@@ -1,40 +1,28 @@
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-subjectaccessreview
+  name: limits
 spec:
-  background: false
+  validationFailureAction: Enforce
   rules:
-  - context:
-    - apiCall:
-        data:
-        - key: kind
-          value: SubjectAccessReview
-        - key: apiVersion
-          value: authorization.k8s.io/v1
-        - key: spec
-          value:
-            resourceAttributes:
-              group: ""
-              name: '{{ request.namespace }}'
-              resource: namespaces
-              verb: delete
-            user: system:serviceaccount:kyverno:kyverno-admission-controller
-        method: POST
-        urlPath: /apis/authorization.k8s.io/v1/subjectaccessreviews/invalidurl
-      name: subjectaccessreview
+  - name: limit-lb-svc
     match:
       any:
       - resources:
           kinds:
-          - ConfigMap
-    name: check-sar
+          - Service
+          operations:
+          - CREATE
+    context:
+    - name: serviceCount
+      apiCall:
+        urlPath: "/api/v1/namespaces/{{ request.namespace }}/services/invalidurl"
+        jmesPath: "items[?spec.type == 'LoadBalancer'] | length(@)"    
     validate:
+      message: "Only one LoadBalancer service is allowed per namespace"
       deny:
         conditions:
           any:
-          - key: '{{ subjectaccessreview.status.allowed }}'
-            operator: NotEquals
-            value: true
-      message: User is not authorized.
-  validationFailureAction: Enforce
+          - key: "{{ serviceCount }}"
+            operator: GreaterThan
+            value: 1

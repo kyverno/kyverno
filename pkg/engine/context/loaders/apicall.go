@@ -21,6 +21,7 @@ type apiLoader struct {
 	client    engineapi.RawClient
 	config    apicall.APICallConfiguration
 	data      []byte
+	invalid   bool
 }
 
 func NewAPILoader(
@@ -55,6 +56,7 @@ func (a *apiLoader) LoadData() error {
 	if a.data == nil {
 		var err error
 		if a.data, err = executor.Fetch(a.ctx); err != nil {
+			a.invalid = true
 			if a.entry.APICall.Default != nil {
 				a.data = a.entry.APICall.Default.Raw
 			} else {
@@ -62,7 +64,8 @@ func (a *apiLoader) LoadData() error {
 			}
 		}
 	}
-	if _, err := executor.Store(a.data); err != nil {
+
+	if _, err := executor.Store(a.data, a.invalid); err != nil {
 		return fmt.Errorf("failed to store data for APICall: %w", err)
 	}
 	return nil
