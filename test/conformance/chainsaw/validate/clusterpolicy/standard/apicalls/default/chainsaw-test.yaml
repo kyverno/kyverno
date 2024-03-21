@@ -11,7 +11,10 @@ spec:
         file: chainsaw-step-01-apply-1-1.yaml
   - name: step-02
     try:
-    - error:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
         file: chainsaw-step-02-error-1-1.yaml
   - name: step-03
     try:
