@@ -166,6 +166,7 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 			return p.GetSpec().GetMutateExistingOnPolicyUpdate()
 		}
         }
+	
        	return true
 }
 
