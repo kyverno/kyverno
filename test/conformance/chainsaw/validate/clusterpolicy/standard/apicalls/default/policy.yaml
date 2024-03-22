@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: limits
+  name: default
 spec:
   validationFailureAction: Enforce
   rules:
