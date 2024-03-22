@@ -72,17 +72,12 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSCheckResult, exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod, matching *corev1.Pod, isContainerLevelExclusion bool) ([]pssutils.PSSCheckResult, error) {
 	defaultCheckResultsMap := make(map[string]pssutils.PSSCheckResult, len(defaultCheckResults))
 
-	if err := exclude.Validate(exclude); err != nil {
-		fmt.Print(err)
-		return nil, err
-	}
-
 	for _, result := range defaultCheckResults {
 		defaultCheckResultsMap[result.ID] = result
 	}
 
 	for _, excludeResult := range excludeCheckResults {
-		for _, checkID := range pssutils.PSS_controls_to_check_id[exclude.ControlName] {
+		for _, checkID := range pssutils.PSS_control_name_to_ids[exclude.ControlName] {
 			if excludeResult.ID == checkID {
 				for _, excludeFieldErr := range *excludeResult.CheckResult.ErrList {
 					var excludeField, excludeContainerType string
@@ -318,7 +313,7 @@ func GetPodWithMatchingContainers(exclude kyvernov1.PodSecurityStandard, pod *co
 
 // Get restrictedFields from Check.ID
 func GetRestrictedFields(check policy.Check) []pssutils.RestrictedField {
-	for _, control := range pssutils.PSS_controls_to_check_id {
+	for _, control := range pssutils.PSS_control_name_to_ids {
 		for _, checkID := range control {
 			if string(check.ID) == checkID {
 				return pssutils.PSS_controls[checkID]
