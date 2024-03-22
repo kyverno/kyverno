@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: apiCall-default
+  name: apicall-default
 spec:
   steps:
   - name: step-01
