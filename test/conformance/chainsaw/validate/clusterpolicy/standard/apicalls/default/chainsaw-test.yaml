@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: default
+  name: apiCall-default
 spec:
   steps:
   - name: step-01
@@ -12,6 +12,16 @@ spec:
     - assert:
         file: policy-assert.yaml
   - name: step-02
+    try:
+    - apply:
+        file: ns.yaml
+    - assert:
+        file: ns.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: exception.yaml
+  - name: step-04
     try:
     - apply:
         file: pod-allowed-1.yaml
