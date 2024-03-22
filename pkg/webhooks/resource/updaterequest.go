@@ -24,7 +24,9 @@ func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger l
 	h.handleGenerate(ctx, logger, request, generatePolicies, policyContext, ts)
 }
 
-func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp time.Time) {
+func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, polCtx *engine.PolicyContext, admissionRequestTimestamp time.Time) {
+	policyContext := &engine.PolicyContext{}
+	*policyContext = *polCtx
 	if request.Operation == admissionv1.Delete {
 		policyContext = policyContext.WithNewResource(policyContext.OldResource())
 	}

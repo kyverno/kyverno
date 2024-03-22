@@ -1208,7 +1208,7 @@ func Test_ConditionCheck_SeveralElementsMatchExceptOne(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	containers := yaml.MustParse(string(containersRaw))
 
-	err := preProcessPattern(logr.Discard(), pattern, containers)
+	err := PreProcessPattern(logr.Discard(), pattern, containers)
 	assert.NilError(t, err)
 
 	patternContainers := pattern.Field("containers")
@@ -1261,7 +1261,7 @@ func Test_NonExistingKeyMustFailPreprocessing(t *testing.T) {
 
 	pattern := yaml.MustParse(string(rawPattern))
 	resource := yaml.MustParse(string(rawResource))
-	err := preProcessPattern(logr.Discard(), pattern, resource)
+	err := PreProcessPattern(logr.Discard(), pattern, resource)
 	assert.Error(t, err, "condition failed: could not found \"key1\" key in the resource")
 }
 
@@ -1272,7 +1272,7 @@ func Test_NestedConditionals(t *testing.T) {
 
 	pattern := yaml.MustParse(rawPattern)
 	resource := yaml.MustParse(rawResource)
-	err := preProcessPattern(logr.Discard(), pattern, resource)
+	err := PreProcessPattern(logr.Discard(), pattern, resource)
 	assert.NilError(t, err)
 	resultPattern, _ := pattern.String()
 
@@ -1312,6 +1312,6 @@ func Test_GlobalCondition_Fail(t *testing.T) {
 
 	pattern := yaml.MustParse(string(rawPattern))
 	resource := yaml.MustParse(string(rawResource))
-	err := preProcessPattern(logr.Discard(), pattern, resource)
+	err := PreProcessPattern(logr.Discard(), pattern, resource)
 	assert.Error(t, err, "global condition failed: could not found \"emptyDir\" key in the resource")
 }

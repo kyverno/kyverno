@@ -734,7 +734,8 @@ and admission review request information like the name or role.</p>
         <td>
           
 
-          <p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+          <p>Stores a list of Kubernetes resources which will be cached.
+Mutually exclusive with APICall.</p>
 
 
           
@@ -765,7 +766,14 @@ and admission review request information like the name or role.</p>
         <td>
           
 
-          <p>APICall stores infos about API call that should be cached</p>
+          <p>Stores results from an API call which will be cached.
+Mutually exclusive with KubernetesResource.
+This can be used to make calls to external (non-Kubernetes API server) services.
+It can also be used to make calls to the Kubernetes API server in such cases:</p>
+<ol>
+<li>A POST is needed to create a resource.</li>
+<li>Finer-grained control is needed. Example: To restrict the number of resources cached.</li>
+</ol>
 
 
           
@@ -1088,8 +1096,7 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
     </p>
   
 
-  <p><p>ExternalAPICall stores infos about API call that should be cached</p>
-</p>
+  <p></p>
 
   
     <table class="table table-striped">
@@ -1159,7 +1166,9 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
         <td>
           
 
-          <p>RefreshInterval defines the interval in duration at which to poll the APICall</p>
+          <p>RefreshInterval defines the interval in duration at which to poll the APICall.
+The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+such as &quot;300ms&quot;, &quot;1.5h&quot; or &quot;2h45m&quot;. Valid time units are &quot;ns&quot;, &quot;us&quot; (or &quot;µs&quot;), &quot;ms&quot;, &quot;s&quot;, &quot;m&quot;, &quot;h&quot;.</p>
 
 
           
@@ -1226,7 +1235,8 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
         <td>
           
 
-          <p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+          <p>Stores a list of Kubernetes resources which will be cached.
+Mutually exclusive with APICall.</p>
 
 
           
@@ -1257,7 +1267,14 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
         <td>
           
 
-          <p>APICall stores infos about API call that should be cached</p>
+          <p>Stores results from an API call which will be cached.
+Mutually exclusive with KubernetesResource.
+This can be used to make calls to external (non-Kubernetes API server) services.
+It can also be used to make calls to the Kubernetes API server in such cases:</p>
+<ol>
+<li>A POST is needed to create a resource.</li>
+<li>Finer-grained control is needed. Example: To restrict the number of resources cached.</li>
+</ol>
 
 
           
@@ -1439,7 +1456,7 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
         <td>
           
 
-          <p>Group defines the group of the resource</p>
+          <p>Group defines the group of the resource.</p>
 
 
           
@@ -1468,7 +1485,7 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
         <td>
           
 
-          <p>Version defines the version of the resource</p>
+          <p>Version defines the version of the resource.</p>
 
 
           
@@ -1497,7 +1514,8 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
         <td>
           
 
-          <p>Resource defines the type of the resource</p>
+          <p>Resource defines the type of the resource.
+Requires the pluralized form of the resource kind in lowercase. (Ex., &quot;deployments&quot;)</p>
 
 
           
@@ -1524,7 +1542,8 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
         <td>
           
 
-          <p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.</p>
+          <p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
+If left empty for namespaced resources, all resources from all namespaces will be cached.</p>
 
 
           
