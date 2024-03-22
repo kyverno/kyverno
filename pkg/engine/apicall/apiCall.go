@@ -82,12 +82,7 @@ func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte,
 }
 
 func (a *apiCall) transformAndStore(jsonData []byte, invalid bool) ([]byte, error) {
-	//If the urlPath is invalid then JMESPath should be ""
-	if invalid {
-		a.entry.APICall.JMESPath = ""
-	}
-
-	if a.entry.APICall.JMESPath == "" {
+	if a.entry.APICall.JMESPath == "" || invalid {
 		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", a.entry.Name, err)
