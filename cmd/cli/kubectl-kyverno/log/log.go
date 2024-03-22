@@ -22,6 +22,9 @@ func configure(args ...string) error {
 	if isVerbose(args...) {
 		if level, err := getLogLevel(args...); err == nil {
 			return logging.Setup(logging.TextFormat, logging.DefaultTime, level)
+		} else {
+			// Use the default log level i.e 0 to handle the error while extracting level from cli
+			return logging.Setup(logging.TextFormat, logging.DefaultTime, 0)
 		}
 	}
 
