@@ -165,9 +165,9 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 		if p.GetCreationTimestamp().Add(interval).After(time.Now()) {
 			return p.GetSpec().GetMutateExistingOnPolicyUpdate()
 		}
-        }
-	
-       	return true
+  }
+	 
+ return true
 }
 
 func (pc *policyController) addPolicy(obj interface{}) {
