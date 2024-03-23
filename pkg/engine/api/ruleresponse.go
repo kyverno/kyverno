@@ -29,6 +29,8 @@ type RuleResponse struct {
 	ruleType RuleType
 	// message is the message response from the rule application
 	message string
+	// origin of the report i.e admission or background
+	origin string
 	// status rule status
 	status RuleStatus
 	// stats contains rule statistics
@@ -57,9 +59,10 @@ func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStat
 		emitWarn = true
 	}
 	return &RuleResponse{
-		name:        name,
-		ruleType:    ruleType,
-		message:     msg,
+		name:     name,
+		ruleType: ruleType,
+		message:  msg,
+		// origin:      origin,
 		status:      status,
 		emitWarning: emitWarn,
 	}
@@ -155,6 +158,10 @@ func (r *RuleResponse) GeneratedResource() unstructured.Unstructured {
 
 func (r *RuleResponse) Message() string {
 	return r.message
+}
+
+func (r *RuleResponse) Origin() string {
+	return r.origin
 }
 
 func (r *RuleResponse) Name() string {
