@@ -8,65 +8,61 @@ spec:
   - name: step-01
     try:
     - apply:
-        file: clusterrolebinding.yaml
+        file: ns.yaml
   - name: step-02
     try:
     - apply:
-        file: ns.yaml
+        file: first-pod.yaml
   - name: step-03
     try:
     - apply:
-        file: first-pod.yaml
+        file: policies.yaml
   - name: step-04
     try:
     - apply:
-        file: policies.yaml
-  - name: step-05
-    try:
-    - apply:
         file: pod1.yaml
-  - name: step-06 # checks if admission controller was restarted
+  - name: step-05 # checks if admission controller was restarted
     try:
     - script:
         content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
         check:
           # there should not be any matching value thus error != null is true
           ($error != null): true
-  - name: step-07
+  - name: step-06
     try:
     - apply:
         file: pod2.yaml
-  - name: step-08
+  - name: step-07
     try:
     - script:
         content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
         check:
           ($error != null): true
-  - name: step-09
+  - name: step-08
     try:
     - apply:
         file: pod3.yaml
-  - name: step-10
+  - name: step-09
     try:
     - script:
         content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
         check:
           ($error != null): true
-  - name: step-11
+  - name: step-10
     try:
     - apply:
         file: pod4.yaml
-  - name: step-12
+  - name: step-11
     try:
     - script:
         content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
         check:
           ($error != null): true
-  - name: step-13
+  - name: step-12
     try:
     - apply:
         file: pod5.yaml
-  - name: step-14
+  - name: step-13
     try:
     - script:
         content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
