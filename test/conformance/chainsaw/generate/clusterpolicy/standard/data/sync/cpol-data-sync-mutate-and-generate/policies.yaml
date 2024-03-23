@@ -1,0 +1,76 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-mutate
+spec:
+  rules:    
+    - name: test-mutate
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            operations:
+            - CREATE
+      context:
+      - name: list_pvs
+        apiCall:
+          urlPath: "/api/v1/persistentvolumes"
+          jmesPath: "items[?spec.claimRef.name == 'shared-dp-pvc']"
+      preconditions:
+        all:
+        - key: "{{ length(list_pvs) }}"
+          operator: GreaterThan
+          value: 0
+      mutate:
+        targets:
+          - apiVersion: v1
+            kind: PersistentVolume
+            name: "{{ list_pvs[0].metadata.name }}"
+        patchesJson6902: |-
+          - path: "/spec/persistentVolumeReclaimPolicy"
+            op: add
+            value: Retain
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-generate
+spec:
+  rules:    
+    - name: test-generate
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            operations:
+            - CREATE
+      context:
+      - name: list_pvs
+        apiCall:
+          urlPath: "/api/v1/persistentvolumes"
+          jmesPath: "items[?spec.claimRef.name == 'shared-dp-pvc']"
+      preconditions:
+        all:
+        - key: "{{ length(list_pvs) }}"
+          operator: GreaterThan
+          value: 0
+      generate:
+        synchronize: true
+        apiVersion: v1
+        kind: Pod
+        name: pod1-{{request.name}}
+        namespace: shared-dp
+        data:
+          spec:
+            containers:
+              - name: container
+                image: nginx
+                volumeMounts:
+                - name: shared-volume
+                  mountPath: /data
+            volumes:
+              - name: shared-volume
+                persistentVolumeClaim:
+                  claimName: shared-dp-pvc

@@ -40,4 +40,5 @@ type DeferredLoaders interface {
 	Add(loader DeferredLoader, level int)
 	LoadMatching(query string, level int) error
 	Reset(removeCheckpoint bool, level int)
+	CreateDeepCopy() DeferredLoaders
 }

@@ -152,6 +152,20 @@ func (d *deferredLoaders) LoadMatching(query string, level int) error {
 	return nil
 }
 
+func (d *deferredLoaders) CreateDeepCopy() DeferredLoaders {
+	loaders := make([]*leveledLoader, len(d.loaders))
+	for i, v := range d.loaders {
+		loaders[i] = v
+	}
+
+	dCopy := deferredLoaders{
+		index:   d.index,
+		level:   d.level,
+		loaders: loaders, // existing loaders at the time of deepcopy will be the same for the new copy and original deferred loader
+	}
+	return &dCopy
+}
+
 func (d *deferredLoaders) loadData(l *leveledLoader, index int) error {
 	d.setLevelAndIndex(l.level, index)
 	defer d.setLevelAndIndex(-1, -1)

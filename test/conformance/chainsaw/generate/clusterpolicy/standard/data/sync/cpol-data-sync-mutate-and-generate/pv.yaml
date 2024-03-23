@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    pv.kubernetes.io/provisioned-by: rook-ceph.cephfs.csi.ceph.com
+    volume.kubernetes.io/provisioner-deletion-secret-name: rook-csi-cephfs-provisioner
+    volume.kubernetes.io/provisioner-deletion-secret-namespace: rook-ceph
+  creationTimestamp: "2024-01-16T12:44:33Z"
+  finalizers:
+  - kubernetes.io/pv-protection
+  name: pvc-ceac2041-73f7-4e7f-84e3-56e6676450d8
+  resourceVersion: "8194237"
+  uid: 2db5e82f-e375-49de-a13a-fa8b8ebb5cff
+spec:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 1Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: shared-dp-pvc
+    namespace: shared-dp
+    resourceVersion: "8172526"
+    uid: ceac2041-73f7-4e7f-84e3-56e6676450d8
+  csi:
+    controllerExpandSecretRef:
+      name: rook-csi-cephfs-provisioner
+      namespace: rook-ceph
+    driver: rook-ceph.cephfs.csi.ceph.com
+    nodeStageSecretRef:
+      name: rook-csi-cephfs-node
+      namespace: rook-ceph
+    volumeAttributes:
+      allowVolumeExpansion: "true"
+      clusterID: rook-ceph
+      fsName: cephfs
+      pool: cephfs_data
+      reclaimPolicy: Delete
+      storage.kubernetes.io/csiProvisionerIdentity: 1704293676714-8081-rook-ceph.cephfs.csi.ceph.com
+      subvolumeName: csi-vol-759a7904-9480-4e82-b4c1-012ea3a349cd
+      subvolumePath: /volumes/csi/csi-vol-759a7904-9480-4e82-b4c1-012ea3a349cd/42bf7b2f-c021-43b2-9ab3-e096a5457d97
+    volumeHandle: 0001-0009-rook-ceph-0000000000000001-759a7904-9480-4e82-b4c1-012ea3a349cd
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ceph-cephfs
+  volumeMode: Filesystem
+status:
+  phase: Bound
