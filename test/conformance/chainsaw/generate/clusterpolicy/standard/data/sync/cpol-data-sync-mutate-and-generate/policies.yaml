@@ -13,24 +13,24 @@ spec:
             operations:
             - CREATE
       context:
-      - name: list_pvs
+      - name: list_pods
         apiCall:
-          urlPath: "/api/v1/persistentvolumes"
-          jmesPath: "items[?spec.claimRef.name == 'shared-dp-pvc']"
+          urlPath: "/api/v1/namespaces/{{request.namespace}}/pods"
+          jmesPath: "items[]"
       preconditions:
         all:
-        - key: "{{ length(list_pvs) }}"
+        - key: "{{ length(list_pods) }}"
           operator: GreaterThan
           value: 0
       mutate:
         targets:
           - apiVersion: v1
-            kind: PersistentVolume
-            name: "{{ list_pvs[0].metadata.name }}"
+            kind: Pod
+            name: "{{ list_pods[0].metadata.name }}"
         patchesJson6902: |-
-          - path: "/spec/persistentVolumeReclaimPolicy"
+          - path: "/spec/priority"
             op: add
-            value: Retain
+            value: 1000
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -47,13 +47,13 @@ spec:
             operations:
             - CREATE
       context:
-      - name: list_pvs
+      - name: list_pods
         apiCall:
-          urlPath: "/api/v1/persistentvolumes"
-          jmesPath: "items[?spec.claimRef.name == 'shared-dp-pvc']"
+          urlPath: "/api/v1/namespaces/{{request.namespace}}/pods"
+          jmesPath: "items[]"
       preconditions:
         all:
-        - key: "{{ length(list_pvs) }}"
+        - key: "{{ length(list_pods) }}"
           operator: GreaterThan
           value: 0
       generate:
@@ -70,7 +70,3 @@ spec:
                 volumeMounts:
                 - name: shared-volume
                   mountPath: /data
-            volumes:
-              - name: shared-volume
-                persistentVolumeClaim:
-                  claimName: shared-dp-pvc
