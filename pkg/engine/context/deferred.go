@@ -154,9 +154,7 @@ func (d *deferredLoaders) LoadMatching(query string, level int) error {
 
 func (d *deferredLoaders) CreateDeepCopy() DeferredLoaders {
 	loaders := make([]*leveledLoader, len(d.loaders))
-	for i, v := range d.loaders {
-		loaders[i] = v
-	}
+	copy(loaders, d.loaders)
 
 	dCopy := deferredLoaders{
 		index:   d.index,

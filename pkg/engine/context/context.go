@@ -455,7 +455,6 @@ func (ctx *context) CreateDeepCopy() Interface {
 			out.images[k] = make(map[string]apiutils.ImageInfo, len(ctx.images[k]))
 			for k1, v1 := range ctx.images[k] {
 				out.images[k][k1] = v1
-
 			}
 		}
 	}
