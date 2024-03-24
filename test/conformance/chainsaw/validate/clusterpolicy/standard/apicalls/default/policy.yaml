@@ -5,25 +5,22 @@ metadata:
 spec:
   validationFailureAction: Enforce
   rules:
-  - name: limit-lb-svc
+  - name: default-api-call
     match:
       any:
       - resources:
           kinds:
-          - Service
-          operations:
-          - CREATE
+          - Pod
     context:
-    - name: serviceCount
+    - name: podCount
       apiCall:
-        urlPath: "/api/v1/namespaces/{{ request.namespace }}/services/invalidurl"
-        jmesPath: "items[?spec.type == 'LoadBalancer'] | length(@)"
-        default: '{ subjectaccessreview.status.allowed }'
+        urlPath: "/api/v1/namespaces/{{request.namespace}}/pods/invalid"
+        jmesPath: "items | length(@)"   
+        default: 1
     validate:
-      message: "Only one LoadBalancer service is allowed per namespace"
       deny:
         conditions:
           any:
-          - key: "{{ serviceCount }}"
+          - key: "{{ podCount }}"
             operator: GreaterThan
             value: 1
