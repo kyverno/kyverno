@@ -20,7 +20,7 @@ spec:
   conditions:
     all:
       - key: "{{ target.metadata.name }}"
-        operator: NotEquals
+        operator: Equals
         value: "{{ varname }}"
       - key: "{{ target.metadata.namespace }}"
         operator: Equals
