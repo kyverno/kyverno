@@ -14,36 +14,9 @@ spec:
   - name: step-02
     try:
     - apply:
-        file: ns.yaml
-    - assert:
-        file: ns.yaml
-  - name: step-03
-    try:
-    - apply:
-        file: exception.yaml
-  - name: step-04
-    try:
-    - apply:
-        file: pod-allowed-1.yaml
-    - apply:
-        file: pod-allowed-2.yaml
+        file: pod-good.yaml
     - apply:
         expect:
         - check:
             ($error != null): true
-        file: pod-rejected-1.yaml
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: pod-rejected-2.yaml
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: pod-rejected-3.yaml
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: pod-rejected-4.yaml
+        file: pod-bad.yaml
