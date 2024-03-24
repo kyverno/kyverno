@@ -6,9 +6,9 @@ spec:
   context:
     - name: varNamespace
       apiCall:
-        urlPath: "/api/v1/namespaces/default/invalid"
+        urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
         jmesPath: metadata.name
-        default:
+        default: default
     - name: varname
       variable:
         value: "example"
