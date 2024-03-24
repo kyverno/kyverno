@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: default
+  name: cleanup-pod
 status:
   conditions:
   - reason: Succeeded
