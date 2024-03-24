@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: context-cleanup-pod
+  name: default-apicall
 spec:
   steps:
   - name: step-01
@@ -27,17 +27,5 @@ spec:
         file: pod-assert.yaml
   - name: step-06
     try:
-    - apply:
-        file: pod-bad.yaml
-    - assert:
-        file: pod-bad-assert.yaml
-  - name: step-07
-    try:
-    - apply:
-        file: policy.yaml
-    - assert:
-        file: policy.yaml
-  - name: step-08
-    try:
     - error:
-        file: pod-bad-assert.yaml
+        file: pod-bad.yaml
