@@ -8,19 +8,19 @@ spec:
   - name: default-api-call
     match:
       any:
-      - resources:
-          kinds:
-          - Pod
+        - resources:
+            kinds:
+              - Pod
     context:
-    - name: podCount
+    - name: varNamespace
       apiCall:
-        urlPath: "/api/v1/namespaces/{{request.namespace}}/pods/invalid"
-        jmesPath: "items | length(@)"   
-        default: 1
+        urlPath: "/api/v1/namespaces/default/invalid"
+        jmesPath: metadata.name
+        default: default
     validate:
       deny:
         conditions:
           any:
-          - key: "{{ podCount }}"
-            operator: GreaterThan
-            value: 1
+          - key: "{{ varNamespace }}"
+            operator: NotEquals
+            value: default
