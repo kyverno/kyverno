@@ -159,7 +159,7 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 		val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
 		interval, err := time.ParseDuration(val)
 		if err != nil {
-			logger.V(4).Info("failed to parse BACKGROUND_SCAN_INTERVAL env variable, falling to default 1h", "msg", err.Error())
+			logger.V(4).Info("env variable BACKGROUND_SCAN_INTERVAL not set, falling to default 1h", "msg", err.Error())
 			interval = time.Hour
 		}
 		if p.GetCreationTimestamp().Add(interval).After(time.Now()) {
