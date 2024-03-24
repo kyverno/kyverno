@@ -4,12 +4,12 @@ metadata:
   name: cleanup-pod
 spec:
   context:
-    - name: varname
+    - name: varNamespace
       apiCall:
         urlPath: "/api/v1/namespaces/default/invalid"
         jmesPath: metadata.name
-        default: default
-    - name: varNamespace
+        default:
+    - name: varname
       variable:
         value: "example"
   match:
