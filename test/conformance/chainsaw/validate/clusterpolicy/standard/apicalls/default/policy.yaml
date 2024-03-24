@@ -1,26 +1,29 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: kyverno.io/v2beta1
+kind: ClusterCleanupPolicy
 metadata:
-  name: default
+  name: cleanup-pod
 spec:
-  validationFailureAction: Enforce
-  rules:
-  - name: default-api-call
-    match:
-      any:
-        - resources:
-            kinds:
-              - Pod
-    context:
-    - name: varName
+  context:
+    - name: varNamespace
       apiCall:
         urlPath: "/api/v1/namespaces/default/invalid"
         jmesPath: metadata.name
         default: default
-    validate:
-      deny:
-        conditions:
-          any:
-          - key: "{{ target.metadata.name }}"
-            operator: NotEquals
-            value: "{{ varName }}"
+    - name: varname
+      variable:
+        value: "example"
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+  conditions:
+    all:
+      - key: "{{ target.metadata.name }}"
+        operator: NotEquals
+        value: "{{ varname }}"
+      - key: "{{ target.metadata.namespace }}"
+        operator: Equals
+        value: "{{ varNamespace }}"
+  ## execute every minute
+  schedule: "*/1 * * * *"
