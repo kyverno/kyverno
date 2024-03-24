@@ -12,7 +12,7 @@ spec:
             kinds:
               - Pod
     context:
-    - name: varNamespace
+    - name: varName
       apiCall:
         urlPath: "/api/v1/namespaces/default/invalid"
         jmesPath: metadata.name
@@ -21,6 +21,6 @@ spec:
       deny:
         conditions:
           any:
-          - key: "{{ varNamespace }}"
+          - key: "{{ target.metadata.name }}"
             operator: NotEquals
-            value: default
+            value: "{{ varName }}"
