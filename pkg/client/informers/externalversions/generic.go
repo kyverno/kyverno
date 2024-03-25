@@ -92,6 +92,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterBackgroundScanReports().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("clustercleanuppolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterCleanupPolicies().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("clusterpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterPolicies().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("policies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().Policies().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("policyexceptions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().PolicyExceptions().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("updaterequests"):

@@ -30,6 +30,10 @@ type ClusterBackgroundScanReportExpansion interface{}
 
 type ClusterCleanupPolicyExpansion interface{}
 
+type ClusterPolicyExpansion interface{}
+
+type PolicyExpansion interface{}
+
 type PolicyExceptionExpansion interface{}
 
 type UpdateRequestExpansion interface{}
