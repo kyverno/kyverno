@@ -1,7 +1,7 @@
 apiVersion: cli.kyverno.io/v1alpha1
+globalValues:
+  request.oldObject.metadata.labels.existing-label: foo
+  request.operation: UPDATE
 kind: Value
 metadata:
   name: values
-globalValues:
-  request.operation: UPDATE
-  request.oldObject.metadata.labels.existing-label: foo
