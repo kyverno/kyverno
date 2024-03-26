@@ -222,6 +222,8 @@ func compareDuration(_ logr.Logger, value interface{}, pattern string, op operat
 	} else if value, err := time.ParseDuration(value); err != nil {
 		return false, false
 	} else {
+		pattern := pattern.Seconds()
+		value := value.Seconds()
 		switch op {
 		case operator.Equal:
 			return value == pattern, true
