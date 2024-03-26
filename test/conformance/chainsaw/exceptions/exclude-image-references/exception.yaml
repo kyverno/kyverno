@@ -16,4 +16,4 @@ spec:
         - Deployment
   verifyImages:
     imageReferences:
-    - "ghcr.io/Kyverno/*"
+    - "ghcr.io/kyverno/*"
