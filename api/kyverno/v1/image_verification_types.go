@@ -119,6 +119,10 @@ type ImageVerification struct {
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
 	UseCache bool `json:"useCache" yaml:"useCache"`
+
+	// Validation is used to validate matching resources.
+	// +optional
+	Validation Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
 }
 
 type AttestorSet struct {
