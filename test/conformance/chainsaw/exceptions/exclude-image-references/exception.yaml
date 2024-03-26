@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: exclude-image-references
+spec:
+  exceptions:
+  - policyName: exclude-image-references
+    ruleNames:
+    - exclude-image-references
+    - autogen-exclude-image-references
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        - Deployment
+  verifyImages:
+    imageReferences:
+    - "ghcr.io/Kyverno/*"
