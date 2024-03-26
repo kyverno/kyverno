@@ -9,19 +9,19 @@ resources:
 results:
 - kind: Pod
   policy: disallow-host-path
-  rule: host-path
-  resources:
-  - good-pod
-  result: pass
-- kind: Pod
-  policy: disallow-host-path
-  rule: host-path
   resources:
   - bad-pod
   result: fail
+  rule: host-path
 - kind: Pod
   policy: disallow-host-path
+  resources:
+  - good-pod
+  result: pass
   rule: host-path
+- kind: Pod
+  policy: disallow-host-path
   resources:
   - skipped-pod
   result: skip
+  rule: host-path
