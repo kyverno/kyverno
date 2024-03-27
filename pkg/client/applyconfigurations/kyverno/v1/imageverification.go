@@ -43,6 +43,7 @@ type ImageVerificationApplyConfiguration struct {
 	Required                 *bool                                       `json:"required,omitempty"`
 	ImageRegistryCredentials *ImageRegistryCredentialsApplyConfiguration `json:"imageRegistryCredentials,omitempty"`
 	UseCache                 *bool                                       `json:"useCache,omitempty"`
+	Validation               *ValidationApplyConfiguration               `json:"validate,omitempty"`
 }
 
 // ImageVerificationApplyConfiguration constructs an declarative configuration of the ImageVerification type for use with
@@ -218,5 +219,13 @@ func (b *ImageVerificationApplyConfiguration) WithImageRegistryCredentials(value
 // If called multiple times, the UseCache field is set to the value of the last call.
 func (b *ImageVerificationApplyConfiguration) WithUseCache(value bool) *ImageVerificationApplyConfiguration {
 	b.UseCache = &value
+	return b
+}
+
+// WithValidation sets the Validation field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Validation field is set to the value of the last call.
+func (b *ImageVerificationApplyConfiguration) WithValidation(value *ValidationApplyConfiguration) *ImageVerificationApplyConfiguration {
+	b.Validation = value
 	return b
 }

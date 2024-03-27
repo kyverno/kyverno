@@ -835,6 +835,7 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 		*out = new(ImageRegistryCredentials)
 		(*in).DeepCopyInto(*out)
 	}
+	in.Validation.DeepCopyInto(&out.Validation)
 	return
 }
 

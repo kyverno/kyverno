@@ -2509,6 +2509,20 @@ bool
 <p>UseCache enables caching of image verify responses for this rule.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>validate</code><br/>
+<em>
+<a href="#kyverno.io/v1.Validation">
+Validation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Validation is used to validate matching resources.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -4343,6 +4357,7 @@ It is an empty string when validating admission policy is successfully generated
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
