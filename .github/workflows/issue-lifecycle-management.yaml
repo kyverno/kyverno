@@ -1,0 +1,24 @@
+name: 'Handle stale issues and PRs'
+permissions:
+  issues: write
+  pull-requests: write
+on:
+  schedule:
+   - cron: '0 0 * * *'  # Run every day at midnight
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mviswanathsai/stale@rotten-branch
+        with:
+          stale-issue-message: 'This issue is stale because it has been open 90 days with no activity. Remove stale label or comment or this will be rotten in 30 days.'
+          stale-pr-message: 'This pr is stale because it has been open 90 days with no activity. Remove stale label or comment or this will be rotten in 30 days.'
+          rotten-issue-message: 'This issue is rotten because it has been stale for 90 days with no activity. Remove rotten label or comment or this will be closed in 30 days.'
+          rotten-pr-message: 'This pr is rotten because it has been stale for 90 days with no activity. Remove rotten label or comment or this will be closed in 30 days.'
+          days-before-stale: 90
+          days-before-rotten: 30
+          days-before-close: 30
+          stale-issue-label: 'lifecycle/stale'
+          stale-pr-label: 'lifecycle/stale'
+          rotten-issue-label: 'lifecycle/rotten'
+          rotten-pr-label: 'lifecycle/rotten'
