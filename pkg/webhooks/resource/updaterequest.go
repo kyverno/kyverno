@@ -12,6 +12,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
@@ -30,6 +31,11 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		logger.Error(err, "failed to create policy context")
 		return
 	}
+	namespaceLabels := make(map[string]string)
+	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+	}
+	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 
 	if request.AdmissionRequest.Operation == admissionv1.Delete {
 		policyContext = policyContext.WithNewResource(policyContext.OldResource())
@@ -96,6 +102,11 @@ func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logge
 		logger.Error(err, "failed to create policy context")
 		return
 	}
+	namespaceLabels := make(map[string]string)
+	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+	}
+	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 
 	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig, h.backgroundServiceAccountName)
 	var policies []kyvernov1.PolicyInterface
