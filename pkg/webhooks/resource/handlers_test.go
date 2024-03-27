@@ -264,10 +264,11 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+	resourceHandlers, err := NewFakeHandlers(ctx, policyCache)
+	assert.NilError(t, err)
 
 	var validPolicy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyCheckLabel), &validPolicy)
+	err = json.Unmarshal([]byte(policyCheckLabel), &validPolicy)
 	assert.NilError(t, err)
 
 	key := makeKey(&validPolicy)
@@ -309,10 +310,11 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+	resourceHandlers, err := NewFakeHandlers(ctx, policyCache)
+	assert.NilError(t, err)
 
 	var invalidPolicy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyInvalid), &invalidPolicy)
+	err = json.Unmarshal([]byte(policyInvalid), &invalidPolicy)
 	assert.NilError(t, err)
 
 	request := handlers.AdmissionRequest{
@@ -351,10 +353,11 @@ func Test_ImageVerify(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+	resourceHandlers, err := NewFakeHandlers(ctx, policyCache)
+	assert.NilError(t, err)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyVerifySignature), &policy)
+	err = json.Unmarshal([]byte(policyVerifySignature), &policy)
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
@@ -395,10 +398,11 @@ func Test_MutateAndVerify(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+	resourceHandlers, err := NewFakeHandlers(ctx, policyCache)
+	assert.NilError(t, err)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyMutateAndVerify), &policy)
+	err = json.Unmarshal([]byte(policyMutateAndVerify), &policy)
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)

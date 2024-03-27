@@ -19,18 +19,21 @@ type policyExceptionInformer struct {
 
 func NewPolicyExceptionInformer(
 	factory kyvernoinformer.SharedInformerFactory,
-) *policyExceptionInformer {
+) (*policyExceptionInformer, error) {
 	indexers := cache.Indexers{
 		PolicyExceptionIndexName: policyRulePairIndexer,
 	}
 
 	informer := factory.Kyverno().V2beta1().PolicyExceptions().Informer()
-	informer.AddIndexers(indexers)
+	err := informer.AddIndexers(indexers)
+	if err != nil {
+		return nil, err
+	}
 
 	return &policyExceptionInformer{
 		informer: informer,
 		indexer:  informer.GetIndexer(),
-	}
+	}, nil
 }
 
 func (i *policyExceptionInformer) Informer() cache.SharedIndexInformer {

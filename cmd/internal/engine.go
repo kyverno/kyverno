@@ -67,10 +67,12 @@ func NewExceptionSelector(
 	logger.Info("setup exception selector...")
 
 	var exceptionsSelector engineapi.PolicyExceptionSelector
+	var err error
 	if enablePolicyException {
 		factory := kyvernoinformer.NewFilteredSharedInformerFactory(kyvernoClient, resyncPeriod, exceptionNamespace, nil)
 
-		exceptionsSelector = informers.NewPolicyExceptionInformer(factory)
+		exceptionsSelector, err = informers.NewPolicyExceptionInformer(factory)
+		checkError(logger, err, "failed to create policy exception informer")
 
 		// start informers and wait for cache sync
 		if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {

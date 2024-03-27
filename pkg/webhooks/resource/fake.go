@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhooks.ResourceHandlers {
+func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) (webhooks.ResourceHandlers, error) {
 	client := fake.NewSimpleClientset()
 	metricsConfig := metrics.NewFakeMetricsConfig()
 
@@ -37,10 +37,14 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	configMapResolver, _ := resolvers.NewClientBasedResolver(client)
 	kyvernoInformers.Start(ctx.Done())
 
+	polexSelector, err := informers.NewPolicyExceptionInformer(kyvernoInformers)
+	if err != nil {
+		return nil, err
+	}
+
 	dclient := dclient.NewEmptyFakeClient()
 	configuration := config.NewDefaultConfiguration(false)
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
-	polexSelector := informers.NewPolicyExceptionInformer(kyvernoInformers)
 	jp := jmespath.New(configuration)
 	rclient := registryclient.NewOrDie()
 
@@ -64,5 +68,5 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			factories.DefaultContextLoaderFactory(configMapResolver),
 			polexSelector,
 		),
-	}
+	}, nil
 }
