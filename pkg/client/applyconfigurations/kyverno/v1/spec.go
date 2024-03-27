@@ -33,7 +33,6 @@ type SpecApplyConfiguration struct {
 	Admission                        *bool                                               `json:"admission,omitempty"`
 	Background                       *bool                                               `json:"background,omitempty"`
 	SchemaValidation                 *bool                                               `json:"schemaValidation,omitempty"`
-	WebhookTimeoutSeconds            *int32                                              `json:"webhookTimeoutSeconds,omitempty"`
 	MutateExistingOnPolicyUpdate     *bool                                               `json:"mutateExistingOnPolicyUpdate,omitempty"`
 	GenerateExistingOnPolicyUpdate   *bool                                               `json:"generateExistingOnPolicyUpdate,omitempty"`
 	GenerateExisting                 *bool                                               `json:"generateExisting,omitempty"`
@@ -118,14 +117,6 @@ func (b *SpecApplyConfiguration) WithBackground(value bool) *SpecApplyConfigurat
 // If called multiple times, the SchemaValidation field is set to the value of the last call.
 func (b *SpecApplyConfiguration) WithSchemaValidation(value bool) *SpecApplyConfiguration {
 	b.SchemaValidation = &value
-	return b
-}
-
-// WithWebhookTimeoutSeconds sets the WebhookTimeoutSeconds field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the WebhookTimeoutSeconds field is set to the value of the last call.
-func (b *SpecApplyConfiguration) WithWebhookTimeoutSeconds(value int32) *SpecApplyConfiguration {
-	b.WebhookTimeoutSeconds = &value
 	return b
 }
 
