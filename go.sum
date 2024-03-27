@@ -1222,8 +1222,8 @@ sigs.k8s.io/controller-runtime v0.17.2 h1:FwHwD1CTUemg0pW2otk7/U5/i5m2ymzvOXdbeG
 sigs.k8s.io/controller-runtime v0.17.2/go.mod h1:+MngTvIQQQhfXtwfdGw/UOQ/aIaqsYywfCINOtwMO/s=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMmr1bNJefnuqLsRAsHZo=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=
-sigs.k8s.io/kubectl-validate v0.0.2-0.20240102223437-fe143bcde89f h1:RPwKaV6OnIKUoI+cU8E35rYXt1ez9mjF5p9cOz9OgqE=
-sigs.k8s.io/kubectl-validate v0.0.2-0.20240102223437-fe143bcde89f/go.mod h1:Y67xSi06L5XSl+jSGFamNoa117yq6SnN4yXIzWHWxU8=
+sigs.k8s.io/kubectl-validate v0.0.3 h1:wcbx6dPXF7BWoWSyih295mEOLBbzZA6CaEHoCufutUo=
+sigs.k8s.io/kubectl-validate v0.0.3/go.mod h1:Y67xSi06L5XSl+jSGFamNoa117yq6SnN4yXIzWHWxU8=
 sigs.k8s.io/kustomize/api v0.16.0 h1:/zAR4FOQDCkgSDmVzV2uiFbuy9bhu3jEzthrHCuvm1g=
 sigs.k8s.io/kustomize/api v0.16.0/go.mod h1:MnFZ7IP2YqVyVwMWoRxPtgl/5hpA+eCCrQR/866cm5c=
 sigs.k8s.io/kustomize/kyaml v0.16.0 h1:6J33uKSoATlKZH16unr2XOhDI+otoe2sR3M8PDzW3K0=
