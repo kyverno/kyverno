@@ -172,42 +172,6 @@ func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyC
 	return c
 }
 
-func (c *PolicyContext) CreateDeepCopy() *PolicyContext {
-	if c == nil {
-		return nil
-	}
-
-	pc := new(PolicyContext)
-
-	pc.gvk = c.gvk
-	pc.operation = c.operation
-	pc.subresource = c.subresource
-	pc.admissionOperation = c.admissionOperation
-
-	pc.element = *c.element.DeepCopy()
-	pc.newResource = *c.newResource.DeepCopy()
-	pc.oldResource = *c.oldResource.DeepCopy()
-	pc.admissionInfo = *c.admissionInfo.DeepCopy()
-	pc.requestResource = *c.requestResource.DeepCopy()
-
-	if c.policy != nil {
-		pc.policy = c.policy.CreateDeepCopy()
-	}
-
-	if c.jsonContext != nil {
-		pc.jsonContext = c.jsonContext.CreateDeepCopy()
-	}
-
-	if len(c.namespaceLabels) != 0 {
-		pc.namespaceLabels = make(map[string]string, len(c.namespaceLabels))
-		for k, v := range c.namespaceLabels {
-			pc.namespaceLabels[k] = v
-		}
-	}
-
-	return pc
-}
-
 // Constructors
 
 func newPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface) *PolicyContext {

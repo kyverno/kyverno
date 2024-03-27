@@ -110,9 +110,6 @@ type Interface interface {
 
 	// AddJSON  merges the json map with context
 	addJSON(dataMap map[string]interface{}) error
-
-	// CreateDeepCopy generates a new context from existing one
-	CreateDeepCopy() Interface
 }
 
 // Context stores the data resources as JSON
@@ -426,42 +423,4 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 func (ctx *context) AddDeferredLoader(dl DeferredLoader) error {
 	ctx.deferred.Add(dl, len(ctx.jsonRawCheckpoints))
 	return nil
-}
-
-func (ctx *context) CreateDeepCopy() Interface {
-	if ctx == nil {
-		return nil
-	}
-
-	out := new(context)
-
-	out.jp = ctx.jp
-	out.operation = ctx.operation
-
-	if ctx.jsonRaw != nil {
-		out.jsonRaw = ctx.copyContext(ctx.jsonRaw)
-	}
-
-	if len(ctx.jsonRawCheckpoints) != 0 {
-		out.jsonRawCheckpoints = make([]map[string]interface{}, len(ctx.jsonRawCheckpoints))
-		for i, v := range ctx.jsonRawCheckpoints {
-			out.jsonRawCheckpoints[i] = runtime.DeepCopyJSON(v)
-		}
-	}
-
-	if ctx.images != nil {
-		out.images = make(map[string]map[string]apiutils.ImageInfo, len(ctx.images))
-		for k := range ctx.images {
-			out.images[k] = make(map[string]apiutils.ImageInfo, len(ctx.images[k]))
-			for k1, v1 := range ctx.images[k] {
-				out.images[k][k1] = v1
-			}
-		}
-	}
-
-	if ctx.deferred != nil {
-		out.deferred = ctx.deferred.CreateDeepCopy()
-	}
-
-	return out
 }
