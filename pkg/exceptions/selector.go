@@ -19,14 +19,14 @@ func New(lister Lister) selector {
 	}
 }
 
-func (s selector) Find(policyName string) ([]*kyvernov2beta1.PolicyException, error) {
+func (s selector) Find(policyName string, ruleName string) ([]*kyvernov2beta1.PolicyException, error) {
 	polexs, err := s.lister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 	var results []*kyvernov2beta1.PolicyException
 	for _, polex := range polexs {
-		if polex.Contains(policyName, "*") {
+		if polex.Contains(policyName, ruleName) {
 			results = append(results, polex)
 		}
 	}

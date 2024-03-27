@@ -16,14 +16,12 @@ func (e *engine) GetPolicyExceptions(
 		return exceptions, nil
 	}
 	policyName := cache.MetaObjectToName(policy).String()
-	polexs, err := e.exceptionSelector.Find(policyName)
+	polexs, err := e.exceptionSelector.Find(policyName, rule)
 	if err != nil {
 		return exceptions, err
 	}
 	for _, polex := range polexs {
-		if polex.Contains(policyName, rule) {
-			exceptions = append(exceptions, *polex)
-		}
+		exceptions = append(exceptions, *polex)
 	}
 	return exceptions, nil
 }
