@@ -17,6 +17,7 @@ func (e *engine) validate(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
+	allowedOperations []kyvernov1.AdmissionOperation,
 ) engineapi.PolicyResponse {
 	resp := engineapi.NewPolicyResponse()
 	policy := policyContext.Policy()
@@ -69,6 +70,7 @@ func (e *engine) validate(
 			matchedResource,
 			rule,
 			engineapi.Validation,
+			allowedOperations...,
 		)
 		matchedResource = resource
 		resp.Add(engineapi.NewExecutionStats(startTime, time.Now()), ruleResp...)

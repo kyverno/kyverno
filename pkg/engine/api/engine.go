@@ -19,6 +19,7 @@ type Engine interface {
 	Validate(
 		ctx context.Context,
 		policyContext PolicyContext,
+		allowedOperations ...kyvernov1.AdmissionOperation,
 	) EngineResponse
 
 	// Mutate performs mutation. Overlay first and then mutation patches

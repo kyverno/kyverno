@@ -19,6 +19,7 @@ spec:
           - Deployment
           operations:
           - CREATE
+          - UPDATE
     context:
     # Mocked response from the Kubecost prediction API until it natively supports JSON input. 
     # Get the predicted amount of the Deployment and transform to get the totalMonthlyRate.
