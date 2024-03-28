@@ -188,6 +188,11 @@ type APICall struct {
 type ContextAPICall struct {
 	APICall `json:",inline" yaml:",inline"`
 
+	// Default is an optional arbitrary JSON object that the context may take if the apiCall
+	// returns error
+	// +optional
+	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
+
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example
 	// a JMESPath of "items | length(@)" applied to the API server response
