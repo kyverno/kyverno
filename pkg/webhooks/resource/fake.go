@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/exceptions"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
@@ -61,7 +62,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(configMapResolver),
-			peLister,
+			exceptions.New(peLister),
 		),
 	}
 }

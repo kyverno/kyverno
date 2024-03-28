@@ -320,15 +320,14 @@ config:
   # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
   # will be forwarded to the webhook configurations.
   # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
-  webhooks: []
+  webhooks:
     # Exclude namespaces
-    # - namespaceSelector:
-    #     matchExpressions:
-    #     - key: kubernetes.io/metadata.name
-    #       operator: NotIn
-    #       values:
-    #         - kube-system
-    #         - kyverno
+    - namespaceSelector:
+        matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
     # Exclude objects
     # - objectSelector:
     #     matchExpressions:
@@ -336,9 +335,9 @@ config:
     #       operator: DoesNotExist
 
   # -- Defines annotations to set on webhook configurations.
-  webhookAnnotations: {}
+  webhookAnnotations:
     # Example to disable admission enforcer on AKS:
-    # 'admissions.enforcer/disabled': 'true'
+    'admissions.enforcer/disabled': 'true'
 
   # -- Defines labels to set on webhook configurations.
   webhookLabels: {}
