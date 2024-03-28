@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: skipped-pod
+  labels:
+    color: blue
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:latest
+    volumeMounts:
+    - name: hostpath-volume
+      mountPath: /var/www/html
+  volumes:
+  - name: hostpath-volume
+    hostPath:
+      path: /var/log
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod
+  labels:
+    color: red
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:latest
+    volumeMounts:
+    - name: hostpath-volume
+      mountPath: /var/www/html
+  volumes:
+  - name: hostpath-volume
+    hostPath:
+      path: /var/log
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+  labels:
+    color: red
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:latest
+    volumeMounts:
+    - name: hostpath-volume
+      mountPath: /var/www/html
+  volumes:
+  - name: hostpath-volume
+    emptyDir: {}
