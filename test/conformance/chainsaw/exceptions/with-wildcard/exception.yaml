@@ -7,7 +7,7 @@ spec:
     - policyName: require-labels
       ruleNames:
         - another-rule
-        - require-*
+        - "*"
   match:
     any:
       - resources:

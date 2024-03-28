@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
+	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -24,22 +25,26 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhooks.ResourceHandlers {
+func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) (webhooks.ResourceHandlers, error) {
 	client := fake.NewSimpleClientset()
 	metricsConfig := metrics.NewFakeMetricsConfig()
 
-	informers := kubeinformers.NewSharedInformerFactory(client, 0)
-	informers.Start(ctx.Done())
+	informersFactory := kubeinformers.NewSharedInformerFactory(client, 0)
+	informersFactory.Start(ctx.Done())
 
 	kyvernoclient := fakekyvernov1.NewSimpleClientset()
 	kyvernoInformers := kyvernoinformers.NewSharedInformerFactory(kyvernoclient, 0)
 	configMapResolver, _ := resolvers.NewClientBasedResolver(client)
 	kyvernoInformers.Start(ctx.Done())
 
+	polexSelector, err := informers.NewPolicyExceptionInformer(kyvernoInformers)
+	if err != nil {
+		return nil, err
+	}
+
 	dclient := dclient.NewEmptyFakeClient()
 	configuration := config.NewDefaultConfiguration(false)
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
-	peLister := kyvernoInformers.Kyverno().V2beta1().PolicyExceptions().Lister()
 	jp := jmespath.New(configuration)
 	rclient := registryclient.NewOrDie()
 
@@ -48,7 +53,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		configuration: configuration,
 		metricsConfig: metricsConfig,
 		pCache:        policyCache,
-		nsLister:      informers.Core().V1().Namespaces().Lister(),
+		nsLister:      informersFactory.Core().V1().Namespaces().Lister(),
 		urLister:      urLister,
 		urGenerator:   updaterequest.NewFake(),
 		eventGen:      event.NewFake(),
@@ -61,7 +66,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(configMapResolver),
-			peLister,
+			polexSelector,
 		),
-	}
+	}, nil
 }

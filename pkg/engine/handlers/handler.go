@@ -18,7 +18,7 @@ type Handler interface {
 		unstructured.Unstructured,
 		kyvernov1.Rule,
 		engineapi.EngineContextLoader,
-		[]kyvernov2beta1.PolicyException,
+		[]*kyvernov2beta1.PolicyException,
 	) (unstructured.Unstructured, []engineapi.RuleResponse)
 }
 
