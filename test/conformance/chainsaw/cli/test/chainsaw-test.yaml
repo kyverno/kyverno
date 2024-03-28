@@ -1,0 +1,14 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: check-value
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: kyverno test .
+        check:
+          ($error != null): true
+          ($stderr): "Error: 1 tests failed"

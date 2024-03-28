@@ -1,0 +1,34 @@
+# no-cpu-limits.yaml
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: no-cpu-limits
+  annotations:
+    policies.kyverno.io/title: Forbid CPU Limits
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Setting CPU limits degrades application performance while increasing costs and decreasing reliability. Forbid any container in a Pod from defining CPU limits.
+  labels:
+    app.kubernetes.io/name: no-cpu-limits
+spec:
+  background: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: check-cpu-limits
+    validate:
+      message: |
+        It is recommended not to use CPU limits; they can cause strange behavior, lag, and increase cost. You may watch this video for more information: https://drive.google.com/file/d/1wDCxzNLZJORKGaJdNlP74E2-x-I5mHzL/view?usp=drive_link
+      pattern:
+        spec:
+          containers:
+          - (name): '*'
+            =(resources):
+              =(limits):
+                X(cpu): null
+  validationFailureAction: Audit
