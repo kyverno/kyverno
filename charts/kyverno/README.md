@@ -353,6 +353,10 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| admissionController.autoscaling.enabled | bool | `false` | Enable horizontal pod autoscaling |
+| admissionController.autoscaling.maxReplicas | int | `10` | Maximum number of pods |
+| admissionController.autoscaling.minReplicas | int | `1` | Minimum number of pods |
+| admissionController.autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage |
 | admissionController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |

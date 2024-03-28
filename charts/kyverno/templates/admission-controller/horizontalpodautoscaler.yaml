@@ -1,0 +1,31 @@
+{{- if .Values.admissionController.autoscaling.enabled }}
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
+apiVersion: autoscaling/v2
+{{- else }}
+apiVersion: autoscaling/v1
+{{- end }}
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "kyverno.admission-controller.name" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+  {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "kyverno.admission-controller.name" . }}
+  minReplicas: {{ .Values.admissionController.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.admissionController.autoscaling.maxReplicas }}
+  {{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
+  metrics:
+  - resource:
+    name: cpu
+    target:
+      averageUtilization: {{ .Values.admissionController.autoscaling.targetCPUUtilizationPercentage }}
+      type: Utilization
+    type: Resource
+  {{- else }}
+  targetCPUUtilizationPercentage: {{ .Values.admissionController.autoscaling.targetCPUUtilizationPercentage }}
+  {{- end }}
+{{- end }}
