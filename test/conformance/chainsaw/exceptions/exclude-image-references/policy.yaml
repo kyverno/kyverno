@@ -34,7 +34,8 @@ data:
 apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
-  name: verify-exclude-image-references
+  name: exclude-image-references
+  namespace: exclude-image-references
 spec:
   validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
@@ -60,5 +61,3 @@ spec:
           entries:
           - certificates:
               cert: "{{ keys.data.certificate }}"
-  name: keys
-  namespace: exclude-image-references

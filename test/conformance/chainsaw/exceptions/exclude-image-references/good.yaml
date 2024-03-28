@@ -3,13 +3,13 @@ kind: Pod
 metadata:
   creationTimestamp: null
   labels:
-    run: test
-  name: skipped
+    run: test-good
+  name: skipped-1
   namespace: exclude-image-references
 spec:
   containers:
-  - image: ghcr.io/kyverno/test-verify-image:signed
-    name: test
+  - image: ghcr.io/chipzoller/zulu:v0.0.14@sha256:476b21f1a75dc90fac3579ee757f4607bb5546f476195cf645c54badf558c0db
+    name: test-good
     resources: {}
   dnsPolicy: ClusterFirst
   restartPolicy: Always
@@ -22,14 +22,15 @@ kind: Pod
 metadata:
   creationTimestamp: null
   labels:
-    run: test
-  name: test
+    run: test-good
+  name: skipped-2
   namespace: exclude-image-references
 spec:
   containers:
-  - image: ghcr.io/chipzoller/zulu:v0.0.14@sha256:476b21f1a75dc90fac3579ee757f4607bb5546f476195cf645c54badf558c0db
-    name: test
+  - image: ghcr.io/kyverno/test-verify-image:signed
+    name: test-good
     resources: {}
   dnsPolicy: ClusterFirst
   restartPolicy: Always
 status: {}
+

@@ -9,10 +9,10 @@ metadata:
 spec:
   containers:
   - image: ghcr.io/chipzoller/zulu:v0.0.14@sha256:476b21f1a75dc90fac3579ee757f4607bb5546f476195cf645c54badf558c0db
-    name: test
+    name: test-bad-1
     resources: {}
   - image: ghcr.io/kyverno/kyverno:latest
-    name: test
+    name: test-bad-2
     resources: {}
   dnsPolicy: ClusterFirst
   restartPolicy: Always
