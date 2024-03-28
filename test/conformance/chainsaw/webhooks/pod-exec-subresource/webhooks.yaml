@@ -1,0 +1,17 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-mutating-webhook-cfg
+webhooks:
+- rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CONNECT
+    resources:
+    - pods/exec
+    scope: 'Namespaced'
