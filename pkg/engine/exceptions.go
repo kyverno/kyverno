@@ -10,18 +10,9 @@ import (
 func (e *engine) GetPolicyExceptions(
 	policy kyvernov1.PolicyInterface,
 	rule string,
-) ([]kyvernov2beta1.PolicyException, error) {
-	var exceptions []kyvernov2beta1.PolicyException
+) ([]*kyvernov2beta1.PolicyException, error) {
 	if e.exceptionSelector == nil {
-		return exceptions, nil
+		return nil, nil
 	}
-	policyName := cache.MetaObjectToName(policy).String()
-	polexs, err := e.exceptionSelector.Find(policyName, rule)
-	if err != nil {
-		return exceptions, err
-	}
-	for _, polex := range polexs {
-		exceptions = append(exceptions, *polex)
-	}
-	return exceptions, nil
+	return e.exceptionSelector.Find(cache.MetaObjectToName(policy).String(), rule)
 }
