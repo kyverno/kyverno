@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -35,6 +36,8 @@ import (
 )
 
 type resourceHandlers struct {
+	wg sync.WaitGroup
+
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
@@ -131,7 +134,9 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
-		go h.handleBackgroundApplies(ctx, logger, request.AdmissionRequest, policyContext, generatePolicies, mutatePolicies, startTime)
+		h.wg.Add(1)
+		go h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
+		h.wg.Wait()
 	}
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
