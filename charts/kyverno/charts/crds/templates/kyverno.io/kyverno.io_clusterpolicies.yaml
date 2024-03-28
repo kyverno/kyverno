@@ -218,8 +218,9 @@ spec:
                                   type: object
                                 type: array
                               default:
-                                description: Default is an optional arbitrary JSON object 
-                                  that the context may take if the apiCall returns error.
+                                description: |-
+                                  Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                  returns error
                                 x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: |-
@@ -1833,8 +1834,9 @@ spec:
                                             type: object
                                           type: array
                                         default:
-                                          description: Default is an optional arbitrary JSON object 
-                                            that the context may take if the apiCall returns error.
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -2181,8 +2183,9 @@ spec:
                                             type: object
                                           type: array
                                         default:
-                                          description: Default is an optional arbitrary JSON object 
-                                            that the context may take if the apiCall returns error.
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -2758,8 +2761,9 @@ spec:
                                             type: object
                                           type: array
                                         default:
-                                          description: Default is an optional arbitrary JSON object 
-                                            that the context may take if the apiCall returns error.
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -4553,8 +4557,9 @@ spec:
                                       type: object
                                     type: array
                                   default:
-                                    description: Default is an optional arbitrary JSON object 
-                                      that the context may take if the apiCall returns error.
+                                    description: |-
+                                      Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                      returns error
                                     x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: |-
@@ -6182,8 +6187,9 @@ spec:
                                                 type: object
                                               type: array
                                             default:
-                                              description: Default is an optional arbitrary JSON object 
-                                                that the context may take if the apiCall returns error.
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -6539,8 +6545,9 @@ spec:
                                                 type: object
                                               type: array
                                             default:
-                                              description: Default is an optional arbitrary JSON object 
-                                                that the context may take if the apiCall returns error.
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -7127,8 +7134,9 @@ spec:
                                                 type: object
                                               type: array
                                             default:
-                                              description: Default is an optional arbitrary JSON object 
-                                                that the context may take if the apiCall returns error.
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -9008,8 +9016,9 @@ spec:
                                   type: object
                                 type: array
                               default:
-                                description: Default is an optional arbitrary JSON object 
-                                  that the context may take if the apiCall returns error.
+                                description: |-
+                                  Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                  returns error
                                 x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: |-
@@ -10219,8 +10228,9 @@ spec:
                                             type: object
                                           type: array
                                         default:
-                                          description: Default is an optional arbitrary JSON object 
-                                            that the context may take if the apiCall returns error.
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -10567,8 +10577,9 @@ spec:
                                             type: object
                                           type: array
                                         default:
-                                          description: Default is an optional arbitrary JSON object 
-                                            that the context may take if the apiCall returns error.
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -11320,8 +11331,9 @@ spec:
                                             type: object
                                           type: array
                                         default:
-                                          description: Default is an optional arbitrary JSON object 
-                                            that the context may take if the apiCall returns error.
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -13084,8 +13096,9 @@ spec:
                                       type: object
                                     type: array
                                   default:
-                                    description: Default is an optional arbitrary JSON object 
-                                      that the context may take if the apiCall returns error.
+                                    description: |-
+                                      Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                      returns error
                                     x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: |-
@@ -14713,8 +14726,9 @@ spec:
                                                 type: object
                                               type: array
                                             default:
-                                              description: Default is an optional arbitrary JSON object 
-                                                that the context may take if the apiCall returns error.
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -15070,8 +15084,9 @@ spec:
                                                 type: object
                                               type: array
                                             default:
-                                              description: Default is an optional arbitrary JSON object 
-                                                that the context may take if the apiCall returns error.
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -15658,8 +15673,9 @@ spec:
                                                 type: object
                                               type: array
                                             default:
-                                              description: Default is an optional arbitrary JSON object 
-                                                that the context may take if the apiCall returns error.
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
