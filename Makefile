@@ -36,7 +36,7 @@ TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
 KIND_VERSION                       ?= v0.21.0
 CONTROLLER_GEN                     ?= $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             ?= v0.12.0
+CONTROLLER_GEN_VERSION             ?= v0.14.0
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
@@ -497,25 +497,25 @@ codegen-client-all: codegen-register codegen-defaulters codegen-applyconfigurati
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	@echo Generate kyverno crds... >&2
 	@rm -rf $(CRDS_PATH)/kyverno && mkdir -p $(CRDS_PATH)/kyverno
-	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/kyverno
+	@$(CONTROLLER_GEN) paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/kyverno
 
 .PHONY: codegen-crds-policyreport
 codegen-crds-policyreport: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
 	@rm -rf $(CRDS_PATH)/policyreport && mkdir -p $(CRDS_PATH)/policyreport
-	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/policyreport
+	@$(CONTROLLER_GEN) paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/policyreport
 
 .PHONY: codegen-crds-reports
 codegen-crds-reports: $(CONTROLLER_GEN) ## Generate reports CRDs
 	@echo Generate reports crds... >&2
 	@rm -rf $(CRDS_PATH)/reports && mkdir -p $(CRDS_PATH)/reports
-	@$(CONTROLLER_GEN) crd paths=./api/reports/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/reports
+	@$(CONTROLLER_GEN) paths=./api/reports/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/reports
 
 .PHONY: codegen-crds-cli
 codegen-crds-cli: $(CONTROLLER_GEN) ## Generate CLI CRDs
 	@echo Generate cli crds... >&2
 	@rm -rf ${PWD}/cmd/cli/kubectl-kyverno/config/crds && mkdir -p ${PWD}/cmd/cli/kubectl-kyverno/config/crds
-	@$(CONTROLLER_GEN) crd paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1 output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
+	@$(CONTROLLER_GEN) paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1 output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
 
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-policyreport codegen-crds-reports codegen-cli-crds ## Generate all CRDs

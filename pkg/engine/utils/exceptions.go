@@ -11,7 +11,7 @@ import (
 // MatchesException takes a list of exceptions and checks if there is an exception applies to the incoming resource.
 // It returns the matched policy exception.
 func MatchesException(
-	polexs []kyvernov2beta1.PolicyException,
+	polexs []*kyvernov2beta1.PolicyException,
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 ) *kyvernov2beta1.PolicyException {
@@ -40,7 +40,7 @@ func MatchesException(
 					return nil
 				}
 			}
-			return &polex
+			return polex
 		}
 	}
 	return nil
