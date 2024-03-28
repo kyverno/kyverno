@@ -117,7 +117,7 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Optional
 	VerifyDigest bool `json:"verifyDigest" yaml:"verifyDigest"`
 
-	// Validation checks conditions across multiple image 
+	// Validation checks conditions across multiple image
 	// verification attestations or context entries
 	Validation ValidateImageVerification `json:"validate,omitempty" yaml:"validate,omitempty"`
 
@@ -352,6 +352,18 @@ type ImageRegistryCredentials struct {
 	// Secrets must live in the Kyverno namespace.
 	// +kubebuilder:validation:Optional
 	Secrets []string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+}
+
+// ValidateImageVerification checks conditions across multiple image
+// verification attestations or context entries
+type ValidateImageVerification struct {
+	// Message specifies a custom message to be displayed on failure.
+	// +optional
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+
+	// Deny defines conditions used to pass or fail a validation rule.
+	// +optional
+	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 }
 
 func (iv *ImageVerification) GetType() ImageVerificationType {
