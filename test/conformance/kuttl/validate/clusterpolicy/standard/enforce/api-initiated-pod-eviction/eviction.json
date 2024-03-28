@@ -1,8 +1,0 @@
-{
-  "apiVersion": "policy/v1",
-  "kind": "Eviction",
-  "metadata": {
-    "name": "nginx",
-    "namespace": "test-validate"
-  }
-}

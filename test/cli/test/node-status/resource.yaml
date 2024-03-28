@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Node
-metadata:
-  name: test-check-kernel-version
-status:
-    nodeInfo:
-      architechture: "amd64"
-      kernelVersion: "5.16.5-arch1-1"
