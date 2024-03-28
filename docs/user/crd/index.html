@@ -1562,6 +1562,7 @@ GlobalContextEntryReference
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
+<a href="#kyverno.io/v1.ValidateImageVerification">ValidateImageVerification</a>, 
 <a href="#kyverno.io/v1.Validation">Validation</a>)
 </p>
 <p>
@@ -2487,6 +2488,20 @@ bool
 </td>
 <td>
 <p>VerifyDigest validates that images have a digest.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validate</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidateImageVerification">
+ValidateImageVerification
+</a>
+</em>
+</td>
+<td>
+<p>Validation checks conditions across multiple image
+verification attestations or context entries</p>
 </td>
 </tr>
 <tr>
@@ -4306,6 +4321,53 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <em>(Optional)</em>
 <p>Subjects is the list of subject names like users, user groups, and service accounts.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ValidateImageVerification">ValidateImageVerification
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+<p>ValidateImageVerification checks conditions across multiple image
+verification attestations or context entries</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Message specifies a custom message to be displayed on failure.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deny</code><br/>
+<em>
+<a href="#kyverno.io/v1.Deny">
+Deny
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deny defines conditions used to pass or fail a validation rule.</p>
 </td>
 </tr>
 </tbody>

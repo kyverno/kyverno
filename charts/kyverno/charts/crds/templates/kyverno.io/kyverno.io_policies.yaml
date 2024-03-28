@@ -4139,6 +4139,28 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule.
                             type: boolean
+                          validate:
+                            description: |-
+                              Validation checks conditions across multiple image
+                              verification attestations or context entries
+                            properties:
+                              deny:
+                                description: Deny defines conditions used to pass
+                                  or fail a validation rule.
+                                properties:
+                                  conditions:
+                                    description: |-
+                                      Multiple conditions can be declared under an `any` or `all` statement. A direct list
+                                      of conditions (without `any` or `all` statements) is also supported for backwards compatibility
+                                      but will be deprecated in the next major release.
+                                      See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                    x-kubernetes-preserve-unknown-fields: true
+                                type: object
+                              message:
+                                description: Message specifies a custom message to
+                                  be displayed on failure.
+                                type: string
+                            type: object
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -8360,6 +8382,28 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validate:
+                                description: |-
+                                  Validation checks conditions across multiple image
+                                  verification attestations or context entries
+                                properties:
+                                  deny:
+                                    description: Deny defines conditions used to pass
+                                      or fail a validation rule.
+                                    properties:
+                                      conditions:
+                                        description: |-
+                                          Multiple conditions can be declared under an `any` or `all` statement. A direct list
+                                          of conditions (without `any` or `all` statements) is also supported for backwards compatibility
+                                          but will be deprecated in the next major release.
+                                          See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                        x-kubernetes-preserve-unknown-fields: true
+                                    type: object
+                                  message:
+                                    description: Message specifies a custom message
+                                      to be displayed on failure.
+                                    type: string
+                                type: object
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -16581,6 +16625,28 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validate:
+                                description: |-
+                                  Validation checks conditions across multiple image
+                                  verification attestations or context entries
+                                properties:
+                                  deny:
+                                    description: Deny defines conditions used to pass
+                                      or fail a validation rule.
+                                    properties:
+                                      conditions:
+                                        description: |-
+                                          Multiple conditions can be declared under an `any` or `all` statement. A direct list
+                                          of conditions (without `any` or `all` statements) is also supported for backwards compatibility
+                                          but will be deprecated in the next major release.
+                                          See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
+                                        x-kubernetes-preserve-unknown-fields: true
+                                    type: object
+                                  message:
+                                    description: Message specifies a custom message
+                                      to be displayed on failure.
+                                    type: string
+                                type: object
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have

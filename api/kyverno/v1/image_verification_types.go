@@ -106,9 +106,9 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Optional
 	VerifyDigest bool `json:"verifyDigest" yaml:"verifyDigest"`
 
-	//Validate checks conditions across multiple image 
-	//verification attestations or context entries
-	Validate ValidateImageVerification `json:"validate,omitempty" yaml:"validate,omitempty"`
+	// Validation checks conditions across multiple image
+	// verification attestations or context entries
+	Validation ValidateImageVerification `json:"validate,omitempty" yaml:"validate,omitempty"`
 
 	// Required validates that images are verified i.e. have matched passed a signature or attestation check.
 	// +kubebuilder:default=true

@@ -438,8 +438,8 @@ type Validation struct {
 	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
-//ValidateImageVerification checks conditions across multiple image 
-//verification attestations or context entries
+// ValidateImageVerification checks conditions across multiple image
+// verification attestations or context entries
 type ValidateImageVerification struct {
 	// Message specifies a custom message to be displayed on failure.
 	// +optional

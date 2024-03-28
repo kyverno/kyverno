@@ -3150,6 +3150,7 @@ details.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#kyverno-io-v1-ForEachValidation">ForEachValidation</a>, 
+        <a href="#kyverno-io-v1-ValidateImageVerification">ValidateImageVerification</a>, 
         <a href="#kyverno-io-v1-Validation">Validation</a>)
     </p>
   
@@ -4915,6 +4916,38 @@ Defaults to true.</p>
           
 
           <p>VerifyDigest validates that images have a digest.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validate</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidateImageVerification">
+                <span style="font-family: monospace">ValidateImageVerification</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validation checks conditions across multiple image
+verification attestations or context entries</p>
 
 
           
@@ -8532,6 +8565,99 @@ See: https://kyverno.io/docs/writing-policies/preconditions/</p>
           
 
           <p>Subjects is the list of subject names like users, user groups, and service accounts.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1-ValidateImageVerification">ValidateImageVerification
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ImageVerification">ImageVerification</a>)
+    </p>
+  
+
+  <p><p>ValidateImageVerification checks conditions across multiple image
+verification attestations or context entries</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>message</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Message specifies a custom message to be displayed on failure.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>deny</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-Deny">
+                <span style="font-family: monospace">Deny</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deny defines conditions used to pass or fail a validation rule.</p>
 
 
           
