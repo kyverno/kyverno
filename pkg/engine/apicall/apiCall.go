@@ -43,13 +43,13 @@ func New(
 	}, nil
 }
 
-func (a *apiCall) FetchAndLoad(ctx context.Context, invalid bool) ([]byte, error) {
+func (a *apiCall) FetchAndLoad(ctx context.Context) ([]byte, error) {
 	data, err := a.Fetch(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	results, err := a.Store(data, invalid)
+	results, err := a.Store(data)
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +69,8 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	return data, nil
 }
 
-func (a *apiCall) Store(data []byte, invalid bool) ([]byte, error) {
-	results, err := a.transformAndStore(data, invalid)
+func (a *apiCall) Store(data []byte) ([]byte, error) {
+	results, err := a.transformAndStore(data)
 	if err != nil {
 		return nil, err
 	}
@@ -81,8 +81,8 @@ func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte,
 	return a.executor.Execute(ctx, call)
 }
 
-func (a *apiCall) transformAndStore(jsonData []byte, invalid bool) ([]byte, error) {
-	if a.entry.APICall.JMESPath == "" || invalid {
+func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
+	if a.entry.APICall.JMESPath == "" {
 		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", a.entry.Name, err)
