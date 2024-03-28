@@ -20,7 +20,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/pointer"
 )
@@ -402,7 +402,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object: runtime.RawExtension{
+			Object: apiruntime.RawExtension{
 				Raw: []byte(pod),
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
@@ -444,7 +444,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object: runtime.RawExtension{
+			Object: apiruntime.RawExtension{
 				Raw: []byte(pod),
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
@@ -489,7 +489,7 @@ func Test_ImageVerify(t *testing.T) {
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object: runtime.RawExtension{
+			Object: apiruntime.RawExtension{
 				Raw: []byte(pod),
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
@@ -533,7 +533,7 @@ func Test_MutateAndVerify(t *testing.T) {
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
-			Object: runtime.RawExtension{
+			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateAndVerify),
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
@@ -578,7 +578,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
 			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
-			Object: runtime.RawExtension{
+			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateandGenerate),
 			},
 			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
@@ -588,8 +588,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 
 	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 
-	time.Sleep(3 * time.Second) // ensures that handlegenerate and handleMutateExisting goroutines run
-	assert.Assert(t, len(mockPcBuilder.contexts) >= 3)
+	assert.Assert(t, len(mockPcBuilder.contexts) == 3)
 
 	validateJSONContext := mockPcBuilder.contexts[0].JSONContext()
 	mutateJSONContext := mockPcBuilder.contexts[1].JSONContext()
