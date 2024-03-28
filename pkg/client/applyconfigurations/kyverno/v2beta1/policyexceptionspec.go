@@ -25,11 +25,12 @@ import (
 // PolicyExceptionSpecApplyConfiguration represents an declarative configuration of the PolicyExceptionSpec type for use
 // with apply.
 type PolicyExceptionSpecApplyConfiguration struct {
-	Background  *bool                                      `json:"background,omitempty"`
-	Match       *MatchResourcesApplyConfiguration          `json:"match,omitempty"`
-	Conditions  *AnyAllConditionsApplyConfiguration        `json:"conditions,omitempty"`
-	Exceptions  []ExceptionApplyConfiguration              `json:"exceptions,omitempty"`
-	PodSecurity []v1.PodSecurityStandardApplyConfiguration `json:"podSecurity,omitempty"`
+	Background   *bool                                      `json:"background,omitempty"`
+	Match        *MatchResourcesApplyConfiguration          `json:"match,omitempty"`
+	Conditions   *AnyAllConditionsApplyConfiguration        `json:"conditions,omitempty"`
+	Exceptions   []ExceptionApplyConfiguration              `json:"exceptions,omitempty"`
+	PodSecurity  []v1.PodSecurityStandardApplyConfiguration `json:"podSecurity,omitempty"`
+	VerifyImages *ExcludeImageReferencesApplyConfiguration  `json:"verifyImages,omitempty"`
 }
 
 // PolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the PolicyExceptionSpec type for use with
@@ -85,5 +86,13 @@ func (b *PolicyExceptionSpecApplyConfiguration) WithPodSecurity(values ...*v1.Po
 		}
 		b.PodSecurity = append(b.PodSecurity, *values[i])
 	}
+	return b
+}
+
+// WithVerifyImages sets the VerifyImages field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the VerifyImages field is set to the value of the last call.
+func (b *PolicyExceptionSpecApplyConfiguration) WithVerifyImages(value *ExcludeImageReferencesApplyConfiguration) *PolicyExceptionSpecApplyConfiguration {
+	b.VerifyImages = value
 	return b
 }

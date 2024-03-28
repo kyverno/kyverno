@@ -90,7 +90,7 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 	return false
 }
 
-func matchReferences(imageReferences []string, image string) bool {
+func MatchReferences(imageReferences []string, image string) bool {
 	for _, imageRef := range imageReferences {
 		if wildcard.Match(imageRef, image) {
 			return true
@@ -338,11 +338,11 @@ func (iv *ImageVerifier) verifyImage(
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err), ""
 	}
 	if len(imageVerify.Attestors) > 0 {
-		if !matchReferences(imageVerify.ImageReferences, image) {
+		if !MatchReferences(imageVerify.ImageReferences, image) {
 			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name)), ""
 		}
 
-		if matchReferences(imageVerify.SkipImageReferences, image) {
+		if MatchReferences(imageVerify.SkipImageReferences, image) {
 			iv.logger.Info("skipping image reference", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name)
 			iv.ivm.Add(image, engineapi.ImageVerificationSkip)
 			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name)).WithEmitWarning(true), ""

@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -73,6 +74,11 @@ func (h validateImageHandler) Process(
 				if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
 					logger.V(4).Info("image does not match", "imageReferences", imageVerify.ImageReferences)
 					return resource, nil
+				}
+				if exception != nil && internal.MatchReferences(exception.Spec.VerifyImages.ImageReferences, image) {
+					logger.V(4).Info("image matches exception references, skipping verification", "image", image)
+					skippedImages = append(skippedImages, image)
+					continue
 				}
 
 				logger.V(4).Info("validating image", "image", image)
