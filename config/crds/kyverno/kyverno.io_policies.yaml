@@ -218,6 +218,11 @@ spec:
                                   - value
                                   type: object
                                 type: array
+                              default:
+                                description: |-
+                                  Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                  returns error
+                                x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: |-
                                   JMESPath is an optional JSON Match Expression that can be used to
@@ -1798,6 +1803,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -2138,6 +2148,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -2709,6 +2724,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -4363,6 +4383,11 @@ spec:
                                       - value
                                       type: object
                                     type: array
+                                  default:
+                                    description: |-
+                                      Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                      returns error
+                                    x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: |-
                                       JMESPath is an optional JSON Match Expression that can be used to
@@ -5957,6 +5982,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -6305,6 +6335,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -6887,6 +6922,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -8646,6 +8686,11 @@ spec:
                                   - value
                                   type: object
                                 type: array
+                              default:
+                                description: |-
+                                  Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                  returns error
+                                x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: |-
                                   JMESPath is an optional JSON Match Expression that can be used to
@@ -9830,6 +9875,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -10170,6 +10220,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -10917,6 +10972,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -12544,6 +12604,11 @@ spec:
                                       - value
                                       type: object
                                     type: array
+                                  default:
+                                    description: |-
+                                      Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                      returns error
+                                    x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: |-
                                       JMESPath is an optional JSON Match Expression that can be used to
@@ -14138,6 +14203,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -14486,6 +14556,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -15068,6 +15143,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
