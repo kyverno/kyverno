@@ -616,7 +616,6 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		} else {
 			opts.IgnoreSCT = false
 		}
-
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
 		if attestor.Keyless.Rekor != nil {
