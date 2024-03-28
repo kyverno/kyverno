@@ -438,6 +438,18 @@ type Validation struct {
 	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
+//ValidateImageVerification checks conditions across multiple image 
+//verification attestations or context entries
+type ValidateImageVerification struct {
+	// Message specifies a custom message to be displayed on failure.
+	// +optional
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+
+	// Deny defines conditions used to pass or fail a validation rule.
+	// +optional
+	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+}
+
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
 // by specifying exclusions for Pod Security Standards controls.
 type PodSecurity struct {
