@@ -492,6 +492,9 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 	if err != nil {
 		return err
 	}
+	if err := validateJMESPath(p); err != nil {
+		return fmt.Errorf("invalid jmespath expression: %s", err.Error())
+	}
 	if backgroundMode {
 		if err := containsUserVariables(p, vars); err != nil {
 			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
@@ -501,6 +504,82 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
 	}
 	return nil
+}
+
+func validateJMESPath(p kyvernov1.PolicyInterface) error {
+	polCopy := cleanup(p.CreateDeepCopy())
+	policyRaw, err := json.Marshal(polCopy.GetSpec().Rules)
+	if err != nil {
+		return fmt.Errorf("failed to serialize the policy: %v", err)
+	}
+	policyString := string(policyRaw)
+	if !checkClosedBraces(policyString) {
+		return fmt.Errorf(policyString)
+	}
+	return nil
+}
+
+func checkClosedBraces(s string) bool {
+	stack := []rune{}
+	insideSingleQuote := false
+	insideDoubleQuote := false
+	isJmesPath := false
+	for i, char := range s {
+		switch char {
+		case '\'':
+			insideSingleQuote = !insideSingleQuote
+		case '"':
+			if insideDoubleQuote && insideSingleQuote {
+				insideSingleQuote = false
+			}
+			insideDoubleQuote = !insideDoubleQuote
+			if insideDoubleQuote {
+				isJmesPath = hasTextInsideDoubleQuotes(s[i+1:])
+			}
+			if !insideDoubleQuote {
+				isJmesPath = false
+			}
+		case '{':
+			if !isJmesPath {
+				break
+			}
+			if !insideSingleQuote && !insideDoubleQuote {
+				stack = append(stack, char)
+			}
+			if !insideSingleQuote && insideDoubleQuote {
+				stack = append(stack, char)
+			}
+		case '}':
+			if !isJmesPath {
+				break
+			}
+			if !insideSingleQuote && !insideDoubleQuote {
+				if len(stack) == 0 {
+					return false
+				}
+				stack = stack[:len(stack)-1]
+			}
+			if !insideSingleQuote && insideDoubleQuote {
+				if len(stack) == 0 {
+					return false
+				}
+				stack = stack[:len(stack)-1]
+			}
+		}
+	}
+	return len(stack) == 0
+}
+
+func hasTextInsideDoubleQuotes(s string) bool {
+	for _, char := range s {
+		if char == '"' {
+			return false
+		}
+		if char != '}' && char != '{' {
+			return true
+		}
+	}
+	return false
 }
 
 // hasInvalidVariables - checks for unexpected variables in the policy
