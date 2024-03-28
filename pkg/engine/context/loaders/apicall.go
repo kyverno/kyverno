@@ -21,6 +21,7 @@ type apiLoader struct {
 	client    engineapi.RawClient
 	config    apicall.APICallConfiguration
 	data      []byte
+	invalid   bool
 }
 
 func NewAPILoader(
