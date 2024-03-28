@@ -20,13 +20,15 @@ package v1
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ContextAPICallApplyConfiguration represents an declarative configuration of the ContextAPICall type for use
 // with apply.
 type ContextAPICallApplyConfiguration struct {
 	APICallApplyConfiguration `json:",inline"`
-	JMESPath                  *string `json:"jmesPath,omitempty"`
+	Default                   *apiextensionsv1.JSON `json:"default,omitempty"`
+	JMESPath                  *string               `json:"jmesPath,omitempty"`
 }
 
 // ContextAPICallApplyConfiguration constructs an declarative configuration of the ContextAPICall type for use with
@@ -69,6 +71,14 @@ func (b *ContextAPICallApplyConfiguration) WithData(values ...*RequestDataApplyC
 // If called multiple times, the Service field is set to the value of the last call.
 func (b *ContextAPICallApplyConfiguration) WithService(value *ServiceCallApplyConfiguration) *ContextAPICallApplyConfiguration {
 	b.Service = value
+	return b
+}
+
+// WithDefault sets the Default field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Default field is set to the value of the last call.
+func (b *ContextAPICallApplyConfiguration) WithDefault(value apiextensionsv1.JSON) *ContextAPICallApplyConfiguration {
+	b.Default = &value
 	return b
 }
 
