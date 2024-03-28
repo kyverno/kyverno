@@ -101,6 +101,7 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 		},
 		Category: annotations[kyverno.AnnotationPolicyCategory],
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
+		Origin:   ruleResult.Message(),
 	}
 	if result.Result == "fail" && !result.Scored {
 		result.Result = "warn"
