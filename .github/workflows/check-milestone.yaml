@@ -8,7 +8,6 @@ on:
   pull_request:
     branches:
       - 'main'
-      - 'release*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
