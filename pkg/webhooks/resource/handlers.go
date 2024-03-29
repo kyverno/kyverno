@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
@@ -116,16 +117,11 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
-	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed create policy context")
 	}
 
-	namespaceLabels := make(map[string]string)
-	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
-	}
-	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration)
 
 	ok, msg, warnings := vh.HandleValidation(ctx, request, policies, policyContext, startTime)
@@ -244,6 +240,19 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 		}
 	}
 	return policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, nil
+}
+
+func (h *resourceHandlers) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest) (*policycontext.PolicyContext, error) {
+	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+	if err != nil {
+		return nil, err
+	}
+	namespaceLabels := make(map[string]string)
+	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+	}
+	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
+	return policyContext, nil
 }
 
 func filterPolicies(ctx context.Context, failurePolicy string, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
