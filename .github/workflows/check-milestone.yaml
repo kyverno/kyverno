@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: check-milestone
+
+permissions: {}
+
+on:
+  pull_request:
+    types: [opened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-milestone:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check milestone
+        uses: actions/github-script@main
+        with:
+          script: |
+            const { data } = await github.request("GET /repos/{owner}/{repo}/pulls/{pr}", {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pr: context.payload.pull_request.number
+            });
+            if (data.milestone) {
+              core.info(`This pull request has a milestone set: ${data.milestone.title}`);
+            } else {
+              core.setFailed(`A maintainer needs to set the milestone for this pull request.`);
+            }
