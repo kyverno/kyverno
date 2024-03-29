@@ -317,7 +317,7 @@ I2MLdq2qjZFDOCXsxBxJpbmLGBx9ow6ZerlUxzws2AWv2pk=
 
 	verifier := &cosignVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "no matching signatures: unable to verify RFC3161 timestamp bundle: no TSA root certificate(s) provided to verify timestamp")
+	assert.ErrorContains(t, err, "unable to verify RFC3161 timestamp bundle: no TSA root certificate(s) provided to verify timestamp")
 
 	opts.TSACertChain = tsaCertChain
 	_, err = verifier.VerifySignature(context.TODO(), opts)
