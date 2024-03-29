@@ -31,7 +31,10 @@ func (ml *mockLoader) HasLoaded() bool {
 
 func (ml *mockLoader) LoadData() error {
 	ml.invocations++
-	ml.ctx.AddVariable(ml.name, ml.value)
+	err := ml.ctx.AddVariable(ml.name, ml.value)
+	if err != nil {
+		return err
+	}
 
 	// simulate a JMESPath evaluation after loading
 	if err := ml.executeQuery(); err != nil {
