@@ -9705,8 +9705,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                           type: object
                                         keyless:
@@ -9770,8 +9768,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                             roots:
                                               description: Roots is an optional set
@@ -9858,8 +9854,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                             secret:
                                               description: Reference to a Secret resource
@@ -10150,8 +10144,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -10219,8 +10211,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -10314,8 +10304,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -10582,8 +10570,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                         type: object
                                       keyless:
@@ -10646,8 +10632,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                           roots:
                                             description: Roots is an optional set
@@ -10732,8 +10716,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                           secret:
                                             description: Reference to a Secret resource
@@ -14186,8 +14168,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -14255,8 +14235,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -14350,8 +14328,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -14656,8 +14632,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                   type: object
                                                 keyless:
@@ -14731,8 +14705,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                     roots:
                                                       description: Roots is an optional
@@ -14836,8 +14808,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                     secret:
                                                       description: Reference to a
@@ -15115,8 +15085,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                             type: object
                                           keyless:
@@ -15183,8 +15151,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                               roots:
                                                 description: Roots is an optional
@@ -15276,8 +15242,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                               secret:
                                                 description: Reference to a Secret
@@ -18463,8 +18427,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                           type: object
                                         keyless:
@@ -18528,8 +18490,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                             roots:
                                               description: Roots is an optional set
@@ -18616,8 +18576,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                             secret:
                                               description: Reference to a Secret resource
@@ -18897,8 +18855,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -18966,8 +18922,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -19061,8 +19015,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -19329,8 +19281,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                         type: object
                                       keyless:
@@ -19393,8 +19343,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                           roots:
                                             description: Roots is an optional set
@@ -19479,8 +19427,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                           secret:
                                             description: Reference to a Secret resource
@@ -22918,8 +22864,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -22987,8 +22931,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -23082,8 +23024,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -23388,8 +23328,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                   type: object
                                                 keyless:
@@ -23463,8 +23401,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                     roots:
                                                       description: Roots is an optional
@@ -23568,8 +23504,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                     secret:
                                                       description: Reference to a
@@ -23847,8 +23781,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                             type: object
                                           keyless:
@@ -23915,8 +23847,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                               roots:
                                                 description: Roots is an optional
@@ -24008,8 +23938,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                               secret:
                                                 description: Reference to a Secret
@@ -27471,8 +27399,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                           type: object
                                         keyless:
@@ -27536,8 +27462,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                             roots:
                                               description: Roots is an optional set
@@ -27624,8 +27548,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                             secret:
                                               description: Reference to a Secret resource
@@ -27916,8 +27838,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -27985,8 +27905,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -28080,8 +27998,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -28348,8 +28264,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                         type: object
                                       keyless:
@@ -28412,8 +28326,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                           roots:
                                             description: Roots is an optional set
@@ -28498,8 +28410,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                           secret:
                                             description: Reference to a Secret resource
@@ -31953,8 +31863,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -32022,8 +31930,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -32117,8 +32023,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -32423,8 +32327,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                   type: object
                                                 keyless:
@@ -32498,8 +32400,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                     roots:
                                                       description: Roots is an optional
@@ -32603,8 +32503,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                     secret:
                                                       description: Reference to a
@@ -32882,8 +32780,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                             type: object
                                           keyless:
@@ -32950,8 +32846,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                               roots:
                                                 description: Roots is an optional
@@ -33043,8 +32937,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                               secret:
                                                 description: Reference to a Secret
@@ -36231,8 +36123,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                           type: object
                                         keyless:
@@ -36296,8 +36186,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                             roots:
                                               description: Roots is an optional set
@@ -36384,8 +36272,6 @@ spec:
                                                     to the public Rekor log instance
                                                     https://rekor.sigstore.dev.
                                                   type: string
-                                              required:
-                                              - url
                                               type: object
                                             secret:
                                               description: Reference to a Secret resource
@@ -36665,8 +36551,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -36734,8 +36618,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -36829,8 +36711,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -37097,8 +36977,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                         type: object
                                       keyless:
@@ -37161,8 +37039,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                           roots:
                                             description: Roots is an optional set
@@ -37247,8 +37123,6 @@ spec:
                                                   the transparency log. Defaults to
                                                   the public Rekor log instance https://rekor.sigstore.dev.
                                                 type: string
-                                            required:
-                                            - url
                                             type: object
                                           secret:
                                             description: Reference to a Secret resource
@@ -40686,8 +40560,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                               type: object
                                             keyless:
@@ -40755,8 +40627,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 roots:
                                                   description: Roots is an optional
@@ -40850,8 +40720,6 @@ spec:
                                                         to the public Rekor log instance
                                                         https://rekor.sigstore.dev.
                                                       type: string
-                                                  required:
-                                                  - url
                                                   type: object
                                                 secret:
                                                   description: Reference to a Secret
@@ -41156,8 +41024,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                   type: object
                                                 keyless:
@@ -41231,8 +41097,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                     roots:
                                                       description: Roots is an optional
@@ -41336,8 +41200,6 @@ spec:
                                                             log. Defaults to the public
                                                             Rekor log instance https://rekor.sigstore.dev.
                                                           type: string
-                                                      required:
-                                                      - url
                                                       type: object
                                                     secret:
                                                       description: Reference to a
@@ -41615,8 +41477,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                             type: object
                                           keyless:
@@ -41683,8 +41543,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                               roots:
                                                 description: Roots is an optional
@@ -41776,8 +41634,6 @@ spec:
                                                       to the public Rekor log instance
                                                       https://rekor.sigstore.dev.
                                                     type: string
-                                                required:
-                                                - url
                                                 type: object
                                               secret:
                                                 description: Reference to a Secret
