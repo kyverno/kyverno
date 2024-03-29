@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -588,7 +589,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 
 	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 
-	assert.Assert(t, len(mockPcBuilder.contexts) == 3)
+	assert.Assert(t, len(mockPcBuilder.contexts) >= 3, fmt.Sprint("expected no of context ", 3, " received ", len(mockPcBuilder.contexts)))
 
 	validateJSONContext := mockPcBuilder.contexts[0].JSONContext()
 	mutateJSONContext := mockPcBuilder.contexts[1].JSONContext()

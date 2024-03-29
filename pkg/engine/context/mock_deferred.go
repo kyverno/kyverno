@@ -81,6 +81,9 @@ func addDeferredWithQuery(ctx Interface, name string, value interface{}, query s
 		return loader, err
 	}
 
-	ctx.AddDeferredLoader(d)
+	err = ctx.AddDeferredLoader(d)
+	if err != nil {
+		return nil, err
+	}
 	return loader, nil
 }
