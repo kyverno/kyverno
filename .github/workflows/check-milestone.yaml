@@ -28,5 +28,5 @@ jobs:
             if (data.milestone) {
               core.info(`This pull request has a milestone set: ${data.milestone.title}`);
             } else {
-              core.setFailed(`A maintainer needs to set the milestone for this pull request.`);
+              core.setFailed(`A milestone need to be set on this pull request.`);
             }
