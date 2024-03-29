@@ -214,7 +214,7 @@ func TestCTLogsPubkeys(t *testing.T) {
 
 	verifier := &cosignVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
-	assert.ErrorContains(t, err, "no matching signatures: ctfe public key not found for payload.")
+	assert.ErrorContains(t, err, "ctfe public key not found for payload.")
 
 	opts.CTLogsPubKey = ""
 	_, err = verifier.VerifySignature(context.TODO(), opts)
