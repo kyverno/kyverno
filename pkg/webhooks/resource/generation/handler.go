@@ -321,7 +321,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 					policy.GetNamespace(),
 					gvk,
 					subresource,
-					policyContext.Operation(),
+					[]kyvernov1.AdmissionOperation{policyContext.Operation()},
 				); err == nil {
 					h.log.V(4).Info("skip creating UR as the admission resource is both the source and the trigger")
 					continue

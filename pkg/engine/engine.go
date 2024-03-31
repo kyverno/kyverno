@@ -84,12 +84,13 @@ func NewEngine(
 func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
+	allowedOperations ...kyvernov1.AdmissionOperation,
 ) engineapi.EngineResponse {
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
-		policyResponse := e.validate(ctx, logger, policyContext)
+		policyResponse := e.validate(ctx, logger, policyContext, allowedOperations)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
@@ -188,6 +189,7 @@ func (e *engine) matches(
 	rule kyvernov1.Rule,
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
+	allowedOperations []kyvernov1.AdmissionOperation,
 ) error {
 	if policyContext.AdmissionOperation() {
 		request := policyContext.AdmissionInfo()
@@ -204,7 +206,7 @@ func (e *engine) matches(
 		policyContext.Policy().GetNamespace(),
 		gvk,
 		subresource,
-		policyContext.Operation(),
+		allowedOperations,
 	)
 	if err == nil {
 		return nil
@@ -219,7 +221,7 @@ func (e *engine) matches(
 			policyContext.Policy().GetNamespace(),
 			gvk,
 			subresource,
-			policyContext.Operation(),
+			allowedOperations,
 		)
 		if err == nil {
 			return nil
@@ -236,6 +238,7 @@ func (e *engine) invokeRuleHandler(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	ruleType engineapi.RuleType,
+	allowedOperations ...kyvernov1.AdmissionOperation,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	return tracing.ChildSpan2(
 		ctx,
@@ -243,7 +246,7 @@ func (e *engine) invokeRuleHandler(
 		fmt.Sprintf("RULE %s", rule.Name),
 		func(ctx context.Context, span trace.Span) (patchedResource unstructured.Unstructured, results []engineapi.RuleResponse) {
 			// check if resource and rule match
-			if err := e.matches(rule, policyContext, resource); err != nil {
+			if err := e.matches(rule, policyContext, resource, allowedOperations); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
 				return resource, nil
 			}
