@@ -1536,6 +1536,11 @@ backgroundController:
     # -- Otel collector credentials
     creds: ''
 
+  # -- backgroundController server port
+  # in case you are using hostNetwork: true, you might want to change the port the backgroundController is listening to
+  server:
+    port: 9443
+
   profiling:
     # -- Enable profiling
     enabled: false
@@ -2128,6 +2133,11 @@ reportsController:
     collector: ~
     # -- (string) Otel collector credentials
     creds: ~
+
+  # -- reportsController server port
+  # in case you are using hostNetwork: true, you might want to change the port the reportsController is listening to
+  server:
+    port: 9443
 
   profiling:
     # -- Enable profiling
