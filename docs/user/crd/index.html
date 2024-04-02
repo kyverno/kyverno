@@ -1146,6 +1146,19 @@ string
 <p>PubKey, if set, is used to validate SCTs against a custom source.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>tsaCertChain</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+may contain the leaf TSA certificate if not present in the timestamurce.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
