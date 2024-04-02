@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
