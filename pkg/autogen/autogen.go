@@ -233,11 +233,11 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 	return &out, nil
 }
 
-func ComputeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
-	return computeRules(p)
+func ComputeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
+	return computeRules(p, kind)
 }
 
-func computeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
+func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	spec := p.GetSpec()
 	applyAutoGen, desiredControllers := CanAutoGen(spec)
 	if !applyAutoGen {
@@ -252,6 +252,18 @@ func computeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
 			actualControllers = desiredControllers
 		}
 	}
+
+	if kind != "" {
+		controllers := strings.Split(actualControllers, ",")
+		actualControllers = "none"
+		for _, controller := range controllers {
+			if controller == kind {
+				actualControllers = kind
+				break
+			}
+		}
+	}
+
 	if actualControllers == "none" {
 		return spec.Rules
 	}

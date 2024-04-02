@@ -39,7 +39,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 		}
 		policy := genericPolicy.AsKyvernoPolicy()
 		scored := annotations.Scored(policy.GetAnnotations())
-		for _, rule := range autogen.ComputeRules(policy) {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 				for _, valResponseRule := range response.PolicyResponse.Rules {
 					if rule.Name == valResponseRule.Name() {
@@ -76,7 +76,7 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 		return
 	}
 	policy := genericPolicy.AsKyvernoPolicy()
-	for _, policyRule := range autogen.ComputeRules(policy) {
+	for _, policyRule := range autogen.ComputeRules(policy, "") {
 		for _, ruleResponse := range response.PolicyResponse.Rules {
 			if policyRule.Name == ruleResponse.Name() {
 				if ruleResponse.Status() == engineapi.RuleStatusPass {
@@ -101,7 +101,7 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 	}
 	policy := genericPolicy.AsKyvernoPolicy()
 	var policyHasMutate bool
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		if rule.HasMutate() {
 			policyHasMutate = true
 		}
@@ -110,7 +110,7 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 		return false
 	}
 	printMutatedRes := false
-	for _, policyRule := range autogen.ComputeRules(policy) {
+	for _, policyRule := range autogen.ComputeRules(policy, "") {
 		for _, mutateResponseRule := range response.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name() {
 				if mutateResponseRule.Status() == engineapi.RuleStatusPass {

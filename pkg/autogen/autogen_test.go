@@ -572,7 +572,7 @@ kA==
 			policies, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
-			rules := computeRules(policies[0])
+			rules := computeRules(policies[0], "")
 			assert.DeepEqual(t, test.expectedRules, rules)
 		})
 	}
@@ -584,7 +584,7 @@ func Test_PodSecurityWithNoExceptions(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
 
-	rules := computeRules(policies[0])
+	rules := computeRules(policies[0], "")
 	assert.Equal(t, 3, len(rules))
 }
 
@@ -632,6 +632,6 @@ func Test_ValidateWithCELExpressions(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
 
-	rules := computeRules(policies[0])
+	rules := computeRules(policies[0], "")
 	assert.Equal(t, 3, len(rules))
 }
