@@ -119,14 +119,14 @@ type GlobalContextEntryList struct {
 type KubernetesResource struct {
 	// Group defines the group of the resource.
 	// +kubebuilder:validation:Required
-	Group string `json:"group,omitempty"`
+	Group string `json:"group"`
 	// Version defines the version of the resource.
 	// +kubebuilder:validation:Required
-	Version string `json:"version,omitempty"`
+	Version string `json:"version"`
 	// Resource defines the type of the resource.
 	// Requires the pluralized form of the resource kind in lowercase. (Ex., "deployments")
 	// +kubebuilder:validation:Required
-	Resource string `json:"resource,omitempty"`
+	Resource string `json:"resource"`
 	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 	// If left empty for namespaced resources, all resources from all namespaces will be cached.
 	// +kubebuilder:validation:Optional

@@ -156,7 +156,7 @@ type APICall struct {
 	// +kubebuilder:validation:Optional
 	URLPath string `json:"urlPath" yaml:"urlPath"`
 
-	// Method is the HTTP request type (GET or POST).
+	// Method is the HTTP request type (GET or POST). Defaults to GET.
 	// +kubebuilder:default=GET
 	Method Method `json:"method,omitempty" yaml:"method,omitempty"`
 
