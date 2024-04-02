@@ -1,10 +1,10 @@
 package autogen
 
 import (
-	"encoding/json"
 	"slices"
 	"strings"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -190,6 +190,8 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 }
 
 func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+
 	if bytes, err := json.Marshal(rule); err != nil {
 		return nil, err
 	} else {
