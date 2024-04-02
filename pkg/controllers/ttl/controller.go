@@ -36,6 +36,7 @@ type controller struct {
 	logger       logr.Logger
 	metrics      ttlMetrics
 	gvr          schema.GroupVersionResource
+	infoMetric   metrics.InfoMetric
 }
 
 type ttlMetrics struct {
@@ -50,13 +51,14 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	}
 	queue := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: name})
 	c := &controller{
-		name:     name,
-		client:   client,
-		queue:    queue,
-		lister:   metainformer.Lister(),
-		informer: metainformer.Informer(),
-		logger:   logger,
-		metrics:  newTTLMetrics(logger),
+		name:       name,
+		client:     client,
+		queue:      queue,
+		lister:     metainformer.Lister(),
+		informer:   metainformer.Informer(),
+		logger:     logger,
+		metrics:    newTTLMetrics(logger),
+		infoMetric: metrics.NewInfoMetric(),
 	}
 	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
 	registration, err := controllerutils.AddEventHandlers(
