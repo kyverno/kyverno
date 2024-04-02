@@ -26,6 +26,31 @@ const (
 	MeterName = "kyverno"
 )
 
+type InfoMetric struct {
+	info metric.Int64Counter
+  }
+  
+func NewInfoMetric() InfoMetric {
+	meter := otel.GetMeterProvider().Meter(MeterName)
+
+	info, _ := meter.Int64Counter(
+		"kyverno_info",
+		metric.WithDescription("Kyverno version info"),
+	)
+
+	v, _ := strconv.Atoi(version.Version())
+
+	info.Add(
+		context.Background(),
+		int64(v),
+	)
+
+	return InfoMetric{
+		info: info,
+	}
+}
+
+
 type MetricsConfig struct {
 	// instruments
 	policyChangesMetric metric.Int64Counter
