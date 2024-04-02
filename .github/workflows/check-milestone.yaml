@@ -16,6 +16,7 @@ concurrency:
 jobs:
   check-milestone:
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]' # exclude prs from dependabot
     steps:
       - name: Check milestone
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
