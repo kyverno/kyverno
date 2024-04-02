@@ -121,7 +121,6 @@ func printException(out io.Writer, result v1alpha2.PolicyReportResult, ttl time.
 					pss.Images = wildcardTagOrDigest(c.Images)
 				}
 				pssList = append(pssList, pss)
-
 			}
 			exception.Spec.PodSecurity = pssList
 		}
