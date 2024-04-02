@@ -171,7 +171,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
-	if !c.Stdin && !c.PolicyReport {
+	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
 		var policyRulesCount int
 		for _, policy := range policies {
 			policyRulesCount += len(autogen.ComputeRules(policy))
