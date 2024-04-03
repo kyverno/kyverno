@@ -1,7 +1,9 @@
 package exceptions
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -143,6 +145,15 @@ func (c *controller) buildRuleIndex(key string, policy kyvernov1.PolicyInterface
 	if err != nil {
 		return nil, err
 	}
+	slices.SortFunc(polexList, func(a, b *kyvernov2beta1.PolicyException) int {
+		if cmp := cmp.Compare(a.Namespace, b.Namespace); cmp != 0 {
+			return cmp
+		}
+		if cmp := cmp.Compare(a.Name, b.Name); cmp != 0 {
+			return cmp
+		}
+		return 0
+	})
 	index := ruleIndex{}
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, polex := range polexList {
