@@ -37,6 +37,7 @@ type Options struct {
 	RekorURL             string
 	RekorPubKey          string
 	IgnoreSCT            bool
+	TSACertChain         string
 	CTLogsPubKey         string
 	SignatureAlgorithm   string
 	PredicateType        string
