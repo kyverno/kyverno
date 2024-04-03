@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
-	exceptioncontroller "github.com/kyverno/kyverno/pkg/controllers/exceptions"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
@@ -371,16 +370,7 @@ func main() {
 		),
 		globalcontextcontroller.Workers,
 	)
-	polexCache := exceptioncontroller.NewController(
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
-	)
-	polexController := internal.NewController(
-		exceptioncontroller.ControllerName,
-		polexCache,
-		exceptioncontroller.Workers,
-	)
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 	eventController := internal.NewController(
 		event.ControllerName,
 		eventGenerator,
@@ -589,7 +579,9 @@ func main() {
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
 	gceController.Run(signalCtx, setup.Logger, &wg)
-	polexController.Run(signalCtx, setup.Logger, &wg)
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
+	}
 	for _, controller := range nonLeaderControllers {
 		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
 	}
