@@ -592,6 +592,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		if attestor.Keys.CTLog != nil {
 			opts.IgnoreSCT = attestor.Keys.CTLog.IgnoreSCT
 			opts.CTLogsPubKey = attestor.Keys.CTLog.CTLogPubKey
+			opts.TSACertChain = attestor.Keys.CTLog.TSACertChain
 		} else {
 			opts.IgnoreSCT = false
 		}
@@ -613,6 +614,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		if attestor.Certificates.CTLog != nil {
 			opts.IgnoreSCT = attestor.Certificates.CTLog.IgnoreSCT
 			opts.CTLogsPubKey = attestor.Certificates.CTLog.CTLogPubKey
+			opts.TSACertChain = attestor.Certificates.CTLog.TSACertChain
 		} else {
 			opts.IgnoreSCT = false
 		}
@@ -630,6 +632,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		if attestor.Keyless.CTLog != nil {
 			opts.IgnoreSCT = attestor.Keyless.CTLog.IgnoreSCT
 			opts.CTLogsPubKey = attestor.Keyless.CTLog.CTLogPubKey
+			opts.TSACertChain = attestor.Keyless.CTLog.TSACertChain
 		} else {
 			opts.IgnoreSCT = false
 		}
