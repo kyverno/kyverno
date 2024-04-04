@@ -90,10 +90,8 @@
             "program": "${workspaceFolder}/cmd/cli/kubectl-kyverno",
             "cwd": "${workspaceFolder}",
             "args": [
-                "apply",
-                "/tmp/restricted.yaml",
-                "--generate-exceptions",
-                "--cluster"
+                "test",
+                "test/cli"
             ],
         }
     ]
