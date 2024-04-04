@@ -170,7 +170,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if !c.Stdin {
 		var policyRulesCount int
 		for _, policy := range policies {
-			policyRulesCount += len(autogen.ComputeRules(policy))
+			policyRulesCount += len(autogen.ComputeRules(policy, ""))
 		}
 		policyRulesCount += len(vaps)
 		if len(exceptions) > 0 {
