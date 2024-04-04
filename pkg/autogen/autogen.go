@@ -116,7 +116,7 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[s
 func GetSupportedControllers(spec *kyvernov1.Spec) sets.Set[string] {
 	apply, controllers := CanAutoGen(spec)
 	if !apply || (controllers.Len() == 1 && controllers.Has("none")) {
-		return sets.New("none")
+		return nil
 	}
 	return controllers
 }
