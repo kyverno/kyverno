@@ -263,6 +263,12 @@ func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 		if !actualControllers.Has(kind) {
 			return spec.Rules
 		}
+	} else {
+		kind = strings.Join(actualControllers.UnsortedList(), ",")
+	}
+
+	if kind == "none" {
+		return spec.Rules
 	}
 
 	genRules := generateRules(spec.DeepCopy(), kind)
