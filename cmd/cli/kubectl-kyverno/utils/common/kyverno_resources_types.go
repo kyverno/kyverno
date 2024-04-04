@@ -24,7 +24,7 @@ func (r *KyvernoResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths
 	var subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
 
 	for _, policy := range r.policies {
-		for _, rule := range autogen.ComputeRules(policy) {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			var resourceTypesInRule map[schema.GroupVersionKind]bool
 			resourceTypesInRule, subresourceMap = GetKindsFromRule(rule, dClient)
 			for resourceKind := range resourceTypesInRule {
