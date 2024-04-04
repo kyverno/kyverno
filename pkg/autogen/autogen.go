@@ -190,7 +190,7 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 }
 
 func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
 
 	if bytes, err := json.Marshal(rule); err != nil {
 		return nil, err
