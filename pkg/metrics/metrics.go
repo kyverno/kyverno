@@ -32,7 +32,7 @@ type InfoMetric struct {
 	info metric.Int64Counter
 }
 
-func NewInfoMetric() (InfoMetric) {
+func NewInfoMetric() InfoMetric {
 	var err error
 	meter := otel.GetMeterProvider().Meter(MeterName)
 	info, err := meter.Int64Counter(
