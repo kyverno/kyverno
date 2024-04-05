@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"log"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
