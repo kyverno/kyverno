@@ -29,28 +29,30 @@ const (
 
 type InfoMetric struct {
 	info metric.Int64Counter
-  }
-  
-func NewInfoMetric() InfoMetric {
+}
+
+func NewInfoMetric() (InfoMetric) {
+	var err error
 	meter := otel.GetMeterProvider().Meter(MeterName)
-
-	info, _ := meter.Int64Counter(
+	info, err := meter.Int64Counter(
 		"kyverno_info",
-		metric.WithDescription("Kyverno version info"),
+		metric.WithDescription("Kyverno_info provides details about the currnet Kyverno version being used"),
 	)
-
-	v, _ := strconv.Atoi(version.Version())
-
-	info.Add(
-		context.Background(),
-		int64(v),
-	)
+	if err != nil{
+		log.Printf("Failed to create instrument, kyverno_info")
+		return InfoMetric{}
+	}
+	v, err := strconv.Atoi(version.Version())
+	if err != nil {
+        	log.Printf("Failed to parse Kyverno version")
+        	return InfoMetric{}
+	}
+	info.Add(context.Background(), int64(v))
 
 	return InfoMetric{
 		info: info,
 	}
 }
-
 
 type MetricsConfig struct {
 	// instruments
