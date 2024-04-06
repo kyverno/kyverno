@@ -89,16 +89,17 @@ func Command() *cobra.Command {
 			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
-				printReport(out, responses, applyCommandConfig.AuditWarn)
+				printReports(out, responses, applyCommandConfig.AuditWarn)
 			} else if table {
 				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
 				printViolations(out, rc)
 			}
-			return exit(rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
+			return exit(out, rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resources", "", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	// currently `set` flag supports variable for single policy applied on single resource
@@ -119,6 +120,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	return cmd
 }
 
@@ -165,10 +167,10 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
-	if !c.Stdin {
+	if !c.Stdin && !c.PolicyReport {
 		var policyRulesCount int
 		for _, policy := range policies {
-			policyRulesCount += len(autogen.ComputeRules(policy))
+			policyRulesCount += len(autogen.ComputeRules(policy, ""))
 		}
 		policyRulesCount += len(vaps)
 		if len(exceptions) > 0 {
@@ -193,7 +195,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	responses2, err := c.applyValidatingAdmissionPolicytoResource(vaps, vapBindings, resources1, rc, dClient)
+	responses2, err := c.applyValidatingAdmissionPolicytoResource(vaps, vapBindings, resources1, variables.NamespaceSelectors(), rc, dClient)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
@@ -215,18 +217,20 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 	vaps []v1alpha1.ValidatingAdmissionPolicy,
 	vapBindings []v1alpha1.ValidatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
+	namespaceSelectorMap map[string]map[string]string,
 	rc *processor.ResultCounts,
 	dClient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.ValidatingAdmissionPolicyProcessor{
-			Policies:     vaps,
-			Bindings:     vapBindings,
-			Resource:     resource,
-			PolicyReport: c.PolicyReport,
-			Rc:           rc,
-			Client:       dClient,
+			Policies:             vaps,
+			Bindings:             vapBindings,
+			Resource:             resource,
+			NamespaceSelectorMap: namespaceSelectorMap,
+			PolicyReport:         c.PolicyReport,
+			Rc:                   rc,
+			Client:               dClient,
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
@@ -442,18 +446,17 @@ func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedIn
 	}
 }
 
-func printReport(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool) {
+func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool) {
 	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
-	if len(clustered) > 0 || len(namespaced) > 0 {
-		fmt.Fprintln(out, divider)
-		fmt.Fprintln(out, "POLICY REPORT:")
-		fmt.Fprintln(out, divider)
+	if len(clustered) > 0 {
 		report := report.MergeClusterReports(clustered)
 		yamlReport, _ := yaml.Marshal(report)
 		fmt.Fprintln(out, string(yamlReport))
-	} else {
-		fmt.Fprintln(out, divider)
-		fmt.Fprintln(out, "POLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
+	}
+	for _, r := range namespaced {
+		fmt.Fprintln(out, string("---"))
+		yamlReport, _ := yaml.Marshal(r)
+		fmt.Fprintln(out, string(yamlReport))
 	}
 }
 
@@ -461,15 +464,29 @@ func printViolations(out io.Writer, rc *processor.ResultCounts) {
 	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
 }
 
-func exit(rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
+type WarnExitCodeError struct {
+	ExitCode int
+}
+
+func (w WarnExitCodeError) Error() string {
+	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
+}
+
+func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
 	if rc.Fail() > 0 {
 		return fmt.Errorf("exit as there are policy violations")
 	} else if rc.Error() > 0 {
 		return fmt.Errorf("exit as there are policy errors")
 	} else if rc.Warn() > 0 && warnExitCode != 0 {
-		return fmt.Errorf("exit as warnExitCode is %d", warnExitCode)
+		fmt.Printf("exit as warnExitCode is %d", warnExitCode)
+		return WarnExitCodeError{
+			ExitCode: warnExitCode,
+		}
 	} else if rc.Pass() == 0 && warnNoPassed {
-		return fmt.Errorf("exit as no objects satisfied policy")
+		fmt.Println(out, "exit as no objects satisfied policy")
+		return WarnExitCodeError{
+			ExitCode: warnExitCode,
+		}
 	}
 	return nil
 }

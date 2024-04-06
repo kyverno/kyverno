@@ -2,8 +2,8 @@ package report
 
 import (
 	"cmp"
+	"encoding/json"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -12,6 +12,8 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/pss/utils"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -86,72 +88,100 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	return ""
 }
 
-func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
-	pol := response.Policy()
-	var results []policyreportv1alpha2.PolicyReportResult
-	if pol.GetType() == engineapi.KyvernoPolicyType {
-		key, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
-		for _, ruleResult := range response.PolicyResponse.Rules {
-			annotations := pol.GetAnnotations()
-			result := policyreportv1alpha2.PolicyReportResult{
-				Source:  kyverno.ValueKyvernoApp,
-				Policy:  key,
-				Rule:    ruleResult.Name(),
-				Message: ruleResult.Message(),
-				Result:  toPolicyResult(ruleResult.Status()),
-				Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
-				Timestamp: metav1.Timestamp{
-					Seconds: time.Now().Unix(),
-				},
-				Category: annotations[kyverno.AnnotationPolicyCategory],
-				Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
-			}
-			if ruleResult.Exception() != nil {
-				result.Properties = map[string]string{
-					"exception": ruleResult.Exception().Name,
-				}
-			}
-			pss := ruleResult.PodSecurityChecks()
-			if pss != nil {
-				var controls []string
-				for _, check := range pss.Checks {
-					if !check.CheckResult.Allowed {
-						controls = append(controls, check.ID)
-					}
-				}
-				if len(controls) > 0 {
-					sort.Strings(controls)
-					result.Properties = map[string]string{
-						"standard": string(pss.Level),
-						"version":  pss.Version,
-						"controls": strings.Join(controls, ","),
-					}
-				}
-			}
-			if result.Result == "fail" && !result.Scored {
-				result.Result = "warn"
-			}
-			results = append(results, result)
-		}
-	} else {
-		for _, ruleResult := range response.PolicyResponse.Rules {
-			result := policyreportv1alpha2.PolicyReportResult{
-				Source:  "ValidatingAdmissionPolicy",
-				Policy:  ruleResult.Name(),
-				Message: ruleResult.Message(),
-				Result:  toPolicyResult(ruleResult.Status()),
-				Timestamp: metav1.Timestamp{
-					Seconds: time.Now().Unix(),
-				},
-			}
-			if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
-				result.Properties = map[string]string{
-					"binding": ruleResult.ValidatingAdmissionPolicyBinding().Name,
-				}
-			}
-			results = append(results, result)
+func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ruleResult engineapi.RuleResponse, annotations map[string]string, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
+	result := policyreportv1alpha2.PolicyReportResult{
+		Source:  kyverno.ValueKyvernoApp,
+		Policy:  policyName,
+		Rule:    ruleResult.Name(),
+		Message: ruleResult.Message(),
+		Result:  toPolicyResult(ruleResult.Status()),
+		Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
+		Timestamp: metav1.Timestamp{
+			Seconds: time.Now().Unix(),
+		},
+		Category: annotations[kyverno.AnnotationPolicyCategory],
+		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
+	}
+	if result.Result == "fail" && !result.Scored {
+		result.Result = "warn"
+	}
+	if resource != nil {
+		result.Resources = []corev1.ObjectReference{
+			*resource,
 		}
 	}
+	if ruleResult.Exception() != nil {
+		addProperty("exception", ruleResult.Exception().Name, &result)
+	}
+	pss := ruleResult.PodSecurityChecks()
+	if pss != nil && len(pss.Checks) > 0 {
+		addPodSecurityProperties(pss, &result)
+	}
+	if policyType == engineapi.ValidatingAdmissionPolicyType {
+		result.Source = "ValidatingAdmissionPolicy"
+		result.Policy = ruleResult.Name()
+		if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
+			addProperty("binding", ruleResult.ValidatingAdmissionPolicyBinding().Name, &result)
+		}
+	}
+	return result
+}
+
+func addProperty(k, v string, result *policyreportv1alpha2.PolicyReportResult) {
+	if result.Properties == nil {
+		result.Properties = map[string]string{}
+	}
+
+	result.Properties[k] = v
+}
+
+type Control struct {
+	ID     string
+	Name   string
+	Images []string
+}
+
+func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyreportv1alpha2.PolicyReportResult) {
+	if pss == nil {
+		return
+	}
+	if result.Properties == nil {
+		result.Properties = map[string]string{}
+	}
+	var controls []Control
+	var controlIDs []string
+	for _, check := range pss.Checks {
+		if !check.CheckResult.Allowed {
+			controlName := utils.PSSControlIDToName(check.ID)
+			controlIDs = append(controlIDs, check.ID)
+			controls = append(controls, Control{
+				ID:     check.ID,
+				Name:   controlName,
+				Images: check.Images,
+			})
+		}
+	}
+	if len(controls) > 0 {
+		controlsJson, _ := json.Marshal(controls)
+		result.Properties["standard"] = string(pss.Level)
+		result.Properties["version"] = pss.Version
+		result.Properties["controls"] = strings.Join(controlIDs, ",")
+		result.Properties["controlsJSON"] = string(controlsJson)
+	}
+}
+
+func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	pol := response.Policy()
+	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	policyType := pol.GetType()
+	annotations := pol.GetAnnotations()
+
+	var results []policyreportv1alpha2.PolicyReportResult
+	for _, ruleResult := range response.PolicyResponse.Rules {
+		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
+		results = append(results, result)
+	}
+
 	return results
 }
 

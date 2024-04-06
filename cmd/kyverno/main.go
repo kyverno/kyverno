@@ -362,11 +362,15 @@ func main() {
 		globalcontextcontroller.NewController(
 			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 			setup.KyvernoDynamicClient,
+			setup.KyvernoClient,
 			gcstore,
+			eventGenerator,
 			maxAPICallResponseLength,
+			true,
 		),
 		globalcontextcontroller.Workers,
 	)
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 	eventController := internal.NewController(
 		event.ControllerName,
 		eventGenerator,
@@ -412,6 +416,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		polexCache,
 		gcstore,
 	)
 	// create non leader controllers
@@ -508,7 +513,7 @@ func main() {
 	)
 	policyHandlers := webhookspolicy.NewHandlers(
 		setup.KyvernoDynamicClient,
-		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+		setup.KyvernoClient,
 		backgroundServiceAccountName,
 	)
 	resourceHandlers := webhooksresource.NewHandlers(
@@ -574,6 +579,9 @@ func main() {
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
 	gceController.Run(signalCtx, setup.Logger, &wg)
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
+	}
 	for _, controller := range nonLeaderControllers {
 		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
 	}

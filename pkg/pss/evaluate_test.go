@@ -1691,6 +1691,86 @@ var baseline_capabilities = []testCase{
 
 var baseline_hostPath_volumes = []testCase{
 	{
+		name: "baseline_hostPath_volumes_exclude_path_true",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "HostPath Volumes",
+					"restrictedField": "spec.volumes[*].hostPath",
+					"values": [
+						"/etc/nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				],
+				"volumes": [
+					{
+						"hostPath": {
+							"path": "/etc/nginx"
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_hostPath_volumes_exclude_path_false",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "HostPath Volumes",
+					"restrictedField": "spec.volumes[*].hostPath",
+					"values": [
+						"/etc/nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				],
+				"volumes": [
+					{
+						"hostPath": {
+							"path": "/var/lib1"
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
 		name: "baseline_hostPath_volumes_violate_true",
 		rawRule: []byte(`
 		{

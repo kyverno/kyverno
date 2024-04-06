@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	"github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -151,18 +152,22 @@ type APICall struct {
 	// The format required is the same format used by the `kubectl get --raw` command.
 	// See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
 	// for details.
+	// It's mutually exclusive with the Service field.
 	// +kubebuilder:validation:Optional
 	URLPath string `json:"urlPath" yaml:"urlPath"`
 
-	// Method is the HTTP request type (GET or POST).
+	// Method is the HTTP request type (GET or POST). Defaults to GET.
 	// +kubebuilder:default=GET
 	Method Method `json:"method,omitempty" yaml:"method,omitempty"`
 
-	// Data specifies the POST data sent to the server.
+	// The data object specifies the POST data sent to the server.
+	// Only applicable when the method field is set to POST.
 	// +kubebuilder:validation:Optional
 	Data []RequestData `json:"data,omitempty" yaml:"data,omitempty"`
 
-	// Service is an API call to a JSON web service
+	// Service is an API call to a JSON web service.
+	// This is used for non-Kubernetes API server calls.
+	// It's mutually exclusive with the URLPath field.
 	// +kubebuilder:validation:Optional
 	Service *ServiceCall `json:"service,omitempty" yaml:"service,omitempty"`
 }
@@ -181,6 +186,7 @@ type ContextAPICall struct {
 
 type GlobalContextEntryReference struct {
 	// Name of the global context entry
+	// +kubebuilder:validation:Required
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
@@ -436,8 +442,8 @@ type PodSecurity struct {
 	Level api.Level `json:"level,omitempty" yaml:"level,omitempty"`
 
 	// Version defines the Pod Security Standard versions that Kubernetes supports.
-	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, latest. Defaults to latest.
-	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;v1.26;latest
+	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.
+	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;v1.26;v1.27;v1.28;v1.29;latest
 	// +optional
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 
@@ -469,13 +475,26 @@ type PodSecurityStandard struct {
 	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
 }
 
-// Validate checks if the values in the PodSecurityStandard struct are valid.
-func (pss *PodSecurityStandard) Validate(exclude PodSecurityStandard) error {
-	if (exclude.RestrictedField != "" && len(exclude.Values) == 0) || (exclude.RestrictedField == "" && len(exclude.Values) != 0) {
-		return fmt.Errorf("Values[] and RestrictedField must be set together")
+func (pss *PodSecurityStandard) Validate(path *field.Path) (errs field.ErrorList) {
+	// container level control must specify images
+	if containsString(utils.PSS_container_level_control, pss.ControlName) {
+		if len(pss.Images) == 0 {
+			errs = append(errs, field.Invalid(path.Child("controlName"), pss.ControlName, "exclude.images must be specified for the container level control"))
+		}
+	} else if containsString(utils.PSS_pod_level_control, pss.ControlName) {
+		if len(pss.Images) != 0 {
+			errs = append(errs, field.Invalid(path.Child("controlName"), pss.ControlName, "exclude.images must not be specified for the pod level control"))
+		}
 	}
 
-	return nil
+	if pss.RestrictedField != "" && len(pss.Values) == 0 {
+		errs = append(errs, field.Forbidden(path.Child("values"), "values is required"))
+	}
+
+	if pss.RestrictedField == "" && len(pss.Values) != 0 {
+		errs = append(errs, field.Forbidden(path.Child("restrictedField"), "restrictedField is required"))
+	}
+	return errs
 }
 
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).

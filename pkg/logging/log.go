@@ -79,12 +79,14 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 	case RFC3339NANO:
 		zc.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 	case "default":
-		zc.EncoderConfig.EncodeTime = zapcore.EpochNanosTimeEncoder
+		zc.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	default:
 		return errors.New("timestamp format not recognized, pass `iso8601` for ISO8601, `rfc3339` for RFC3339, `rfc3339nano` for RFC3339NANO, `millis` for Epoch Millis, `nanos` for Epoch Nanos, or omit the flag for the Unix Epoch timestamp format")
 	}
 	// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).
 	zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-1 * level))
+	// disable stacktrace
+	zc.DisableStacktrace = true
 	zapLog, err := zc.Build()
 	if err != nil {
 		return err

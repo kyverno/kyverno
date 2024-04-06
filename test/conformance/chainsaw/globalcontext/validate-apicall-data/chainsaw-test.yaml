@@ -1,0 +1,14 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: validate-apicall-data
+spec:
+  steps:
+    - name: validation
+      try:
+        - apply:
+            expect:
+              - check:
+                  ($error != null): true
+            file: gctxentry.yaml

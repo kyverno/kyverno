@@ -1,6 +1,6 @@
 ## Description
 
-This test verifies that policies are not ready if referenced Global Context Entries don't exist.
+This test verifies that the policy becomes not ready if the referenced  Global Context Entries don't exist anymore.
 
 ## Expected Behavior
 
