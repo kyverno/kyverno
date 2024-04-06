@@ -13861,6 +13861,9 @@ spec:
                                         type: array
                                     type: object
                                   type: array
+                                name:
+                                  description: Name is the variable name.
+                                  type: string
                                 predicateType:
                                   description: Deprecated in favour of 'Type', to
                                     be removed soon
@@ -18078,6 +18081,9 @@ spec:
                                             type: array
                                         type: object
                                       type: array
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
                                     predicateType:
                                       description: Deprecated in favour of 'Type',
                                         to be removed soon
@@ -22100,6 +22106,9 @@ spec:
                                         type: array
                                     type: object
                                   type: array
+                                name:
+                                  description: Name is the variable name.
+                                  type: string
                                 predicateType:
                                   description: Deprecated in favour of 'Type', to
                                     be removed soon
@@ -26280,6 +26289,9 @@ spec:
                                             type: array
                                         type: object
                                       type: array
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
                                     predicateType:
                                       description: Deprecated in favour of 'Type',
                                         to be removed soon
@@ -30816,6 +30828,9 @@ spec:
                                         type: array
                                     type: object
                                   type: array
+                                name:
+                                  description: Name is the variable name.
+                                  type: string
                                 predicateType:
                                   description: Deprecated in favour of 'Type', to
                                     be removed soon
@@ -35034,6 +35049,9 @@ spec:
                                             type: array
                                         type: object
                                       type: array
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
                                     predicateType:
                                       description: Deprecated in favour of 'Type',
                                         to be removed soon
@@ -39057,6 +39075,9 @@ spec:
                                         type: array
                                     type: object
                                   type: array
+                                name:
+                                  description: Name is the variable name.
+                                  type: string
                                 predicateType:
                                   description: Deprecated in favour of 'Type', to
                                     be removed soon
@@ -43237,6 +43258,9 @@ spec:
                                             type: array
                                         type: object
                                       type: array
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
                                     predicateType:
                                       description: Deprecated in favour of 'Type',
                                         to be removed soon
