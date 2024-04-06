@@ -320,6 +320,9 @@ type CTLog struct {
 // See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
+	// Name is the variable name.
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
 	// Deprecated in favour of 'Type', to be removed soon
 	// +kubebuilder:validation:Optional
 	PredicateType string `json:"predicateType" yaml:"predicateType"`
