@@ -63,6 +63,9 @@ type resourceHandlers struct {
 
 	admissionReports             bool
 	backgroundServiceAccountName string
+
+	// mutation webhook warnings
+	warnings []string
 }
 
 func NewHandlers(
@@ -134,6 +137,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		go h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
 		h.wg.Wait()
 	}
+	warnings = append(warnings, h.warnings...)
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 
@@ -179,6 +183,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	var warnings []string
 	warnings = append(warnings, mutateWarnings...)
 	warnings = append(warnings, imageVerifyWarnings...)
+	h.warnings = warnings
 	return admissionutils.MutationResponse(request.UID, patch, warnings...)
 }
 
