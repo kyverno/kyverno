@@ -105,6 +105,12 @@ spec:
                 - All
                 - One
                 type: string
+              auditWarn:
+                default: false
+                description: |-
+                  AuditWarn controls if an audit policy returns a warning with a policy report.
+                  Ignored for enforce policies. The default value is "false".
+                type: boolean
               background:
                 default: true
                 description: |-

@@ -29,6 +29,7 @@ type SpecApplyConfiguration struct {
 	ApplyRules                       *kyvernov1.ApplyRulesType                           `json:"applyRules,omitempty"`
 	FailurePolicy                    *kyvernov1.FailurePolicyType                        `json:"failurePolicy,omitempty"`
 	ValidationFailureAction          *kyvernov1.ValidationFailureAction                  `json:"validationFailureAction,omitempty"`
+	AuditWarn                        *bool                                               `json:"auditWarn,omitempty"`
 	ValidationFailureActionOverrides []ValidationFailureActionOverrideApplyConfiguration `json:"validationFailureActionOverrides,omitempty"`
 	Admission                        *bool                                               `json:"admission,omitempty"`
 	Background                       *bool                                               `json:"background,omitempty"`
@@ -81,6 +82,14 @@ func (b *SpecApplyConfiguration) WithFailurePolicy(value kyvernov1.FailurePolicy
 // If called multiple times, the ValidationFailureAction field is set to the value of the last call.
 func (b *SpecApplyConfiguration) WithValidationFailureAction(value kyvernov1.ValidationFailureAction) *SpecApplyConfiguration {
 	b.ValidationFailureAction = &value
+	return b
+}
+
+// WithAuditWarn sets the AuditWarn field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AuditWarn field is set to the value of the last call.
+func (b *SpecApplyConfiguration) WithAuditWarn(value bool) *SpecApplyConfiguration {
+	b.AuditWarn = &value
 	return b
 }
 

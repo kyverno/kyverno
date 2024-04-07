@@ -76,6 +76,12 @@ type Spec struct {
 	// +kubebuilder:default=Audit
 	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
+	// AuditWarn controls if an audit policy returns a warning with a policy report.
+	// Ignored for enforce policies. The default value is "false".
+	// +optional
+	// +kubebuilder:default=false
+	AuditWarn *bool `json:"auditWarn,omitempty" yaml:"auditWarn,omitempty"`
+
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
 	// +optional

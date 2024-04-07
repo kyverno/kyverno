@@ -1415,6 +1415,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 		*out = new(FailurePolicyType)
 		**out = **in
 	}
+	if in.AuditWarn != nil {
+		in, out := &in.AuditWarn, &out.AuditWarn
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ValidationFailureActionOverrides != nil {
 		in, out := &in.ValidationFailureActionOverrides, &out.ValidationFailureActionOverrides
 		*out = make([]ValidationFailureActionOverride, len(*in))
