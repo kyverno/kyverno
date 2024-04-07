@@ -81,6 +81,11 @@ func (er EngineResponse) WithNamespaceLabels(namespaceLabels map[string]string) 
 	return er
 }
 
+func (er EngineResponse) WithWarning() EngineResponse {
+	er.PolicyResponse.emitWarning = true
+	return er
+}
+
 func (er *EngineResponse) NamespaceLabels() map[string]string {
 	return er.namespaceLabels
 }
@@ -124,9 +129,14 @@ func (er EngineResponse) IsEmpty() bool {
 	return len(er.PolicyResponse.Rules) == 0
 }
 
-// isNil checks if rule is an empty rule
+// IsNil checks if rule is an empty rule
 func (er EngineResponse) IsNil() bool {
 	return datautils.DeepEqual(er, EngineResponse{})
+}
+
+// EmitsWarning checks if policy emits warnings
+func (er EngineResponse) EmitsWarning() bool {
+	return er.PolicyResponse.emitWarning
 }
 
 // GetPatches returns all the patches joined

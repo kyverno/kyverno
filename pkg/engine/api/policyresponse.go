@@ -6,6 +6,8 @@ type PolicyResponse struct {
 	stats PolicyStats
 	// Rules contains policy rules responses
 	Rules []RuleResponse
+	// emitWarning controls if rule responses are returned in warning header
+	emitWarning bool
 }
 
 func (pr *PolicyResponse) Add(stats ExecutionStats, responses ...RuleResponse) {
