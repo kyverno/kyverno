@@ -143,6 +143,44 @@ var policyVerifySignature = `
 }
 `
 
+var policyAddLabels = `{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "add-labels"
+  },
+  "spec": {
+    "admission": true,
+    "background": true,
+    "rules": [
+      {
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "foo": "bar"
+              }
+            }
+          }
+        },
+        "name": "add-labels"
+      }
+    ],
+    "validationFailureAction": "Audit"
+  }
+}`
+
 var policyMutateAndVerify = `
 {
     "apiVersion": "kyverno.io/v1",
@@ -274,8 +312,8 @@ var goodPod = `{
 	   "name": "test-pod",
 	   "namespace": "",
 		 "labels": {
-					"app": "kyverno"
-			}
+			"app": "kyverno"
+		 }
 	},
 	"spec": {
 	   "containers": [
@@ -554,7 +592,7 @@ func Test_MutateAndVerify(t *testing.T) {
 		AdmissionRequest: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateAndVerify),
 			},
@@ -599,7 +637,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 		AdmissionRequest: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateandGenerate),
 			},
@@ -719,6 +757,47 @@ func Test_ValidateAuditWarnGood(t *testing.T) {
 	assert.Equal(t, len(response.Warnings), 0, "should emit warning for pass rule response")
 
 	policyCache.Unset(key)
+}
+
+func Test_MutateWarn(t *testing.T) {
+	policyCache := policycache.NewCache()
+	logger := log.WithName("Test_MutateWarn")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal([]byte(policyAddLabels), &policy)
+	assert.NilError(t, err)
+
+	key := makeKey(&policy)
+	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+	}
+
+	response := resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
+	assert.Equal(t, response.Allowed, true)
+	assert.Equal(t, len(response.Warnings), 0)
+
+	auditWarn := true
+	policy.Spec.AuditWarn = &auditWarn
+	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+
+	response = resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
+	assert.Equal(t, response.Allowed, true)
+	assert.Equal(t, len(response.Warnings), 1, "should emit warning when audit warn is set to true")
 }
 
 func makeKey(policy kyverno.PolicyInterface) string {

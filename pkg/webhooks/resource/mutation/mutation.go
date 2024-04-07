@@ -116,6 +116,11 @@ func (v *mutationHandler) applyMutations(
 
 				if engineResponse != nil {
 					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
+					auditWarn := policy.GetSpec().AuditWarn
+					if auditWarn != nil && *auditWarn {
+						resp := engineResponse.WithWarning()
+						engineResponse = &resp
+					}
 					engineResponses = append(engineResponses, *engineResponse)
 				}
 
