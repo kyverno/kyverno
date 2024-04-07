@@ -120,7 +120,8 @@ func (v *validationHandler) HandleValidation(
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
-	go v.handleAudit(ctx, policyContext.NewResource(), request, policyContext.NamespaceLabels(), engineResponses...)
+	auditResponses := v.handleAudit(ctx, policyContext.NewResource(), request, policyContext.NamespaceLabels(), engineResponses...)
+	engineResponses = append(engineResponses, auditResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
@@ -128,12 +129,10 @@ func (v *validationHandler) HandleValidation(
 
 func (v *validationHandler) buildAuditResponses(
 	ctx context.Context,
-	resource unstructured.Unstructured,
 	request handlers.AdmissionRequest,
+	policies []kyvernov1.PolicyInterface,
 	namespaceLabels map[string]string,
 ) ([]engineapi.EngineResponse, error) {
-	gvr := schema.GroupVersionResource(request.Resource)
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 	if err != nil {
 		return nil, err
@@ -160,7 +159,7 @@ func (v *validationHandler) handleAudit(
 	request handlers.AdmissionRequest,
 	namespaceLabels map[string]string,
 	engineResponses ...engineapi.EngineResponse,
-) {
+) []engineapi.EngineResponse {
 	createReport := v.admissionReports
 	if admissionutils.IsDryRun(request.AdmissionRequest) {
 		createReport = false
@@ -177,28 +176,72 @@ func (v *validationHandler) handleAudit(
 	if resource.GetUID() == "" {
 		createReport = false
 	}
+	gvr := schema.GroupVersionResource(request.Resource)
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
+	auditPolicies, auditWarnPolicies := v.splitAuditPolicies(policies)
+
+	var auditWarnResponses []engineapi.EngineResponse
+	var err error
 	tracing.Span(
 		context.Background(),
 		"",
-		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
+		fmt.Sprintf("AUDIT WITH WARN %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
-			responses, err := v.buildAuditResponses(ctx, resource, request, namespaceLabels)
+			auditWarnResponses, err = v.buildAuditResponses(ctx, request, auditWarnPolicies, namespaceLabels)
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
+				return
 			}
-			events := webhookutils.GenerateEvents(responses, false)
+
+			events := webhookutils.GenerateEvents(auditWarnResponses, false)
 			v.eventGen.Add(events...)
-			if createReport {
-				responses = append(responses, engineResponses...)
-				report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
-				if len(report.GetResults()) > 0 {
-					_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
-					if err != nil {
-						v.log.Error(err, "failed to create report")
-					}
-				}
-			}
 		},
 		trace.WithLinks(trace.LinkFromContext(ctx)),
 	)
+
+	go func() {
+		tracing.Span(
+			context.Background(),
+			"",
+			fmt.Sprintf("AUDIT REPORTS %s %s", request.Operation, request.Kind),
+			func(ctx context.Context, span trace.Span) {
+				var responses []engineapi.EngineResponse
+				responses, err = v.buildAuditResponses(ctx, request, auditPolicies, namespaceLabels)
+				if err != nil {
+					v.log.Error(err, "failed to build audit responses")
+				}
+
+				events := webhookutils.GenerateEvents(responses, false)
+				v.eventGen.Add(events...)
+				if createReport {
+					responses = append(responses, engineResponses...)
+					responses = append(responses, auditWarnResponses...)
+					report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, responses...)
+					if len(report.GetResults()) > 0 {
+						_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
+						if err != nil {
+							v.log.Error(err, "failed to create report")
+						}
+					}
+				}
+			},
+			trace.WithLinks(trace.LinkFromContext(ctx)),
+		)
+	}()
+
+	return auditWarnResponses
+}
+
+func (v *validationHandler) splitAuditPolicies(policies []kyvernov1.PolicyInterface) ([]kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface) {
+	var auditPolicies []kyvernov1.PolicyInterface
+	var auditWarnPolicies []kyvernov1.PolicyInterface
+	for _, policy := range policies {
+		auditWarn := policy.GetSpec().AuditWarn
+		if auditWarn != nil && *auditWarn {
+			auditWarnPolicies = append(auditWarnPolicies, policy)
+		} else {
+			auditPolicies = append(auditPolicies, policy)
+		}
+	}
+	return auditPolicies, auditWarnPolicies
 }
