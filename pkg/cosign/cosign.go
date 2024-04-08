@@ -214,6 +214,21 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		cosignOpts.RegistryClientOpts = append(cosignOpts.RegistryClientOpts, remote.WithTargetRepository(signatureRepo))
 	}
 
+	if opts.TSACertChain != "" {
+		leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.TSACertChain))
+		if err != nil {
+			return nil, fmt.Errorf("error splitting tsa certificates: %w", err)
+		}
+		if len(leaves) > 1 {
+			return nil, fmt.Errorf("certificate chain must contain at most one TSA certificate")
+		}
+		if len(leaves) == 1 {
+			cosignOpts.TSACertificate = leaves[0]
+		}
+		cosignOpts.TSAIntermediateCertificates = intermediates
+		cosignOpts.TSARootCertificates = roots
+	}
+
 	return cosignOpts, nil
 }
 
@@ -611,4 +626,26 @@ func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTrans
 		return nil, fmt.Errorf("failed to get transparency log public keys: %w", err)
 	}
 	return &publicKeys, nil
+}
+
+func splitPEMCertificateChain(pem []byte) (leaves, intermediates, roots []*x509.Certificate, err error) {
+	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(pem)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	for _, cert := range certs {
+		if !cert.IsCA {
+			leaves = append(leaves, cert)
+		} else {
+			// root certificates are self-signed
+			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
+				roots = append(roots, cert)
+			} else {
+				intermediates = append(intermediates, cert)
+			}
+		}
+	}
+
+	return leaves, intermediates, roots, nil
 }

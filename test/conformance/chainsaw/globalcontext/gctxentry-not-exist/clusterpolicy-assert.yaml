@@ -1,0 +1,11 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-gctxentry-not-exist
+status:
+  conditions:
+  - message: global context entry not ready
+    reason: Failed
+    status: "False"
+    type: Ready
+  ready: false

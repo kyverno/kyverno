@@ -111,7 +111,7 @@ func (c *controller) reportPolicy(ctx context.Context, policy kyvernov1.PolicyIn
 			attribute.String("policy_type", string(policyType)),
 			attribute.String("policy_background_mode", string(backgroundMode)),
 		}
-		for _, rule := range autogen.ComputeRules(policy) {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			ruleType := metrics.ParseRuleType(rule)
 			ruleAttributes := []attribute.KeyValue{
 				attribute.String("rule_name", rule.Name),

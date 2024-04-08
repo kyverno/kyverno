@@ -592,6 +592,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		if attestor.Keys.CTLog != nil {
 			opts.IgnoreSCT = attestor.Keys.CTLog.IgnoreSCT
 			opts.CTLogsPubKey = attestor.Keys.CTLog.CTLogPubKey
+			opts.TSACertChain = attestor.Keys.CTLog.TSACertChain
 		} else {
 			opts.IgnoreSCT = false
 		}
@@ -603,6 +604,19 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		opts.CertChain = attestor.Certificates.CertificateChain
 		if attestor.Certificates.Rekor != nil {
 			opts.RekorURL = attestor.Certificates.Rekor.URL
+			opts.RekorPubKey = attestor.Certificates.Rekor.RekorPubKey
+			opts.IgnoreTlog = attestor.Certificates.Rekor.IgnoreTlog
+		} else {
+			opts.RekorURL = "https://rekor.sigstore.dev"
+			opts.IgnoreTlog = false
+		}
+
+		if attestor.Certificates.CTLog != nil {
+			opts.IgnoreSCT = attestor.Certificates.CTLog.IgnoreSCT
+			opts.CTLogsPubKey = attestor.Certificates.CTLog.CTLogPubKey
+			opts.TSACertChain = attestor.Certificates.CTLog.TSACertChain
+		} else {
+			opts.IgnoreSCT = false
 		}
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
@@ -618,6 +632,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		if attestor.Keyless.CTLog != nil {
 			opts.IgnoreSCT = attestor.Keyless.CTLog.IgnoreSCT
 			opts.CTLogsPubKey = attestor.Keyless.CTLog.CTLogPubKey
+			opts.TSACertChain = attestor.Keyless.CTLog.TSACertChain
 		} else {
 			opts.IgnoreSCT = false
 		}
@@ -636,6 +651,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		opts.Annotations = attestor.Annotations
 	}
 
+	iv.logger.V(4).Info("cosign verifier built", "ignoreTlog", opts.IgnoreTlog, "ignoreSCT", opts.IgnoreSCT)
 	return cosign.NewVerifier(), opts, path
 }
 

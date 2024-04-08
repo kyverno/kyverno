@@ -262,7 +262,7 @@ type KeylessAttestor struct {
 
 type Rekor struct {
 	// URL is the address of the transparency log. Defaults to the public Rekor log instance https://rekor.sigstore.dev.
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:Default:=https://rekor.sigstore.dev
 	URL string `json:"url" yaml:"url"`
 
@@ -285,6 +285,12 @@ type CTLog struct {
 	// PubKey, if set, is used to validate SCTs against a custom source.
 	// +kubebuilder:validation:Optional
 	CTLogPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
+
+	// TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+	// contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+	// may contain the leaf TSA certificate if not present in the timestamurce.
+	// +kubebuilder:validation:Optional
+	TSACertChain string `json:"tsaCertChain,omitempty" yaml:"tsaCertChain,omitempty"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.

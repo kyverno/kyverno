@@ -156,7 +156,7 @@ func Test_RuleCount(t *testing.T) {
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
 	status := cpol.GetStatus()
-	rules := autogen.ComputeRules(&cpol)
+	rules := autogen.ComputeRules(&cpol, "")
 	setRuleCount(rules, status)
 	assert.Equal(t, status.RuleCount.Validate, 0)
 	assert.Equal(t, status.RuleCount.Generate, 0)

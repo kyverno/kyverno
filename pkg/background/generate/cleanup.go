@@ -77,7 +77,7 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 				failedDownstreams = append(failedDownstreams, spec)
 				errs = append(errs, err)
 			} else {
-				c.log.V(4).Info("downstream resource deleted", spec.String())
+				c.log.V(4).Info("downstream resource deleted", "spec", spec.String())
 			}
 		}
 		if len(errs) != 0 {

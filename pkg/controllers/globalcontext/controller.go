@@ -89,6 +89,7 @@ func (c *controller) updateGTXEntry(old, obj *kyvernov2alpha1.GlobalContextEntry
 }
 
 func (c *controller) deleteGTXEntry(obj *kyvernov2alpha1.GlobalContextEntry) {
+	logger.Info("globalcontextentry deleted", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 

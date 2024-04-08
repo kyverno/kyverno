@@ -161,7 +161,7 @@ func checkResourceDescription(
 		}
 	}
 	if len(conditionBlock.Namespaces) > 0 {
-		if !checkNameSpace(conditionBlock.Namespaces, resource) {
+		if !CheckNameSpace(conditionBlock.Namespaces, resource) {
 			errs = append(errs, fmt.Errorf("namespace does not match"))
 		}
 	}
@@ -193,7 +193,7 @@ func checkResourceDescription(
 	return errs
 }
 
-func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
+func CheckNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
 	resourceNameSpace := resource.GetNamespace()
 	if resource.GetKind() == "Namespace" {
 		resourceNameSpace = resource.GetName()

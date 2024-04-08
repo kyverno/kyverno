@@ -80,10 +80,10 @@ spec:
           image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.reportsController.image.pullPolicy }}
           ports:
-          - containerPort: 9443
+          - containerPort: {{ .Values.reportsController.server.port }}
             name: https
             protocol: TCP
-          - containerPort: 8000
+          - containerPort: {{ .Values.reportsController.metering.port }}
             name: metrics
             protocol: TCP
           {{ if .Values.reportsController.profiling.enabled }}

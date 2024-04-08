@@ -44,7 +44,7 @@ func (h validateCELHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	_ engineapi.EngineContextLoader,
-	exceptions []kyvernov2beta1.PolicyException,
+	exceptions []*kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		logger.V(3).Info("skipping CEL validation on deleted resource")

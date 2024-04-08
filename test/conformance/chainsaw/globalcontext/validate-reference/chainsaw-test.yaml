@@ -1,0 +1,16 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: gctx-validate-reference
+spec:
+  steps:
+    - name: validation
+      try:
+        - script:
+            content: kubectl apply -f clusterpolicy.yaml
+            check:
+              ($error != null): false
+              # This check ensures the contents of stderr are exactly as shown.
+              ($stderr): |-
+                Warning: Global context entry name is not provided

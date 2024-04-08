@@ -36,7 +36,7 @@ metadata:
 spec:
   ports:
   - port: {{ .Values.admissionController.metricsService.port }}
-    targetPort: 8000
+    targetPort: {{ .Values.admissionController.metering.port }}
     protocol: TCP
     name: metrics-port
     {{- if and (eq .Values.admissionController.metricsService.type "NodePort") (not (empty .Values.admissionController.metricsService.nodePort)) }}

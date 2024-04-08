@@ -80,6 +80,8 @@ func New(
 			} else {
 				e.setData(data, nil)
 
+				logger.V(4).Info("api call success", "data", data)
+
 				if shouldUpdateStatus {
 					if updateErr := updateStatus(ctx, gce.Name, kyvernoClient, true, "APICallSuccess"); updateErr != nil {
 						logger.Error(updateErr, "failed to update status")

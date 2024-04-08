@@ -15,7 +15,7 @@ metadata:
 spec:
   ports:
   - port: {{ .Values.backgroundController.metricsService.port }}
-    targetPort: 8000
+    targetPort: {{ .Values.backgroundController.metering.port }}
     protocol: TCP
     name: metrics-port
     {{- if and (eq .Values.backgroundController.metricsService.type "NodePort") (not (empty .Values.backgroundController.metricsService.nodePort)) }}

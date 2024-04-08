@@ -3,15 +3,15 @@ kind: Test
 metadata:
   name: kyverno-test.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-  - policy: clone-list-secrets
-    rule: clone-list-labelled-secrets
-    resources:
-      - hello-world-namespace
-    cloneSourceResource: cloneSourceResources.yaml
-    generatedResource: generatedResource.yaml
-    kind: Namespace
-    result: pass
+- cloneSourceResource: cloneSourceResources.yaml
+  generatedResource: generatedResource.yaml
+  kind: Namespace
+  policy: clone-list-secrets
+  resources:
+  - hello-world-namespace
+  result: pass
+  rule: clone-list-labelled-secrets
