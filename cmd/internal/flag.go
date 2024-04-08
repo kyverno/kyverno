@@ -2,6 +2,7 @@ package internal
 
 import (
 	"flag"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -97,7 +98,7 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 }
 
 func initPolicyExceptionsFlags() {
-	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure a comma sperated list of namespaces to accept PolicyExceptions.")
 	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
 }
 
@@ -234,8 +235,8 @@ func ParseFlags(config Configuration, opts ...Option) {
 	flag.Parse()
 }
 
-func ExceptionNamespace() string {
-	return exceptionNamespace
+func ExceptionNamespaces() []string {
+	return strings.Split(exceptionNamespace, ",")
 }
 
 func PolicyExceptionEnabled() bool {

@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	namespacesDontMatch = "PolicyException resource namespace must match the defined namespace."
+	namespacesDontMatch = "PolicyException resource namespace must match one of the defined namespaces."
 	disabledPolex       = "PolicyException resources would not be processed until it is enabled."
 )
 
 type ValidationOptions struct {
-	Enabled   bool
-	Namespace string
+	Enabled    bool
+	Namespaces []string
 }
 
 // Validate checks policy exception is valid
@@ -22,8 +22,17 @@ func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2beta1.Pol
 	var warnings []string
 	if !opts.Enabled {
 		warnings = append(warnings, disabledPolex)
-	} else if opts.Namespace != "" && opts.Namespace != polex.Namespace {
-		warnings = append(warnings, namespacesDontMatch)
+	} else if len(opts.Namespaces) > 0 {
+		found := false
+		for _, ns := range opts.Namespaces {
+			if ns == polex.Namespace {
+				found = true
+				break
+			}
+		}
+		if !found {
+			warnings = append(warnings, namespacesDontMatch)
+		}
 	}
 	errs := polex.Validate()
 	return warnings, errs.ToAggregate()

@@ -534,8 +534,8 @@ func main() {
 		setup.Jp,
 	)
 	exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
-		Enabled:   internal.PolicyExceptionEnabled(),
-		Namespace: internal.ExceptionNamespace(),
+		Enabled:    internal.PolicyExceptionEnabled(),
+		Namespaces: internal.ExceptionNamespaces(),
 	})
 	globalContextHandlers := webhooksglobalcontext.NewHandlers(globalcontext.ValidationOptions{
 		Enabled: internal.PolicyExceptionEnabled(),

@@ -36,9 +36,9 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// state
-	lock      sync.RWMutex
-	index     policyIndex
-	namespace string
+	lock       sync.RWMutex
+	index      policyIndex
+	namespaces []string
 }
 
 const (
@@ -51,7 +51,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	polexInformer kyvernov2beta1informers.PolicyExceptionInformer,
-	namespace string,
+	namespaces []string,
 ) *controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), queue); err != nil {
@@ -66,7 +66,7 @@ func NewController(
 		polexLister: polexInformer.Lister(),
 		queue:       queue,
 		index:       policyIndex{},
-		namespace:   namespace,
+		namespaces:  namespaces,
 	}
 	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addPolex, c.updatePolex, c.deletePolex); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -134,10 +134,18 @@ func (c *controller) getPolicy(namespace, name string) (kyvernov1.PolicyInterfac
 }
 
 func (c *controller) listExceptions() ([]*kyvernov2beta1.PolicyException, error) {
-	if c.namespace == "" {
+	if len(c.namespaces) == 0 {
 		return c.polexLister.List(labels.Everything())
 	}
-	return c.polexLister.PolicyExceptions(c.namespace).List(labels.Everything())
+	var exceptions []*kyvernov2beta1.PolicyException
+	for _, ns := range c.namespaces {
+		polexList, err := c.polexLister.PolicyExceptions(ns).List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		exceptions = append(exceptions, polexList...)
+	}
+	return exceptions, nil
 }
 
 func (c *controller) buildRuleIndex(key string, policy kyvernov1.PolicyInterface) (ruleIndex, error) {
