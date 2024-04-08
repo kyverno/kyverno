@@ -37,6 +37,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/validation/globalcontext"
 	"github.com/kyverno/kyverno/pkg/webhooks"
@@ -48,7 +49,6 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -312,9 +312,9 @@ func main() {
 		// check if validating admission policies are registered in the API server
 		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
 		if generateValidatingAdmissionPolicy {
-			groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
-			if _, err := setup.KyvernoDynamicClient.GetKubeClient().Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
-				setup.Logger.Error(err, "validating admission policies aren't supported.")
+			registered, err := validatingadmissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
+			if !registered {
+				setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
 				os.Exit(1)
 			}
 		}
