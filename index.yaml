@@ -17,6 +17,61 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.12.0-rc.4
+    created: "2024-04-09T08:30:37.33042319Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.2.0-rc.4
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.2.0-rc.4
+    description: Kubernetes Native Policy Management
+    digest: 49430d51e5079b9c23d7fa4e4de750d5444b6a9d5bad08378be35edde39ec267
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.2.0-rc.4.tgz
+    version: 3.2.0-rc.4
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Add profiling support
+        - kind: added
+          description: Add global nodeSelector
+        - kind: added
+          description: Add podLabels to the post-upgrade hook
+        - kind: added
+          description: Add podLabels to the pre-delete hook
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.12.0-rc.3
     created: "2024-03-30T18:12:07.243560486Z"
     dependencies:
@@ -10519,4 +10574,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2024-04-09T07:58:28.346201314Z"
+generated: "2024-04-09T08:30:37.315899523Z"
