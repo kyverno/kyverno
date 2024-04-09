@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -14,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -126,7 +126,7 @@ func (gen *controller) processNextWorkItem(ctx context.Context) bool {
 		return true
 	}
 	_, err := gen.eventsClient.Events(event.Namespace).Create(ctx, event, metav1.CreateOptions{})
-	if err != nil && !strings.Contains(err.Error(), "not found") && !strings.Contains(err.Error(), "being terminated") {
+	if err != nil && !apierrors.IsNotFound(err) {
 		if gen.queue.NumRequeues(key) < workQueueRetryLimit {
 			logger.Error(err, "failed to create event", "key", key)
 			gen.queue.AddRateLimited(key)
