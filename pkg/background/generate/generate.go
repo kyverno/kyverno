@@ -475,10 +475,12 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
 					continue
 				}
-				if err := validate.MatchPattern(logger, generatedObj.Object, newResource.Object); err == nil {
-					logger.V(4).Info("patterns match, skipping updates")
-					continue
-				}
+                upstreamErr := validate.MatchPattern(logger, generatedObj.Object, newResource.Object);  
+                downstreamErr := validate.MatchPattern(logger, newResource.Object, generatedObj.Object);
+                if upstreamErr == nil && downstreamErr == nil {
+    	            logger.V(4).Info("patterns match, skipping updates")
+		            continue
+		        }
 				logger.V(4).Info("updating existing resource")
 				if targetMeta.GetAPIVersion() == "" {
 					generatedResourceAPIVersion := generatedObj.GetAPIVersion()
