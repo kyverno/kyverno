@@ -14,12 +14,6 @@ body:
       description: >-
         What version of the Kyverno CLI are you running (`kyverno version`)?
       options:
-        - 1.7.0
-        - 1.7.1
-        - 1.7.2
-        - 1.7.3
-        - 1.7.4
-        - 1.7.5
         - 1.8.0
         - 1.8.1
         - 1.8.2
@@ -44,6 +38,7 @@ body:
         - 1.11.2
         - 1.11.3
         - 1.11.4
+        - 1.12.0
     validations:
       required: true
   - type: textarea

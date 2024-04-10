@@ -26,7 +26,8 @@ func (e *engine) validate(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	for _, rule := range autogen.ComputeRules(policy) {
+	gvk, _ := policyContext.ResourceKind()
+	for _, rule := range autogen.ComputeRules(policy, gvk.Kind) {
 		startTime := time.Now()
 		logger := internal.LoggerWithRule(logger, rule)
 		handlerFactory := func() (handlers.Handler, error) {
