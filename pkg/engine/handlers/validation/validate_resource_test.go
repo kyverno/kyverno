@@ -176,7 +176,7 @@ var (
 
 	resource = `{
 		"apiVersion": "v1",
-		"kind": "Namespace",
+		"kind": "Pod",
 		"metadata": {
 		  "annotations": {},
 		  "labels": {
@@ -227,7 +227,7 @@ var (
 
 	oldResource = `{
 		"apiVersion": "v1",
-		"kind": "Namespace",
+		"kind": "Pod",
 		"metadata": {
 		  "labels": {
 			"kubernetes.io/metadata.name": "test",

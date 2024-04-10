@@ -175,34 +175,38 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	matched := match.CheckMatchesResources(
-		v.policyContext.OldResource(),
-		kyvernov2beta1.MatchResources{
-			Any: v.rule.MatchResources.Any,
-			All: v.rule.MatchResources.All,
-		},
-		make(map[string]string),
-		kyvernov1beta1.RequestInfo{},
-		oldResource.GroupVersionKind(),
-		"",
-	)
-	if matched != nil {
-		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched"), nil
+	if v.rule.MatchResources.All != nil || v.rule.MatchResources.Any != nil {
+		matched := match.CheckMatchesResources(
+			v.policyContext.OldResource(),
+			kyvernov2beta1.MatchResources{
+				Any: v.rule.MatchResources.Any,
+				All: v.rule.MatchResources.All,
+			},
+			make(map[string]string),
+			kyvernov1beta1.RequestInfo{},
+			oldResource.GroupVersionKind(),
+			"",
+		)
+		if matched != nil {
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched"), nil
+		}
 	}
 
-	excluded := match.CheckMatchesResources(
-		v.policyContext.OldResource(),
-		kyvernov2beta1.MatchResources{
-			Any: v.rule.ExcludeResources.Any,
-			All: v.rule.ExcludeResources.All,
-		},
-		make(map[string]string),
-		kyvernov1beta1.RequestInfo{},
-		oldResource.GroupVersionKind(),
-		"",
-	)
-	if excluded == nil {
-		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource excluded"), nil
+	if v.rule.ExcludeResources.All != nil || v.rule.ExcludeResources.Any != nil {
+		excluded := match.CheckMatchesResources(
+			v.policyContext.OldResource(),
+			kyvernov2beta1.MatchResources{
+				Any: v.rule.ExcludeResources.Any,
+				All: v.rule.ExcludeResources.All,
+			},
+			make(map[string]string),
+			kyvernov1beta1.RequestInfo{},
+			oldResource.GroupVersionKind(),
+			"",
+		)
+		if excluded == nil {
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource excluded"), nil
+		}
 	}
 
 	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
