@@ -354,6 +354,7 @@ func main() {
 	eventGenerator := event.NewEventGenerator(
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
+		maxQueuedEvents,
 		strings.Split(omitEvents, ",")...,
 	)
 	gcstore := store.New()
