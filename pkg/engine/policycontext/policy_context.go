@@ -81,6 +81,10 @@ func (c *PolicyContext) SetResources(oldResource, newResource unstructured.Unstr
 	return nil
 }
 
+func (c *PolicyContext) SetOperation(op kyvernov1.AdmissionOperation) {
+	c.operation = op
+}
+
 func (c *PolicyContext) RequestResource() metav1.GroupVersionResource {
 	return c.requestResource
 }

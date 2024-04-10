@@ -176,12 +176,14 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")
 	}
+	v.policyContext.SetOperation(kyvernov1.Create) // simulates the condition when old object was "created"
 
 	resp := v.validate(ctx)
 
 	if err := v.policyContext.SetResources(oldResource, newResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to reset resources")
 	}
+	v.policyContext.SetOperation(kyvernov1.Update)
 
 	return resp, nil
 }
