@@ -187,7 +187,7 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	}
 
 	if err := v.policyContext.SetOperation(kyvernov1.Update); err != nil {
-		return nil, errors.Wrapf(err, "failed to set operation")
+		return nil, errors.Wrapf(err, "failed to reset operation")
 	}
 
 	return resp, nil
