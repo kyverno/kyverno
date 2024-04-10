@@ -131,42 +131,37 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, s)
 	}
 
+	var ruleResponse *engineapi.RuleResponse
 	if v.deny != nil {
-		return v.validateDeny()
-	}
-
-	if v.pattern != nil || v.anyPattern != nil {
+		ruleResponse = v.validateDeny()
+	} else if v.pattern != nil || v.anyPattern != nil {
 		if err = v.substitutePatterns(); err != nil {
 			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "variable substitution failed", err)
 		}
 
-		ruleResponse := v.validateResourceWithRule()
+		ruleResponse = v.validateResourceWithRule()
+	} else if v.forEach != nil {
+		ruleResponse = v.validateForEach(ctx)
+	} else {
+		v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
+	}
 
-		if engineutils.IsUpdateRequest(v.policyContext) {
-			priorResp, err := v.validateOldObject(ctx)
-			if err != nil {
-				return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to validate old object", err)
-			}
-
-			if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
-				v.log.V(3).Info("skipping modified resource as validation results have not changed")
-				if ruleResponse.Status() == engineapi.RuleStatusPass {
-					return ruleResponse
-				}
-				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
-			}
+	if engineutils.IsUpdateRequest(v.policyContext) && v.nesting == 0 { // is update request and is the root level validate
+		priorResp, err := v.validateOldObject(ctx)
+		if err != nil {
+			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to validate old object", err)
 		}
 
-		return ruleResponse
+		if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
+			v.log.V(3).Info("skipping modified resource as validation results have not changed")
+			if ruleResponse.Status() == engineapi.RuleStatusPass {
+				return ruleResponse
+			}
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
+		}
 	}
 
-	if v.forEach != nil {
-		ruleResponse := v.validateForEach(ctx)
-		return ruleResponse
-	}
-
-	v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
-	return nil
+	return ruleResponse
 }
 
 func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
