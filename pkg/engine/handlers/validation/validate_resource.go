@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -18,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	"github.com/kyverno/kyverno/pkg/utils/match"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -172,6 +174,36 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	newResource := v.policyContext.NewResource()
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
+
+	matched := match.CheckMatchesResources(
+		v.policyContext.OldResource(),
+		kyvernov2beta1.MatchResources{
+			Any: v.rule.MatchResources.Any,
+			All: v.rule.MatchResources.All,
+		},
+		make(map[string]string),
+		kyvernov1beta1.RequestInfo{},
+		oldResource.GroupVersionKind(),
+		"",
+	)
+	if matched != nil {
+		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched"), nil
+	}
+
+	excluded := match.CheckMatchesResources(
+		v.policyContext.OldResource(),
+		kyvernov2beta1.MatchResources{
+			Any: v.rule.ExcludeResources.Any,
+			All: v.rule.ExcludeResources.All,
+		},
+		make(map[string]string),
+		kyvernov1beta1.RequestInfo{},
+		oldResource.GroupVersionKind(),
+		"",
+	)
+	if excluded == nil {
+		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource excluded"), nil
+	}
 
 	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")
