@@ -118,20 +118,21 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
 	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration, h.nsLister)
-	ok, msg, warnings := vh.HandleValidationEnforce(ctx, request, policies, startTime)
 	go vh.HandleValidationAudit(ctx, request)
+	if len(policies) == 0 {
+		return admissionutils.ResponseSuccess(request.UID)
+	}
+	ok, msg, warnings := vh.HandleValidationEnforce(ctx, request, policies, startTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
 
-	go func() {
-		if !admissionutils.IsDryRun(request.AdmissionRequest) {
-			h.wg.Add(1)
-			h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
-			h.wg.Wait()
-		}
-	}()
+	if !admissionutils.IsDryRun(request.AdmissionRequest) {
+		h.wg.Add(1)
+		go h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
+		h.wg.Wait()
+	}
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 
