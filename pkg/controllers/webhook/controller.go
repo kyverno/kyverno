@@ -493,7 +493,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				logger.Error(err, "failed to get latest clusterpolicy for status reconciliation", "policy", policy.GetName())
 				continue
 			}
-			if datautils.DeepEqual(p.GetStatus(), policy.GetStatus()) {
+			if policy.GetStatus().IsReady() && datautils.DeepEqual(p.GetStatus(), policy.GetStatus()) {
 				continue
 			}
 			_, err = controllerutils.UpdateStatus(
@@ -513,7 +513,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				logger.Error(err, "failed to get latest policy for status reconciliation", "namespace", policy.GetNamespace, "policy", policy.GetName())
 				continue
 			}
-			if datautils.DeepEqual(p.GetStatus(), policy.GetStatus()) {
+			if policy.GetStatus().IsReady() && datautils.DeepEqual(p.GetStatus(), policy.GetStatus()) {
 				continue
 			}
 			_, err = controllerutils.UpdateStatus(
