@@ -119,6 +119,11 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration, h.nsLister)
 	go vh.HandleValidationAudit(ctx, request)
+	if !admissionutils.IsDryRun(request.AdmissionRequest) {
+		h.wg.Add(1)
+		go h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
+		h.wg.Wait()
+	}
 	if len(policies) == 0 {
 		return admissionutils.ResponseSuccess(request.UID)
 	}
@@ -128,11 +133,6 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
 
-	if !admissionutils.IsDryRun(request.AdmissionRequest) {
-		h.wg.Add(1)
-		go h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
-		h.wg.Wait()
-	}
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 
