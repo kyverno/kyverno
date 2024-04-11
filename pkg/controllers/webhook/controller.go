@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -492,6 +493,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				logger.Error(err, "failed to get latest clusterpolicy for status reconciliation", "policy", policy.GetName())
 				continue
 			}
+			if datautils.DeepEqual(p.GetStatus(), policy.GetStatus()) {
+				continue
+			}
 			_, err = controllerutils.UpdateStatus(
 				ctx,
 				p,
@@ -507,6 +511,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 			p, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).Get(ctx, policy.GetName(), metav1.GetOptions{})
 			if err != nil {
 				logger.Error(err, "failed to get latest policy for status reconciliation", "namespace", policy.GetNamespace, "policy", policy.GetName())
+				continue
+			}
+			if datautils.DeepEqual(p.GetStatus(), policy.GetStatus()) {
 				continue
 			}
 			_, err = controllerutils.UpdateStatus(
