@@ -101,9 +101,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	policyToUnknownRules := make(map[string]string)
 	var policyerr string
 	for _, res := range testCase.Test.Results {
-		if res.IsValidatingAdmissionPolicy {
-			continue
-		}
 		var ns string
 		var policyExist bool
 		ruleExists := false
@@ -114,6 +111,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 			// ensure that the policy specified in the results matches one of the policies provided in the given files.
 			if res.Policy == policy.GetName() || res.Policy == "default/"+policy.GetName() || res.Policy == ns+"/"+policy.GetName() {
 				policyExist = true
+				if res.IsValidatingAdmissionPolicy {
+					ruleExists = true
+			                continue
+		                }
 
 				// ensure that the rule specified in the results exists in the policy.
 				for _, rule := range autogen.ComputeRules(policy) {
