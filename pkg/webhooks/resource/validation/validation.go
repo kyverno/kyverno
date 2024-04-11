@@ -89,7 +89,6 @@ func (v *validationHandler) HandleValidationEnforce(
 	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
 	if err != nil {
 		return false, "failed create policy context", nil
-
 	}
 
 	var engineResponses []engineapi.EngineResponse
@@ -169,7 +168,9 @@ func (v *validationHandler) HandleValidationAudit(
 			events := webhookutils.GenerateEvents(responses, false)
 			v.eventGen.Add(events...)
 			if needsReport {
-				v.createReports(ctx, policyContext.NewResource(), request, responses...)
+				if err := v.createReports(ctx, policyContext.NewResource(), request, responses...); err != nil {
+					v.log.Error(err, "failed to create report")
+				}
 			}
 		},
 		trace.WithLinks(trace.LinkFromContext(ctx)),
