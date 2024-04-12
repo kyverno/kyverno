@@ -152,18 +152,22 @@ type APICall struct {
 	// The format required is the same format used by the `kubectl get --raw` command.
 	// See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
 	// for details.
+	// It's mutually exclusive with the Service field.
 	// +kubebuilder:validation:Optional
 	URLPath string `json:"urlPath" yaml:"urlPath"`
 
-	// Method is the HTTP request type (GET or POST).
+	// Method is the HTTP request type (GET or POST). Defaults to GET.
 	// +kubebuilder:default=GET
 	Method Method `json:"method,omitempty" yaml:"method,omitempty"`
 
-	// Data specifies the POST data sent to the server.
+	// The data object specifies the POST data sent to the server.
+	// Only applicable when the method field is set to POST.
 	// +kubebuilder:validation:Optional
 	Data []RequestData `json:"data,omitempty" yaml:"data,omitempty"`
 
-	// Service is an API call to a JSON web service
+	// Service is an API call to a JSON web service.
+	// This is used for non-Kubernetes API server calls.
+	// It's mutually exclusive with the URLPath field.
 	// +kubebuilder:validation:Optional
 	Service *ServiceCall `json:"service,omitempty" yaml:"service,omitempty"`
 }
@@ -182,6 +186,7 @@ type ContextAPICall struct {
 
 type GlobalContextEntryReference struct {
 	// Name of the global context entry
+	// +kubebuilder:validation:Required
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to

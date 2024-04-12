@@ -1211,7 +1211,8 @@ Requires Kubernetes 1.27 or later.</p>
 Kubernetes API server (e.g. &quot;/api/v1/namespaces&quot; or  &quot;/apis/apps/v1/deployments&quot;).
 The format required is the same format used by the <code>kubectl get --raw</code> command.
 See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
-for details.</p>
+for details.
+It's mutually exclusive with the Service field.</p>
 
 
           
@@ -1242,7 +1243,7 @@ for details.</p>
         <td>
           
 
-          <p>Method is the HTTP request type (GET or POST).</p>
+          <p>Method is the HTTP request type (GET or POST). Defaults to GET.</p>
 
 
           
@@ -1273,7 +1274,8 @@ for details.</p>
         <td>
           
 
-          <p>Data specifies the POST data sent to the server.</p>
+          <p>The data object specifies the POST data sent to the server.
+Only applicable when the method field is set to POST.</p>
 
 
           
@@ -1304,7 +1306,9 @@ for details.</p>
         <td>
           
 
-          <p>Service is an API call to a JSON web service</p>
+          <p>Service is an API call to a JSON web service.
+This is used for non-Kubernetes API server calls.
+It's mutually exclusive with the URLPath field.</p>
 
 
           
@@ -2255,6 +2259,37 @@ timestamp. Default is false. Set to true if this was opted out during signing.</
           
 
           <p>PubKey, if set, is used to validate SCTs against a custom source.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>tsaCertChain</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+may contain the leaf TSA certificate if not present in the timestamurce.</p>
 
 
           
