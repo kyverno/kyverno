@@ -1635,10 +1635,6 @@ cleanupController:
   # Update the `dnsPolicy` accordingly as well to suit the host network mode.
   hostNetwork: false
 
-  # -- cleanupController server port
-  # in case you are using hostNetwork: true, you might want to change the port the cleanupController is listening to
-  server:
-    port: 9443
   # -- cleanupController webhook server port
   # in case you are using hostNetwork: true, you might want to change the port the webhookServer is listening to
   webhookServer:
