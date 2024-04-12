@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alitto/pond"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -63,6 +64,7 @@ type resourceHandlers struct {
 
 	admissionReports             bool
 	backgroundServiceAccountName string
+	auditPool                    *pond.WorkerPool
 }
 
 func NewHandlers(
@@ -98,6 +100,7 @@ func NewHandlers(
 		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
 		admissionReports:             admissionReports,
 		backgroundServiceAccountName: backgroundServiceAccountName,
+		auditPool:                    pond.New(8, 1000),
 	}
 }
 
@@ -118,7 +121,9 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
 	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration, h.nsLister)
-	go vh.HandleValidationAudit(ctx, request)
+	h.auditPool.Submit(func() {
+		vh.HandleValidationAudit(ctx, request)
+	})
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
 		h.wg.Add(1)
 		go h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
