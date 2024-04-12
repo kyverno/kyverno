@@ -117,7 +117,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		                }
 
 				// ensure that the rule specified in the results exists in the policy.
-				for _, rule := range autogen.ComputeRules(policy) {
+				for _, rule := range autogen.ComputeRules(policy, "") {
 					if res.Rule == rule.Name {
 						ruleExists = true
 						continue
