@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"log"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -28,37 +27,11 @@ const (
 	MeterName = "kyverno"
 )
 
-type InfoMetric struct {
-	info metric.Int64Counter
-}
-
-func NewInfoMetric() InfoMetric {
-	var err error
-	meter := otel.GetMeterProvider().Meter(MeterName)
-	info, err := meter.Int64Counter(
-		"kyverno_info",
-		metric.WithDescription("Kyverno_info provides details about the currnet Kyverno version being used"),
-	)
-	if err != nil{
-		log.Printf("Failed to create instrument, kyverno_info")
-		return InfoMetric{}
-	}
-	v, err := strconv.Atoi(version.Version())
-	if err != nil {
-        	log.Printf("Failed to parse Kyverno version")
-        	return InfoMetric{}
-	}
-	info.Add(context.Background(), int64(v))
-
-	return InfoMetric{
-		info: info,
-	}
-}
-
 type MetricsConfig struct {
 	// instruments
 	policyChangesMetric metric.Int64Counter
 	clientQueriesMetric metric.Int64Counter
+	kyvernoInfoMetric   metric.Int64UpDownCounter
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -88,6 +61,18 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries")
 		return err
 	}
+	v, err := strconv.Atoi(version.Version())
+	if err != nil {
+		m.Log.Error(err, "Failed to parse version string")
+		return err
+	}
+	m.kyvernoInfoMetric, err = meter.Int64UpDownCounter("kyverno_info", metric.WithDescription("Kyverno version as an integer"))
+	if err != nil {
+		m.Log.Error(err, "Failed to create instrument, kyverno_info")
+		return err
+	}
+	m.kyvernoInfoMetric.Add(context.Background(), int64(v))
+
 	return nil
 }
 
