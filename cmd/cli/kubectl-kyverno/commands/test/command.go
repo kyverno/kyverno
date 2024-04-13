@@ -177,7 +177,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
-		if expected == policyreportv1alpha2.StatusFail {
+		if expected == "fail" {
 			return true, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	        } else {	
 		        return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
