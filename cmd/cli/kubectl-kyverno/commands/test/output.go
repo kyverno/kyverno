@@ -193,10 +193,9 @@ func printTestResult(
 					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
 					var success bool
 				        // if checks failed but we were expecting a fail then its considerd success
-					if test.Result == policyreportv1alpha2.StatusFail{
+					if test.Result == policyreportv1alpha2.StatusFail {
 						success = !ok
-					}
-					else {
+					} else {
 						success = ok
 					}
 					row := table.Row{
