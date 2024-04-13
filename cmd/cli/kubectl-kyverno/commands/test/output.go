@@ -192,11 +192,12 @@ func printTestResult(
 					// perform test checks
 					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
 					var success bool
-					if reason == "Want fail, got pass" {
+				        // if checks failed but we were expecting a fail then its considerd success
+					if test.Result == policyreportv1alpha2.StatusFail{
+						success = !ok
+					}
+					else {
 						success = ok
-					} else {
-						// if checks failed but we were expecting a fail it's considered a success
-						success = ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 					}
 					row := table.Row{
 						RowCompact: table.RowCompact{
