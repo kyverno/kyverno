@@ -220,7 +220,10 @@ func printTestResult(
 				}
 
 				// if there are no RuleResponse, the resource has been excluded. This is a pass.
-				if len(rows) == 0 		ID:        testCount,
+				if len(rows) == 0 {
+				        row := table.Row{
+				                RowCompact: table.RowCompact{
+				                        ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
 							Resource:  color.Resource(test.Kind, test.Namespace, resource),
