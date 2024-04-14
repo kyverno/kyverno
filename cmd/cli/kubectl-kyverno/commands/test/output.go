@@ -192,12 +192,8 @@ func printTestResult(
 					// perform test checks
 					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
 					var success bool
-				        // if checks failed but we were expecting a fail then its considerd success
-					if test.Result == policyreportv1alpha2.StatusFail {
-						success = !ok
-					} else {
-						success = ok
-					}
+				        // if checks failed but we were expecting a fail it's considered a success
+					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
@@ -225,10 +221,7 @@ func printTestResult(
 				}
 
 				// if there are no RuleResponse, the resource has been excluded. This is a pass.
-				if len(rows) == 0 {
-					row := table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
+				if len(rows) == 0 		ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
 							Resource:  color.Resource(test.Kind, test.Namespace, resource),
