@@ -375,7 +375,7 @@ func (iv *ImageVerifier) verifyImage(
 		}
 	}
 
-	return iv.verifyAttestations(ctx, imageVerify, imageInfo, cfg)
+	return iv.verifyAttestations(ctx, imageVerify, imageInfo)
 }
 
 func (iv *ImageVerifier) verifyAttestors(
@@ -417,7 +417,6 @@ func (iv *ImageVerifier) verifyAttestations(
 	ctx context.Context,
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
-	cfg config.Configuration,
 ) (*engineapi.RuleResponse, string) {
 	image := imageInfo.String()
 	for i, attestation := range imageVerify.Attestations {
@@ -471,15 +470,23 @@ func (iv *ImageVerifier) verifyAttestations(
 					continue
 				}
 
+				rawCosignResp, err := json.Marshal(cosignResp)
+				if err != nil {
+					iv.logger.Error(err, "Error marshaling cosignResp")
+					errorList = append(errorList, err)
+					continue
+				}
+
+				err = iv.policyContext.JSONContext().AddContextEntry(imageVerify.Attestations[i].Name, rawCosignResp)
+				if err != nil {
+					iv.logger.Error(err, "failed to add resource data to context entry")
+					errorList = append(errorList, err)
+					continue
+				}
+
 				if imageInfo.Digest == "" {
 					imageInfo.Digest = cosignResp.Digest
 					image = imageInfo.String()
-				}
-
-				iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
-				if err := iv.policyContext.JSONContext().AddImageInfo(imageInfo, cfg); err != nil {
-					iv.logger.Error(err, "failed to add image to context")
-					return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err), ""
 				}
 
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
