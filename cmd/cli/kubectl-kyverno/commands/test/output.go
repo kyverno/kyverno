@@ -191,7 +191,6 @@ func printTestResult(
 				for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
 					// perform test checks
 					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
-					var success bool
 				        // if checks failed but we were expecting a fail it's considered a success
 					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 					row := table.Row{
