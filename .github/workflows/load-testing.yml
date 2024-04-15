@@ -56,9 +56,9 @@ jobs:
           - name: default
             values:
               - default-with-profiling
-          - name: standard
+          - name: stress
             values:
-              - standard-with-profiling
+              - stress-with-profiling
         test:
           - kyverno-pss
           - kyverno-mutate
