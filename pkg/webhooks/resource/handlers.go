@@ -83,6 +83,8 @@ func NewHandlers(
 	admissionReports bool,
 	backgroundServiceAccountName string,
 	jp jmespath.Interface,
+	maxAuditWorkers int,
+	maxAuditCapacity int,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
@@ -100,8 +102,7 @@ func NewHandlers(
 		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
 		admissionReports:             admissionReports,
 		backgroundServiceAccountName: backgroundServiceAccountName,
-		// auditPool:                    pond.New(8, 2000, pond.Strategy(pond.Lazy())),
-		auditPool: pond.New(8, 1000),
+		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
 	}
 }
 
