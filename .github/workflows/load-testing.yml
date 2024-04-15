@@ -139,3 +139,6 @@ jobs:
         with:
           name: pprof-heap-profiles
           path: heap.pprof
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
