@@ -9,7 +9,8 @@ features:
       - PolicySkipped
       - PolicyViolation
       - PolicyError
-  admissionReports: false
+  admissionReports:
+    enabled: false
 
 admissionController:
   profiling:
