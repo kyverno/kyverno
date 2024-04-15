@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -20,9 +21,17 @@ import (
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
-	h.wg.Add(1)
-	go h.handleMutateExisting(ctx, logger, request, mutatePolicies, ts)
-	h.handleGenerate(ctx, logger, request, generatePolicies, ts)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		h.handleMutateExisting(ctx, logger, request, mutatePolicies, ts)
+	}()
+	go func() {
+		defer wg.Done()
+		h.handleGenerate(ctx, logger, request, generatePolicies, ts)
+	}()
+	wg.Wait()
 }
 
 func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface, admissionRequestTimestamp time.Time) {
@@ -31,7 +40,6 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		logger.Error(err, "failed to create policy context")
 		return
 	}
-	h.wg.Done()
 
 	if request.AdmissionRequest.Operation == admissionv1.Delete {
 		policyContext = policyContext.WithNewResource(policyContext.OldResource())
@@ -98,7 +106,6 @@ func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logge
 		logger.Error(err, "failed to create policy context")
 		return
 	}
-	h.wg.Done()
 
 	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig, h.backgroundServiceAccountName)
 	var policies []kyvernov1.PolicyInterface
@@ -108,5 +115,5 @@ func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logge
 			policies = append(policies, new)
 		}
 	}
-	go gh.Handle(ctx, request.AdmissionRequest, policies, policyContext)
+	gh.Handle(ctx, request.AdmissionRequest, policies, policyContext)
 }
