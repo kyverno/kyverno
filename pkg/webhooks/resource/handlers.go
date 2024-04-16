@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alitto/pond"
@@ -120,6 +121,16 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
 	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration, h.nsLister)
+	var wg sync.WaitGroup
+	var ok bool
+	var msg string
+	var warnings []string
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ok, msg, warnings = vh.HandleValidationEnforce(ctx, request, policies, startTime)
+	}()
+
 	go h.auditPool.Submit(func() {
 		vh.HandleValidationAudit(ctx, request)
 	})
@@ -129,7 +140,8 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	if len(policies) == 0 {
 		return admissionutils.ResponseSuccess(request.UID)
 	}
-	ok, msg, warnings := vh.HandleValidationEnforce(ctx, request, policies, startTime)
+
+	wg.Wait()
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
