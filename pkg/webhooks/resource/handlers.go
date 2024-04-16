@@ -124,7 +124,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		vh.HandleValidationAudit(ctx, request)
 	})
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
-		go h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
+		h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
 	}
 	if len(policies) == 0 {
 		return admissionutils.ResponseSuccess(request.UID)

@@ -589,33 +589,21 @@ func Test_MutateAndGenerate(t *testing.T) {
 
 	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 
-	assert.Assert(t, len(mockPcBuilder.contexts) >= 3, fmt.Sprint("expected no of context ", 3, " received ", len(mockPcBuilder.contexts)))
+	assert.Assert(t, len(mockPcBuilder.contexts) >= 2, fmt.Sprint("expected no of context ", 2, " received ", len(mockPcBuilder.contexts)))
 
-	validateJSONContext := mockPcBuilder.contexts[0].JSONContext()
-	mutateJSONContext := mockPcBuilder.contexts[1].JSONContext()
-	generateJSONContext := mockPcBuilder.contexts[2].JSONContext()
+	mutateJSONContext := mockPcBuilder.contexts[0].JSONContext()
+	generateJSONContext := mockPcBuilder.contexts[1].JSONContext()
 
-	_, err = enginecontext.AddMockDeferredLoader(validateJSONContext, "key1", "value1")
+	_, err = enginecontext.AddMockDeferredLoader(mutateJSONContext, "key1", "value1")
 	assert.NilError(t, err)
-	_, err = enginecontext.AddMockDeferredLoader(mutateJSONContext, "key2", "value2")
-	assert.NilError(t, err)
-	_, err = enginecontext.AddMockDeferredLoader(generateJSONContext, "key3", "value3")
+	_, err = enginecontext.AddMockDeferredLoader(generateJSONContext, "key2", "value2")
 	assert.NilError(t, err)
 
-	_, err = mutateJSONContext.Query("key1")
-	assert.ErrorContains(t, err, `Unknown key "key1" in path`)
+	_, err = mutateJSONContext.Query("key2")
+	assert.ErrorContains(t, err, `Unknown key "key2" in path`)
+
 	_, err = generateJSONContext.Query("key1")
 	assert.ErrorContains(t, err, `Unknown key "key1" in path`)
-
-	_, err = validateJSONContext.Query("key2")
-	assert.ErrorContains(t, err, `Unknown key "key2" in path`)
-	_, err = generateJSONContext.Query("key2")
-	assert.ErrorContains(t, err, `Unknown key "key2" in path`)
-
-	_, err = validateJSONContext.Query("key3")
-	assert.ErrorContains(t, err, `Unknown key "key3" in path`)
-	_, err = mutateJSONContext.Query("key3")
-	assert.ErrorContains(t, err, `Unknown key "key3" in path`)
 
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
