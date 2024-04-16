@@ -123,7 +123,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
@@ -192,7 +192,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
@@ -264,7 +264,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
@@ -335,7 +335,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
@@ -406,7 +406,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
@@ -482,7 +482,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
@@ -557,7 +557,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
@@ -632,7 +632,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install crane
@@ -726,7 +726,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
@@ -835,7 +835,7 @@ jobs:
       # install tools
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@b7246b12e77f7134dc2d460a3d5bad15bbe29390 # v4.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
