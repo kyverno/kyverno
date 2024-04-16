@@ -21,23 +21,19 @@ import (
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
-	if len(mutatePolicies) > 0 {
-		handleMutatingPolicyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
-		if err != nil {
-			logger.Error(err, "failed to create policy context")
-			return
-		}
-		go h.handleMutateExisting(ctx, logger, handleMutatingPolicyContext, request, mutatePolicies, ts)
+	handleMutatingPolicyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
+	if err != nil {
+		logger.Error(err, "failed to create policy context")
+		return
 	}
+	go h.handleMutateExisting(ctx, logger, handleMutatingPolicyContext, request, mutatePolicies, ts)
 
-	if len(generatePolicies) > 0 {
-		handleGeneratingPolicyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
-		if err != nil {
-			logger.Error(err, "failed to create policy context")
-			return
-		}
-		go h.handleGenerate(ctx, logger, handleGeneratingPolicyContext, request, generatePolicies, ts)
+	handleGeneratingPolicyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
+	if err != nil {
+		logger.Error(err, "failed to create policy context")
+		return
 	}
+	go h.handleGenerate(ctx, logger, handleGeneratingPolicyContext, request, generatePolicies, ts)
 }
 
 func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, policyContext *policycontext.PolicyContext, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface, admissionRequestTimestamp time.Time) {
