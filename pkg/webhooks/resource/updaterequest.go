@@ -32,7 +32,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		return
 	}
 	if wg != nil { // for unit testing purposes
-		wg.Done()
+		defer wg.Done()
 	}
 
 	if request.AdmissionRequest.Operation == admissionv1.Delete {
@@ -101,7 +101,7 @@ func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logge
 		return
 	}
 	if wg != nil { // for unit testing purposes
-		wg.Done()
+		defer wg.Done()
 	}
 
 	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig, h.backgroundServiceAccountName)
