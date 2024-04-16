@@ -149,6 +149,12 @@ func (v *validationHandler) HandleValidationAudit(
 	ctx context.Context,
 	request handlers.AdmissionRequest,
 ) {
+	gvr := schema.GroupVersionResource(request.Resource)
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
+	if len(policies) == 0 {
+		return
+	}
+
 	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request)
 	if err != nil {
 		v.log.Error(err, "failed to build policy context")
@@ -161,7 +167,7 @@ func (v *validationHandler) HandleValidationAudit(
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
-			responses, err := v.buildAuditResponses(ctx, request, policyContext)
+			responses, err := v.buildAuditResponses(ctx, policyContext, policies)
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}
@@ -179,12 +185,9 @@ func (v *validationHandler) HandleValidationAudit(
 
 func (v *validationHandler) buildAuditResponses(
 	ctx context.Context,
-	request handlers.AdmissionRequest,
 	policyContext *policycontext.PolicyContext,
+	policies []kyvernov1.PolicyInterface,
 ) ([]engineapi.EngineResponse, error) {
-	gvr := schema.GroupVersionResource(request.Resource)
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
-
 	var responses []engineapi.EngineResponse
 	for _, policy := range policies {
 		tracing.ChildSpan(
