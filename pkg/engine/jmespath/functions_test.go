@@ -1243,7 +1243,7 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 	// 	expectedResult: map[string]interface{}{},
 	// }
 	}
-	for i, tc := range testCases {
+	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := jmespathInterface.Query(tc.jmesPath)
 			assert.NilError(t, err)
@@ -1255,7 +1255,6 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 
 			res, ok := result.(map[string]interface{})
 			assert.Assert(t, ok)
-			fmt.Println("======i", i)
 			assert.DeepEqual(t, res, tc.expectedResult)
 		})
 	}
