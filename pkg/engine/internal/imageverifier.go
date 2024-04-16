@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/notary"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -487,7 +488,14 @@ func (iv *ImageVerifier) verifyAttestations(
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
-	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), imageInfo.Digest
+
+	if err := iv.validate(ctx, imageVerify); err != nil {
+		msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
+		iv.logger.Error(err, "failed to validate in verifyImage")
+		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, msg, err), ""
+	}
+
+	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 }
 
 func (iv *ImageVerifier) verifyAttestorSet(
@@ -757,4 +765,47 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 	patch := makeAddDigestPatch(imageInfo, digest)
 	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", patch.Json())
 	return &patch, digest, nil
+}
+
+func (iv *ImageVerifier) validate(ctx context.Context, imageVerify kyvernov1.ImageVerification) error {
+	if imageVerify.Validation.Deny != nil {
+		if err := iv.validateDeny(imageVerify); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (iv *ImageVerifier) validateDeny(imageVerify kyvernov1.ImageVerification) error {
+	if deny, msg, err := CheckDenyPreconditions(iv.logger, iv.policyContext.JSONContext(), imageVerify.Validation.Deny.GetAnyAllConditions()); err != nil {
+		return fmt.Errorf("failed to check deny conditions: %v", err)
+	} else {
+		if deny {
+			return fmt.Errorf("%s", iv.getDenyMessage(imageVerify, deny, msg))
+		}
+		return nil
+	}
+}
+
+func (iv *ImageVerifier) getDenyMessage(imageVerify kyvernov1.ImageVerification, deny bool, msg string) string {
+	if !deny {
+		return fmt.Sprintf("validation imageVerify '%s' passed.", imageVerify.Validation.Message)
+	}
+
+	if imageVerify.Validation.Message == "" && msg == "" {
+		return fmt.Sprintf("validation error: imageVerify %s failed", imageVerify.Validation.Message)
+	}
+
+	s := stringutils.JoinNonEmpty([]string{imageVerify.Validation.Message, msg}, "; ")
+	raw, err := variables.SubstituteAll(iv.logger, iv.policyContext.JSONContext(), s)
+	if err != nil {
+		return msg
+	}
+
+	switch typed := raw.(type) {
+	case string:
+		return typed
+	default:
+		return "the produced message didn't resolve to a string, check your policy definition."
+	}
 }
