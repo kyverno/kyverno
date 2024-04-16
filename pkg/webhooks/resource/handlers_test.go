@@ -533,7 +533,7 @@ func Test_MutateAndVerify(t *testing.T) {
 		AdmissionRequest: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateAndVerify),
 			},
@@ -578,7 +578,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 		AdmissionRequest: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateandGenerate),
 			},
