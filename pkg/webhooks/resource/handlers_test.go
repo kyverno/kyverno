@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -594,7 +595,13 @@ func Test_MutateAndGenerate(t *testing.T) {
 		},
 	}
 
-	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
+	_, mutatePolicies, generatePolicies, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
+	assert.NilError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	resourceHandlers.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, time.Now(), &wg)
+	wg.Wait()
 
 	assert.Assert(t, len(mockPcBuilder.contexts) >= 2, fmt.Sprint("expected no of context ", 2, " received ", len(mockPcBuilder.contexts)))
 
@@ -611,9 +618,6 @@ func Test_MutateAndGenerate(t *testing.T) {
 
 	_, err = generateJSONContext.Query("key1")
 	assert.ErrorContains(t, err, `Unknown key "key1" in path`)
-
-	assert.Equal(t, response.Allowed, true)
-	assert.Equal(t, len(response.Warnings), 0)
 }
 
 func makeKey(policy kyverno.PolicyInterface) string {
