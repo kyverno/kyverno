@@ -24,7 +24,6 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
-	"github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -532,6 +531,13 @@ func (iv *ImageVerifier) verifyAttestations(
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
+
+	if err := iv.validate(ctx, imageVerify); err != nil {
+		msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
+		iv.logger.Error(err, "failed to validate in verifyImage")
+		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, msg, err), ""
+	}
+
 	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 }
 
@@ -804,14 +810,7 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 	return &patch, digest, nil
 }
 
-func (iv *ImageVerifier) validate(imageVerify kyvernov1.ImageVerification, ctx context.Context) error {
-	spec := iv.policyContext.Policy().GetSpec()
-	background := spec.BackgroundProcessingEnabled()
-	err := policy.ValidateVariables(iv.policyContext.Policy(), background)
-	if err != nil {
-		return err
-	}
-
+func (iv *ImageVerifier) validate(ctx context.Context, imageVerify kyvernov1.ImageVerification) error {
 	if imageVerify.Validation.Deny != nil {
 		if err := iv.validateDeny(imageVerify); err != nil {
 			return err
