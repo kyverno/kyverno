@@ -254,6 +254,8 @@ func main() {
 		backgroundServiceAccountName string
 		maxAPICallResponseLength     int64
 		renewBefore                  time.Duration
+		maxAuditWorkers              int
+		maxAuditCapacity             int
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -274,6 +276,8 @@ func main() {
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
+	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
+	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -354,6 +358,7 @@ func main() {
 	eventGenerator := event.NewEventGenerator(
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
+		maxQueuedEvents,
 		strings.Split(omitEvents, ",")...,
 	)
 	gcstore := store.New()
@@ -370,6 +375,7 @@ func main() {
 		),
 		globalcontextcontroller.Workers,
 	)
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 	eventController := internal.NewController(
 		event.ControllerName,
 		eventGenerator,
@@ -415,6 +421,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		polexCache,
 		gcstore,
 	)
 	// create non leader controllers
@@ -530,6 +537,8 @@ func main() {
 		admissionReports,
 		backgroundServiceAccountName,
 		setup.Jp,
+		maxAuditWorkers,
+		maxAuditCapacity,
 	)
 	exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 		Enabled:   internal.PolicyExceptionEnabled(),
@@ -577,6 +586,9 @@ func main() {
 	// start non leader controllers
 	eventController.Run(signalCtx, setup.Logger, &wg)
 	gceController.Run(signalCtx, setup.Logger, &wg)
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
+	}
 	for _, controller := range nonLeaderControllers {
 		controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
 	}

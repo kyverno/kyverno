@@ -904,7 +904,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		}
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
-		for _, rule := range autogen.ComputeRules(&policy) {
+		for _, rule := range autogen.ComputeRules(&policy, "") {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
@@ -1809,7 +1809,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 		}
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
-		for _, rule := range autogen.ComputeRules(&policy) {
+		for _, rule := range autogen.ComputeRules(&policy, "") {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {

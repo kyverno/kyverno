@@ -101,7 +101,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range policies {
-		for _, rule := range autogen.ComputeRules(policy) {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
 				if res.IsValidatingAdmissionPolicy {
 					continue
