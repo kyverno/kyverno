@@ -469,10 +469,10 @@ webhooksCleanup:
     # -- (string) Image registry
     registry: ~
     # -- Image repository
-    repository: bitnami/kubectl
+    repository: cgr.dev/chainguard/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.28.5'
+    tag: 'latest-dev'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -523,10 +523,10 @@ policyReportsCleanup:
     # -- (string) Image registry
     registry: ~
     # -- Image repository
-    repository: bitnami/kubectl
+    repository: cgr.dev/chainguard/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.28.5'
+    tag: 'latest-dev'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -698,10 +698,10 @@ cleanupJobs:
       # -- (string) Image registry
       registry: ~
       # -- Image repository
-      repository: bitnami/kubectl
+      repository: cgr.dev/chainguard/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.28.5'
+      tag: 'latest-dev'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -775,10 +775,10 @@ cleanupJobs:
       # -- (string) Image registry
       registry: ~
       # -- Image repository
-      repository: bitnami/kubectl
+      repository: cgr.dev/chainguard/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.28.5'
+      tag: 'latest-dev'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
