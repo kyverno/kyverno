@@ -56,7 +56,7 @@ jobs:
       with:
         name: coverage.out
     - name: Upload Report to Codecov
-      uses: codecov/codecov-action@54bcd8715eee62d40e33596ef5e8f0f48dbbccab # v4.1.0
+      uses: codecov/codecov-action@84508663e988701840491b86de86b666e8a86bed # v4.3.0
       with:
         files: ./coverage.out
         fail_ci_if_error: true

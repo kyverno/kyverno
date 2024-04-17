@@ -56,9 +56,9 @@ jobs:
           - name: default
             values:
               - default-with-profiling
-          - name: standard
+          - name: stress
             values:
-              - standard-with-profiling
+              - stress-with-profiling
         test:
           - kyverno-pss
           - kyverno-mutate
@@ -80,7 +80,7 @@ jobs:
           path: load-testing
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Create kind cluster
@@ -139,3 +139,6 @@ jobs:
         with:
           name: pprof-heap-profiles
           path: heap.pprof
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs

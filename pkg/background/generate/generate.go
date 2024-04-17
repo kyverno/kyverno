@@ -342,7 +342,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 	applyRules := policy.GetSpec().GetApplyRules()
 	applyCount := 0
 
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		var err error
 		if !rule.HasGenerate() {
 			continue

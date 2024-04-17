@@ -476,7 +476,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		status := policy.GetStatus()
 		status.SetReady(ready, message)
 		status.Autogen.Rules = nil
-		rules := autogen.ComputeRules(policy)
+		rules := autogen.ComputeRules(policy, "")
 		setRuleCount(rules, status)
 		for _, rule := range rules {
 			if strings.HasPrefix(rule.Name, "autogen-") {
@@ -487,9 +487,14 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 	}
 	for _, policy := range policies {
 		if policy.GetNamespace() == "" {
-			_, err := controllerutils.UpdateStatus(
+			p, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policy.GetName(), metav1.GetOptions{})
+			if err != nil {
+				logger.Error(err, "failed to get latest clusterpolicy for status reconciliation", "policy", policy.GetName())
+				continue
+			}
+			_, err = controllerutils.UpdateStatus(
 				ctx,
-				policy.(*kyvernov1.ClusterPolicy),
+				p,
 				c.kyvernoClient.KyvernoV1().ClusterPolicies(),
 				func(policy *kyvernov1.ClusterPolicy) error {
 					return updateStatusFunc(policy)
@@ -499,9 +504,14 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				return err
 			}
 		} else {
-			_, err := controllerutils.UpdateStatus(
+			p, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).Get(ctx, policy.GetName(), metav1.GetOptions{})
+			if err != nil {
+				logger.Error(err, "failed to get latest policy for status reconciliation", "namespace", policy.GetNamespace, "policy", policy.GetName())
+				continue
+			}
+			_, err = controllerutils.UpdateStatus(
 				ctx,
-				policy.(*kyvernov1.Policy),
+				p,
 				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
 				func(policy *kyvernov1.Policy) error {
 					return updateStatusFunc(policy)
@@ -965,7 +975,7 @@ func (gvs GroupVersionResourceScope) String() string {
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
 	var matchedGVK []string
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
