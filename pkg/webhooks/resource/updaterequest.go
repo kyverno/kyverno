@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -25,13 +26,16 @@ func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger l
 	h.handleGenerate(ctx, logger, request, generatePolicies, ts)
 }
 
-func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface, admissionRequestTimestamp time.Time) {
+func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, policies []kyvernov1.PolicyInterface, admissionRequestTimestamp time.Time, wg *sync.WaitGroup) {
+	if wg != nil { // for unit testing purposes
+		defer wg.Done()
+	}
+
 	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
 	if err != nil {
 		logger.Error(err, "failed to create policy context")
 		return
 	}
-	h.wg.Done()
 
 	if request.AdmissionRequest.Operation == admissionv1.Delete {
 		policyContext = policyContext.WithNewResource(policyContext.OldResource())
@@ -92,13 +96,16 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 	}
 }
 
-func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
+func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, ts time.Time, wg *sync.WaitGroup) {
+	if wg != nil { // for unit testing purposes
+		defer wg.Done()
+	}
+
 	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
 	if err != nil {
 		logger.Error(err, "failed to create policy context")
 		return
 	}
-	h.wg.Done()
 
 	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig, h.backgroundServiceAccountName)
 	var policies []kyvernov1.PolicyInterface
