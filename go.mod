@@ -92,6 +92,8 @@ require (
 	sigs.k8s.io/yaml v1.4.0
 )
 
+require github.com/alitto/pond v1.8.3 // indirect
+
 require (
 	cloud.google.com/go/compute v1.25.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
