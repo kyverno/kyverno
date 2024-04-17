@@ -406,6 +406,9 @@ func (iv *ImageVerifier) verifyAttestations(
 	image := imageInfo.String()
 	for i, attestation := range imageVerify.Attestations {
 		var errorList []error
+
+		nameMap := make(map[string]bool)
+
 		path := fmt.Sprintf(".attestations[%d]", i)
 
 		iv.logger.V(2).Info(fmt.Sprintf("attestation %+v", attestation))
@@ -438,6 +441,16 @@ func (iv *ImageVerifier) verifyAttestations(
 					continue
 				}
 
+				name := imageVerify.Attestations[i].Name
+				if !nameMap[name] {
+					nameMap[name] = true
+				} else {
+					err := fmt.Errorf("%s: name collision in Attestation array", name)
+					iv.logger.Error(err, "failed to add resource data to context entry")
+					errorList = append(errorList, err)
+					continue
+				}
+
 				rawCosignResp, err := json.Marshal(cosignResp)
 				if err != nil {
 					iv.logger.Error(err, "Error marshaling cosignResp")
@@ -445,7 +458,7 @@ func (iv *ImageVerifier) verifyAttestations(
 					continue
 				}
 
-				err = iv.policyContext.JSONContext().AddContextEntry(imageVerify.Attestations[i].Name, rawCosignResp)
+				err = iv.policyContext.JSONContext().AddContextEntry(name, rawCosignResp)
 				if err != nil {
 					iv.logger.Error(err, "failed to add resource data to context entry")
 					errorList = append(errorList, err)
