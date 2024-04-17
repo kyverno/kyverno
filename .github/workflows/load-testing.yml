@@ -56,9 +56,9 @@ jobs:
           - name: default
             values:
               - default-with-profiling
-          - name: standard
+          - name: stress
             values:
-              - standard-with-profiling
+              - stress-with-profiling
         test:
           - kyverno-pss
           - kyverno-mutate
@@ -139,3 +139,6 @@ jobs:
         with:
           name: pprof-heap-profiles
           path: heap.pprof
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
