@@ -73,12 +73,12 @@ require (
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.29.3
+	k8s.io/api v0.29.4
 	k8s.io/apiextensions-apiserver v0.29.3
-	k8s.io/apimachinery v0.29.3
+	k8s.io/apimachinery v0.29.4
 	k8s.io/apiserver v0.29.3
-	k8s.io/cli-runtime v0.29.3
-	k8s.io/client-go v0.29.3
+	k8s.io/cli-runtime v0.29.4
+	k8s.io/client-go v0.29.4
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/kube-aggregator v0.29.3
 	k8s.io/pod-security-admission v0.29.2
@@ -91,6 +91,8 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
 )
+
+require github.com/alitto/pond v1.8.3 // indirect
 
 require (
 	cloud.google.com/go/compute v1.25.0 // indirect

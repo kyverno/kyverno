@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 
+	"github.com/alitto/pond"
 	fakekyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -53,6 +54,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 		urGenerator:   updaterequest.NewFake(),
 		eventGen:      event.NewFake(),
 		pcBuilder:     webhookutils.NewPolicyContextBuilder(configuration, jp),
+		auditPool:     pond.New(8, 1000),
 		engine: engine.NewEngine(
 			configuration,
 			config.NewDefaultMetricsConfiguration(),
