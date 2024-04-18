@@ -109,7 +109,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 			metricsExposure: map[string]metricExposureConfig{
 				"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
 			},
-			expectedSize: 0,
+			expectedSize: 1,
 			validateFunc: func(views []sdkmetric.View) bool {
 				stream, _ := views[0](sdkmetric.Instrument{Name: "metric2"})
 				assert := stream.AttributeFilter == nil
