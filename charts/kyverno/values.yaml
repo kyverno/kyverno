@@ -525,6 +525,9 @@ policyReportsCleanup:
   # -- Create a helm post-upgrade hook to cleanup the old policy reports.
   enabled: true
 
+  # -- Pod labels
+  podLabels: {}
+
   image:
     # -- (string) Image registry
     registry: ~
