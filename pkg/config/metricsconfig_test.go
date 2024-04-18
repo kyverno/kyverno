@@ -105,7 +105,20 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 			expectedSize:    0,
 		},
 		{
-			name: "Case 2: metrics enabled, no transformation configured",
+			name: "Case 2: there is no matching entry on the exposure config",
+			metricsExposure: map[string]metricExposureConfig{
+				"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
+			},
+			expectedSize: 0,
+			validateFunc: func(views []sdkmetric.View) bool {
+				stream, _ := views[0](sdkmetric.Instrument{Name: "metric2"})
+				assert := stream.AttributeFilter == nil
+				assert = assert && stream.Aggregation == nil
+				return assert
+			},
+		},
+		{
+			name: "Case 3: metrics enabled, no transformation configured",
 			metricsExposure: map[string]metricExposureConfig{
 				"metric1": {Enabled: boolPtr(true)},
 			},
@@ -118,7 +131,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 3: metrics enabled, histogram metric",
+			name: "Case 4: metrics enabled, histogram metric",
 			metricsExposure: map[string]metricExposureConfig{
 				"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
 			},
@@ -135,7 +148,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 4: metrics enabled, non histogram metric",
+			name: "Case 5: metrics enabled, non histogram metric",
 			metricsExposure: map[string]metricExposureConfig{
 				"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
 			},
@@ -149,7 +162,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 5: metrics disabled",
+			name: "Case 6: metrics disabled",
 			metricsExposure: map[string]metricExposureConfig{
 				"metric1": {Enabled: boolPtr(false)},
 			},

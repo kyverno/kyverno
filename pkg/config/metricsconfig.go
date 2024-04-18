@@ -82,7 +82,7 @@ func (mcd *metricsConfig) BuildMeterProviderViews() []sdkmetric.View {
 	views := []sdkmetric.View{}
 
 	if len(mcd.metricsExposure) > 0 {
-		var metricsExposure = maps.Clone(mcd.metricsExposure)
+		metricsExposure := maps.Clone(mcd.metricsExposure)
 		views = append(views, func(i sdkmetric.Instrument) (sdkmetric.Stream, bool) {
 			s := sdkmetric.Stream{Name: i.Name, Description: i.Description, Unit: i.Unit}
 
