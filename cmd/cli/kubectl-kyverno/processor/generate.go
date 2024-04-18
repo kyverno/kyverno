@@ -48,7 +48,7 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 	listKinds := map[schema.GroupVersionResource]string{}
 
 	// Collect items in a potential cloneList to provide list kinds to the fake dynamic client.
-	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
+	for _, rule := range autogen.ComputeRules(policyContext.Policy(), "") {
 		if !rule.HasGenerate() || len(rule.Generation.CloneList.Kinds) == 0 {
 			continue
 		}
