@@ -86,7 +86,7 @@ func createKyvernoDynamicClient(logger logr.Logger, ctx context.Context, dyn dyn
 	return client
 }
 
-func createEventsClient(logger logr.Logger, kube kubernetes.Interface, metricsManager metrics.MetricsConfigManager) eventsv1.EventsV1Interface {
+func createEventsClient(logger logr.Logger, metricsManager metrics.MetricsConfigManager) eventsv1.EventsV1Interface {
 	logger = logger.WithName("events-client")
 	logger.Info("create the events client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client := kubeclient.From(createKubernetesClient(logger, eventsRateLimitQPS, eventsRateLimitBurst), kubeclient.WithTracing())
