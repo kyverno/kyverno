@@ -130,12 +130,20 @@ func (h validateCELHandler) Process(
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
 	}
-	if namespaceName != "" && h.client != nil {
-		namespace, err = h.client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
-		if err != nil {
-			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err),
-			)
+	if namespaceName != "" {
+		if h.client != nil {
+			namespace, err = h.client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
+			if err != nil {
+				return resource, handlers.WithResponses(
+					engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err),
+				)
+			}
+		} else {
+			namespace = &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespaceName,
+				},
+			}
 		}
 	}
 
