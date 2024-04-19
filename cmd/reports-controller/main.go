@@ -26,8 +26,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
@@ -253,9 +253,9 @@ func main() {
 	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
 	// check if validating admission policies are registered in the API server
 	if validatingAdmissionPolicyReports {
-		groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
-		if _, err := setup.KyvernoDynamicClient.GetKubeClient().Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
-			setup.Logger.Error(err, "validating admission policies aren't supported.")
+		registered, err := validatingadmissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
+		if !registered {
+			setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
 			os.Exit(1)
 		}
 	}
