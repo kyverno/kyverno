@@ -631,10 +631,10 @@ func makeKey(policy kyverno.PolicyInterface) string {
 }
 
 type mockPolicyContextBuilder struct {
+	sync.Mutex
 	configuration config.Configuration
 	jp            jmespath.Interface
 	contexts      []*engine.PolicyContext
-	count         int
 }
 
 func newMockPolicyContextBuilder(
@@ -645,11 +645,13 @@ func newMockPolicyContextBuilder(
 		configuration: configuration,
 		jp:            jp,
 		contexts:      make([]*policycontext.PolicyContext, 0),
-		count:         0,
 	}
 }
 
 func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, roles, clusterRoles []string, gvk schema.GroupVersionKind) (*engine.PolicyContext, error) {
+	b.Lock()
+	defer b.Unlock()
+
 	userRequestInfo := kyvernov1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 		Roles:             roles,
@@ -659,7 +661,6 @@ func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, r
 	if err != nil {
 		return nil, err
 	}
-	b.count += 1
 	b.contexts = append(b.contexts, pc)
 	return pc, err
 }
