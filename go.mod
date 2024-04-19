@@ -56,7 +56,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.50.0
 	go.opentelemetry.io/otel v1.25.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.25.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.24.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.25.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.46.0
 	go.opentelemetry.io/otel/metric v1.25.0
@@ -69,7 +69,7 @@ require (
 	golang.org/x/crypto v0.22.0
 	golang.org/x/text v0.14.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
-	google.golang.org/grpc v1.63.0
+	google.golang.org/grpc v1.63.2
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -92,7 +92,7 @@ require (
 	sigs.k8s.io/yaml v1.4.0
 )
 
-require github.com/alitto/pond v1.8.3 // indirect
+require github.com/alitto/pond v1.8.3
 
 require (
 	cloud.google.com/go/compute v1.25.0 // indirect
