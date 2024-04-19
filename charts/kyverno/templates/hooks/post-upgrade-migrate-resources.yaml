@@ -78,6 +78,10 @@ spec:
   backoffLimit: 2
   template:
     metadata:
+      {{- with .Values.crds.migration.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.crds.migration.podLabels }}
       labels:
         {{- toYaml . | nindent 8 }}
