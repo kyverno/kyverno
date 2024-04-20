@@ -148,6 +148,9 @@ crds:
     # -- Pod labels.
     podLabels: {}
 
+    # -- Pod annotations.
+    podAnnotations: {}
+
     # -- Node affinity constraints.
     nodeAffinity: {}
 
@@ -469,10 +472,10 @@ webhooksCleanup:
     # -- (string) Image registry
     registry: ~
     # -- Image repository
-    repository: cgr.dev/chainguard/kubectl
+    repository: 1shubham7
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'latest-dev'
+    tag: '4.0.0'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -497,6 +500,9 @@ webhooksCleanup:
 
   # -- Pod labels.
   podLabels: {}
+
+  # -- Pod annotations.
+  podAnnotations: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
@@ -523,10 +529,10 @@ policyReportsCleanup:
     # -- (string) Image registry
     registry: ~
     # -- Image repository
-    repository: cgr.dev/chainguard/kubectl
+    repository: 1shubham7
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 'latest-dev'
+    tag: '4.0.0'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -552,6 +558,9 @@ policyReportsCleanup:
 
   # -- Pod labels.
   podLabels: {}
+
+  # -- Pod annotations.
+  podAnnotations: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
@@ -698,10 +707,10 @@ cleanupJobs:
       # -- (string) Image registry
       registry: ~
       # -- Image repository
-      repository: cgr.dev/chainguard/kubectl
+      repository: 1shubham7
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: 'latest-dev'
+      tag: '4.0.0'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -775,10 +784,10 @@ cleanupJobs:
       # -- (string) Image registry
       registry: ~
       # -- Image repository
-      repository: cgr.dev/chainguard/kubectl
+      repository: 1shubham7
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: 'latest-dev'
+      tag: '4.0.0'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
