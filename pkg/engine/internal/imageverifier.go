@@ -258,6 +258,13 @@ func (iv *ImageVerifier) Verify(
 			iv.ivm.Add(image, engineapi.ImageVerificationPass)
 			continue
 		}
+
+		if err := iv.policyContext.JSONContext().AddImageInfo(imageInfo, cfg); err != nil {
+			iv.logger.Error(err, "failed to add image to context")
+			responses = append(responses, engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err))
+			continue
+		}
+		
 		start := time.Now()
 		isInCache := false
 		if iv.ivCache != nil {
