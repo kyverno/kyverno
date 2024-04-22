@@ -134,6 +134,14 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		}
 		return false, isAnyIn(key, valueSlice)
 
+	case int, int32, int64, float32, float64, bool:
+		var valueSlice []string
+		valueSlice = append(valueSlice, fmt.Sprint(value))
+		if anyNotIn {
+			return false, isAnyNotIn(key, valueSlice)
+		}
+		return false, isAnyIn(key, valueSlice)
+
 	case string:
 		if len(key) == 1 && key[0] == valuesAvailable {
 			if anyNotIn {
