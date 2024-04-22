@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -186,21 +187,26 @@ func validateResource(policy v1alpha1.ValidatingAdmissionPolicy, binding *v1alph
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
 	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, nil, celconfig.RuntimeCELCostBudget, nil)
 
-	isPass := true
-	for _, policyDecision := range validateResult.Decisions {
-		if policyDecision.Evaluation == validatingadmissionpolicy.EvalError {
-			isPass = false
-			ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
-			break
-		} else if policyDecision.Action == validatingadmissionpolicy.ActionDeny {
-			isPass = false
-			ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message)
-			break
+	// no validations are returned if match conditions aren't met
+	if datautils.DeepEqual(validateResult, validatingadmissionpolicy.ValidateResult{}) {
+		ruleResp = engineapi.RuleSkip(policy.GetName(), engineapi.Validation, "match conditions aren't met")
+	} else {
+		isPass := true
+		for _, policyDecision := range validateResult.Decisions {
+			if policyDecision.Evaluation == validatingadmissionpolicy.EvalError {
+				isPass = false
+				ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
+				break
+			} else if policyDecision.Action == validatingadmissionpolicy.ActionDeny {
+				isPass = false
+				ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message)
+				break
+			}
 		}
-	}
 
-	if isPass {
-		ruleResp = engineapi.RulePass(policy.GetName(), engineapi.Validation, "")
+		if isPass {
+			ruleResp = engineapi.RulePass(policy.GetName(), engineapi.Validation, "")
+		}
 	}
 
 	if binding != nil {
