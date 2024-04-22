@@ -46,12 +46,19 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			},
 			want: true,
 		},
-
 		{
 			name: "key is int and in value",
 			args: args{
 				key:   64,
 				value: "64",
+			},
+			want: false,
+		},
+		{
+			name: "key is int and in value",
+			args: args{
+				key:   1,
+				value: []interface{}{1, 2, 3},
 			},
 			want: false,
 		},
@@ -62,6 +69,38 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 				value: "default",
 			},
 			want: true,
+		},
+		{
+			name: "key is float and in value",
+			args: args{
+				key:   3.14,
+				value: "3.14",
+			},
+			want: false,
+		},
+		{
+			name: "key is float and in value",
+			args: args{
+				key:   2.2,
+				value: []interface{}{1.1, 2.2, 3.3},
+			},
+			want: false,
+		},
+		{
+			name: "key is float and not in value",
+			args: args{
+				key:   3.14,
+				value: "default",
+			},
+			want: true,
+		},
+		{
+			name: "key is boolean and in value",
+			args: args{
+				key:   true,
+				value: true,
+			},
+			want: false,
 		},
 		{
 			name: "key is array and in value",
@@ -84,6 +123,54 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			args: args{
 				key:   []interface{}{"default", "kyverno"},
 				value: "kube-*",
+			},
+			want: true,
+		},
+		{
+			name: "key is array of int and partially in value",
+			args: args{
+				key:   []interface{}{1, 2, 3},
+				value: 2,
+			},
+			want: true,
+		},
+		{
+			name: "key is array of int and not in value",
+			args: args{
+				key:   []interface{}{1, 2, 3},
+				value: 4,
+			},
+			want: true,
+		},
+		{
+			name: "key is array of float and partially in value",
+			args: args{
+				key:   []interface{}{1.1, 2.2, 3.3},
+				value: 1.1,
+			},
+			want: true,
+		},
+		{
+			name: "key is array of float and not in value",
+			args: args{
+				key:   []interface{}{1.1, 2.2, 3.3},
+				value: 4.4,
+			},
+			want: true,
+		},
+		{
+			name: "key is array of bool and partially in value",
+			args: args{
+				key:   []interface{}{true, false},
+				value: true,
+			},
+			want: true,
+		},
+		{
+			name: "key is an array of bool and not in value",
+			args: args{
+				key:   []interface{}{true},
+				value: false,
 			},
 			want: true,
 		},
