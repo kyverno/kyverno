@@ -472,7 +472,7 @@ webhooksCleanup:
     # -- (string) Image registry
     registry: ~
     # -- Image repository
-    repository: 1shubham7
+    repository: 1shubham7/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
     tag: '4.0.0'
@@ -529,7 +529,7 @@ policyReportsCleanup:
     # -- (string) Image registry
     registry: ~
     # -- Image repository
-    repository: 1shubham7
+    repository: 1shubham7/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
     tag: '4.0.0'
@@ -707,7 +707,7 @@ cleanupJobs:
       # -- (string) Image registry
       registry: ~
       # -- Image repository
-      repository: 1shubham7
+      repository: 1shubham7/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
       tag: '4.0.0'
@@ -784,7 +784,7 @@ cleanupJobs:
       # -- (string) Image registry
       registry: ~
       # -- Image repository
-      repository: 1shubham7
+      repository: 1shubham7/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
       tag: '4.0.0'
