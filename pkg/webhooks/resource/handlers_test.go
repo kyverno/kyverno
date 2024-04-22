@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -212,8 +213,15 @@ var policyMutateAndVerify = `
                                 "entries": [
                                     {
                                         "keys": {
-                                            "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----"
-                                        }
+                                            "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+																						"rekor": {
+																							"url": "https://rekor.sigstore.dev",
+																							"ignoreTlog": true
+																						},
+																						"ctlog": {
+																							"ignoreSCT": true
+																						}
+																				}
                                     }
                                 ]
                             }
@@ -533,7 +541,7 @@ func Test_MutateAndVerify(t *testing.T) {
 		AdmissionRequest: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateAndVerify),
 			},
@@ -578,7 +586,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 		AdmissionRequest: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateandGenerate),
 			},
@@ -587,38 +595,29 @@ func Test_MutateAndGenerate(t *testing.T) {
 		},
 	}
 
-	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
-
-	assert.Assert(t, len(mockPcBuilder.contexts) >= 3, fmt.Sprint("expected no of context ", 3, " received ", len(mockPcBuilder.contexts)))
-
-	validateJSONContext := mockPcBuilder.contexts[0].JSONContext()
-	mutateJSONContext := mockPcBuilder.contexts[1].JSONContext()
-	generateJSONContext := mockPcBuilder.contexts[2].JSONContext()
-
-	_, err = enginecontext.AddMockDeferredLoader(validateJSONContext, "key1", "value1")
-	assert.NilError(t, err)
-	_, err = enginecontext.AddMockDeferredLoader(mutateJSONContext, "key2", "value2")
-	assert.NilError(t, err)
-	_, err = enginecontext.AddMockDeferredLoader(generateJSONContext, "key3", "value3")
+	_, mutatePolicies, generatePolicies, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
 	assert.NilError(t, err)
 
-	_, err = mutateJSONContext.Query("key1")
-	assert.ErrorContains(t, err, `Unknown key "key1" in path`)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	resourceHandlers.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, time.Now(), &wg)
+	wg.Wait()
+
+	assert.Assert(t, len(mockPcBuilder.contexts) >= 2, fmt.Sprint("expected no of context ", 2, " received ", len(mockPcBuilder.contexts)))
+
+	mutateJSONContext := mockPcBuilder.contexts[0].JSONContext()
+	generateJSONContext := mockPcBuilder.contexts[1].JSONContext()
+
+	_, err = enginecontext.AddMockDeferredLoader(mutateJSONContext, "key1", "value1")
+	assert.NilError(t, err)
+	_, err = enginecontext.AddMockDeferredLoader(generateJSONContext, "key2", "value2")
+	assert.NilError(t, err)
+
+	_, err = mutateJSONContext.Query("key2")
+	assert.ErrorContains(t, err, `Unknown key "key2" in path`)
+
 	_, err = generateJSONContext.Query("key1")
 	assert.ErrorContains(t, err, `Unknown key "key1" in path`)
-
-	_, err = validateJSONContext.Query("key2")
-	assert.ErrorContains(t, err, `Unknown key "key2" in path`)
-	_, err = generateJSONContext.Query("key2")
-	assert.ErrorContains(t, err, `Unknown key "key2" in path`)
-
-	_, err = validateJSONContext.Query("key3")
-	assert.ErrorContains(t, err, `Unknown key "key3" in path`)
-	_, err = mutateJSONContext.Query("key3")
-	assert.ErrorContains(t, err, `Unknown key "key3" in path`)
-
-	assert.Equal(t, response.Allowed, true)
-	assert.Equal(t, len(response.Warnings), 0)
 }
 
 func makeKey(policy kyverno.PolicyInterface) string {
@@ -632,10 +631,10 @@ func makeKey(policy kyverno.PolicyInterface) string {
 }
 
 type mockPolicyContextBuilder struct {
+	sync.Mutex
 	configuration config.Configuration
 	jp            jmespath.Interface
 	contexts      []*engine.PolicyContext
-	count         int
 }
 
 func newMockPolicyContextBuilder(
@@ -646,11 +645,13 @@ func newMockPolicyContextBuilder(
 		configuration: configuration,
 		jp:            jp,
 		contexts:      make([]*policycontext.PolicyContext, 0),
-		count:         0,
 	}
 }
 
 func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, roles, clusterRoles []string, gvk schema.GroupVersionKind) (*engine.PolicyContext, error) {
+	b.Lock()
+	defer b.Unlock()
+
 	userRequestInfo := kyvernov1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 		Roles:             roles,
@@ -660,7 +661,6 @@ func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, r
 	if err != nil {
 		return nil, err
 	}
-	b.count += 1
 	b.contexts = append(b.contexts, pc)
 	return pc, err
 }

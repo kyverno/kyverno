@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alitto/pond"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -37,8 +38,6 @@ import (
 )
 
 type resourceHandlers struct {
-	wg sync.WaitGroup
-
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
@@ -63,6 +62,7 @@ type resourceHandlers struct {
 
 	admissionReports             bool
 	backgroundServiceAccountName string
+	auditPool                    *pond.WorkerPool
 }
 
 func NewHandlers(
@@ -81,6 +81,8 @@ func NewHandlers(
 	admissionReports bool,
 	backgroundServiceAccountName string,
 	jp jmespath.Interface,
+	maxAuditWorkers int,
+	maxAuditCapacity int,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
@@ -98,6 +100,7 @@ func NewHandlers(
 		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
 		admissionReports:             admissionReports,
 		backgroundServiceAccountName: backgroundServiceAccountName,
+		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
 	}
 }
 
@@ -117,23 +120,33 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
-	policyContext, err := h.buildPolicyContextFromAdmissionRequest(logger, request)
-	if err != nil {
-		return errorResponse(logger, request.UID, err, "failed create policy context")
+	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration, h.nsLister)
+	var wg sync.WaitGroup
+	var ok bool
+	var msg string
+	var warnings []string
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ok, msg, warnings = vh.HandleValidationEnforce(ctx, request, policies, startTime)
+	}()
+
+	go h.auditPool.Submit(func() {
+		vh.HandleValidationAudit(ctx, request)
+	})
+	if !admissionutils.IsDryRun(request.AdmissionRequest) {
+		h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime, nil)
+	}
+	if len(policies) == 0 {
+		return admissionutils.ResponseSuccess(request.UID)
 	}
 
-	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration)
-
-	ok, msg, warnings := vh.HandleValidation(ctx, request, policies, policyContext, startTime)
+	wg.Wait()
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
-	if !admissionutils.IsDryRun(request.AdmissionRequest) {
-		h.wg.Add(1)
-		go h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime)
-		h.wg.Wait()
-	}
+
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 

@@ -155,7 +155,7 @@ func (c *controller) buildRuleIndex(key string, policy kyvernov1.PolicyInterface
 		return 0
 	})
 	index := ruleIndex{}
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		for _, polex := range polexList {
 			if polex.Contains(key, rule.Name) {
 				index[rule.Name] = append(index[rule.Name], polex)
