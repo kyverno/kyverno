@@ -62,16 +62,3 @@ spec:
                 - entries:
                     - certificates:
                         cert: "{{ vuln-scan.data.certificate }}"
-            - type: openvex
-              name: vex
-              attestors:
-                - entries:
-                    - certificates:
-                        cert: "{{ openvex.data.certificate }}"
-          validate:
-            deny:
-              conditions:
-                any:
-                  - key: "{{ scan.Vulnerabilities[].VulnerabilityID[] }}"
-                    operator: AnyNotIn
-                    value: "{{ vex.vulnerabilities.id }}"
