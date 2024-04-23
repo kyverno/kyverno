@@ -30,7 +30,7 @@ spec:
     validate:
       deny:
         conditions:
-          any:
+          all:
           - key: "{{ testString }}"
             operator: Equals
             value: "{{ request.namespace }}"
