@@ -72,6 +72,6 @@ spec:
             deny:
               conditions:
                 any:
-                  - key: "{{ vex.vulnerabilities.id }}"
-                    operator: Equals
+                  - key: "{{ scan.Vulnerabilities[].VulnerabilityID[] }}"
+                    operator: NotEquals
                     value: "{{ vex.vulnerabilities.id }}"
