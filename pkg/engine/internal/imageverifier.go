@@ -259,12 +259,6 @@ func (iv *ImageVerifier) Verify(
 			continue
 		}
 
-		if err := iv.policyContext.JSONContext().AddImageInfo(imageInfo, cfg); err != nil {
-			iv.logger.Error(err, "failed to add image to context")
-			responses = append(responses, engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err))
-			continue
-		}
-		
 		start := time.Now()
 		isInCache := false
 		if iv.ivCache != nil {
@@ -344,6 +338,14 @@ func (iv *ImageVerifier) verifyImage(
 		iv.logger.Error(err, "failed to add image to context")
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err), ""
 	}
+
+	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
+	if err != nil {
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
+		)
+	}
+	
 	if len(imageVerify.Attestors) > 0 {
 		if !matchReferences(imageVerify.ImageReferences, image) {
 			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name)), ""
