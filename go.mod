@@ -36,7 +36,7 @@ require (
 	github.com/notaryproject/notation-core-go v1.0.2
 	github.com/notaryproject/notation-go v1.1.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.32.0
+	github.com/onsi/gomega v1.33.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/pkg/errors v0.9.1
@@ -57,7 +57,7 @@ require (
 	go.opentelemetry.io/otel v1.25.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.25.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.25.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.25.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.46.0
 	go.opentelemetry.io/otel/metric v1.25.0
 	go.opentelemetry.io/otel/sdk v1.25.0
