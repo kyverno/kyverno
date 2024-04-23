@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
-  name: check-image-attestation
+  name: multiple-image-verification-attestations
 status:
   conditions:
   - reason: Succeeded
