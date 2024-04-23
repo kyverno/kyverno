@@ -5,7 +5,7 @@ metadata:
   labels:
     run: test
   name: test
-  namespace: multiple-image-verification-attestations
+  namespace: notary-verify-attestation
 spec:
   containers:
   - image: ghcr.io/kyverno/test-verify-image:signed
