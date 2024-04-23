@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: notary-attestation-verification
+  name: multiple-image-verification-attestations
 spec:
   timeouts:
     delete: 2m
