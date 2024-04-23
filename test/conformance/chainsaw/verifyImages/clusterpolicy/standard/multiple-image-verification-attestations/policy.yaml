@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name:  multiple-image-verification-attestations
+  name: notary-verify-attestation
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: vuln-scan
-  namespace:  multiple-image-verification-attestations
+  name: keys
+  namespace: notary-verify-attestation
 data:
   certificate: |-
     -----BEGIN CERTIFICATE-----
@@ -40,25 +40,24 @@ spec:
   webhookTimeoutSeconds: 30
   failurePolicy: Fail  
   rules:
-    - name: multiple-image-verification-attestations
+    - name: verify-attestation-notary
       match:
         any:
         - resources:
             kinds:
               - Pod
       context:
-      - name: vuln-scan
+      - name: keys
         configMap:
-          name: vuln-scan
-          namespace:  multiple-image-verification-attestations
+          name: keys
+          namespace: notary-verify-attestation
       verifyImages:
-        - type: Notary
-          imageReferences:
-            - "ghcr.io/kyverno/test-verify-image*"
-          attestations:
-            - type: vuln-scan
-              name: scan
-              attestors:
-                - entries:
-                    - certificates:
-                        cert: "{{ vuln-scan.data.certificate }}"
+      - type: Notary
+        imageReferences:
+          - "ghcr.io/kyverno/test-verify-image*"
+        attestations:
+          - type: sbom/cyclone-dx
+            attestors:
+            - entries:
+              - certificates: 
+                  cert: "{{ keys.data.certificate }}"
