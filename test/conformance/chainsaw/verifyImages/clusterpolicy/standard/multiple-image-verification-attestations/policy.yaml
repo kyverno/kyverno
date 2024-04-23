@@ -52,12 +52,26 @@ spec:
           name: keys
           namespace: notary-verify-attestation
       verifyImages:
-      - type: Notary
-        imageReferences:
-          - "ghcr.io/kyverno/test-verify-image*"
-        attestations:
-          - type: sbom/cyclone-dx
-            attestors:
-            - entries:
-              - certificates: 
-                  cert: "{{ keys.data.certificate }}"
+        - type: Notary
+          imageReferences:
+            - "ghcr.io/kyverno/test-verify-image*"
+          attestations:
+            - type: vuln-scan
+              name: scan
+              attestors:
+                - entries:
+                    - certificates:
+                        cert: "{{ keys.data.certificate }}"
+            - type: openvex
+              name: vex
+              attestors:
+                - entries:
+                    - certificates:
+                        cert: "{{ keys.data.certificate }}"
+          validate:
+            deny:
+              conditions:
+                any:
+                  - key: "{{ scan.Vulnerabilities[].VulnerabilityID[] }}"
+                    operator: AnyNotIn
+                    value: "{{ vex.vulnerabilities.id }}"
