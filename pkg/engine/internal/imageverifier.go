@@ -481,7 +481,7 @@ func (iv *ImageVerifier) verifyAttestations(
 					continue
 				}
 
-				rawCosignResp, err := json.Marshal(cosignResp)
+				rawCosignResp, err := json.Marshal(cosignResp.Statements)
 				if err != nil {
 					iv.logger.Error(err, "Error marshaling cosignResp")
 					errorList = append(errorList, err)
@@ -544,10 +544,10 @@ func (iv *ImageVerifier) verifyAttestations(
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
 
-	if err := iv.validate(ctx, imageVerify); err != nil {
+	if err := iv.validate(imageVerify); err != nil {
 		msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
 		iv.logger.Error(err, "failed to validate in verifyImage")
-		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, msg, err), ""
+		return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), ""
 	}
 
 	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
@@ -822,7 +822,7 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 	return &patch, digest, nil
 }
 
-func (iv *ImageVerifier) validate(ctx context.Context, imageVerify kyvernov1.ImageVerification) error {
+func (iv *ImageVerifier) validate(imageVerify kyvernov1.ImageVerification) error {
 	if imageVerify.Validation.Deny != nil {
 		if err := iv.validateDeny(imageVerify); err != nil {
 			return err
