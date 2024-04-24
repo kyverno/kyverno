@@ -113,6 +113,87 @@ func Test_ForceMutateSubstituteVars(t *testing.T) {
 	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())
 }
 
+func Test_ApplyForEachMutate(t *testing.T) {
+	rawPolicy := []byte(`
+    {
+        "apiVersion": "kyverno.io/v1",
+        "kind": "ClusterPolicy",
+        "metadata": {
+            "name": "add-label"
+        },
+        "spec": {
+            "rules": [
+                {
+                    "name": "add-name-label",
+                    "match": {
+                        "resources": {
+                            "kinds": [
+                                "Pod"
+                            ]
+                        }
+                    },
+                    "mutate": {
+                        "forEach": [
+                            {
+                                "patchStrategicMerge": {
+                                    "metadata": {
+                                        "labels": {
+                                            "appname": "{{request.object.metadata.name}}"
+                                        }
+                                    }
+                                },
+                                "forEach": [
+                                    {
+                                        "patchStrategicMerge": {
+                                            "metadata": {
+                                                "labels": {
+                                                    "nestedLabel": "nestedValue"
+                                                }
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+    `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	ctx := context.NewContext(jp)
+	err = context.AddResource(ctx, rawResource)
+	assert.NilError(t, err)
+
+	mutatedResource, err := ForceMutate(ctx, logr.Discard(), &policy, *resourceUnstructured)
+	assert.NilError(t, err)
+
+	expectedRawResource := []byte(`{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": {
+			"labels": {
+				"nestedLabel": "nestedValue"
+			},
+			"name": "check-root-user"
+		},
+		"spec": {"containers": [{"image": "nginxinc/nginx-unprivileged", "name": "check-root-user", "securityContext": {"runAsNonRoot": true}}]}
+	}`)
+
+	var expectedResource interface{}
+	assert.NilError(t, json.Unmarshal(expectedRawResource, &expectedResource))
+
+	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())
+}
+
 func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 	rawPolicy := []byte(`
 	{
