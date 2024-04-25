@@ -116,7 +116,7 @@ helm upgrade --install kyverno kyverno/kyverno -n kyverno \
 
 ## Deploy Kyverno PSS policies
 ```sh
-helm upgrade --install kyverno kyverno/kyverno-policies --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Enforce --devel
+helm upgrade --install kyverno kyverno/kyverno-policies --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Audit --devel
 ```
 
 # Create workloads
