@@ -49851,7 +49851,13 @@ spec:
               COUNT=$(kubectl get admissionreports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt 10000 ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
-                kubectl delete admissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+                for ns in $(kubectl get ns -o=custom-columns='NAME:metadata.name' --no-headers); do
+                  while true; do
+                    if [ "$(kubectl delete --raw /apis/kyverno.io/v1alpha2/namespaces/$(printf $ns)/admissionreports?limit=500&labelSelector=%21audit.kyverno.io%2Freport.aggregate | jq '.items')" == "[]" ]; then
+                      break
+                    fi
+                  done
+                done
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
@@ -49901,7 +49907,11 @@ spec:
               COUNT=$(kubectl get clusteradmissionreports.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt 10000 ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
-                kubectl delete clusteradmissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+                  while true; do
+                    if [ "$(kubectl delete --raw /apis/kyverno.io/v1alpha2/clusteradmissionreports?limit=500&labelSelector=%21audit.kyverno.io%2Freport.aggregate | jq '.items')" == "[]" ]; then
+                      break
+                    fi
+                  done
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
