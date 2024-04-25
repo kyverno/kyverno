@@ -109,7 +109,8 @@ helm upgrade --install kyverno kyverno/kyverno -n kyverno \
   --set admissionController.serviceMonitor.enabled=true \
   --set admissionController.replicas=3 \
   --set reportsController.serviceMonitor.enabled=true \
-  --set reportsController.resources.limits.memory=10Gi 
+  --set reportsController.resources.limits.memory=10Gi \
+  --set "features.omitEvents.eventTypes={PolicyApplied,PolicySkipped,PolicyViolation,PolicyError}" \
   # --devel \
   # --set features.admissionReports.enabled=false \
 ```
