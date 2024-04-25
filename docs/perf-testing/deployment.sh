@@ -3,8 +3,17 @@
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
 # read user input for count
-echo "Enter the pod count:"
+echo "Enter the deployment count:"
 read count
+
+echo "Enter the deployment replicas:"
+read replicas
+
+echo "Enter the deployment namespace:"
+read namespace
+
+echo "Creating namespace $namespace:"
+kubectl create namespace $namespace
 
 # iterate $count number of times
 for (( i=1; i<=$count; i++ ))
@@ -14,10 +23,10 @@ do
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fake-pod
-  namespace: default
+  name: fake-pod-$i
+  namespace: $namespace
 spec:
-  replicas: 10
+  replicas: $replicas
   selector:
     matchLabels:
       app: fake-pod
