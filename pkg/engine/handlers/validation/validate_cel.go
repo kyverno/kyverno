@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -130,12 +131,20 @@ func (h validateCELHandler) Process(
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
 	}
-	if namespaceName != "" && h.client != nil {
-		namespace, err = h.client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
-		if err != nil {
-			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err),
-			)
+	if namespaceName != "" {
+		if h.client != nil {
+			namespace, err = h.client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
+			if err != nil {
+				return resource, handlers.WithResponses(
+					engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err),
+				)
+			}
+		} else {
+			namespace = &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespaceName,
+				},
+			}
 		}
 	}
 
@@ -165,6 +174,13 @@ func (h validateCELHandler) Process(
 	}
 
 	for _, validationResult := range validationResults {
+		// no validations are returned if preconditions aren't met
+		if datautils.DeepEqual(validationResult, validatingadmissionpolicy.ValidateResult{}) {
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "cel preconditions not met"),
+			)
+		}
+
 		for _, decision := range validationResult.Decisions {
 			switch decision.Action {
 			case validatingadmissionpolicy.ActionAdmit:

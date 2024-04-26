@@ -1,0 +1,19 @@
+# stress-with-profiling sets the most restricted configurations for the admission controller. It disables
+# any additional feature that could affect the performance of the admission controller. 
+features:
+  policyExceptions:
+    enabled: true
+  omitEvents:
+    eventTypes:
+      - PolicyApplied
+      - PolicySkipped
+      - PolicyViolation
+      - PolicyError
+  admissionReports:
+    enabled: false
+
+admissionController:
+  profiling:
+    enabled: true
+    serviceType: NodePort
+    nodePort: 30950
