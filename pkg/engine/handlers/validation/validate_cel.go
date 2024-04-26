@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -165,6 +166,13 @@ func (h validateCELHandler) Process(
 	}
 
 	for _, validationResult := range validationResults {
+		// no validations are returned if preconditions aren't met
+		if datautils.DeepEqual(validationResult, validatingadmissionpolicy.ValidateResult{}) {
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "cel preconditions not met"),
+			)
+		}
+
 		for _, decision := range validationResult.Decisions {
 			switch decision.Action {
 			case validatingadmissionpolicy.ActionAdmit:
