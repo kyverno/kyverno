@@ -50,7 +50,7 @@ func (h validateImageHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there is a policy exception matches the incoming resource
 	exception := engineutils.MatchesException(exceptions, policyContext, logger)
-	if exception != nil && exception.Spec.VerifyImages.ImageReferences == nil {
+	if exception != nil && exception.Spec.VerifyImages == nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
 			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
@@ -75,10 +75,12 @@ func (h validateImageHandler) Process(
 					logger.V(4).Info("image does not match", "imageReferences", imageVerify.ImageReferences)
 					return resource, nil
 				}
-				if exception.Spec.VerifyImages.ImageReferences != nil && internal.MatchReferences(exception.Spec.VerifyImages.ImageReferences, image) {
-					logger.V(4).Info("image matches exception references, skipping verification", "image", image)
-					skippedImages = append(skippedImages, image)
-					continue
+				if exception != nil && exception.Spec.VerifyImages != nil {
+					if internal.MatchReferences(exception.Spec.VerifyImages.ImageReferences, image) {
+						logger.V(4).Info("image matches exception references, skipping verification", "image", image)
+						skippedImages = append(skippedImages, image)
+						continue
+					}
 				}
 
 				logger.V(4).Info("validating image", "image", image)

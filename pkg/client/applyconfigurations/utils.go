@@ -257,8 +257,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.DenyApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Exception"):
 		return &kyvernov2beta1.ExceptionApplyConfiguration{}
-	case v2beta1.SchemeGroupVersion.WithKind("ExcludeImageReferences"):
-		return &kyvernov2beta1.ExcludeImageReferencesApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("ImageVerification"):
 		return &kyvernov2beta1.ImageVerificationApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("MatchResources"):
@@ -275,6 +273,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.SpecApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("VerifyImages"):
+		return &kyvernov2beta1.VerifyImagesApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
 		return &kyvernov2beta1.WebhookConfigurationApplyConfiguration{}
 
