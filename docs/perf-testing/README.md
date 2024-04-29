@@ -1,4 +1,4 @@
-This document outlines the instructions for performance testing using [Kwok](https://kwok.sigs.k8s.io/) for the Kyverno 1.10 release.
+This document outlines the instructions for performance testing using [Kwok](https://kwok.sigs.k8s.io/) for the Kyverno 1.12 release.
 
 # Pre-requisite
 
@@ -109,26 +109,68 @@ helm upgrade --install kyverno kyverno/kyverno -n kyverno \
   --set admissionController.serviceMonitor.enabled=true \
   --set admissionController.replicas=3 \
   --set reportsController.serviceMonitor.enabled=true \
-  --set reportsController.resources.limits.memory=10Gi 
+  --set reportsController.resources.limits.memory=10Gi \
+  --set "features.omitEvents.eventTypes={PolicyApplied,PolicySkipped,PolicyViolation,PolicyError}" \
   # --devel \
   # --set features.admissionReports.enabled=false \
 ```
 
 ## Deploy Kyverno PSS policies
 ```sh
-helm upgrade --install kyverno kyverno/kyverno-policies --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Enforce --devel
+helm upgrade --install kyverno kyverno/kyverno-policies --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Audit --devel
 ```
 
-# Create workloads
+# Testing the reports controller
 
-This script creates 1000 pods, with QPS and burst set to 50:
+The following instructions provide steps to create policyreports for installed workloads, measure resource usages of the reports controller and the total objects size in etcd.
+
+## Create workloads
+
+This script creates 100 deployments in namespace `test-1`, each deployment has 10 replicas:
+
+```
+./docs/perf-testing/deployment.sh
+Enter the deployment count:
+100
+Enter the deployment replicas:
+10
+Enter the deployment namespace:
+test-1
+Creating namespace test-1
+...
+```
+
+The total number of policyreports for the 100 deployments with 10 replicas each is 1200. With Kyverno 1.12.0, a policy report is created for one matching resource, therefore 100 deployments, 100 replicasets and 1000 pods will create 1200 policy reports in total.
+
+You can also create pods directly using `./docs/perf-testing/pod.sh`.
+
+Note that these pods will be scheduled to the Kwok nodes, not K3d nodes.
+
+## Objects sizes in etcd
+
+Run the following script to calculate total sizes for the given resource (policyreports in the following example):
+```sh
+$ ./docs/perf-testing/size.sh
+Enter the resource to caclutate the size:
+wgpolicyk8s.io/policyreports
+The total size for wgpolicyk8s.io/policyreports is 401851071 bytes.
+```
+
+You can also check the total etcd size:
+```sh
+$ etcdctl endpoint status -w table
++-------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+|        ENDPOINT         |        ID        | VERSION | DB SIZE | IS LEADER | IS LEARNER | RAFT TERM | RAFT INDEX | RAFT APPLIED INDEX | ERRORS |
++-------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+| https://172.21.0.2:2379 | c2ed0eb8fc7bc4fc |   3.5.9 |  1.8 GB |      true |      false |         2 |    2428629 |            2428629 |        |
++-------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+```
+
+This command returns the resources stored in etcd that have more than 100 objects:
 
 ```sh
-kubectl create ns test
-go run docs/perf-testing/main.go --count=1000 --kinds=pods --clientRateLimitQPS=50 --clientRateLimitBurst=50 --namespace=test
+kubectl get --raw=/metrics | grep apiserver_storage_objects |awk '$2>100' |sort -g -k 2
 ```
-
-Note that these pods will be scheduled to the Kwok nodes, not k3s nodes.
 
 # Prometheus Queries
 
@@ -142,7 +184,7 @@ kubectl port-forward --address 127.0.0.1 svc/kube-prometheus-stack-prometheus 90
 To get an view of the memory utilization overtime, you can select by the container image for a specific Kyverno controller:
 
 ```
-container_memory_working_set_bytes{image="ghcr.io/kyverno/kyverno:v1.10.0-rc.1"}
+container_memory_working_set_bytes{image="ghcr.io/kyverno/kyverno:v1.12.0-rc.5"}
 ```
 
 `container_memory_working_set_bytes` gives you the current working set in bytes, and this is what the OOM killer is watching for.
@@ -151,58 +193,7 @@ container_memory_working_set_bytes{image="ghcr.io/kyverno/kyverno:v1.10.0-rc.1"}
 ## CPU utilization
 
 ```
-rate(container_cpu_usage_seconds_total{image="ghcr.io/kyverno/kyverno:v1.10.0-rc.1"}[1m])
+rate(container_cpu_usage_seconds_total{image="ghcr.io/kyverno/kyverno:v1.12.0-rc.5"}[1m])
 ```
 
 `container_cpu_usage_seconds_total` is the sum of the total amount of “user” time (i.e. time spent not in the kernel) and the total amount of “system” time (i.e. time spent in the kernel). This query gives the average CPU usage in the last 1 minute.
-
-## Admission Request Rate
-
-It's a bit tricky to get the precise Admission Request rate (ARPS). When using the Prometheus [rate()](https://prometheus.io/docs/prometheus/latest/querying/functions/#rate) function, it always requires a time window to calculate the rate with the given internal. The rate may differ when the window differs.
-
-
-During our test, we calculate the increment in the count of admission requests recorded at the start and end time of a particular duration. Next, we divide this increment by the duration of the time window to derive the average admission request rate during that period.
-
-
-```
-sum(kyverno_admission_requests_total)
-```
-
-## Objects sizes in etcd
-
-Run the following script to calculate total sizes for the given resource (pods in the following example):
-```sh
-$ ./docs/perf-testing/size.sh
-Enter the resource to calculate the size:
-pods
-The total size for pods is 8861737 bytes.
-```
-
-You can also check the total etcd size:
-```sh
-$ etcdctl endpoint status -w table
-+-------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
-|        ENDPOINT         |        ID        | VERSION | DB SIZE | IS LEADER | IS LEARNER | RAFT TERM | RAFT INDEX | RAFT APPLIED INDEX | ERRORS |
-+-------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
-| https://172.19.0.2:2379 | d7380397c3ec4b90 |   3.5.3 |   84 MB |      true |      false |         2 |     154449 |             154449 |        |
-+-------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
-```
-
-This command returns the resources stored in etcd that have more than 100 objects:
-
-```sh
-kubectl get --raw=/metrics | grep apiserver_storage_objects |awk '$2>100' |sort -g -k 2
-```
-
-
-## Admission review latency (average)
-
-Kyverno exposes two metrics that can be used to calculate the admission review latency, 
-```
-sum(kyverno_admission_review_duration_seconds_sum{resource_request_operation=~"create|update"})/sum(kyverno_admission_review_duration_seconds_count{resource_request_operation=~"create|update"})
-```
-
-The following metrics exposed by Prometheus should give you the same result if you follow the same setup on this page:
-```
-sum(apiserver_admission_webhook_admission_duration_seconds_sum{name="validate.kyverno.svc-fail",operation="CREATE"}) / sum(apiserver_admission_webhook_admission_duration_seconds_count{name="validate.kyverno.svc-fail",operation="CREATE"})
-```
