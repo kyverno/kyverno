@@ -125,6 +125,7 @@ func Command() *cobra.Command {
 }
 
 func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+	log.Configure()
 	rc, resources1, skipInvalidPolicies, responses1, err := c.checkArguments()
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
