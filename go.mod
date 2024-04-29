@@ -85,7 +85,7 @@ require (
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
 	sigs.k8s.io/controller-runtime v0.17.3
 	sigs.k8s.io/kubectl-validate v0.0.3
-	sigs.k8s.io/kustomize/api v0.16.0
+	sigs.k8s.io/kustomize/api v0.17.1
 	sigs.k8s.io/kustomize/kyaml v0.17.0
 	sigs.k8s.io/release-utils v0.8.1
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
@@ -93,6 +93,8 @@ require (
 )
 
 require github.com/alitto/pond v1.8.3
+
+require gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 
 require (
 	cloud.google.com/go/compute v1.25.0 // indirect
@@ -369,7 +371,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240311173647-c811ad7063a7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240401170217-c3f982113cda // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
-	gopkg.in/evanphx/json-patch.v5 v5.9.0 // indirect
 	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
