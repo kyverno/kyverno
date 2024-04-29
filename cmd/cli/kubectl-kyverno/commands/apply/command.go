@@ -49,24 +49,25 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig     string
-	Context        string
-	Namespace      string
-	MutateLogPath  string
-	Variables      []string
-	ValuesFile     string
-	UserInfoPath   string
-	Cluster        bool
-	PolicyReport   bool
-	Stdin          bool
-	RegistryAccess bool
-	AuditWarn      bool
-	ResourcePaths  []string
-	PolicyPaths    []string
-	GitBranch      string
-	warnExitCode   int
-	warnNoPassed   bool
-	Exception      []string
+	KubeConfig       string
+	Context          string
+	Namespace        string
+	MutateLogPath    string
+	Variables        []string
+	ValuesFile       string
+	UserInfoPath     string
+	Cluster          bool
+	PolicyReport     bool
+	Stdin            bool
+	RegistryAccess   bool
+	AuditWarn        bool
+	ResourcePaths    []string
+	PolicyPaths      []string
+	GitBranch        string
+	warnExitCode     int
+	warnNoPassed     bool
+	inlineExceptions bool
+	Exception        []string
 }
 
 func Command() *cobra.Command {
@@ -121,6 +122,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "evaluate-inline-exceptions", "", false, "Evaluate policy exception to be considered from the resources to be processed")
 	return cmd
 }
 
@@ -163,9 +165,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	exceptions, err := exception.Load(c.Exception...)
-	if err != nil {
-		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+	var exceptions []*kyvernov2beta1.PolicyException
+	if c.inlineExceptions {
+		exceptions = exception.SelectFrom(resources)
+	} else {
+		exceptions, err = exception.Load(c.Exception...)
+		if err != nil {
+			return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+		}
 	}
 	if !c.Stdin && !c.PolicyReport {
 		var policyRulesCount int

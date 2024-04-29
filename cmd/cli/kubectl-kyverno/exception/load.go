@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	yamlutils "github.com/kyverno/kyverno/ext/yaml"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
@@ -62,4 +63,19 @@ func load(content []byte) ([]*kyvernov2beta1.PolicyException, error) {
 		}
 	}
 	return exceptions, nil
+}
+
+func SelectFrom(resources []*unstructured.Unstructured) []*kyvernov2beta1.PolicyException {
+	var exceptions []*kyvernov2beta1.PolicyException
+	for _, resource := range resources {
+		switch resource.GroupVersionKind() {
+		case exceptionV2alpha1, exceptionV2beta1, exceptionV2:
+			exception, err := convert.To[kyvernov2beta1.PolicyException](*resource)
+			if err == nil {
+				exceptions = append(exceptions, exception)
+			}
+		}
+	}
+
+	return exceptions
 }
