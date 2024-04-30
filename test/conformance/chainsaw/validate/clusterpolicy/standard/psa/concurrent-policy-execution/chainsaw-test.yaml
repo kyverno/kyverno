@@ -1,0 +1,36 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: concurrent-policy-execution
+spec:
+  steps:
+    - name: install-pss-policies
+      try:
+        - script:
+            content: |
+              #!/bin/bash
+              set -eu
+
+              helm --repo https://kyverno.github.io/kyverno/ install kyverno-policies kyverno-policies --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Enforce
+        - assert:
+            file: policy-asserts.yaml
+    - name: apply-test-pods
+      try:
+        - apply:
+            expect:
+              - check:
+                  ($error != null): false
+            file: good-pod.yaml
+        - apply:
+            expect:
+              - check:
+                  ($error != null): true
+            file: bad-pod.yaml
+    - name: uninstall-pss-policies
+      try:
+        - script:
+            content: |
+              #!/bin/bash
+              set -eu
+
+              helm uninstall kyverno-policies
