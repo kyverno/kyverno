@@ -80,7 +80,7 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
 			resources.Insert("pods/ephemeralcontainers")
 		}
-		
+
 		operations := findKeyContainingSubstring(final, firstResource, defaultOpn)
 		if len(operations) == 0 {
 			continue
