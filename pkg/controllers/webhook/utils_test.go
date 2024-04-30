@@ -10,7 +10,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 )
 
 func Test_webhook_isEmpty(t *testing.T) {
@@ -355,6 +358,62 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 			for _, r := range testCase.rules {
 				result = computeOperationsForValidatingWebhookConf(r, make(map[string]bool))
 			}
+			if !reflect.DeepEqual(result, testCase.expectedResult) {
+				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
+			}
+		})
+	}
+}
+
+func TestBuildRulesWithOperations(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		rules                map[groupVersionScope]sets.Set[string]
+		mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
+		expectedResult       []admissionregistrationv1.RuleWithOperations
+	}{
+		{
+			name: "Test Case 1",
+			rules: map[groupVersionScope]sets.Set[string]{
+				groupVersionScope{
+					GroupVersion: corev1.SchemeGroupVersion,
+					scopeType:    admissionregistrationv1.AllScopes,
+				}: {
+					"namespaces": sets.Empty{},
+				},
+				groupVersionScope{
+					GroupVersion: corev1.SchemeGroupVersion,
+					scopeType:    admissionregistrationv1.NamespacedScope,
+				}: {
+					"pods":       sets.Empty{},
+					"configmaps": sets.Empty{},
+				},
+			},
+			mapResourceToOpnType: map[string][]admissionregistrationv1.OperationType{
+				"Namespace": {},
+				"Pod":       {webhookCreate, webhookUpdate},
+			},
+			expectedResult: []admissionregistrationv1.RuleWithOperations{
+				{
+					Operations: []admissionregistrationv1.OperationType{webhookCreate, webhookUpdate},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"configmaps", "pods", "pods/ephemeralcontainers"},
+						Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+					},
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			wh := &webhook{
+				rules: testCase.rules,
+			}
+
+			result := wh.buildRulesWithOperations(testCase.mapResourceToOpnType, []admissionregistrationv1.OperationType{webhookCreate, webhookUpdate})
 			if !reflect.DeepEqual(result, testCase.expectedResult) {
 				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
 			}
