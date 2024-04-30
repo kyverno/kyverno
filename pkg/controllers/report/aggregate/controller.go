@@ -202,7 +202,7 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 	return results, nil
 }
 
-func (c *controller) findEphemeralReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, error) {
 	selector, err := reportutils.SelectorResourceUidEquals(types.UID(name))
 	if err != nil {
 		return nil, err
@@ -219,8 +219,10 @@ func (c *controller) findEphemeralReports(ctx context.Context, namespace, name s
 			return nil, err
 		}
 		for _, report := range reports.Items {
-			report := report
-			results = append(results, &report)
+			if len(report.OwnerReferences) != 0 {
+				report := report
+				results = append(results, &report)
+			}
 		}
 	} else {
 		reports, err := c.client.ReportsV1().EphemeralReports(namespace).List(ctx, metav1.ListOptions{
@@ -233,8 +235,10 @@ func (c *controller) findEphemeralReports(ctx context.Context, namespace, name s
 			return nil, err
 		}
 		for _, report := range reports.Items {
-			report := report
-			results = append(results, &report)
+			if len(report.OwnerReferences) != 0 {
+				report := report
+				results = append(results, &report)
+			}
 		}
 	}
 	return results, nil
@@ -383,11 +387,11 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
-	if report == nil {
+	if report != nil {
 		reports = append(reports, report)
 	}
 	// get ephemeral reports
-	ephemeralReports, err := c.findEphemeralReports(ctx, namespace, name)
+	ephemeralReports, err := c.findOwnedEphemeralReports(ctx, namespace, name)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
