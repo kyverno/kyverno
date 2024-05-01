@@ -1,0 +1,30 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: variable-substitution-failure-messages
+spec:
+  steps:
+  - name: step-01 
+    try: 
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml    
+  - name: step-02  
+    try:  
+    - script:  
+        content: kubectl apply -f pod.yaml  
+        check:  
+          ($error != null): true
+          # This check ensures the contents of stderr are exactly as shown.  
+          ($stderr): |-
+            Error from server: error when creating "pod.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+        
+            resource Pod/default/test was blocked due to the following policies 
+            
+            test-panic:
+              test-panic: 'failed to check deny conditions: failed to substitute variables in
+                condition key: failed to resolve image at path : jmespath value must be a string
+                image {{ request.object.spec.[containers,initContainers, ephemeralContainers][].image[]
+                }}: <nil>'
