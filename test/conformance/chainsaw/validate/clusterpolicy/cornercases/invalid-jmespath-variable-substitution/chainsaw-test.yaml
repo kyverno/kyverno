@@ -25,6 +25,6 @@ spec:
             
             test-panic:
               test-panic: 'failed to check deny conditions: failed to substitute variables in
-                condition key: failed to resolve image at path : invalid jmespath provided image
-                {{ request.object.spec.[containers,initContainers, ephemeralContainers][].image[]
+                condition key: failed to resolve image at path : jmespath value must be a string
+                image {{ request.object.spec.[containers,initContainers, ephemeralContainers][].image[]
                 }}: <nil>'

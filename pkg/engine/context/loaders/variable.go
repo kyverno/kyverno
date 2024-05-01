@@ -56,7 +56,7 @@ func (vl *variableLoader) loadVariable() (err error) {
 		var ok bool
 		path, ok = jp.(string)
 		if !ok {
-			return fmt.Errorf("invalid jmespath provided %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
+			return fmt.Errorf("jmespath value must be a string %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
 		}
 		logger.V(4).Info("evaluated jmespath", "variable name", entry.Name, "jmespath", path)
 	}
