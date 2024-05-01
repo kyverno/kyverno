@@ -53,7 +53,10 @@ func (vl *variableLoader) loadVariable() (err error) {
 		if err != nil {
 			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
 		}
-		path = jp.(string)
+		path, ok := jp.(string)
+		if !ok {
+			return fmt.Errorf("invalid jmespath provided %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
+		}
 		logger.V(4).Info("evaluated jmespath", "variable name", entry.Name, "jmespath", path)
 	}
 
