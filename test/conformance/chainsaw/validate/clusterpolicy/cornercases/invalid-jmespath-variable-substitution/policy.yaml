@@ -23,4 +23,4 @@ spec:
             - key: "{{ image }}"
               operator: AnyNotIn
               value: 
-              - "ghcr.io/kyverno/test-verify-image:signed" 
+              - "ghcr.io/kyverno/test-verify-image:signed"
