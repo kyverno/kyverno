@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -49,6 +50,7 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
+	IgnoreError    bool
 	KubeConfig     string
 	Context        string
 	Namespace      string
@@ -82,9 +84,14 @@ func Command() *cobra.Command {
 			out := cmd.OutOrStdout()
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
+
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(out)
 			if err != nil {
-				return err
+				if applyCommandConfig.IgnoreError {
+					log.Log.Info("errors were found, continuing since `ignore-errors flag is set`", "error", err)
+				} else {
+					return err
+				}
 			}
 			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
@@ -114,6 +121,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVar(&applyCommandConfig.Context, "context", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
+	cmd.Flags().BoolVar(&applyCommandConfig.IgnoreError, "ignore-errors", false, "If set to true, will ignore errors while applying policies to a particular resource and continue with rest of resources")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
@@ -179,8 +187,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s)...\n", policyRulesCount, len(resources))
 		}
 	}
-
-	rc, resources1, responses1, err = c.applyPolicytoResource(
+	rc, resources1, responses1, errSlice := c.applyPolicytoResource(
 		out,
 		&store,
 		variables,
@@ -192,8 +199,13 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		userInfo,
 		mutateLogPathIsDir,
 	)
-	if err != nil {
-		return rc, resources1, skipInvalidPolicies, responses1, err
+	if errSlice != nil {
+		var errStrings []string
+		for _, err := range errSlice {
+			errStrings = append(errStrings, err.Error())
+		}
+		combinedError := strings.Join(errStrings, ", ")
+		return rc, resources1, skipInvalidPolicies, responses1, errors.New(combinedError)
 	}
 	responses2, err := c.applyValidatingAdmissionPolicytoResource(vaps, vapBindings, resources1, variables.NamespaceSelectors(), rc, dClient)
 	if err != nil {
@@ -252,7 +264,8 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	dClient dclient.Interface,
 	userInfo *v1beta1.RequestInfo,
 	mutateLogPathIsDir bool,
-) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
+) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, []error) {
+	var errSlice []error
 	if vars != nil {
 		vars.SetInStore(store)
 	}
@@ -298,7 +311,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
+			return &rc, resources, responses, append(errSlice, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err))
 		}
 		responses = append(responses, ers...)
 	}
