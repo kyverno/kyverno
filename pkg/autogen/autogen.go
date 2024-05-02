@@ -43,7 +43,7 @@ func checkAutogenSupport(needed *bool, subjects ...kyvernov1.ResourceDescription
 // stripCronJob removes CronJob from controllers
 func stripCronJob(controllers string) string {
 	var newControllers []string
-	controllerArr := strings.Split(controllers, ",")
+	controllerArr := splitKinds(controllers, ",")
 	for _, c := range controllerArr {
 		if c == PodControllerCronJob {
 			continue
@@ -134,7 +134,7 @@ func GetRequestedControllers(meta *metav1.ObjectMeta) sets.Set[string] {
 	if controllers == "none" {
 		return sets.New[string]()
 	}
-	return sets.New(strings.Split(controllers, ",")...)
+	return sets.New(splitKinds(controllers, ",")...)
 }
 
 // GetControllers computes the autogen controllers that should be applied to a policy.
