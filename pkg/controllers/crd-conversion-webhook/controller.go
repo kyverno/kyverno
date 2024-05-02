@@ -136,7 +136,7 @@ func (c *controller) buildCustomResourceConversion(caBundle []byte) (*apiextensi
 		Strategy: apiextensionsv1.WebhookConverter,
 		Webhook: &apiextensionsv1.WebhookConversion{
 			ClientConfig:             c.clientConfig(caBundle),
-			ConversionReviewVersions: []string{"v1", "v2beta1", "v2"},
+			ConversionReviewVersions: []string{"v1"},
 		},
 	}, nil
 }
