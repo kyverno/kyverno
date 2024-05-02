@@ -3,7 +3,7 @@ package mutation
 import (
 	"context"
 	"fmt"
-	"time"
+	"sync"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
 	"gomodules.xyz/jsonpatch/v2"
@@ -26,7 +27,7 @@ type MutationHandler interface {
 	// HandleMutation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleMutation(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time) ([]byte, []string, error)
+	HandleMutation(context.Context, handlers.AdmissionRequest, []kyvernov1.PolicyInterface, *webhookutils.PolicyContextBuilder) ([]byte, []string, error)
 }
 
 func NewMutationHandler(
@@ -55,12 +56,11 @@ type mutationHandler struct {
 
 func (h *mutationHandler) HandleMutation(
 	ctx context.Context,
-	request admissionv1.AdmissionRequest,
+	request handlers.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
-	policyContext *engine.PolicyContext,
-	admissionRequestTimestamp time.Time,
+	pcBuilder *webhookutils.PolicyContextBuilder,
 ) ([]byte, []string, error) {
-	mutatePatches, mutateEngineResponses, err := h.applyMutations(ctx, request, policies, policyContext)
+	mutatePatches, mutateEngineResponses, err := h.applyMutations(ctx, request, policies, pcBuilder)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -72,58 +72,105 @@ func (h *mutationHandler) HandleMutation(
 // return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
 func (v *mutationHandler) applyMutations(
 	ctx context.Context,
-	request admissionv1.AdmissionRequest,
+	request handlers.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
-	policyContext *engine.PolicyContext,
+	pcBuilder *webhookutils.PolicyContextBuilder,
 ) ([]byte, []engineapi.EngineResponse, error) {
 	if len(policies) == 0 {
 		return nil, nil, nil
 	}
 
-	var patches []jsonpatch.JsonPatchOperation
-	var engineResponses []engineapi.EngineResponse
-	failurePolicy := kyvernov1.Ignore
+	var (
+		wg            sync.WaitGroup
+		patchesChan   = make(chan []jsonpatch.JsonPatchOperation)
+		responseChan  = make(chan engineapi.EngineResponse)
+		errorChan     = make(chan error)
+		failurePolicy = kyvernov1.Ignore
+	)
 
 	for _, policy := range policies {
-		spec := policy.GetSpec()
-		if !spec.HasMutateStandard() {
-			continue
+		wg.Add(1)
+		go func(policy kyvernov1.PolicyInterface) {
+			defer wg.Done()
+			spec := policy.GetSpec()
+			if !spec.HasMutateStandard() {
+				return
+			}
+
+			err := tracing.ChildSpan1(
+				ctx,
+				"",
+				fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+				func(ctx context.Context, span trace.Span) error {
+					v.log.V(3).Info("applying policy mutate rules", "policy", policy.GetName())
+					policyContext, err := (*pcBuilder).Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+					if err != nil {
+						return fmt.Errorf("failed to build policy context: %v", err)
+					}
+					currentContext := policyContext.WithPolicy(policy)
+					if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Fail {
+						failurePolicy = kyvernov1.Fail
+					}
+
+					engineResponse, policyPatches, err := v.applyMutation(ctx, request.AdmissionRequest, currentContext, failurePolicy)
+					if err != nil {
+						return fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
+					}
+
+					if len(policyPatches) > 0 {
+						patchesChan <- policyPatches
+						rules := engineResponse.GetSuccessRules()
+						if len(rules) != 0 {
+							v.log.Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
+						}
+					}
+
+					if engineResponse != nil {
+						responseChan <- *engineResponse
+					}
+
+					return nil
+				},
+			)
+			if err != nil {
+				errorChan <- err
+			}
+		}(policy)
+	}
+
+	go func() {
+		wg.Wait()
+		close(patchesChan)
+		close(responseChan)
+		close(errorChan)
+	}()
+
+	var patches []jsonpatch.JsonPatchOperation
+	var engineResponses []engineapi.EngineResponse
+	for {
+		select {
+		case policyPatches, ok := <-patchesChan:
+			if !ok {
+				patchesChan = nil
+			} else {
+				patches = append(patches, policyPatches...)
+			}
+		case engineResponse, ok := <-responseChan:
+			if !ok {
+				responseChan = nil
+			} else {
+				engineResponses = append(engineResponses, engineResponse)
+			}
+		case err, ok := <-errorChan:
+			if !ok {
+				errorChan = nil
+			} else {
+				return nil, nil, err
+			}
 		}
 
-		err := tracing.ChildSpan1(
-			ctx,
-			"",
-			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
-			func(ctx context.Context, span trace.Span) error {
-				v.log.V(3).Info("applying policy mutate rules", "policy", policy.GetName())
-				currentContext := policyContext.WithPolicy(policy)
-				if policy.GetSpec().GetFailurePolicy(ctx) == kyvernov1.Fail {
-					failurePolicy = kyvernov1.Fail
-				}
-
-				engineResponse, policyPatches, err := v.applyMutation(ctx, request, currentContext, failurePolicy)
-				if err != nil {
-					return fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
-				}
-
-				if len(policyPatches) > 0 {
-					patches = append(patches, policyPatches...)
-					rules := engineResponse.GetSuccessRules()
-					if len(rules) != 0 {
-						v.log.Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
-					}
-				}
-
-				if engineResponse != nil {
-					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
-					engineResponses = append(engineResponses, *engineResponse)
-				}
-
-				return nil
-			},
-		)
-		if err != nil {
-			return nil, nil, err
+		if patchesChan == nil && responseChan == nil && errorChan == nil {
+			break
 		}
 	}
 

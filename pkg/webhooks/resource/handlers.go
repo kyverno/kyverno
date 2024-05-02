@@ -170,7 +170,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err)
 	}
 	mh := mutation.NewMutationHandler(logger, h.engine, h.eventGen, h.nsLister, h.metricsConfig)
-	mutatePatches, mutateWarnings, err := mh.HandleMutation(ctx, request.AdmissionRequest, mutatePolicies, policyContext, startTime)
+	mutatePatches, mutateWarnings, err := mh.HandleMutation(ctx, request, mutatePolicies, &h.pcBuilder)
 	if err != nil {
 		logger.Error(err, "mutation failed")
 		return admissionutils.Response(request.UID, err)
