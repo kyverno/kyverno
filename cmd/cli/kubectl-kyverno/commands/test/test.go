@@ -29,7 +29,9 @@ import (
 )
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWarn bool) ([]engineapi.EngineResponse, error) {
-	log.Configure()
+	if err := log.Configure(); err != nil {
+		return nil, err
+	}
 	// don't process test case with errors
 	if testCase.Err != nil {
 		return nil, testCase.Err
