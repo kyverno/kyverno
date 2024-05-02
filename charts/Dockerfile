@@ -1,5 +1,4 @@
 FROM alpine:latest
-
 ARG ARCH
 ARG KUBECTL_VERSION=1.26.0
 
@@ -15,11 +14,11 @@ RUN case `uname -m` in \
     echo "ARCH=$ARCH" > /envfile
 
 # Install required packages
-RUN apk add --no-cache curl ca-certificates bash
+RUN apk add --no-cache bash
 
 # Install kubectl
 RUN . /envfile && \
-    curl -sLO https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl && \
+    wget -O kubectl https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl && \
     mv kubectl /usr/bin/kubectl && \
     chmod +x /usr/bin/kubectl
 
