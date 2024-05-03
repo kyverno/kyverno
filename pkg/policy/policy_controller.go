@@ -470,11 +470,11 @@ func getResources(client dclient.Interface, policyNs string, isNamespacedPolicy 
 			continue
 		}
 
-		for _, res := range resources.Items {
+		for i, res := range resources.Items {
 			if !resourceMatches(match, res, isNamespacedPolicy) {
 				continue
 			}
-			items = append(items, &res)
+			items = append(items, &resources.Items[i])
 		}
 	}
 	return items
