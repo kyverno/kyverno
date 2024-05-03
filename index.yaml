@@ -11,6 +11,63 @@ entries:
           description: Add podLabels to the post-upgrade hook
         - kind: added
           description: Add podLabels to the pre-delete hook
+        - kind: fixed
+          description: Ensure CA certificate config maps are created when data is provided
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.12.1
+    created: "2024-05-03T06:29:54.463588868Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.2.1
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.2.1
+    description: Kubernetes Native Policy Management
+    digest: 71483d6ff6ad47e4e5b4e39f13df389cfb83cf6ba2a91fd0fdfc1b622692b770
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.2.1.tgz
+    version: 3.2.1
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Add profiling support
+        - kind: added
+          description: Add global nodeSelector
+        - kind: added
+          description: Add podLabels to the post-upgrade hook
+        - kind: added
+          description: Add podLabels to the pre-delete hook
       artifacthub.io/links: |
         - name: Documentation
           url: https://kyverno.io/docs
@@ -10820,4 +10877,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2024-05-01T09:04:01.213787146Z"
+generated: "2024-05-03T06:29:54.449764334Z"
