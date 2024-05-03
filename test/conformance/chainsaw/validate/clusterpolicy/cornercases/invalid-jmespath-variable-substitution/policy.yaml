@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-panic
+spec:
+  validationFailureAction: Enforce 
+  background: true 
+  rules:
+    - name: test-panic
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      context:
+      - name: image
+        variable:
+          jmesPath: '{{ request.object.spec.[containers,initContainers, ephemeralContainers][].image[] }}'
+      validate:
+        deny:
+          conditions:
+            all:
+            - key: "{{ image }}"
+              operator: AnyNotIn
+              value: 
+              - "ghcr.io/kyverno/test-verify-image:signed"
