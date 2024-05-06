@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-default-namespace
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+  - name: validate-deployment-namespace
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    validate:
+      cel:
+        expressions:
+          - expression: "namespaceObject.metadata.name != 'default'"
+            message: "Using 'default' namespace is not allowed for deployments."

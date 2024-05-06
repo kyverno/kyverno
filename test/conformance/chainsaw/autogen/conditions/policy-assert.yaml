@@ -13,9 +13,9 @@ status:
             - DaemonSet
             - Deployment
             - Job
-            - StatefulSet
             - ReplicaSet
             - ReplicationController
+            - StatefulSet
       name: autogen-allowed-fluxcd-annotations
       validate:
         deny:
