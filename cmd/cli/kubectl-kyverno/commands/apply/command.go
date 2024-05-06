@@ -461,7 +461,7 @@ func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, aud
 }
 
 func printViolations(out io.Writer, rc *processor.ResultCounts) {
-	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
+	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
 }
 
 type WarnExitCodeError struct {
@@ -473,16 +473,16 @@ func (w WarnExitCodeError) Error() string {
 }
 
 func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
-	if rc.Fail() > 0 {
+	if rc.Fail > 0 {
 		return fmt.Errorf("exit as there are policy violations")
-	} else if rc.Error() > 0 {
+	} else if rc.Error > 0 {
 		return fmt.Errorf("exit as there are policy errors")
-	} else if rc.Warn() > 0 && warnExitCode != 0 {
+	} else if rc.Warn > 0 && warnExitCode != 0 {
 		fmt.Printf("exit as warnExitCode is %d", warnExitCode)
 		return WarnExitCodeError{
 			ExitCode: warnExitCode,
 		}
-	} else if rc.Pass() == 0 && warnNoPassed {
+	} else if rc.Pass == 0 && warnNoPassed {
 		fmt.Println(out, "exit as no objects satisfied policy")
 		return WarnExitCodeError{
 			ExitCode: warnExitCode,
