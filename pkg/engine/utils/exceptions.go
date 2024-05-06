@@ -37,7 +37,7 @@ func MatchesException(polexs []*kyvernov2beta1.PolicyException, policyContext en
 					return nil
 				}
 				if !passed {
-					return nil
+					continue
 				}
 			}
 			return polex
