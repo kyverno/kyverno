@@ -67,6 +67,7 @@ type ApplyCommandConfig struct {
 	warnExitCode   int
 	warnNoPassed   bool
 	Exception      []string
+	continueOnFail bool
 }
 
 func Command() *cobra.Command {
@@ -121,6 +122,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().BoolVar(&applyCommandConfig.continueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
 	return cmd
 }
 
@@ -234,6 +236,10 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
+			if c.continueOnFail {
+				fmt.Printf("failed to apply policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
 			return responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
@@ -298,6 +304,10 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
+			if c.continueOnFail {
+				fmt.Printf("failed to apply policies on resource %v (%v)\n", resource.GetName(), err)
+				continue
+			}
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
