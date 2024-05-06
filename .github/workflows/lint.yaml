@@ -33,7 +33,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@9d1e0624a798bb64f6c3cea93db47765312263dc # v3.7.1
+        uses: golangci/golangci-lint-action@38e1018663fa5173f3968ea0777460d3de38f256 # v3.7.1
         with:
           version: v1.54.2
           skip-cache: true
