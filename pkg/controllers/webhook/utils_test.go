@@ -6,12 +6,14 @@ import (
 	"sort"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 )
 
 func Test_webhook_isEmpty(t *testing.T) {
@@ -152,7 +154,7 @@ var policy = `
 `
 
 func Test_RuleCount(t *testing.T) {
-	var cpol kyverno.ClusterPolicy
+	var cpol kyvernov1.ClusterPolicy
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
 	status := cpol.GetStatus()
@@ -211,19 +213,19 @@ func TestGetMinimumOperations(t *testing.T) {
 func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 	testCases := []struct {
 		name           string
-		rules          []kyverno.Rule
+		rules          []kyvernov1.Rule
 		expectedResult map[string]bool
 	}{
 		{
 			name: "Test Case 1",
-			rules: []kyverno.Rule{
+			rules: []kyvernov1.Rule{
 				{
-					Mutation: kyverno.Mutation{
+					Mutation: kyvernov1.Mutation{
 						PatchesJSON6902: "add",
 					},
-					MatchResources: kyverno.MatchResources{
-						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{webhookCreate},
+					MatchResources: kyvernov1.MatchResources{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Operations: []kyvernov1.AdmissionOperation{webhookCreate},
 						},
 					},
 				},
@@ -234,20 +236,20 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 		},
 		{
 			name: "Test Case 2",
-			rules: []kyverno.Rule{
+			rules: []kyvernov1.Rule{
 				{
-					Mutation: kyverno.Mutation{
+					Mutation: kyvernov1.Mutation{
 						PatchesJSON6902: "add",
 					},
-					MatchResources:   kyverno.MatchResources{},
-					ExcludeResources: kyverno.MatchResources{},
+					MatchResources:   kyvernov1.MatchResources{},
+					ExcludeResources: kyvernov1.MatchResources{},
 				},
 				{
-					Mutation: kyverno.Mutation{
+					Mutation: kyvernov1.Mutation{
 						PatchesJSON6902: "add",
 					},
-					MatchResources:   kyverno.MatchResources{},
-					ExcludeResources: kyverno.MatchResources{},
+					MatchResources:   kyvernov1.MatchResources{},
+					ExcludeResources: kyvernov1.MatchResources{},
 				},
 			},
 			expectedResult: map[string]bool{
@@ -257,15 +259,15 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 		},
 		{
 			name: "Test Case 2",
-			rules: []kyverno.Rule{
+			rules: []kyvernov1.Rule{
 				{
-					Mutation: kyverno.Mutation{
+					Mutation: kyvernov1.Mutation{
 						PatchesJSON6902: "add",
 					},
-					MatchResources: kyverno.MatchResources{},
-					ExcludeResources: kyverno.MatchResources{
-						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{webhookCreate},
+					MatchResources: kyvernov1.MatchResources{},
+					ExcludeResources: kyvernov1.MatchResources{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Operations: []kyvernov1.AdmissionOperation{webhookCreate},
 						},
 					},
 				},
@@ -293,16 +295,16 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 	testCases := []struct {
 		name           string
-		rules          []kyverno.Rule
+		rules          []kyvernov1.Rule
 		expectedResult map[string]bool
 	}{
 		{
 			name: "Test Case 1",
-			rules: []kyverno.Rule{
+			rules: []kyvernov1.Rule{
 				{
-					MatchResources: kyverno.MatchResources{
-						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{webhookCreate},
+					MatchResources: kyvernov1.MatchResources{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Operations: []kyvernov1.AdmissionOperation{webhookCreate},
 						},
 					},
 				},
@@ -313,10 +315,10 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 		},
 		{
 			name: "Test Case 2",
-			rules: []kyverno.Rule{
+			rules: []kyvernov1.Rule{
 				{
-					MatchResources:   kyverno.MatchResources{},
-					ExcludeResources: kyverno.MatchResources{},
+					MatchResources:   kyvernov1.MatchResources{},
+					ExcludeResources: kyvernov1.MatchResources{},
 				},
 			},
 			expectedResult: map[string]bool{
@@ -328,16 +330,16 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 		},
 		{
 			name: "Test Case 3",
-			rules: []kyverno.Rule{
+			rules: []kyvernov1.Rule{
 				{
-					MatchResources: kyverno.MatchResources{
-						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{webhookCreate, webhookUpdate},
+					MatchResources: kyvernov1.MatchResources{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Operations: []kyvernov1.AdmissionOperation{webhookCreate, webhookUpdate},
 						},
 					},
-					ExcludeResources: kyverno.MatchResources{
-						ResourceDescription: kyverno.ResourceDescription{
-							Operations: []v1.AdmissionOperation{webhookDelete},
+					ExcludeResources: kyvernov1.MatchResources{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Operations: []kyvernov1.AdmissionOperation{webhookDelete},
 						},
 					},
 				},
@@ -356,6 +358,62 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 			for _, r := range testCase.rules {
 				result = computeOperationsForValidatingWebhookConf(r, make(map[string]bool))
 			}
+			if !reflect.DeepEqual(result, testCase.expectedResult) {
+				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
+			}
+		})
+	}
+}
+
+func TestBuildRulesWithOperations(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		rules                map[groupVersionScope]sets.Set[string]
+		mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
+		expectedResult       []admissionregistrationv1.RuleWithOperations
+	}{
+		{
+			name: "Test Case 1",
+			rules: map[groupVersionScope]sets.Set[string]{
+				groupVersionScope{
+					GroupVersion: corev1.SchemeGroupVersion,
+					scopeType:    admissionregistrationv1.AllScopes,
+				}: {
+					"namespaces": sets.Empty{},
+				},
+				groupVersionScope{
+					GroupVersion: corev1.SchemeGroupVersion,
+					scopeType:    admissionregistrationv1.NamespacedScope,
+				}: {
+					"pods":       sets.Empty{},
+					"configmaps": sets.Empty{},
+				},
+			},
+			mapResourceToOpnType: map[string][]admissionregistrationv1.OperationType{
+				"Namespace": {},
+				"Pod":       {webhookCreate, webhookUpdate},
+			},
+			expectedResult: []admissionregistrationv1.RuleWithOperations{
+				{
+					Operations: []admissionregistrationv1.OperationType{webhookCreate, webhookUpdate},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"configmaps", "pods", "pods/ephemeralcontainers"},
+						Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+					},
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			wh := &webhook{
+				rules: testCase.rules,
+			}
+
+			result := wh.buildRulesWithOperations(testCase.mapResourceToOpnType, []admissionregistrationv1.OperationType{webhookCreate, webhookUpdate})
 			if !reflect.DeepEqual(result, testCase.expectedResult) {
 				t.Errorf("Expected %v, but got %v", testCase.expectedResult, result)
 			}

@@ -28,7 +28,7 @@ do
         type: kwok
       name: kwok-node-$i
     spec:
-      taints:
+      taints: # Avoid scheduling actual running pods to fake Node
         - effect: NoSchedule
           key: kwok.x-k8s.io/node
           value: fake
