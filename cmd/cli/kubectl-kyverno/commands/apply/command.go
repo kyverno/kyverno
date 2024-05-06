@@ -66,8 +66,9 @@ type ApplyCommandConfig struct {
 	GitBranch        string
 	warnExitCode     int
 	warnNoPassed     bool
-	inlineExceptions bool
 	Exception        []string
+	continueOnFail   bool
+	inlineExceptions bool
 }
 
 func Command() *cobra.Command {
@@ -122,6 +123,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().BoolVar(&applyCommandConfig.continueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
 	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "evaluate-inline-exceptions", "", false, "Evaluate policy exception to be considered from the resources to be processed")
 	return cmd
 }
@@ -165,14 +167,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	var exceptions []*kyvernov2beta1.PolicyException
-	if c.inlineExceptions {
-		exceptions = exception.SelectFrom(resources)
-	} else {
-		exceptions, err = exception.Load(c.Exception...)
-		if err != nil {
-			return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
-		}
+	exceptions, err := exception.Load(c.Exception...)
+	if err != nil {
+		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
 	if !c.Stdin && !c.PolicyReport {
 		var policyRulesCount int
@@ -241,6 +238,10 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
+			if c.continueOnFail {
+				fmt.Printf("failed to apply policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
 			return responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
@@ -305,6 +306,10 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
+			if c.continueOnFail {
+				fmt.Printf("failed to apply policies on resource %v (%v)\n", resource.GetName(), err)
+				continue
+			}
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
