@@ -4,7 +4,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const loggerName = "kubectl-kyverno"
@@ -19,6 +21,8 @@ func configure(args ...string) error {
 	logging.InitFlags(nil)
 	if isVerbose(args...) {
 		return logging.Setup(logging.TextFormat, logging.DefaultTime, 0)
+	} else {
+		log.SetLogger(logr.Discard())
 	}
 	return nil
 }
