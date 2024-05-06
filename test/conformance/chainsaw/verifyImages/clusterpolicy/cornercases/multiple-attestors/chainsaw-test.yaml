@@ -1,7 +1,0 @@
-apiVersion: chainsaw.kyverno.io/v1alpha1
-kind: Test
-metadata:
-  name: multiple-attestors
-spec:
-  timeouts:
-    apply: 90s

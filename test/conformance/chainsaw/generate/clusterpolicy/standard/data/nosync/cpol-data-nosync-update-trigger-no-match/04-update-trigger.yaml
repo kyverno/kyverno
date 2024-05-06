@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    create-netpol: "false"
-  name: test-org
-  namespace: cpol-data-nosync-update-trigger-no-match-ns

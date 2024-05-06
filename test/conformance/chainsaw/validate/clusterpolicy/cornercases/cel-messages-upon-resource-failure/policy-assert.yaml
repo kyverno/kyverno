@@ -1,9 +1,0 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: disallow-host-port-in-pods
-status:
-  conditions:
-  - reason: Succeeded
-    status: "True"
-    type: Ready

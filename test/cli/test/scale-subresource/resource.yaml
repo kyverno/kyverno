@@ -1,7 +1,0 @@
-kind: Scale
-apiVersion: autoscaling/v1
-metadata:
-  name: nginx-test
-  namespace: default
-spec:
-  replicas: 4

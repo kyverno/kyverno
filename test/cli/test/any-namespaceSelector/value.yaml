@@ -1,6 +1,0 @@
-apiVersion: cli.kyverno.io/v1alpha1
-kind: Values
-namespaceSelector:
-- labels:
-    foo.com/managed-state: managed
-  name: test1
