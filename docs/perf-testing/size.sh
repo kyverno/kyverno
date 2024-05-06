@@ -6,6 +6,8 @@
 echo "Enter the resource to caclutate the size:"
 read resource
 
+# /registry/reports.kyverno.io/ephemeralreports/
+# /registry/wgpolicyk8s.io/policyreports/
 sum=0
 for key in `etcdctl get --prefix --keys-only /registry/$resource`
 do

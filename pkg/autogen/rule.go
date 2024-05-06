@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"sort"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -255,7 +256,7 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 			"ReplicaSet":            1,
 			"ReplicationController": 1,
 		}
-		for _, value := range strings.Split(controllers, ",") {
+		for _, value := range splitKinds(controllers, ",") {
 			if _, ok := controllersList[value]; ok {
 				controllersValidated = append(controllersValidated, value)
 			}
@@ -276,11 +277,17 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 		rule,
 		"template",
 		"spec/template",
-		strings.Split(controllers, ","),
+		splitKinds(controllers, ","),
 		func(r kyvernov1.ResourceFilters, kinds []string) kyvernov1.ResourceFilters {
 			return getAnyAllAutogenRule(r, "Pod", kinds)
 		},
 	)
+}
+
+func splitKinds(controllers, separator string) []string {
+	kinds := strings.Split(controllers, separator)
+	sort.Strings(kinds)
+	return kinds
 }
 
 func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Rule {
