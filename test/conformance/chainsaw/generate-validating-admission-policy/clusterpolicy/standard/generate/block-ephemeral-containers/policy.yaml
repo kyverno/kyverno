@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-ephemeral-containers
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: block-ephemeral-containers
+    match:
+      any:
+      - resources:
+          kinds:
+            - Pod
+    validate:
+      cel:
+        expressions:
+          - expression: "!has(object.spec.ephemeralContainers)"
+            message: "Ephemeral (debug) containers are not permitted."
