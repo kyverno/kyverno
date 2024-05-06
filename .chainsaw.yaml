@@ -1,7 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Configuration
 metadata:
-  name: congiguration
+  name: configuration
 spec:
   timeouts:
     assert: 90s

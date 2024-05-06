@@ -67,6 +67,7 @@ type ApplyCommandConfig struct {
 	warnExitCode   int
 	warnNoPassed   bool
 	Exception      []string
+	continueOnFail bool
 }
 
 func Command() *cobra.Command {
@@ -89,7 +90,7 @@ func Command() *cobra.Command {
 			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
-				printReport(out, responses, applyCommandConfig.AuditWarn)
+				printReports(out, responses, applyCommandConfig.AuditWarn)
 			} else if table {
 				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
@@ -121,6 +122,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().BoolVar(&applyCommandConfig.continueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
 	return cmd
 }
 
@@ -167,10 +169,10 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
-	if !c.Stdin {
+	if !c.Stdin && !c.PolicyReport {
 		var policyRulesCount int
 		for _, policy := range policies {
-			policyRulesCount += len(autogen.ComputeRules(policy))
+			policyRulesCount += len(autogen.ComputeRules(policy, ""))
 		}
 		policyRulesCount += len(vaps)
 		if len(exceptions) > 0 {
@@ -234,6 +236,10 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
+			if c.continueOnFail {
+				fmt.Printf("failed to apply policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
 			return responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
@@ -298,6 +304,10 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
+			if c.continueOnFail {
+				fmt.Printf("failed to apply policies on resource %v (%v)\n", resource.GetName(), err)
+				continue
+			}
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
@@ -446,18 +456,17 @@ func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedIn
 	}
 }
 
-func printReport(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool) {
+func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool) {
 	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
-	if len(clustered) > 0 || len(namespaced) > 0 {
-		fmt.Fprintln(out, divider)
-		fmt.Fprintln(out, "POLICY REPORT:")
-		fmt.Fprintln(out, divider)
+	if len(clustered) > 0 {
 		report := report.MergeClusterReports(clustered)
 		yamlReport, _ := yaml.Marshal(report)
 		fmt.Fprintln(out, string(yamlReport))
-	} else {
-		fmt.Fprintln(out, divider)
-		fmt.Fprintln(out, "POLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
+	}
+	for _, r := range namespaced {
+		fmt.Fprintln(out, string("---"))
+		yamlReport, _ := yaml.Marshal(r)
+		fmt.Fprintln(out, string(yamlReport))
 	}
 }
 

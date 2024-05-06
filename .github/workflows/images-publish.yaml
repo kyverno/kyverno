@@ -29,7 +29,7 @@ jobs:
       reports-controller-digest: ${{ steps.publish-reports-controller.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -40,7 +40,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 30
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@062f2592684a31eb3aa050cc61e7ca1451cecd3d # v0.18.0
+        uses: aquasecurity/trivy-action@d710430a6722f083d3b36b8339ff66b32f22ee55 # v0.19.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -48,7 +48,7 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
       - name: Install Cosign
-        uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 # v3.4.0
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
       - name: Publish kyverno
         id: publish-kyverno
         uses: ./.github/actions/publish-image
@@ -147,7 +147,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.9.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno
       digest: "${{ needs.publish-images.outputs.kyverno-digest }}"
@@ -162,7 +162,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.9.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyvernopre
       digest: "${{ needs.publish-images.outputs.kyverno-init-digest }}"
@@ -177,7 +177,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.9.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/background-controller
       digest: "${{ needs.publish-images.outputs.background-controller-digest }}"
@@ -192,7 +192,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.9.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/cleanup-controller
       digest: "${{ needs.publish-images.outputs.cleanup-controller-digest }}"
@@ -207,7 +207,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.9.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
       digest: "${{ needs.publish-images.outputs.cli-digest }}"
@@ -222,7 +222,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.9.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/reports-controller
       digest: "${{ needs.publish-images.outputs.reports-controller-digest }}"

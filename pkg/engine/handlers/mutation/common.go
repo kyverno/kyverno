@@ -87,7 +87,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			index = len(elements) - 1 - index
 		}
 		f.policyContext.JSONContext().Reset()
-		policyContext := f.policyContext.Copy()
+		policyContext := f.policyContext
 
 		falseVar := false
 		if err := engineutils.AddElementToContext(policyContext, element, index, f.nesting, &falseVar); err != nil {

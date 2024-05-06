@@ -19,6 +19,7 @@ results:
   policy: podsecurity-subrule-restricted
   properties:
     controls: capabilities_restricted
+    controlsJSON: '[{"ID":"capabilities_restricted","Name":"Capabilities","Images":["docker.io/dummyimagename:latest"]}]'
     standard: restricted
     version: latest
   result: fail

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: check-milestone
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-milestone:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'dependabot[bot]' }}  # dependabot prs do not have to be in milestone
+    steps:
+      - name: Check milestone
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { data } = await github.request("GET /repos/{owner}/{repo}/pulls/{pr}", {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pr: context.payload.pull_request.number
+            });
+            if (data.milestone) {
+              core.info(`This pull request has a milestone set: ${data.milestone.title}`);
+            } else {
+              core.setFailed(`A milestone need to be set on this pull request.`);
+            }
+      - name: Debug failure
+        if: failure()
+        run: 'echo "GitHub Actor: ${{ github.actor }}"'

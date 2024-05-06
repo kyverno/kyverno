@@ -39,7 +39,7 @@ metadata:
 spec:
   ports:
   - port: {{ .Values.cleanupController.metricsService.port }}
-    targetPort: 8000
+    targetPort: {{ .Values.cleanupController.metering.port }}
     protocol: TCP
     name: metrics-port
     {{- if and (eq .Values.cleanupController.metricsService.type "NodePort") (not (empty .Values.cleanupController.metricsService.nodePort)) }}

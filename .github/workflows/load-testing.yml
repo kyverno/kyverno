@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -56,9 +56,9 @@ jobs:
           - name: default
             values:
               - default-with-profiling
-          - name: standard
+          - name: stress
             values:
-              - standard-with-profiling
+              - stress-with-profiling
         test:
           - kyverno-pss
           - kyverno-mutate
@@ -72,19 +72,19 @@ jobs:
     name: ${{ matrix.kyverno-config.name }} - ${{ matrix.test }} - ${{ matrix.k6-config.vus }} vus - ${{ matrix.k6-config.iterations }} iterations
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           repository: kyverno/load-testing
           path: load-testing
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Create kind cluster
-        uses: helm/kind-action@99576bfa6ddf9a8e612d83b513da5a75875caced # v1.9.0
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version.version }}
           cluster_name: kind
@@ -139,3 +139,6 @@ jobs:
         with:
           name: pprof-heap-profiles
           path: heap.pprof
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs

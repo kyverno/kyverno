@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/kyverno-json/pkg/apis/v1alpha1"
+	"github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	"github.com/kyverno/kyverno-json/pkg/engine/template"
 	jsonengine "github.com/kyverno/kyverno-json/pkg/json-engine"
 	"github.com/kyverno/kyverno-json/pkg/payload"
@@ -89,7 +89,7 @@ func (c *options) run(cmd *cobra.Command, _ []string) error {
 				if rule.Error != nil {
 					out.println("-", policy.Policy.Name, "/", rule.Rule.Name, "/", rule.Identifier, "ERROR:", rule.Error.Error())
 				} else if len(rule.Violations) != 0 {
-					out.println("-", policy.Policy.Name, "/", rule.Rule.Name, "/", rule.Identifier, "FAILED:", multierr.Combine(rule.Violations...).Error())
+					out.println("-", policy.Policy.Name, "/", rule.Rule.Name, "/", rule.Identifier, "FAILED:", multierr.Combine(rule.Violations).Error())
 				} else {
 					// TODO: handle skip, warn
 					out.println("-", policy.Policy.Name, "/", rule.Rule.Name, "/", rule.Identifier, "PASSED")

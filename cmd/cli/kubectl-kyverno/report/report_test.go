@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
@@ -120,7 +119,7 @@ func TestMergeClusterReport(t *testing.T) {
 	clustered := []policyreportv1alpha2.ClusterPolicyReport{{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterPolicyReport",
-			APIVersion: report.SchemeGroupVersion.String(),
+			APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cpolr-4",
@@ -128,13 +127,13 @@ func TestMergeClusterReport(t *testing.T) {
 		Results: []policyreportv1alpha2.PolicyReportResult{
 			{
 				Policy: "cpolr-4",
-				Result: report.StatusFail,
+				Result: policyreportv1alpha2.StatusFail,
 			},
 		},
 	}, {
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterPolicyReport",
-			APIVersion: report.SchemeGroupVersion.String(),
+			APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cpolr-5",
@@ -142,19 +141,19 @@ func TestMergeClusterReport(t *testing.T) {
 		Results: []policyreportv1alpha2.PolicyReportResult{
 			{
 				Policy: "cpolr-5",
-				Result: report.StatusFail,
+				Result: policyreportv1alpha2.StatusFail,
 			},
 		},
 	}}
 	expectedResults := []policyreportv1alpha2.PolicyReportResult{{
 		Policy: "cpolr-4",
-		Result: report.StatusFail,
+		Result: policyreportv1alpha2.StatusFail,
 	}, {
 		Policy: "cpolr-5",
-		Result: report.StatusFail,
+		Result: policyreportv1alpha2.StatusFail,
 	}}
 	cpolr := MergeClusterReports(clustered)
-	assert.Equal(t, cpolr.APIVersion, report.SchemeGroupVersion.String())
+	assert.Equal(t, cpolr.APIVersion, policyreportv1alpha2.SchemeGroupVersion.String())
 	assert.Equal(t, cpolr.Kind, "ClusterPolicyReport")
 	assert.DeepEqual(t, cpolr.Results, expectedResults)
 	assert.Equal(t, cpolr.Summary.Pass, 0)
@@ -261,12 +260,52 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Source:    "kyverno",
 			Policy:    "pod-requirements",
 			Rule:      "xxx",
-			Result:    policyreportv1alpha2.StatusError,
+			Result:    policyreportv1alpha2.StatusWarn,
 			Resources: []corev1.ObjectReference{{}},
 			Message:   "test",
 			Scored:    true,
 			Category:  "Pod Security Standards (Restricted)",
 			Severity:  policyreportv1alpha2.SeverityMedium,
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
+			got.Timestamp = metav1.Timestamp{}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ComputePolicyReportResult() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPSSComputePolicyReportResult(t *testing.T) {
+	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/restricted.yaml")
+	assert.NilError(t, err)
+	assert.Equal(t, len(policies), 1)
+	policy := policies[0]
+	tests := []struct {
+		name           string
+		auditWarn      bool
+		engineResponse engineapi.EngineResponse
+		ruleResponse   engineapi.RuleResponse
+		want           policyreportv1alpha2.PolicyReportResult
+	}{{
+		name:           "fail",
+		auditWarn:      false,
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test"),
+		want: policyreportv1alpha2.PolicyReportResult{
+			Source:     "kyverno",
+			Policy:     "psa",
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusFail,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Severity:   policyreportv1alpha2.SeverityMedium,
+			Properties: nil,
 		},
 	}}
 	for _, tt := range tests {
