@@ -142,6 +142,13 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 		}
 
 		for topLevelApi, apiResource := range gvrss {
+			var resources []string
+			resources = append(resources, apiResource.Name)
+			// if we have pods, we add pods/ephemeralcontainers by default
+			if apiResource.Name == "pods" {
+				resources = append(resources, "pods/ephemeralcontainers")
+			}
+
 			isNewRule := true
 			// If there's a rule that contains both group and version, then the resource is appended to the existing rule instead of creating a new one.
 			// Example:  apiGroups:   ["apps"]
@@ -150,7 +157,7 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 			// Otherwise, a new rule is created.
 			for i := range *rules {
 				if slices.Contains((*rules)[i].APIGroups, topLevelApi.Group) && slices.Contains((*rules)[i].APIVersions, topLevelApi.Version) {
-					(*rules)[i].Resources = append((*rules)[i].Resources, apiResource.Name)
+					(*rules)[i].Resources = append((*rules)[i].Resources, resources...)
 					isNewRule = false
 					break
 				}
@@ -159,7 +166,7 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 				r := admissionregistrationv1alpha1.NamedRuleWithOperations{
 					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 						Rule: admissionregistrationv1.Rule{
-							Resources:   []string{apiResource.Name},
+							Resources:   resources,
 							APIGroups:   []string{topLevelApi.Group},
 							APIVersions: []string{topLevelApi.Version},
 						},
