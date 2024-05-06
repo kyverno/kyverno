@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: std-shell
+spec:
+  background: false
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod/exec
+          operations:
+          - CONNECT
+    mutate:
+      patchesJson6902: |-
+        - op: replace
+          path: "/command/0"
+          value: "bash" 
+    name: std-shell-replace
+  validationFailureAction: Audit
