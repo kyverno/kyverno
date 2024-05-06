@@ -3,6 +3,7 @@ package variables
 import (
 	"errors"
 	"fmt"
+	"io"
 	"path"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
+	"github.com/valyala/fasttemplate"
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -316,75 +318,51 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 			return data.Element, nil
 		}
 
-		vars := regex.RegexVariables.FindAllString(value, -1)
-		for len(vars) > 0 {
-			originalPattern := value
-			for _, v := range vars {
-				initial := len(regex.RegexVariableInit.FindAllString(v, -1)) > 0
-				old := v
+		tEngine, err := fasttemplate.NewTemplate(value, "{{", "}}")
+		if err != nil {
+			return nil, fmt.Errorf("unexpected error when parsing template: %v", err)
+		}
 
-				if !initial {
-					v = v[1:]
+		newValue, err := tEngine.ExecuteFuncStringWithErr(func(w io.Writer, tag string) (int, error) {
+			variable := replaceBracesAndTrimSpaces(tag)
+
+			if variable == "@" {
+				pathPrefix := "target"
+				if _, err := ctx.Query("target"); err != nil {
+					pathPrefix = "request.object"
 				}
 
-				variable := replaceBracesAndTrimSpaces(v)
+				// Convert path to JMESPath for current identifier.
+				// Skip 2 elements (e.g. mutate.overlay | validate.pattern) plus "foreach" if it is part of the pointer.
+				// Prefix the pointer with pathPrefix.
+				val := jsonpointer.ParsePath(data.Path).SkipPast("foreach").SkipN(2).Prepend(strings.Split(pathPrefix, ".")...).JMESPath()
 
-				if variable == "@" {
-					pathPrefix := "target"
-					if _, err := ctx.Query("target"); err != nil {
-						pathPrefix = "request.object"
-					}
-
-					// Convert path to JMESPath for current identifier.
-					// Skip 2 elements (e.g. mutate.overlay | validate.pattern) plus "foreach" if it is part of the pointer.
-					// Prefix the pointer with pathPrefix.
-					val := jsonpointer.ParsePath(data.Path).SkipPast("foreach").SkipN(2).Prepend(strings.Split(pathPrefix, ".")...).JMESPath()
-
-					variable = strings.Replace(variable, "@", val, -1)
-				}
-
-				if isDeleteRequest {
-					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
-				}
-
-				substitutedVar, err := vr(ctx, variable)
-				if err != nil {
-					switch err.(type) {
-					case context.InvalidVariableError, gojmespath.NotFoundError:
-						return nil, err
-					default:
-						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
-					}
-				}
-
-				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
-
-				if originalPattern == v {
-					return substitutedVar, nil
-				}
-
-				prefix := ""
-
-				if !initial {
-					prefix = string(old[0])
-				}
-
-				if value, err = substituteVarInPattern(prefix, originalPattern, v, substitutedVar); err != nil {
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
-				}
-
-				continue
+				variable = strings.Replace(variable, "@", val, -1)
 			}
 
-			// check for nested variables in strings
-			vars = regex.RegexVariables.FindAllString(value, -1)
+			if isDeleteRequest {
+				variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
+			}
+
+			substitutedVar, err := vr(ctx, variable)
+			if err != nil {
+				switch err.(type) {
+				case context.InvalidVariableError, gojmespath.NotFoundError:
+					return 0, err
+				default:
+					return 0, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
+				}
+			}
+
+			log.V(3).Info("variable substituted", "variable", tag, "value", substitutedVar, "path", data.Path)
+
+			return w.Write([]byte(fmt.Sprintf("%v", substitutedVar)))
+		})
+		if err != nil {
+			return nil, err
 		}
 
-		for _, v := range regex.RegexEscpVariables.FindAllString(value, -1) {
-			value = strings.Replace(value, v, v[1:], -1)
-		}
-
-		return value, nil
+		return newValue, nil
 	})
 }
 
