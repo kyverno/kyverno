@@ -729,6 +729,7 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | cleanupJobs.admissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.admissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
+| cleanupJobs.admissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
 | cleanupJobs.admissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.admissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
@@ -750,6 +751,7 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
 | cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.clusterAdmissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
+| cleanupJobs.clusterAdmissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
 | cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
