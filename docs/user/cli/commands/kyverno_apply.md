@@ -44,7 +44,7 @@ kyverno apply [flags]
       --detailed-results            If set to true, display detailed results
   -e, --exception strings           Policy exception to be considered when evaluating policies against resources
       --exceptions strings          Policy exception to be considered when evaluating policies against resources
-      --exceptions-with-resources   Evaluate policy exceptions from the path to resource files
+      --exceptions-with-resources   Evaluate policy exceptions from the resources path
   -b, --git-branch string           test git repository branch
   -h, --help                        help for apply
       --kubeconfig string           path to kubeconfig file with authorization and master location information
