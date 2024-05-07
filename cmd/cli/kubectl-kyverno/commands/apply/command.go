@@ -167,9 +167,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	exceptions, err := exception.Load(c.Exception...)
-	if err != nil {
-		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+	var exceptions []*kyvernov2beta1.PolicyException
+	if c.inlineExceptions {
+		exceptions = exception.SelectFrom(resources)
+	} else {
+		exceptions, err = exception.Load(c.Exception...)
+		if err != nil {
+			return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+		}
 	}
 	if !c.Stdin && !c.PolicyReport {
 		var policyRulesCount int
