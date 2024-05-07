@@ -1508,3 +1508,105 @@ func Test_SkipImageReferences(t *testing.T) {
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
 			engineapi.RuleStatusPass, erSkip.PolicyResponse.Rules[0].Status(), erSkip.PolicyResponse.Rules[0].Message()))
 }
+
+var multipleImageVerificationAttestationPolicy = `{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "attest"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "attest",
+        "match": {
+          "resources": {
+            "kinds": [
+              "Pod"
+            ]
+          }
+        },
+        "verifyImages": [
+          {
+            "image": "*",
+            "key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
+            "attestations": [
+              {
+				"name": "one",
+                "predicateType": "https://example.com/CodeReview/v1",
+				"attestors": [
+					{
+						"entries": [
+							{
+								"keys": {
+									"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
+									"rekor": {
+										"url": "https://rekor.sigstore.dev",
+										"ignoreTlog": true
+									},
+									"ctlog": {
+										"ignoreSCT": true
+									}
+								}
+							}
+						]
+					}
+				]
+              },
+			  {
+				"name": "two",
+                "predicateType": "https://example.com/CodeReview/v1",
+				"attestors": [
+					{
+						"entries": [
+							{
+								"keys": {
+									"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
+									"rekor": {
+										"url": "https://rekor.sigstore.dev",
+										"ignoreTlog": true
+									},
+									"ctlog": {
+										"ignoreSCT": true
+									}
+								}
+							}
+						]
+					}
+				]
+              }
+            ],
+			"validate": {
+				"deny": {
+					"conditions": {
+						"any": [
+							{
+								"key": "{{ one }}",
+								"operator": "Equals",
+								"value": "{{ two }}"
+							}
+						]
+					}
+				}
+			}
+          }
+        ]
+      }
+    ]
+  }
+}`
+
+func Test_MultipleImageVerificationAttestation(t *testing.T) {
+	policyContext := buildContext(t, multipleImageVerificationAttestationPolicy, testResource, "")
+	err := cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
+	defer cosign.ClearMock()
+	assert.NilError(t, err)
+
+	er, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Status(), er.PolicyResponse.Rules[0].Message()))
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
+}
