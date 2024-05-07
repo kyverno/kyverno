@@ -109,7 +109,7 @@ func translateResourceFilters(discoveryClient dclient.IDiscovery, matchResources
 }
 
 func translateResource(discoveryClient dclient.IDiscovery, matchResources *admissionregistrationv1alpha1.MatchResources, rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations, res kyvernov1.ResourceDescription) error {
-	err := constructValidatingAdmissionPolicyRules(discoveryClient, rules, res.Kinds, res.GetOperations())
+	err := constructValidatingAdmissionPolicyRules(discoveryClient, rules, res)
 	if err != nil {
 		return err
 	}
@@ -120,9 +120,14 @@ func translateResource(discoveryClient dclient.IDiscovery, matchResources *admis
 	return nil
 }
 
-func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery, rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations, kinds []string, operations []string) error {
+func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery, rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations, res kyvernov1.ResourceDescription) error {
 	// translate operations to their corresponding values in validating admission policy.
-	ops := translateOperations(operations)
+	ops := translateOperations(res.GetOperations())
+
+	resourceNames := res.Names
+	if res.Name != "" {
+		resourceNames = append(resourceNames, res.Name)
+	}
 
 	// get kinds from kyverno policies and translate them to rules in validating admission policies.
 	// matched resources in kyverno policies are written in the following format:
@@ -131,7 +136,7 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 	// apiGroups:   ["group"]
 	// apiVersions: ["version"]
 	// resources:   ["resource"]
-	for _, kind := range kinds {
+	for _, kind := range res.Kinds {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 		gvrss, err := discoveryClient.FindResources(group, version, kind, subresource)
 		if err != nil {
@@ -142,6 +147,13 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 		}
 
 		for topLevelApi, apiResource := range gvrss {
+			var resources []string
+			resources = append(resources, apiResource.Name)
+			// if we have pods, we add pods/ephemeralcontainers by default
+			if apiResource.Name == "pods" {
+				resources = append(resources, "pods/ephemeralcontainers")
+			}
+
 			isNewRule := true
 			// If there's a rule that contains both group and version, then the resource is appended to the existing rule instead of creating a new one.
 			// Example:  apiGroups:   ["apps"]
@@ -150,16 +162,17 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 			// Otherwise, a new rule is created.
 			for i := range *rules {
 				if slices.Contains((*rules)[i].APIGroups, topLevelApi.Group) && slices.Contains((*rules)[i].APIVersions, topLevelApi.Version) {
-					(*rules)[i].Resources = append((*rules)[i].Resources, apiResource.Name)
+					(*rules)[i].Resources = append((*rules)[i].Resources, resources...)
 					isNewRule = false
 					break
 				}
 			}
 			if isNewRule {
 				r := admissionregistrationv1alpha1.NamedRuleWithOperations{
+					ResourceNames: resourceNames,
 					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 						Rule: admissionregistrationv1.Rule{
-							Resources:   []string{apiResource.Name},
+							Resources:   resources,
 							APIGroups:   []string{topLevelApi.Group},
 							APIVersions: []string{topLevelApi.Version},
 						},

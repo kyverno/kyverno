@@ -2,13 +2,14 @@ package validatingadmissionpolicy
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 )
 
 // CanGenerateVAP check if Kyverno policy can be translated to a Kubernetes ValidatingAdmissionPolicy
 func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 	var msg string
 	if len(spec.Rules) > 1 {
-		msg = "skip generating ValidatingAdmissionPolicy: multiple rules aren't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: multiple rules are not applicable."
 		return false, msg
 	}
 
@@ -19,19 +20,19 @@ func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 	}
 
 	if len(spec.ValidationFailureActionOverrides) > 1 {
-		msg = "skip generating ValidatingAdmissionPolicy: multiple validationFailureActionOverrides aren't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: multiple validationFailureActionOverrides are not applicable."
 		return false, msg
 	}
 
 	if len(spec.ValidationFailureActionOverrides) != 0 && len(spec.ValidationFailureActionOverrides[0].Namespaces) != 0 {
-		msg = "skip generating ValidatingAdmissionPolicy: Namespaces in validationFailureActionOverrides isn't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: Namespaces in validationFailureActionOverrides is not applicable."
 		return false, msg
 	}
 
 	// check the matched/excluded resources of the CEL rule.
 	match, exclude := rule.MatchResources, rule.ExcludeResources
 	if !exclude.UserInfo.IsEmpty() || !exclude.ResourceDescription.IsEmpty() || exclude.All != nil || exclude.Any != nil {
-		msg = "skip generating ValidatingAdmissionPolicy: Exclude isn't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: Exclude is not applicable."
 		return false, msg
 	}
 	if ok, msg := checkUserInfo(match.UserInfo); !ok {
@@ -55,27 +56,24 @@ func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 			return false, msg
 		}
 
-		// since namespace/object selectors are applied to all NamedRuleWithOperations in ValidatingAdmissionPolicy, then
-		// multiple namespace/object selectors aren't applicable across the `any` clause.
 		if value.NamespaceSelector != nil {
-			if containsNamespaceSelector {
-				msg = "skip generating ValidatingAdmissionPolicy: multiple NamespaceSelector across 'any' aren't applicable."
-				return false, msg
-			}
 			containsNamespaceSelector = true
 		}
 		if value.Selector != nil {
-			if containsObjectSelector {
-				msg = "skip generating ValidatingAdmissionPolicy: multiple ObjectSelector across 'any' aren't applicable."
-				return false, msg
-			}
 			containsObjectSelector = true
 		}
 	}
+	// since namespace/object selectors are applied to all NamedRuleWithOperations in ValidatingAdmissionPolicy, then
+	// we can't have more than one resource with namespace/object selectors.
+	if len(match.Any) > 1 && (containsNamespaceSelector || containsObjectSelector) {
+		msg = "skip generating ValidatingAdmissionPolicy: NamespaceSelector / ObjectSelector across multiple resources are not applicable."
+		return false, msg
+	}
+
 	// since 'all' specify resources which will be ANDed, we can't have more than one resource.
 	if match.All != nil {
 		if len(match.All) > 1 {
-			msg = "skip generating ValidatingAdmissionPolicy: multiple 'all' isn't applicable."
+			msg = "skip generating ValidatingAdmissionPolicy: multiple 'all' is not applicable."
 			return false, msg
 		} else {
 			if ok, msg := checkUserInfo(match.All[0].UserInfo); !ok {
@@ -93,8 +91,18 @@ func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
 	var msg string
 	if len(resource.Namespaces) != 0 || len(resource.Annotations) != 0 {
-		msg = "skip generating ValidatingAdmissionPolicy: Namespaces / Annotations in resource description isn't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: Namespaces / Annotations in resource description is not applicable."
 		return false, msg
+	}
+	if resource.Name != "" && wildcard.ContainsWildcard(resource.Name) {
+		msg = "skip generating ValidatingAdmissionPolicy: wildcards in resource name is not applicable."
+		return false, msg
+	}
+	for _, name := range resource.Names {
+		if wildcard.ContainsWildcard(name) {
+			msg = "skip generating ValidatingAdmissionPolicy: wildcards in resource name is not applicable."
+			return false, msg
+		}
 	}
 	return true, msg
 }
@@ -102,7 +110,7 @@ func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
 func checkUserInfo(info kyvernov1.UserInfo) (bool, string) {
 	var msg string
 	if !info.IsEmpty() {
-		msg = "skip generating ValidatingAdmissionPolicy: Roles / ClusterRoles / Subjects in `any/all` isn't applicable."
+		msg = "skip generating ValidatingAdmissionPolicy: Roles / ClusterRoles / Subjects in `any/all` is not applicable."
 		return false, msg
 	}
 	return true, msg
