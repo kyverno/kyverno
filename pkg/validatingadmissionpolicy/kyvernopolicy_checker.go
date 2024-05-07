@@ -55,23 +55,20 @@ func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 			return false, msg
 		}
 
-		// since namespace/object selectors are applied to all NamedRuleWithOperations in ValidatingAdmissionPolicy, then
-		// multiple namespace/object selectors aren't applicable across the `any` clause.
 		if value.NamespaceSelector != nil {
-			if containsNamespaceSelector {
-				msg = "skip generating ValidatingAdmissionPolicy: multiple NamespaceSelector across 'any' aren't applicable."
-				return false, msg
-			}
 			containsNamespaceSelector = true
 		}
 		if value.Selector != nil {
-			if containsObjectSelector {
-				msg = "skip generating ValidatingAdmissionPolicy: multiple ObjectSelector across 'any' aren't applicable."
-				return false, msg
-			}
 			containsObjectSelector = true
 		}
 	}
+	// since namespace/object selectors are applied to all NamedRuleWithOperations in ValidatingAdmissionPolicy, then
+	// we can't have more than one resource with namespace/object selectors.
+	if len(match.Any) > 1 && (containsNamespaceSelector || containsObjectSelector) {
+		msg = "skip generating ValidatingAdmissionPolicy: NamespaceSelector / ObjectSelector across multiple resources aren't applicable."
+		return false, msg
+	}
+
 	// since 'all' specify resources which will be ANDed, we can't have more than one resource.
 	if match.All != nil {
 		if len(match.All) > 1 {
