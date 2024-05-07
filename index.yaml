@@ -4,6 +4,55 @@ entries:
   - annotations:
       artifacthub.io/changes: |
         - kind: added
+          description: make webhook pod annotations configurable
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.12.1
+    created: "2024-05-07T09:19:20.009917504Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.2.2
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.2.2
+    description: Kubernetes Native Policy Management
+    digest: 863fe5427c6ad50a4d213aaca0f0e0cf32770b55da77c39845af22bc84f90b97
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.2.2.tgz
+    version: 3.2.2
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
           description: Add profiling support
         - kind: added
           description: Add global nodeSelector
@@ -10904,4 +10953,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2024-05-03T06:31:14.681073108Z"
+generated: "2024-05-07T09:19:19.995207039Z"
