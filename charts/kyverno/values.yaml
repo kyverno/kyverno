@@ -703,6 +703,9 @@ cleanupJobs:
     # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
     backoffLimit: 3
 
+    # -- Time until the pod from the cronjob is deleted
+    ttlSecondsAfterFinished: ""
+
     image:
       # -- (string) Image registry
       registry: ~
@@ -779,6 +782,9 @@ cleanupJobs:
 
     # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
     backoffLimit: 3
+
+    # -- Time until the pod from the cronjob is deleted
+    ttlSecondsAfterFinished: ""
 
     image:
       # -- (string) Image registry
