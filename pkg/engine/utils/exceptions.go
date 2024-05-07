@@ -37,7 +37,7 @@ func MatchesException(
 					return nil
 				}
 				if !passed {
-					return nil
+					continue
 				}
 			}
 			return &polex
