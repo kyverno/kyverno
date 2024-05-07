@@ -79,11 +79,11 @@ func Test_NamespaceSelector(t *testing.T) {
 				},
 			},
 			result: ResultCounts{
-				pass: 0,
-				fail: 1,
-				warn: 0,
-				err:  0,
-				skip: 0,
+				Pass:  0,
+				Fail:  1,
+				Warn:  0,
+				Error: 0,
+				Skip:  0,
 			},
 		},
 		{
@@ -95,11 +95,11 @@ func Test_NamespaceSelector(t *testing.T) {
 				},
 			},
 			result: ResultCounts{
-				pass: 1,
-				fail: 1,
-				warn: 0,
-				err:  0,
-				skip: 0,
+				Pass:  1,
+				Fail:  1,
+				Warn:  0,
+				Error: 0,
+				Skip:  0,
 			},
 		},
 	}
@@ -118,10 +118,10 @@ func Test_NamespaceSelector(t *testing.T) {
 			Out:                  os.Stdout,
 		}
 		processor.ApplyPoliciesOnResource()
-		assert.Equal(t, int64(rc.Pass()), int64(tc.result.pass))
-		assert.Equal(t, int64(rc.Fail()), int64(tc.result.fail))
-		assert.Equal(t, int64(rc.Skip()), int64(tc.result.skip))
-		assert.Equal(t, int64(rc.Warn()), int64(tc.result.warn))
-		assert.Equal(t, int64(rc.Error()), int64(tc.result.err))
+		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
+		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
+		assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
+		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
+		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
 	}
 }
