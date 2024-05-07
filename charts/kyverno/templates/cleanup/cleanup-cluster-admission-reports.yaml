@@ -14,6 +14,9 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: {{ .Values.cleanupJobs.clusterAdmissionReports.backoffLimit }}
+      {{- if .Values.cleanupJobs.clusterAdmissionReports.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ .Values.cleanupJobs.clusterAdmissionReports.ttlSecondsAfterFinished }}
+      {{- end }}
       template:
         metadata:
           {{- with .Values.cleanupJobs.clusterAdmissionReports.podAnnotations }}
