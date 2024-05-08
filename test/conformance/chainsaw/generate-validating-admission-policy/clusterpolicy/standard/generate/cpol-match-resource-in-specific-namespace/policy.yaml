@@ -10,12 +10,13 @@ spec:
         any:
         - resources:
             kinds:
-              - Deployment
+            - Deployment
             operations:
             - CREATE
             - UPDATE
             namespaces:
-            - prod
+            - production
+            - staging
       validate:
         cel:
           expressions:
