@@ -13,7 +13,7 @@ spec:
         file: policy-assert.yaml
   - name: step-02
     try:
-    - error:
+    - assert:
         file: validatingadmissionpolicy.yaml
-    - error:
+    - assert:
         file: validatingadmissionpolicybinding.yaml

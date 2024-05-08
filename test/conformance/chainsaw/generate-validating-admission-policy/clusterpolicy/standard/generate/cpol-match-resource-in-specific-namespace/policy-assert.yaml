@@ -8,5 +8,5 @@ status:
     status: "True"
     type: Ready
   validatingadmissionpolicy:
-    generated: false
+    generated: true
   

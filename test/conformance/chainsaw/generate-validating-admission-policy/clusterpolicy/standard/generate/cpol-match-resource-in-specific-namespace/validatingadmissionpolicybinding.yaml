@@ -4,4 +4,10 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
   name: disallow-host-path-t4-binding
-spec: {}
+  ownerReferences:
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    name: disallow-host-path-t4
+spec:
+  policyName: disallow-host-path-t4
+  validationActions: [Audit, Warn]
