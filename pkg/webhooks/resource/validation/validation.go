@@ -30,7 +30,7 @@ type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleValidationEnforce(context.Context, handlers.AdmissionRequest, []kyvernov1.PolicyInterface, time.Time) (bool, string, []string)
+	HandleValidationEnforce(context.Context, handlers.AdmissionRequest, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, time.Time) (bool, string, []string)
 	HandleValidationAudit(context.Context, handlers.AdmissionRequest)
 }
 
@@ -77,6 +77,7 @@ func (v *validationHandler) HandleValidationEnforce(
 	ctx context.Context,
 	request handlers.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
+	auditWarnPolicies []kyvernov1.PolicyInterface,
 	admissionRequestTimestamp time.Time,
 ) (bool, string, []string) {
 	resourceName := admissionutils.GetResourceName(request.AdmissionRequest)
