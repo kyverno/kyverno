@@ -113,7 +113,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in validating webhook")
 
-	policies, mutatePolicies, generatePolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, false)
+	policies, mutatePolicies, generatePolicies, _, auditWarnPolicies, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, false)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
 	}
@@ -145,7 +145,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ok, msg, warnings, enforceResponses = vh.HandleValidationEnforce(ctx, request, policies, startTime)
+		ok, msg, warnings, enforceResponses = vh.HandleValidationEnforce(ctx, request, policies, auditWarnPolicies, startTime)
 	}()
 
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
@@ -183,7 +183,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in mutating webhook")
 
-	_, mutatePolicies, _, verifyImagesPolicies, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, true)
+	_, mutatePolicies, _, verifyImagesPolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, true)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
 	}
@@ -234,14 +234,15 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 
 func (h *resourceHandlers) retrieveAndCategorizePolicies(
 	ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, mutation bool) (
-	[]kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, error,
+	[]kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, error,
 ) {
-	var policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies []kyvernov1.PolicyInterface
+	var policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, auditWarnPolicies []kyvernov1.PolicyInterface
 	if request.URLParams == "" {
 		gvr := schema.GroupVersionResource(request.Resource)
 		policies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, request.Namespace)...)
 		mutatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
 		generatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, request.Namespace)...)
+		auditWarnPolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateAuditWarn, gvr, request.SubResource, request.Namespace)...)
 		if mutation {
 			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace)...)
 		} else {
@@ -266,13 +267,13 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 			policy, err = h.polLister.Policies(polNamespace).Get(polName)
 		}
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("key %s/%s: %v", polNamespace, polName, err)
+			return nil, nil, nil, nil, nil, fmt.Errorf("key %s/%s: %v", polNamespace, polName, err)
 		}
 
 		filteredPolicies := filterPolicies(ctx, failurePolicy, policy)
 		if len(filteredPolicies) == 0 {
 			logger.V(4).Info("no policy found with key", "namespace", polNamespace, "name", polName)
-			return nil, nil, nil, nil, nil
+			return nil, nil, nil, nil, nil, nil
 		}
 		policy = filteredPolicies[0]
 		spec := policy.GetSpec()
@@ -288,8 +289,11 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 		if spec.HasVerifyImages() {
 			policies = append(policies, policy)
 		}
+		if spec.HasValidate() && *spec.AuditWarning {
+			auditWarnPolicies = append(auditWarnPolicies, policy)
+		}
 	}
-	return policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, nil
+	return policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, auditWarnPolicies, nil
 }
 
 func (h *resourceHandlers) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest) (*policycontext.PolicyContext, error) {

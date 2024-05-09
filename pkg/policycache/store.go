@@ -169,6 +169,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 				Mutate:               sets.New[string](),
 				ValidateEnforce:      sets.New[string](),
 				ValidateAudit:        sets.New[string](),
+				ValidateAuditWarn:    sets.New[string](),
 				Generate:             sets.New[string](),
 				VerifyImagesMutate:   sets.New[string](),
 				VerifyImagesValidate: sets.New[string](),
@@ -177,6 +178,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 		m.kindType[gvrs][Mutate] = set(m.kindType[gvrs][Mutate], key, state.hasMutate)
 		m.kindType[gvrs][ValidateEnforce] = set(m.kindType[gvrs][ValidateEnforce], key, state.hasValidate && enforcePolicy)
 		m.kindType[gvrs][ValidateAudit] = set(m.kindType[gvrs][ValidateAudit], key, state.hasValidate && !enforcePolicy)
+		m.kindType[gvrs][ValidateAuditWarn] = set(m.kindType[gvrs][ValidateAuditWarn], key, state.hasValidate && !enforcePolicy && *policy.GetSpec().AuditWarning)
 		m.kindType[gvrs][Generate] = set(m.kindType[gvrs][Generate], key, state.hasGenerate)
 		m.kindType[gvrs][VerifyImagesMutate] = set(m.kindType[gvrs][VerifyImagesMutate], key, state.hasVerifyImages)
 		m.kindType[gvrs][VerifyImagesValidate] = set(m.kindType[gvrs][VerifyImagesValidate], key, state.hasVerifyImages && state.hasImagesValidationChecks)

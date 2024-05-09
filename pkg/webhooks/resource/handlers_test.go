@@ -595,7 +595,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 		},
 	}
 
-	_, mutatePolicies, generatePolicies, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
+	_, mutatePolicies, generatePolicies, _, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
 	assert.NilError(t, err)
 
 	var wg sync.WaitGroup
