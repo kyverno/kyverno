@@ -14,7 +14,11 @@ import (
 )
 
 // BuildValidatingAdmissionPolicy is used to build a Kubernetes ValidatingAdmissionPolicy from a Kyverno policy
-func BuildValidatingAdmissionPolicy(discoveryClient dclient.IDiscovery, vap *admissionregistrationv1alpha1.ValidatingAdmissionPolicy, cpol kyvernov1.PolicyInterface) error {
+func BuildValidatingAdmissionPolicy(
+	discoveryClient dclient.IDiscovery,
+	vap *admissionregistrationv1alpha1.ValidatingAdmissionPolicy,
+	cpol kyvernov1.PolicyInterface,
+) error {
 	// set owner reference
 	vap.OwnerReferences = []metav1.OwnerReference{
 		{
@@ -25,30 +29,51 @@ func BuildValidatingAdmissionPolicy(discoveryClient dclient.IDiscovery, vap *adm
 		},
 	}
 
-	// construct validating admission policy resource rules
+	// construct the rules
 	var matchResources admissionregistrationv1alpha1.MatchResources
-	var matchRules []admissionregistrationv1alpha1.NamedRuleWithOperations
+	var matchRules, excludeRules []admissionregistrationv1alpha1.NamedRuleWithOperations
 
 	rule := cpol.GetSpec().Rules[0]
+
+	// convert the match block
 	match := rule.MatchResources
 	if !match.ResourceDescription.IsEmpty() {
-		if err := translateResource(discoveryClient, &matchResources, &matchRules, match.ResourceDescription); err != nil {
+		if err := translateResource(discoveryClient, &matchResources, &matchRules, match.ResourceDescription, true); err != nil {
 			return err
 		}
 	}
 
 	if match.Any != nil {
-		if err := translateResourceFilters(discoveryClient, &matchResources, &matchRules, match.Any); err != nil {
+		if err := translateResourceFilters(discoveryClient, &matchResources, &matchRules, match.Any, true); err != nil {
 			return err
 		}
 	}
 	if match.All != nil {
-		if err := translateResourceFilters(discoveryClient, &matchResources, &matchRules, match.All); err != nil {
+		if err := translateResourceFilters(discoveryClient, &matchResources, &matchRules, match.All, true); err != nil {
 			return err
 		}
 	}
 
-	// set validating admission policy spec
+	// convert the exclude block
+	exclude := rule.ExcludeResources
+	if !exclude.ResourceDescription.IsEmpty() {
+		if err := translateResource(discoveryClient, &matchResources, &excludeRules, exclude.ResourceDescription, false); err != nil {
+			return err
+		}
+	}
+
+	if exclude.Any != nil {
+		if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, exclude.Any, false); err != nil {
+			return err
+		}
+	}
+	if exclude.All != nil {
+		if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, exclude.All, false); err != nil {
+			return err
+		}
+	}
+
+	// set policy spec
 	vap.Spec = admissionregistrationv1alpha1.ValidatingAdmissionPolicySpec{
 		MatchConstraints: &matchResources,
 		ParamKind:        rule.Validation.CEL.ParamKind,
@@ -64,7 +89,10 @@ func BuildValidatingAdmissionPolicy(discoveryClient dclient.IDiscovery, vap *adm
 }
 
 // BuildValidatingAdmissionPolicyBinding is used to build a Kubernetes ValidatingAdmissionPolicyBinding from a Kyverno policy
-func BuildValidatingAdmissionPolicyBinding(vapbinding *admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding, cpol kyvernov1.PolicyInterface) error {
+func BuildValidatingAdmissionPolicyBinding(
+	vapbinding *admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding,
+	cpol kyvernov1.PolicyInterface,
+) error {
 	// set owner reference
 	vapbinding.OwnerReferences = []metav1.OwnerReference{
 		{
@@ -98,9 +126,14 @@ func BuildValidatingAdmissionPolicyBinding(vapbinding *admissionregistrationv1al
 	return nil
 }
 
-func translateResourceFilters(discoveryClient dclient.IDiscovery, matchResources *admissionregistrationv1alpha1.MatchResources, rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations, resFilters kyvernov1.ResourceFilters) error {
+func translateResourceFilters(discoveryClient dclient.IDiscovery,
+	matchResources *admissionregistrationv1alpha1.MatchResources,
+	rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations,
+	resFilters kyvernov1.ResourceFilters,
+	isMatch bool,
+) error {
 	for _, filter := range resFilters {
-		err := translateResource(discoveryClient, matchResources, rules, filter.ResourceDescription)
+		err := translateResource(discoveryClient, matchResources, rules, filter.ResourceDescription, isMatch)
 		if err != nil {
 			return err
 		}
@@ -108,32 +141,47 @@ func translateResourceFilters(discoveryClient dclient.IDiscovery, matchResources
 	return nil
 }
 
-func translateResource(discoveryClient dclient.IDiscovery, matchResources *admissionregistrationv1alpha1.MatchResources, rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations, res kyvernov1.ResourceDescription) error {
-	err := constructValidatingAdmissionPolicyRules(discoveryClient, rules, res)
+func translateResource(
+	discoveryClient dclient.IDiscovery,
+	matchResources *admissionregistrationv1alpha1.MatchResources,
+	rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations,
+	res kyvernov1.ResourceDescription,
+	isMatch bool,
+) error {
+	err := constructValidatingAdmissionPolicyRules(discoveryClient, rules, res, isMatch)
 	if err != nil {
 		return err
 	}
 
-	matchResources.ResourceRules = *rules
-	if len(res.Namespaces) > 0 {
-		namespaceSelector := &metav1.LabelSelector{
-			MatchExpressions: []metav1.LabelSelectorRequirement{
-				{
-					Key:      "kubernetes.io/metadata.name",
-					Operator: "In",
-					Values:   res.Namespaces,
+	if isMatch {
+		matchResources.ResourceRules = *rules
+		if len(res.Namespaces) > 0 {
+			namespaceSelector := &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "kubernetes.io/metadata.name",
+						Operator: "In",
+						Values:   res.Namespaces,
+					},
 				},
-			},
+			}
+			matchResources.NamespaceSelector = namespaceSelector
+		} else {
+			matchResources.NamespaceSelector = res.NamespaceSelector
 		}
-		matchResources.NamespaceSelector = namespaceSelector
+		matchResources.ObjectSelector = res.Selector
 	} else {
-		matchResources.NamespaceSelector = res.NamespaceSelector
+		matchResources.ExcludeResourceRules = *rules
 	}
-	matchResources.ObjectSelector = res.Selector
 	return nil
 }
 
-func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery, rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations, res kyvernov1.ResourceDescription) error {
+func constructValidatingAdmissionPolicyRules(
+	discoveryClient dclient.IDiscovery,
+	rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations,
+	res kyvernov1.ResourceDescription,
+	isMatch bool,
+) error {
 	// translate operations to their corresponding values in validating admission policy.
 	ops := translateOperations(res.GetOperations())
 
@@ -191,6 +239,22 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 			}
 		}
 	}
+
+	// if exclude block has namespaces but no kinds, we need to add a rule for the namespaces
+	if !isMatch && len(res.Namespaces) > 0 && len(res.Kinds) == 0 {
+		r := admissionregistrationv1alpha1.NamedRuleWithOperations{
+			ResourceNames: res.Namespaces,
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					Resources:   []string{"namespaces"},
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+				},
+				Operations: ops,
+			},
+		}
+		*rules = append(*rules, r)
+	}
 	return nil
 }
 
@@ -227,7 +291,7 @@ func translateOperations(operations []string) []admissionregistrationv1.Operatio
 		}
 	}
 
-	// set default values for operations since it's a required field in validating admission policies
+	// set default values for operations since it's a required field in ValidatingAdmissionPolicies
 	if len(vapOperations) == 0 {
 		vapOperations = append(vapOperations, admissionregistrationv1.Create)
 		vapOperations = append(vapOperations, admissionregistrationv1.Update)
