@@ -87,7 +87,7 @@ func (v *validationHandler) HandleValidationEnforce(
 	resourceName := admissionutils.GetResourceName(request.AdmissionRequest)
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
-	if len(policies) == 0 {
+	if len(policies) == 0 && len(auditWarnPolicies) == 0 {
 		return true, "", nil, nil
 	}
 
@@ -130,6 +130,27 @@ func (v *validationHandler) HandleValidationEnforce(
 		)
 	}
 
+	var auditWarnEngineResponses []engineapi.EngineResponse
+	for _, policy := range auditWarnPolicies {
+		tracing.ChildSpan(
+			ctx,
+			"pkg/webhooks/resource/validate",
+			fmt.Sprintf("AUDIT WARN POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+			func(ctx context.Context, span trace.Span) {
+				policyContext := policyContext.WithPolicy(policy)
+
+				engineResponse := v.engine.Validate(ctx, policyContext)
+				if engineResponse.IsNil() {
+					// we get an empty response if old and new resources created the same response
+					// allow updates if resource update doesn't change the policy evaluation
+					return
+				}
+
+				auditWarnEngineResponses = append(auditWarnEngineResponses, engineResponse.WithWarning())
+			},
+		)
+	}
+
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 
 	if blocked {
@@ -145,6 +166,7 @@ func (v *validationHandler) HandleValidationEnforce(
 		}
 	}()
 
+	engineResponses = append(engineResponses, auditWarnEngineResponses...)
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings, engineResponses
 }

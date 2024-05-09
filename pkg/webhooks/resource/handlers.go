@@ -118,7 +118,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
 	}
 
-	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
+	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 && len(auditWarnPolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
 	}
 
@@ -150,6 +150,9 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
 		h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime, nil)
+	}
+	if len(policies) == 0 && len(auditWarnPolicies) == 0 {
+		return admissionutils.ResponseSuccess(request.UID)
 	}
 
 	wg.Wait()
