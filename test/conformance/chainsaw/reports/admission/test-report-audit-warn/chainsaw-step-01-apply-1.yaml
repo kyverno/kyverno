@@ -4,7 +4,7 @@ metadata:
   name: require-owner
 spec:
   background: false
-  auditWarn: true
+  auditWarning: true
   rules:
   - match:
       any:
