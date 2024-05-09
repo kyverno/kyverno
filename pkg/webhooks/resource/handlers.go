@@ -186,7 +186,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in mutating webhook")
 
-	_, mutatePolicies, _, verifyImagesPolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, true)
+	_, mutatePolicies, _, verifyImagesPolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, true) //nolint:dogsled
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
 	}
