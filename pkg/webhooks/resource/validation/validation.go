@@ -141,7 +141,7 @@ func (v *validationHandler) HandleValidationEnforce(
 					return
 				}
 
-				auditWarnEngineResponses = append(auditWarnEngineResponses, engineResponse.WithWarning())
+				auditWarnEngineResponses = append(auditWarnEngineResponses, engineResponse)
 			},
 		)
 	}
