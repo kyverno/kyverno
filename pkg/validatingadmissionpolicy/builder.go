@@ -109,20 +109,38 @@ func translateResourceFilters(discoveryClient dclient.IDiscovery, matchResources
 }
 
 func translateResource(discoveryClient dclient.IDiscovery, matchResources *admissionregistrationv1alpha1.MatchResources, rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations, res kyvernov1.ResourceDescription) error {
-	err := constructValidatingAdmissionPolicyRules(discoveryClient, rules, res.Kinds, res.GetOperations())
+	err := constructValidatingAdmissionPolicyRules(discoveryClient, rules, res)
 	if err != nil {
 		return err
 	}
 
 	matchResources.ResourceRules = *rules
-	matchResources.NamespaceSelector = res.NamespaceSelector
+	if len(res.Namespaces) > 0 {
+		namespaceSelector := &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{
+					Key:      "kubernetes.io/metadata.name",
+					Operator: "In",
+					Values:   res.Namespaces,
+				},
+			},
+		}
+		matchResources.NamespaceSelector = namespaceSelector
+	} else {
+		matchResources.NamespaceSelector = res.NamespaceSelector
+	}
 	matchResources.ObjectSelector = res.Selector
 	return nil
 }
 
-func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery, rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations, kinds []string, operations []string) error {
+func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery, rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations, res kyvernov1.ResourceDescription) error {
 	// translate operations to their corresponding values in validating admission policy.
-	ops := translateOperations(operations)
+	ops := translateOperations(res.GetOperations())
+
+	resourceNames := res.Names
+	if res.Name != "" {
+		resourceNames = append(resourceNames, res.Name)
+	}
 
 	// get kinds from kyverno policies and translate them to rules in validating admission policies.
 	// matched resources in kyverno policies are written in the following format:
@@ -131,7 +149,7 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 	// apiGroups:   ["group"]
 	// apiVersions: ["version"]
 	// resources:   ["resource"]
-	for _, kind := range kinds {
+	for _, kind := range res.Kinds {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 		gvrss, err := discoveryClient.FindResources(group, version, kind, subresource)
 		if err != nil {
@@ -164,6 +182,7 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 			}
 			if isNewRule {
 				r := admissionregistrationv1alpha1.NamedRuleWithOperations{
+					ResourceNames: resourceNames,
 					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 						Rule: admissionregistrationv1.Rule{
 							Resources:   resources,
