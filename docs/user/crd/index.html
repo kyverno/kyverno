@@ -191,6 +191,19 @@ namespace-wise. It overrides ValidationFailureAction for the specified namespace
 </tr>
 <tr>
 <td>
+<code>auditWarning</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AuditWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>admission</code><br/>
 <em>
 bool
@@ -465,6 +478,19 @@ Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</
 <em>(Optional)</em>
 <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditWarning</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AuditWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -3959,6 +3985,19 @@ Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</
 <em>(Optional)</em>
 <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>auditWarning</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AuditWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
