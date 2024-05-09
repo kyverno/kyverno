@@ -150,53 +150,67 @@ func constructValidatingAdmissionPolicyRules(discoveryClient dclient.IDiscovery,
 	// apiVersions: ["version"]
 	// resources:   ["resource"]
 	for _, kind := range res.Kinds {
-		group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-		gvrss, err := discoveryClient.FindResources(group, version, kind, subresource)
-		if err != nil {
-			return err
-		}
-		if len(gvrss) != 1 {
-			return fmt.Errorf("no unique match for kind %s", kind)
-		}
+		var r admissionregistrationv1alpha1.NamedRuleWithOperations
 
-		for topLevelApi, apiResource := range gvrss {
-			var resources []string
-			resources = append(resources, apiResource.Name)
-			// if we have pods, we add pods/ephemeralcontainers by default
-			if apiResource.Name == "pods" {
-				resources = append(resources, "pods/ephemeralcontainers")
+		if kind == "*" {
+			r = buildNamedRuleWithOperations(resourceNames, "*", "*", ops, "*")
+			*rules = append(*rules, r)
+		} else {
+			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+			gvrss, err := discoveryClient.FindResources(group, version, kind, subresource)
+			if err != nil {
+				return err
+			}
+			if len(gvrss) != 1 {
+				return fmt.Errorf("no unique match for kind %s", kind)
 			}
 
-			isNewRule := true
-			// If there's a rule that contains both group and version, then the resource is appended to the existing rule instead of creating a new one.
-			// Example:  apiGroups:   ["apps"]
-			//           apiVersions: ["v1"]
-			//           resources:   ["deployments", "statefulsets"]
-			// Otherwise, a new rule is created.
-			for i := range *rules {
-				if slices.Contains((*rules)[i].APIGroups, topLevelApi.Group) && slices.Contains((*rules)[i].APIVersions, topLevelApi.Version) {
-					(*rules)[i].Resources = append((*rules)[i].Resources, resources...)
-					isNewRule = false
-					break
+			for topLevelApi, apiResource := range gvrss {
+				resources := []string{apiResource.Name}
+
+				// Add pods/ephemeralcontainers if pods resource.
+				if apiResource.Name == "pods" {
+					resources = append(resources, "pods/ephemeralcontainers")
 				}
-			}
-			if isNewRule {
-				r := admissionregistrationv1alpha1.NamedRuleWithOperations{
-					ResourceNames: resourceNames,
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Rule: admissionregistrationv1.Rule{
-							Resources:   resources,
-							APIGroups:   []string{topLevelApi.Group},
-							APIVersions: []string{topLevelApi.Version},
-						},
-						Operations: ops,
-					},
+
+				// Check if there's an existing rule for the same group and version.
+				var isNewRule bool = true
+				for i := range *rules {
+					if slices.Contains((*rules)[i].APIGroups, topLevelApi.Group) && slices.Contains((*rules)[i].APIVersions, topLevelApi.Version) {
+						(*rules)[i].Resources = append((*rules)[i].Resources, resources...)
+						isNewRule = false
+						break
+					}
 				}
-				*rules = append(*rules, r)
+
+				// If no existing rule found, create a new one.
+				if isNewRule {
+					r = buildNamedRuleWithOperations(resourceNames, topLevelApi.Group, topLevelApi.Version, ops, resources...)
+					*rules = append(*rules, r)
+				}
 			}
 		}
 	}
 	return nil
+}
+
+func buildNamedRuleWithOperations(
+	resourceNames []string,
+	group, version string,
+	operations []admissionregistrationv1.OperationType,
+	resources ...string,
+) admissionregistrationv1alpha1.NamedRuleWithOperations {
+	return admissionregistrationv1alpha1.NamedRuleWithOperations{
+		ResourceNames: resourceNames,
+		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+			Rule: admissionregistrationv1.Rule{
+				Resources:   resources,
+				APIGroups:   []string{group},
+				APIVersions: []string{version},
+			},
+			Operations: operations,
+		},
+	}
 }
 
 func translateOperations(operations []string) []admissionregistrationv1.OperationType {
