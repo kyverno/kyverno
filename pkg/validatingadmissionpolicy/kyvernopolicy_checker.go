@@ -104,6 +104,12 @@ func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
 			return false, msg
 		}
 	}
+	for _, ns := range resource.Namespaces {
+		if wildcard.ContainsWildcard(ns) {
+			msg = "skip generating ValidatingAdmissionPolicy: wildcards in namespace name is not applicable."
+			return false, msg
+		}
+	}
 	return true, msg
 }
 
