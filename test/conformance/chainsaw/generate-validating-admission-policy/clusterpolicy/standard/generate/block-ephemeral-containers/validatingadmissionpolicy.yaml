@@ -1,0 +1,27 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  name: block-ephemeral-containers
+  ownerReferences:
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    name: block-ephemeral-containers
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - pods
+      - pods/ephemeralcontainers
+  validations:
+  - expression: '!has(object.spec.ephemeralContainers)'
+    message: Ephemeral (debug) containers are not permitted.
