@@ -18,6 +18,14 @@ type MatchResources struct {
 	All kyvernov1.ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
 }
 
+// GetResourceFilters returns all resource filters
+func (m *MatchResources) GetResourceFilters() kyvernov1.ResourceFilters {
+	var filters kyvernov1.ResourceFilters
+	filters = append(filters, m.All...)
+	filters = append(filters, m.Any...)
+	return filters
+}
+
 // GetKinds returns all kinds
 func (m *MatchResources) GetKinds() []string {
 	var kinds []string

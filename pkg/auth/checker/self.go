@@ -12,7 +12,7 @@ type self struct {
 	client authorizationv1client.SelfSubjectAccessReviewInterface
 }
 
-func (c self) Check(ctx context.Context, group, version, resource, subresource, namespace, verb string) (*AuthResult, error) {
+func (c self) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*AuthResult, error) {
 	review := &authorizationv1.SelfSubjectAccessReview{
 		Spec: authorizationv1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationv1.ResourceAttributes{
@@ -22,6 +22,7 @@ func (c self) Check(ctx context.Context, group, version, resource, subresource, 
 				Subresource: subresource,
 				Namespace:   namespace,
 				Verb:        verb,
+				Name:        name,
 			},
 		},
 	}
