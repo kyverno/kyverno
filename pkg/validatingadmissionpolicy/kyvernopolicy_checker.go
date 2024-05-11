@@ -90,8 +90,8 @@ func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 
 func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
 	var msg string
-	if len(resource.Namespaces) != 0 || len(resource.Annotations) != 0 {
-		msg = "skip generating ValidatingAdmissionPolicy: Namespaces / Annotations in resource description is not applicable."
+	if len(resource.Annotations) != 0 {
+		msg = "skip generating ValidatingAdmissionPolicy: Annotations in resource description is not applicable."
 		return false, msg
 	}
 	if resource.Name != "" && wildcard.ContainsWildcard(resource.Name) {
@@ -101,6 +101,12 @@ func checkResources(resource kyvernov1.ResourceDescription) (bool, string) {
 	for _, name := range resource.Names {
 		if wildcard.ContainsWildcard(name) {
 			msg = "skip generating ValidatingAdmissionPolicy: wildcards in resource name is not applicable."
+			return false, msg
+		}
+	}
+	for _, ns := range resource.Namespaces {
+		if wildcard.ContainsWildcard(ns) {
+			msg = "skip generating ValidatingAdmissionPolicy: wildcards in namespace name is not applicable."
 			return false, msg
 		}
 	}

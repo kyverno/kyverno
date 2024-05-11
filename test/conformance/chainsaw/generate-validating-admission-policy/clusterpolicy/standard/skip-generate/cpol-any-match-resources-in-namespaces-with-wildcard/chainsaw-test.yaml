@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: cpol-match-resource-in-specific-namespace
+  name: cpol-any-match-resources-in-namespaces-with-wildcard
 spec:
   steps:
   - name: step-01
