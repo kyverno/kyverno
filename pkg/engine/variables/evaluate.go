@@ -61,10 +61,11 @@ func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 	var conditionTrueMessages []string
 
 	// update the anyConditionsResult if they are present
-	if anyConditions != nil {
+		if anyConditions != nil {
 		anyConditionsResult = false
-		for _, condition := range anyConditions {
+		for i, condition := range anyConditions {
 			if val, msg, err := Evaluate(log, ctx, condition); err != nil {
+				index = i
 				return false, "", err
 			} else if val {
 				anyConditionsResult = true
@@ -76,7 +77,7 @@ func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 		}
 
 		if !anyConditionsResult {
-			log.V(3).Info("no condition passed for 'any' block", "any", anyConditions)
+			log.V(3).Info("no condition passed for 'any' block for index", index, "any", anyConditions)
 		}
 	}
 
