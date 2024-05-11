@@ -59,6 +59,7 @@ func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 	anyConditionsResult, allConditionsResult := true, true
 	var conditionFalseMessages []string
 	var conditionTrueMessages []string
+	var index int
 
 	// update the anyConditionsResult if they are present
 	if anyConditions != nil {
