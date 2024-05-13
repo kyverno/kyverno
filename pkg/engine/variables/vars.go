@@ -242,6 +242,14 @@ func (n NotResolvedReferenceError) Error() string {
 	return fmt.Sprintf("NotResolvedReferenceErr,reference %s not resolved at path %s", n.reference, n.path)
 }
 
+type refSubState int
+
+const (
+	stateRefText refSubState = iota
+	stateRefStart
+	stateRefName
+)
+
 func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
@@ -249,54 +257,65 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			return data.Element, nil
 		}
 
-		for _, v := range regex.RegexReferences.FindAllString(value, -1) {
-			initial := v[:2] == `$(`
-			old := v
+		var newValue strings.Builder
+		var refNameBuilder strings.Builder
+		state := stateRefText
 
-			if !initial {
-				v = v[1:]
-			}
-
-			resolvedReference, err := resolveReference(log, data.Document, v, data.Path)
-			if err != nil {
-				switch err.(type) {
-				case context.InvalidVariableError:
-					return nil, err
-				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
+		for _, r := range value {
+			switch state {
+			case stateRefText:
+				if r == '$' {
+					state = stateRefStart
+				} else {
+					newValue.WriteRune(r)
 				}
-			}
-
-			if resolvedReference == nil {
-				return data.Element, fmt.Errorf("got nil resolved variable %v at path %s: %v", v, data.Path, err)
-			}
-
-			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
-
-			if val, ok := resolvedReference.(string); ok {
-				replacement := ""
-
-				if !initial {
-					replacement = string(old[0])
+			case stateRefStart:
+				if r == '(' {
+					state = stateRefName
+				} else {
+					newValue.WriteRune('$')
+					newValue.WriteRune('(')
+					state = stateRefText
 				}
+			case stateRefName:
+				if r == ')' {
+					refName := refNameBuilder.String()
+					refName = strings.TrimSpace(refName)
+					refNameBuilder.Reset()
 
-				replacement += val
+					// ----------------- Reference Resolution -----------------
+					resolvedReference, err := resolveReference(log, data.Document, refName, data.Path)
+					if err != nil {
+						switch err.(type) {
+						case context.InvalidVariableError:
+							return nil, err
+						default:
+							return nil, fmt.Errorf("failed to resolve %v at path %s: %v", refName, data.Path, err)
+						}
+					}
 
-				value = strings.Replace(value, old, replacement, 1)
-				continue
-			}
+					if resolvedReference == nil {
+						return data.Element, fmt.Errorf("got nil resolved variable %v at path %s: %v", refName, data.Path, err)
+					}
 
-			return data.Element, NotResolvedReferenceError{
-				reference: v,
-				path:      data.Path,
+					if val, ok := resolvedReference.(string); ok {
+						newValue.WriteString(val)
+					} else {
+						return data.Element, NotResolvedReferenceError{
+							reference: refName,
+							path:      data.Path,
+						}
+					}
+
+					// ----------------- Reference Resolution -----------------
+					state = stateRefText
+				} else {
+					refNameBuilder.WriteRune(r)
+				}
 			}
 		}
 
-		for _, v := range regex.RegexEscpReferences.FindAllString(value, -1) {
-			value = strings.Replace(value, v, v[1:], -1)
-		}
-
-		return value, nil
+		return newValue.String(), nil
 	})
 }
 
@@ -308,6 +327,16 @@ func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interf
 	return ctx.Query(variable)
 }
 
+type varSubState int
+
+const (
+	stateVarText varSubState = iota
+	stateVarStart
+	stateVarStartNested
+	stateVarName
+	stateVarEnd
+)
+
 func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr VariableResolver) jsonUtils.Action {
 	isDeleteRequest := isDeleteRequest(ctx)
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
@@ -316,75 +345,107 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 			return data.Element, nil
 		}
 
-		vars := regex.RegexVariables.FindAllString(value, -1)
-		for len(vars) > 0 {
-			originalPattern := value
-			for _, v := range vars {
-				initial := len(regex.RegexVariableInit.FindAllString(v, -1)) > 0
-				old := v
+		var newValue strings.Builder
+		nestedStack := make([]*strings.Builder, 0, 2)
+		state := stateVarText
+		dirty := false
 
-				if !initial {
-					v = v[1:]
+		for i, r := range value {
+			switch state {
+			case stateVarText:
+				if r == '{' {
+					state = stateVarStart
+				} else {
+					newValue.WriteRune(r)
+					dirty = true
 				}
+			case stateVarStart:
+				if r == '{' {
+					nestedStack = append(nestedStack, &strings.Builder{})
+					state = stateVarName
+				} else {
+					newValue.WriteRune('{')
+					newValue.WriteRune(r)
+					state = stateVarText
+					dirty = true
+				}
+			case stateVarName:
+				if r == '{' {
+					state = stateVarStartNested
+				} else if r == '}' {
+					state = stateVarEnd
+				} else {
+					nestedStack[len(nestedStack)-1].WriteRune(r)
+				}
+			case stateVarStartNested:
+				if r == '{' {
+					nestedStack = append(nestedStack, &strings.Builder{})
+				} else {
+					nestedStack[len(nestedStack)-1].WriteRune('{')
+					nestedStack[len(nestedStack)-1].WriteRune(r)
+				}
+				state = stateVarName
+			case stateVarEnd:
+				if r == '}' {
+					varName := nestedStack[len(nestedStack)-1].String()
+					varName = strings.TrimSpace(varName)
 
-				variable := replaceBracesAndTrimSpaces(v)
+					// ------------------ Variable Resolution ------------------
+					if varName == "@" {
+						pathPrefix := "target"
+						if _, err := ctx.Query("target"); err != nil {
+							pathPrefix = "request.object"
+						}
 
-				if variable == "@" {
-					pathPrefix := "target"
-					if _, err := ctx.Query("target"); err != nil {
-						pathPrefix = "request.object"
+						// Convert path to JMESPath for current identifier.
+						// Skip 2 elements (e.g. mutate.overlay | validate.pattern) plus "foreach" if it is part of the pointer.
+						// Prefix the pointer with pathPrefix.
+						val := jsonpointer.ParsePath(data.Path).SkipPast("foreach").SkipN(2).Prepend(strings.Split(pathPrefix, ".")...).JMESPath()
+
+						varName = strings.Replace(varName, "@", val, -1)
 					}
 
-					// Convert path to JMESPath for current identifier.
-					// Skip 2 elements (e.g. mutate.overlay | validate.pattern) plus "foreach" if it is part of the pointer.
-					// Prefix the pointer with pathPrefix.
-					val := jsonpointer.ParsePath(data.Path).SkipPast("foreach").SkipN(2).Prepend(strings.Split(pathPrefix, ".")...).JMESPath()
-
-					variable = strings.Replace(variable, "@", val, -1)
-				}
-
-				if isDeleteRequest {
-					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
-				}
-
-				substitutedVar, err := vr(ctx, variable)
-				if err != nil {
-					switch err.(type) {
-					case context.InvalidVariableError, gojmespath.NotFoundError:
-						return nil, err
-					default:
-						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
+					if isDeleteRequest {
+						varName = strings.ReplaceAll(varName, "request.object", "request.oldObject")
 					}
+
+					substitutedVar, err := vr(ctx, varName)
+					if err != nil {
+						switch err.(type) {
+						case context.InvalidVariableError, gojmespath.NotFoundError:
+							return nil, err
+						default:
+							return nil, fmt.Errorf("failed to resolve %v at path %s: %v", varName, data.Path, err)
+						}
+					}
+
+					// ------------------ Variable Resolution ------------------
+
+					if len(nestedStack) > 1 { // Nested variable
+						varValue := fmt.Sprintf("%v", substitutedVar)
+						nestedStack = nestedStack[:len(nestedStack)-1]
+						nestedStack[len(nestedStack)-1].WriteString(varValue)
+						state = stateVarName
+					} else {
+						if !dirty && i == len(value)-1 {
+							return substitutedVar, nil
+						}
+
+						varValue := fmt.Sprintf("%v", substitutedVar)
+						newValue.WriteString(varValue)
+						state = stateVarText
+					}
+				} else {
+					nestedStack[len(nestedStack)-1].WriteRune('}')
+					nestedStack[len(nestedStack)-1].WriteRune(r)
+					state = stateVarName
 				}
-
-				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
-
-				if originalPattern == v {
-					return substitutedVar, nil
-				}
-
-				prefix := ""
-
-				if !initial {
-					prefix = string(old[0])
-				}
-
-				if value, err = substituteVarInPattern(prefix, originalPattern, v, substitutedVar); err != nil {
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
-				}
-
-				continue
 			}
-
-			// check for nested variables in strings
-			vars = regex.RegexVariables.FindAllString(value, -1)
 		}
 
-		for _, v := range regex.RegexEscpVariables.FindAllString(value, -1) {
-			value = strings.Replace(value, v, v[1:], -1)
-		}
+		// TODO: Handle any remaining characters or unterminated variables
 
-		return value, nil
+		return newValue.String(), nil
 	})
 }
 
@@ -398,25 +459,6 @@ func isDeleteRequest(ctx context.EvalInterface) bool {
 	}
 
 	return false
-}
-
-func substituteVarInPattern(prefix, pattern, variable string, value interface{}) (string, error) {
-	var stringToSubstitute string
-
-	if s, ok := value.(string); ok {
-		stringToSubstitute = s
-	} else {
-		buffer, err := json.Marshal(value)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal %T: %v", value, value)
-		}
-		stringToSubstitute = string(buffer)
-	}
-
-	stringToSubstitute = prefix + stringToSubstitute
-	variable = prefix + variable
-
-	return strings.Replace(pattern, variable, stringToSubstitute, 1), nil
 }
 
 func replaceBracesAndTrimSpaces(v string) string {
