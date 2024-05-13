@@ -80,6 +80,8 @@ func New(
 			} else {
 				e.setData(data, nil)
 
+				logger.V(4).Info("api call success", "data", data)
+
 				if shouldUpdateStatus {
 					if updateErr := updateStatus(ctx, gce.Name, kyvernoClient, true, "APICallSuccess"); updateErr != nil {
 						logger.Error(updateErr, "failed to update status")
@@ -140,6 +142,9 @@ func updateStatus(ctx context.Context, gceName string, kyvernoClient versioned.I
 				return fmt.Errorf("failed to update status: %s", latestGCE.Name)
 			}
 			latest.Status.SetReady(ready, reason)
+			if ready {
+				latest.Status.UpdateRefreshTime()
+			}
 			return nil
 		})
 

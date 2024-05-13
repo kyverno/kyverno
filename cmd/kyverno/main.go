@@ -25,7 +25,6 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -79,13 +78,8 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 }
 
 func createNonLeaderControllers(
-	eng engineapi.Engine,
-	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	kubeClient kubernetes.Interface,
-	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
-	configuration config.Configuration,
 	policyCache policycache.Cache,
 ) ([]internal.Controller, func(context.Context) error) {
 	policyCacheController := policycachecontroller.NewController(
@@ -254,6 +248,8 @@ func main() {
 		backgroundServiceAccountName string
 		maxAPICallResponseLength     int64
 		renewBefore                  time.Duration
+		maxAuditWorkers              int
+		maxAuditCapacity             int
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -274,6 +270,8 @@ func main() {
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
+	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
+	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -354,6 +352,7 @@ func main() {
 	eventGenerator := event.NewEventGenerator(
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
+		maxQueuedEvents,
 		strings.Split(omitEvents, ",")...,
 	)
 	gcstore := store.New()
@@ -419,13 +418,8 @@ func main() {
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
-		engine,
-		kubeInformer,
 		kyvernoInformer,
-		setup.KubeClient,
-		setup.KyvernoClient,
 		setup.KyvernoDynamicClient,
-		setup.Configuration,
 		policyCache,
 	)
 	// start informers and wait for cache sync
@@ -530,6 +524,8 @@ func main() {
 		admissionReports,
 		backgroundServiceAccountName,
 		setup.Jp,
+		maxAuditWorkers,
+		maxAuditCapacity,
 	)
 	exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 		Enabled:   internal.PolicyExceptionEnabled(),

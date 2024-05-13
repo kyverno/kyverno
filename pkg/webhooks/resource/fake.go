@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 
+	"github.com/alitto/pond"
 	fakekyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -17,14 +18,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhooks.ResourceHandlers {
+func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resourceHandlers {
 	client := fake.NewSimpleClientset()
 	metricsConfig := metrics.NewFakeMetricsConfig()
 
@@ -53,6 +53,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		urGenerator:   updaterequest.NewFake(),
 		eventGen:      event.NewFake(),
 		pcBuilder:     webhookutils.NewPolicyContextBuilder(configuration, jp),
+		auditPool:     pond.New(8, 1000),
 		engine: engine.NewEngine(
 			configuration,
 			config.NewDefaultMetricsConfiguration(),

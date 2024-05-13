@@ -1,0 +1,29 @@
+apiVersion: cli.kyverno.io/v1alpha1
+exceptions:
+- exception.yaml
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: Deployment
+  policy: disallow-host-namespaces
+  resources:
+  - bad-deployment
+  result: fail
+  rule: autogen-host-namespaces
+- kind: Deployment
+  policy: disallow-host-namespaces
+  resources:
+  - good-deployment
+  result: pass
+  rule: autogen-host-namespaces
+- kind: Deployment
+  policy: disallow-host-namespaces
+  resources:
+  - important-tool
+  result: skip
+  rule: autogen-host-namespaces

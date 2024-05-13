@@ -1211,7 +1211,8 @@ Requires Kubernetes 1.27 or later.</p>
 Kubernetes API server (e.g. &quot;/api/v1/namespaces&quot; or  &quot;/apis/apps/v1/deployments&quot;).
 The format required is the same format used by the <code>kubectl get --raw</code> command.
 See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
-for details.</p>
+for details.
+It's mutually exclusive with the Service field.</p>
 
 
           
@@ -1273,7 +1274,8 @@ for details.</p>
         <td>
           
 
-          <p>Data specifies the POST data sent to the server.</p>
+          <p>The data object specifies the POST data sent to the server.
+Only applicable when the method field is set to POST.</p>
 
 
           
@@ -1304,7 +1306,9 @@ for details.</p>
         <td>
           
 
-          <p>Service is an API call to a JSON web service</p>
+          <p>Service is an API call to a JSON web service.
+This is used for non-Kubernetes API server calls.
+It's mutually exclusive with the URLPath field.</p>
 
 
           
@@ -5802,7 +5806,7 @@ Allowed values are privileged, baseline, and restricted.</p>
           
 
           <p>Version defines the Pod Security Standard versions that Kubernetes supports.
-Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, latest. Defaults to latest.</p>
+Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.</p>
 
 
           

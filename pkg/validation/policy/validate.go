@@ -224,7 +224,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		return warnings, err
 	}
 
-	rules := autogen.ComputeRules(policy)
+	rules := autogen.ComputeRules(policy, "")
 	rulesPath := specPath.Child("rules")
 
 	for i, rule := range rules {
@@ -415,8 +415,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 			for _, ctxEntry := range rule.Context {
 				if ctxEntry.GlobalReference != nil {
+					if ctxEntry.GlobalReference.Name == "" {
+						warnings = append(warnings, "Global context entry name is not provided")
+						return warnings, nil
+					}
 					if !isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
-						return nil, fmt.Errorf("global context entry %s is not ready", ctxEntry.GlobalReference.Name)
+						warnings = append(warnings, fmt.Sprintf("Global context entry %s does not exist or is not ready", ctxEntry.GlobalReference.Name))
+						return warnings, nil
 					}
 				}
 			}
@@ -500,7 +505,7 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 
 // hasInvalidVariables - checks for unexpected variables in the policy
 func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) error {
-	for _, r := range autogen.ComputeRules(policy) {
+	for _, r := range autogen.ComputeRules(policy, "") {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {

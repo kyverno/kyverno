@@ -114,7 +114,8 @@ jobs:
           - ^verify-manifests$
           - ^verifyImages$
           - ^webhooks$
-    needs: prepare-images
+    needs:
+    - prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
@@ -126,7 +127,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -195,7 +196,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -267,7 +268,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -338,7 +339,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -409,7 +410,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -485,7 +486,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -560,7 +561,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -639,7 +640,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@2d10614e854828e2389881abe6c5cf76240897a7
@@ -729,7 +730,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -838,7 +839,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@07b6c986572f2abaf6647c85d37cbecfddc4a6ab # v0.1.3
+        uses: kyverno/action-install-chainsaw@995cddaee7702e849270b84fa44cdcebe7462da8 # v0.1.9
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -946,20 +947,38 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: read
-    needs: prepare-cli
+    strategy:
+      fail-fast: false
+      matrix:
+        tests:
+          - ^cli$
+    needs:
+    - prepare-cli
+    name: ${{ matrix.tests }} - chainsaw
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      # install tools
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: kubectl-kyverno
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@3bf0752f44d348d859fefa022f113bda6a24a1ae # v0.1.7
       - name: Install Kyverno CLI
         shell: bash
         run: |
           set -e
           chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
           echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+      # run tests
+      - name: Test with Chainsaw
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --no-cluster
       - name: Fix test files
         shell: bash
         run: |

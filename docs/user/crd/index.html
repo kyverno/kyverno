@@ -635,7 +635,8 @@ string
 Kubernetes API server (e.g. &ldquo;/api/v1/namespaces&rdquo; or  &ldquo;/apis/apps/v1/deployments&rdquo;).
 The format required is the same format used by the <code>kubectl get --raw</code> command.
 See <a href="https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls">https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls</a>
-for details.</p>
+for details.
+It&rsquo;s mutually exclusive with the Service field.</p>
 </td>
 </tr>
 <tr>
@@ -661,7 +662,8 @@ Method
 </em>
 </td>
 <td>
-<p>Data specifies the POST data sent to the server.</p>
+<p>The data object specifies the POST data sent to the server.
+Only applicable when the method field is set to POST.</p>
 </td>
 </tr>
 <tr>
@@ -674,7 +676,9 @@ ServiceCall
 </em>
 </td>
 <td>
-<p>Service is an API call to a JSON web service</p>
+<p>Service is an API call to a JSON web service.
+This is used for non-Kubernetes API server calls.
+It&rsquo;s mutually exclusive with the URLPath field.</p>
 </td>
 </tr>
 </tbody>
@@ -2940,7 +2944,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>Version defines the Pod Security Standard versions that Kubernetes supports.
-Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, latest. Defaults to latest.</p>
+Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.</p>
 </td>
 </tr>
 <tr>
@@ -7854,7 +7858,8 @@ KubernetesResource
 </em>
 </td>
 <td>
-<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+<p>Stores a list of Kubernetes resources which will be cached.
+Mutually exclusive with APICall.</p>
 </td>
 </tr>
 <tr>
@@ -7867,7 +7872,12 @@ ExternalAPICall
 </em>
 </td>
 <td>
-<p>APICall stores infos about API call that should be cached</p>
+<p>Stores results from an API call which will be cached.
+Mutually exclusive with KubernetesResource.
+This can be used to make calls to external (non-Kubernetes API server) services.
+It can also be used to make calls to the Kubernetes API server in such cases:
+1. A POST is needed to create a resource.
+2. Finer-grained control is needed. Example: To restrict the number of resources cached.</p>
 </td>
 </tr>
 </table>
@@ -8035,7 +8045,6 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
 <a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
 </p>
 <p>
-<p>ExternalAPICall stores infos about API call that should be cached</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -8070,7 +8079,9 @@ Kubernetes meta/v1.Duration
 </em>
 </td>
 <td>
-<p>RefreshInterval defines the interval in duration at which to poll the APICall</p>
+<p>RefreshInterval defines the interval in duration at which to poll the APICall.
+The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
+such as &ldquo;300ms&rdquo;, &ldquo;1.5h&rdquo; or &ldquo;2h45m&rdquo;. Valid time units are &ldquo;ns&rdquo;, &ldquo;us&rdquo; (or &ldquo;µs&rdquo;), &ldquo;ms&rdquo;, &ldquo;s&rdquo;, &ldquo;m&rdquo;, &ldquo;h&rdquo;.</p>
 </td>
 </tr>
 </tbody>
@@ -8103,7 +8114,8 @@ KubernetesResource
 </em>
 </td>
 <td>
-<p>KubernetesResource stores infos about kubernetes resource that should be cached</p>
+<p>Stores a list of Kubernetes resources which will be cached.
+Mutually exclusive with APICall.</p>
 </td>
 </tr>
 <tr>
@@ -8116,7 +8128,12 @@ ExternalAPICall
 </em>
 </td>
 <td>
-<p>APICall stores infos about API call that should be cached</p>
+<p>Stores results from an API call which will be cached.
+Mutually exclusive with KubernetesResource.
+This can be used to make calls to external (non-Kubernetes API server) services.
+It can also be used to make calls to the Kubernetes API server in such cases:
+1. A POST is needed to create a resource.
+2. Finer-grained control is needed. Example: To restrict the number of resources cached.</p>
 </td>
 </tr>
 </tbody>
@@ -8162,6 +8179,20 @@ bool
 <em>(Optional)</em>
 </td>
 </tr>
+<tr>
+<td>
+<code>lastRefreshTime</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Indicates the time when the globalcontextentry was last refreshed successfully for the API Call</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -8190,7 +8221,7 @@ string
 </em>
 </td>
 <td>
-<p>Group defines the group of the resource</p>
+<p>Group defines the group of the resource.</p>
 </td>
 </tr>
 <tr>
@@ -8201,7 +8232,7 @@ string
 </em>
 </td>
 <td>
-<p>Version defines the version of the resource</p>
+<p>Version defines the version of the resource.</p>
 </td>
 </tr>
 <tr>
@@ -8212,7 +8243,8 @@ string
 </em>
 </td>
 <td>
-<p>Resource defines the type of the resource</p>
+<p>Resource defines the type of the resource.
+Requires the pluralized form of the resource kind in lowercase. (Ex., &ldquo;deployments&rdquo;)</p>
 </td>
 </tr>
 <tr>
@@ -8223,7 +8255,9 @@ string
 </em>
 </td>
 <td>
-<p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.</p>
+<em>(Optional)</em>
+<p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
+If left empty for namespaced resources, all resources from all namespaces will be cached.</p>
 </td>
 </tr>
 </tbody>

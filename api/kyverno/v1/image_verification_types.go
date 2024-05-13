@@ -262,7 +262,7 @@ type KeylessAttestor struct {
 
 type Rekor struct {
 	// URL is the address of the transparency log. Defaults to the public Rekor log instance https://rekor.sigstore.dev.
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:Default:=https://rekor.sigstore.dev
 	URL string `json:"url" yaml:"url"`
 
