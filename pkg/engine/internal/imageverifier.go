@@ -453,6 +453,8 @@ func (iv *ImageVerifier) verifyAttestations(
 					continue
 				}
 
+				// fmt.Printf("There \n%+v\n", rawCosignResp)
+
 				err = iv.policyContext.JSONContext().AddContextEntry(name, rawCosignResp)
 				if err != nil {
 					iv.logger.Error(err, "failed to add resource data to context entry")
