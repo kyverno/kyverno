@@ -45,9 +45,9 @@ import (
 
 var (
 	allowedVariables                   = enginecontext.ReservedKeys
-	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|.*`)
-	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|.*`)
-	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|.*`)
+	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	regexVariables                     = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
@@ -727,6 +727,9 @@ func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecon
 
 	ctx := enginecontext.NewMockContext(re)
 	addContextVariables(rule.Context, ctx)
+
+	addImageVerifyVariables(rule, ctx)
+
 	for _, fe := range rule.Validation.ForEachValidation {
 		addContextVariables(fe.Context, ctx)
 	}
@@ -764,6 +767,16 @@ func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.Mo
 			ctx.AddVariable(contextEntry.Name + ".metadata")
 			ctx.AddVariable(contextEntry.Name + ".data.*")
 			ctx.AddVariable(contextEntry.Name + ".metadata.*")
+		}
+	}
+}
+
+func addImageVerifyVariables(rule *kyvernov1.Rule, ctx *enginecontext.MockContext) {
+	if rule.HasValidateImageVerification() {
+		for _, verifyImage := range rule.VerifyImages {
+			for _, attestation := range verifyImage.Attestations {
+				ctx.AddVariable(attestation.Name + "*")
+			}
 		}
 	}
 }
