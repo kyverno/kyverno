@@ -33,7 +33,8 @@ func (e *engine) validate(
 		handlerFactory := func() (handlers.Handler, error) {
 			hasValidate := rule.HasValidate()
 			hasVerifyImageChecks := rule.HasVerifyImageChecks()
-			if !hasValidate && !hasVerifyImageChecks {
+			HasValidateImageVerification := rule.HasValidateImageVerification()
+			if !hasValidate && !hasVerifyImageChecks && !HasValidateImageVerification {
 				return nil, nil
 			}
 			if hasValidate {
@@ -59,6 +60,8 @@ func (e *engine) validate(
 					rule,
 					e.configuration,
 				)
+			} else if HasValidateImageVerification {
+				return validation.NewValidateImageVerificationHandler()
 			}
 			return nil, nil
 		}
