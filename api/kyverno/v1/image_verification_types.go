@@ -95,6 +95,12 @@ type ImageVerification struct {
 	// The repository can also be overridden per Attestor or Attestation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 
+	// CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+	// Defaults to false.
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:Optional
+	CosignOCI11 bool `json:"cosignOCI11,omitempty" json:"cosignOCI11,omitempty"`
+
 	// MutateDigest enables replacement of image tags with digests.
 	// Defaults to true.
 	// +kubebuilder:default=true

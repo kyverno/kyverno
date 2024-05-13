@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"net/url"
@@ -123,6 +124,8 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().BoolVar(&applyCommandConfig.continueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
+
+	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	return cmd
 }
 
