@@ -1,8 +1,6 @@
 package log
 
 import (
-	"flag"
-	"fmt"
 	"os"
 	"strings"
 
@@ -19,9 +17,6 @@ func Configure() error {
 
 func configure(args ...string) error {
 	logging.InitFlags(nil)
-	fmt.Println(os.Args[1:])
-	flag.Parse()
-	fmt.Println("value:", flag.Lookup("v"))
 	if isVerbose(args...) {
 		return logging.Setup(logging.TextFormat, logging.DefaultTime, 0)
 	}
