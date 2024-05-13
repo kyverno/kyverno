@@ -148,10 +148,10 @@ func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, l
 		for j := range ruleCopy.VerifyImages[i].Attestations {
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
 		}
-		if hasValidateImageVerification {
-			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = nil
-		}
+		ruleCopy.VerifyImages[i].Validation.Deny = nil
 	}
+
+	// Add similar 10 line 138 and 153. Doing it attestation not known at time of execution of validate
 
 	var err error
 	ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, ruleCopy)
@@ -164,9 +164,7 @@ func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, l
 		for j := range ruleCopy.VerifyImages[i].Attestations {
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = rule.VerifyImages[i].Attestations[j].Conditions
 		}
-		if hasValidateImageVerification {
-			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = rule.VerifyImages[i].Validation.Deny.RawAnyAllConditions
-		}
+		ruleCopy.VerifyImages[i].Validation.Deny = rule.VerifyImages[i].Validation.Deny
 	}
 	return &ruleCopy, nil
 }

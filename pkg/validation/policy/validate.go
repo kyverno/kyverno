@@ -44,9 +44,9 @@ import (
 
 var (
 	allowedVariables                   = enginecontext.ReservedKeys
-	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
-	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|.*`)
+	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|.*`)
+	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|.*`)
 	regexVariables                     = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 	bindingIdentifier                  = regexp.MustCompile(`^\w+$`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
@@ -149,6 +149,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	specPath := field.NewPath("spec")
 
 	err := ValidateVariables(policy, background)
+	// fmt.Printf("\n%+v\n\n", err)
 	if err != nil {
 		return warnings, err
 	}
@@ -530,6 +531,8 @@ func isGlobalContextEntryReady(name string, gctxentries *kyvernov2alpha1.GlobalC
 
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 	vars, err := hasVariables(p)
+
+	// fmt.Printf("HI \n%+v\n \n%+v\n", vars, err)
 	if err != nil {
 		return err
 	}
@@ -539,6 +542,7 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 		}
 	}
 	if err := hasInvalidVariables(p, backgroundMode); err != nil {
+		// fmt.Printf("\nHell \n%+v\n", err)
 		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
 	}
 	return nil
@@ -575,6 +579,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 
 		ctx := buildContext(ruleCopy, background, mutateTarget)
 		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
+			// fmt.Printf("\nHi \n%+v\n", err)
 			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
 		}
 	}
@@ -727,7 +732,24 @@ func ruleWithoutPattern(ruleCopy *kyvernov1.Rule) *kyvernov1.Rule {
 }
 
 func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecontext.MockContext {
+	//checks regular expression
 	re := getAllowedVariables(background, target)
+
+	// for _, verifyImage := range rule.VerifyImages {
+	// 	fmt.Printf("%+v\n", verifyImage.Validation.Deny)
+	// }
+
+	// for _, verifyImage := range rule.VerifyImages {
+	// 	for _, attestation := range verifyImage.Attestations {
+	// 		for _, attestor := range attestation.Attestors {
+	// 			for _, entry := range attestor.Entries {
+	// 				fmt.Printf("\n%+v\n", entry.Certificates.Certificate)
+	// 			}
+	// 			// fmt.Printf("%+v\n", attestor)
+	// 		}
+	// 	}
+	// }
+	// fmt.Printf("%v", rule.VerifyImages)
 
 	ctx := enginecontext.NewMockContext(re)
 
@@ -1040,6 +1062,7 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 					}
 				}
 			}
+			// fmt.Printf("\nHello %+v \n", vi.Validation.Deny)
 			if rule.HasValidateImageVerification() {
 				if target := vi.Validation.Deny.GetAnyAllConditions(); target != nil {
 					if path, err := validateConditions(target, "conditions"); err != nil {
