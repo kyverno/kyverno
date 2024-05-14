@@ -499,12 +499,6 @@ func (iv *ImageVerifier) verifyAttestations(
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
 
-	if err := iv.Validate(imageVerify, ctx); err != nil {
-		msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
-		iv.logger.Error(err, "failed to validate in verifyImage")
-		return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), ""
-	}
-
 	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 }
 
