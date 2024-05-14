@@ -732,24 +732,7 @@ func ruleWithoutPattern(ruleCopy *kyvernov1.Rule) *kyvernov1.Rule {
 }
 
 func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecontext.MockContext {
-	//checks regular expression
 	re := getAllowedVariables(background, target)
-
-	// for _, verifyImage := range rule.VerifyImages {
-	// 	fmt.Printf("%+v\n", verifyImage.Validation.Deny)
-	// }
-
-	// for _, verifyImage := range rule.VerifyImages {
-	// 	for _, attestation := range verifyImage.Attestations {
-	// 		for _, attestor := range attestation.Attestors {
-	// 			for _, entry := range attestor.Entries {
-	// 				fmt.Printf("\n%+v\n", entry.Certificates.Certificate)
-	// 			}
-	// 			// fmt.Printf("%+v\n", attestor)
-	// 		}
-	// 	}
-	// }
-	// fmt.Printf("%v", rule.VerifyImages)
 
 	ctx := enginecontext.NewMockContext(re)
 	addContextVariables(rule.Context, ctx)
