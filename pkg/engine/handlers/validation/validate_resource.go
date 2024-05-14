@@ -153,7 +153,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 				if ruleResponse.Status() == engineapi.RuleStatusPass {
 					return ruleResponse
 				}
-				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
+				return priorResp
 			}
 		}
 

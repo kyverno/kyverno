@@ -1,0 +1,41 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: update-deployment
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: deployment.yaml
+    - assert:
+        file: deployment.yaml
+  - name: step-03
+    try:
+    - sleep:
+        duration: 5s
+  - name: step-04
+    try:
+    - assert:
+        file: report-assert.yaml
+  - name: step-05
+    try:
+    - apply:
+        file: update-deployment.yaml
+    - assert:
+        file: update-deployment.yaml
+  - name: step-06
+    try:
+    - sleep:
+        duration: 5s
+  - name: step-07
+    try:
+    - assert:
+        file: report-assert.yaml
