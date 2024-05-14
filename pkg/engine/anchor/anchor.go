@@ -2,7 +2,6 @@ package anchor
 
 import (
 	"regexp"
-	"strings"
 )
 
 type AnchorType string
@@ -35,12 +34,27 @@ type anchor struct {
 
 // Parse parses a string, returns nil if not an anchor
 func Parse(str string) Anchor {
-	str = strings.TrimSpace(str)
-	values := regex.FindStringSubmatch(str)
-	if len(values) == 0 {
+	if len(str) < 2 {
 		return nil
 	}
-	return New(AnchorType(values[1]), values[2])
+
+	var modifier AnchorType
+	var key string
+
+	if str[len(str)-1] == ')' {
+		if str[0] == '(' {
+			key = str[1 : len(str)-1]
+		} else if str[0] == '+' || str[0] == '=' || str[0] == 'X' || str[0] == '^' || str[0] == '<' {
+			modifier = AnchorType(str[0])
+			key = str[2 : len(str)-1]
+		} else {
+			return nil
+		}
+	} else {
+		return nil
+	}
+
+	return New(AnchorType(modifier), key)
 }
 
 // New creates an anchor
