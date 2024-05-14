@@ -74,5 +74,5 @@ spec:
               any:
                 - key: '{{ one }}'
                   operator: Equals
-                  value: '{{ two }}'
+                  value: hi
           message: Sample Validation

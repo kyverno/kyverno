@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
@@ -23,6 +24,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/notary"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
+	"github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -538,11 +541,11 @@ func (iv *ImageVerifier) verifyAttestations(
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
 
-	// if err := iv.validate(imageVerify, ctx); err != nil {
-	// 	msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
-	// 	iv.logger.Error(err, "failed to validate in verifyImage")
-	// 	return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), ""
-	// }
+	if err := iv.Validate(imageVerify, ctx); err != nil {
+		msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
+		iv.logger.Error(err, "failed to validate in verifyImage")
+		return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), ""
+	}
 
 	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 }
@@ -816,68 +819,68 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 	return &patch, digest, nil
 }
 
-// func (iv *ImageVerifier) validate(imageVerify kyvernov1.ImageVerification, ctx context.Context) error {
-// 	if err := iv.loadContext(ctx); err != nil {
-// 		return fmt.Errorf("failed to load context : %v", err)
-// 	}
+func (iv *ImageVerifier) Validate(imageVerify kyvernov1.ImageVerification, ctx context.Context) error {
+	if err := iv.loadContext(ctx); err != nil {
+		return fmt.Errorf("failed to load context : %v", err)
+	}
 
-// 	spec := iv.policyContext.Policy().GetSpec()
-// 	background := spec.BackgroundProcessingEnabled()
-// 	err := policy.ValidateVariables(iv.policyContext.Policy(), background)
-// 	if err != nil {
-// 		return err
-// 	}
+	spec := iv.policyContext.Policy().GetSpec()
+	background := spec.BackgroundProcessingEnabled()
+	err := policy.ValidateVariables(iv.policyContext.Policy(), background)
+	if err != nil {
+		return err
+	}
 
-// 	if imageVerify.Validation.Deny != nil {
-// 		if err := iv.validateDeny(imageVerify); err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
+	if imageVerify.Validation.Deny != nil {
+		if err := iv.validateDeny(imageVerify); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-// func (iv *ImageVerifier) validateDeny(imageVerify kyvernov1.ImageVerification) error {
-// 	if deny, msg, err := CheckDenyPreconditions(iv.logger, iv.policyContext.JSONContext(), imageVerify.Validation.Deny.GetAnyAllConditions()); err != nil {
-// 		return fmt.Errorf("failed to check deny conditions: %v", err)
-// 	} else {
-// 		if deny {
-// 			return fmt.Errorf("%s", iv.getDenyMessage(imageVerify, deny, msg))
-// 		}
-// 		return nil
-// 	}
-// }
+func (iv *ImageVerifier) validateDeny(imageVerify kyvernov1.ImageVerification) error {
+	if deny, msg, err := CheckDenyPreconditions(iv.logger, iv.policyContext.JSONContext(), imageVerify.Validation.Deny.GetAnyAllConditions()); err != nil {
+		return fmt.Errorf("failed to check deny conditions: %v", err)
+	} else {
+		if deny {
+			return fmt.Errorf("%s", iv.getDenyMessage(imageVerify, deny, msg))
+		}
+		return nil
+	}
+}
 
-// func (iv *ImageVerifier) getDenyMessage(imageVerify kyvernov1.ImageVerification, deny bool, msg string) string {
-// 	if !deny {
-// 		return fmt.Sprintf("validation imageVerify '%s' passed.", imageVerify.Validation.Message)
-// 	}
+func (iv *ImageVerifier) getDenyMessage(imageVerify kyvernov1.ImageVerification, deny bool, msg string) string {
+	if !deny {
+		return fmt.Sprintf("validation imageVerify '%s' passed.", imageVerify.Validation.Message)
+	}
 
-// 	if imageVerify.Validation.Message == "" && msg == "" {
-// 		return fmt.Sprintf("validation error: imageVerify %s failed", imageVerify.Validation.Message)
-// 	}
+	if imageVerify.Validation.Message == "" && msg == "" {
+		return fmt.Sprintf("validation error: imageVerify %s failed", imageVerify.Validation.Message)
+	}
 
-// 	s := stringutils.JoinNonEmpty([]string{imageVerify.Validation.Message, msg}, "; ")
-// 	raw, err := variables.SubstituteAll(iv.logger, iv.policyContext.JSONContext(), s)
-// 	if err != nil {
-// 		return msg
-// 	}
+	s := stringutils.JoinNonEmpty([]string{imageVerify.Validation.Message, msg}, "; ")
+	raw, err := variables.SubstituteAll(iv.logger, iv.policyContext.JSONContext(), s)
+	if err != nil {
+		return msg
+	}
 
-// 	switch typed := raw.(type) {
-// 	case string:
-// 		return typed
-// 	default:
-// 		return "the produced message didn't resolve to a string, check your policy definition."
-// 	}
-// }
+	switch typed := raw.(type) {
+	case string:
+		return typed
+	default:
+		return "the produced message didn't resolve to a string, check your policy definition."
+	}
+}
 
-// func (iv *ImageVerifier) loadContext(ctx context.Context) error {
-// 	if err := iv.contextLoader(ctx, iv.rule.Context, iv.policyContext.JSONContext()); err != nil {
-// 		if _, ok := err.(gojmespath.NotFoundError); ok {
-// 			iv.logger.V(3).Info("failed to load context", "reason", err.Error())
-// 		} else {
-// 			iv.logger.Error(err, "failed to load context")
-// 		}
-// 		return err
-// 	}
-// 	return nil
-// }
+func (iv *ImageVerifier) loadContext(ctx context.Context) error {
+	if err := iv.contextLoader(ctx, iv.rule.Context, iv.policyContext.JSONContext()); err != nil {
+		if _, ok := err.(gojmespath.NotFoundError); ok {
+			iv.logger.V(3).Info("failed to load context", "reason", err.Error())
+		} else {
+			iv.logger.Error(err, "failed to load context")
+		}
+		return err
+	}
+	return nil
+}
