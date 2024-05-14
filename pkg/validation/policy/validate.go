@@ -709,8 +709,8 @@ func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecon
 	re := getAllowedVariables(background, target)
 
 	ctx := enginecontext.NewMockContext(re)
-	addContextVariables(rule.Context, ctx)
 
+	addContextVariables(rule.Context, ctx)
 	addImageVerifyVariables(rule, ctx)
 
 	for _, fe := range rule.Validation.ForEachValidation {
