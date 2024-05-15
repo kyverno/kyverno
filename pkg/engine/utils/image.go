@@ -62,6 +62,7 @@ func ExtractMatchingImages(
 		}
 	}
 	matchingImages, imageRefs := GetMatchingImages(images, rule)
+	// fmt.Printf("\n%+v, %+v\n", matchingImages, imageRefs)
 	return matchingImages, imageRefs, nil
 }
 
