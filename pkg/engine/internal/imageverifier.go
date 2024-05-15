@@ -483,7 +483,7 @@ func (iv *ImageVerifier) verifyAttestations(
 					continue
 				}
 
-				// fmt.Printf("There \n%+v\n", rawCosignResp)
+				// fmt.Printf("\n%+v : \n%+v\n\n", name, string(rawCosignResp))
 
 				err = iv.policyContext.JSONContext().AddContextEntry(name, rawCosignResp)
 				if err != nil {

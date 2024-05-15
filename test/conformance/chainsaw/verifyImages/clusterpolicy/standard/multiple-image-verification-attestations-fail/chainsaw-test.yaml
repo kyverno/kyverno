@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: multiple-image-verification-attestations-fail
+  name: multiple-image-verification-attestations
 spec:
   timeouts:
     delete: 2m
@@ -20,3 +20,5 @@ spec:
         - check:
             ($error != null): true
         file: pod.yaml
+    - assert:
+        file: pod-assert.yaml
