@@ -51,6 +51,7 @@ func NewMutateImageHandler(
 	if len(ruleImages) == 0 {
 		return nil, nil
 	}
+	// fmt.Printf("Hello there\n")
 	return mutateImageHandler{
 		configuration:  configuration,
 		rclientFactory: rclientFactory,
@@ -69,17 +70,19 @@ func (h mutateImageHandler) Process(
 	contextLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
-	if len(matchedExceptions) > 0 {
-		var keys []string
-		for i, exception := range matchedExceptions {
-			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
-			if err != nil {
-				logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-				return resource, handlers.WithError(rule, engineapi.Mutation, "failed to compute exception key", err)
-			}
-			keys = append(keys, key)
+	// fmt.Printf("HI\n")
+	// check if there is a policy exception matches the incoming resource
+	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	if exception != nil {
+		key, err := cache.MetaNamespaceKeyFunc(exception)
+		if err != nil {
+			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+		} else {
+			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception),
+			)
 		}
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
@@ -88,13 +91,14 @@ func (h mutateImageHandler) Process(
 		)
 	}
 
-	jsonContext := policyContext.JSONContext()
-	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
-	if err != nil {
-		return resource, handlers.WithResponses(
-			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
-		)
-	}
+	// jsonContext := policyContext.JSONContext()
+	ruleCopy := rule.DeepCopy()
+	// fmt.Printf("\n%+v\n", err)
+	// if err != nil {
+	// 	return resource, handlers.WithResponses(
+	// 		engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
+	// 	)
+	// }
 	var engineResponses []*engineapi.RuleResponse
 	var patches []jsonpatch.JsonPatchOperation
 	for _, imageVerify := range ruleCopy.VerifyImages {
@@ -116,6 +120,24 @@ func (h mutateImageHandler) Process(
 				engineapi.RuleFail(rule.Name, engineapi.ImageVerify, msg),
 			)
 		}
+	}
+	// hasValidateImageVerification := rule.HasValidateImageVerification()
+	// if hasValidateImageVerification {
+	// 	// fmt.Printf("Hi")
+	// 	_, err := validation.NewValidateImageVerificationHandler()
+	// 	if err != nil {
+	// 		return resource, handlers.WithResponses(
+	// 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to validate imageVerify", err),
+	// 		)
+	// 	}
+	// 	// fmt.Printf("Hi : %+v %+v", h, err)
+	// }
+	jsonContext := policyContext.JSONContext()
+	_, err := substituteVariables(rule, jsonContext, logger)
+	if err != nil {
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
+		)
 	}
 	if len(patches) != 0 {
 		patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
@@ -154,7 +176,7 @@ func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, l
 		for j := range ruleCopy.VerifyImages[i].Attestations {
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
 		}
-		ruleCopy.VerifyImages[i].Validation.Deny = nil
+		// ruleCopy.VerifyImages[i].Validation.Deny = nil
 	}
 
 	// Add similar 10 line 138 and 153. Doing it attestation not known at time of execution of validate
@@ -169,7 +191,7 @@ func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, l
 		for j := range ruleCopy.VerifyImages[i].Attestations {
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = rule.VerifyImages[i].Attestations[j].Conditions
 		}
-		ruleCopy.VerifyImages[i].Validation.Deny = rule.VerifyImages[i].Validation.Deny
+		// ruleCopy.VerifyImages[i].Validation.Deny = rule.VerifyImages[i].Validation.Deny
 	}
 	return &ruleCopy, nil
 }
