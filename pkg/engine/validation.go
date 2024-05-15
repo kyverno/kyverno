@@ -40,7 +40,7 @@ func (e *engine) validate(
 				return nil, nil
 			}
 			// if hasValidateImageVerification {
-			// 	validation.NewValidateImageVerificationHandler()
+			// 	return validation.NewValidateImageVerificationHandler()
 			// }
 			if hasValidate {
 				hasVerifyManifest := rule.HasVerifyManifests()
