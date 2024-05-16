@@ -333,7 +333,21 @@ func (iv *ImageVerifier) Verify(
 			}
 			responses = append(responses, ruleResp)
 		}
+
+		// Add Validation logic here
+
 	}
+
+	for _, imageVerify := range iv.rule.VerifyImages {
+		if err := iv.Validate(imageVerify, ctx); err != nil {
+			iv.logger.Error(err, "failed to validate in verifyImage")
+			responses = append(responses, engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "failed to validate in verifyImage", err))
+			// return resource, handlers.WithResponses(
+			// 	engineapi.RuleFail(rule.Name, engineapi.ImageVerify, msg),
+			// )
+		}
+	}
+
 	return patches, responses
 }
 

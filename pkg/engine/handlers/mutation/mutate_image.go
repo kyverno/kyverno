@@ -2,7 +2,6 @@ package mutation
 
 import (
 	"context"
-	"fmt"
 
 	json_patch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
@@ -91,14 +90,14 @@ func (h mutateImageHandler) Process(
 		)
 	}
 
-	// jsonContext := policyContext.JSONContext()
-	ruleCopy := rule.DeepCopy()
-	// fmt.Printf("\n%+v\n", err)
-	// if err != nil {
-	// 	return resource, handlers.WithResponses(
-	// 		engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
-	// 	)
-	// }
+	jsonContext := policyContext.JSONContext()
+	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
+	if err != nil {
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
+		)
+	}
+
 	var engineResponses []*engineapi.RuleResponse
 	var patches []jsonpatch.JsonPatchOperation
 	for _, imageVerify := range ruleCopy.VerifyImages {
@@ -113,13 +112,13 @@ func (h mutateImageHandler) Process(
 		patches = append(patches, patch...)
 		engineResponses = append(engineResponses, ruleResponse...)
 
-		if err := iv.Validate(imageVerify, ctx); err != nil {
-			msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
-			logger.Error(err, "failed to validate in verifyImage")
-			return resource, handlers.WithResponses(
-				engineapi.RuleFail(rule.Name, engineapi.ImageVerify, msg),
-			)
-		}
+		// if err := iv.Validate(imageVerify, ctx); err != nil {
+		// 	msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
+		// 	logger.Error(err, "failed to validate in verifyImage")
+		// 	return resource, handlers.WithResponses(
+		// 		engineapi.RuleFail(rule.Name, engineapi.ImageVerify, msg),
+		// 	)
+		// }
 	}
 	// hasValidateImageVerification := rule.HasValidateImageVerification()
 	// if hasValidateImageVerification {
@@ -132,13 +131,6 @@ func (h mutateImageHandler) Process(
 	// 	}
 	// 	// fmt.Printf("Hi : %+v %+v", h, err)
 	// }
-	jsonContext := policyContext.JSONContext()
-	_, err := substituteVariables(rule, jsonContext, logger)
-	if err != nil {
-		return resource, handlers.WithResponses(
-			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
-		)
-	}
 	if len(patches) != 0 {
 		patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
 		decoded, err := json_patch.DecodePatch(patch)
@@ -177,7 +169,9 @@ func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, l
 		for j := range ruleCopy.VerifyImages[i].Attestations {
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
 		}
-		// ruleCopy.VerifyImages[i].Validation.Deny = nil
+		if hasValidateImageVerification {
+			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = nil
+		}
 	}
 
 	// Add similar 10 line 138 and 153. Doing it attestation not known at time of execution of validate
@@ -193,7 +187,9 @@ func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, l
 		for j := range ruleCopy.VerifyImages[i].Attestations {
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = rule.VerifyImages[i].Attestations[j].Conditions
 		}
-		// ruleCopy.VerifyImages[i].Validation.Deny = rule.VerifyImages[i].Validation.Deny
+		if hasValidateImageVerification {
+			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = rule.VerifyImages[i].Validation.Deny.RawAnyAllConditions
+		}
 	}
 	return &ruleCopy, nil
 }
