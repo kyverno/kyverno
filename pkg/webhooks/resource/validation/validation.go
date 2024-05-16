@@ -135,7 +135,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	go func() {
 		if needsReports(request, policyContext.NewResource(), v.admissionReports) {
-			if err := v.createReports(ctx, policyContext.NewResource(), request, engineResponses...); err != nil {
+			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
 		}
