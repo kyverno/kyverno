@@ -80,6 +80,6 @@ Made with [contributors-img](https://contrib.rocks).
 
 ## License
 
-Copyright 2023, the Kyverno project. All rights reserved. Kyverno is licensed under the [Apache License 2.0](LICENSE).
+Copyright 2024, the Kyverno project. All rights reserved. Kyverno is licensed under the [Apache License 2.0](LICENSE).
 
 Kyverno is a [Cloud Native Computing Foundation (CNCF) Incubating project](https://www.cncf.io/projects/) and was contributed by [Nirmata](https://nirmata.com/?utm_source=github&utm_medium=repository).
