@@ -50316,7 +50316,7 @@ spec:
               COUNT=$(kubectl get updaterequests.kyverno.io -A | wc -l)
               if [ "$COUNT" -gt 10000 ]; then
                 echo "too many updaterequests found ($COUNT), cleaning up..."
-                kubectl delete urs --all -n kyverno
+                kubectl delete updaterequests.kyverno.io --all -n kyverno
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
