@@ -771,6 +771,28 @@ The chart values are organised per component.
 | cleanupJobs.clusterAdmissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | cleanupJobs.clusterAdmissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
 | cleanupJobs.clusterAdmissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
+| cleanupJobs.updateRequests.enabled | bool | `true` | Enable cleanup cronjob |
+| cleanupJobs.updateRequests.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
+| cleanupJobs.updateRequests.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
+| cleanupJobs.updateRequests.image.registry | string | `nil` | Image registry |
+| cleanupJobs.updateRequests.image.repository | string | `"bitnami/kubectl"` | Image repository |
+| cleanupJobs.updateRequests.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
+| cleanupJobs.updateRequests.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| cleanupJobs.updateRequests.imagePullSecrets | list | `[]` | Image pull secrets |
+| cleanupJobs.updateRequests.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
+| cleanupJobs.updateRequests.threshold | int | `10000` | Reports threshold, if number of updateRequests are above this value the cronjob will start deleting them |
+| cleanupJobs.updateRequests.history | object | `{"failure":1,"success":1}` | Cronjob history |
+| cleanupJobs.updateRequests.podSecurityContext | object | `{}` | Security context for the pod |
+| cleanupJobs.updateRequests.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| cleanupJobs.updateRequests.priorityClassName | string | `""` | Pod PriorityClassName |
+| cleanupJobs.updateRequests.resources | object | `{}` | Job resources |
+| cleanupJobs.updateRequests.tolerations | list | `[]` | List of node taints to tolerate |
+| cleanupJobs.updateRequests.nodeSelector | object | `{}` | Node labels for pod assignment |
+| cleanupJobs.updateRequests.podAnnotations | object | `{}` | Pod Annotations |
+| cleanupJobs.updateRequests.podLabels | object | `{}` | Pod labels |
+| cleanupJobs.updateRequests.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| cleanupJobs.updateRequests.podAffinity | object | `{}` | Pod affinity constraints. |
+| cleanupJobs.updateRequests.nodeAffinity | object | `{}` | Node affinity constraints. |
 
 ### Other
 
