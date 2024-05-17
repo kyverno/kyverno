@@ -82,8 +82,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 		return NewErrorResponse("empty mutate rule", nil)
 	}
 
-	patchedResource := resource.DeepCopy()
-	resourceBytes, err := patchedResource.MarshalJSON()
+	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
 		return NewErrorResponse("failed to marshal resource", err)
 	}
@@ -94,11 +93,11 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	if strings.TrimSpace(string(resourceBytes)) == strings.TrimSpace(string(patchedBytes)) {
 		return NewResponse(engineapi.RuleStatusSkip, resource, "no patches applied")
 	}
-	if err := patchedResource.UnmarshalJSON(patchedBytes); err != nil {
+	if err := resource.UnmarshalJSON(patchedBytes); err != nil {
 		return NewErrorResponse("failed to unmarshal patched resource", err)
 	}
 
-	return NewResponse(engineapi.RuleStatusPass, *patchedResource, "resource patched")
+	return NewResponse(engineapi.RuleStatusPass, resource, "resource patched")
 }
 
 func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyvernov1.ForEachMutation, error) {
