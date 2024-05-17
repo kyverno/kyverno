@@ -24,10 +24,12 @@ func EvaluateList(jmesPath string, ctx enginecontext.EvalInterface) ([]interface
 }
 
 // InvertedElement inverted the order of element for patchStrategicMerge  policies as kustomize patch revering the order of patch resources.
-func InvertedElement(elements []interface{}) {
-	for i, j := 0, len(elements)-1; i < j; i, j = i+1, j-1 {
-		elements[i], elements[j] = elements[j], elements[i]
+func InvertedElement(elements []interface{}) []interface{} {
+	elementsCopy := make([]interface{}, len(elements))
+	for i := range elements {
+		elementsCopy[i] = elements[len(elements)-i-1]
 	}
+	return elementsCopy
 }
 
 func AddElementToContext(ctx engineapi.PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
