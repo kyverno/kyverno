@@ -131,7 +131,7 @@ func extract(
 }
 
 func BuildStandardExtractors(tags ...string) []imageExtractor {
-	var extractors []imageExtractor
+	extractors := make([]imageExtractor, 0, 3)
 	for _, tag := range []string{"initContainers", "containers", "ephemeralContainers"} {
 		var t []string
 		t = append(t, tags...)

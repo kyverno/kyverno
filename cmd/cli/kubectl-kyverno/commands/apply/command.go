@@ -264,7 +264,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	}
 	var rc processor.ResultCounts
 	// validate policies
-	var validPolicies []kyvernov1.PolicyInterface
+	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
 		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
