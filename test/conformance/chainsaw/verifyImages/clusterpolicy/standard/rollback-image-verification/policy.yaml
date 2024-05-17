@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: verify-images
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-image
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: check-image
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+      verifyImages:
+      - imageReferences:
+        - "ghcr.io/kyverno*"
+        attestors:
+        - count: 1
+          entries:
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfnYaFSrs2pLp4ShcWBgMLJM6Gki/
+                1tC5ZWN2IuJTe2RbyVrDEn1qLBXNzGKhIXbsUyO5+BuIfgMdek1pDYFZGQ==
+                -----END PUBLIC KEY-----
+              rekor:
+                url: https://rekor.sigstore.dev
+                ignoreTlog: true
+              ctlog:
+                ignoreSCT: true

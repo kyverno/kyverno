@@ -53,8 +53,12 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		client:     client,
 	}
-	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
-	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
 	return &c
 }
 
@@ -70,7 +74,12 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			return c.cache.Set(key, policy, c.client.Discovery())
+			if policy.IsReady() {
+				return c.cache.Set(key, policy, c.client.Discovery())
+			} else {
+				c.cache.Unset(key)
+				return nil
+			}
 		}
 	}
 	cpols, err := c.cpolLister.List(labels.Everything())
@@ -81,7 +90,12 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			return c.cache.Set(key, policy, c.client.Discovery())
+			if policy.IsReady() {
+				return c.cache.Set(key, policy, c.client.Discovery())
+			} else {
+				c.cache.Unset(key)
+				return nil
+			}
 		}
 	}
 	return nil
@@ -99,7 +113,17 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	return c.cache.Set(key, policy, c.client.Discovery())
+	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookConfiguration() {
+		if policy.IsReady() {
+			return c.cache.Set(key, policy, c.client.Discovery())
+		} else {
+			c.cache.Unset(key)
+			return nil
+		}
+	} else {
+		c.cache.Unset(key)
+		return nil
+	}
 }
 
 func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {

@@ -41,6 +41,12 @@ type Spec struct {
 	// +optional
 	ValidationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
+	// Admission controls if rules are applied during admission.
+	// Optional. Default value is "true".
+	// +optional
+	// +kubebuilder:default=true
+	Admission *bool `json:"admission,omitempty" yaml:"admission,omitempty"`
+
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
@@ -48,9 +54,7 @@ type Spec struct {
 	// +kubebuilder:default=true
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 
-	// SchemaValidation skips validation checks for policies as well as patched resources.
-	// Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.
-	// +optional
+	// Deprecated.
 	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
 
 	// WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
@@ -72,6 +76,21 @@ type Spec struct {
 	// Defaults to "false" if not specified.
 	// +optional
 	GenerateExisting bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
+
+	// UseServerSideApply controls whether to use server-side apply for generate rules
+	// If is set to "true" create & update for generate rules will use apply instead of create/update.
+	// Defaults to "false" if not specified.
+	// +optional
+	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
+
+	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+	// Requires Kubernetes 1.27 or later.
+	// +optional
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty" yaml:"webhookConfiguration,omitempty"`
+}
+
+func (s *Spec) CustomWebhookConfiguration() bool {
+	return s.WebhookConfiguration != nil
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -96,6 +115,26 @@ func (s *Spec) HasMutate() bool {
 		}
 	}
 
+	return false
+}
+
+// HasMutate checks for standard admission mutate rule
+func (s *Spec) HasMutateStandard() bool {
+	for _, rule := range s.Rules {
+		if rule.HasMutateStandard() {
+			return true
+		}
+	}
+	return false
+}
+
+// HasMutate checks for mutate existing rule types
+func (s *Spec) HasMutateExisting() bool {
+	for _, rule := range s.Rules {
+		if rule.HasMutateExisting() {
+			return true
+		}
+	}
 	return false
 }
 
@@ -154,6 +193,15 @@ func (s *Spec) HasVerifyManifests() bool {
 	return false
 }
 
+// AdmissionProcessingEnabled checks if admission is set to true
+func (s *Spec) AdmissionProcessingEnabled() bool {
+	if s.Admission == nil {
+		return true
+	}
+
+	return *s.Admission
+}
+
 // BackgroundProcessingEnabled checks if background is set to true
 func (s *Spec) BackgroundProcessingEnabled() bool {
 	if s.Background == nil {
@@ -161,16 +209,6 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	}
 
 	return *s.Background
-}
-
-// IsMutateExisting checks if the mutate policy applies to existing resources
-func (s *Spec) IsMutateExisting() bool {
-	for _, rule := range s.Rules {
-		if rule.IsMutateExisting() {
-			return true
-		}
-	}
-	return false
 }
 
 // GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
@@ -216,30 +254,30 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 }
 
 // ValidateRules implements programmatic validation of Rules
-func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
 	for i, rule := range s.Rules {
-		errs = append(errs, rule.Validate(path.Index(i), namespaced, clusterResources)...)
+		errs = append(errs, rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)...)
 	}
 	return errs
 }
 
 func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
-	if s.GenerateExistingOnPolicyUpdate != nil {
-		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "deprecated field, define generateExisting instead"))
+	if s.GenerateExistingOnPolicyUpdate != nil && s.GenerateExisting {
+		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use generateExisting instead"))
 	}
 	return errs
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if err := s.ValidateDeprecatedFields(path); err != nil {
 		errs = append(errs, err...)
 	}
 	if s.WebhookTimeoutSeconds != nil && (*s.WebhookTimeoutSeconds < 1 || *s.WebhookTimeoutSeconds > 30) {
 		errs = append(errs, field.Invalid(path.Child("webhookTimeoutSeconds"), s.WebhookTimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
 	}
-	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, clusterResources)...)
+	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))
 	}

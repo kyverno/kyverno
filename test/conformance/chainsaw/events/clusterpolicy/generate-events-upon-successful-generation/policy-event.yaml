@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: default
+involvedObject:
+  apiVersion: kyverno.io/v1
+  kind: ClusterPolicy
+  name: zk-kafka-address
+type: Normal
+message: resource generated
+reason: PolicyApplied
+action: Resource Generated
+reportingComponent: kyverno-generate

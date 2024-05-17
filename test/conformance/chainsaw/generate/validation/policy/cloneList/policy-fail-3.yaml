@@ -1,0 +1,25 @@
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: target-scope-validation-fail-3
+  namespace: target-scope-validation-fail-ns
+spec:
+  rules:
+  - name: clone-multiple-basic-create-policy-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - ServiceAccount
+    generate:
+      namespace: target-scope-validation-fail-ns
+      synchronize: true
+      cloneList:
+        # missing namespace for npol
+        # namespace: target-scope-validation-fail-ns
+        kinds:
+          - v1/Secret
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"

@@ -1,0 +1,38 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-invalid-attestors
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: check-invalid-attestors
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - imageReferences:
+        - "ghcr.io/chipzoller/zulu:*"
+        attestors:
+        - count: 1
+          entries:
+          - keyless:
+              subject: "invalid subject"
+              issuer: "https://token.actions.githubusercontent.com"
+              rekor:
+                url: https://rekor.sigstore.dev
+              ctlog:
+                ignoreSCT: true
+          - keyless:
+              subject: "https://github.com/chipzoller/zulu/.github/workflows/slsa-generic-keyless.yaml@refs/tags/v*"
+              issuer: "https://token.actions.githubusercontent.com"
+              rekor:
+                url: https://rekor.sigstore.dev
+              ctlog:
+                ignoreSCT: true

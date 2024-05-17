@@ -10,7 +10,7 @@ import (
 
 func TestGetResourceName(t *testing.T) {
 	type args struct {
-		request *admissionv1.AdmissionRequest
+		request admissionv1.AdmissionRequest
 	}
 	tests := []struct {
 		name string
@@ -19,7 +19,7 @@ func TestGetResourceName(t *testing.T) {
 	}{{
 		name: "with namespace",
 		args: args{
-			request: &admissionv1.AdmissionRequest{
+			request: admissionv1.AdmissionRequest{
 				Kind: v1.GroupVersionKind{
 					Kind: "Pod",
 				},
@@ -31,7 +31,7 @@ func TestGetResourceName(t *testing.T) {
 	}, {
 		name: "without namespace",
 		args: args{
-			request: &admissionv1.AdmissionRequest{
+			request: admissionv1.AdmissionRequest{
 				Kind: v1.GroupVersionKind{
 					Kind: "Namespace",
 				},

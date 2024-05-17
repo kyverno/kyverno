@@ -1,28 +1,30 @@
-name: validate-service-loadbalancer
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: add-safe-to-evict
-    rule: annotate-empty-dir
-    resource: pod-without-emptydir-hostpath
-    kind: Pod
-    result: skip
-  - policy: add-safe-to-evict
-    rule: annotate-empty-dir
-    resource: pod-with-emptydir-hostpath
-    patchedResource: patchedResource.yaml
-    kind: Pod
-    result: pass
-  - policy: add-safe-to-evict
-    rule: annotate-empty-dir
-    resource: pod-with-emptydir-hostpath-1
-    patchedResource: patchedResourceWithVolume.yaml
-    kind: Pod
-    result: pass
-  - policy: add-safe-to-evict
-    rule: annotate-empty-dir
-    resource: pod-without-emptydir-hostpath-1
-    kind: Pod
-    result: skip
+- kind: Pod
+  patchedResource: patchedResource.yaml
+  policy: add-safe-to-evict
+  resources:
+  - pod-with-emptydir-hostpath
+  result: pass
+  rule: annotate-empty-dir
+- kind: Pod
+  patchedResource: patchedResourceWithVolume.yaml
+  policy: add-safe-to-evict
+  resources:
+  - pod-with-emptydir-hostpath-1
+  result: pass
+  rule: annotate-empty-dir
+- kind: Pod
+  policy: add-safe-to-evict
+  resources:
+  - pod-without-emptydir-hostpath
+  - pod-without-emptydir-hostpath-1
+  result: skip
+  rule: annotate-empty-dir

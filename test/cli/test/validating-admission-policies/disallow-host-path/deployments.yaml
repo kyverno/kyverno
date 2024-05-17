@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-pass
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx-server
+        image: nginx
+        volumeMounts:
+          - name: temp
+            mountPath: /scratch
+      volumes:
+      - name: temp
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-fail
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx-server
+        image: nginx
+        volumeMounts:
+          - name: udev
+            mountPath: /data
+      volumes:
+      - name: udev
+        hostPath:
+          path: /etc/udev

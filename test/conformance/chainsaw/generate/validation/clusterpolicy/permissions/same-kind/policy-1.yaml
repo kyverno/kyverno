@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-same-kind-pol-2
+spec:
+  rules:
+    - name: generate-add-labels-policy
+      match:
+        all:
+        - resources:
+            kinds:
+              - Namespace
+      generate:
+        synchronize: true
+        apiVersion: kyverno.io/v1
+        kind: Policy 
+        name: add-labels-policy
+        namespace: '{{request.object.metadata.name}}'
+        data:
+          spec:
+            rules:
+            - name: add-labels
+              match:
+                all:
+                - resources:
+                    kinds:
+                    - Pod
+                    - Service
+                    - PersistentVolumeClaim
+              mutate:
+                patchStrategicMerge:
+                  metadata:
+                    labels:
+                      AppID: '{{request.object.metadata.labels.AppID}}'

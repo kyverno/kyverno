@@ -6,8 +6,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // MockContext is used for testing and validation of variables
@@ -41,7 +42,8 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 	var emptyResult interface{}
 
 	// compile the query
-	if _, err := jmespath.New(query); err != nil {
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	if _, err := jp.Query(query); err != nil {
 		return emptyResult, fmt.Errorf("invalid JMESPath query %s: %v", query, err)
 	}
 
@@ -60,6 +62,16 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 		re:              ctx.re,
 		allowedPatterns: ctx.allowedPatterns,
 	}
+}
+
+func (ctx *MockContext) QueryOperation() string {
+	if op, err := ctx.Query("request.operation"); err != nil {
+		if op != nil {
+			return op.(string)
+		}
+	}
+
+	return ""
 }
 
 func (ctx *MockContext) isVariableDefined(variable string) bool {

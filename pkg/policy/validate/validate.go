@@ -68,17 +68,69 @@ func (v *Validate) Validate(ctx context.Context) (string, error) {
 		}
 	}
 
+	if v.rule.CEL != nil {
+		for _, expression := range v.rule.CEL.Expressions {
+			if expression.Expression == "" {
+				return "", fmt.Errorf("cel.expressions.expression is required")
+			}
+		}
+
+		if v.rule.CEL.ParamKind != nil {
+			if v.rule.CEL.ParamKind.APIVersion == "" {
+				return "", fmt.Errorf("cel.paramKind.apiVersion is required")
+			}
+
+			if v.rule.CEL.ParamKind.Kind == "" {
+				return "", fmt.Errorf("cel.paramKind.kind is required")
+			}
+
+			if v.rule.CEL.ParamRef == nil {
+				return "", fmt.Errorf("cel.paramRef is required")
+			}
+		}
+
+		if v.rule.CEL.ParamRef != nil {
+			if v.rule.CEL.ParamRef.Name == "" && v.rule.CEL.ParamRef.Selector == nil {
+				return "", fmt.Errorf("one of cel.paramRef.name or cel.paramRef.selector must be set")
+			}
+
+			if v.rule.CEL.ParamRef.Name != "" && v.rule.CEL.ParamRef.Selector != nil {
+				return "", fmt.Errorf("one of cel.paramRef.name or cel.paramRef.selector must be set")
+			}
+
+			if v.rule.CEL.ParamRef.ParameterNotFoundAction == nil {
+				return "", fmt.Errorf("cel.paramRef.parameterNotFoundAction is required")
+			}
+
+			if v.rule.CEL.ParamKind == nil {
+				return "", fmt.Errorf("cel.paramKind is required")
+			}
+		}
+
+		if v.rule.CEL.AuditAnnotations != nil {
+			for _, auditAnnotation := range v.rule.CEL.AuditAnnotations {
+				if auditAnnotation.Key == "" {
+					return "", fmt.Errorf("cel.auditAnnotation.key is required")
+				}
+
+				if auditAnnotation.ValueExpression == "" {
+					return "", fmt.Errorf("cel.auditAnnotation.valueExpression is required")
+				}
+			}
+		}
+	}
+
 	return "", nil
 }
 
 func (v *Validate) validateElements() error {
 	count := validationElemCount(v.rule)
 	if count == 0 {
-		return fmt.Errorf("one of pattern, anyPattern, deny, foreach must be specified")
+		return fmt.Errorf("one of pattern, anyPattern, deny, foreach, cel must be specified")
 	}
 
 	if count > 1 {
-		return fmt.Errorf("only one of pattern, anyPattern, deny, foreach can be specified")
+		return fmt.Errorf("only one of pattern, anyPattern, deny, foreach, cel can be specified")
 	}
 
 	return nil
@@ -107,6 +159,10 @@ func validationElemCount(v *kyvernov1.Validation) int {
 	}
 
 	if v.PodSecurity != nil {
+		count++
+	}
+
+	if v.CEL != nil {
 		count++
 	}
 

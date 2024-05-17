@@ -15,8 +15,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/auth"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -27,6 +26,7 @@ import (
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -35,13 +35,19 @@ const (
 )
 
 type validateManifestHandler struct {
-	client dclient.Interface
+	client engineapi.Client
 }
 
-func NewValidateManifestHandler(client dclient.Interface) handlers.Handler {
+func NewValidateManifestHandler(
+	policyContext engineapi.PolicyContext,
+	client engineapi.Client,
+) (handlers.Handler, error) {
+	if engineutils.IsDeleteRequest(policyContext) {
+		return nil, nil
+	}
 	return validateManifestHandler{
 		client: client,
-	}
+	}, nil
 }
 
 func (h validateManifestHandler) Process(
@@ -50,20 +56,35 @@ func (h validateManifestHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	_ engineapi.EngineContextLoader,
+	exceptions []*kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	if engineutils.IsDeleteRequest(policyContext) {
-		return resource, nil
+	// check if there is a policy exception matches the incoming resource
+	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	if exception != nil {
+		key, err := cache.MetaNamespaceKeyFunc(exception)
+		if err != nil {
+			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+		} else {
+			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception),
+			)
+		}
 	}
+
+	// verify manifest
 	verified, reason, err := h.verifyManifest(ctx, logger, policyContext, *rule.Validation.Manifests)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "error occurred during manifest verification", err))
+		return resource, handlers.WithError(rule, engineapi.Validation, "error occurred during manifest verification", err)
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return resource, handlers.RuleResponses(internal.RuleResponse(rule, engineapi.Validation, reason, engineapi.RuleStatusFail))
+		return resource, handlers.WithFail(rule, engineapi.Validation, reason)
 	}
-	return resource, handlers.RuleResponses(internal.RulePass(rule, engineapi.Validation, reason))
+	return resource, handlers.WithPass(rule, engineapi.Validation, reason)
 }
 
 func (h validateManifestHandler) verifyManifest(
@@ -168,12 +189,8 @@ func (h validateManifestHandler) verifyManifest(
 }
 
 func (h validateManifestHandler) checkDryRunPermission(ctx context.Context, kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(h.client.Discovery(), h.client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "create", "")
-	ok, err := canI.RunAccessCheck(ctx)
-	if err != nil {
-		return false, err
-	}
-	return ok, nil
+	ok, _, err := h.client.CanI(ctx, kind, namespace, "create", "", config.KyvernoServiceAccountName())
+	return ok, err
 }
 
 func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {

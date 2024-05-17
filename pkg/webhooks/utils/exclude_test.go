@@ -25,11 +25,11 @@ func TestExcludeKyvernoResources(t *testing.T) {
 	}, {
 		name: "ClusterPolicyReport",
 		args: args{"ClusterPolicyReport"},
-		want: true,
+		want: false,
 	}, {
 		name: "PolicyReport",
 		args: args{"PolicyReport"},
-		want: true,
+		want: false,
 	}, {
 		name: "AdmissionReport",
 		args: args{"AdmissionReport"},

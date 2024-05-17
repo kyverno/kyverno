@@ -1,0 +1,321 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.4
+  name: policies.k8s.nginx.org
+spec:
+  conversion:
+    strategy: None
+  group: k8s.nginx.org
+  names:
+    kind: Policy
+    listKind: PolicyList
+    plural: policies
+    shortNames:
+    - pol
+    singular: policy
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Current state of the Policy. If the resource has a valid status,
+        it means it has been validated and accepted by the Ingress Controller.
+      jsonPath: .status.state
+      name: State
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Policy defines a Policy for VirtualServer and VirtualServerRoute
+          resources.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PolicySpec is the spec of the Policy resource. The spec includes
+              multiple fields, where each field represents a different policy. Only
+              one policy (field) is allowed.
+            properties:
+              accessControl:
+                description: AccessControl defines an access policy based on the source
+                  IP of a request.
+                properties:
+                  allow:
+                    items:
+                      type: string
+                    type: array
+                  deny:
+                    items:
+                      type: string
+                    type: array
+                type: object
+              basicAuth:
+                description: 'BasicAuth holds HTTP Basic authentication configuration
+                  policy status: preview'
+                properties:
+                  realm:
+                    type: string
+                  secret:
+                    type: string
+                type: object
+              egressMTLS:
+                description: EgressMTLS defines an Egress MTLS policy.
+                properties:
+                  ciphers:
+                    type: string
+                  protocols:
+                    type: string
+                  serverName:
+                    type: boolean
+                  sessionReuse:
+                    type: boolean
+                  sslName:
+                    type: string
+                  tlsSecret:
+                    type: string
+                  trustedCertSecret:
+                    type: string
+                  verifyDepth:
+                    type: integer
+                  verifyServer:
+                    type: boolean
+                type: object
+              ingressClassName:
+                type: string
+              ingressMTLS:
+                description: IngressMTLS defines an Ingress MTLS policy.
+                properties:
+                  clientCertSecret:
+                    type: string
+                  crlFileName:
+                    type: string
+                  verifyClient:
+                    type: string
+                  verifyDepth:
+                    type: integer
+                type: object
+              jwt:
+                description: JWTAuth holds JWT authentication configuration.
+                properties:
+                  jwksURI:
+                    type: string
+                  keyCache:
+                    type: string
+                  realm:
+                    type: string
+                  secret:
+                    type: string
+                  token:
+                    type: string
+                type: object
+              oidc:
+                description: OIDC defines an Open ID Connect policy.
+                properties:
+                  accessTokenEnable:
+                    type: boolean
+                  authEndpoint:
+                    type: string
+                  authExtraArgs:
+                    items:
+                      type: string
+                    type: array
+                  clientID:
+                    type: string
+                  clientSecret:
+                    type: string
+                  jwksURI:
+                    type: string
+                  redirectURI:
+                    type: string
+                  scope:
+                    type: string
+                  tokenEndpoint:
+                    type: string
+                  zoneSyncLeeway:
+                    type: integer
+                type: object
+              rateLimit:
+                description: RateLimit defines a rate limit policy.
+                properties:
+                  burst:
+                    type: integer
+                  delay:
+                    type: integer
+                  dryRun:
+                    type: boolean
+                  key:
+                    type: string
+                  logLevel:
+                    type: string
+                  noDelay:
+                    type: boolean
+                  rate:
+                    type: string
+                  rejectCode:
+                    type: integer
+                  zoneSize:
+                    type: string
+                type: object
+              waf:
+                description: WAF defines an WAF policy.
+                properties:
+                  apBundle:
+                    type: string
+                  apPolicy:
+                    type: string
+                  enable:
+                    type: boolean
+                  securityLog:
+                    description: SecurityLog defines the security log of a WAF policy.
+                    properties:
+                      apLogConf:
+                        type: string
+                      enable:
+                        type: boolean
+                      logDest:
+                        type: string
+                    type: object
+                  securityLogs:
+                    items:
+                      description: SecurityLog defines the security log of a WAF policy.
+                      properties:
+                        apLogConf:
+                          type: string
+                        enable:
+                          type: boolean
+                        logDest:
+                          type: string
+                      type: object
+                    type: array
+                type: object
+            type: object
+          status:
+            description: PolicyStatus is the status of the policy resource
+            properties:
+              message:
+                type: string
+              reason:
+                type: string
+              state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Policy defines a Policy for VirtualServer and VirtualServerRoute
+          resources.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PolicySpec is the spec of the Policy resource. The spec includes
+              multiple fields, where each field represents a different policy. Only
+              one policy (field) is allowed.
+            properties:
+              accessControl:
+                description: AccessControl defines an access policy based on the source
+                  IP of a request.
+                properties:
+                  allow:
+                    items:
+                      type: string
+                    type: array
+                  deny:
+                    items:
+                      type: string
+                    type: array
+                type: object
+              egressMTLS:
+                description: EgressMTLS defines an Egress MTLS policy.
+                properties:
+                  ciphers:
+                    type: string
+                  protocols:
+                    type: string
+                  serverName:
+                    type: boolean
+                  sessionReuse:
+                    type: boolean
+                  sslName:
+                    type: string
+                  tlsSecret:
+                    type: string
+                  trustedCertSecret:
+                    type: string
+                  verifyDepth:
+                    type: integer
+                  verifyServer:
+                    type: boolean
+                type: object
+              ingressMTLS:
+                description: IngressMTLS defines an Ingress MTLS policy.
+                properties:
+                  clientCertSecret:
+                    type: string
+                  verifyClient:
+                    type: string
+                  verifyDepth:
+                    type: integer
+                type: object
+              jwt:
+                description: JWTAuth holds JWT authentication configuration.
+                properties:
+                  realm:
+                    type: string
+                  secret:
+                    type: string
+                  token:
+                    type: string
+                type: object
+              rateLimit:
+                description: RateLimit defines a rate limit policy.
+                properties:
+                  burst:
+                    type: integer
+                  delay:
+                    type: integer
+                  dryRun:
+                    type: boolean
+                  key:
+                    type: string
+                  logLevel:
+                    type: string
+                  noDelay:
+                    type: boolean
+                  rate:
+                    type: string
+                  rejectCode:
+                    type: integer
+                  zoneSize:
+                    type: string
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: false

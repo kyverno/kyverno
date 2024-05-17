@@ -11,17 +11,16 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/metric/instrument"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
 type controller struct {
 	metricsConfig metrics.MetricsConfigManager
-	ruleInfo      instrument.Float64ObservableGauge
+	ruleInfo      metric.Float64ObservableGauge
 
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
@@ -37,11 +36,11 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	waitGroup *sync.WaitGroup,
 ) {
-	meterProvider := global.MeterProvider()
+	meterProvider := otel.GetMeterProvider()
 	meter := meterProvider.Meter(metrics.MeterName)
 	policyRuleInfoMetric, err := meter.Float64ObservableGauge(
 		"kyverno_policy_rule_info_total",
-		instrument.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"),
+		metric.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"),
 	)
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_policy_rule_info_total")
@@ -53,8 +52,12 @@ func NewController(
 		polLister:     polInformer.Lister(),
 		waitGroup:     waitGroup,
 	}
-	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	controllerutils.AddEventHandlers(polInformer.Informer(), c.addNsPolicy, c.updateNsPolicy, c.deleteNsPolicy)
+	if _, err := controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlers(polInformer.Informer(), c.addNsPolicy, c.updateNsPolicy, c.deleteNsPolicy); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
 	if c.ruleInfo != nil {
 		_, err := meter.RegisterCallback(c.report, c.ruleInfo)
 		if err != nil {
@@ -108,13 +111,13 @@ func (c *controller) reportPolicy(ctx context.Context, policy kyvernov1.PolicyIn
 			attribute.String("policy_type", string(policyType)),
 			attribute.String("policy_background_mode", string(backgroundMode)),
 		}
-		for _, rule := range autogen.ComputeRules(policy) {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			ruleType := metrics.ParseRuleType(rule)
 			ruleAttributes := []attribute.KeyValue{
 				attribute.String("rule_name", rule.Name),
 				attribute.String("rule_type", string(ruleType)),
 			}
-			observer.ObserveFloat64(c.ruleInfo, 1, append(ruleAttributes, policyAttributes...)...)
+			observer.ObserveFloat64(c.ruleInfo, 1, metric.WithAttributes(append(ruleAttributes, policyAttributes...)...))
 		}
 	}
 	return nil

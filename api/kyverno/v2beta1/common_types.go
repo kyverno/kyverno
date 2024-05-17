@@ -2,9 +2,17 @@ package v2beta1
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
+
+// WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.
+type WebhookConfiguration struct {
+	// MatchCondition configures admission webhook matchConditions.
+	// +optional
+	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
+}
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
@@ -37,6 +45,10 @@ type Validation struct {
 	// by specifying exclusions for Pod Security Standards controls.
 	// +optional
 	PodSecurity *kyvernov1.PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+
+	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
+	// +optional
+	CEL *kyvernov1.CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.
@@ -77,8 +89,7 @@ var ConditionOperators = map[string]ConditionOperator{
 
 // Deny specifies a list of conditions used to pass or fail a validation rule.
 type Deny struct {
-	// Multiple conditions can be declared under an `any` or `all` statement. A direct list
-	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
+	// Multiple conditions can be declared under an `any` or `all` statement.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
 	RawAnyAllConditions *AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
@@ -97,6 +108,9 @@ type Condition struct {
 	// or can be variables declared using JMESPath.
 	// +optional
 	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// Message is an optional display message
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() apiextensions.JSON {

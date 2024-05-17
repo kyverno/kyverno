@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-a
+  namespace: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-b
+  namespace: default

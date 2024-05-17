@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/utils/kube"
+	tlsutils "github.com/kyverno/kyverno/pkg/utils/tls"
 	"github.com/kyverno/kyverno/pkg/version"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -23,7 +23,7 @@ func NewTraceConfig(log logr.Logger, tracerName, address, certs string, kubeClie
 	var client otlptrace.Client
 	if certs != "" {
 		// here the certificates are stored as configmaps
-		transportCreds, err := kube.FetchCert(ctx, certs, kubeClient)
+		transportCreds, err := tlsutils.FetchCert(ctx, certs, kubeClient)
 		if err != nil {
 			log.Error(err, "Error fetching certificate from secret")
 		}
@@ -43,13 +43,15 @@ func NewTraceConfig(log logr.Logger, tracerName, address, certs string, kubeClie
 		log.Error(err, "Failed to create the collector exporter")
 		return nil, err
 	}
-	res, err := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
+	res, err := resource.New(
+		ctx,
+		resource.WithSchemaURL(semconv.SchemaURL),
+		resource.WithTelemetrySDK(),
+		resource.WithAttributes(
 			semconv.ServiceNameKey.String(tracerName),
-			semconv.ServiceVersionKey.String(version.BuildVersion),
+			semconv.ServiceVersionKey.String(version.Version()),
 		),
+		resource.WithFromEnv(),
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
@@ -61,8 +63,8 @@ func NewTraceConfig(log logr.Logger, tracerName, address, certs string, kubeClie
 		sdktrace.WithResource(res),
 	)
 	// set global propagator to tracecontext (the default is no-op).
-	otel.SetTextMapPropagator(propagation.TraceContext{})
 	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()

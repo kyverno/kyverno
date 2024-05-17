@@ -6,8 +6,8 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,7 +28,6 @@ func CheckMatchesResources(
 	statement kyvernov2beta1.MatchResources,
 	namespaceLabels map[string]string,
 	admissionInfo kyvernov1beta1.RequestInfo,
-	excludeGroupRole []string,
 	gvk schema.GroupVersionKind,
 	subresource string,
 ) error {
@@ -44,7 +43,6 @@ func CheckMatchesResources(
 				resource,
 				namespaceLabels,
 				admissionInfo,
-				excludeGroupRole,
 				gvk,
 				subresource,
 			)) == 0 {
@@ -65,7 +63,6 @@ func CheckMatchesResources(
 					resource,
 					namespaceLabels,
 					admissionInfo,
-					excludeGroupRole,
 					gvk,
 					subresource,
 				)...,
@@ -80,7 +77,6 @@ func checkResourceFilter(
 	resource unstructured.Unstructured,
 	namespaceLabels map[string]string,
 	admissionInfo kyvernov1beta1.RequestInfo,
-	excludeGroupRole []string,
 	gvk schema.GroupVersionKind,
 	subresource string,
 ) []error {
@@ -100,7 +96,6 @@ func checkResourceFilter(
 	userErrs := checkUserInfo(
 		statement.UserInfo,
 		admissionInfo,
-		excludeGroupRole,
 	)
 	errs = append(errs, matchErrs...)
 	errs = append(errs, userErrs...)
@@ -110,18 +105,14 @@ func checkResourceFilter(
 func checkUserInfo(
 	userInfo kyvernov1.UserInfo,
 	admissionInfo kyvernov1beta1.RequestInfo,
-	excludeGroupRole []string,
 ) []error {
 	var errs []error
-	var excludeKeys []string
-	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Groups...)
-	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Username)
-	if len(userInfo.Roles) > 0 && !datautils.SliceContains(excludeKeys, excludeGroupRole...) {
+	if len(userInfo.Roles) > 0 {
 		if !datautils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
 			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
 		}
 	}
-	if len(userInfo.ClusterRoles) > 0 && !datautils.SliceContains(excludeKeys, excludeGroupRole...) {
+	if len(userInfo.ClusterRoles) > 0 {
 		if !datautils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
 			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
 		}
@@ -170,7 +161,7 @@ func checkResourceDescription(
 		}
 	}
 	if len(conditionBlock.Namespaces) > 0 {
-		if !checkNameSpace(conditionBlock.Namespaces, resource) {
+		if !CheckNameSpace(conditionBlock.Namespaces, resource) {
 			errs = append(errs, fmt.Errorf("namespace does not match"))
 		}
 	}
@@ -202,7 +193,7 @@ func checkResourceDescription(
 	return errs
 }
 
-func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
+func CheckNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
 	resourceNameSpace := resource.GetNamespace()
 	if resource.GetKind() == "Namespace" {
 		resourceNameSpace = resource.GetName()

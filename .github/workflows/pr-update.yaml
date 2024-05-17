@@ -1,4 +1,8 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: PR update
+
+permissions: {}
 
 on:
   push:
@@ -8,12 +12,10 @@ on:
 
 jobs:
   autoupdate:
-    permissions:
-      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
       - name: Check secret
         id: checksecret
         uses: ./.github/actions/is-defined
@@ -21,7 +23,7 @@ jobs:
           value: ${{ secrets.PR_UPDATE_TOKEN }}
       - name: Automatically update PR
         if: steps.checksecret.outputs.result == 'true'
-        uses: adRise/update-pr-branch@437fab6e0ac7d2a668f2c479f64225edd7f303fd # v0.6.0
+        uses: adRise/update-pr-branch@1dc4248ce8a2480d1e432fa641f243ef12f6708e # v0.7.2
         with:
           token: ${{ secrets.PR_UPDATE_TOKEN }}
           base: ${{ github.ref_name }}

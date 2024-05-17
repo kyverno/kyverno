@@ -24,5 +24,5 @@
 {{- end -}}
 
 {{- define "kyverno.rbac.roleName" -}}
-{{ .Release.Name }}:rbac
+{{ include "kyverno.fullname" . }}:rbac
 {{- end -}}

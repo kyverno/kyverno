@@ -1,4 +1,8 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Tests
+
+permissions: {}
 
 on:
   push:
@@ -13,31 +17,22 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: tests
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
         with:
-          build-cache-key: pre-checks
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@08e2f20817b15149a52b5b3ebe7de50aff2ba8c5 # v3.4.0
-        with:
-          version: v1.48
-          skip-cache: true
-      - name: go fmt check
-        run: make fmt-check
-      - name: goimports check
-        run: make imports-check
-      - name: Checking unused pkgs using go mod tidy
-        run: make unused-package-check
-      - name: Go vet
-        run: make vet
+          free-disk-space: false
       - name: Unit test
         run: make test-unit

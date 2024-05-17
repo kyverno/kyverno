@@ -1,0 +1,45 @@
+# -- Internal settings used with `helm template` to generate install manifest
+# @ignored
+templating:
+  enabled: false
+  debug: false
+  version: ~
+
+groups:
+
+  # -- Install CRDs in group `kyverno.io`
+  # -- This field can be overwritten by setting crds.labels in the parent chart
+  kyverno:
+    admissionreports: true
+    backgroundscanreports: true
+    cleanuppolicies: true
+    clusteradmissionreports: true
+    clusterbackgroundscanreports: true
+    clustercleanuppolicies: true
+    clusterpolicies: true
+    globalcontextentries: true
+    policies: true
+    policyexceptions: true
+    updaterequests: true
+
+  # -- Install CRDs in group `reports.kyverno.io`
+  # -- This field can be overwritten by setting crds.labels in the parent chart
+  reports:
+    clusterephemeralreports: true
+    ephemeralreports: true
+
+  # -- Install CRDs in group `wgpolicyk8s.io`
+  # -- This field can be overwritten by setting crds.labels in the parent chart
+  wgpolicyk8s:
+    clusterpolicyreports: true
+    policyreports: true
+
+# -- Additional CRDs annotations
+# -- This field can be overwritten by setting crds.annotations in the parent chart
+annotations: {}
+  # argocd.argoproj.io/sync-options: Replace=true
+  # strategy.spinnaker.io/replace: 'true'
+
+# -- Additional CRDs labels
+# -- This field can be overwritten by setting crds.labels in the parent chart
+customLabels: {}

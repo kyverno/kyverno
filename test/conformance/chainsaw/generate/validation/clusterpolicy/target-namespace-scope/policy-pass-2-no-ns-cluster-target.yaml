@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: target-namespace-scope-pass-1
+spec:
+  generateExistingOnPolicyUpdate: true
+  rules:
+    - generate:
+        apiVersion: iam.aws.crossplane.io/v1beta1
+        data:
+          rules:
+            - verbs:
+                - "*"
+              apiGroups:
+                - "*"
+              resources:
+                - "*"
+        kind: Role
+        name: superuser
+        synchronize: true
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - dev-*
+      name: role-per-namespace

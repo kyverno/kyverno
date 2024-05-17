@@ -16,21 +16,21 @@ data:
   defaultRegistry: {{ . | quote }}
   {{- end }}
   generateSuccessEvents: {{ .Values.config.generateSuccessEvents | quote }}
-  {{- with .Values.config.excludeGroupRole }}
-  excludeGroupRole: {{ join "," . | quote }}
+  {{- with .Values.config.excludeGroups }}
+  excludeGroups: {{ join "," . | quote }}
   {{- end -}}
-  {{- $backgroundUsernames := (printf "system:serviceaccount:%s:%s" (include "kyverno.namespace" .) (include "kyverno.background-controller.serviceAccountName" .)) }}
-  {{- if .Values.config.excludeBackgroundUsernames }}
-  {{- $backgroundUsernames = prepend .Values.config.excludeBackgroundUsernames $backgroundUsernames}}
-  excludeBackgroundUsernames: {{ join "," $backgroundUsernames | quote }}
-  {{- else }}
-  excludeBackgroundUsernames: {{ $backgroundUsernames }}
-  {{- end -}} 
-  {{- with .Values.config.excludeUsername }}
-  excludeUsername: {{ join "," . | quote }}
+  {{- with .Values.config.excludeUsernames }}
+  excludeUsernames: {{ join "," . | quote }}
+  {{- end -}}
+  {{- with .Values.config.excludeRoles }}
+  excludeRoles: {{ join "," . | quote }}
+  {{- end -}}
+  {{- with .Values.config.excludeClusterRoles }}
+  excludeClusterRoles: {{ join "," . | quote }}
   {{- end -}}
   {{- if .Values.config.resourceFilters }}
-  resourceFilters: {{ include "kyverno.config.resourceFilters" . | quote }}
+  resourceFilters: >-
+    {{- include "kyverno.config.resourceFilters" . | trim | nindent 4 }}
   {{- end -}}
   {{- if and .Values.config.webhooks .Values.config.excludeKyvernoNamespace }}
   webhooks: {{ include "kyverno.config.webhooks" . | quote }}
@@ -41,5 +41,11 @@ data:
   {{- end -}}
   {{- with .Values.config.webhookAnnotations }}
   webhookAnnotations: {{ toJson . | quote }}
+  {{- end }}
+  {{- with .Values.config.webhookLabels }}
+  webhookLabels: {{ toJson . | quote }}
+  {{- end }}
+  {{- with .Values.config.matchConditions }}
+  matchConditions: {{ toJson . | quote }}
   {{- end }}
 {{- end -}}

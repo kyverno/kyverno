@@ -1,0 +1,24 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-target-scope-validation-fail-1
+spec:
+  rules:
+  - name: clone-multiple-basic-create-policy-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - ServiceAccount
+    generate:
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      cloneList:
+        # mixed scope
+        kinds:
+          - v1/Secret
+          - rbac.authorization.k8s.io/v1/ClusterRole
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"

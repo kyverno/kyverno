@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"httpd:latest","namespace":"example-namespace"},"fieldPath":"spec.template.spec.containers[?(@.name==\"httpd\")].image"}]'
+    openshift.io/generated-by: OpenShiftNewApp
+  labels:
+    app: httpd
+    app.kubernetes.io/component: httpd
+    app.kubernetes.io/instance: httpd
+  name: httpd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      deployment: httpd
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        openshift.io/generated-by: OpenShiftNewApp
+      labels:
+        deployment: httpd
+    spec:
+      containers:
+      - image: ' '
+        name: httpd
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 8443
+          protocol: TCP

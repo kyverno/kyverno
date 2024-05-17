@@ -3,10 +3,9 @@ package dclient
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var (

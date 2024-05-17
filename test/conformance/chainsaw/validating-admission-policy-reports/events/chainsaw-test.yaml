@@ -1,0 +1,23 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: events
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: deployment.yaml
+    - assert:
+        file: deployment-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy.yaml
+  - name: step-04
+    try:
+    - assert:
+        file: policy-event.yaml

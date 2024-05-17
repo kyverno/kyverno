@@ -17,6 +17,7 @@ rules:
       - watch
       - create
       - update
+      - delete
   - apiGroups:
       - ''
     resources:
@@ -25,16 +26,9 @@ rules:
       - get
       - list
       - watch
-  - apiGroups:
-      - coordination.k8s.io
-    resources:
-      - leases
-    verbs:
-      - create
-      - delete
-      - get
-      - patch
-      - update
+    resourceNames:
+      - {{ include "kyverno.config.configMapName" . }}
+      - {{ include "kyverno.config.metricsConfigMapName" . }}
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -51,14 +45,18 @@ rules:
     resources:
       - deployments
       {{- if .Values.webhooksCleanup.enabled }}
+      {{- if not .Values.templating.enabled }}
       - deployments/scale
+      {{- end }}
       {{- end }}
     verbs:
       - get
       - list
       - watch
       {{- if .Values.webhooksCleanup.enabled }}
+      {{- if not .Values.templating.enabled }}
       - patch
       - update
+      {{- end }}
       {{- end }}
 {{- end -}}

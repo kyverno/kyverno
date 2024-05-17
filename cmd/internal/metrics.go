@@ -13,17 +13,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func GetMetricsConfiguration(logger logr.Logger, client kubernetes.Interface) config.MetricsConfiguration {
-	logger.Info("load metrics configuration...")
-	metricsConfiguration, err := config.NewMetricsConfiguration(client)
-	checkError(logger, err, "failed to load metrics configuration")
-	return metricsConfiguration
-}
-
-func SetupMetrics(ctx context.Context, logger logr.Logger, kubeClient kubernetes.Interface) (metrics.MetricsConfigManager, context.CancelFunc) {
+func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration config.MetricsConfiguration, kubeClient kubernetes.Interface) (metrics.MetricsConfigManager, context.CancelFunc) {
 	logger = logger.WithName("metrics")
 	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
-	metricsConfiguration := GetMetricsConfiguration(logger, kubeClient)
 	metricsAddr := ":" + metricsPort
 	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
 		ctx,

@@ -2,70 +2,44 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
-	"strconv"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/version"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/apply"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const EnableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
-
 func main() {
-	cli := &cobra.Command{
-		Use:   "kyverno",
-		Long:  `To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.`,
-		Short: "Kubernetes Native Policy Management",
-	}
-
-	configurelog(cli)
-
-	commands := []*cobra.Command{
-		version.Command(),
-		apply.Command(),
-		test.Command(),
-		jp.Command(),
-	}
-
-	if enableExperimental() {
-		commands = append(commands, oci.Command())
-	}
-
-	cli.AddCommand(commands...)
-
-	if err := cli.Execute(); err != nil {
+	cmd, err := setup()
+	if err != nil {
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
+	if err := cmd.Execute(); err != nil {
+		switch e := err.(type) {
+		case apply.WarnExitCodeError:
+			os.Exit(e.ExitCode)
+		default:
+			os.Exit(1)
+		}
+	}
 }
 
-func enableExperimental() bool {
-	if b, err := strconv.ParseBool(os.Getenv(EnableExperimentalEnv)); err == nil {
-		return b
+func setup() (*cobra.Command, error) {
+	cmd := commands.RootCommand(experimental.IsEnabled())
+	if err := configureLogs(cmd); err != nil {
+		return nil, fmt.Errorf("Failed to setup logging (%w)", err)
 	}
-	return false
+	return cmd, nil
 }
 
-func configurelog(cli *cobra.Command) {
-	// clear flags initialized in static dependencies
-	if flag.CommandLine.Lookup("log_dir") != nil {
-		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+func configureLogs(cli *cobra.Command) error {
+	if err := log.Configure(); err != nil {
+		return err
 	}
-
-	klog.InitFlags(nil)
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	log.SetLogger(klogr.New())
-
-	_ = cli.PersistentFlags().MarkHidden("alsologtostderr")
-	_ = cli.PersistentFlags().MarkHidden("logtostderr")
-	_ = cli.PersistentFlags().MarkHidden("log_dir")
-	_ = cli.PersistentFlags().MarkHidden("log_backtrace_at")
-	_ = cli.PersistentFlags().MarkHidden("stderrthreshold")
-	_ = cli.PersistentFlags().MarkHidden("vmodule")
+	return nil
 }

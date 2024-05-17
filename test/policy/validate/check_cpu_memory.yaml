@@ -1,40 +1,45 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: check-cpu-memory
 spec:
+  admission: true
+  background: true
   rules:
-  - name: check-defined
-    match:
-      resources:
-        kinds:
-        - Deployment
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    name: check-defined
     validate:
-      message: "Resource limits are required for CPU and memory"
+      message: Resource limits are required for CPU and memory
       pattern:
         spec:
           template:
             spec:
               containers:
-              - name: "?*"
+              - name: ?*
                 resources:
                   limits:
-                    memory: "?*"
-                    cpu: "?*"
-
-  - name: check-cpu
-    match:
-      resources:
-        kinds:
-        - Deployment
+                    cpu: ?*
+                    memory: ?*
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    name: check-cpu
     validate:
-      message: "CPU request should be less than 4"
+      message: CPU request should be less than 4
       pattern:
         spec:
           template:
             spec:
               containers:
-              - name: "*"
+              - name: '*'
                 resources:
                   requests:
-                    cpu: "<4m"
+                    cpu: <4m
+  validationFailureAction: Audit

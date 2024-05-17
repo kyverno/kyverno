@@ -1,15 +1,12 @@
 package autogen
 
 import (
-	"encoding/json"
-	"fmt"
-	"strconv"
 	"strings"
 
+	jsoniter "github.com/json-iterator/go"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -17,11 +14,12 @@ import (
 const (
 	// PodControllerCronJob represent CronJob string
 	PodControllerCronJob = "CronJob"
-	// PodControllers stores the list of Pod-controllers in csv string
-	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController,CronJob"
 )
 
-var podControllersKindsSet = sets.New(append(strings.Split(PodControllers, ","), "Pod")...)
+var (
+	PodControllers         = sets.New("DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController", "CronJob")
+	podControllersKindsSet = PodControllers.Union(sets.New("Pod"))
+)
 
 func isKindOtherthanPod(kinds []string) bool {
 	if len(kinds) > 1 && kubeutils.ContainsKind(kinds, "Pod") {
@@ -45,7 +43,7 @@ func checkAutogenSupport(needed *bool, subjects ...kyvernov1.ResourceDescription
 // stripCronJob removes CronJob from controllers
 func stripCronJob(controllers string) string {
 	var newControllers []string
-	controllerArr := strings.Split(controllers, ",")
+	controllerArr := splitKinds(controllers, ",")
 	for _, c := range controllerArr {
 		if c == PodControllerCronJob {
 			continue
@@ -67,71 +65,76 @@ func stripCronJob(controllers string) string {
 //   - mutate.Patches/mutate.PatchesJSON6902/validate.deny/generate rule is defined
 //
 // - otherwise it returns all pod controllers
-func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers string) {
+func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[string]) {
 	needed := false
 	for _, rule := range spec.Rules {
 		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
-			return false, "none"
+			return false, sets.New("none")
+		}
+		for _, foreach := range rule.Mutation.ForEachMutation {
+			if foreach.PatchesJSON6902 != "" {
+				return false, sets.New("none")
+			}
 		}
 		match, exclude := rule.MatchResources, rule.ExcludeResources
 		if !checkAutogenSupport(&needed, match.ResourceDescription, exclude.ResourceDescription) {
 			debug.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
-			return false, ""
+			return false, sets.New[string]()
 		}
 		for _, value := range match.Any {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
 				debug.Info("skip generating rule on pod controllers: Name / Selector in match any block is not applicable.", "rule", rule.Name)
-				return false, ""
+				return false, sets.New[string]()
 			}
 		}
 		for _, value := range match.All {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
 				debug.Info("skip generating rule on pod controllers: Name / Selector in match all block is not applicable.", "rule", rule.Name)
-				return false, ""
+				return false, sets.New[string]()
 			}
 		}
 		for _, value := range exclude.Any {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
 				debug.Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not applicable.", "rule", rule.Name)
-				return false, ""
+				return false, sets.New[string]()
 			}
 		}
 		for _, value := range exclude.All {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
 				debug.Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not applicable.", "rule", rule.Name)
-				return false, ""
+				return false, sets.New[string]()
 			}
 		}
 	}
 	if !needed {
-		return false, ""
+		return false, sets.New[string]()
 	}
 	return true, PodControllers
 }
 
 // GetSupportedControllers returns the supported autogen controllers for a given spec.
-func GetSupportedControllers(spec *kyvernov1.Spec) []string {
+func GetSupportedControllers(spec *kyvernov1.Spec) sets.Set[string] {
 	apply, controllers := CanAutoGen(spec)
-	if !apply || controllers == "none" {
+	if !apply || (controllers.Len() == 1 && controllers.Has("none")) {
 		return nil
 	}
-	return strings.Split(controllers, ",")
+	return controllers
 }
 
 // GetRequestedControllers returns the requested autogen controllers based on object annotations.
-func GetRequestedControllers(meta *metav1.ObjectMeta) []string {
+func GetRequestedControllers(meta *metav1.ObjectMeta) sets.Set[string] {
 	annotations := meta.GetAnnotations()
 	if annotations == nil {
 		return nil
 	}
-	controllers, ok := annotations[kyvernov1.PodControllersAnnotation]
+	controllers, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if !ok || controllers == "" {
 		return nil
 	}
 	if controllers == "none" {
-		return []string{}
+		return sets.New[string]()
 	}
-	return strings.Split(controllers, ",")
+	return sets.New(splitKinds(controllers, ",")...)
 }
 
 // GetControllers computes the autogen controllers that should be applied to a policy.
@@ -141,65 +144,16 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []
 	supported, requested := GetSupportedControllers(spec), GetRequestedControllers(meta)
 	// no specific request, we can return supported controllers without further filtering
 	if requested == nil {
-		return requested, supported, supported
+		return requested.UnsortedList(), supported.UnsortedList(), supported.UnsortedList()
 	}
 	// filter supported controllers, keeping only those that have been requested
 	var activated []string
-	for _, controller := range supported {
-		if slices.Contains(requested, controller) {
+	for _, controller := range supported.UnsortedList() {
+		if requested.Has(controller) {
 			activated = append(activated, controller)
 		}
 	}
-	return requested, supported, activated
-}
-
-// podControllersKey annotation could be:
-// scenario A: not exist, set default to "all", which generates on all pod controllers
-//               - if name / selector exist in resource description -> skip
-//                 as these fields may not be applicable to pod controllers
-// scenario B: "none", user explicitly disable this feature -> skip
-// scenario C: some certain controllers that user set -> generate on defined controllers
-//             copy entire match / exclude block, it's users' responsibility to
-//             make sure all fields are applicable to pod controllers
-
-// GenerateRulePatches generates rule for podControllers based on scenario A and C
-func GenerateRulePatches(spec *kyvernov1.Spec, controllers string) (rulePatches [][]byte, errs []error) {
-	ruleIndex := make(map[string]int)
-	for index, rule := range spec.Rules {
-		ruleIndex[rule.Name] = index
-	}
-	insertIdx := len(spec.Rules)
-	genRules := generateRules(spec, controllers)
-	for i := range genRules {
-		patchPostion := insertIdx
-		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
-			operation := "add"
-			if existingIndex, alreadyExists := ruleIndex[genRule.Name]; alreadyExists {
-				operation = "replace"
-				patchPostion = existingIndex
-			}
-			patch := jsonutils.NewPatchOperation(fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)), operation, genRule)
-			pbytes, err := patch.Marshal()
-			if err != nil {
-				errs = append(errs, err)
-				return nil
-			}
-			if err := jsonutils.CheckPatch(pbytes); err != nil {
-				errs = append(errs, err)
-				return nil
-			}
-			return pbytes
-		}
-		genRule := createRule(&genRules[i])
-		if genRule != nil {
-			pbytes := convertToPatches(*genRule, patchPostion)
-			if pbytes != nil {
-				rulePatches = append(rulePatches, pbytes)
-			}
-			insertIdx++
-		}
-	}
-	return
+	return requested.UnsortedList(), supported.UnsortedList(), activated
 }
 
 // podControllersKey annotation could be:
@@ -236,16 +190,20 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 }
 
 func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
+
 	if bytes, err := json.Marshal(rule); err != nil {
 		return nil, err
 	} else {
-		if rule.Validation != nil && rule.Validation.PodSecurity != nil {
-			bytes = updateRestrictedFields(bytes, kind)
-			if err := json.Unmarshal(bytes, &rule); err != nil {
-				return nil, err
-			}
-		} else {
-			bytes = updateGenRuleByte(bytes, kind)
+		bytes = updateGenRuleByte(bytes, kind)
+		if err := json.Unmarshal(bytes, &rule); err != nil {
+			return nil, err
+		}
+
+		// CEL variables are object, oldObject, request, params and authorizer.
+		// Therefore CEL expressions can be either written as object.spec or request.object.spec
+		if rule.Validation != nil && rule.Validation.CEL != nil {
+			bytes = updateCELFields(bytes, kind)
 			if err := json.Unmarshal(bytes, &rule); err != nil {
 				return nil, err
 			}
@@ -277,29 +235,43 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 	return &out, nil
 }
 
-func ComputeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
-	return computeRules(p)
+func ComputeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
+	return computeRules(p, kind)
 }
 
-func computeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
+func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	spec := p.GetSpec()
 	applyAutoGen, desiredControllers := CanAutoGen(spec)
 	if !applyAutoGen {
-		desiredControllers = "none"
+		desiredControllers = sets.New("none")
 	}
+
+	var actualControllers sets.Set[string]
 	ann := p.GetAnnotations()
-	actualControllers, ok := ann[kyvernov1.PodControllersAnnotation]
+	actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
 	if !ok || !applyAutoGen {
 		actualControllers = desiredControllers
 	} else {
 		if !applyAutoGen {
 			actualControllers = desiredControllers
+		} else {
+			actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
 		}
 	}
-	if actualControllers == "none" {
+
+	if kind != "" {
+		if !actualControllers.Has(kind) {
+			return spec.Rules
+		}
+	} else {
+		kind = strings.Join(actualControllers.UnsortedList(), ",")
+	}
+
+	if kind == "none" {
 		return spec.Rules
 	}
-	genRules := generateRules(spec.DeepCopy(), actualControllers)
+
+	genRules := generateRules(spec.DeepCopy(), kind)
 	if len(genRules) == 0 {
 		return spec.Rules
 	}

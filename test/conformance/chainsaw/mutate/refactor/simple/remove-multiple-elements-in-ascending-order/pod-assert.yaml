@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+spec:
+  volumes:
+  - name: volume-2
+    hostPath:
+      path: "/var/run/foo-2"
+  - projected: {}

@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: verify-image
+spec:
+  validationFailureAction: Audit
+  admission: false
+  background: true
+  rules:
+  - name: verify-image
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    verifyImages:
+    - imageReferences:
+      - "ghcr.io/kyverno/test-verify-image:*"
+      attestors:
+      - entries:
+        - keys:
+            publicKeys: |-
+              -----BEGIN PUBLIC KEY-----
+              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+              5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+              -----END PUBLIC KEY-----

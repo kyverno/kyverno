@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/engine/pattern"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // NewAnyInHandler returns handler to manage AnyIn operations
@@ -31,7 +31,7 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return anyin.validateValueWithStringPattern(typedKey, value)
-	case int, int32, int64, float32, float64:
+	case int, int32, int64, float32, float64, bool:
 		return anyin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string
@@ -134,6 +134,14 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		}
 		return false, isAnyIn(key, valueSlice)
 
+	case int, int32, int64, float32, float64, bool:
+		var valueSlice []string
+		valueSlice = append(valueSlice, fmt.Sprint(value))
+		if anyNotIn {
+			return false, isAnyNotIn(key, valueSlice)
+		}
+		return false, isAnyIn(key, valueSlice)
+
 	case string:
 		if len(key) == 1 && key[0] == valuesAvailable {
 			if anyNotIn {
@@ -200,16 +208,21 @@ func isAnyIn(key []string, value []string) bool {
 
 // isAnyNotIn checks if any of the values in S1 are not in S2
 func isAnyNotIn(key []string, value []string) bool {
-	found := 0
 	for _, valKey := range key {
+		matchFound := false
+
 		for _, valValue := range value {
 			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
-				found++
+				matchFound = true
 				break
 			}
 		}
+
+		if !matchFound {
+			return true
+		}
 	}
-	return found < len(key)
+	return false
 }
 
 func (anyin AnyInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

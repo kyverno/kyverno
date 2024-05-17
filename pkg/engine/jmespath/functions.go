@@ -2,26 +2,33 @@ package jmespath
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math"
+	"net"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
-	gojmespath "github.com/jmespath/go-jmespath"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	gojmespath "github.com/kyverno/go-jmespath"
+	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/config"
+	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	regen "github.com/zach-klippenstein/goregen"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -56,6 +63,7 @@ var (
 	multiply               = "multiply"
 	divide                 = "divide"
 	modulo                 = "modulo"
+	round                  = "round"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	pathCanonicalize       = "path_canonicalize"
@@ -63,13 +71,17 @@ var (
 	semverCompare          = "semver_compare"
 	parseJson              = "parse_json"
 	parseYAML              = "parse_yaml"
+	lookup                 = "lookup"
 	items                  = "items"
 	objectFromLists        = "object_from_lists"
 	random                 = "random"
 	x509_decode            = "x509_decode"
+	imageNormalize         = "image_normalize"
+	isExternalURL          = "is_external_url"
+	SHA256                 = "sha256"
 )
 
-func GetFunctions() []FunctionEntry {
+func GetFunctions(configuration config.Configuration) []FunctionEntry {
 	return []FunctionEntry{{
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: compare,
@@ -305,6 +317,17 @@ func GetFunctions() []FunctionEntry {
 		Note:       "divisor must be non-zero, arguments must be integers",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
+			Name: round,
+			Arguments: []argSpec{
+				{Types: []jpType{jpNumber}},
+				{Types: []jpType{jpNumber}},
+			},
+			Handler: jpRound,
+		},
+		ReturnType: []jpType{jpNumber},
+		Note:       "does roundoff to upto the given decimal places",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
 			Name: base64Decode,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -401,6 +424,17 @@ func GetFunctions() []FunctionEntry {
 		},
 		ReturnType: []jpType{jpAny},
 		Note:       "decodes a valid YAML encoded string to the appropriate type provided it can be represented as JSON",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: lookup,
+			Arguments: []argSpec{
+				{Types: []jpType{jpObject, jpArray}},
+				{Types: []jpType{jpString, jpNumber}},
+			},
+			Handler: jpLookup,
+		},
+		ReturnType: []jpType{jpAny},
+		Note:       "returns the value corresponding to the given key/index in the given object/array",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: items,
@@ -542,6 +576,36 @@ func GetFunctions() []FunctionEntry {
 		},
 		ReturnType: []jpType{jpString},
 		Note:       "returns the result of rounding time down to a multiple of duration",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: imageNormalize,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpImageNormalize(configuration),
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "normalizes an image reference",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: isExternalURL,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpIsExternalURL,
+		},
+		ReturnType: []jpType{jpBool},
+		Note:       "determine if a URL points to an external network address",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: SHA256,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpSha256,
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "generate unique resources name if length exceeds the limit",
 	}}
 }
 
@@ -774,7 +838,7 @@ func jpToBoolean(arguments []interface{}) (interface{}, error) {
 }
 
 func _jpAdd(arguments []interface{}, operator string) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, operator)
+	op1, op2, err := parseArithemticOperands(arguments, operator)
 	if err != nil {
 		return nil, err
 	}
@@ -805,7 +869,7 @@ func jpSum(arguments []interface{}) (interface{}, error) {
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, subtract)
+	op1, op2, err := parseArithemticOperands(arguments, subtract)
 	if err != nil {
 		return nil, err
 	}
@@ -814,7 +878,7 @@ func jpSubtract(arguments []interface{}) (interface{}, error) {
 }
 
 func jpMultiply(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, multiply)
+	op1, op2, err := parseArithemticOperands(arguments, multiply)
 	if err != nil {
 		return nil, err
 	}
@@ -823,7 +887,7 @@ func jpMultiply(arguments []interface{}) (interface{}, error) {
 }
 
 func jpDivide(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, divide)
+	op1, op2, err := parseArithemticOperands(arguments, divide)
 	if err != nil {
 		return nil, err
 	}
@@ -832,12 +896,33 @@ func jpDivide(arguments []interface{}) (interface{}, error) {
 }
 
 func jpModulo(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, modulo)
+	op1, op2, err := parseArithemticOperands(arguments, modulo)
 	if err != nil {
 		return nil, err
 	}
 
 	return op1.Modulo(op2)
+}
+
+func jpRound(arguments []interface{}) (interface{}, error) {
+	op, err := validateArg(round, arguments, 0, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+	length, err := validateArg(round, arguments, 1, reflect.Float64)
+	if err != nil {
+		return nil, err
+	}
+	intLength, err := intNumber(length.Float())
+	if err != nil {
+		return nil, formatError(nonIntRoundError, round)
+	}
+	if intLength < 0 {
+		return nil, formatError(argOutOfBoundsError, round)
+	}
+	shift := math.Pow(10, float64(intLength))
+	rounded := math.Round(op.Float()*shift) / shift
+	return rounded, nil
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
@@ -944,14 +1029,43 @@ func jpParseYAML(arguments []interface{}) (interface{}, error) {
 	return output, err
 }
 
+func jpLookup(arguments []interface{}) (interface{}, error) {
+	switch input := arguments[0].(type) {
+	case map[string]interface{}:
+		key, ok := arguments[1].(string)
+		if !ok {
+			return nil, formatError(invalidArgumentTypeError, lookup, 2, "String")
+		}
+		return input[key], nil
+	case []interface{}:
+		key, ok := arguments[1].(float64)
+		if !ok {
+			return nil, formatError(invalidArgumentTypeError, lookup, 2, "Number")
+		}
+		keyInt, err := intNumber(key)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"JMESPath function '%s': argument #2: %s",
+				lookup, err.Error(),
+			)
+		}
+		if keyInt < 0 || keyInt > len(input)-1 {
+			return nil, nil
+		}
+		return input[keyInt], nil
+	default:
+		return nil, formatError(invalidArgumentTypeError, lookup, 1, "Object or Array")
+	}
+}
+
 func jpItems(arguments []interface{}) (interface{}, error) {
 	keyName, ok := arguments[1].(string)
 	if !ok {
-		return nil, formatError(invalidArgumentTypeError, items, arguments, 1, "String")
+		return nil, formatError(invalidArgumentTypeError, items, 2, "String")
 	}
 	valName, ok := arguments[2].(string)
 	if !ok {
-		return nil, formatError(invalidArgumentTypeError, items, arguments, 2, "String")
+		return nil, formatError(invalidArgumentTypeError, items, 3, "String")
 	}
 	switch input := arguments[0].(type) {
 	case map[string]interface{}:
@@ -979,18 +1093,18 @@ func jpItems(arguments []interface{}) (interface{}, error) {
 		}
 		return arrayOfObj, nil
 	default:
-		return nil, formatError(invalidArgumentTypeError, items, arguments, 0, "Object or Array")
+		return nil, formatError(invalidArgumentTypeError, items, 1, "Object or Array")
 	}
 }
 
 func jpObjectFromLists(arguments []interface{}) (interface{}, error) {
 	keys, ok := arguments[0].([]interface{})
 	if !ok {
-		return nil, formatError(invalidArgumentTypeError, objectFromLists, arguments, 0, "Array")
+		return nil, formatError(invalidArgumentTypeError, objectFromLists, 1, "Array")
 	}
 	values, ok := arguments[1].([]interface{})
 	if !ok {
-		return nil, formatError(invalidArgumentTypeError, objectFromLists, arguments, 1, "Array")
+		return nil, formatError(invalidArgumentTypeError, objectFromLists, 2, "Array")
 	}
 
 	output := map[string]interface{}{}
@@ -998,7 +1112,7 @@ func jpObjectFromLists(arguments []interface{}) (interface{}, error) {
 	for i, ikey := range keys {
 		key, err := ifaceToString(ikey)
 		if err != nil {
-			return nil, formatError(invalidArgumentTypeError, objectFromLists, arguments, 0, "StringArray")
+			return nil, formatError(invalidArgumentTypeError, objectFromLists, 1, "StringArray")
 		}
 		if i < len(values) {
 			output[key] = values[i]
@@ -1033,7 +1147,13 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 	if pattern == "" {
 		return "", errors.New("no pattern provided")
 	}
-	rand.Seed(time.Now().UnixNano())
+
+	b := make([]byte, 8)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+
 	ans, err := regen.Generate(pattern)
 	if err != nil {
 		return nil, err
@@ -1041,56 +1161,131 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 	return ans, nil
 }
 
-func jpX509Decode(arguments []interface{}) (interface{}, error) {
-	res := make(map[string]interface{})
-	input, err := validateArg(x509_decode, arguments, 0, reflect.String)
-	if err != nil {
+func encode[T any](in T) (interface{}, error) {
+	buf := new(bytes.Buffer)
+	enc := json.NewEncoder(buf)
+	if err := enc.Encode(in); err != nil {
 		return nil, err
 	}
-	p, _ := pem.Decode([]byte(input.String()))
-	if p == nil {
-		return res, errors.New("invalid certificate")
+	res := map[string]interface{}{}
+	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
+		return nil, err
 	}
+	return res, nil
+}
 
-	cert, err := x509.ParseCertificate(p.Bytes)
-	if err != nil {
-		return res, err
-	}
-
-	buf := new(bytes.Buffer)
-	if fmt.Sprint(cert.PublicKeyAlgorithm) == "RSA" {
-		spki := cryptobyte.String(cert.RawSubjectPublicKeyInfo)
+func jpX509Decode(arguments []interface{}) (interface{}, error) {
+	parseSubjectPublicKeyInfo := func(data []byte) (*rsa.PublicKey, error) {
+		spki := cryptobyte.String(data)
 		if !spki.ReadASN1(&spki, cryptobyte_asn1.SEQUENCE) {
-			return res, errors.New("writing asn.1 element to 'spki' failed")
+			return nil, errors.New("writing asn.1 element to 'spki' failed")
 		}
 		var pkAISeq cryptobyte.String
 		if !spki.ReadASN1(&pkAISeq, cryptobyte_asn1.SEQUENCE) {
-			return res, errors.New("writing asn.1 element to 'pkAISeq' failed")
+			return nil, errors.New("writing asn.1 element to 'pkAISeq' failed")
 		}
 		var spk asn1.BitString
 		if !spki.ReadASN1BitString(&spk) {
-			return res, errors.New("writing asn.1 bit string to 'spk' failed")
+			return nil, errors.New("writing asn.1 bit string to 'spk' failed")
 		}
-		kk, err := x509.ParsePKCS1PublicKey(spk.Bytes)
-		if err != nil {
-			return res, err
-		}
-
-		cert.PublicKey = PublicKey{
-			N: kk.N.String(),
-			E: kk.E,
-		}
-
-		enc := json.NewEncoder(buf)
-		err = enc.Encode(cert)
-		if err != nil {
-			return res, err
+		if kk, err := x509.ParsePKCS1PublicKey(spk.Bytes); err != nil {
+			return nil, err
+		} else {
+			return kk, nil
 		}
 	}
-
-	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		return res, err
+	if input, err := validateArg(x509_decode, arguments, 0, reflect.String); err != nil {
+		return nil, err
+	} else if block, _ := pem.Decode([]byte(input.String())); block == nil {
+		return nil, errors.New("failed to decode PEM block")
+	} else {
+		switch block.Type {
+		case "CERTIFICATE":
+			var cert *x509.Certificate
+			if cert, err = x509.ParseCertificate(block.Bytes); err != nil {
+				return nil, err
+			} else if cert.PublicKeyAlgorithm != x509.RSA {
+				return nil, errors.New("certificate should use rsa algorithm")
+			} else if pk, err := parseSubjectPublicKeyInfo(cert.RawSubjectPublicKeyInfo); err != nil {
+				return nil, errors.New("failed to parse subject public key info")
+			} else {
+				cert.PublicKey = PublicKey{
+					N: pk.N.String(),
+					E: pk.E,
+				}
+				return encode(cert)
+			}
+		case "CERTIFICATE REQUEST":
+			var csr *x509.CertificateRequest
+			if csr, err = x509.ParseCertificateRequest(block.Bytes); err != nil {
+				return nil, err
+			} else if csr.PublicKeyAlgorithm != x509.RSA {
+				return nil, errors.New("certificate should use rsa algorithm")
+			} else if pk, err := parseSubjectPublicKeyInfo(csr.RawSubjectPublicKeyInfo); err != nil {
+				return nil, errors.New("failed to parse subject public key info")
+			} else {
+				csr.PublicKey = PublicKey{
+					N: pk.N.String(),
+					E: pk.E,
+				}
+				return encode(csr)
+			}
+		default:
+			return nil, errors.New("PEM block neither contains a CERTIFICATE or CERTIFICATE REQUEST")
+		}
 	}
+}
 
-	return res, nil
+func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction {
+	return func(arguments []interface{}) (interface{}, error) {
+		if image, err := validateArg(imageNormalize, arguments, 0, reflect.String); err != nil {
+			return nil, err
+		} else if infos, err := imageutils.GetImageInfo(image.String(), configuration); err != nil {
+			return nil, formatError(genericError, imageNormalize, err)
+		} else {
+			return infos.String(), nil
+		}
+	}
+}
+
+func jpIsExternalURL(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	parsedURL, err := url.Parse(str.String())
+	if err != nil {
+		return false, err
+	}
+	ip := net.ParseIP(parsedURL.Hostname())
+	if ip != nil {
+		return !(ip.IsLoopback() || ip.IsPrivate()), nil
+	}
+	// If it can't be parsed as an IP, then resolve the domain name
+	ips, err := net.LookupIP(parsedURL.Hostname())
+	if err != nil {
+		return nil, err
+	}
+	for _, ip := range ips {
+		if ip.IsLoopback() || ip.IsPrivate() {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func jpSha256(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	hasher := sha256.New()
+	_, err = hasher.Write([]byte(str.String()))
+	if err != nil {
+		return "", err
+	}
+	hashedBytes := hasher.Sum(nil)
+	return hex.EncodeToString(hashedBytes), nil
 }

@@ -17,11 +17,12 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"time"
+
+	"github.com/aptible/supercronic/cronexpr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/robfig/cron"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -29,24 +30,14 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=cleanpol,categories=kyverno
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:unservedversion
 
 // CleanupPolicy defines a rule for resource cleanup.
-type CleanupPolicy struct {
-	metav1.TypeMeta   `json:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// Spec declares policy behaviors.
-	Spec CleanupPolicySpec `json:"spec"`
-
-	// Status contains policy runtime data.
-	// +optional
-	Status CleanupPolicyStatus `json:"status,omitempty"`
-}
+type CleanupPolicy kyvernov2beta1.CleanupPolicy
 
 // GetSpec returns the policy spec
 func (p *CleanupPolicy) GetSpec() *CleanupPolicySpec {
@@ -58,6 +49,27 @@ func (p *CleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
 }
 
+// GetExecutionTime returns the execution time of the policy
+func (p *CleanupPolicy) GetExecutionTime() (*time.Time, error) {
+	lastExecutionTime := p.Status.LastExecutionTime.Time
+	if lastExecutionTime.IsZero() {
+		creationTime := p.GetCreationTimestamp().Time
+		return p.GetNextExecutionTime(creationTime)
+	} else {
+		return p.GetNextExecutionTime(lastExecutionTime)
+	}
+}
+
+// GetNextExecutionTime returns the next execution time of the policy
+func (p *CleanupPolicy) GetNextExecutionTime(time time.Time) (*time.Time, error) {
+	cronExpr, err := cronexpr.Parse(p.Spec.Schedule)
+	if err != nil {
+		return nil, err
+	}
+	nextExecutionTime := cronExpr.Next(time)
+	return &nextExecutionTime, nil
+}
+
 // Validate implements programmatic validation
 func (p *CleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("metadata").Child("name"), p.Name)...)
@@ -67,7 +79,7 @@ func (p *CleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.
 
 // GetKind returns the resource kind
 func (p *CleanupPolicy) GetKind() string {
-	return p.Kind
+	return "CleanupPolicy"
 }
 
 // GetAPIVersion returns the resource kind
@@ -75,38 +87,29 @@ func (p *CleanupPolicy) GetAPIVersion() string {
 	return p.APIVersion
 }
 
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *CleanupPolicy) IsNamespaced() bool {
+	return true
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CleanupPolicyList is a list of ClusterPolicy instances.
-type CleanupPolicyList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []CleanupPolicy `json:"items"`
-}
+type CleanupPolicyList kyvernov2beta1.CleanupPolicyList
 
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=ccleanpol,categories=kyverno
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:unservedversion
 
 // ClusterCleanupPolicy defines rule for resource cleanup.
-type ClusterCleanupPolicy struct {
-	metav1.TypeMeta   `json:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// Spec declares policy behaviors.
-	Spec CleanupPolicySpec `json:"spec"`
-
-	// Status contains policy runtime data.
-	// +optional
-	Status CleanupPolicyStatus `json:"status,omitempty"`
-}
+type ClusterCleanupPolicy kyvernov2beta1.ClusterCleanupPolicy
 
 // GetSpec returns the policy spec
 func (p *ClusterCleanupPolicy) GetSpec() *CleanupPolicySpec {
@@ -118,14 +121,40 @@ func (p *ClusterCleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
 }
 
+// GetExecutionTime returns the execution time of the policy
+func (p *ClusterCleanupPolicy) GetExecutionTime() (*time.Time, error) {
+	lastExecutionTime := p.Status.LastExecutionTime.Time
+	if lastExecutionTime.IsZero() {
+		creationTime := p.GetCreationTimestamp().Time
+		return p.GetNextExecutionTime(creationTime)
+	} else {
+		return p.GetNextExecutionTime(lastExecutionTime)
+	}
+}
+
+// GetNextExecutionTime returns the next execution time of the policy
+func (p *ClusterCleanupPolicy) GetNextExecutionTime(time time.Time) (*time.Time, error) {
+	cronExpr, err := cronexpr.Parse(p.Spec.Schedule)
+	if err != nil {
+		return nil, err
+	}
+	nextExecutionTime := cronExpr.Next(time)
+	return &nextExecutionTime, nil
+}
+
 // GetKind returns the resource kind
 func (p *ClusterCleanupPolicy) GetKind() string {
-	return p.Kind
+	return "ClusterCleanupPolicy"
 }
 
 // GetAPIVersion returns the resource kind
 func (p *ClusterCleanupPolicy) GetAPIVersion() string {
 	return p.APIVersion
+}
+
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *ClusterCleanupPolicy) IsNamespaced() bool {
+	return false
 }
 
 // Validate implements programmatic validation
@@ -139,56 +168,23 @@ func (p *ClusterCleanupPolicy) Validate(clusterResources sets.Set[string]) (errs
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ClusterCleanupPolicyList is a list of ClusterCleanupPolicy instances.
-type ClusterCleanupPolicyList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []ClusterCleanupPolicy `json:"items"`
-}
+type ClusterCleanupPolicyList kyvernov2beta1.ClusterCleanupPolicyList
 
 // CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
 // and schedule when the matching resources needs deleted.
-type CleanupPolicySpec struct {
-	// MatchResources defines when cleanuppolicy should be applied. The match
-	// criteria can include resource information (e.g. kind, name, namespace, labels)
-	// and admission review request information like the user name or role.
-	// At least one kind is required.
-	MatchResources kyvernov2beta1.MatchResources `json:"match,omitempty"`
-
-	// ExcludeResources defines when cleanuppolicy should not be applied. The exclude
-	// criteria can include resource information (e.g. kind, name, namespace, labels)
-	// and admission review request information like the name or role.
-	// +optional
-	ExcludeResources *kyvernov2beta1.MatchResources `json:"exclude,omitempty"`
-
-	// The schedule in Cron format
-	Schedule string `json:"schedule"`
-
-	// Conditions defines the conditions used to select the resources which will be cleaned up.
-	// +optional
-	Conditions *kyvernov2beta1.AnyAllConditions `json:"conditions,omitempty"`
-}
+type CleanupPolicySpec = kyvernov2beta1.CleanupPolicySpec
 
 // CleanupPolicyStatus stores the status of the policy.
-type CleanupPolicyStatus struct {
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-}
+type CleanupPolicyStatus = kyvernov2beta1.CleanupPolicyStatus
 
-// Validate implements programmatic validation
-func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set[string], namespaced bool) (errs field.ErrorList) {
-	errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
-	if userInfoErrs := p.MatchResources.ValidateNoUserInfo(path.Child("match")); len(userInfoErrs) != 0 {
-		errs = append(errs, userInfoErrs...)
-	} else {
-		errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
-	}
-	if p.ExcludeResources != nil {
-		if userInfoErrs := p.ExcludeResources.ValidateNoUserInfo(path.Child("exclude")); len(userInfoErrs) != 0 {
-			errs = append(errs, userInfoErrs...)
-		} else {
-			errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+func ValidateContext(path *field.Path, context []kyvernov1.ContextEntry) (errs field.ErrorList) {
+	for _, entry := range context {
+		if entry.ImageRegistry != nil {
+			errs = append(errs, field.Invalid(path, context, "ImageRegistry is not allowed in CleanUp Policy"))
+		} else if entry.ConfigMap != nil {
+			errs = append(errs, field.Invalid(path, context, "ConfigMap is not allowed in CleanUp Policy"))
 		}
 	}
-	errs = append(errs, p.ValidateMatchExcludeConflict(path)...)
 	return errs
 }
 
@@ -198,26 +194,4 @@ func ValidateSchedule(path *field.Path, schedule string) (errs field.ErrorList) 
 		errs = append(errs, field.Invalid(path, schedule, "schedule spec in the cleanupPolicy is not in proper cron format"))
 	}
 	return errs
-}
-
-// ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
-func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
-	if spec.ExcludeResources == nil || len(spec.ExcludeResources.All) > 0 || len(spec.MatchResources.All) > 0 {
-		return errs
-	}
-	// if both have any then no resource should be common
-	if len(spec.MatchResources.Any) > 0 && len(spec.ExcludeResources.Any) > 0 {
-		for _, rmr := range spec.MatchResources.Any {
-			for _, rer := range spec.ExcludeResources.Any {
-				if datautils.DeepEqual(rmr, rer) {
-					return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
-				}
-			}
-		}
-		return errs
-	}
-	if datautils.DeepEqual(spec.ExcludeResources, &kyvernov2beta1.MatchResources{}) {
-		return errs
-	}
-	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
 }

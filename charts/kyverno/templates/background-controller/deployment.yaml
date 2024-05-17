@@ -9,6 +9,7 @@ metadata:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.backgroundController.replicas }}
+  revisionHistoryLimit: {{ .Values.backgroundController.revisionHistoryLimit }}
   {{- with .Values.backgroundController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
@@ -20,16 +21,22 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.background-controller.labels" . | nindent 8 }}
+        {{- with .Values.backgroundController.podLabels }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+      {{- with .Values.backgroundController.podAnnotations }}
+      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
     spec:
-      {{- with .Values.backgroundController.image.pullSecrets }}
-      imagePullSecrets: 
+      {{- with .Values.backgroundController.imagePullSecrets }}
+      imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.backgroundController.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.backgroundController.nodeSelector }}
+      {{- with .Values.backgroundController.nodeSelector | default .Values.global.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -70,16 +77,21 @@ spec:
       serviceAccountName: {{ template "kyverno.background-controller.serviceAccountName" . }}
       containers:
         - name: controller
-          image: {{ include "kyverno.background-controller.image" (dict "image" .Values.backgroundController.image "defaultTag" .Chart.AppVersion) | quote }}
+          image: {{ include "kyverno.background-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.backgroundController.image "defaultTag" .Chart.AppVersion) | quote }}
+          imagePullPolicy: {{ .Values.backgroundController.image.pullPolicy }}
           ports:
-          - containerPort: 9443
+          - containerPort: {{ .Values.backgroundController.server.port }}
             name: https
             protocol: TCP
-          - containerPort: 8000
+          - containerPort: {{ .Values.backgroundController.metering.port }}
             name: metrics
             protocol: TCP
+          {{ if .Values.backgroundController.profiling.enabled }}
+          - containerPort: {{ .Values.backgroundController.profiling.port }}
+            name: profiling-port
+            protocol: TCP
+          {{- end }}
           args:
-            - --loggingFormat={{ .Values.backgroundController.logging.format }}
             {{- if .Values.backgroundController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.backgroundController.tracing.address }}
@@ -99,12 +111,33 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
+            {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
+            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
+            {{- end }}
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.backgroundController.featuresOverride)
+              "configMapCaching"
+              "deferredLoading"
+              "globalContext"
+              "logging"
+              "omitEvents"
+              "policyExceptions"
+            ) | nindent 12 }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
             {{- end }}
             {{- end }}
+            {{ if .Values.backgroundController.profiling.enabled }}
+            - --profile=true
+            - --profilePort={{ .Values.backgroundController.profiling.port }}
+            {{- end }}
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.background-controller.serviceAccountName" . }}
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.background-controller.name" . }}
+          - name: INIT_CONFIG
+            value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
             value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_POD_NAME
@@ -115,12 +148,40 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          {{- with (concat .Values.global.extraEnvVars .Values.backgroundController.extraEnvVars) }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.backgroundController.resources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.backgroundController.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume }}
+          volumeMounts:
+            - name: ca-certificates
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data }}
+              subPath: ca-certificates.crt
+              {{- end }}
+          {{- end }}
+      {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume }}
+      volumes:
+      {{- if or .Values.backgroundController.caCertificates.data .Values.global.caCertificates.data }}
+      - name: ca-certificates
+        configMap:
+          name: {{ include "kyverno.background-controller.caCertificatesConfigMapName" . }}
+          items:
+          - key: ca-certificates
+            path: ca-certificates.crt
+      {{- else if or .Values.backgroundController.caCertificates.volume .Values.global.caCertificates.volume }}
+      {{- with (.Values.backgroundController.caCertificates.volume | default .Values.global.caCertificates.volume) }}
+      - name: ca-certificates
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
 {{- end -}}
 {{- end -}}

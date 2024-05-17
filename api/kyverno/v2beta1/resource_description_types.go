@@ -52,6 +52,14 @@ type ResourceDescription struct {
 	Operations []kyvernov1.AdmissionOperation `json:"operations,omitempty" yaml:"operations,omitempty"`
 }
 
+func (r ResourceDescription) GetOperations() []string {
+	ops := []string{}
+	for _, op := range r.Operations {
+		ops = append(ops, string(op))
+	}
+	return ops
+}
+
 // Validate implements programmatic validation
 func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if len(r.Names) > 0 {

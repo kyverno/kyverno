@@ -1,0 +1,25 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: apicall-correct
+spec:
+  steps:
+  - name: scenario
+    try:
+    - apply:
+        file: namespace.yaml
+    - apply:
+        file: main-deployment.yaml
+    - apply:
+        file: gctxentry.yaml
+    - sleep:
+        duration: 15s
+    - apply:
+        file: clusterpolicy.yaml
+    - assert:
+        file: clusterpolicy-ready.yaml
+    - apply:
+        file: new-deployment.yaml
+    - assert:
+        file: new-deployment-exists.yaml

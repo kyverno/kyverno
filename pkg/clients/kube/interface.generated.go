@@ -9,8 +9,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+type UpstreamInterface = k8s_io_client_go_kubernetes.Interface
+
 type Interface interface {
-	k8s_io_client_go_kubernetes.Interface
+	UpstreamInterface
 	WithMetrics(metrics.MetricsConfigManager, metrics.ClientType) Interface
 	WithTracing() Interface
 	WithLogging(logr.Logger) Interface

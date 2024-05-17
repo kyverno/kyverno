@@ -1,13 +1,39 @@
-name: deny-exec-by-pod-label
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - deny-exec-by-pod-label.yaml
+- deny-exec-by-pod-label.yaml
 resources:
-  - resource.yaml
-variables: values.yaml
+- resource.yaml
 results:
-  - policy: deny-exec-by-pod-label
-    rule: deny-exec-by-label
-    resource: execpod
-    namespace: default
-    kind: PodExecOptions
-    result: fail
+- kind: PodExecOptions
+  policy: deny-exec-by-pod-label
+  resources:
+  - default/execpod
+  result: fail
+  rule: deny-exec-by-label
+values:
+  globalValues:
+    request.operation: CONNECT
+  policies:
+  - name: deny-exec-by-pod-label
+    rules:
+    - name: deny-exec-by-label
+      values:
+        podexeclabel: "false"
+  subresources:
+  - parentResource:
+      kind: Pod
+      name: pods
+      namespaced: false
+      singularName: ""
+      verbs: null
+      version: v1
+    subresource:
+      kind: PodExecOptions
+      name: pods/exec
+      namespaced: false
+      singularName: ""
+      verbs: null
+      version: v1

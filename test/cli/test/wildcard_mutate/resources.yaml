@@ -6,7 +6,6 @@ spec:
   containers:
   - name: nginx
     image: nginx:latest
-
 ---
 apiVersion: v1
 kind: Pod

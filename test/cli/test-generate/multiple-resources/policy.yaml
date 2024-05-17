@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-policy
+spec:
+  rules:
+    - name: rule
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+      generate:
+        apiVersion: foo/v1
+        kind: Foo
+        name: "foo-{{request.object.metadata.name}}"
+        namespace: "{{request.object.metadata.namespace}}"

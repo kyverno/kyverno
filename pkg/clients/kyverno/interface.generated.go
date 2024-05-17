@@ -9,8 +9,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+type UpstreamInterface = github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface
+
 type Interface interface {
-	github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface
+	UpstreamInterface
 	WithMetrics(metrics.MetricsConfigManager, metrics.ClientType) Interface
 	WithTracing() Interface
 	WithLogging(logr.Logger) Interface

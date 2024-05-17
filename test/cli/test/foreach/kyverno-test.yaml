@@ -1,56 +1,49 @@
-name: test-foreach
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  - policies.yaml
+- policies.yaml
 resources:
-  - resources.yaml
+- resources.yaml
 results:
-  - policy: validate-empty-dir-mountpath
-    rule: check-mount-paths
-    resource: test-pod
-    kind: Pod
-    status: pass
-  - policy: validate-empty-dir-mountpath
-    rule: check-mount-paths
-    resource: test-pod2
-    kind: Pod
-    status: pass
-  - policy: validate-empty-dir-resources
-    rule: check-resources
-    resource: test-pod-bad-mount
-    kind: Pod
-    status: fail
-  - policy: validate-empty-dir-resources
-    rule: check-resources
-    resource: test-pod
-    kind: Pod
-    status: fail
-  - policy: validate-empty-dir-resources
-    rule: check-resources
-    resource: test-pod-with-resources
-    kind: Pod
-    status: pass
-  - policy: validate-empty-dir-resources
-    rule: check-resources
-    resource: test-pod-with-gke-vol
-    kind: Pod
-    status: skip
-  - policy: validate-empty-dir-resources
-    rule: check-resources
-    resource: test-pod-with-resources-multiple-ctnrs
-    kind: Pod
-    status: pass
-  - policy: validate-image-list
-    rule: check-image
-    resource: test-pod
-    kind: Pod
-    status: fail
-  - policy: validate-image-list
-    rule: check-image
-    resource: test-pod-ghcr
-    kind: Pod
-    status: fail
-  - policy: validate-image-list-error
-    rule: check-image
-    resource: test-pod-ghcr
-    kind: Pod
-    status: error
+- kind: Pod
+  policy: validate-empty-dir-mountpath
+  resources:
+  - test-pod
+  - test-pod2
+  result: pass
+  rule: check-mount-paths
+- kind: Pod
+  policy: validate-empty-dir-resources
+  resources:
+  - test-pod
+  - test-pod-bad-mount
+  result: fail
+  rule: check-resources
+- kind: Pod
+  policy: validate-empty-dir-resources
+  resources:
+  - test-pod-with-resources
+  - test-pod-with-resources-multiple-ctnrs
+  result: pass
+  rule: check-resources
+- kind: Pod
+  policy: validate-empty-dir-resources
+  resources:
+  - test-pod-with-gke-vol
+  result: skip
+  rule: check-resources
+- kind: Pod
+  policy: validate-image-list
+  resources:
+  - test-pod
+  - test-pod-ghcr
+  result: fail
+  rule: check-image
+- kind: Pod
+  policy: validate-image-list-error
+  resources:
+  - test-pod-ghcr
+  result: error
+  rule: check-image

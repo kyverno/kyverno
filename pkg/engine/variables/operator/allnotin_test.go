@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 

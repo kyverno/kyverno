@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-add-labels
+spec:
+  rules:
+  - name: foo
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    context:
+    - name: podName
+      variable:
+        jmesPath: request.object.metadata.name[?starts_with(@, 'good-')] | [0]
+        default: empty
+    preconditions:
+     all:
+      - key: "{{podName}}"
+        operator: Equals
+        value: empty
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            +(foo): bar

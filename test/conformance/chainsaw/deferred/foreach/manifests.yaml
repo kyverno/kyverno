@@ -1,0 +1,44 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: testcase-7fki3
+spec:
+  admission: true
+  background: false
+  rules:
+  - context:
+    - name: var1
+      variable:
+        value: AAA
+    match:
+      all:
+      - resources:
+          kinds:
+          - v1/ConfigMap
+          names:
+          - testcase-7fki3-resource
+    mutate:
+      foreach:
+      - list: '[''dummy'']'
+        patchStrategicMerge:
+          data:
+            from_loop_1: '{{ var1 || ''!!!variable not resolved!!!'' }}'
+      - list: '[''dummy'']'
+        patchStrategicMerge:
+          data:
+            from_loop_2: '{{ var1 || ''!!!variable not resolved!!!'' }}'
+      - list: '[''dummy'']'
+        patchStrategicMerge:
+          data:
+            from_loop_3: '{{ var1 || ''!!!variable not resolved!!!'' }}'
+    name: mutate1
+    preconditions:
+      all:
+      - key: '{{ request.operation }}'
+        operator: AllIn
+        value:
+        - CREATE
+        - UPDATE
+  schemaValidation: false
+  validationFailureAction: Enforce

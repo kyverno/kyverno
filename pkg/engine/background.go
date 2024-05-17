@@ -9,9 +9,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"k8s.io/client-go/tools/cache"
 )
 
 // ApplyBackgroundChecks checks for validity of generate and mutateExisting rules on the resource
@@ -35,11 +35,11 @@ func (e *engine) filterRules(
 	policy := policyContext.Policy()
 	resp := engineapi.NewPolicyResponse()
 	applyRules := policy.GetSpec().GetApplyRules()
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.Rules = append(resp.Rules, *ruleResp)
-			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
+			if applyRules == kyvernov1.ApplyOne && ruleResp.Status() != engineapi.RuleStatusSkip {
 				break
 			}
 		}
@@ -52,7 +52,7 @@ func (e *engine) filterRule(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.RuleResponse {
-	if !rule.HasGenerate() && !rule.IsMutateExisting() {
+	if !rule.HasGenerate() && !rule.HasMutateExisting() {
 		return nil
 	}
 
@@ -61,18 +61,28 @@ func (e *engine) filterRule(
 		ruleType = engineapi.Generation
 	}
 
-	// check if there is a corresponding policy exception
-	ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule)
-	if ruleResp != nil {
-		return ruleResp
+	// get policy exceptions that matches both policy and rule name
+	exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
+	if err != nil {
+		logger.Error(err, "failed to get exceptions")
+		return nil
 	}
-
-	startTime := time.Now()
+	// check if there is a policy exception matches the incoming resource
+	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	if exception != nil {
+		key, err := cache.MetaNamespaceKeyFunc(exception)
+		if err != nil {
+			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			return engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err)
+		} else {
+			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			return engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception)
+		}
+	}
 
 	newResource := policyContext.NewResource()
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
-	ctx := policyContext.JSONContext()
 	namespaceLabels := policyContext.NamespaceLabels()
 	policy := policyContext.Policy()
 	gvk, subresource := policyContext.ResourceKind()
@@ -81,15 +91,7 @@ func (e *engine) filterRule(
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
 			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err == nil {
-				return &engineapi.RuleResponse{
-					Name:   rule.Name,
-					Type:   ruleType,
-					Status: engineapi.RuleStatusFail,
-					Stats: engineapi.ExecutionStats{
-						ProcessingTime: time.Since(startTime),
-						Timestamp:      startTime.Unix(),
-					},
-				}
+				return engineapi.RuleFail(rule.Name, ruleType, "")
 			}
 		}
 		logger.V(4).Info("rule not matched", "reason", err.Error())
@@ -99,40 +101,42 @@ func (e *engine) filterRule(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	if err := internal.LoadContext(context.TODO(), e, policyContext, rule); err != nil {
+	contextLoader := e.ContextLoader(policyContext.Policy(), rule)
+	if err := contextLoader(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
 
-	ruleCopy := rule.DeepCopy()
-	if after, err := variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.GetAnyAllConditions()); err != nil {
-		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", ruleCopy.Name)
-		return nil
-	} else {
-		ruleCopy.SetAnyAllConditions(after)
-	}
-
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := utils.TransformConditions(ruleCopy.GetAnyAllConditions())
+	copyConditions, err := engineutils.TransformConditions(rule.GetAnyAllConditions())
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
-		return nil
+		return engineapi.RuleError(rule.Name, ruleType, "failed to convert AnyAllConditions", err)
 	}
 
 	// evaluate pre-conditions
-	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return internal.RuleSkip(*ruleCopy, ruleType, "")
+	pass, msg, err := variables.EvaluateConditions(logger, policyContext.JSONContext(), copyConditions)
+	if err != nil {
+		return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions", err)
 	}
 
-	// build rule Response
-	return &engineapi.RuleResponse{
-		Name:   ruleCopy.Name,
-		Type:   ruleType,
-		Status: engineapi.RuleStatusPass,
-		Stats: engineapi.ExecutionStats{
-			ProcessingTime: time.Since(startTime),
-			Timestamp:      startTime.Unix(),
-		},
+	if pass {
+		return engineapi.RulePass(rule.Name, ruleType, "")
 	}
+
+	if policyContext.OldResource().Object != nil {
+		if err = policyContext.JSONContext().AddResource(policyContext.OldResource().Object); err != nil {
+			return engineapi.RuleError(rule.Name, ruleType, "failed to update JSON context for old resource", err)
+		}
+		if val, msg, err := variables.EvaluateConditions(logger, policyContext.JSONContext(), copyConditions); err != nil {
+			return engineapi.RuleError(rule.Name, ruleType, "failed to evaluate conditions for old resource", err)
+		} else {
+			if val {
+				return engineapi.RuleFail(rule.Name, ruleType, msg)
+			}
+		}
+	}
+
+	logger.V(4).Info("skip rule as preconditions are not met", "rule", rule.Name, "message", msg)
+	return engineapi.RuleSkip(rule.Name, ruleType, "")
 }

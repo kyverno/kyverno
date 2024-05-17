@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -27,6 +27,25 @@ type fixture struct {
 	client  Interface
 }
 
+func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]interface{}{
+				"namespace": namespace,
+				"name":      name,
+			},
+		},
+	}
+}
+
+func newUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[string]interface{}) *unstructured.Unstructured {
+	u := newUnstructured(apiVersion, kind, namespace, name)
+	u.Object["spec"] = spec
+	return u
+}
+
 func newFixture(t *testing.T) *fixture {
 	// init groupversion
 	regResource := []schema.GroupVersionResource{
@@ -44,12 +63,12 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	objects := []runtime.Object{
-		kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
-		kubeutils.NewUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
-		kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
-		kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
-		kubeutils.NewUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
-		kubeutils.NewUnstructured("apps/v1", "Deployment", config.KyvernoNamespace(), config.KyvernoDeploymentName()),
+		newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
+		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
+		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
+		newUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
+		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
+		newUnstructured("apps/v1", "Deployment", config.KyvernoNamespace(), config.KyvernoDeploymentName()),
 	}
 
 	scheme := runtime.NewScheme()
@@ -89,17 +108,17 @@ func TestCRUDResource(t *testing.T) {
 		t.Errorf("DeleteResouce not working: %s", err)
 	}
 	// CreateResource
-	_, err = f.client.CreateResource(context.TODO(), "", "thekind", "ns-foo", kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
+	_, err = f.client.CreateResource(context.TODO(), "", "thekind", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
 	if err != nil {
 		t.Errorf("CreateResource not working: %s", err)
 	}
 	//	UpdateResource
-	_, err = f.client.UpdateResource(context.TODO(), "", "thekind", "ns-foo", kubeutils.NewUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
+	_, err = f.client.UpdateResource(context.TODO(), "", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
 	if err != nil {
 		t.Errorf("UpdateResource not working: %s", err)
 	}
 	// UpdateStatusResource
-	_, err = f.client.UpdateStatusResource(context.TODO(), "", "thekind", "ns-foo", kubeutils.NewUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
+	_, err = f.client.UpdateStatusResource(context.TODO(), "", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
 	if err != nil {
 		t.Errorf("UpdateStatusResource not working: %s", err)
 	}
@@ -108,7 +127,7 @@ func TestCRUDResource(t *testing.T) {
 func TestEventInterface(t *testing.T) {
 	f := newFixture(t)
 	iEvent := f.client.GetEventsInterface()
-	_, err := iEvent.List(context.TODO(), metav1.ListOptions{})
+	_, err := iEvent.Events(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		t.Errorf("Testing Event interface not working: %s", err)
 	}

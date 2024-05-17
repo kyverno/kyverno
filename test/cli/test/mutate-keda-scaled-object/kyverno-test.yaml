@@ -1,24 +1,29 @@
-name: mutate-keda-scaled-object
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
 policies:
-  -  policy.yaml
+- policy.yaml
 resources:
-  -  resources.yaml
+- resources.yaml
 results:
-  - policy: keda-prometheus-serveraddress
-    rule: keda-prometheus-serveraddress
-    resources: [service-1]
-    patchedResource: patchedResource1.yaml
-    kind: ScaledObject
-    result: pass
-  - policy: keda-prometheus-serveraddress
-    rule: keda-prometheus-serveraddress
-    resources: [service-2]
-    patchedResource: patchedResource2.yaml
-    kind: ScaledObject
-    result: pass
-  - policy: keda-prometheus-serveraddress
-    rule: keda-prometheus-serveraddress
-    resources: [service-3]
-    patchedResource: patchedResource3.yaml
-    kind: ScaledObject
-    result: pass
+- kind: ScaledObject
+  patchedResource: patchedResource1.yaml
+  policy: keda-prometheus-serveraddress
+  resources:
+  - service-1
+  result: pass
+  rule: keda-prometheus-serveraddress
+- kind: ScaledObject
+  patchedResource: patchedResource2.yaml
+  policy: keda-prometheus-serveraddress
+  resources:
+  - service-2
+  result: pass
+  rule: keda-prometheus-serveraddress
+- kind: ScaledObject
+  policy: keda-prometheus-serveraddress
+  resources:
+  - service-3
+  result: skip
+  rule: keda-prometheus-serveraddress

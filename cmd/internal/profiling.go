@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/profiling"
 )
 
-func SetupProfiling(logger logr.Logger) {
+func setupProfiling(logger logr.Logger) {
 	logger = logger.WithName("profiling").WithValues("enabled", profilingEnabled, "address", profilingAddress, "port", profilingPort)
 	if profilingEnabled {
 		logger.Info("setup profiling...")

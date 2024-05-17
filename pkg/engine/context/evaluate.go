@@ -1,38 +1,39 @@
 package context
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
 // Query the JSON context with JMESPATH search path
 func (ctx *context) Query(query string) (interface{}, error) {
+	if err := ctx.loadDeferred(query); err != nil {
+		return nil, err
+	}
+
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, fmt.Errorf("invalid query (nil)")
 	}
 	// compile the query
-	queryPath, err := jmespath.New(query)
+	queryPath, err := ctx.jp.Query(query)
 	if err != nil {
 		logger.Error(err, "incorrect query", "query", query)
 		return nil, fmt.Errorf("incorrect query %s: %v", query, err)
 	}
 	// search
-	ctx.mutex.RLock()
-	defer ctx.mutex.RUnlock()
-	var data interface{}
-	if err := json.Unmarshal(ctx.jsonRaw, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal context: %w", err)
-	}
-	result, err := queryPath.Search(data)
+	result, err := queryPath.Search(ctx.jsonRaw)
 	if err != nil {
 		return nil, fmt.Errorf("JMESPath query failed: %w", err)
 	}
 	return result, nil
+}
+
+func (ctx *context) loadDeferred(query string) error {
+	level := len(ctx.jsonRawCheckpoints)
+	return ctx.deferred.LoadMatching(query, level)
 }
 
 func (ctx *context) HasChanged(jmespath string) (bool, error) {

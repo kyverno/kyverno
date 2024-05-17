@@ -1,3 +1,7 @@
+# -- Policy kind (`ClusterPolicy`, `Policy`)
+# Set to `Policy` if you need namespaced policies and not cluster policies
+policyKind: ClusterPolicy
+
 # -- Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`).
 # For more info https://kyverno.io/policies/pod-security.
 podSecurityStandard: baseline
@@ -20,9 +24,9 @@ includeRestrictedPolicies: []
 # For more info: https://kyverno.io/docs/writing-policies/policy-settings/
 failurePolicy: Fail
 
-# -- Validation failure action (`audit`, `enforce`).
+# -- Validation failure action (`Audit`, `Enforce`).
 # For more info https://kyverno.io/docs/writing-policies/validate.
-validationFailureAction: audit
+validationFailureAction: Audit
 
 # -- Define validationFailureActionByPolicy for specific policies.
 # Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies.
@@ -96,6 +100,9 @@ customLabels: {}
 
 # -- Policies background mode
 background: true
+
+# -- (bool) SkipBackgroundRequests bypasses admission requests that are sent by the background controller
+skipBackgroundRequests: ~
 
 # -- Kyverno version
 # The default of "autodetect" will try to determine the currently installed version from the deployment

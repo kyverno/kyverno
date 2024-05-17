@@ -3,7 +3,7 @@ package json
 import (
 	"testing"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"gotest.tools/assert"
 )
 

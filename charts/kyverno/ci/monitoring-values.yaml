@@ -1,0 +1,31 @@
+---
+admissionController:
+  serviceMonitor:
+    enabled: true
+    relabelings:
+    - action: labeldrop
+      regex: container
+
+cleanupController:
+  serviceMonitor:
+    enabled: true
+    relabelings:
+    - action: labeldrop
+      regex: container
+
+backgroundController:
+  serviceMonitor:
+    enabled: true
+    relabelings:
+    - action: labeldrop
+      regex: container
+
+reportsController:
+  serviceMonitor:
+    enabled: true
+    relabelings:
+    - action: labeldrop
+      regex: container
+
+grafana:
+  enabled: true

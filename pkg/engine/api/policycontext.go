@@ -16,6 +16,7 @@ type PolicyContext interface {
 	Policy() kyvernov1.PolicyInterface
 	NewResource() unstructured.Unstructured
 	OldResource() unstructured.Unstructured
+	SetResources(oldResource, newResource unstructured.Unstructured) error
 	AdmissionInfo() kyvernov1beta1.RequestInfo
 	Operation() kyvernov1.AdmissionOperation
 	NamespaceLabels() map[string]string
@@ -26,5 +27,4 @@ type PolicyContext interface {
 	SetElement(element unstructured.Unstructured)
 
 	JSONContext() enginecontext.Interface
-	Copy() PolicyContext
 }

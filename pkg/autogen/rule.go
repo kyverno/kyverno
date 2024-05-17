@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"sort"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -200,6 +201,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.VerifyImages = newVerifyImages
 		return rule
 	}
+	if rule.HasValidateCEL() {
+		cel := rule.Validation.CEL.DeepCopy()
+		rule.Validation.CEL = cel
+		return rule
+	}
 	return nil
 }
 
@@ -250,7 +256,7 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 			"ReplicaSet":            1,
 			"ReplicationController": 1,
 		}
-		for _, value := range strings.Split(controllers, ",") {
+		for _, value := range splitKinds(controllers, ",") {
 			if _, ok := controllersList[value]; ok {
 				controllersValidated = append(controllersValidated, value)
 			}
@@ -271,11 +277,17 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 		rule,
 		"template",
 		"spec/template",
-		strings.Split(controllers, ","),
+		splitKinds(controllers, ","),
 		func(r kyvernov1.ResourceFilters, kinds []string) kyvernov1.ResourceFilters {
 			return getAnyAllAutogenRule(r, "Pod", kinds)
 		},
 	)
+}
+
+func splitKinds(controllers, separator string) []string {
+	kinds := strings.Split(controllers, separator)
+	sort.Strings(kinds)
+	return kinds
 }
 
 func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Rule {
@@ -291,7 +303,11 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 		"spec/jobTemplate/spec/template",
 		[]string{PodControllerCronJob},
 		func(r kyvernov1.ResourceFilters, kinds []string) kyvernov1.ResourceFilters {
-			return getAnyAllAutogenRule(r, "Job", kinds)
+			anyKind := r.DeepCopy()
+			for i := range anyKind {
+				anyKind[i].Kinds = kinds
+			}
+			return anyKind
 		},
 	)
 }
@@ -300,22 +316,30 @@ func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
 	if kind == "Pod" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
 		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.template.metadata"))
 	}
 	if kind == "Cronjob" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
 		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.jobTemplate.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.jobTemplate.spec.template.metadata"))
 	}
-	obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
 	return obj
 }
 
-func updateRestrictedFields(pbyte []byte, kind string) (obj []byte) {
+func updateCELFields(pbyte []byte, kind string) (obj []byte) {
 	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.template.spec`))
+		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.template.metadata"))
 	}
 	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.jobTemplate.spec.template.spec`))
+		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.jobTemplate.spec.template.metadata"))
+		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.jobTemplate.spec.template.metadata"))
 	}
-	obj = []byte(strings.ReplaceAll(string(obj), "metadata", "spec.template.metadata"))
 	return obj
 }

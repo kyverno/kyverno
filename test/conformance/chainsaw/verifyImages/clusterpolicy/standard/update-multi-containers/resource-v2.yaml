@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: double
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: double
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: double
+    spec:
+      containers:
+        - name: podinfo-a
+          image: ghcr.io/seankhliao/podinfo:6.3.3
+        - name: podinfo-b
+          image: ghcr.io/seankhliao/podinfo:6.3.5

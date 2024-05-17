@@ -40,7 +40,7 @@ linters:
     - whitespace
 
 run:
-  timeout: 10m
+  timeout: 15m
   skip-files:
     - ".+\\.generated.go"
     - ".+_test.go"

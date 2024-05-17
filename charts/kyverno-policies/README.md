@@ -2,7 +2,7 @@
 
 Kubernetes Pod Security Standards implemented as Kyverno policies
 
-![Version: v2.5.5](https://img.shields.io/badge/Version-v2.5.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.7.3](https://img.shields.io/badge/AppVersion-v1.7.3-informational?style=flat-square)
+![Version: v0.0.0](https://img.shields.io/badge/Version-v0.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
 
 ## About
 
@@ -63,13 +63,14 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies |
 | podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
 | podSecuritySeverity | string | `"medium"` | Pod Security Standard (`low`, `medium`, `high`). |
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
 | failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/writing-policies/policy-settings/ |
-| validationFailureAction | string | `"audit"` | Validation failure action (`audit`, `enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
+| validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
 | validationFailureActionOverrides | object | `{"all":[]}` | Define validationFailureActionOverrides for specific policies. The overrides for `all` will apply to all policies. |
 | policyExclude | object | `{}` | Exclude resources from individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. |
@@ -78,6 +79,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | nameOverride | string | `nil` | Name override. |
 | customLabels | object | `{}` | Additional labels. |
 | background | bool | `true` | Policies background mode |
+| skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
 | kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment |
 
 ## Source Code
@@ -86,13 +88,13 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ## Requirements
 
-Kubernetes: `>=1.16.0-0`
+Kubernetes: `>=1.25.0-0`
 
 ## Maintainers
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| Nirmata |  | <https://kyverno.io/> |
+| kyverno-maintainers | <cncf-kyverno-maintainers@lists.cncf.io> |  |
 
 ## Changes
 

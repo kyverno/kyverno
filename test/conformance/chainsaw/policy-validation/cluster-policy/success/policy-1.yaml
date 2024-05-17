@@ -1,0 +1,62 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: vault-init-injector
+  annotations:
+    policies.kyverno.io/title: Inject vault init Container
+spec:
+  background: false
+  validationFailureAction: Audit
+  rules:
+  - name: inject-vault-sidecar
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.template.metadata.annotations.\"vault.k8s.corp.com/inject\"  || ''}}"
+        operator: Equals
+        value: "true"
+      - key: vault-init
+        operator: AnyNotIn
+        value: "{{ request.object.spec.template.spec.initContainers[].name || ['']}}"
+    mutate:
+      patchesJson6902: |-
+        - op: add
+          path: /spec/template/spec/initContainers
+          value: 
+            - name: vault-init
+              image: registry.corp.com/infrastructure/vault-init:dev-53
+              imagePullPolicy: IfNotPresent
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 64M
+                limits:
+                  cpu: 500m
+                  memory: 128M
+              volumeMounts:
+              - mountPath: "/secret"
+                name: vault-secret
+              env:
+              - name: VAULT_ENTRY
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.annotations["vault.k8s.corp.com/role"]
+        - op: add
+          path: /spec/template/spec/volumes/-1
+          value:
+            name: vault-secret
+            emptyDir:
+              medium: Memory
+        - op: add
+          path: /spec/template/spec/containers/0/volumeMounts/-1
+          value:
+            mountPath: "/secret"
+            name: vault-secret
+        - op: add
+          path: /spec/template/metadata/annotations/config.linkerd.io~1skip-outbound-ports
+          value: "8200"

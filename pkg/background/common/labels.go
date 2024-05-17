@@ -5,11 +5,13 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -18,22 +20,18 @@ type Object interface {
 	GetNamespace() string
 	GetKind() string
 	GetAPIVersion() string
+	GetUID() types.UID
 }
 
 func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured.Unstructured, policy kyvernov1.PolicyInterface, ruleName string) {
-	// add managedBY label if not defined
 	labels := unstr.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
 	}
 
-	// handle managedBy label
 	managedBy(labels)
-
 	PolicyInfo(labels, policy, ruleName)
-
-	TriggerInfo(labels, &triggerResource)
-	// update the labels
+	TriggerInfo(labels, triggerResource)
 	unstr.SetLabels(labels)
 }
 
@@ -45,7 +43,7 @@ func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
-		set[kyvernov1beta1.URMutateTriggerNameLabel] = trigger.GetName()
+		set[kyvernov1beta1.URMutateTriggerNameLabel] = trimByLength(trigger.GetName(), 63)
 		set[kyvernov1beta1.URMutateTriggerNSLabel] = trigger.GetNamespace()
 		set[kyvernov1beta1.URMutateTriggerKindLabel] = trigger.GetKind()
 		if trigger.GetAPIVersion() != "" {
@@ -63,7 +61,7 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
-		set[kyvernov1beta1.URGenerateResourceNameLabel] = trigger.GetName()
+		set[kyvernov1beta1.URGenerateResourceUIDLabel] = string(trigger.GetUID())
 		set[kyvernov1beta1.URGenerateResourceNSLabel] = trigger.GetNamespace()
 		set[kyvernov1beta1.URGenerateResourceKindLabel] = trigger.GetKind()
 	}
@@ -72,8 +70,8 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 
 func managedBy(labels map[string]string) {
 	// ManagedBy label
-	key := kyvernov1.LabelAppManagedBy
-	value := kyvernov1.ValueKyvernoApp
+	key := kyverno.LabelAppManagedBy
+	value := kyverno.ValueKyvernoApp
 	val, ok := labels[key]
 	if ok {
 		if val != value {
@@ -93,11 +91,16 @@ func PolicyInfo(labels map[string]string, policy kyvernov1.PolicyInterface, rule
 	labels[GenerateRuleLabel] = ruleName
 }
 
-func TriggerInfo(labels map[string]string, obj Object) {
-	labels[GenerateTriggerAPIVersionLabel] = obj.GetAPIVersion()
+func TriggerInfo(labels map[string]string, obj unstructured.Unstructured) {
+	labels[GenerateTriggerVersionLabel] = obj.GroupVersionKind().Version
+	labels[GenerateTriggerGroupLabel] = obj.GroupVersionKind().Group
 	labels[GenerateTriggerKindLabel] = obj.GetKind()
 	labels[GenerateTriggerNSLabel] = obj.GetNamespace()
-	labels[GenerateTriggerNameLabel] = trimByLength(obj.GetName(), 63)
+	labels[GenerateTriggerUIDLabel] = string(obj.GetUID())
+}
+
+func TagSource(labels map[string]string, obj Object) {
+	labels[GenerateTypeCloneSourceLabel] = ""
 }
 
 func trimByLength(value string, character int) string {

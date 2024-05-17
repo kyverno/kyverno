@@ -1,0 +1,189 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod1
+spec:
+  containers:
+  - name: main-1
+    image: dummy
+    securityContext:
+      privileged: false
+      runAsUser: 1
+      runAsNonRoot: true
+  - name: main-2
+    image: dummy
+    securityContext:
+      privileged: false
+      runAsNonRoot: false
+  - name: main-3
+    image: dummy
+    securityContext:
+      privileged: false
+      runAsNonRoot: true
+  - name: main-4
+    image: dummy
+    securityContext:
+      privileged: false
+      runAsUser: 0
+      runAsNonRoot: false
+      capabilities:
+        add:
+        - SYS_ADMIN
+  - name: main-5
+    image: dummy
+    securityContext:
+      privileged: false
+      capabilities:
+        add:
+        - SYS_ADMIN
+  - name: main-6
+    image: dummy
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: true
+      runAsUser: 0
+  - name: main-7
+    image: dummy
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: true
+      runAsUser: 0
+      runAsNonRoot: true
+  - name: main-8
+    image: dummy
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: true
+      runAsUser: 1
+      runAsNonRoot: false
+  - name: main-9
+    image: dummy
+    securityContext:
+      privileged: false
+      allowPrivilegeEscalation: true
+      runAsUser: 1
+  - name: main-10
+    image: dummy
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsUser: 0
+      runAsNonRoot: false
+  - name: main-11
+    image: dummy
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+  - name: main-12
+    image: dummy
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsUser: 0
+      runAsNonRoot: true
+      capabilities:
+        add:
+        - SYS_ADMIN
+  - name: main-13
+    image: dummy
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsUser: 1
+      runAsNonRoot: false
+      capabilities:
+        add:
+        - SYS_ADMIN
+  - name: main-14
+    image: dummy
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsUser: 1
+      capabilities:
+        add:
+        - SYS_ADMIN
+  - name: main-15
+    image: dummy
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: false
+      capabilities:
+        add:
+        - SYS_ADMIN
+  - name: main-16
+    image: dummy
+    securityContext:
+      runAsUser: 0
+  - name: main-17
+    image: dummy
+    securityContext:
+      allowPrivilegeEscalation: true
+  - name: main-18
+    image: dummy
+    securityContext:
+      allowPrivilegeEscalation: true
+      runAsUser: 1
+      runAsNonRoot: true
+      capabilities:
+        add:
+        - SYS_ADMIN
+  - name: main-19
+    image: dummy
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: false
+      runAsUser: 1
+      runAsNonRoot: true
+  - name: main-20
+    image: dummy
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: false
+      runAsUser: 0
+      capabilities:
+        add:
+        - SYS_ADMIN
+  - name: main-21
+    image: dummy
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - SYS_ADMIN
+  - name: main-22
+    image: dummy
+    securityContext:
+      privileged: true
+      runAsUser: 0
+      runAsNonRoot: true
+  - name: main-23
+    image: dummy
+    securityContext:
+      privileged: true
+      runAsUser: 1
+      runAsNonRoot: false
+  - name: main-24
+    image: dummy
+    securityContext:
+      privileged: true
+      runAsUser: 1
+  - name: main-25
+    image: dummy
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: true
+      runAsUser: 0
+      runAsNonRoot: false
+  - name: main-26
+    image: dummy
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: true
+      runAsNonRoot: false
+  - name: main-27
+    image: dummy
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: true
+      runAsNonRoot: true
+      capabilities:
+        add:
+        - SYS_ADMIN

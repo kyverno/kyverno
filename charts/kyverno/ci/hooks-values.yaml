@@ -1,3 +1,16 @@
 ---
 webhooksCleanup:
   enable: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - hooks
+          topologyKey: kubernetes.io/hostname

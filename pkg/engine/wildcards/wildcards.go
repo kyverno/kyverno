@@ -3,16 +3,18 @@ package wildcards
 import (
 	"strings"
 
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ReplaceInSelector replaces label selector keys and values containing
 // wildcard characters with matching keys and values from the resource labels.
-func ReplaceInSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) {
+func ReplaceInSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) *metav1.LabelSelector {
+	labelSelector = labelSelector.DeepCopy()
 	result := replaceWildcardsInMapKeyValues(labelSelector.MatchLabels, resourceLabels)
 	labelSelector.MatchLabels = result
+	return labelSelector
 }
 
 // replaceWildcardsInMap will expand  the "key" and "value" and will replace wildcard characters
@@ -115,7 +117,10 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 		return "", nil
 	}
 
-	dataMap := data.(map[string]interface{})
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		return "", nil
+	}
 	patternKey, val := getPatternValue(key, dataMap)
 
 	if val == nil {
@@ -123,7 +128,13 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 	}
 
 	result := map[string]string{}
-	for k, v := range val.(map[string]interface{}) {
+
+	valMap, ok := val.(map[string]interface{})
+	if !ok {
+		return "", nil
+	}
+
+	for k, v := range valMap {
 		result[k] = v.(string)
 	}
 

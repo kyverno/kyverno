@@ -4,26 +4,28 @@ kind: ClusterPolicy
 metadata:
   name: path-canonicalize
 spec:
-  validationFailureAction: enforce
+  admission: true
   background: false
   rules:
-  - name: disallow-mount-containerd-sock
-    match:
-      resources:
-        kinds:
-        - Pod
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: disallow-mount-containerd-sock
     validate:
       foreach:
-      - list: "request.object.spec.volumes[]"
-        deny:
+      - deny:
           conditions:
             any:
-            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+            - key: '{{ path_canonicalize(element.hostPath.path) }}'
               operator: Equals
-              value: "/var/run/containerd/containerd.sock"
-            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+              value: /var/run/containerd/containerd.sock
+            - key: '{{ path_canonicalize(element.hostPath.path) }}'
               operator: Equals
-              value: "/run/containerd/containerd.sock"
-            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+              value: /run/containerd/containerd.sock
+            - key: '{{ path_canonicalize(element.hostPath.path) }}'
               operator: Equals
-              value: "\\var\\run\\containerd\\containerd.sock"
+              value: \var\run\containerd\containerd.sock
+        list: request.object.spec.volumes[]
+  validationFailureAction: Enforce

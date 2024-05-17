@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-probe-exists
+spec:
+  rules:
+  - name: check-readinessProbe-exists
+    match:
+      all:
+        - resources:
+              kinds:
+                - Pod
+    validate:
+      message: "readinessProbe is required"
+      pattern:
+        spec:
+          containers:
+          - (name): "check-readiness"
+            readinessProbe:
+              successThreshold: ">1"
+  - name: check-livenessProbe-exists
+    match: 
+      all:   
+        - resources:
+              kinds:
+                - Pod
+    validate:
+      message: "livenessProbe is required"
+      pattern:
+        spec:
+          containers:
+          - (name): "check-liveness"
+            livenessProbe:
+              httpGet:
+                path: "?*"
+                port: "*"
+                scheme: "?*"

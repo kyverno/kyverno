@@ -35,9 +35,9 @@ func Test_Validate_Generate(t *testing.T) {
 	err := json.Unmarshal(rawGenerate, &genRule)
 	assert.NilError(t, err)
 	checker := NewFakeGenerate(genRule)
-	if _, err := checker.Validate(context.TODO()); err != nil {
-		assert.Assert(t, err != nil)
-	}
+	_, err = checker.Validate(context.TODO())
+	t.Log(err)
+	assert.Assert(t, err != nil)
 }
 
 func Test_Validate_Generate_HasAnchors(t *testing.T) {

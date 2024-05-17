@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+spec:
+  containers:
+  - name: busybox
+    image: busybox:1.35
+    env:
+    - name: DUMMY_2
+      value: "dummy-2"
+    - name: DUMMY_2
+      value: "dummy-2"

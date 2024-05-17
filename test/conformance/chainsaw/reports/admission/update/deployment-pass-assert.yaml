@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-dpl-1
+status:
+  observedGeneration: 2
+  updatedReplicas: 1
+  readyReplicas: 1
+  replicas: 1

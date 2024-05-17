@@ -1,0 +1,4 @@
+# golang/k8s.io/apiserver@v0.29.2
+CVE-2020-8561 until=2024-03-31
+# golang/github.com/notaryproject/notation-go@v1.1.0
+CVE-2024-23332 until=2024-03-31

@@ -1,0 +1,8 @@
+apiVersion: v1
+involvedObject:
+  apiVersion: v1
+  kind: Pod
+  name: pod
+kind: Event
+metadata: {}
+reportingComponent: kyverno-scan

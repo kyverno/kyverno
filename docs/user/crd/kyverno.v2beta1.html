@@ -1,0 +1,4836 @@
+
+  <html lang="en">
+    <head>
+      <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<style>
+    .bg-blue {
+        color: #ffffff;
+        background-color: #1589dd;
+    }
+</style>
+    </head>
+    <body>
+      <div class="container">
+        
+          
+          
+            <h2 id="kyverno-io-v2beta1">Package: <span style="font-family: monospace">kyverno.io/v2beta1</span></h2>
+            <p></p>
+          
+        
+        
+          
+            
+            <h3>Resource Types:</h3>
+            <ul><li>
+                    <a href="#kyverno-io-v2beta1-CleanupPolicy">CleanupPolicy</a>
+                  </li><li>
+                    <a href="#kyverno-io-v2beta1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>
+                  </li><li>
+                    <a href="#kyverno-io-v2beta1-ClusterPolicy">ClusterPolicy</a>
+                  </li><li>
+                    <a href="#kyverno-io-v2beta1-Policy">Policy</a>
+                  </li><li>
+                    <a href="#kyverno-io-v2beta1-PolicyException">PolicyException</a>
+                  </li></ul>
+
+            
+            
+  <H3 id="kyverno-io-v2beta1-CleanupPolicy">CleanupPolicy
+    </H3>
+
+  
+
+  <p><p>CleanupPolicy defines a rule for resource cleanup.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>kyverno.io/v2beta1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>CleanupPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-CleanupPolicySpec">
+                <span style="font-family: monospace">CleanupPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Spec declares policy behaviors.</p>
+
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>context</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ContextEntry">
+                <span style="font-family: monospace">[]ContextEntry</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Context defines variables and data sources that can be used during rule execution.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>match</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>exclude</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>schedule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>The schedule in Cron format</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-AnyAllConditions">
+                <span style="font-family: monospace">AnyAllConditions</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-CleanupPolicyStatus">
+                <span style="font-family: monospace">CleanupPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-ClusterCleanupPolicy">ClusterCleanupPolicy
+    </H3>
+
+  
+
+  <p><p>ClusterCleanupPolicy defines rule for resource cleanup.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>kyverno.io/v2beta1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>ClusterCleanupPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-CleanupPolicySpec">
+                <span style="font-family: monospace">CleanupPolicySpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Spec declares policy behaviors.</p>
+
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>context</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ContextEntry">
+                <span style="font-family: monospace">[]ContextEntry</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Context defines variables and data sources that can be used during rule execution.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>match</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>exclude</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>schedule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>The schedule in Cron format</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-AnyAllConditions">
+                <span style="font-family: monospace">AnyAllConditions</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-CleanupPolicyStatus">
+                <span style="font-family: monospace">CleanupPolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-ClusterPolicy">ClusterPolicy
+    </H3>
+
+  
+
+  <p><p>ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>kyverno.io/v2beta1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>ClusterPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Spec">
+                <span style="font-family: monospace">Spec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Spec declares policy behaviors.</p>
+
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>rules</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Rule">
+                <span style="font-family: monospace">[]Rule</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rules is a list of Rule instances. A Policy contains multiple rules and
+each rule can validate, mutate, or generate resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>applyRules</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ApplyRulesType">
+                <span style="font-family: monospace">ApplyRulesType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-FailurePolicyType">
+                <span style="font-family: monospace">FailurePolicyType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationFailureAction</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidationFailureAction">
+                <span style="font-family: monospace">ValidationFailureAction</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &quot;Audit&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationFailureActionOverrides</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidationFailureActionOverride">
+                <span style="font-family: monospace">[]ValidationFailureActionOverride</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>admission</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Admission controls if rules are applied during admission.
+Optional. Default value is &quot;true&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background controls if rules are applied to existing resources during a background scan.
+Optional. Default value is &quot;true&quot;. The value must be set to &quot;false&quot; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>schemaValidation</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deprecated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookTimeoutSeconds</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int32</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutateExistingOnPolicyUpdate</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &quot;false&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generateExistingOnPolicyUpdate</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deprecated, use generateExisting instead</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generateExisting</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &quot;true&quot; generate rule will be triggered and applied to existing matched resources.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>useServerSideApply</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseServerSideApply controls whether to use server-side apply for generate rules
+If is set to &quot;true&quot; create &amp; update for generate rules will use apply instead of create/update.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-PolicyStatus">
+                <span style="font-family: monospace">PolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-Policy">Policy
+    </H3>
+
+  
+
+  <p><p>Policy declares validation, mutation, and generation behaviors for matching resources.
+See: https://kyverno.io/docs/writing-policies/ for more information.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>kyverno.io/v2beta1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>Policy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Spec">
+                <span style="font-family: monospace">Spec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Spec defines policy behaviors and contains one or more rules.</p>
+
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>rules</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Rule">
+                <span style="font-family: monospace">[]Rule</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rules is a list of Rule instances. A Policy contains multiple rules and
+each rule can validate, mutate, or generate resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>applyRules</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ApplyRulesType">
+                <span style="font-family: monospace">ApplyRulesType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-FailurePolicyType">
+                <span style="font-family: monospace">FailurePolicyType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationFailureAction</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidationFailureAction">
+                <span style="font-family: monospace">ValidationFailureAction</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &quot;Audit&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationFailureActionOverrides</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidationFailureActionOverride">
+                <span style="font-family: monospace">[]ValidationFailureActionOverride</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>admission</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Admission controls if rules are applied during admission.
+Optional. Default value is &quot;true&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background controls if rules are applied to existing resources during a background scan.
+Optional. Default value is &quot;true&quot;. The value must be set to &quot;false&quot; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>schemaValidation</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deprecated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookTimeoutSeconds</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int32</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutateExistingOnPolicyUpdate</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &quot;false&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generateExistingOnPolicyUpdate</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deprecated, use generateExisting instead</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generateExisting</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &quot;true&quot; generate rule will be triggered and applied to existing matched resources.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>useServerSideApply</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseServerSideApply controls whether to use server-side apply for generate rules
+If is set to &quot;true&quot; create &amp; update for generate rules will use apply instead of create/update.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-PolicyStatus">
+                <span style="font-family: monospace">PolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-PolicyException">PolicyException
+    </H3>
+
+  
+
+  <p><p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>kyverno.io/v2beta1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>PolicyException</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-PolicyExceptionSpec">
+                <span style="font-family: monospace">PolicyExceptionSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Spec declares policy exception behaviors.</p>
+
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &quot;true&quot;. The value must be set to &quot;false&quot; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>match</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Match defines match clause used to check if a resource applies to the exception</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-AnyAllConditions">
+                <span style="font-family: monospace">AnyAllConditions</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>exceptions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Exception">
+                <span style="font-family: monospace">[]Exception</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Exceptions is a list policy/rules to be excluded</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>podSecurity</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-PodSecurityStandard">
+                <span style="font-family: monospace">[]PodSecurityStandard</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-AnyAllConditions">AnyAllConditions
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-CleanupPolicySpec">CleanupPolicySpec</a>, 
+        <a href="#kyverno-io-v2beta1-Deny">Deny</a>, 
+        <a href="#kyverno-io-v2beta1-PolicyExceptionSpec">PolicyExceptionSpec</a>, 
+        <a href="#kyverno-io-v2beta1-Rule">Rule</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>any</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Condition">
+                <span style="font-family: monospace">[]Condition</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AnyConditions enable variable-based conditional rule execution. This is useful for
+finer control of when an rule is applied. A condition can reference object data
+using JMESPath notation.
+Here, at least one of the conditions need to pass.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>all</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Condition">
+                <span style="font-family: monospace">[]Condition</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AllConditions enable variable-based conditional rule execution. This is useful for
+finer control of when an rule is applied. A condition can reference object data
+using JMESPath notation.
+Here, all of the conditions need to pass.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-CleanupPolicySpec">CleanupPolicySpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-CleanupPolicy">CleanupPolicy</a>, 
+        <a href="#kyverno-io-v2beta1-CleanupPolicy">CleanupPolicy</a>, 
+        <a href="#kyverno-io-v2alpha1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>, 
+        <a href="#kyverno-io-v2beta1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+    </p>
+  
+
+  <p><p>CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
+and schedule when the matching resources needs deleted.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>context</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ContextEntry">
+                <span style="font-family: monospace">[]ContextEntry</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Context defines variables and data sources that can be used during rule execution.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>match</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>exclude</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>schedule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>The schedule in Cron format</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-AnyAllConditions">
+                <span style="font-family: monospace">AnyAllConditions</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-CleanupPolicyStatus">CleanupPolicyStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-CleanupPolicy">CleanupPolicy</a>, 
+        <a href="#kyverno-io-v2beta1-CleanupPolicy">CleanupPolicy</a>, 
+        <a href="#kyverno-io-v2alpha1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>, 
+        <a href="#kyverno-io-v2beta1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+    </p>
+  
+
+  <p><p>CleanupPolicyStatus stores the status of the policy.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]meta/v1.Condition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>lastExecutionTime</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.Time</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-Condition">Condition
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-AnyAllConditions">AnyAllConditions</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>key</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Key is the context entry (using JMESPath) for conditional rule evaluation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>operator</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-ConditionOperator">
+                <span style="font-family: monospace">ConditionOperator</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Operator is the conditional operation to perform. Valid operators are:
+Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+DurationLessThanOrEquals, DurationLessThan</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>value</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Value is the conditional value, or set of values. The values can be fixed set
+or can be variables declared using JMESPath.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>message</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Message is an optional display message</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-ConditionOperator">ConditionOperator
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-Condition">Condition</a>)
+    </p>
+  
+
+  <p><p>ConditionOperator is the operation performed on condition key and value.</p>
+</p>
+
+  
+
+  <H3 id="kyverno-io-v2beta1-Deny">Deny
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-Validation">Validation</a>)
+    </p>
+  
+
+  <p><p>Deny specifies a list of conditions used to pass or fail a validation rule.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-AnyAllConditions">
+                <span style="font-family: monospace">AnyAllConditions</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Multiple conditions can be declared under an <code>any</code> or <code>all</code> statement.
+See: https://kyverno.io/docs/writing-policies/validate/#deny-rules</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-Exception">Exception
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-PolicyExceptionSpec">PolicyExceptionSpec</a>)
+    </p>
+  
+
+  <p><p>Exception stores infos about a policy and rules</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>policyName</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyName identifies the policy to which the exception is applied.
+The policy name uses the format <!-- raw HTML omitted -->/<!-- raw HTML omitted --> unless it
+references a ClusterPolicy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>ruleNames</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>RuleNames identifies the rules to which the exception is applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-ImageVerification">ImageVerification
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-Rule">Rule</a>)
+    </p>
+  
+
+  <p><p>ImageVerification validates that images that match the specified pattern
+are signed with the supplied public key. Once the image is verified it is
+mutated to include the SHA digest retrieved during the registration.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>type</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ImageVerificationType">
+                <span style="font-family: monospace">ImageVerificationType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Type specifies the method of signature validation. The allowed options
+are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>imageReferences</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ImageReferences is a list of matching image reference patterns. At least one pattern in the
+list must match the image for the rule to apply. Each image reference consists of a registry
+address (defaults to docker.io), repository, image, and tag (defaults to latest).
+Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>skipImageReferences</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SkipImageReferences is a list of matching image reference patterns that should be skipped.
+At least one pattern in the list must match the image for the rule to be skipped. Each image reference
+consists of a registry address (defaults to docker.io), repository, image, and tag (defaults to latest).
+Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>attestors</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-AttestorSet">
+                <span style="font-family: monospace">[]AttestorSet</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Attestors specified the required attestors (i.e. authorities)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>attestations</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-Attestation">
+                <span style="font-family: monospace">[]Attestation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Attestations are optional checks for signed in-toto Statements used to verify the image.
+See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
+OCI registry and decodes them into a list of Statement declarations.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>repository</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule.
+If specified Repository will override the default OCI image repository configured for the installation.
+The repository can also be overridden per Attestor or Attestation.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutateDigest</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutateDigest enables replacement of image tags with digests.
+Defaults to true.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>verifyDigest</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>VerifyDigest validates that images have a digest.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>required</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>imageRegistryCredentials</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ImageRegistryCredentials">
+                <span style="font-family: monospace">ImageRegistryCredentials</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ImageRegistryCredentials provides credentials that will be used for authentication with registry</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>useCache</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseCache enables caching of image verify responses for this rule</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-MatchResources">MatchResources
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-CleanupPolicySpec">CleanupPolicySpec</a>, 
+        <a href="#kyverno-io-v2beta1-PolicyExceptionSpec">PolicyExceptionSpec</a>, 
+        <a href="#kyverno-io-v2beta1-Rule">Rule</a>)
+    </p>
+  
+
+  <p><p>MatchResources is used to specify resource and admission review request data for
+which a policy rule is applicable.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>any</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ResourceFilters">
+                <span style="font-family: monospace">ResourceFilters</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Any allows specifying resources which will be ORed</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>all</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ResourceFilters">
+                <span style="font-family: monospace">ResourceFilters</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>All allows specifying resources which will be ANDed</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-PolicyExceptionSpec">PolicyExceptionSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-PolicyException">PolicyException</a>, 
+        <a href="#kyverno-io-v2beta1-PolicyException">PolicyException</a>)
+    </p>
+  
+
+  <p><p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &quot;true&quot;. The value must be set to &quot;false&quot; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>match</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Match defines match clause used to check if a resource applies to the exception</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-AnyAllConditions">
+                <span style="font-family: monospace">AnyAllConditions</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>exceptions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Exception">
+                <span style="font-family: monospace">[]Exception</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Exceptions is a list policy/rules to be excluded</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>podSecurity</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-PodSecurityStandard">
+                <span style="font-family: monospace">[]PodSecurityStandard</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-ResourceDescription">ResourceDescription
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>)
+    </p>
+  
+
+  <p><p>ResourceDescription contains criteria used to match resources.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>kinds</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Kinds is a list of resource kinds.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>names</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Names are the names of the resources. Each name supports wildcard characters
+&quot;*&quot; (matches zero or many characters) and &quot;?&quot; (at least one character).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>namespaces</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Namespaces is a list of namespaces names. Each name supports wildcard characters
+&quot;*&quot; (matches zero or many characters) and &quot;?&quot; (at least one character).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>annotations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Annotations is a  map of annotations (key-value pairs of type string). Annotation keys
+and values support the wildcard characters &quot;*&quot; (matches zero or many characters) and
+&quot;?&quot; (matches at least one character).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>selector</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.LabelSelector</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Selector is a label selector. Label keys and values in <code>matchLabels</code> support the wildcard
+characters <code>*</code> (matches zero or many characters) and <code>?</code> (matches one character).
+Wildcards allows writing label selectors like [&quot;storage.k8s.io/<em>&quot;: &quot;</em>&quot;]. Note that
+using [&quot;<em>&quot; : &quot;</em>&quot;] matches any key and value but does not match an empty label set.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>namespaceSelector</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.LabelSelector</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>NamespaceSelector is a label selector for the resource namespace. Label keys and values
+in <code>matchLabels</code> support the wildcard characters <code>*</code> (matches zero or many characters)
+and <code>?</code> (matches one character).Wildcards allows writing label selectors like
+[&quot;storage.k8s.io/<em>&quot;: &quot;</em>&quot;]. Note that using [&quot;<em>&quot; : &quot;</em>&quot;] matches any key and value but
+does not match an empty label set.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>operations</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-AdmissionOperation">
+                <span style="font-family: monospace">[]AdmissionOperation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Operations can contain values [&quot;CREATE, &quot;UPDATE&quot;, &quot;CONNECT&quot;, &quot;DELETE&quot;], which are used to match a specific action.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-Rule">Rule
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-Spec">Spec</a>)
+    </p>
+  
+
+  <p><p>Rule defines a validation, mutation, or generation control for matching resources.
+Each rules contains a match declaration to select resources, and an optional exclude
+declaration to specify which resources to exclude.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is a label to identify the rule, It must be unique within the policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>context</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ContextEntry">
+                <span style="font-family: monospace">[]ContextEntry</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Context defines variables and data sources that can be used during rule execution.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>match</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchResources defines when this policy rule should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>exclude</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-MatchResources">
+                <span style="font-family: monospace">MatchResources</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ExcludeResources defines when this policy rule should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>imageExtractors</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ImageExtractorConfigs">
+                <span style="font-family: monospace">ImageExtractorConfigs</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
+This config is only valid for verifyImages rules.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>preconditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-AnyAllConditions">
+                <span style="font-family: monospace">AnyAllConditions</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Preconditions are used to determine if a policy rule should be applied by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
+See: https://kyverno.io/docs/writing-policies/preconditions/</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>celPreconditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+set of CEL conditions. It can only be used with the validate.cel subrule</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutate</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-Mutation">
+                <span style="font-family: monospace">Mutation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Mutation is used to modify matching resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validate</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Validation">
+                <span style="font-family: monospace">Validation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validation is used to validate matching resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generate</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-Generation">
+                <span style="font-family: monospace">Generation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Generation is used to create new resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>verifyImages</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-ImageVerification">
+                <span style="font-family: monospace">[]ImageVerification</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>VerifyImages is used to verify image signatures and mutate them to add a digest</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>skipBackgroundRequests</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+The default value is set to &quot;true&quot;, it must be set to &quot;false&quot; to apply
+generate and mutateExisting rules to those requests.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-Spec">Spec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-ClusterPolicy">ClusterPolicy</a>, 
+        <a href="#kyverno-io-v2beta1-Policy">Policy</a>)
+    </p>
+  
+
+  <p><p>Spec contains a list of Rule instances and other policy controls.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>rules</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Rule">
+                <span style="font-family: monospace">[]Rule</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rules is a list of Rule instances. A Policy contains multiple rules and
+each rule can validate, mutate, or generate resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>applyRules</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ApplyRulesType">
+                <span style="font-family: monospace">ApplyRulesType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>failurePolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-FailurePolicyType">
+                <span style="font-family: monospace">FailurePolicyType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationFailureAction</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidationFailureAction">
+                <span style="font-family: monospace">ValidationFailureAction</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &quot;Audit&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validationFailureActionOverrides</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidationFailureActionOverride">
+                <span style="font-family: monospace">[]ValidationFailureActionOverride</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>admission</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Admission controls if rules are applied during admission.
+Optional. Default value is &quot;true&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>background</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Background controls if rules are applied to existing resources during a background scan.
+Optional. Default value is &quot;true&quot;. The value must be set to &quot;false&quot; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>schemaValidation</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deprecated.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookTimeoutSeconds</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int32</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mutateExistingOnPolicyUpdate</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &quot;false&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generateExistingOnPolicyUpdate</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deprecated, use generateExisting instead</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generateExisting</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &quot;true&quot; generate rule will be triggered and applied to existing matched resources.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>useServerSideApply</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UseServerSideApply controls whether to use server-side apply for generate rules
+If is set to &quot;true&quot; create &amp; update for generate rules will use apply instead of create/update.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-Validation">Validation
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-Rule">Rule</a>)
+    </p>
+  
+
+  <p><p>Validation defines checks to be performed on matching resources.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>message</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Message specifies a custom message to be displayed on failure.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>manifests</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-Manifests">
+                <span style="font-family: monospace">Manifests</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Manifest specifies conditions for manifest verification</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>foreach</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ForEachValidation">
+                <span style="font-family: monospace">[]ForEachValidation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>pattern</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Pattern specifies an overlay-style pattern used to check resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>anyPattern</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AnyPattern specifies list of validation patterns. At least one of the patterns
+must be satisfied for the validation rule to succeed.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>deny</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2beta1-Deny">
+                <span style="font-family: monospace">Deny</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deny defines conditions used to pass or fail a validation rule.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>podSecurity</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-PodSecurity">
+                <span style="font-family: monospace">PodSecurity</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PodSecurity applies exemptions for Kubernetes Pod Security admission
+by specifying exclusions for Pod Security Standards controls.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>cel</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-CEL">
+                <span style="font-family: monospace">CEL</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-WebhookConfiguration">WebhookConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-Spec">Spec</a>)
+    </p>
+  
+
+  <p><p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>matchConditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MatchCondition configures admission webhook matchConditions.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+          
+          <hr />
+        
+      </div>
+    </body>
+  </html>

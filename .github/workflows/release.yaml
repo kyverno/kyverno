@@ -1,4 +1,8 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: releaser
+
+permissions: {}
 
 on:
   push:
@@ -9,18 +13,29 @@ jobs:
   release-images:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
       id-token: write
+    outputs:
+      kyverno-digest: ${{ steps.release-kyverno.outputs.digest }}
+      kyverno-init-digest: ${{ steps.release-kyverno-init.outputs.digest }}
+      background-controller-digest: ${{ steps.release-background-controller.outputs.digest }}
+      cleanup-controller-digest: ${{ steps.release-cleanup-controller.outputs.digest }}
+      cli-digest: ${{ steps.release-cli.outputs.digest }}
+      reports-controller-digest: ${{ steps.release-reports-controller.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
         with:
           build-cache-key: release-images
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 30
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@1f0aa582c8c8f5f7639610d6d38baddfea4fdcee # v0.9.2
+        uses: aquasecurity/trivy-action@b2933f565dbc598b29947660e66259e3c7bc8561 # v0.20.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -28,102 +43,97 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
       - name: Install Cosign
-        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
-        with:
-          cosign-release: 'v1.13.0'
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
       - name: Publish kyverno
+        id: release-kyverno
         uses: ./.github/actions/publish-image
         with:
           makefile-target: ko-publish-kyverno
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: kyverno
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/kyverno
-      - name: Publish kyvernopre
+      - name: Publish kyverno-init
+        id: release-kyverno-init
         uses: ./.github/actions/publish-image
         with:
           makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
-          sbom-name: kyvernopre
+          sbom-name: kyverno-init
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/kyverno-init
       - name: Publish background-controller
+        id: release-background-controller
         uses: ./.github/actions/publish-image
         with:
           makefile-target: ko-publish-background-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: background-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/background-controller
       - name: Publish cleanup-controller
+        id: release-cleanup-controller
         uses: ./.github/actions/publish-image
         with:
           makefile-target: ko-publish-cleanup-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cleanup-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/cleanup-controller
       - name: Publish cli
+        id: release-cli
         uses: ./.github/actions/publish-image
         with:
           makefile-target: ko-publish-cli
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: cli
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/cli/kubectl-kyverno
       - name: Publish reports-controller
+        id: release-reports-controller
         uses: ./.github/actions/publish-image
         with:
           makefile-target: ko-publish-reports-controller
           registry: ghcr.io
           registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.CR_PAT }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository_owner }}
+          version: ${{ github.ref_name }}
           sign-image: true
           sbom-name: reports-controller
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/reports-controller
-
-  generate-init-kyverno-provenance:
-    needs: release-images
-    permissions:
-      id-token: write   # To sign the provenance.
-      packages: write   # To upload assets to release.
-      actions: read     # To read the workflow path.
-    # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
-    with:
-      image: ghcr.io/${{ github.repository_owner }}/kyvernopre
-      digest: "${{ needs.release-init-kyverno.outputs.init-container-digest }}"
-      registry-username: ${{ github.actor }}
-    secrets:
-      registry-password: ${{ secrets.CR_PAT }}
 
   generate-kyverno-provenance:
     needs: release-images
@@ -132,13 +142,28 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno
-      digest: "${{ needs.release-kyverno.outputs.kyverno-digest }}"
+      digest: "${{ needs.release-images.outputs.kyverno-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  generate-kyverno-init-provenance:
+    needs: release-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyvernopre
+      digest: "${{ needs.release-images.outputs.kyverno-init-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-background-controller-provenance:
     needs: release-images
@@ -147,13 +172,13 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/background-controller
-      digest: "${{ needs.release-background-controller.outputs.background-controller-digest }}"
+      digest: "${{ needs.release-images.outputs.background-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-cleanup-controller-provenance:
     needs: release-images
@@ -162,13 +187,13 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/cleanup-controller
-      digest: "${{ needs.release-cleanup-controller.outputs.cleanup-controller-digest }}"
+      digest: "${{ needs.release-images.outputs.cleanup-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-kyverno-cli-provenance:
     needs: release-images
@@ -177,13 +202,13 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
-      digest: "${{ needs.release-kyverno-cli.outputs.cli-digest }}"
+      digest: "${{ needs.release-images.outputs.cli-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   generate-reports-controller-provenance:
     needs: release-images
@@ -192,39 +217,46 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/reports-controller
-      digest: "${{ needs.release-reports-controller.outputs.reports-controller-digest }}"
+      digest: "${{ needs.release-images.outputs.reports-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
-      registry-password: ${{ secrets.CR_PAT }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   create-release:
     runs-on: ubuntu-latest
     needs: release-images
+    permissions:
+      contents: write
+      id-token: write
     steps:
-      - name: Set version
-        id: version
-        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 30
       - uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # v1.0
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
       - name: Make Release
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ github.ref_name }}
         run: |
           rm -rf release
           mkdir release
           make release-notes > release/release-notes.out
           cat release/release-notes.out
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@f82d6c1c344bcacabba2c841718984797f664a6b # v4.2.0
+        uses: goreleaser/goreleaser-action@5742e2a039330cbb23ebf35f046f814d4c6ff811 # v5.1.0
         with:
           version: latest
-          args: release --rm-dist --debug --release-notes=release/release-notes.out
+          args: release --clean --timeout 90m --debug --release-notes=release/release-notes.out
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -236,69 +268,72 @@ jobs:
       id-token: write # needed for keyless signing
       packages: write # needed for ghcr access  
     steps:
-      - name: Set version
-        id: version
-        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@dbda8fbdb8b58ed1ee69343025a6091eae0d1828 # v0.41.2
+        uses: fluxcd/flux2/action@534684601ec8888beb0cc4f51117b59e97606c4d # v2.2.3
         with:
           version: 0.35.0
       - name: Install Cosign
-        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
-        with:
-          cosign-release: 'v1.13.0'
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
       - name: Build yaml manifest
-        run: make codegen-manifest-release
+        run: VERSION=${{ github.ref_name }} make codegen-manifest-release
       - name: Upload install manifest
-        uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
+        uses: svenstaro/upload-release-action@04733e069f2d7f7f0b4aebc4fbdbce8613b03ccd # 2.9.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
       - name: Upload CRD manifest
-        uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
+        uses: svenstaro/upload-release-action@04733e069f2d7f7f0b4aebc4fbdbce8613b03ccd # 2.9.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: config/crds/*.yaml
+          file: config/crds/**/*.yaml
           file_glob: true
           tag: ${{ github.ref }}
       - name: Login to GHCR
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2.1.0
+        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push manifests to GHCR with Flux
         env:
-          CR_PAT_ARTIFACTS:  ${{ secrets.CR_PAT_ARTIFACTS }}
+          CR_PAT_ARTIFACTS:  ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           mkdir -p config/.release-manifests
           cp .manifest/release.yaml config/.release-manifests/install.yaml
           cd config/.release-manifests/ && \
-          flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }} \
+          flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }} \
             --path="." \
             --source="$(git config --get remote.origin.url)" \
-            --revision="${{ steps.version.outputs.version }}/$(git rev-parse HEAD)"
+            --revision="${{ github.ref_name }}/$(git rev-parse HEAD)"
       - name: Sign manifests in GHCR with Cosign
-        env:
-          COSIGN_EXPERIMENTAL: 1
         run: |
-          cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }}
+          cosign sign --yes ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }}
 
   release-cli-via-krew:
     runs-on: ubuntu-latest
     needs: create-release
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
       - name: Check Tag
         id: check-tag
         run: |

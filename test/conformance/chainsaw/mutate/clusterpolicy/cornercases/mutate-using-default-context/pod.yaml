@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: 'bad-box'
+spec:
+  automountServiceAccountToken: false
+  containers:
+  - name: busybox
+    image: busybox:latest
+    command: ["sleep", "9999"]
+

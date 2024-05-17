@@ -13,18 +13,6 @@ body:
       label: Kyverno Version
       description: What version of Kyverno are you running?
       options:
-        - 1.4.x
-        - 1.5.x
-        - 1.6.0
-        - 1.6.1
-        - 1.6.2
-        - 1.6.3
-        - 1.7.0
-        - 1.7.1
-        - 1.7.2
-        - 1.7.3
-        - 1.7.4
-        - 1.7.5
         - 1.8.0
         - 1.8.1
         - 1.8.2
@@ -34,7 +22,22 @@ body:
         - 1.9.0
         - 1.9.1
         - 1.9.2
+        - 1.9.3
+        - 1.9.4
+        - 1.9.5
         - 1.10.0
+        - 1.10.1
+        - 1.10.2
+        - 1.10.3
+        - 1.10.4
+        - 1.10.5
+        - 1.10.6
+        - 1.11.0
+        - 1.11.1
+        - 1.11.2
+        - 1.11.3
+        - 1.11.4
+        - 1.12.0
     validations:
       required: true
   - type: dropdown
@@ -43,13 +46,15 @@ body:
       label: Kubernetes Version
       description: What version of Kubernetes are you running?
       options:
-        - 1.20.x
         - 1.21.x
         - 1.22.x
         - 1.23.x
         - 1.24.x
         - 1.25.x
         - 1.26.x
+        - 1.27.x
+        - 1.28.x
+        - 1.29.x
     validations:
       required: true
   - type: dropdown
@@ -136,7 +141,7 @@ body:
         This will be automatically formatted into code, so no need for backticks.
         For help on how to view Pod logs in Kubernetes, see [here](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-running-pod/#examine-pod-logs).
         For guidance on how to enable more verbose log output in Kyverno, see [the documentation](https://kyverno.io/docs/troubleshooting/#policies-are-partially-applied).
-      render: shell
+      render: Shell
   - type: input
     id: slack
     attributes:

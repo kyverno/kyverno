@@ -1,0 +1,151 @@
+{{- if .Values.reportsController.apiPriorityAndFairness }}
+apiVersion: {{ template "kyverno.flowcontrol.apiVersion" . }}
+kind: FlowSchema
+metadata:
+  name: {{ template "kyverno.reports-controller.name" . }}
+  labels:
+    {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+spec:
+  priorityLevelConfiguration:
+    name: {{ template "kyverno.reports-controller.name" . }}
+  rules:
+  - resourceRules:
+    - apiGroups:
+        - '*'
+      namespaces:
+        - '*'
+      resources:
+        - '*'
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - kyverno.io
+      clusterScope: true
+      resources:
+        - clusteradmissionreports
+        - clusterbackgroundscanreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - kyverno.io
+      namespaces:
+        - '*'
+      resources:
+        - admissionreports
+        - backgroundscanreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - reports.kyverno.io
+      clusterScope: true
+      resources:
+        - clusterephemeralreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - reports.kyverno.io
+      namespaces:
+        - '*'
+      resources:
+        - ephemeralreports
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - wgpolicyk8s.io
+      clusterScope: true
+      resources:
+        - clusterpolicyreports
+        - clusterpolicyreports/status
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - wgpolicyk8s.io
+      namespaces:
+        - '*'
+      resources:
+        - policyreports
+        - policyreports/status
+      verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+        - deletecollection
+    - apiGroups:
+        - ''
+        - events.k8s.io
+      namespaces:
+        - '*'
+      resources:
+        - events
+      verbs:
+        - create
+        - patch
+    - apiGroups:
+        - ''
+      namespaces:
+        - {{ template "kyverno.namespace" . }}
+      resources:
+        - configmaps
+      verbs:
+        - get
+        - list
+        - watch
+    - apiGroups:
+        - coordination.k8s.io
+      namespaces:
+        - {{ template "kyverno.namespace" . }}
+      resources:
+        - leases
+      verbs:
+        - create
+        - delete
+        - get
+        - patch
+        - update
+    subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        name: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+        namespace: {{ template "kyverno.namespace" . }}
+{{- end }}

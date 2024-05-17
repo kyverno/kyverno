@@ -1,0 +1,80 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/subject: Service
+    policies.kyverno.io/title: Configure Connection Draining
+  name: disable-connection-draining
+spec:
+  admission: true
+  background: true
+  rules:
+  - context:
+    - name: connection_draining_check
+      variable:
+        default: empty
+        jmesPath: request.object.metadata.annotations."service.beta.kubernetes.io/aws-load-balancer-connection-draining-enabled"
+    - name: nlb_check
+      variable:
+        default: "false"
+        jmesPath: request.object.metadata.annotations."service.beta.kubernetes.io/aws-load-balancer-type"
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-connection-draining-enabled: "false"
+    name: clb
+    preconditions:
+      all:
+      - key: '{{ request.object.spec.type }}'
+        operator: Equals
+        value: LoadBalancer
+      - key: '{{ connection_draining_check }}'
+        operator: AnyIn
+        value:
+        - "true"
+        - empty
+      - key: '{{ nlb_check }}'
+        operator: AnyNotIn
+        value:
+        - external
+        - nlb
+  - context:
+    - name: nlb_check
+      variable:
+        default: "false"
+        jmesPath: request.object.metadata.annotations."service.beta.kubernetes.io/aws-load-balancer-type"
+    - name: tg_attributes
+      variable:
+        default: "false"
+        jmesPath: request.object.metadata.annotations."service.beta.kubernetes.io/aws-load-balancer-target-group-attributes"
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: deregistration_delay.connection_termination.enabled=true,deregistration_delay.timeout_seconds=0
+    name: nlb-no-attributes
+    preconditions:
+      all:
+      - key: '{{ request.object.spec.type }}'
+        operator: Equals
+        value: LoadBalancer
+      - key: '{{ nlb_check }}'
+        operator: Equals
+        value: external
+      - key: '{{ tg_attributes }}'
+        operator: Equals
+        value: "false"
+  validationFailureAction: Audit

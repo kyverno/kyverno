@@ -7,4 +7,4 @@ runs:
   steps:
     - shell: bash
       run: |
-        kubectl wait --namespace kyverno --for=condition=ready pod --all --timeout=60s
+        kubectl wait --namespace kyverno --for=condition=ready pod --selector '!job-name' --timeout=60s

@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	authorizationv1 "k8s.io/api/authorization/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 )
@@ -23,28 +22,30 @@ type CanIOptions interface {
 	// - can only evaluate a single verb
 	// - group version resource is determined from the kind using the discovery client REST mapper
 	// - If disallowed, the reason and evaluationError is available in the logs
-	// - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-	RunAccessCheck(context.Context) (bool, error)
+	// - each can generates a SubjectAccessReview resource and response is evaluated for permissions
+	RunAccessCheck(context.Context) (bool, string, error)
 }
 
 type canIOptions struct {
 	namespace   string
 	verb        string
-	kind        string
+	gvk         string
 	subresource string
+	user        string
 	discovery   Discovery
-	ssarClient  authorizationv1client.SelfSubjectAccessReviewInterface
+	checker     checker.AuthChecker
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(discovery Discovery, ssarClient authorizationv1client.SelfSubjectAccessReviewInterface, kind, namespace, verb, subresource string) CanIOptions {
+func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, gvk, namespace, verb, subresource string, user string) CanIOptions {
 	return &canIOptions{
 		namespace:   namespace,
 		verb:        verb,
-		kind:        kind,
+		gvk:         gvk,
 		subresource: subresource,
+		user:        user,
 		discovery:   discovery,
-		ssarClient:  ssarClient,
+		checker:     checker.NewSubjectChecker(sarClient, user, nil),
 	}
 }
 
@@ -54,55 +55,30 @@ func NewCanI(discovery Discovery, ssarClient authorizationv1client.SelfSubjectAc
 // - group version resource is determined from the kind using the discovery client REST mapper
 // - If disallowed, the reason and evaluationError is available in the logs
 // - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
+func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, string, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
-	apiVersion, kind := kubeutils.GetKindFromGVK(o.kind)
+	apiVersion, kind := kubeutils.GetKindFromGVK(o.gvk)
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
-		return false, fmt.Errorf("failed to parse group/version %s", apiVersion)
+		return false, "", fmt.Errorf("failed to parse group/version %s", apiVersion)
 	}
 	gvr, err := o.discovery.GetGVRFromGVK(gv.WithKind(kind))
 	if err != nil {
-		return false, fmt.Errorf("failed to get GVR for kind %s", o.kind)
+		return false, "", fmt.Errorf("failed to get GVR for kind %s", o.gvk)
 	}
-
 	if gvr.Empty() {
 		// cannot find GVR
-		return false, fmt.Errorf("failed to get the Group Version Resource for kind %s", o.kind)
+		return false, "", fmt.Errorf("failed to get the Group Version Resource for kind %s", o.gvk)
 	}
-
-	sar := &authorizationv1.SelfSubjectAccessReview{
-		Spec: authorizationv1.SelfSubjectAccessReviewSpec{
-			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Namespace:   o.namespace,
-				Verb:        o.verb,
-				Group:       gvr.Group,
-				Resource:    gvr.Resource,
-				Subresource: o.subresource,
-			},
-		},
-	}
-	// Set self subject access review
-	// - namespace
-	// - verb
-	// - resource
-	// - subresource
-	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
-
-	// Create the Resource
-	resp, err := o.ssarClient.Create(ctx, sar, metav1.CreateOptions{})
+	logger := logger.WithValues("kind", kind, "namespace", o.namespace, "gvr", gvr.String(), "verb", o.verb)
+	result, err := o.checker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, o.subresource, o.namespace, o.verb)
 	if err != nil {
-		logger.Error(err, "failed to create resource")
-		return false, err
+		logger.Error(err, "failed to check permissions")
+		return false, "", err
 	}
-
-	if !resp.Status.Allowed {
-		reason := resp.Status.Reason
-		evaluationError := resp.Status.EvaluationError
-		// Reporting ? (just logs)
-		logger.Info("disallowed operation", "reason", reason, "evaluationError", evaluationError)
+	if !result.Allowed {
+		logger.Info("disallowed operation", "reason", result.Reason, "evaluationError", result.EvaluationError)
 	}
-
-	return resp.Status.Allowed, nil
+	return result.Allowed, result.Reason, nil
 }

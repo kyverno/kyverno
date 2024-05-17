@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-disallow-default-serviceaccount
+spec:
+  rules:
+  - name: prevent-mounting-default-serviceaccount
+    exclude:
+      all:
+          - resources:
+              namespaces:
+                - kube-system
+    match:
+      all:
+        - resources:
+            kinds:
+              - Pod
+    validate:
+      message: "Prevent mounting of default service account"
+      pattern:
+        spec:
+          serviceAccountName: "!default"

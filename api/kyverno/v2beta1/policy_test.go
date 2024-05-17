@@ -3,7 +3,7 @@ package v2beta1
 import (
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -45,7 +45,7 @@ func Test_Policy_Autogen_All(t *testing.T) {
 			Name:      "policy",
 			Namespace: "abcd",
 			Annotations: map[string]string{
-				kyvernov1.PodControllersAnnotation: "all",
+				kyverno.AnnotationAutogenControllers: "all",
 			},
 		},
 	}

@@ -1,11 +1,11 @@
 package admission
 
 import (
-	"encoding/json"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 func UnmarshalPolicy(kind string, raw []byte) (kyvernov1.PolicyInterface, error) {
@@ -25,11 +25,11 @@ func UnmarshalPolicy(kind string, raw []byte) (kyvernov1.PolicyInterface, error)
 	return nil, fmt.Errorf("admission request does not contain a policy")
 }
 
-func GetPolicy(request *admissionv1.AdmissionRequest) (kyvernov1.PolicyInterface, error) {
+func GetPolicy(request admissionv1.AdmissionRequest) (kyvernov1.PolicyInterface, error) {
 	return UnmarshalPolicy(request.Kind.Kind, request.Object.Raw)
 }
 
-func GetPolicies(request *admissionv1.AdmissionRequest) (kyvernov1.PolicyInterface, kyvernov1.PolicyInterface, error) {
+func GetPolicies(request admissionv1.AdmissionRequest) (kyvernov1.PolicyInterface, kyvernov1.PolicyInterface, error) {
 	policy, err := UnmarshalPolicy(request.Kind.Kind, request.Object.Raw)
 	if err != nil {
 		return policy, nil, err

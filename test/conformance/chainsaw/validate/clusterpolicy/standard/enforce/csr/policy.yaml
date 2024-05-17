@@ -1,0 +1,46 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: validate-csr
+spec:
+  background: false
+  validationFailureAction: Enforce
+  rules:
+  - name: csr
+    match:
+      any:
+      - resources:
+          kinds:
+          - CertificateSigningRequest
+    validate:
+      message: >-
+        CSR created by {{ request.userInfo | to_string(@) }}
+        with ClusterRoles {{ request.clusterRoles | to_string(@) }}
+        and Roles {{ request.roles | to_string(@) }}.
+        Subjects and groups requested are "{{ x509_decode(base64_decode(request.object.spec.request)).Subject | to_string(@) }}"
+      deny:
+        conditions:
+          any:
+            - key: "{{ x509_decode(base64_decode(request.object.spec.request)).Subject.CommonName }}"
+              operator: NotEquals
+              value: "angela"
+---
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: mutate-csr
+spec:
+  background: false
+  validationFailureAction: Enforce
+  rules:
+  - name: csr
+    match:
+      any:
+      - resources:
+          kinds:
+          - CertificateSigningRequest
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            name: "{{ x509_decode(base64_decode(request.object.spec.request)).Subject.CommonName | to_string(@) }}"

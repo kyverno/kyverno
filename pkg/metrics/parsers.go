@@ -54,7 +54,7 @@ func ParseResourceRequestOperation(requestOperationStr string) (ResourceRequestO
 }
 
 func ParseRuleTypeFromEngineRuleResponse(rule engineapi.RuleResponse) RuleType {
-	switch rule.Type {
+	switch rule.RuleType() {
 	case "Validation":
 		return Validate
 	case "Mutation":

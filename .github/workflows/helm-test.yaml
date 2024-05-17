@@ -1,4 +1,8 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: helm-test
+
+permissions: {}
 
 on:
   pull_request:
@@ -18,22 +22,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
         with:
           build-cache-key: helm-tests
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
       - name: Setup python
-        uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435 # v4.5.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.7
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
+        uses: helm/chart-testing-action@e6669bcd63d7cb57cb4380c33043eebe5d111992 # v2.6.1
       - name: Run chart-testing (lint)
         run: |
           if [[ $(ct list-changed --target-branch=main) ]];
           then
-            ct lint --target-branch=main --check-version-increment=false
+            ct lint --target-branch=main --check-version-increment=false --validate-maintainers=false
           fi
       - name: Setup test env
         uses: ./.github/actions/setup-test-env
@@ -42,3 +51,15 @@ jobs:
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
+
+  linter-artifacthub:
+    runs-on: ubuntu-latest
+    container:
+      image: artifacthub/ah
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      - name: Run ah lint
+        working-directory: ./charts/
+        run: ah lint

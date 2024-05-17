@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Event
+metadata:
+  namespace: test-ns
+involvedObject:
+  apiVersion: v1
+  kind: ConfigMap
+  name: zk-kafka-address
+  namespace: test-ns
+type: Normal
+reason: PolicyApplied
+action: None
+reportingComponent: kyverno-generate

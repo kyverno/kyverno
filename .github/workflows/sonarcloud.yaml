@@ -1,4 +1,8 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Sonarcloud workflow
+
+permissions: {}
 
 on:
   push:
@@ -10,26 +14,30 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   sonarcloud:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
       - name: Check secret
         id: checksecret
         uses: ./.github/actions/is-defined
         with:
           value: ${{ secrets.SONAR_TOKEN }}
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Setup build env
         if: steps.checksecret.outputs.result == 'true'
         uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+        with:
+          free-disk-space: false
       - name: SonarCloud Scan
         if: steps.checksecret.outputs.result == 'true'
-        uses: sonarsource/sonarcloud-github-action@db501078e936e4b4c8773d1bb949ba9ddb7b6b6a # v1.9
+        uses: sonarsource/sonarcloud-github-action@49e6cd3b187936a73b8280d59ffd9da69df63ec9 # v2.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

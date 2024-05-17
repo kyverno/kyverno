@@ -1,0 +1,17 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "chech-deployment-labels"
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["deployments"]
+  variables:
+    - name: environment
+      expression: "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'"
+  validations:
+    - expression: "variables.environment == true"
+      message: "Deployment labels must be env=prod"

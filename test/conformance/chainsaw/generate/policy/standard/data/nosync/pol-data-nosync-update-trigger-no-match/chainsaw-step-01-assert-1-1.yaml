@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-data-nosync-update-trigger-no-match
+  namespace: pol-data-nosync-update-trigger-no-match-ns
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

@@ -82,7 +82,7 @@ func Test_Add(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -228,7 +228,7 @@ func Test_Sum(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -327,7 +327,7 @@ func Test_Subtract(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -426,7 +426,7 @@ func Test_Multiply(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -588,7 +588,7 @@ func Test_Divide(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -744,7 +744,76 @@ func Test_Modulo(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
+			jp, err := jmespathInterface.Query(tc.test)
+			assert.NilError(t, err)
+
+			result, err := jp.Search("")
+			if !tc.err {
+				assert.NilError(t, err)
+			} else {
+				assert.Assert(t, err != nil)
+				return
+			}
+
+			if tc.retFloat {
+				equal, ok := result.(float64)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(float64))
+			} else {
+				equal, ok := result.(string)
+				assert.Assert(t, ok)
+				assert.Equal(t, equal, tc.expectedResult.(string))
+			}
+		})
+	}
+}
+
+func Test_Round(t *testing.T) {
+	testCases := []struct {
+		name           string
+		test           string
+		expectedResult interface{}
+		err            bool
+		retFloat       bool
+	}{
+		// Scalar
+		{
+			name: "Scalar roundoff Quantity -> error",
+			test: "round(`23`, '12Ki')",
+			err:  true,
+		},
+		{
+			name: "Scalar roundoff Duration -> error",
+			test: "round(`21`, '5s')",
+			err:  true,
+		},
+		{
+			name:           "Scalar roundoff Scalar -> Scalar",
+			test:           "round(`9.414675`, `2`)",
+			expectedResult: 9.41,
+			retFloat:       true,
+		},
+		{
+			name:           "Scalar roundoff zero -> error",
+			test:           "round(`14.123`, `6`)",
+			expectedResult: 14.123,
+			retFloat:       true,
+		},
+		// round with non int values
+		{
+			name: "Scalar roundoff Non int -> error",
+			test: "round(`14`, `1.5`)",
+			err:  true,
+		},
+		{
+			name: "Scalar roundoff negative int -> error",
+			test: "round(`14`, `-2`)",
+			err:  true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			jp, err := jmespathInterface.Query(tc.test)
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
@@ -792,7 +861,7 @@ func TestScalar_Multiply(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			op1 := Scalar{
+			op1 := scalar{
 				float64: tt.fields.float64,
 			}
 			got, err := op1.Multiply(tt.args.op2)
@@ -815,8 +884,8 @@ func TestParseArithemticOperands(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    Operand
-		want1   Operand
+		want    operand
+		want1   operand
 		wantErr bool
 	}{{
 		args: args{
@@ -837,7 +906,7 @@ func TestParseArithemticOperands(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := ParseArithemticOperands(tt.args.arguments, tt.args.operator)
+			got, got1, err := parseArithemticOperands(tt.args.arguments, tt.args.operator)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseArithemticOperands() error = %v, wantErr %v", err, tt.wantErr)
 				return

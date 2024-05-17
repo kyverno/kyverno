@@ -2,17 +2,28 @@ package mutate
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/go-logr/logr"
 	types "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"gotest.tools/assert"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 )
+
+func loadYaml(t *testing.T, file string) []byte {
+	bytes, err := os.ReadFile(file)
+	require.NoError(t, err)
+	yaml, err := yaml.YAMLToJSON(bytes)
+	require.NoError(t, err)
+	return yaml
+}
 
 // jsonPatch is used to build test patches
 type jsonPatch struct {
@@ -21,59 +32,30 @@ type jsonPatch struct {
 	Value     apiextensions.JSON `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
-const endpointsDocument string = `{
-	"kind": "Endpoints",
-	"apiVersion": "v1",
-	"metadata": {
-		"name": "my-endpoint-service",
-		"labels": {
-			"originalLabel": "isHere"
-		}
-	},
-	"subsets": [
-		{
-			"addresses": [
-				{
-					"ip": "1.2.3.4"
-				}
-			],
-			"ports": [
-				{
-					"port": 9376
-				}
-			]
-		}
-	]
-}`
-
 func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engineapi.RuleResponse, unstructured.Unstructured) {
-	mutateResp := Mutate(rule, context.NewContext(), resource, logr.Discard())
-
+	mutateResp := Mutate(rule, context.NewContext(jmespath.New(config.NewDefaultConfiguration(false))), resource, logr.Discard())
 	if mutateResp.Status != engineapi.RuleStatusPass {
-		return &engineapi.RuleResponse{
-			Type:    engineapi.Mutation,
-			Status:  mutateResp.Status,
-			Message: mutateResp.Message,
-		}, resource
+		return engineapi.NewRuleResponse("", engineapi.Mutation, mutateResp.Message, mutateResp.Status), resource
 	}
-
-	return &engineapi.RuleResponse{
-		Type:    engineapi.Mutation,
-		Status:  engineapi.RuleStatusPass,
-		Patches: mutateResp.Patches,
-	}, mutateResp.PatchedResource
+	return engineapi.RulePass("", engineapi.Mutation, mutateResp.Message), mutateResp.PatchedResource
 }
 
 func TestProcessPatches_EmptyPatches(t *testing.T) {
-	emptyRule := &types.Rule{Name: "emptyRule"}
-	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
-	if err != nil {
-		t.Error(err)
-	}
+	// load resource
+	bytes := loadYaml(t, "testdata/endpoints.yaml")
+	var resource unstructured.Unstructured
+	require.NoError(t, resource.UnmarshalJSON(bytes))
 
-	rr, _ := applyPatches(emptyRule, *resourceUnstructured)
-	assert.Equal(t, rr.Status, engineapi.RuleStatusError)
-	assert.Assert(t, len(rr.Patches) == 0)
+	// use rule
+	rule := types.Rule{Name: "emptyRule"}
+
+	// apply patches
+	rr, patched := applyPatches(&rule, resource)
+
+	// assert
+	require.NotNil(t, rr)
+	require.Equal(t, engineapi.RuleStatusError, rr.Status())
+	require.Equal(t, resource, patched)
 }
 
 func makeAddIsMutatedLabelPatch() jsonPatch {
@@ -104,105 +86,152 @@ func makeRuleWithPatches(t *testing.T, patches []jsonPatch) *types.Rule {
 }
 
 func TestProcessPatches_EmptyDocument(t *testing.T) {
+	// load resource
+	var resource unstructured.Unstructured
+
+	// use rule
 	rule := makeRuleWithPatch(t, makeAddIsMutatedLabelPatch())
-	rr, _ := applyPatches(rule, unstructured.Unstructured{})
-	assert.Equal(t, rr.Status, engineapi.RuleStatusFail)
-	assert.Assert(t, len(rr.Patches) == 0)
+
+	// apply patches
+	rr, patched := applyPatches(rule, resource)
+
+	// assert
+	require.Equal(t, engineapi.RuleStatusError, rr.Status())
+	require.Equal(t, resource, patched)
 }
 
 func TestProcessPatches_AllEmpty(t *testing.T) {
-	emptyRule := &types.Rule{}
-	rr, _ := applyPatches(emptyRule, unstructured.Unstructured{})
-	assert.Equal(t, rr.Status, engineapi.RuleStatusError)
-	assert.Assert(t, len(rr.Patches) == 0)
+	// load resource
+	var resource unstructured.Unstructured
+
+	// use rule
+	rule := types.Rule{}
+
+	// apply patches
+	rr, patched := applyPatches(&rule, resource)
+
+	// assert
+	require.Equal(t, engineapi.RuleStatusError, rr.Status())
+	require.Equal(t, resource, patched)
 }
 
 func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
+	// load resource
+	bytes := loadYaml(t, "testdata/endpoints.yaml")
+	var resource unstructured.Unstructured
+	require.NoError(t, resource.UnmarshalJSON(bytes))
+
+	// use rule
 	patch := makeAddIsMutatedLabelPatch()
 	patch.Path = "/metadata/additional/is-mutated"
 	rule := makeRuleWithPatch(t, patch)
-	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
-	if err != nil {
-		t.Error(err)
-	}
-	rr, _ := applyPatches(rule, *resourceUnstructured)
-	assert.Equal(t, rr.Status, engineapi.RuleStatusSkip)
-	assert.Assert(t, len(rr.Patches) == 0)
+
+	// apply patches
+	rr, patched := applyPatches(rule, resource)
+
+	// assert
+	require.Equal(t, engineapi.RuleStatusPass, rr.Status())
+	require.NotEqual(t, patched.UnstructuredContent(), resource.UnstructuredContent())
+	unstructured.SetNestedField(resource.UnstructuredContent(), "true", "metadata", "additional", "is-mutated")
+	require.Equal(t, resource, patched)
 }
 
 func TestProcessPatches_RemovePathDoesntExist(t *testing.T) {
+	// load resource
+	bytes := loadYaml(t, "testdata/endpoints.yaml")
+	var resource unstructured.Unstructured
+	require.NoError(t, resource.UnmarshalJSON(bytes))
+
+	// use rule
 	patch := jsonPatch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	rule := makeRuleWithPatch(t, patch)
-	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
-	if err != nil {
-		t.Error(err)
-	}
-	rr, _ := applyPatches(rule, *resourceUnstructured)
-	assert.Equal(t, rr.Status, engineapi.RuleStatusSkip)
-	assert.Assert(t, len(rr.Patches) == 0)
+
+	// apply patches
+	rr, patched := applyPatches(rule, resource)
+
+	// assert
+	require.Equal(t, engineapi.RuleStatusSkip, rr.Status())
+	require.Equal(t, resource, patched)
 }
 
 func TestProcessPatches_AddAndRemovePathsDontExist_EmptyResult(t *testing.T) {
+	// load resource
+	bytes := loadYaml(t, "testdata/endpoints.yaml")
+	var resource unstructured.Unstructured
+	require.NoError(t, resource.UnmarshalJSON(bytes))
+
+	// use rule
 	patch1 := jsonPatch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := jsonPatch{Path: "/spec/labels/label3", Operation: "add", Value: "label3Value"}
 	rule := makeRuleWithPatches(t, []jsonPatch{patch1, patch2})
-	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
-	if err != nil {
-		t.Error(err)
-	}
-	rr, _ := applyPatches(rule, *resourceUnstructured)
-	assert.Equal(t, rr.Status, engineapi.RuleStatusPass)
-	assert.Equal(t, len(rr.Patches), 1)
+
+	// apply patches
+	rr, patched := applyPatches(rule, resource)
+
+	// assert
+	require.Equal(t, engineapi.RuleStatusPass, rr.Status())
+	require.NotEqual(t, patched.UnstructuredContent(), resource.UnstructuredContent())
+	unstructured.SetNestedField(resource.UnstructuredContent(), "label3Value", "spec", "labels", "label3")
+	require.Equal(t, resource, patched)
 }
 
 func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResult(t *testing.T) {
+	// load resource
+	bytes := loadYaml(t, "testdata/endpoints.yaml")
+	var resource unstructured.Unstructured
+	require.NoError(t, resource.UnmarshalJSON(bytes))
+
+	// use rule
 	patch1 := jsonPatch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := jsonPatch{Path: "/spec/labels/label2", Operation: "remove", Value: "label2Value"}
 	patch3 := jsonPatch{Path: "/metadata/labels/label3", Operation: "add", Value: "label3Value"}
 	rule := makeRuleWithPatches(t, []jsonPatch{patch1, patch2, patch3})
-	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
-	if err != nil {
-		t.Error(err)
-	}
 
-	rr, _ := applyPatches(rule, *resourceUnstructured)
-	assert.Equal(t, rr.Status, engineapi.RuleStatusPass)
-	assert.Assert(t, len(rr.Patches) != 0)
-	assertEqStringAndData(t, `{"path":"/metadata/labels/label3","op":"add","value":"label3Value"}`, rr.Patches[0])
+	// apply patches
+	rr, patched := applyPatches(rule, resource)
+
+	// assert
+	require.Equal(t, engineapi.RuleStatusPass, rr.Status())
+	require.NotEqual(t, patched.UnstructuredContent(), resource.UnstructuredContent())
+	unstructured.SetNestedField(resource.UnstructuredContent(), "label3Value", "metadata", "labels", "label3")
+	require.Equal(t, resource, patched)
 }
 
 func TestProcessPatches_RemovePathDoesntExist_EmptyResult(t *testing.T) {
+	// load resource
+	bytes := loadYaml(t, "testdata/endpoints.yaml")
+	var resource unstructured.Unstructured
+	require.NoError(t, resource.UnmarshalJSON(bytes))
+
+	// use rule
 	patch := jsonPatch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	rule := makeRuleWithPatch(t, patch)
-	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
-	if err != nil {
-		t.Error(err)
-	}
-	rr, _ := applyPatches(rule, *resourceUnstructured)
-	assert.Equal(t, rr.Status, engineapi.RuleStatusSkip)
-	assert.Assert(t, len(rr.Patches) == 0)
+
+	// apply patches
+	rr, patched := applyPatches(rule, resource)
+
+	// assert
+	require.Equal(t, engineapi.RuleStatusSkip, rr.Status())
+	require.Equal(t, resource, patched)
 }
 
 func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
+	// load resource
+	bytes := loadYaml(t, "testdata/endpoints.yaml")
+	var resource unstructured.Unstructured
+	require.NoError(t, resource.UnmarshalJSON(bytes))
+
+	// use rule
 	patch1 := jsonPatch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := jsonPatch{Path: "/metadata/labels/label2", Operation: "add", Value: "label2Value"}
 	rule := makeRuleWithPatches(t, []jsonPatch{patch1, patch2})
-	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
-	if err != nil {
-		t.Error(err)
-	}
-	rr, _ := applyPatches(rule, *resourceUnstructured)
-	assert.Equal(t, rr.Status, engineapi.RuleStatusPass)
-	assert.Assert(t, len(rr.Patches) == 1)
-	assertEqStringAndData(t, `{"path":"/metadata/labels/label2","op":"add","value":"label2Value"}`, rr.Patches[0])
-}
 
-func assertEqStringAndData(t *testing.T, str string, data []byte) {
-	var p1 jsonPatch
-	json.Unmarshal([]byte(str), &p1)
+	// apply patches
+	rr, patched := applyPatches(rule, resource)
 
-	var p2 jsonPatch
-	json.Unmarshal([]byte(data), &p2)
-
-	assert.Equal(t, p1, p2)
+	// assert
+	require.Equal(t, engineapi.RuleStatusPass, rr.Status())
+	require.NotEqual(t, patched.UnstructuredContent(), resource.UnstructuredContent())
+	unstructured.SetNestedField(resource.UnstructuredContent(), "label2Value", "metadata", "labels", "label2")
+	require.Equal(t, resource, patched)
 }

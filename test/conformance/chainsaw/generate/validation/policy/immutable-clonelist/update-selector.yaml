@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-update-clonelist
+  namespace: default
+spec:
+  generateExisting: false
+  rules:
+  - name: sync-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - 
+    generate:
+      namespace: default
+      synchronize : true
+      cloneList:
+        namespace: default
+        kinds:
+          - v1/Secret
+          - v1/ConfigMap
+        selector:
+          matchLabels:
+            foo: "bar"

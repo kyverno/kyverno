@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -46,7 +47,7 @@ type ImageExtractorConfig struct {
 type Rule struct {
 	// Name is a label to identify the rule, It must be unique within the policy.
 	// +kubebuilder:validation:MaxLength=63
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
@@ -77,6 +78,11 @@ type Rule struct {
 	// +optional
 	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
+	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
+	// set of CEL conditions. It can only be used with the validate.cel subrule
+	// +optional
+	CELPreconditions []admissionregistrationv1alpha1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
+
 	// Mutation is used to modify matching resources.
 	// +optional
 	Mutation Mutation `json:"mutate,omitempty" yaml:"mutate,omitempty"`
@@ -92,11 +98,31 @@ type Rule struct {
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
 	VerifyImages []ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+
+	// SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
+	// The default value is set to "true", it must be set to "false" to apply
+	// generate and mutateExisting rules to those requests.
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:Optional
+	SkipBackgroundRequests bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
 }
 
 // HasMutate checks for mutate rule
 func (r *Rule) HasMutate() bool {
 	return !datautils.DeepEqual(r.Mutation, Mutation{})
+}
+
+// HasMutateStandard checks for standard admission mutate rule
+func (r *Rule) HasMutateStandard() bool {
+	if r.HasMutateExisting() {
+		return false
+	}
+	return !datautils.DeepEqual(r.Mutation, Mutation{})
+}
+
+// HasMutateExisting checks if the mutate rule applies to existing resources
+func (r *Rule) HasMutateExisting() bool {
+	return r.Mutation.Targets != nil
 }
 
 // HasVerifyImages checks for verifyImages rule
@@ -129,6 +155,11 @@ func (r Rule) HasValidatePodSecurity() bool {
 	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &PodSecurity{})
 }
 
+// HasValidateCEL checks for validate.cel rule
+func (r *Rule) HasValidateCEL() bool {
+	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &CEL{})
+}
+
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
 	return !datautils.DeepEqual(r.Validation, Validation{})
@@ -139,20 +170,15 @@ func (r *Rule) HasGenerate() bool {
 	return !datautils.DeepEqual(r.Generation, Generation{})
 }
 
-// IsMutateExisting checks if the mutate rule applies to existing resources
-func (r *Rule) IsMutateExisting() bool {
-	return r.Mutation.Targets != nil
-}
-
 func (r *Rule) IsPodSecurity() bool {
 	return r.Validation.PodSecurity != nil
 }
 
-func (r *Rule) GetGenerateTypeAndSync() (_ GenerateType, sync bool) {
+func (r *Rule) GetTypeAndSyncAndOrphanDownstream() (_ GenerateType, sync bool, orphanDownstream bool) {
 	if !r.HasGenerate() {
 		return
 	}
-	return r.Generation.GetTypeAndSync()
+	return r.Generation.GetTypeAndSyncAndOrphanDownstream()
 }
 
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
@@ -351,7 +377,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 
 // ValidateMutationRuleTargetNamespace checks if the targets are scoped to the policy's namespace
 func (r *Rule) ValidateMutationRuleTargetNamespace(path *field.Path, namespaced bool, policyNamespace string) (errs field.ErrorList) {
-	if r.HasMutate() && namespaced {
+	if r.HasMutateExisting() && namespaced {
 		for idx, target := range r.Mutation.Targets {
 			if target.Namespace != "" && target.Namespace != policyNamespace {
 				errs = append(errs, field.Invalid(path.Child("targets").Index(idx).Child("namespace"), target.Namespace, "This field can be ignored or should have value of the namespace where the policy is being created"))
@@ -370,16 +396,7 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 		}
 
 		for idx, exclude := range podSecurity.Exclude {
-			// container level control must specify images
-			if containsString(utils.PSS_container_level_control, exclude.ControlName) {
-				if len(exclude.Images) == 0 {
-					errs = append(errs, field.Invalid(path.Child("podSecurity").Child("exclude").Index(idx).Child("controlName"), exclude.ControlName, "exclude.images must be specified for the container level control"))
-				}
-			} else if containsString(utils.PSS_pod_level_control, exclude.ControlName) {
-				if len(exclude.Images) != 0 {
-					errs = append(errs, field.Invalid(path.Child("podSecurity").Child("exclude").Index(idx).Child("controlName"), exclude.ControlName, "exclude.images must not be specified for the pod level control"))
-				}
-			}
+			errs = append(errs, exclude.Validate(path.Child("podSecurity").Child("exclude").Index(idx))...)
 
 			if containsString([]string{"Seccomp", "Capabilities"}, exclude.ControlName) {
 				continue
@@ -393,15 +410,12 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
-func (r *Rule) ValidateGenerateVariables(path *field.Path) (errs field.ErrorList) {
+func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if !r.HasGenerate() {
 		return nil
 	}
 
-	if err := r.Generation.Validate(); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprintf("Generation Rule Clone/CloneList \"%s\" should not have variables", r.Name)))
-	}
-	return errs
+	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
 }
 
 // Validate implements programmatic validation
@@ -412,6 +426,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
-	errs = append(errs, r.ValidateGenerateVariables(path)...)
+	errs = append(errs, r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)...)
 	return errs
 }

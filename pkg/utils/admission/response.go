@@ -8,8 +8,8 @@ import (
 
 var patchTypeJSONPatch = admissionv1.PatchTypeJSONPatch
 
-func Response(uid types.UID, err error, warnings ...string) *admissionv1.AdmissionResponse {
-	response := &admissionv1.AdmissionResponse{
+func Response(uid types.UID, err error, warnings ...string) admissionv1.AdmissionResponse {
+	response := admissionv1.AdmissionResponse{
 		Allowed: err == nil,
 		UID:     uid,
 	}
@@ -23,11 +23,11 @@ func Response(uid types.UID, err error, warnings ...string) *admissionv1.Admissi
 	return response
 }
 
-func ResponseSuccess(uid types.UID, warnings ...string) *admissionv1.AdmissionResponse {
+func ResponseSuccess(uid types.UID, warnings ...string) admissionv1.AdmissionResponse {
 	return Response(uid, nil, warnings...)
 }
 
-func MutationResponse(uid types.UID, patch []byte, warnings ...string) *admissionv1.AdmissionResponse {
+func MutationResponse(uid types.UID, patch []byte, warnings ...string) admissionv1.AdmissionResponse {
 	response := ResponseSuccess(uid, warnings...)
 	if len(patch) != 0 {
 		response.Patch = patch

@@ -1,61 +1,84 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: check-image
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: none
-spec:
-  validationFailureAction: enforce
-  background: false
-  rules:
-    - name: verify-signature
-      match:
-        resources:
-          kinds:
-            - Pod
-      verifyImages:
-      - imageReferences:
-        - "*"
-        attestors:
-        - count: 1
-          entries:
-          - keys:
-              publicKeys: |-
-                -----BEGIN PUBLIC KEY-----
-                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
-                5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
-                -----END PUBLIC KEY-----
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-data-volume-image
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
+  name: check-image
 spec:
-  validationFailureAction: enforce
+  admission: true
   background: false
   rules:
-    - name: verify-signature
-      match:
-        any:
-        - resources:
-            kinds:
-              - DataVolume
-      imageExtractors:
-        DataVolume:
-          - path: /spec/source/registry/url
-            jmesPath: "trim_prefix(@, 'docker://')"
-      verifyImages:
-      - imageReferences:
-        - "*"
-        mutateDigest: false
-        attestors:
-        - count: 1
-          entries:
-          - keys:
-              publicKeys: |-
-                -----BEGIN PUBLIC KEY-----
-                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
-                5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
-                -----END PUBLIC KEY-----
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: verify-signature
+    verifyImages:
+    - attestors:
+      - count: 1
+        entries:
+        - keys:
+            ctlog:
+              ignoreSCT: true
+            publicKeys: |-
+              -----BEGIN PUBLIC KEY-----
+              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+              5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+              -----END PUBLIC KEY-----
+            rekor:
+              ignoreTlog: true
+              url: https://rekor.sigstore.dev
+            signatureAlgorithm: sha256
+      imageReferences:
+      - '*'
+      mutateDigest: true
+      required: true
+      useCache: true
+      verifyDigest: true
+  validationFailureAction: Enforce
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: check-data-volume-image
+spec:
+  admission: true
+  background: false
+  rules:
+  - imageExtractors:
+      DataVolume:
+      - jmesPath: trim_prefix(@, 'docker://')
+        path: /spec/source/registry/url
+    match:
+      any:
+      - resources:
+          kinds:
+          - DataVolume
+    name: verify-signature
+    verifyImages:
+    - attestors:
+      - count: 1
+        entries:
+        - keys:
+            ctlog:
+              ignoreSCT: true
+            publicKeys: |-
+              -----BEGIN PUBLIC KEY-----
+              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+              5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+              -----END PUBLIC KEY-----
+            rekor:
+              ignoreTlog: true
+              url: https://rekor.sigstore.dev
+            signatureAlgorithm: sha256
+      imageReferences:
+      - '*'
+      mutateDigest: false
+      required: true
+      useCache: true
+      verifyDigest: false
+  validationFailureAction: Enforce

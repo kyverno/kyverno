@@ -19,7 +19,7 @@
 {{- end -}}
 
 {{- define "kyverno.admission-controller.roleName" -}}
-{{ .Release.Name }}:admission-controller
+{{ include "kyverno.fullname" . }}:admission-controller
 {{- end -}}
 
 {{- define "kyverno.admission-controller.serviceAccountName" -}}
@@ -32,4 +32,8 @@
 
 {{- define "kyverno.admission-controller.serviceName" -}}
 {{- printf "%s-svc" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "kyverno.admission-controller.caCertificatesConfigMapName" -}}
+{{ printf "%s-ca-certificates" (include "kyverno.admission-controller.name" .) }}
 {{- end -}}

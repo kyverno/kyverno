@@ -27,21 +27,24 @@ It contains instructions to build, run, and test Kyverno.
   - [Generating helm charts CRDs](#generating-helm-charts-crds)
   - [Generating helm charts docs](#generating-helm-charts-docs)
 - [Debugging local code](#debugging-local-code)
+- [Profiling](#profiling)
+- [Other Topics](#other-topics)
+- [Selecting Issues](#selecting-issues)
+
 
 ## Open project in devcontainer (recommended)
 - Clone the project to your local machine.
 - Make sure that you have the Visual Studio Code editor installed on your system.
 
-- Make sure that you have the Docker installed on your system.
+- Make sure that you have wsl(Ubuntu preferred) and Docker installed on your system and on wsl too (docker.sock (UNIX socket) file is necessary to enable devcontainer to communicate with docker running in host machine).
 
-- Open the project in Visual Studio Code.
+- Open the project in Visual Studio Code, once the project is opened hit F1 and type wsl, now click on "Reopen in WSL".
 
 - If you haven't already done so, install the **Dev Containers** extension in Visual Studio Code.
 
 - Once the extension is installed, you should see a green icon in the bottom left corner of the window.
 
-- After you have installed Dev Containers extension, it should automatically detect the .devcontainer folder inside the project,
-and should suggest you to open the project in container.
+- After you have installed Dev Containers extension, it should automatically detect the .devcontainer folder inside the project opened in wsl, and should suggest you to open the project in container.
 
 - If it doesn't suggest you, then press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>p</kbd> and search "reopen in container" and click on it.
 
@@ -243,7 +246,7 @@ To create a local KinD cluster, run:
 make kind-create-cluster
 ```
 
-You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.24.0`).
+You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.29.1`).
 
 You can also override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
 
@@ -414,13 +417,97 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
 1. Deploy Kyverno manifests except the Kyverno `Deployment`
     - Kyverno is going to run on your local machine, so it should not run in cluster at the same time
     - You can deploy the manifests by running `make debug-deploy`
+1. There are multiple environment variables that need to be configured. The variables can be found in [here](./.vscode/launch.json). Their values can be set using the command `export $NAME=value`
 1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
     - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)
     - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
+    - `--backgroundServiceAccountName` must be set to `system:serviceaccount:kyverno:kyverno-background-controller`
+    - `--caSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-ca`
+    - `--tlsSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-pair`
 
 Once you are ready with the steps above, Kyverno can be started locally with:
 ```console
-go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443
+go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443 --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca  --tlsSecretName=kyverno-svc.kyverno.svc.kyverno-tls-pair
 ```
 
 You will need to adapt those steps to run debug sessions in your IDE of choice, but the general idea remains the same.
+
+
+## Profiling
+
+### Enable profiling
+To profile Kyverno application running inside a Kubernetes pod, set `--profile` flag to `true` in [install.yaml](https://github.com/kyverno/kyverno/blob/main/definitions/install.yaml). The default profiling port is 6060, and it can be configured via `profile-port`.
+
+```
+  --profile
+        Set this flag to 'true', to enable profiling.
+  --profile-port string
+        Enable profiling at given port, defaults to 6060. (default "6060")
+```
+
+### Expose the endpoint on a local port
+You can get at the application in the pod by port forwarding with kubectl, for example:
+
+````shell
+$ kubectl -n kyverno get pod
+NAME                       READY   STATUS    RESTARTS   AGE
+kyverno-7d67c967c6-slbpr   1/1     Running   0          19s
+````
+
+````bash
+$ kubectl -n kyverno port-forward kyverno-7d67c967c6-slbpr 6060
+Forwarding from 127.0.0.1:6060 -> 6060
+Forwarding from [::1]:6060 -> 6060
+````
+
+The HTTP endpoint will now be available as a local port.
+
+Alternatively, use a Service of the type `LoadBalancer` to expose Kyverno. An example Service manifest is given below:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: pproc-service
+  namespace: kyverno
+spec:
+  selector:
+    app: kyverno
+  ports:
+    - protocol: TCP
+      port: 6060
+      targetPort: 6060
+  type: LoadBalancer
+```
+
+
+### Generate the data
+You can then generate the file for the **memory** profile with curl and pipe the data to a file:
+````shell
+$ curl http://localhost:6060/debug/pprof/heap  > heap.pprof
+````
+
+Generate the file for the **CPU** profile with curl and pipe the data to a file:
+```shell
+curl "http://localhost:6060/debug/pprof/profile?seconds=60" > cpu.pprof
+```
+
+### Analyze the data
+To analyze the data:
+````shell
+go tool pprof heap.pprof
+````
+
+### Read more about profiling
+- [Profiling Golang Programs on Kubernetes](https://danlimerick.wordpress.com/2017/01/24/profiling-golang-programs-on-kubernetes/)
+- [Official GO blog](https://blog.golang.org/pprof)
+
+
+## Other Topics
+
+Additional advanced developer docs are avaialable in the [developer docs folder](./docs/dev/).
+
+
+## Selecting Issues
+
+When you are ready to contribute, you can select issue at [Good First Issues](https://github.com/orgs/kyverno/projects/10). 

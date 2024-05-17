@@ -3,10 +3,11 @@ package mutate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	"github.com/kyverno/kyverno/pkg/policy/auth"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
@@ -16,14 +17,16 @@ import (
 // Mutate provides implementation to validate 'mutate' rule
 type Mutate struct {
 	mutation    kyvernov1.Mutation
-	authChecker AuthChecker
+	user        string
+	authChecker auth.Operations
 }
 
 // NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface) *Mutate {
+func NewMutateFactory(m kyvernov1.Mutation, authChecker auth.Operations, user string) *Mutate {
 	return &Mutate{
 		mutation:    m,
-		authChecker: newAuthChecker(client),
+		user:        user,
+		authChecker: authChecker,
 	}
 }
 
@@ -43,7 +46,7 @@ func (m *Mutate) Validate(ctx context.Context) (string, error) {
 
 	if m.mutation.Targets != nil {
 		if err := m.validateAuth(ctx, m.mutation.Targets); err != nil {
-			return "targets", fmt.Errorf("auth check fails, require additional privileges, update the ClusterRole 'kyverno:background-controller:additional':%v", err)
+			return "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.user, err)
 		}
 	}
 	return "", nil
@@ -90,26 +93,26 @@ func (m *Mutate) hasPatchesJSON6902() bool {
 	return m.mutation.PatchesJSON6902 != ""
 }
 
-func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.ResourceSpec) error {
+func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetResourceSpec) error {
 	var errs []error
 	for _, target := range targets {
-		if !regex.IsVariable(target.Namespace) {
+		if !regex.IsVariable(target.Kind) {
 			_, _, k, sub := kubeutils.ParseKindSelector(target.Kind)
 			srcKey := k
 			if sub != "" {
 				srcKey = srcKey + "/" + sub
 			}
 
-			if ok, err := m.authChecker.CanIUpdate(ctx, k, target.Namespace, sub); err != nil {
+			if ok, err := m.authChecker.CanIUpdate(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, sub); err != nil {
 				errs = append(errs, err)
 			} else if !ok {
-				errs = append(errs, fmt.Errorf("cannot %s %s in namespace %s", "update", srcKey, target.Namespace))
+				errs = append(errs, fmt.Errorf("cannot %s/%s/%s in namespace %s", "update", target.APIVersion, srcKey, target.Namespace))
 			}
 
-			if ok, err := m.authChecker.CanIGet(ctx, k, target.Namespace, sub); err != nil {
+			if ok, err := m.authChecker.CanIGet(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, sub); err != nil {
 				errs = append(errs, err)
 			} else if !ok {
-				errs = append(errs, fmt.Errorf("cannot %s %s in namespace %s", "get", srcKey, target.Namespace))
+				errs = append(errs, fmt.Errorf("cannot %s/%s/%s in namespace %s", "get", target.APIVersion, srcKey, target.Namespace))
 			}
 		}
 	}

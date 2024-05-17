@@ -2,6 +2,7 @@ package apicall
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,17 +10,43 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"gotest.tools/assert"
-
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-func buildTestServer(responseData []byte) *httptest.Server {
+var (
+	jp        = jmespath.New(config.NewDefaultConfiguration(false))
+	apiConfig = APICallConfiguration{
+		maxAPICallResponseLength: 1 * 1000 * 1000,
+	}
+	apiConfigMaxSizeExceed = APICallConfiguration{
+		maxAPICallResponseLength: 10,
+	}
+	apiConfigWithoutSecurityCheck = APICallConfiguration{
+		maxAPICallResponseLength: 0,
+	}
+)
+
+func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resource", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			w.Write(responseData)
+
+			if useChunked {
+				flusher, ok := w.(http.Flusher)
+				if !ok {
+					panic("expected http.ResponseWriter to be an http.Flusher")
+				}
+				for i := 1; i <= 10; i++ {
+					fmt.Fprintf(w, "Chunk #%d\n", i)
+					flusher.Flush()
+				}
+			}
+
 			return
 		}
 
@@ -34,63 +61,84 @@ func buildTestServer(responseData []byte) *httptest.Server {
 }
 
 func Test_serviceGetRequest(t *testing.T) {
-	serverResponse := []byte(`{ "day": "Sunday" }`)
-	s := buildTestServer(serverResponse)
-	defer s.Close()
+	testfn := func(t *testing.T, useChunked bool) {
+		serverResponse := []byte(`{ "day": "Sunday" }`)
+		s := buildTestServer(serverResponse, false)
+		defer s.Close()
 
-	entry := kyvernov1.ContextEntry{}
-	ctx := enginecontext.NewContext()
+		entry := kyvernov1.ContextEntry{}
+		ctx := enginecontext.NewContext(jp)
 
-	_, err := New(context.TODO(), entry, ctx, nil, logr.Discard())
-	assert.ErrorContains(t, err, "missing APICall")
+		_, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.ErrorContains(t, err, "missing APICall")
 
-	entry.Name = "test"
-	entry.APICall = &kyvernov1.APICall{
-		Service: &kyvernov1.ServiceCall{
-			URL: s.URL,
-		},
+		entry.Name = "test"
+		entry.APICall = &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL,
+				},
+			},
+		}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.NilError(t, err)
+		_, err = call.FetchAndLoad(context.TODO())
+		assert.ErrorContains(t, err, "invalid request type")
+
+		entry.APICall.Method = "GET"
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.NilError(t, err)
+		_, err = call.FetchAndLoad(context.TODO())
+		assert.ErrorContains(t, err, "HTTP 404")
+
+		entry.APICall.Service.URL = s.URL + "/resource"
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.NilError(t, err)
+
+		data, err := call.FetchAndLoad(context.TODO())
+		assert.NilError(t, err)
+		assert.Assert(t, data != nil, "nil data")
+		assert.Equal(t, string(serverResponse), string(data))
+
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigMaxSizeExceed)
+		assert.NilError(t, err)
+		_, err = call.FetchAndLoad(context.TODO())
+		assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10")
+
+		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigWithoutSecurityCheck)
+		assert.NilError(t, err)
+		data, err = call.FetchAndLoad(context.TODO())
+		assert.NilError(t, err)
+		assert.Assert(t, data != nil, "nil data")
+		assert.Equal(t, string(serverResponse), string(data))
 	}
 
-	call, err := New(context.TODO(), entry, ctx, nil, logr.Discard())
-	assert.NilError(t, err)
-	_, err = call.Execute()
-	assert.ErrorContains(t, err, "invalid request type")
-
-	entry.APICall.Service.Method = "GET"
-	call, err = New(context.TODO(), entry, ctx, nil, logr.Discard())
-	assert.NilError(t, err)
-	_, err = call.Execute()
-	assert.ErrorContains(t, err, "HTTP 404")
-
-	entry.APICall.Service.URL = s.URL + "/resource"
-	call, err = New(context.TODO(), entry, ctx, nil, logr.Discard())
-	assert.NilError(t, err)
-
-	data, err := call.Execute()
-	assert.NilError(t, err)
-	assert.Assert(t, data != nil, "nil data")
-	assert.Equal(t, string(serverResponse), string(data))
+	t.Run("Standard", func(t *testing.T) { testfn(t, false) })
+	t.Run("Chunked", func(t *testing.T) { testfn(t, true) })
 }
 
 func Test_servicePostRequest(t *testing.T) {
 	serverResponse := []byte(`{ "day": "Monday" }`)
-	s := buildTestServer(serverResponse)
+	s := buildTestServer(serverResponse, false)
 	defer s.Close()
 
 	entry := kyvernov1.ContextEntry{
 		Name: "test",
-		APICall: &kyvernov1.APICall{
-			Service: &kyvernov1.ServiceCall{
-				URL:    s.URL + "/resource",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
 				Method: "POST",
+				Service: &kyvernov1.ServiceCall{
+					URL: s.URL + "/resource",
+				},
 			},
 		},
 	}
 
-	ctx := enginecontext.NewContext()
-	call, err := New(context.TODO(), entry, ctx, nil, logr.Discard())
+	ctx := enginecontext.NewContext(jp)
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
 	assert.NilError(t, err)
-	data, err := call.Execute()
+	data, err := call.FetchAndLoad(context.TODO())
 	assert.NilError(t, err)
 	assert.Equal(t, "{}\n", string(data))
 
@@ -127,7 +175,7 @@ func Test_servicePostRequest(t *testing.T) {
 	err = ctx.AddContextEntry("images", []byte(imageData))
 	assert.NilError(t, err)
 
-	entry.APICall.Service.Data = []kyvernov1.RequestData{
+	entry.APICall.Data = []kyvernov1.RequestData{
 		{
 			Key: "images",
 			Value: &apiextensionsv1.JSON{
@@ -136,9 +184,9 @@ func Test_servicePostRequest(t *testing.T) {
 		},
 	}
 
-	call, err = New(context.TODO(), entry, ctx, nil, logr.Discard())
+	call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
 	assert.NilError(t, err)
-	data, err = call.Execute()
+	data, err = call.FetchAndLoad(context.TODO())
 	assert.NilError(t, err)
 
 	expectedResults := `{"images":["https://ghcr.io/tomcat/tomcat:9","https://ghcr.io/vault/vault:v3","https://ghcr.io/busybox/busybox:latest"]}`

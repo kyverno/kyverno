@@ -1,34 +1,36 @@
-apiVersion : kyverno.io/v1
+---
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: resolve-image
 spec:
+  admission: true
   background: false
   rules:
-  - name: resolve-image-containers
-    match:
-      resources:
-        kinds:
-        - Pod
-    preconditions:
-      all:
-      - key: "{{request.operation}}"
-        operator: In
-        value:
-        - CREATE
-        - UPDATE
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
     mutate:
       foreach:
-      - list: "request.object.spec.containers"
-        context:
-          - name: dictionary
-            configMap:
-              # Name of the ConfigMap which will be looked up
-              name: some-config-map
-              # Namespace in which this ConfigMap is stored
-              namespace: some-namespace 
+      - context:
+        - configMap:
+            name: some-config-map
+            namespace: some-namespace
+          name: dictionary
+        list: request.object.spec.containers
         patchStrategicMerge:
           spec:
             containers:
-            - name: "{{ element.name }}"           
-              image: "{{ dictionary.data.image }}"
+            - image: '{{ dictionary.data.image }}'
+              name: '{{ element.name }}'
+    name: resolve-image-containers
+    preconditions:
+      all:
+      - key: '{{request.operation}}'
+        operator: AllIn
+        value:
+        - CREATE
+        - UPDATE
+  validationFailureAction: Audit

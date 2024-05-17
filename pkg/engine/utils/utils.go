@@ -14,8 +14,16 @@ import (
 )
 
 func IsDeleteRequest(ctx engineapi.PolicyContext) bool {
+	if ctx == nil {
+		return false
+	}
+
+	if op := ctx.Operation(); string(op) != "" {
+		return op == kyvernov1.Delete
+	}
+
+	// if the NewResource is empty, the request is a DELETE
 	newResource := ctx.NewResource()
-	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
 	return IsEmptyUnstructured(&newResource)
 }
 
@@ -84,4 +92,20 @@ func TransformConditions(original apiextensions.JSON) (interface{}, error) {
 		return copies, nil
 	}
 	return nil, fmt.Errorf("invalid preconditions")
+}
+
+func IsSameRuleResponse(r1 *engineapi.RuleResponse, r2 *engineapi.RuleResponse) bool {
+	if r1.Name() != r2.Name() ||
+		r1.RuleType() != r2.RuleType() ||
+		r1.Message() != r2.Message() ||
+		r1.Status() != r2.Status() {
+		return false
+	}
+
+	return true
+}
+
+func IsUpdateRequest(ctx engineapi.PolicyContext) bool {
+	// is the OldObject and NewObject are available, the request is an UPDATE
+	return ctx.OldResource().Object != nil && ctx.NewResource().Object != nil
 }

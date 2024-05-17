@@ -1,0 +1,5 @@
+apiVersion: foo/v1
+kind: Foo
+metadata:
+  name: foo-resource-b
+  namespace: default

@@ -9,6 +9,7 @@ metadata:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.reportsController.replicas }}
+  revisionHistoryLimit: {{ .Values.reportsController.revisionHistoryLimit }}
   {{- with .Values.reportsController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
@@ -20,16 +21,22 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.reports-controller.labels" . | nindent 8 }}
+        {{- with .Values.reportsController.podLabels }}
+        {{- tpl (toYaml .) $ | nindent 8 }}
+        {{- end }}
+      {{- with .Values.reportsController.podAnnotations }}
+      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
     spec:
-      {{- with .Values.reportsController.image.pullSecrets }}
-      imagePullSecrets: 
+      {{- with .Values.reportsController.imagePullSecrets }}
+      imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.reportsController.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.reportsController.nodeSelector }}
+      {{- with .Values.reportsController.nodeSelector | default .Values.global.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -70,16 +77,21 @@ spec:
       serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
       containers:
         - name: controller
-          image: {{ include "kyverno.reports-controller.image" (dict "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
+          image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
+          imagePullPolicy: {{ .Values.reportsController.image.pullPolicy }}
           ports:
-          - containerPort: 9443
+          - containerPort: {{ .Values.reportsController.server.port }}
             name: https
             protocol: TCP
-          - containerPort: 8000
+          - containerPort: {{ .Values.reportsController.metering.port }}
             name: metrics
             protocol: TCP
+          {{ if .Values.reportsController.profiling.enabled }}
+          - containerPort: {{ .Values.reportsController.profiling.port }}
+            name: profiling-port
+            protocol: TCP
+          {{- end }}
           args:
-            - --loggingFormat={{ .Values.reportsController.logging.format }}
             {{- if .Values.reportsController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.reportsController.tracing.address }}
@@ -99,12 +111,41 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
+            {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
+            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
+            {{- end }}
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.reportsController.featuresOverride)
+              "admissionReports"
+              "aggregateReports"
+              "policyReports"
+              "validatingAdmissionPolicyReports"
+              "backgroundScan"
+              "configMapCaching"
+              "deferredLoading"
+              "globalContext"
+              "logging"
+              "omitEvents"
+              "policyExceptions"
+              "reports"
+              "registryClient"
+              "tuf"
+            ) | nindent 12 }}
             {{- range $key, $value := .Values.reportsController.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
             {{- end }}
             {{- end }}
+            {{ if .Values.reportsController.profiling.enabled }}
+            - --profile=true
+            - --profilePort={{ .Values.reportsController.profiling.port }}
+            {{- end }}
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.reports-controller.name" . }}
+          - name: INIT_CONFIG
+            value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
             value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_POD_NAME
@@ -117,8 +158,12 @@ spec:
                 fieldPath: metadata.namespace
           - name: TUF_ROOT
             value: {{ .Values.reportsController.tufRootMountPath }}
+          {{- with (concat .Values.global.extraEnvVars .Values.reportsController.extraEnvVars) }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.reportsController.resources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.reportsController.securityContext }}
           securityContext:
@@ -127,8 +172,28 @@ spec:
           volumeMounts:
             - mountPath: {{ .Values.reportsController.tufRootMountPath }}
               name: sigstore
+            {{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data .Values.reportsController.caCertificates.volume .Values.global.caCertificates.volume }}
+            - name: ca-certificates
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              {{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data }}
+              subPath: ca-certificates.crt
+              {{- end }}
+            {{- end }}
       volumes:
       - name: sigstore
         {{- toYaml (required "A valid .Values.reportsController.sigstoreVolume entry is required" .Values.reportsController.sigstoreVolume) | nindent 8 }}
+      {{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data }}
+      - name: ca-certificates
+        configMap:
+          name: {{ include "kyverno.reports-controller.caCertificatesConfigMapName" . }}
+          items:
+          - key: ca-certificates
+            path: ca-certificates.crt
+      {{- else if or .Values.reportsController.caCertificates.volume .Values.global.caCertificates.volume }}
+      {{- with (.Values.reportsController.caCertificates.volume | default .Values.global.caCertificates.volume) }}
+      - name: ca-certificates
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
 {{- end -}}
 {{- end -}}

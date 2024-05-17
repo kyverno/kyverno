@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,10 +29,12 @@ const (
 )
 
 var (
-	none = admissionregistrationv1.SideEffectClassNone
-	fail = admissionregistrationv1.Fail
-	None = &none
-	Fail = &fail
+	none   = admissionregistrationv1.SideEffectClassNone
+	fail   = admissionregistrationv1.Fail
+	ignore = admissionregistrationv1.Ignore
+	None   = &none
+	Fail   = &fail
+	Ignore = &ignore
 )
 
 type controller struct {
@@ -40,9 +42,8 @@ type controller struct {
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 
 	// listers
-	vwcLister       admissionregistrationv1listers.ValidatingWebhookConfigurationLister
-	secretLister    corev1listers.SecretNamespaceLister
-	configMapLister corev1listers.ConfigMapLister
+	vwcLister    admissionregistrationv1listers.ValidatingWebhookConfigurationLister
+	secretLister corev1listers.SecretNamespaceLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -57,6 +58,9 @@ type controller struct {
 	rules          []admissionregistrationv1.RuleWithOperations
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
+	configuration  config.Configuration
+	labelSelector  *metav1.LabelSelector
+	caSecretName   string
 }
 
 func NewController(
@@ -64,69 +68,61 @@ func NewController(
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	secretInformer corev1informers.SecretInformer,
-	configMapInformer corev1informers.ConfigMapInformer,
 	webhookName string,
 	path string,
 	server string,
 	servicePort int32,
+	webhookServerPort int32,
+	labelSelector *metav1.LabelSelector,
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
+	configuration config.Configuration,
+	caSecretName string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
-		vwcClient:       vwcClient,
-		vwcLister:       vwcInformer.Lister(),
-		secretLister:    secretInformer.Lister().Secrets(config.KyvernoNamespace()),
-		configMapLister: configMapInformer.Lister(),
-		queue:           queue,
-		controllerName:  controllerName,
-		logger:          logging.ControllerLogger(controllerName),
-		webhookName:     webhookName,
-		path:            path,
-		server:          server,
-		servicePort:     servicePort,
-		rules:           rules,
-		failurePolicy:   failurePolicy,
-		sideEffects:     sideEffects,
+		vwcClient:      vwcClient,
+		vwcLister:      vwcInformer.Lister(),
+		secretLister:   secretInformer.Lister().Secrets(config.KyvernoNamespace()),
+		queue:          queue,
+		controllerName: controllerName,
+		logger:         logging.ControllerLogger(controllerName),
+		webhookName:    webhookName,
+		path:           path,
+		server:         server,
+		servicePort:    servicePort,
+		rules:          rules,
+		failurePolicy:  failurePolicy,
+		sideEffects:    sideEffects,
+		configuration:  configuration,
+		labelSelector:  labelSelector,
+		caSecretName:   caSecretName,
 	}
-	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
-	controllerutils.AddEventHandlersT(
+	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue); err != nil {
+		c.logger.Error(err, "failed to register event handlers")
+	}
+	if _, err := controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueue()
 			}
 		},
 		func(_, obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueue()
 			}
 		},
 		func(obj *corev1.Secret) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == caSecretName {
 				c.enqueue()
 			}
 		},
-	)
-	controllerutils.AddEventHandlersT(
-		configMapInformer.Informer(),
-		func(obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueue()
-			}
-		},
-		func(_, obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueue()
-			}
-		},
-		func(obj *corev1.ConfigMap) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
-				c.enqueue()
-			}
-		},
-	)
+	); err != nil {
+		c.logger.Error(err, "failed to register event handlers")
+	}
+	configuration.OnChanged(c.enqueue)
 	return &c
 }
 
@@ -139,24 +135,15 @@ func (c *controller) enqueue() {
 	c.queue.Add(c.webhookName)
 }
 
-func (c *controller) loadConfig() config.Configuration {
-	cfg := config.NewDefaultConfiguration()
-	cm, err := c.configMapLister.ConfigMaps(config.KyvernoNamespace()).Get(config.KyvernoConfigMapName())
-	if err == nil {
-		cfg.Load(cm)
-	}
-	return cfg
-}
-
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
 	if key != c.webhookName {
 		return nil
 	}
-	caData, err := tls.ReadRootCASecret(c.secretLister)
+	caData, err := tls.ReadRootCASecret(c.caSecretName, config.KyvernoNamespace(), c.secretLister)
 	if err != nil {
 		return err
 	}
-	desired, err := c.build(c.loadConfig(), caData)
+	desired, err := c.build(c.configuration, caData)
 	if err != nil {
 		return err
 	}
@@ -178,12 +165,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	return err
 }
 
-func objectMeta(name string, annotations map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+func objectMeta(name string, annotations map[string]string, labels map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+	desiredLabels := make(map[string]string)
+	defaultLabels := map[string]string{
+		kyverno.LabelWebhookManagedBy: kyverno.ValueKyvernoApp,
+	}
+	maps.Copy(desiredLabels, labels)
+	maps.Copy(desiredLabels, defaultLabels)
 	return metav1.ObjectMeta{
-		Name: name,
-		Labels: map[string]string{
-			utils.ManagedByLabel: kyvernov1.ValueKyvernoApp,
-		},
+		Name:            name,
+		Labels:          desiredLabels,
 		Annotations:     annotations,
 		OwnerReferences: owner,
 	}
@@ -191,7 +182,7 @@ func objectMeta(name string, annotations map[string]string, owner ...metav1.Owne
 
 func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations()),
+			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 				Name:                    fmt.Sprintf("%s.%s.svc", config.KyvernoServiceName(), config.KyvernoNamespace()),
 				ClientConfig:            c.clientConfig(caBundle),
@@ -199,6 +190,8 @@ func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissio
 				FailurePolicy:           c.failurePolicy,
 				SideEffects:             c.sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
+				ObjectSelector:          c.labelSelector,
+				MatchConditions:         cfg.GetMatchConditions(),
 			}},
 		},
 		nil

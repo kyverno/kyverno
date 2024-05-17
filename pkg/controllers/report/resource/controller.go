@@ -3,11 +3,11 @@ package resource
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -16,14 +16,15 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	"golang.org/x/exp/slices"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
 	"k8s.io/client-go/util/workqueue"
@@ -78,6 +79,7 @@ type controller struct {
 	// listers
 	polLister  kyvernov1listers.PolicyLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
+	vapLister  admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -91,6 +93,7 @@ func NewController(
 	client dclient.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
 		client:          client,
@@ -99,8 +102,18 @@ func NewController(
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
-	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
-	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
+	if vapInformer != nil {
+		c.vapLister = vapInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vapInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
 	return &c
 }
 
@@ -212,11 +225,11 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	clusterPolicies, err := c.fetchClusterPolicies(logger)
+	clusterPolicies, err := utils.FetchClusterPolicies(c.cpolLister)
 	if err != nil {
 		return err
 	}
-	policies, err := c.fetchPolicies(metav1.NamespaceAll)
+	policies, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -224,23 +237,19 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	gvkToGvr := map[schema.GroupVersionKind]schema.GroupVersionResource{}
 	for _, policyKind := range sets.List(kinds) {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
-		gvrss, err := c.client.Discovery().FindResources(group, version, kind, subresource)
+		c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+	}
+	if c.vapLister != nil {
+		vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
 		if err != nil {
-			logger.Error(err, "failed to get gvr from kind", "kind", kind)
-		} else {
-			for gvrs, api := range gvrss {
-				if gvrs.SubResource == "" {
-					gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: policyKind}
-					if !reportutils.IsGvkSupported(gvk) {
-						logger.Info("kind is not supported", "gvk", gvk)
-					} else {
-						if slices.Contains(api.Verbs, "list") && slices.Contains(api.Verbs, "watch") {
-							gvkToGvr[gvk] = gvrs.GroupVersionResource()
-						} else {
-							logger.Info("list/watch not supported for kind", "kind", kind)
-						}
-					}
-				}
+			return err
+		}
+		// fetch kinds from validating admission policies
+		for _, policy := range vapPolicies {
+			kinds := validatingadmissionpolicy.GetKinds(policy)
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
 			}
 		}
 	}
@@ -270,6 +279,28 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string, gvrMap map[schema.GroupVersionKind]schema.GroupVersionResource) {
+	gvrss, err := c.client.Discovery().FindResources(group, version, kind, subresource)
+	if err != nil {
+		logger.Error(err, "failed to get gvr from kind", "kind", kind)
+	} else {
+		for gvrs, api := range gvrss {
+			if gvrs.SubResource == "" {
+				gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: kind}
+				if !reportutils.IsGvkSupported(gvk) {
+					logger.Info("kind is not supported", "gvk", gvk)
+				} else {
+					if slices.Contains(api.Verbs, "list") && slices.Contains(api.Verbs, "watch") {
+						gvrMap[gvk] = gvrs.GroupVersionResource()
+					} else {
+						logger.Info("list/watch not supported for kind", "kind", kind)
+					}
+				}
+			}
+		}
+	}
 }
 
 func (c *controller) stopDynamicWatchers() {
@@ -315,30 +346,6 @@ func (c *controller) deleteHash(obj *unstructured.Unstructured, gvr schema.Group
 		delete(watcher.hashes, uid)
 		c.notify(Deleted, uid, watcher.gvk, hash)
 	}
-}
-
-func (c *controller) fetchClusterPolicies(logger logr.Logger) ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	if cpols, err := c.cpolLister.List(labels.Everything()); err != nil {
-		return nil, err
-	} else {
-		for _, cpol := range cpols {
-			policies = append(policies, cpol)
-		}
-	}
-	return policies, nil
-}
-
-func (c *controller) fetchPolicies(namespace string) ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	if pols, err := c.polLister.Policies(namespace).List(labels.Everything()); err != nil {
-		return nil, err
-	} else {
-		for _, pol := range pols {
-			policies = append(policies, pol)
-		}
-	}
-	return policies, nil
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {

@@ -1,7 +1,7 @@
 {{- $name := "require-non-root-groups" }}
 {{- if eq (include "kyverno-policies.podSecurityOther" (merge (dict "name" $name) .)) "true" }}
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: {{ .Values.policyKind }}
 metadata:
   name: {{ $name }}
   annotations:
@@ -48,6 +48,9 @@ spec:
       preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
+      {{- end }}
       validate:
         message: >-
           Running with root group IDs is disallowed. The fields
@@ -92,6 +95,9 @@ spec:
       preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
+      {{- end }}
       validate:
         message: >-
           Containers cannot run with a root primary or supplementary GID. The field
@@ -110,6 +116,9 @@ spec:
       {{- with merge (index .Values "policyExclude" "check-fsgroup") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if not (quote .Values.skipBackgroundRequests | empty)  }}
+      skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
         message: >-

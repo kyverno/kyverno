@@ -1,0 +1,6 @@
+foo: bar
+
+namespaceSelector:
+  - name: test1
+    labels:
+      foo.com/managed-state: managed

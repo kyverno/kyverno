@@ -1,0 +1,19 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-multiple-validation-failure-action-overrides
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-02
+    try:
+    - error:
+        file: validatingadmissionpolicy.yaml
+    - error:
+        file: validatingadmissionpolicybinding.yaml

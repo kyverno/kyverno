@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestImageVerificationMetadata_IsVerified(t *testing.T) {
 	type fields struct {
-		Data map[string]bool
+		Data map[string]ImageVerificationMetadataStatus
 	}
 	type args struct {
 		image string
@@ -21,8 +22,8 @@ func TestImageVerificationMetadata_IsVerified(t *testing.T) {
 		want   bool
 	}{{
 		fields: fields{
-			Data: map[string]bool{
-				"test": true,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
@@ -31,8 +32,8 @@ func TestImageVerificationMetadata_IsVerified(t *testing.T) {
 		want: true,
 	}, {
 		fields: fields{
-			Data: map[string]bool{
-				"test": true,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
@@ -41,8 +42,8 @@ func TestImageVerificationMetadata_IsVerified(t *testing.T) {
 		want: false,
 	}, {
 		fields: fields{
-			Data: map[string]bool{
-				"test2": false,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test2": ImageVerificationFail,
 			},
 		},
 		args: args{
@@ -69,11 +70,11 @@ func TestImageVerificationMetadata_IsVerified(t *testing.T) {
 
 func TestImageVerificationMetadata_Add(t *testing.T) {
 	type fields struct {
-		Data map[string]bool
+		Data map[string]ImageVerificationMetadataStatus
 	}
 	type args struct {
 		image    string
-		verified bool
+		verified ImageVerificationMetadataStatus
 	}
 	tests := []struct {
 		name   string
@@ -82,43 +83,43 @@ func TestImageVerificationMetadata_Add(t *testing.T) {
 		want   *ImageVerificationMetadata
 	}{{
 		fields: fields{
-			Data: map[string]bool{
-				"test": true,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
 			image:    "test",
-			verified: false,
+			verified: ImageVerificationFail,
 		},
 		want: &ImageVerificationMetadata{
-			Data: map[string]bool{
-				"test": false,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationFail,
 			},
 		},
 	}, {
 		args: args{
 			image:    "test",
-			verified: false,
+			verified: ImageVerificationFail,
 		},
 		want: &ImageVerificationMetadata{
-			Data: map[string]bool{
-				"test": false,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationFail,
 			},
 		},
 	}, {
 		fields: fields{
-			Data: map[string]bool{
-				"test": true,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
 			image:    "test2",
-			verified: false,
+			verified: ImageVerificationFail,
 		},
 		want: &ImageVerificationMetadata{
-			Data: map[string]bool{
-				"test":  true,
-				"test2": false,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test":  ImageVerificationPass,
+				"test2": ImageVerificationFail,
 			},
 		},
 	}}
@@ -151,21 +152,21 @@ func TestParseImageMetadata(t *testing.T) {
 		wantErr: true,
 	}, {
 		args: args{
-			jsonData: `{"test":true}`,
+			jsonData: `{"test":"pass"}`,
 		},
 		want: &ImageVerificationMetadata{
-			Data: map[string]bool{
-				"test": true,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationPass,
 			},
 		},
 	}, {
 		args: args{
-			jsonData: `{"test":true,"test2":false}`,
+			jsonData: `{"test":"pass","test2":"fail"}`,
 		},
 		want: &ImageVerificationMetadata{
-			Data: map[string]bool{
-				"test":  true,
-				"test2": false,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test":  ImageVerificationPass,
+				"test2": ImageVerificationFail,
 			},
 		},
 	}}
@@ -185,7 +186,7 @@ func TestParseImageMetadata(t *testing.T) {
 
 func TestImageVerificationMetadata_IsEmpty(t *testing.T) {
 	type fields struct {
-		Data map[string]bool
+		Data map[string]ImageVerificationMetadataStatus
 	}
 	tests := []struct {
 		name   string
@@ -193,8 +194,8 @@ func TestImageVerificationMetadata_IsEmpty(t *testing.T) {
 		want   bool
 	}{{
 		fields: fields{
-			Data: map[string]bool{
-				"test": false,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationFail,
 			},
 		},
 		want: false,
@@ -215,7 +216,7 @@ func TestImageVerificationMetadata_IsEmpty(t *testing.T) {
 
 func TestImageVerificationMetadata_Merge(t *testing.T) {
 	type fields struct {
-		Data map[string]bool
+		Data map[string]ImageVerificationMetadataStatus
 	}
 	type args struct {
 		other ImageVerificationMetadata
@@ -229,39 +230,39 @@ func TestImageVerificationMetadata_Merge(t *testing.T) {
 		want: &ImageVerificationMetadata{},
 	}, {
 		fields: fields{
-			Data: map[string]bool{
-				"test": true,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
 			other: ImageVerificationMetadata{
-				Data: map[string]bool{
-					"test": false,
+				Data: map[string]ImageVerificationMetadataStatus{
+					"test": ImageVerificationFail,
 				},
 			},
 		},
 		want: &ImageVerificationMetadata{
-			Data: map[string]bool{
-				"test": false,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationFail,
 			},
 		},
 	}, {
 		fields: fields{
-			Data: map[string]bool{
-				"test": true,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
 			other: ImageVerificationMetadata{
-				Data: map[string]bool{
-					"test2": false,
+				Data: map[string]ImageVerificationMetadataStatus{
+					"test2": ImageVerificationFail,
 				},
 			},
 		},
 		want: &ImageVerificationMetadata{
-			Data: map[string]bool{
-				"test":  true,
-				"test2": false,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test":  ImageVerificationPass,
+				"test2": ImageVerificationFail,
 			},
 		},
 	}}
@@ -296,7 +297,7 @@ func Test_makeAnnotationKeyForJSONPatch(t *testing.T) {
 
 func TestImageVerificationMetadata_Patches(t *testing.T) {
 	type fields struct {
-		Data map[string]bool
+		Data map[string]ImageVerificationMetadataStatus
 	}
 	type args struct {
 		hasAnnotations bool
@@ -306,42 +307,42 @@ func TestImageVerificationMetadata_Patches(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    [][]byte
+		want    []string
 		wantErr bool
 	}{{
 		fields: fields{
-			Data: map[string]bool{
-				"test": true,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
 			hasAnnotations: false,
 			log:            logr.Discard(),
 		},
-		want: [][]byte{
-			[]byte(`{"path":"/metadata/annotations","op":"add","value":{}}`),
-			[]byte(`{"path":"/metadata/annotations/kyverno.io~1verify-images","op":"add","value":"{\"test\":true}"}`),
+		want: []string{
+			`{"op":"add","path":"/metadata/annotations","value":{}}`,
+			`{"op":"add","path":"/metadata/annotations/kyverno.io~1verify-images","value":"{\"test\":\"pass\"}"}`,
 		},
 	}, {
 		fields: fields{
-			Data: map[string]bool{
-				"test": true,
+			Data: map[string]ImageVerificationMetadataStatus{
+				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
 			hasAnnotations: true,
 			log:            logr.Discard(),
 		},
-		want: [][]byte{
-			[]byte(`{"path":"/metadata/annotations/kyverno.io~1verify-images","op":"add","value":"{\"test\":true}"}`),
+		want: []string{
+			`{"op":"add","path":"/metadata/annotations/kyverno.io~1verify-images","value":"{\"test\":\"pass\"}"}`,
 		},
 	}, {
 		args: args{
 			hasAnnotations: true,
 			log:            logr.Discard(),
 		},
-		want: [][]byte{
-			[]byte(`{"path":"/metadata/annotations/kyverno.io~1verify-images","op":"add","value":"null"}`),
+		want: []string{
+			`{"op":"add","path":"/metadata/annotations/kyverno.io~1verify-images","value":"null"}`,
 		},
 	}}
 	for _, tt := range tests {
@@ -354,8 +355,9 @@ func TestImageVerificationMetadata_Patches(t *testing.T) {
 				t.Errorf("ImageVerificationMetadata.Patches() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ImageVerificationMetadata.Patches() = %v, want %v", got, tt.want)
+			assert.Equal(t, len(got), len(tt.want))
+			for i := range got {
+				assert.Equal(t, got[i].Json(), tt.want[i])
 			}
 		})
 	}

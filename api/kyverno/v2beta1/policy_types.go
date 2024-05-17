@@ -3,6 +3,7 @@ package v2beta1
 import (
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -13,15 +14,16 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Background",type=boolean,JSONPath=".spec.background"
-// +kubebuilder:printcolumn:name="Validate Action",type=string,JSONPath=".spec.validationFailureAction"
-// +kubebuilder:printcolumn:name="Failure Policy",type=string,JSONPath=".spec.failurePolicy",priority=1
-// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="Validate",type=integer,JSONPath=`.status.rulecount.validate`,priority=1
-// +kubebuilder:printcolumn:name="Mutate",type=integer,JSONPath=`.status.rulecount.mutate`,priority=1
-// +kubebuilder:printcolumn:name="Generate",type=integer,JSONPath=`.status.rulecount.generate`,priority=1
-// +kubebuilder:printcolumn:name="Verifyimages",type=integer,JSONPath=`.status.rulecount.verifyimages`,priority=1
+// +kubebuilder:printcolumn:name="ADMISSION",type=boolean,JSONPath=".spec.admission"
+// +kubebuilder:printcolumn:name="BACKGROUND",type=boolean,JSONPath=".spec.background"
+// +kubebuilder:printcolumn:name="VALIDATE ACTION",type=string,JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="FAILURE POLICY",type=string,JSONPath=".spec.failurePolicy",priority=1
+// +kubebuilder:printcolumn:name="VALIDATE",type=integer,JSONPath=`.status.rulecount.validate`,priority=1
+// +kubebuilder:printcolumn:name="MUTATE",type=integer,JSONPath=`.status.rulecount.mutate`,priority=1
+// +kubebuilder:printcolumn:name="GENERATE",type=integer,JSONPath=`.status.rulecount.generate`,priority=1
+// +kubebuilder:printcolumn:name="VERIFY IMAGES",type=integer,JSONPath=`.status.rulecount.verifyimages`,priority=1
 // +kubebuilder:printcolumn:name="MESSAGE",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].message`
 // +kubebuilder:resource:shortName=pol,categories=kyverno
 
@@ -42,7 +44,7 @@ type Policy struct {
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *Policy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
-	val, ok := annotations[kyvernov1.PodControllersAnnotation]
+	val, ok := annotations[kyverno.AnnotationAutogenControllers]
 	if ok && strings.ToLower(val) != "none" {
 		return true
 	}
@@ -79,6 +81,11 @@ func (p *Policy) HasVerifyImages() bool {
 	return p.Spec.HasVerifyImages()
 }
 
+// AdmissionProcessingEnabled checks if admission is set to true
+func (p *Policy) AdmissionProcessingEnabled() bool {
+	return p.Spec.AdmissionProcessingEnabled()
+}
+
 // BackgroundProcessingEnabled checks if background is set to true
 func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
@@ -105,7 +112,7 @@ func (p *Policy) IsReady() bool {
 func (p *Policy) Validate(clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.Namespace, clusterResources)...)
 	return errs
 }
 

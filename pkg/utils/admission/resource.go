@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func GetResourceName(request *admissionv1.AdmissionRequest) string {
+func GetResourceName(request admissionv1.AdmissionRequest) string {
 	resourceName := request.Kind.Kind + "/" + request.Name
 	if request.Namespace != "" {
 		resourceName = request.Namespace + "/" + resourceName
@@ -18,7 +18,7 @@ func GetResourceName(request *admissionv1.AdmissionRequest) string {
 }
 
 // ExtractResources extracts the new and old resource as unstructured
-func ExtractResources(newRaw []byte, request *admissionv1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
+func ExtractResources(newRaw []byte, request admissionv1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
 	var emptyResource unstructured.Unstructured
 	var newResource unstructured.Unstructured
 	var oldResource unstructured.Unstructured

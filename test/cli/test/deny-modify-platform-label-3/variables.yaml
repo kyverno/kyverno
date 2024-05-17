@@ -1,0 +1,8 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+policies:
+- name: deny-modify-platform-label
+  resources:
+  - name: my-role-with-platform
+    values:
+      request.object.metadata.annotations."hpedevops.net/platform": "true"

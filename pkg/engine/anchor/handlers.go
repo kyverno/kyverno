@@ -92,7 +92,7 @@ func newEqualityHandler(anchor Anchor, pattern interface{}, path string) Validat
 	}
 }
 
-// Handle processed condition anchor
+// Handle processed equality anchor
 func (eh equalityHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *AnchorMap) (string, error) {
 	anchorKey := eh.anchor.Key()
 	currentPath := eh.path + anchorKey + "/"

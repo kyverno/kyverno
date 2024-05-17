@@ -1,0 +1,2062 @@
+
+  <html lang="en">
+    <head>
+      <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<style>
+    .bg-blue {
+        color: #ffffff;
+        background-color: #1589dd;
+    }
+</style>
+    </head>
+    <body>
+      <div class="container">
+        
+          
+          
+            <h2 id="cli-kyverno-io-v1alpha1">Package: <span style="font-family: monospace">cli.kyverno.io/v1alpha1</span></h2>
+            <p></p>
+          
+        
+        
+          
+            
+            <h3>Resource Types:</h3>
+            <ul><li>
+                    <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>
+                  </li><li>
+                    <a href="#cli-kyverno-io-v1alpha1-UserInfo">UserInfo</a>
+                  </li><li>
+                    <a href="#cli-kyverno-io-v1alpha1-Values">Values</a>
+                  </li></ul>
+
+            
+            
+  <H3 id="cli-kyverno-io-v1alpha1-Test">Test
+    </H3>
+
+  
+
+  <p><p>Test declares a test</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>cli.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>Test</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name of the test.
+This field is deprecated, use <code>metadata.name</code> instead</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>policies</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Policies are the policies to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resources are the resource to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>variables</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Variables is the values to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>userinfo</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>UserInfo is the user info to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>results</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-TestResult">
+                <span style="font-family: monospace">[]TestResult</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Results are the results to be checked in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>checks</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-CheckResult">
+                <span style="font-family: monospace">[]CheckResult</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Checks are the verifications to be checked in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>values</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-ValuesSpec">
+                <span style="font-family: monospace">ValuesSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Values are the values to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>exceptions</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Policy Exceptions are the policy exceptions to be used in the test</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-UserInfo">UserInfo
+    </H3>
+
+  
+
+  <p><p>UserInfo declares user infos to be loaded by the Kyverno CLI</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>cli.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>UserInfo</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>RequestInfo</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v1beta1.RequestInfo</span>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>RequestInfo</code> are embedded into this type.)</p>
+          
+
+          <p>RequestInfo declares user infos</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-Values">Values
+    </H3>
+
+  
+
+  <p><p>Values declares values to be loaded by the Kyverno CLI</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>cli.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>Values</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>ValuesSpec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-ValuesSpec">
+                <span style="font-family: monospace">ValuesSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>ValuesSpec</code> are embedded into this type.)</p>
+          
+
+          <p>ValuesSpec declares values</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-CheckMatch">CheckMatch
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-CheckResult">CheckResult</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>resource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resource filters engine responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>policy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Policy filters engine responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rule</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rule filters rule responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-CheckResult">CheckResult
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>match</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-CheckMatch">
+                <span style="font-family: monospace">CheckMatch</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Match tells how to match relevant rule responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>assert</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Assert contains assertion to be performed on the relevant rule responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>error</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Error contains negative assertion to be performed on the relevant rule responses</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-NamespaceSelector">NamespaceSelector
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-ValuesSpec">ValuesSpec</a>)
+    </p>
+  
+
+  <p><p>NamespaceSelector declares labels for a given namespace</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the namespace name</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>labels</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Labels are the labels for the given namespace</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-Policy">Policy
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-ValuesSpec">ValuesSpec</a>)
+    </p>
+  
+
+  <p><p>Policy declares values for a given policy</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the policy name</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-Resource">
+                <span style="font-family: monospace">[]Resource</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resources are values for specific resources</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rules</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-Rule">
+                <span style="font-family: monospace">[]Rule</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rules are values for specific policy rules</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-Resource">Resource
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Policy">Policy</a>)
+    </p>
+  
+
+  <p><p>Resource declares values for a given resource</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name of the resource</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>values</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]interface{}</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Values are the values for the given resource</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-Rule">Rule
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Policy">Policy</a>)
+    </p>
+  
+
+  <p><p>Rule declares values for a given policy rule</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name of the ppolicy rule</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>values</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]interface{}</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Values are the values for the given policy rule</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>foreachValues</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string][]interface{}</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ForeachValues are the foreach values for the given policy rule</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-Subresource">Subresource
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-ValuesSpec">ValuesSpec</a>)
+    </p>
+  
+
+  <p><p>Subresource declares subresource/parent resource mapping</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>subresource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.APIResource</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Subresource declares the subresource api</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>parentResource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.APIResource</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ParentResource declares the parent resource api</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-TestResult">TestResult
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>)
+    </p>
+  
+
+  <p><p>TestResultBase declares a test result</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>TestResultBase</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-TestResultBase">
+                <span style="font-family: monospace">TestResultBase</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>TestResultBase</code> are embedded into this type.)</p>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>TestResultDeprecated</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-TestResultDeprecated">
+                <span style="font-family: monospace">TestResultDeprecated</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>TestResultDeprecated</code> are embedded into this type.)</p>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resources gives us the list of resources on which the policy is going to be applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-TestResultBase">TestResultBase
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-TestResult">TestResult</a>)
+    </p>
+  
+
+  <p><p>TestResultBase declares a test result base fields</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>policy</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Policy mentions the name of the policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rule</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Rule mentions the name of the rule in the policy.
+It's required in case policy is a kyverno policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>isValidatingAdmissionPolicy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IsValidatingAdmissionPolicy indicates if the policy is a validating admission policy.
+It's required in case policy is a validating admission policy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>result</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyResult</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Result mentions the result that the user is expecting.
+Possible values are pass, fail and skip.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kind</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Kind mentions the kind of the resource on which the policy is to be applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>patchedResource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PatchedResource takes a resource configuration file in yaml format from
+the user to compare it against the Kyverno mutated resource configuration.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>generatedResource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GeneratedResource takes a resource configuration file in yaml format from
+the user to compare it against the Kyverno generated resource configuration.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>cloneSourceResource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CloneSourceResource takes the resource configuration file in yaml format
+from the user which is meant to be cloned by the generate rule.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-TestResultDeprecated">TestResultDeprecated
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-TestResult">TestResult</a>)
+    </p>
+  
+
+  <p><p>TestResultBase declares a test result deprecated fields</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyResult</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status mentions the status that the user is expecting.
+Possible values are pass, fail and skip.
+This is DEPRECATED, use <code>Result</code> instead.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resource mentions the name of the resource on which the policy is to be applied.
+This is DEPRECATED, use <code>Resources</code> instead.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>namespace</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Namespace mentions the namespace of the policy which has namespace scope.
+This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;</code> for policies and/or resources instead.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-ValuesSpec">ValuesSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>, 
+        <a href="#cli-kyverno-io-v1alpha1-Values">Values</a>)
+    </p>
+  
+
+  <p><p>ValuesSpec declares values to be loaded by the Kyverno CLI</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>globalValues</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]interface{}</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GlobalValues are the global values</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>policies</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-Policy">
+                <span style="font-family: monospace">[]Policy</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Policies are the policy values</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>namespaceSelector</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-NamespaceSelector">
+                <span style="font-family: monospace">[]NamespaceSelector</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>NamespaceSelectors are the namespace labels</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subresources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-Subresource">
+                <span style="font-family: monospace">[]Subresource</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Subresources are the subresource/parent resource mappings</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+          
+          <hr />
+        
+      </div>
+    </body>
+  </html>

@@ -16,15 +16,25 @@ rules:
       - get
       - list
       - watch
+    resourceNames:
+      - {{ include "kyverno.config.configMapName" . }}
+      - {{ include "kyverno.config.metricsConfigMapName" . }}
   - apiGroups:
       - coordination.k8s.io
     resources:
       - leases
     verbs:
       - create
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
       - delete
       - get
       - patch
       - update
+    resourceNames:
+      - kyverno-reports-controller
 {{- end -}}
 {{- end -}}

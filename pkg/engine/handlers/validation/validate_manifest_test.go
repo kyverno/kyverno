@@ -10,12 +10,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
+
+var jp = jmespath.New(config.NewDefaultConfiguration(false))
 
 var test_policy = `{}`
 
@@ -619,12 +622,12 @@ FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
 
 var (
 	h   = validateManifestHandler{}
-	cfg = config.NewDefaultConfiguration()
+	cfg = config.NewDefaultConfiguration(false)
 )
 
 func Test_VerifyManifest_SignedYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, signed_resource, "")
-	var request *v1.AdmissionRequest
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, signed_resource, "")
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(signed_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -645,8 +648,8 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 }
 
 func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, unsigned_resource, "")
-	var request *v1.AdmissionRequest
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, unsigned_resource, "")
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(unsigned_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -667,8 +670,8 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 }
 
 func Test_VerifyManifest_InvalidYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, invalid_resource, "")
-	var request *v1.AdmissionRequest
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, invalid_resource, "")
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(invalid_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -689,8 +692,8 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 }
 
 func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
-	var request *v1.AdmissionRequest
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, multi_sig_resource, "")
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -711,14 +714,14 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 	})
 	logger := logr.Discard()
 	verified, _, err := h.verifyManifest(context.TODO(), logger, policyContext, verifyRule)
-	errMsg := `.attestors[0].entries[1].keys: failed to verify signature: verification failed for 1 signature. all trials: ["[publickey 1/1] [signature 1/1] error: cosign.VerifyBlobCmd() returned an error: invalid signature when validating ASN.1 encoded signature"]`
+	errMsg := `.attestors[0].entries[1].keys: failed to verify signature: verification failed for 1 signature. all trials: ["[publickey 1/1] [signature 1/1] error: cosign.VerifyBlobCmd.Exec() returned an error: invalid signature when validating ASN.1 encoded signature"]`
 	assert.Error(t, err, errMsg)
 	assert.Equal(t, verified, false)
 }
 
 func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, multi_sig2_resource, "")
-	var request *v1.AdmissionRequest
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, multi_sig2_resource, "")
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig2_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -749,8 +752,8 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 }
 
 func Test_VerifyManifest_AtLeastOne(t *testing.T) {
-	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
-	var request *v1.AdmissionRequest
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, multi_sig_resource, "")
+	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
@@ -777,7 +780,7 @@ func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 	assert.Equal(t, verified, true)
 }
 
-func buildContext(t *testing.T, policy, resource string, oldResource string) engineapi.PolicyContext {
+func buildContext(t *testing.T, operation kyvernov1.AdmissionOperation, policy, resource string, oldResource string) engineapi.PolicyContext {
 	var cpol kyvernov1.ClusterPolicy
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
@@ -785,11 +788,16 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) eng
 	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resource))
 	assert.NilError(t, err)
 
-	ctx := enginecontext.NewContext()
-	err = enginecontext.AddResource(ctx, []byte(resource))
+	policyContext, err := policycontext.NewPolicyContext(
+		jp,
+		*resourceUnstructured,
+		operation,
+		nil,
+		cfg,
+	)
 	assert.NilError(t, err)
 
-	policyContext := policycontext.NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
+	policyContext = policyContext.
 		WithPolicy(&cpol).
 		WithNewResource(*resourceUnstructured)
 
@@ -797,15 +805,10 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) eng
 		oldResourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(oldResource))
 		assert.NilError(t, err)
 
-		err = enginecontext.AddOldResource(ctx, []byte(oldResource))
+		err = enginecontext.AddOldResource(policyContext.JSONContext(), []byte(oldResource))
 		assert.NilError(t, err)
 
 		policyContext = policyContext.WithOldResource(*oldResourceUnstructured)
-	}
-
-	if err := ctx.AddImageInfos(resourceUnstructured, cfg); err != nil {
-		t.Errorf("unable to add image info to variables context: %v", err)
-		t.Fail()
 	}
 
 	return policyContext

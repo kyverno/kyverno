@@ -1,5 +1,6 @@
 {{- if .Values.reportsController.enabled -}}
 {{- if .Values.reportsController.metricsService.create -}}
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,7 +15,7 @@ metadata:
 spec:
   ports:
   - port: {{ .Values.reportsController.metricsService.port }}
-    targetPort: 8000
+    targetPort: {{ .Values.reportsController.metering.port }}
     protocol: TCP
     name: metrics-port
     {{- if and (eq .Values.reportsController.metricsService.type "NodePort") (not (empty .Values.reportsController.metricsService.nodePort)) }}
@@ -24,4 +25,26 @@ spec:
     {{- include "kyverno.reports-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.reportsController.metricsService.type }}
 {{- end -}}
+{{- end -}}
+{{- if .Values.reportsController.profiling.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kyverno.reports-controller.name" . }}-profiling
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+spec:
+  ports:
+  - port: {{ .Values.reportsController.profiling.port }}
+    targetPort: {{ .Values.reportsController.profiling.port }}
+    protocol: TCP
+    name: profiling-port
+    {{- if and (eq .Values.reportsController.profiling.serviceType "NodePort") (not (empty .Values.reportsController.profiling.nodePort)) }}
+    nodePort: {{ .Values.reportsController.profiling.nodePort }}
+    {{- end }}
+  selector:
+    {{- include "kyverno.reports-controller.matchLabels" . | nindent 4 }}
+  type: {{ .Values.reportsController.profiling.serviceType }}
 {{- end -}}

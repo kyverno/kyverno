@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: downstream-secret
+  namespace: cpol-clone-sync-no-existing-update-trigger-no-precondition-ns
+type: Opaque

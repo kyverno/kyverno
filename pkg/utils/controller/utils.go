@@ -15,24 +15,16 @@ type CreateClient[T metav1.Object] interface {
 	Create(context.Context, T, metav1.CreateOptions) (T, error)
 }
 
-type UpdateClient[T metav1.Object] interface {
-	Update(context.Context, T, metav1.UpdateOptions) (T, error)
-}
-
-type DeleteClient[T metav1.Object] interface {
-	Delete(context.Context, string, metav1.DeleteOptions) error
-}
-
-type DeleteCollectionClient[T metav1.Object] interface {
-	DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error
-}
-
 type GetClient[T metav1.Object] interface {
 	Get(context.Context, string, metav1.GetOptions) (T, error)
 }
 
-type WatchClient[T metav1.Object] interface {
-	Watch(context.Context, metav1.ListOptions) (watch.Interface, error)
+type UpdateClient[T metav1.Object] interface {
+	Update(context.Context, T, metav1.UpdateOptions) (T, error)
+}
+
+type DeleteClient interface {
+	Delete(context.Context, string, metav1.DeleteOptions) error
 }
 
 type PatchClient[T metav1.Object] interface {
@@ -41,12 +33,18 @@ type PatchClient[T metav1.Object] interface {
 
 type ObjectClient[T metav1.Object] interface {
 	CreateClient[T]
-	UpdateClient[T]
-	DeleteClient[T]
-	DeleteCollectionClient[T]
 	GetClient[T]
-	WatchClient[T]
+	UpdateClient[T]
+	DeleteClient
 	PatchClient[T]
+}
+
+type DeleteCollectionClient interface {
+	DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error
+}
+
+type WatchClient interface {
+	Watch(context.Context, metav1.ListOptions) (watch.Interface, error)
 }
 
 type ListClient[T any] interface {
@@ -151,9 +149,14 @@ func Update[T interface {
 func UpdateStatus[T interface {
 	metav1.Object
 	DeepCopy[T]
-}, S StatusClient[T]](ctx context.Context, obj T, setter S, build func(T) error,
+}, S ObjectStatusClient[T]](ctx context.Context, obj T, setter S, build func(T) error,
 ) (T, error) {
-	mutated := obj.DeepCopy()
+	var objNew T
+	objNew, err := setter.Get(ctx, obj.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return objNew, err
+	}
+	mutated := objNew.DeepCopy()
 	if err := build(mutated); err != nil {
 		var d T
 		return d, err

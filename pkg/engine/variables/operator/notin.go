@@ -28,7 +28,7 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
 		return nin.validateValueWithStringPattern(typedKey, value)
-	case int, int32, int64, float32, float64:
+	case int, int32, int64, float32, float64, bool:
 		return nin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string

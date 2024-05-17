@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-not-ready
+status:
+  conditions:
+  - reason: Failed
+    status: "False"
+    type: Ready

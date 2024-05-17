@@ -1,8 +1,7 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
 policies:
 - name: foreach-json-patch
-  rules:
-  - name: add-security-context
-  - name: mutate-images
   resources:
   - name: nginx
     values:
@@ -10,3 +9,6 @@ policies:
   - name: myapp
     values:
       request.operation: CREATE
+  rules:
+  - name: add-security-context
+  - name: mutate-images

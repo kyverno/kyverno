@@ -1,0 +1,28 @@
+# test name
+name: {{ .Name }}
+
+# list of policy files
+policies:
+{{- range .Policies }}
+  - {{ . }}
+{{- end }}
+
+# list of resource files
+resources:
+{{- range .Resources }}
+  - {{ . }}
+{{- end }}
+
+# variables file (optional)
+variables: {{ .Values }}
+
+# list of expected results
+results:
+{{- range .Results }}
+  - policy: {{ .Policy }}
+    rule: {{ .Rule }}
+    resource: {{ .Resource }}
+    namespace: {{ .Namespace }}
+    kind: {{ .Kind }}
+    result: {{ .Result }}
+{{- end }}

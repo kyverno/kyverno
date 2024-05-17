@@ -31,7 +31,7 @@ app.kubernetes.io/version: {{ template "kyverno.chartVersion" . }}
 
 {{- define "kyverno.matchLabels.common" -}}
 app.kubernetes.io/part-of: {{ template "kyverno.fullname" . }}
-app.kubernetes.io/instance: {{ template "kyverno.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "kyverno.labels.component" -}}

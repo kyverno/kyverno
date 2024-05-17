@@ -40,13 +40,13 @@ The [Kyverno website](https://kyverno.io), like the main Kyverno codebase, is st
 
 New contributors may easily view all [open issues labeled as good first issues](https://github.com/kyverno/kyverno/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) allowing you to get started in an approachable manner.
 
-Once you wish to get started contributing to the code base, please refer to our [running in development mode](https://github.com/kyverno/kyverno/wiki/Running-in-development-mode) for local setup guide.
+Once you wish to get started contributing to the code base, please refer to our [development guide](/DEVELOPMENT.md) for a how-to.
 
 In the process of submitting your PRs, please read and abide by the template provided to ensure the maintainers are able to understand your changes and quickly come up to speed. There are some important pieces that are required outside the code itself. Some of these are up to you, others are up to the maintainers.
 
 1. Provide Proof Manifests allowing the maintainers and other contributors to verify your changes without requiring they understand the nuances of all your code.
 2. For new or changed functionality, this typically requires documentation and so raise a corresponding issue (or, better yet, raise a separate PR) on the [documentation repository](https://github.com/kyverno/website).
-3. Test your change with the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) and provide a test manifest in the proper format. If your feature/fix does not work with the CLI, a separate issue requesting CLI support must be made. For changes which can be tested as an end user, we require conformance/e2e tests by using the `kuttl` tool. See [here](https://github.com/kyverno/kyverno/tree/main/test/conformance/kuttl/README.md) for a specific guide on how and when to write these tests.
+3. Test your change with the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) and provide a test manifest in the proper format. If your feature/fix does not work with the CLI, a separate issue requesting CLI support must be made. For changes which can be tested as an end user, we require conformance/e2e tests by using the `chainsaw` tool. See [here](https://github.com/kyverno/kyverno/tree/main/test/conformance/chainsaw/README.md) for a specific guide on how and when to write these tests.
 4. Indicate which release this PR is triaged for (maintainers). This step is important especially for the documentation maintainers in order to understand when and where the necessary changes should be made.
 
 #### How to Create a PR
@@ -93,7 +93,18 @@ git push
 
 #### Cherry-pick PRs to release branches
 
-Once you fork the project, you will notice that there are a number of branches related to Kyverno's releases such as release-1.7. You can view the list of remote branches by using the command below:
+Add repository as remote 
+
+```sh
+git remote add <name> https://github.com/kyverno/kyverno
+```
+Then fetch the branches of remote:
+
+```sh
+git fetch <name>
+```
+
+ You will notice that there are a number of branches related to Kyverno's releases such as release-1.7. You can always view the list of remote branches by using the command below:
 
 ```sh
 $ git branch -r

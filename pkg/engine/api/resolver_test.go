@@ -72,6 +72,7 @@ func Test_namespacedResourceResolverChain_Get(t *testing.T) {
 		wantErr error
 		wantCm  *corev1.ConfigMap
 	}{{
+		name: "Test0",
 		fields: fields{
 			resolvers: []ConfigmapResolver{
 				dummyResolver{},
@@ -80,6 +81,7 @@ func Test_namespacedResourceResolverChain_Get(t *testing.T) {
 			},
 		},
 	}, {
+		name: "Test1",
 		fields: fields{
 			resolvers: []ConfigmapResolver{
 				dummyResolver{
@@ -95,6 +97,7 @@ func Test_namespacedResourceResolverChain_Get(t *testing.T) {
 		},
 		wantErr: errors.New("3"),
 	}, {
+		name: "Test2",
 		fields: fields{
 			resolvers: []ConfigmapResolver{
 				dummyResolver{
@@ -107,6 +110,7 @@ func Test_namespacedResourceResolverChain_Get(t *testing.T) {
 			},
 		},
 	}, {
+		name: "Test3",
 		fields: fields{
 			resolvers: []ConfigmapResolver{
 				dummyResolver{
@@ -123,13 +127,23 @@ func Test_namespacedResourceResolverChain_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resolver, _ := NewNamespacedResourceResolver(tt.fields.resolvers...)
 			got, err := resolver.Get(context.TODO(), tt.args.namespace, tt.args.name)
-			if !reflect.DeepEqual(err, tt.wantErr) {
-				t.Errorf("ConfigmapResolver.Get() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			if !checkError(tt.wantErr, err) {
+				t.Errorf("ConfigmapResolver.Get() %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 			}
+
 			if !reflect.DeepEqual(got, tt.wantCm) {
 				t.Errorf("ConfigmapResolver.Get() = %v, want %v", got, tt.wantCm)
 			}
 		})
 	}
+}
+
+func checkError(wantErr, err error) bool {
+	if wantErr != nil {
+		if err == nil {
+			return false
+		}
+		return wantErr.Error() == err.Error()
+	}
+	return err == nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -15,7 +16,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/rest"
 )
 
@@ -23,7 +24,7 @@ type Interface interface {
 	// GetKubeClient provides typed kube client
 	GetKubeClient() kubernetes.Interface
 	// GetEventsInterface provides typed interface for events
-	GetEventsInterface() corev1.EventInterface
+	GetEventsInterface() eventsv1.EventsV1Interface
 	// GetDynamicInterface fetches underlying dynamic interface
 	GetDynamicInterface() dynamic.Interface
 	// Discovery return the discovery client implementation
@@ -31,7 +32,7 @@ type Interface interface {
 	// SetDiscovery sets the discovery client implementation
 	SetDiscovery(discoveryClient IDiscovery)
 	// RawAbsPath performs a raw call to the kubernetes API
-	RawAbsPath(ctx context.Context, path string) ([]byte, error)
+	RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error)
 	// GetResource returns the resource in unstructured/json format
 	GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error)
 	// PatchResource patches the resource
@@ -47,6 +48,10 @@ type Interface interface {
 	UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error)
 	// UpdateStatusResource updates the resource "status" subresource
 	UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
+	// ApplyResource applies object for the specified resource/namespace using server-side apply
+	ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error)
+	// ApplyStatusResource applies the resource "status" subresource using server-side apply
+	ApplyStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string) (*unstructured.Unstructured, error)
 }
 
 // Client enables interaction with k8 resource
@@ -95,8 +100,8 @@ func (c *client) GetKubeClient() kubernetes.Interface {
 }
 
 // GetEventsInterface provides typed interface for events
-func (c *client) GetEventsInterface() corev1.EventInterface {
-	return c.kube.CoreV1().Events(metav1.NamespaceAll)
+func (c *client) GetEventsInterface() eventsv1.EventsV1Interface {
+	return c.kube.EventsV1()
 }
 
 func (c *client) getInterface(apiVersion string, kind string) dynamic.NamespaceableResourceInterface {
@@ -141,11 +146,20 @@ func (c *client) GetResource(ctx context.Context, apiVersion string, kind string
 }
 
 // RawAbsPath performs a raw call to the kubernetes API
-func (c *client) RawAbsPath(ctx context.Context, path string) ([]byte, error) {
+func (c *client) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	if c.rest == nil {
 		return nil, errors.New("rest client not supported")
 	}
-	return c.rest.Get().RequestURI(path).DoRaw(ctx)
+
+	switch method {
+	case "GET":
+		return c.rest.Get().RequestURI(path).DoRaw(ctx)
+	case "POST":
+		return c.rest.Post().Body(dataReader).RequestURI(path).DoRaw(ctx)
+
+	default:
+		return nil, fmt.Errorf("method not supported: %s", method)
+	}
 }
 
 // PatchResource patches the resource
@@ -214,6 +228,36 @@ func (c *client) UpdateStatusResource(ctx context.Context, apiVersion string, ki
 		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
+}
+
+// ApplyResource updates object for the specified resource/namespace
+func (c *client) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error) {
+	// We have a different field manager for different situations, so a generated object that then goes through admission control
+	// won't have the changes wiped out by any use of server-side apply in the mutation path
+	options := metav1.ApplyOptions{FieldManager: "kyverno-" + fieldManager, Force: true}
+	if dryRun {
+		options.DryRun = []string{metav1.DryRunAll}
+	}
+	// convert typed to unstructured obj
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
+		return c.getResourceInterface(apiVersion, kind, namespace).Apply(ctx, name, unstructuredObj, options, subresources...)
+	}
+	return nil, fmt.Errorf("unable to apply resource ")
+}
+
+// ApplyStatusResource updates the resource "status" subresource
+func (c *client) ApplyStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string) (*unstructured.Unstructured, error) {
+	// We have a different field manager for different situations, so a generated object that then goes through admission control
+	// won't have the changes wiped out by any use of server-side apply in the mutation path
+	options := metav1.ApplyOptions{FieldManager: "kyverno-" + fieldManager, Force: true}
+	if dryRun {
+		options.DryRun = []string{metav1.DryRunAll}
+	}
+	// convert typed to unstructured obj
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
+		return c.getResourceInterface(apiVersion, kind, namespace).ApplyStatus(ctx, name, unstructuredObj, options)
+	}
+	return nil, fmt.Errorf("unable to apply resource ")
 }
 
 // Discovery return the discovery client implementation

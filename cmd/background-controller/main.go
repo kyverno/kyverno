@@ -9,30 +9,26 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
-	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
+	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
-	"github.com/kyverno/kyverno/pkg/cosign"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policy"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -40,28 +36,8 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func setupRegistryClient(ctx context.Context, logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
-	logger = logger.WithName("registry-client")
-	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
-	registryOptions := []registryclient.Option{
-		registryclient.WithTracing(),
-	}
-	secrets := strings.Split(imagePullSecrets, ",")
-	if imagePullSecrets != "" && len(secrets) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, lister, secrets...))
-	}
-	if allowInsecureRegistry {
-		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
-	}
-	return registryclient.New(registryOptions...)
-}
-
-func setupCosign(logger logr.Logger, imageSignatureRepository string) {
-	logger = logger.WithName("cosign")
-	logger.Info("setup cosign...", "repository", imageSignatureRepository)
-	if imageSignatureRepository != "" {
-		cosign.ImageSignatureRepository = imageSignatureRepository
-	}
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsInstalled(apiserverClient, "updaterequests.kyverno.io")
 }
 
 func createrLeaderControllers(
@@ -71,11 +47,11 @@ func createrLeaderControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
-	rclient registryclient.Client,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
-	configMapResolver engineapi.ConfigmapResolver,
+	jp jmespath.Interface,
+	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -87,10 +63,10 @@ func createrLeaderControllers(
 		configuration,
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
-		configMapResolver,
 		logging.WithName("PolicyController"),
-		time.Hour,
+		backgroundScanInterval,
 		metricsConfig,
+		jp,
 	)
 	if err != nil {
 		return nil, err
@@ -105,7 +81,7 @@ func createrLeaderControllers(
 		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
 		configuration,
-		configMapResolver,
+		jp,
 	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
@@ -113,173 +89,140 @@ func createrLeaderControllers(
 	}, err
 }
 
-func createNonLeaderControllers(
-	configuration config.Configuration,
-	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
-) ([]internal.Controller, func() error) {
-	configurationController := configcontroller.NewController(
-		configuration,
-		kubeKyvernoInformer.Core().V1().ConfigMaps(),
-	)
-	return []internal.Controller{
-			internal.NewController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
-		},
-		nil
-}
-
 func main() {
 	var (
-		genWorkers                int
-		maxQueuedEvents           int
-		imagePullSecrets          string
-		imageSignatureRepository  string
-		allowInsecureRegistry     bool
-		leaderElectionRetryPeriod time.Duration
+		genWorkers               int
+		maxQueuedEvents          int
+		omitEvents               string
+		maxAPICallResponseLength int64
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
-	flagset.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
-	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
-	flagset.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
+	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
+	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
 		internal.WithMetrics(),
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
+		internal.WithPolicyExceptions(),
+		internal.WithConfigMapCaching(),
+		internal.WithDeferredLoading(),
+		internal.WithRegistryClient(),
+		internal.WithLeaderElection(),
+		internal.WithKyvernoClient(),
+		internal.WithDynamicClient(),
+		internal.WithKyvernoDynamicClient(),
+		internal.WithEventsClient(),
+		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	// setup logger
-	// show version
-	// start profiling
-	// setup signals
-	// setup maxprocs
-	// setup metrics
-	signalCtx, logger, metricsConfig, sdown := internal.Setup("kyverno-background-controller")
+	// setup
+	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
 	defer sdown()
-	// create instrumented clients
-	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
-	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
-	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KyvernoClient), kyvernoclient.WithTracing())
-	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
-	dClient, err := dclient.NewClient(signalCtx, dynamicClient, kubeClient, 15*time.Minute)
-	if err != nil {
-		logger.Error(err, "failed to create dynamic client")
-		os.Exit(1)
+	var err error
+	bgscanInterval := time.Hour
+	val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
+	if val != "" {
+		if bgscanInterval, err = time.ParseDuration(val); err != nil {
+			setup.Logger.Error(err, "failed to set the background scan interval")
+			os.Exit(1)
+		}
 	}
-
+	setup.Logger.V(2).Info("setting the background scan interval", "value", bgscanInterval.String())
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
+	if err := sanityChecks(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		os.Exit(1)
+	}
 	// informer factories
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	cacheInformer, err := resolvers.GetCacheInformerFactory(kubeClient, resyncPeriod)
-	if err != nil {
-		logger.Error(err, "failed to create cache informer factory")
-		os.Exit(1)
-	}
-	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
-	// setup registry client
-	rclient, err := setupRegistryClient(signalCtx, logger, secretLister, imagePullSecrets, allowInsecureRegistry)
-	if err != nil {
-		logger.Error(err, "failed to setup registry client")
-		os.Exit(1)
-	}
-	// setup cosign
-	setupCosign(logger, imageSignatureRepository)
-	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
-	if err != nil {
-		logger.Error(err, "failed to create informer based resolver")
-		os.Exit(1)
-	}
-	clientBasedResolver, err := resolvers.NewClientBasedResolver(kubeClient)
-	if err != nil {
-		logger.Error(err, "failed to create client based resolver")
-		os.Exit(1)
-	}
-	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
-	if err != nil {
-		logger.Error(err, "failed to create config map resolver")
-		os.Exit(1)
-	}
-	configuration, err := config.NewConfiguration(kubeClient)
-	if err != nil {
-		logger.Error(err, "failed to initialize configuration")
-		os.Exit(1)
-	}
-	eventGenerator := event.NewEventGenerator(
-		dClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		maxQueuedEvents,
-		logging.WithName("EventGenerator"),
-	)
-	// this controller only subscribe to events, nothing is returned...
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	var wg sync.WaitGroup
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
+	eventGenerator := event.NewEventGenerator(
+		setup.EventsClient,
+		logging.WithName("EventGenerator"),
+		maxQueuedEvents,
+		strings.Split(omitEvents, ",")...,
+	)
+	eventController := internal.NewController(
+		event.ControllerName,
+		eventGenerator,
+		event.Workers,
+	)
+	gcstore := store.New()
+	gceController := internal.NewController(
+		globalcontextcontroller.ControllerName,
+		globalcontextcontroller.NewController(
+			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
+			setup.KyvernoDynamicClient,
+			setup.KyvernoClient,
+			gcstore,
+			eventGenerator,
+			maxAPICallResponseLength,
+			false,
+		),
+		globalcontextcontroller.Workers,
+	) // this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(
-		metricsConfig,
+		setup.MetricsManager,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		&wg,
 	)
-	engine := engine.NewEngine(
-		configuration,
-		dClient,
-		rclient,
-		engineapi.DefaultContextLoaderFactory(configMapResolver),
-		// TODO: do we need exceptions here ?
-		nil,
-	)
-	// create non leader controllers
-	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
-		configuration,
-		kubeKyvernoInformer,
+	engine := internal.NewEngine(
+		signalCtx,
+		setup.Logger,
+		setup.Configuration,
+		setup.MetricsConfiguration,
+		setup.Jp,
+		setup.KyvernoDynamicClient,
+		setup.RegistryClient,
+		setup.ImageVerifyCacheClient,
+		setup.KubeClient,
+		setup.KyvernoClient,
+		setup.RegistrySecretLister,
+		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		polexCache,
+		gcstore,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
-		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
+		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
-	// bootstrap non leader controllers
-	if nonLeaderBootstrap != nil {
-		if err := nonLeaderBootstrap(); err != nil {
-			logger.Error(err, "failed to bootstrap non leader controllers")
-			os.Exit(1)
-		}
-	}
-	// start event generator
-	go eventGenerator.Run(signalCtx, 3, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
-		logger.WithName("leader-election"),
+		setup.Logger.WithName("leader-election"),
 		"kyverno-background-controller",
 		config.KyvernoNamespace(),
-		leaderElectionClient,
+		setup.LeaderElectionClient,
 		config.KyvernoPodName(),
-		leaderElectionRetryPeriod,
+		internal.LeaderElectionRetryPeriod(),
 		func(ctx context.Context) {
-			logger := logger.WithName("leader")
+			logger := setup.Logger.WithName("leader")
 			// create leader factories
-			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
-			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, err := createrLeaderControllers(
 				engine,
 				genWorkers,
 				kubeInformer,
 				kyvernoInformer,
-				kyvernoClient,
-				dClient,
-				rclient,
-				configuration,
-				metricsConfig,
+				setup.KyvernoClient,
+				setup.KyvernoDynamicClient,
+				setup.Configuration,
+				setup.MetricsManager,
 				eventGenerator,
-				configMapResolver,
+				setup.Jp,
+				bgscanInterval,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
@@ -301,21 +244,17 @@ func main() {
 		nil,
 	)
 	if err != nil {
-		logger.Error(err, "failed to initialize leader election")
+		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
 	// start non leader controllers
-	for _, controller := range nonLeaderControllers {
-		controller.Run(signalCtx, logger.WithName("controllers"), &wg)
+	eventController.Run(signalCtx, setup.Logger, &wg)
+	gceController.Run(signalCtx, setup.Logger, &wg)
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
 	}
 	// start leader election
-	for {
-		select {
-		case <-signalCtx.Done():
-			wg.Wait()
-			return
-		default:
-			le.Run(signalCtx)
-		}
-	}
+	le.Run(signalCtx)
+	// wait for everything to shut down and exit
+	wg.Wait()
 }

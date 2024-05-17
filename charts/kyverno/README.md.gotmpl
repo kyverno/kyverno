@@ -109,7 +109,66 @@ spec:
       - Replace=true
 ```
 
+**Notes on using Azure Kubernetes Service (AKS):**
+
+AKS contains a component known as [Admission Enforcer](https://learn.microsoft.com/en-us/azure/aks/faq#can-admission-controller-webhooks-impact-kube-system-and-internal-aks-namespaces) which will attempt to modify Kyverno's webhooks if not excluded explicitly during Helm installation. If Admissions Enforcer is not disabled, this can lead to several symptoms such as high observed CPU usage and potentially cluster instability. Please see the Kyverno documentation [here](https://kyverno.io/docs/installation/platform-notes/#notes-for-aks-users) for more information and how to set this annotation on webhooks.
+
 ## Migrating from v2 to v3
+
+Direct upgrades from v2 of the Helm chart to v3 are not supported due to the number of breaking changes and manual intervention is required. Review and select an option after carefully reading below. Because either method requires down time, an upgrade should only be performed during a maintenance window. Regardless of the chosen option, please read all release notes very carefully to understand the full extent of changes brought by Kyverno 1.10. Release notes can be found at https://github.com/kyverno/kyverno/releases.
+
+**IMPORTANT NOTE**: If you currently use [clone-type](https://kyverno.io/docs/writing-policies/generate/#clone-source) generate rules with synchronization enabled, please do not upgrade to 1.10.0 as there is a bug which may prevent synchronization from occurring on all downstream (generated) resources when the source is updated. Please wait for a future patch where this should be resolved. See [issue 7170](https://github.com/kyverno/kyverno/issues/7170) for further details.
+
+### Option 1 - Uninstallation and Reinstallation
+
+The first option for upgrading, which is the recommended option, involves backing up Kyverno policy resources, uninstalling Kyverno, and reinstalling with v3 of the chart. Policy Reports for policies which have background mode enabled will be regenerated upon the next scan interval.
+
+**Pros**
+
+* Reduced complexity with minimal effort
+* Allows re-checking older policies against new validation webhooks in 1.10
+
+**Cons**
+
+* Policy Reports which contained results only from admission mode and from policies/rules where background scans were disabled will be lost.
+* Requires additional steps if data-type generate rules are used
+
+Follow the procedure below.
+
+1. READ THE COMPLETE RELEASE NOTES FIRST
+2. Backup and export all Kyverno policy resources to a YAML manifest. Use the command `kubectl get pol,cpol,cleanpol,ccleanpol,polex -A -o yaml > kyvernobackup.yaml`.
+   1. Before performing this step, if you use [data-type](https://kyverno.io/docs/writing-policies/generate/#data-source) generate rules with synchronization enabled (`generate.synchronize: true`) disable synchronization first (set `generate.synchronize: false`). If you do not perform this step first, uninstallation of Kyverno in the subsequent step, which removes all policies, will result in deletion of generated resources.
+3. Uninstall your current version of Kyverno.
+4. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
+5. Install the v3 chart with Kyverno 1.10.
+6. Restore your Kyverno policies. Use the command `kubectl create -f kyvernobackup.yaml`.
+   1. Before performing this step, if step 2.1 applied to you, enable synchronization (set `generate.synchronize: true`) AND add the field `spec.generateExisting: true`. This will cause existing, generated resources to be refreshed with the new labeling system used by Kyverno 1.10. Note that this may increment the `resourceVersion` field on all downstream resources. Also, understand that when re-installing these policies with `spec.generateExisting: true`, it could result in additional resources being created at that moment based upon the current match defined in the policy. You may need to further refine the match/exclude blocks of your rules to account for this.
+
+### Option 2 - Scale to Zero
+
+In the second option, Kyverno policies do not have to be backed up however you perform more manual work in order to prepare for the upgrade to chart v3.
+
+**Pros**
+
+* Policy Reports which contained results from admission mode will be preserved
+* Kyverno policies do not need to be backed up first
+
+**Cons**
+
+* Older policies will not be revalidated for correctness according to the breaking schema changes. Some policies may not work as they did before.
+* Requires additional steps if data-type generate rules are used
+
+Follow the procedure below.
+
+1. READ THE COMPLETE RELEASE NOTES FIRST
+2. Scale the `kyverno` Deployment to zero replicas.
+3. If coming from 1.9 and you have installed the cleanup controller, scale the `kyverno-cleanup-controller` Deployment to zero replicas.
+4. If step 3 applied to you, now delete the cleanup Deployment.
+5. Review the [New Chart Values](#new-chart-values) section and translate your desired features and configurations to the new format.
+6. Upgrade to the v3 chart by passing the mandatory flag `upgrade.fromV2=true`.
+7. If you use [data-type](https://kyverno.io/docs/writing-policies/generate/#data-source) generate rules with synchronization enabled (`generate.synchronize: true`), after the upgrade modify those policies to add the field `spec.generateExisting: true`. This will cause existing, generated resources to be refreshed with the new labeling system used by Kyverno 1.10. Note that this may increment the `resourceVersion` field on all downstream resources. Also, understand that when making this modification, it could result in additional resources being created at that moment based upon the current match defined in the policy. You may need to further refine the match/exclude blocks of your rules to account for this.
+
+### New Chart Values
 
 In `v3` chart values changed significantly, please read the instructions below to migrate your values:
 
@@ -148,7 +207,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `initImage` has been replaced with `admissionController.initContainer.image`
 - `initResources` has been replaced with `admissionController.initContainer.resources`
 - `image` has been replaced with `admissionController.container.image`
-- `image.pullSecrets` has been replaced with `admissionController.pullSecrets`
+- `image.pullSecrets` has been replaced with `admissionController.imagePullSecrets`
 - `resources` has been replaced with `admissionController.container.resources`
 - `service` has been replaced with `admissionController.service`
 - `metricsService` has been replaced with `admissionController.metricsService`
@@ -174,6 +233,10 @@ In `v3` chart values changed significantly, please read the instructions below t
 - Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
 
 - Admission controller `Deployment` name changed from `kyverno` to `kyverno-admission-controller`.
+- `config.excludeUsername` was renamed to `config.excludeUsernames`
+- `config.excludeGroupRole` was renamed to `config.excludeGroups`
+
+Hardcoded defaults for `config.excludeGroups` and `config.excludeUsernames` have been removed, please review those fields if you provide your own exclusions.
 
 ## Uninstalling the Chart
 
@@ -185,7 +248,111 @@ $ helm delete -n kyverno kyverno
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
 
-{{ template "chart.valuesSection" . }}
+## Values
+
+The chart values are organised per component.
+
+{{- $other := list -}}
+{{- $crds := list -}}
+{{- $config := list -}}
+{{- $metricsConfig := list -}}
+{{- $features := list -}}
+{{- $admissionController := list -}}
+{{- $backgroundController := list -}}
+{{- $cleanupController := list -}}
+{{- $reportsController := list -}}
+{{- $grafana := list -}}
+{{- $test := list -}}
+{{- $apiVersionOverride := list -}}
+{{- $webhooksCleanup := list -}}
+{{- $cleanupJobs := list -}}
+{{- range .Values -}}
+  {{- if (hasPrefix "admissionController." .Key) -}}
+    {{- $admissionController = append $admissionController . -}}
+  {{- else if (hasPrefix "backgroundController." .Key) -}}
+    {{- $backgroundController = append $backgroundController . -}}
+  {{- else if (hasPrefix "cleanupController." .Key) -}}
+    {{- $cleanupController = append $cleanupController . -}}
+  {{- else if (hasPrefix "reportsController." .Key) -}}
+    {{- $reportsController = append $reportsController . -}}
+  {{- else if (hasPrefix "crds." .Key) -}}
+    {{- $crds = append $crds . -}}
+  {{- else if (hasPrefix "config." .Key) -}}
+    {{- $config = append $config . -}}
+  {{- else if (hasPrefix "metricsConfig." .Key) -}}
+    {{- $metricsConfig = append $metricsConfig . -}}
+  {{- else if (hasPrefix "webhooksCleanup." .Key) -}}
+    {{- $webhooksCleanup = append $webhooksCleanup . -}}
+  {{- else if (hasPrefix "grafana." .Key) -}}
+    {{- $grafana = append $grafana . -}}
+  {{- else if (hasPrefix "features." .Key) -}}
+    {{- $features = append $features . -}}
+  {{- else if (hasPrefix "test." .Key) -}}
+    {{- $test = append $test . -}}
+  {{- else if (hasPrefix "apiVersionOverride." .Key) -}}
+    {{- $apiVersionOverride = append $apiVersionOverride . -}}
+  {{- else if (hasPrefix "cleanupJobs." .Key) -}}
+    {{- $cleanupJobs = append $cleanupJobs . -}}
+  {{- else -}}
+    {{- $other = append $other . -}}
+  {{- end -}}
+{{- end }}
+
+### Custom resource definitions
+
+{{ template "chart.valuesTable" (dict "Values" $crds) }}
+
+### Config
+
+{{ template "chart.valuesTable" (dict "Values" $config) }}
+
+### Metrics config
+
+{{ template "chart.valuesTable" (dict "Values" $metricsConfig) }}
+
+### Features
+
+{{ template "chart.valuesTable" (dict "Values" $features) }}
+
+### Admission controller
+
+{{ template "chart.valuesTable" (dict "Values" $admissionController) }}
+
+### Background controller
+
+{{ template "chart.valuesTable" (dict "Values" $backgroundController) }}
+
+### Cleanup controller
+
+{{ template "chart.valuesTable" (dict "Values" $cleanupController) }}
+
+### Reports controller
+
+{{ template "chart.valuesTable" (dict "Values" $reportsController) }}
+
+### Grafana
+
+{{ template "chart.valuesTable" (dict "Values" $grafana) }}
+
+### Webhooks cleanup
+
+{{ template "chart.valuesTable" (dict "Values" $webhooksCleanup) }}
+
+### Test
+
+{{ template "chart.valuesTable" (dict "Values" $test) }}
+
+### Api version override
+
+{{ template "chart.valuesTable" (dict "Values" $apiVersionOverride) }}
+
+### Cleanup jobs
+
+{{ template "chart.valuesTable" (dict "Values" $cleanupJobs) }}
+
+### Other
+
+{{ template "chart.valuesTable" (dict "Values" $other) }}
 
 ## TLS Configuration
 
@@ -223,11 +390,15 @@ It contains an array of string templates that are passed through the `tpl` Helm 
 
 Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
 
+Add entries to `config.resourceFiltersExclude` that you wish to omit from `config.resourceFilters`.
+
+Add entries to `config.resourceFiltersInclude` that you with to add to `config.resourceFilters`.
+
 ## High availability
 
 Running a highly-available Kyverno installation is crucial in a production environment.
 
-In order to run Kyverno in high availability mode, you should set `replicaCount` to `3` or more.
+In order to run Kyverno in high availability mode, you should set `replicas` to `3` or more for desired components.
 You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
 
 Please see https://kyverno.io/docs/installation/#security-vs-operability for more informations.

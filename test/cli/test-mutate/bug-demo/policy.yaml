@@ -1,0 +1,83 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: bug-demo
+spec:
+  admission: true
+  background: false
+  rules:
+  - match:
+      all:
+      - resources:
+          kinds:
+          - v1/Pod
+    mutate:
+      foreach:
+      - context:
+        - name: container_path
+          variable:
+            value: /spec/containers/{{ elementIndex }}
+        list: request.object.spec.containers || `[]`
+        patchesJson6902: |-
+          {{
+            [
+              contains(['main-1','main-3','main-11'], element.name)
+              &&
+              [
+                {
+                  op: 'remove',
+                  path: join('/', [container_path, 'securityContext/capabilities/add'])
+                }
+                ,
+                {
+                  op: 'add',
+                  path: join('/', [container_path, 'securityContext/capabilities/drop'])
+                  value: ['ALL']
+                }
+              ]
+              || `[]`
+              ,
+
+              contains(['main-2','main-6','main-7','main-8','main-9','main-10','main-16','main-17','main-19','main-22','main-23','main-24','main-25','main-26'], element.name)
+              &&
+              [
+                {
+                  op: 'add',
+                  path: join('/', [container_path, 'securityContext/capabilities/add'])
+                  value: ['FOO']
+                }
+                ,
+                {
+                  op: 'add',
+                  path: join('/', [container_path, 'securityContext/capabilities', 'drop'])
+                  value: ['SYS_ADMIN']
+                }
+              ]
+              || `[]`
+              ,
+
+              contains(['main-4','main-5','main-12','main-13','main-14','main-15','main-18','main-20','main-21','main-27'], element.name)
+              &&
+              [
+                {
+                  op: 'add',
+                  path: join('/', [container_path, 'securityContext/capabilities/add'])
+                  value: ['SYS_ADMIN', 'FOO']
+                }
+                ,
+                {
+                  op: 'add',
+                  path: join('/', [container_path, 'securityContext/capabilities/drop'])
+                  value: `[]`
+                }
+              ]
+              || `[]`
+            ][]
+            |
+            to_string(@)
+          }}
+    name: mutate1
+  validationFailureAction: Enforce

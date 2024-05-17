@@ -1,0 +1,8 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno-admission-controller
+  namespace: kyverno
+status:
+  readyReplicas: 1
+  updatedReplicas: 1

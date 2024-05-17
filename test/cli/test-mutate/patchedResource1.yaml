@@ -10,7 +10,7 @@ spec:
   containers:
   - image: nginx:latest
     name: nginx
-  dnsConfig:
-    options:
-    - name: ndots
-      value: "1"
+  # dnsConfig:
+  #   options:
+  #   - name: ndots
+  #     value: "1"

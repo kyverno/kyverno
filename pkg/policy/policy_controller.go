@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -18,12 +19,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	corev1 "k8s.io/api/core/v1"
+	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -31,10 +33,9 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -47,9 +48,9 @@ const (
 	maxRetries = 15
 )
 
-// PolicyController is responsible for synchronizing Policy objects stored
+// policyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
-type PolicyController struct {
+type policyController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
@@ -58,7 +59,7 @@ type PolicyController struct {
 	npInformer kyvernov1informers.PolicyInformer
 
 	eventGen      event.Interface
-	eventRecorder record.EventRecorder
+	eventRecorder events.EventRecorder
 
 	// Policies that need to be synced
 	queue workqueue.RateLimitingInterface
@@ -75,18 +76,18 @@ type PolicyController struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
-	informerCacheResolvers engineapi.ConfigmapResolver
-
 	informersSynced []cache.InformerSynced
 
 	// helpers to validate against current loaded configuration
-	configHandler config.Configuration
+	configuration config.Configuration
 
 	reconcilePeriod time.Duration
 
 	log logr.Logger
 
 	metricsConfig metrics.MetricsConfigManager
+
+	jp jmespath.Interface
 }
 
 // NewPolicyController create a new PolicyController
@@ -97,34 +98,39 @@ func NewPolicyController(
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
-	configHandler config.Configuration,
+	configuration config.Configuration,
 	eventGen event.Interface,
 	namespaces corev1informers.NamespaceInformer,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	metricsConfig metrics.MetricsConfigManager,
-) (*PolicyController, error) {
+	jp jmespath.Interface,
+) (*policyController, error) {
 	// Event broad caster
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(log.V(5).Info)
 	eventInterface := client.GetEventsInterface()
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
+	eventBroadcaster := events.NewBroadcaster(
+		&events.EventSinkImpl{
+			Interface: eventInterface,
+		},
+	)
+	eventBroadcaster.StartStructuredLogging(0)
+	stopCh := make(chan struct{})
+	eventBroadcaster.StartRecordingToSink(stopCh)
 
-	pc := PolicyController{
-		client:                 client,
-		kyvernoClient:          kyvernoClient,
-		engine:                 engine,
-		pInformer:              pInformer,
-		npInformer:             npInformer,
-		eventGen:               eventGen,
-		eventRecorder:          eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		configHandler:          configHandler,
-		informerCacheResolvers: informerCacheResolvers,
-		reconcilePeriod:        reconcilePeriod,
-		metricsConfig:          metricsConfig,
-		log:                    log,
+	pc := policyController{
+		client:          client,
+		kyvernoClient:   kyvernoClient,
+		engine:          engine,
+		pInformer:       pInformer,
+		npInformer:      npInformer,
+		eventGen:        eventGen,
+		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		configuration:   configuration,
+		reconcilePeriod: reconcilePeriod,
+		metricsConfig:   metricsConfig,
+		log:             log,
+		jp:              jp,
 	}
 
 	pc.pLister = pInformer.Lister()
@@ -137,36 +143,36 @@ func NewPolicyController(
 	return &pc, nil
 }
 
-func (pc *PolicyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bool {
+func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	logger := pc.log.WithValues("policy", p.GetName())
-	if !p.BackgroundProcessingEnabled() {
-		if !p.GetSpec().HasGenerate() && !p.GetSpec().IsMutateExisting() {
-			logger.V(4).Info("background processing is disabled")
-			return false
-		}
+	if !p.GetSpec().HasGenerate() && !p.GetSpec().HasMutateExisting() {
+		logger.V(4).Info("policy does not have background rules for reconciliation")
+		return false
 	}
 
-	if err := ValidateVariables(p, true); err != nil {
+	if err := policyvalidation.ValidateVariables(p, true); err != nil {
 		logger.V(4).Info("policy cannot be processed in the background")
 		return false
+	}
+
+	if p.GetSpec().HasMutateExisting() {
+		val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
+		interval, err := time.ParseDuration(val)
+		if err != nil {
+			logger.V(4).Info("failed to parse BACKGROUND_SCAN_INTERVAL env variable, falling to default 1h", "msg", err.Error())
+			interval = time.Hour
+		}
+		if p.GetCreationTimestamp().Add(interval).After(time.Now()) {
+			return p.GetSpec().GetMutateExistingOnPolicyUpdate()
+		}
 	}
 
 	return true
 }
 
-func (pc *PolicyController) addPolicy(obj interface{}) {
+func (pc *policyController) addPolicy(obj interface{}) {
 	logger := pc.log
-	var p kyvernov1.PolicyInterface
-
-	switch obj := obj.(type) {
-	case *kyvernov1.ClusterPolicy:
-		p = obj
-	case *kyvernov1.Policy:
-		p = obj
-	default:
-		return
-	}
-
+	p := castPolicy(obj)
 	logger.Info("policy created", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
 
 	if !pc.canBackgroundProcess(p) {
@@ -177,28 +183,10 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	pc.enqueuePolicy(p)
 }
 
-func (pc *PolicyController) updatePolicy(old, cur interface{}) {
+func (pc *policyController) updatePolicy(old, cur interface{}) {
 	logger := pc.log
-	var oldP, curP kyvernov1.PolicyInterface
-
-	switch obj := old.(type) {
-	case *kyvernov1.ClusterPolicy:
-		oldP = obj
-	case *kyvernov1.Policy:
-		oldP = obj
-	default:
-		return
-	}
-
-	switch obj := cur.(type) {
-	case *kyvernov1.ClusterPolicy:
-		curP = obj
-	case *kyvernov1.Policy:
-		curP = obj
-	default:
-		return
-	}
-
+	oldP := castPolicy(old)
+	curP := castPolicy(cur)
 	if !pc.canBackgroundProcess(curP) {
 		return
 	}
@@ -218,7 +206,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	pc.enqueuePolicy(curP)
 }
 
-func (pc *PolicyController) deletePolicy(obj interface{}) {
+func (pc *policyController) deletePolicy(obj interface{}) {
 	logger := pc.log
 	var p kyvernov1.PolicyInterface
 
@@ -239,7 +227,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	}
 }
 
-func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
+func (pc *policyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
 	logger := pc.log
 	key, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
@@ -250,7 +238,7 @@ func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
 }
 
 // Run begins watching and syncing.
-func (pc *PolicyController) Run(ctx context.Context, workers int) {
+func (pc *policyController) Run(ctx context.Context, workers int) {
 	logger := pc.log
 
 	defer utilruntime.HandleCrash()
@@ -286,12 +274,12 @@ func (pc *PolicyController) Run(ctx context.Context, workers int) {
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
-func (pc *PolicyController) worker(ctx context.Context) {
+func (pc *policyController) worker(ctx context.Context) {
 	for pc.processNextWorkItem() {
 	}
 }
 
-func (pc *PolicyController) processNextWorkItem() bool {
+func (pc *policyController) processNextWorkItem() bool {
 	key, quit := pc.queue.Get()
 	if quit {
 		return false
@@ -303,7 +291,7 @@ func (pc *PolicyController) processNextWorkItem() bool {
 	return true
 }
 
-func (pc *PolicyController) handleErr(err error, key interface{}) {
+func (pc *policyController) handleErr(err error, key interface{}) {
 	logger := pc.log
 	if err == nil {
 		pc.queue.Forget(key)
@@ -321,7 +309,7 @@ func (pc *PolicyController) handleErr(err error, key interface{}) {
 	pc.queue.Forget(key)
 }
 
-func (pc *PolicyController) syncPolicy(key string) error {
+func (pc *policyController) syncPolicy(key string) error {
 	logger := pc.log.WithName("syncPolicy")
 	startTime := time.Now()
 	logger.V(4).Info("started syncing policy", "key", key, "startTime", startTime)
@@ -349,7 +337,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	return nil
 }
 
-func (pc *PolicyController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
+func (pc *policyController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
 	if ns, name, err := cache.SplitMetaNamespaceKey(key); err != nil {
 		pc.log.Error(err, "failed to parse policy name", "policyName", key)
 		return nil, err
@@ -363,14 +351,14 @@ func (pc *PolicyController) getPolicy(key string) (kyvernov1.PolicyInterface, er
 }
 
 // forceReconciliation forces a background scan by adding all policies to the workqueue
-func (pc *PolicyController) forceReconciliation(ctx context.Context) {
+func (pc *policyController) forceReconciliation(ctx context.Context) {
 	logger := pc.log.WithName("forceReconciliation")
 	ticker := time.NewTicker(pc.reconcilePeriod)
 
 	for {
 		select {
 		case <-ticker.C:
-			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
+			logger.Info("reconciling generate and mutateExisting policies", "scan interval", pc.reconcilePeriod.String())
 			pc.requeuePolicies()
 
 		case <-ctx.Done():
@@ -379,7 +367,7 @@ func (pc *PolicyController) forceReconciliation(ctx context.Context) {
 	}
 }
 
-func (pc *PolicyController) requeuePolicies() {
+func (pc *policyController) requeuePolicies() {
 	logger := pc.log.WithName("requeuePolicies")
 	if cpols, err := pc.pLister.List(labels.Everything()); err == nil {
 		for _, cpol := range cpols {
@@ -403,9 +391,9 @@ func (pc *PolicyController) requeuePolicies() {
 	}
 }
 
-func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
+func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
 	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(triggerResource.GetKind(), triggerResource.GetNamespace(), pc.nsLister, pc.log)
-	policyContext, err := backgroundcommon.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, namespaceLabels, pc.log)
+	policyContext, err := backgroundcommon.NewBackgroundContext(pc.log, pc.client, ur, policy, triggerResource, pc.configuration, pc.jp, namespaceLabels)
 	if err != nil {
 		return false, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err)
 	}
@@ -416,8 +404,8 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 	}
 
 	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
-		if ruleResponse.Status != engineapi.RuleStatusPass {
-			pc.log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
+		if ruleResponse.Status() != engineapi.RuleStatusPass {
+			pc.log.V(4).Info("skip creating URs on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status())
 			continue
 		}
 
