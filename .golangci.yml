@@ -38,6 +38,7 @@ linters:
     - unused
     - wastedassign
     - whitespace
+    - prealloc
 
 run:
   timeout: 15m
