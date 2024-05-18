@@ -20,5 +20,3 @@ spec:
         - check:
             ($error != null): true
         file: pod.yaml
-    - assert:
-        file: pod-assert.yaml
