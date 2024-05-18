@@ -23,8 +23,9 @@ func EvaluateList(jmesPath string, ctx enginecontext.EvalInterface) ([]interface
 	return l, nil
 }
 
-// InvertedElement inverted the order of element for patchStrategicMerge  policies as kustomize patch revering the order of patch resources.
-func InvertedElement(elements []interface{}) []interface{} {
+// InvertElements inverts the order of elements for patchStrategicMerge policies
+// as kustomize patch reverses the order of patch resources.
+func InvertElements(elements []interface{}) []interface{} {
 	elementsCopy := make([]interface{}, len(elements))
 	for i := range elements {
 		elementsCopy[i] = elements[len(elements)-i-1]

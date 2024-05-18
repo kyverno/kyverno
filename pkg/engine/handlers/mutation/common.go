@@ -77,7 +77,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		reverse = *foreach.Order == kyvernov1.Descending
 	}
 	if reverse {
-		elements = engineutils.InvertedElement(elements)
+		elements = engineutils.InvertElements(elements)
 	}
 
 	for index, element := range elements {
