@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: multiple-image-verification-attestations
+  name: multiple-image-verification-attestations-pass
 spec:
   timeouts:
     delete: 2m
