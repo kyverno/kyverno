@@ -40,6 +40,41 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+func TestLoadInvalid(t *testing.T) {
+	tests := []struct {
+		name         string
+		fs           billy.Filesystem
+		resourcePath string
+		paths        []string
+		wantErr      bool
+		count        int
+	}{{
+		name:         "invalid policy resources",
+		fs:           nil,
+		resourcePath: "",
+		paths:        []string{"../_testdata/policies-invalid/"},
+		wantErr:      false,
+		count:        0,
+	}, {
+		name:         "mixed policy resources",
+		fs:           nil,
+		resourcePath: "",
+		paths:        []string{"../_testdata/policies-mixed/"},
+		count:        2,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policies, _, _, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			assert.Equal(t, tt.count, len(policies))
+		})
+	}
+}
+
 func TestLoadWithKubectlValidate(t *testing.T) {
 	tests := []struct {
 		name         string

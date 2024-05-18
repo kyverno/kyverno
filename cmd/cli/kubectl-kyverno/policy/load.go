@@ -14,12 +14,14 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/experimental"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	"github.com/pkg/errors"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -164,29 +166,30 @@ func fsLoad(loader loader, path string) ([]kyvernov1.PolicyInterface, []v1alpha1
 	if fi.IsDir() {
 		files, err := os.ReadDir(path)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, errors.Wrapf(err, "failed to read %s", path)
 		}
 		for _, file := range files {
 			p, v, b, err := fsLoad(loader, filepath.Join(path, file.Name()))
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, nil, nil, errors.Wrapf(err, "failed to load %s", path)
 			}
 			pols = append(pols, p...)
 			vaps = append(vaps, v...)
 			vapBindings = append(vapBindings, b...)
 		}
 	} else if git.IsYaml(fi) {
-		fileBytes, err := os.ReadFile(filepath.Clean(path)) // #nosec G304
+		fileBytes, err := os.ReadFile(filepath.Clean(path))
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, errors.Wrapf(err, "failed to read file %s", path)
 		}
 		p, v, b, err := loader(fileBytes)
-		if err != nil {
-			return nil, nil, nil, err
+		if err == nil {
+			pols = append(pols, p...)
+			vaps = append(vaps, v...)
+			vapBindings = append(vapBindings, b...)
+		} else {
+			log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 		}
-		pols = append(pols, p...)
-		vaps = append(vaps, v...)
-		vapBindings = append(vapBindings, b...)
 	}
 	return pols, vaps, vapBindings, nil
 }
