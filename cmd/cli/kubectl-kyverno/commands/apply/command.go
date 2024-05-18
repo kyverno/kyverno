@@ -67,6 +67,7 @@ type ApplyCommandConfig struct {
 	warnExitCode   int
 	warnNoPassed   bool
 	Exception      []string
+	continueOnFail bool
 }
 
 func Command() *cobra.Command {
@@ -121,6 +122,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
+	cmd.Flags().BoolVar(&applyCommandConfig.continueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
 	return cmd
 }
 
@@ -234,6 +236,10 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
+			if c.continueOnFail {
+				fmt.Printf("failed to apply policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
 			return responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
@@ -298,6 +304,10 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
+			if c.continueOnFail {
+				fmt.Printf("failed to apply policies on resource %v (%v)\n", resource.GetName(), err)
+				continue
+			}
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
@@ -461,7 +471,7 @@ func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, aud
 }
 
 func printViolations(out io.Writer, rc *processor.ResultCounts) {
-	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
+	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
 }
 
 type WarnExitCodeError struct {
@@ -473,16 +483,16 @@ func (w WarnExitCodeError) Error() string {
 }
 
 func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
-	if rc.Fail() > 0 {
+	if rc.Fail > 0 {
 		return fmt.Errorf("exit as there are policy violations")
-	} else if rc.Error() > 0 {
+	} else if rc.Error > 0 {
 		return fmt.Errorf("exit as there are policy errors")
-	} else if rc.Warn() > 0 && warnExitCode != 0 {
+	} else if rc.Warn > 0 && warnExitCode != 0 {
 		fmt.Printf("exit as warnExitCode is %d", warnExitCode)
 		return WarnExitCodeError{
 			ExitCode: warnExitCode,
 		}
-	} else if rc.Pass() == 0 && warnNoPassed {
+	} else if rc.Pass == 0 && warnNoPassed {
 		fmt.Println(out, "exit as no objects satisfied policy")
 		return WarnExitCodeError{
 			ExitCode: warnExitCode,
