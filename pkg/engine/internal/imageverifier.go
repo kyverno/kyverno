@@ -333,18 +333,13 @@ func (iv *ImageVerifier) Verify(
 			}
 			responses = append(responses, ruleResp)
 		}
-
-		// Add Validation logic here
-
 	}
 
 	for _, imageVerify := range iv.rule.VerifyImages {
-		if err := iv.Validate(imageVerify, ctx); err != nil {
+		if err := iv.validate(imageVerify, ctx); err != nil {
+			msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
 			iv.logger.Error(err, "failed to validate in verifyImage")
-			responses = append(responses, engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "failed to validate in verifyImage", err))
-			// return resource, handlers.WithResponses(
-			// 	engineapi.RuleFail(rule.Name, engineapi.ImageVerify, msg),
-			// )
+			responses = append(responses, engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg))
 		}
 	}
 
@@ -827,7 +822,7 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 	return &patch, digest, nil
 }
 
-func (iv *ImageVerifier) Validate(imageVerify kyvernov1.ImageVerification, ctx context.Context) error {
+func (iv *ImageVerifier) validate(imageVerify kyvernov1.ImageVerification, ctx context.Context) error {
 	if err := iv.loadContext(ctx); err != nil {
 		return fmt.Errorf("failed to load context : %v", err)
 	}

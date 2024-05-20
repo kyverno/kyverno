@@ -33,15 +33,9 @@ func (e *engine) validate(
 		handlerFactory := func() (handlers.Handler, error) {
 			hasValidate := rule.HasValidate()
 			hasVerifyImageChecks := rule.HasVerifyImageChecks()
-			// hasValidateImageVerification := rule.HasValidateImageVerification()
-			// fmt.Printf("\n hi %+v, %+v \n", hasVerifyImageChecks, hasValidate)
-
 			if !hasValidate && !hasVerifyImageChecks {
 				return nil, nil
 			}
-			// if hasValidateImageVerification {
-			// 	return validation.NewValidateImageVerificationHandler()
-			// }
 			if hasValidate {
 				if rule.Validation.Assert.Value != nil {
 					return validation.NewValidateAssertHandler()
@@ -59,7 +53,6 @@ func (e *engine) validate(
 				} else if hasValidateCEL {
 					return validation.NewValidateCELHandler(e.client)
 				} else {
-					// fmt.Printf("\n hi %+v, %+v \n", hasVerifyImageChecks, hasValidateImageVerification)
 					return validation.NewValidateResourceHandler()
 				}
 			} else if hasVerifyImageChecks {
