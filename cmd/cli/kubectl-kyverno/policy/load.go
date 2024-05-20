@@ -73,7 +73,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 }
 
-func (l *LoaderResults) appendError(path string, err error) {
+func (l *LoaderResults) addError(path string, err error) {
 	l.NonFatalErrors = append(l.NonFatalErrors, LoaderError{
 		Path:  path,
 		Error: err,
@@ -128,8 +128,12 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {
+			msg := err.Error()
+			if strings.Contains(msg, "Invalid value: value provided for unknown field") {
+				return nil, err
+			}
 			// skip non-Kubernetes YAMLs and invalid types
-			results.appendError(path, err)
+			results.addError(path, err)
 			continue
 		}
 		switch gvk {
