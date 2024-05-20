@@ -340,6 +340,7 @@ func (iv *ImageVerifier) Verify(
 			msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
 			iv.logger.Error(err, "failed to validate in verifyImage")
 			responses = append(responses, engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg))
+			continue
 		}
 	}
 
