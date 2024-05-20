@@ -32,7 +32,7 @@ func (f FunctionEntry) String() string {
 	if f.Name == "" {
 		return ""
 	}
-	var args []string
+	args := make([]string, 0, len(f.Arguments))
 	for _, a := range f.Arguments {
 		var aTypes []string
 		for _, t := range a.Types {
@@ -40,7 +40,7 @@ func (f FunctionEntry) String() string {
 		}
 		args = append(args, strings.Join(aTypes, "|"))
 	}
-	var returnArgs []string
+	returnArgs := make([]string, 0, len(f.ReturnType))
 	for _, ra := range f.ReturnType {
 		returnArgs = append(returnArgs, string(ra))
 	}
