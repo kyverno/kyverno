@@ -10,6 +10,71 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
+func TestAddOperationsForValidatingWebhookConfMultiplePolicies(t *testing.T) {
+	testCases := []struct {
+		name           string
+		policies       []kyverno.ClusterPolicy
+		expectedResult map[string][]admissionregistrationv1.OperationType
+	}{
+		{
+			name: "test-1",
+			policies: []kyverno.ClusterPolicy{
+				{
+					Spec: kyverno.Spec{
+						Rules: []kyverno.Rule{
+							{
+								MatchResources: kyverno.MatchResources{
+									ResourceDescription: kyverno.ResourceDescription{
+										Kinds: []string{"ConfigMap"},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Spec: kyverno.Spec{
+						Rules: []kyverno.Rule{
+							{
+								MatchResources: kyverno.MatchResources{
+									ResourceDescription: kyverno.ResourceDescription{
+										Kinds:      []string{"ConfigMap"},
+										Operations: []kyverno.AdmissionOperation{"DELETE"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResult: map[string][]admissionregistrationv1.OperationType{
+				"ConfigMap": {"CREATE", "UPDATE", "DELETE", "CONNECT"},
+			},
+		},
+	}
+
+	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			for _, p := range test.policies {
+				mapResourceToOpnType = addOpnForValidatingWebhookConf(p.GetSpec().Rules, mapResourceToOpnType)
+			}
+			for key, expectedValue := range test.expectedResult {
+				slices.SortFunc(expectedValue, func(a, b admissionregistrationv1.OperationType) int {
+					return cmp.Compare(a, b)
+				})
+				value := mapResourceToOpnType[key]
+				slices.SortFunc(value, func(a, b admissionregistrationv1.OperationType) int {
+					return cmp.Compare(a, b)
+				})
+				if !reflect.DeepEqual(expectedValue, value) {
+					t.Errorf("key: %v, expected %v, but got %v", key, expectedValue, value)
+				}
+			}
+		})
+	}
+}
+
 func TestAddOperationsForValidatingWebhookConf(t *testing.T) {
 	testCases := []struct {
 		name           string
@@ -193,6 +258,35 @@ func TestAddOperationsForMutatingtingWebhookConf(t *testing.T) {
 						ResourceDescription: kyverno.ResourceDescription{
 							Kinds:      []string{"Secret"},
 							Operations: []kyverno.AdmissionOperation{"UPDATE"},
+						},
+					},
+				},
+			},
+			expectedResult: map[string][]admissionregistrationv1.OperationType{
+				"Secret": {"CREATE", "UPDATE"},
+			},
+		},
+		{
+			name: "Test Case 4",
+			rules: []kyverno.Rule{
+				{
+					Mutation: kyverno.Mutation{
+						PatchesJSON6902: "add",
+					},
+					MatchResources: kyverno.MatchResources{
+						ResourceDescription: kyverno.ResourceDescription{
+							Kinds:      []string{"Secret"},
+							Operations: []kyverno.AdmissionOperation{"CREATE"},
+						},
+					},
+				},
+				{
+					Mutation: kyverno.Mutation{
+						PatchesJSON6902: "add",
+					},
+					MatchResources: kyverno.MatchResources{
+						ResourceDescription: kyverno.ResourceDescription{
+							Kinds: []string{"Secret"},
 						},
 					},
 				},

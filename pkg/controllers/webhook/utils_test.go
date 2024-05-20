@@ -166,7 +166,7 @@ func Test_RuleCount(t *testing.T) {
 	assert.Equal(t, status.RuleCount.VerifyImages, 2)
 }
 
-func TestGetMinimumOperations(t *testing.T) {
+func TestMergeOprations(t *testing.T) {
 	testCases := []struct {
 		name           string
 		inputMap       map[string]bool
@@ -195,7 +195,7 @@ func TestGetMinimumOperations(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			result := getMinimumOperations(testCase.inputMap)
+			result := mergeOperations(testCase.inputMap, []admissionregistrationv1.OperationType{})
 			sort.Slice(result, func(i, j int) bool {
 				return result[i] < result[j]
 			})
