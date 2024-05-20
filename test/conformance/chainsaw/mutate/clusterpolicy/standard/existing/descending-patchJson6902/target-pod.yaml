@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: target-pod
+  namespace: default
+spec:
+  containers:
+  - name: container1
+    image: busybox:latest
+  - name: container2
+    image: busybox:latest
+  - name: container3
+    image: busybox:latest
+
