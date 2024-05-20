@@ -85,7 +85,6 @@ func TestTable_AddFailed(t *testing.T) {
 
 func TestTable_Rows(t *testing.T) {
 	var nilRows []Row
-	var nilCompactRows []RowCompact
 	tests := []struct {
 		name     string
 		RawRows  []Row
@@ -93,7 +92,7 @@ func TestTable_Rows(t *testing.T) {
 		want     interface{}
 	}{{
 		name: "nil",
-		want: nilCompactRows,
+		want: []RowCompact{},
 	}, {
 		name:     "nil - detailed",
 		detailed: true,
@@ -186,13 +185,13 @@ func TestTable_Rows(t *testing.T) {
 			Message: "message2",
 		}},
 	}}
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tr := &Table{
 				RawRows: tt.RawRows,
 			}
 			if got := tr.Rows(tt.detailed); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Table.Rows() = %v, want %v", got, tt.want)
+				t.Errorf("test=%v, Table.Rows() = %v, want %v", i, got, tt.want)
 			}
 		})
 	}
