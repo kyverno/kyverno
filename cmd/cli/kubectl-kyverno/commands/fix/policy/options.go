@@ -68,7 +68,7 @@ func (o options) processFile(out io.Writer, path string) {
 	if len(policies) == 0 {
 		return
 	}
-	var fixed []kyvernov1.PolicyInterface
+	fixed := make([]kyvernov1.PolicyInterface, 0, len(policies))
 	for _, policy := range policies {
 		copy := policy.CreateDeepCopy()
 		fmt.Fprintf(out, "Processing file (%s)...\n", path)
