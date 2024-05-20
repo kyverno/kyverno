@@ -1,0 +1,35 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: descending-patchjson
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+  - name: step-01-assert
+    try:
+    - assert:
+        file: policy-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: target-pod.yaml
+  - name: step-02-assert
+    try:
+    - assert:
+        file: target-pod-assert.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: trigger-pod.yaml
+  - name: step-03-assert
+    try:
+    - assert:
+        file: trigger-pod-assert.yaml
+  - name: step-04
+    try:
+    - assert:
+        file: target-pod-updated.yaml
