@@ -120,17 +120,6 @@ func (h mutateImageHandler) Process(
 		// 	)
 		// }
 	}
-	// hasValidateImageVerification := rule.HasValidateImageVerification()
-	// if hasValidateImageVerification {
-	// 	// fmt.Printf("Hi")
-	// 	_, err := validation.NewValidateImageVerificationHandler()
-	// 	if err != nil {
-	// 		return resource, handlers.WithResponses(
-	// 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to validate imageVerify", err),
-	// 		)
-	// 	}
-	// 	// fmt.Printf("Hi : %+v %+v", h, err)
-	// }
 	if len(patches) != 0 {
 		patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
 		decoded, err := json_patch.DecodePatch(patch)
