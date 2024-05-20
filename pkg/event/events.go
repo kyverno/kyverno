@@ -59,7 +59,12 @@ func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.Res
 		fmt.Fprintf(&b, "; %s", resp.Message())
 	}
 
-	return b.String()
+	msg := b.String()
+	if len(msg) > 1024 {
+		msg = msg[0:1021] + "..."
+	}
+
+	return msg
 }
 
 func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineResponse) Info {
