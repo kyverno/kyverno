@@ -456,7 +456,7 @@ func decodePEM(raw []byte, signatureAlgorithm crypto.Hash) (signature.Verifier, 
 }
 
 func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, error) {
-	var sigPayloads []payload.SimpleContainerImage
+	sigPayloads := make([]payload.SimpleContainerImage, 0, len(verified))
 	for _, sig := range verified {
 		pld, err := sig.Payload()
 		if err != nil {
