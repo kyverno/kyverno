@@ -1,16 +1,9 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-label-app
+  name: check-label-app-3
 spec:
   validationFailureAction: Audit
-  validationFailureActionOverrides:
-    - action: Enforce
-      namespaces: 
-        - default
-    - action: Audit
-      namespaces:
-        - test
   rules:
     - name: check-label-app
       match:
@@ -18,6 +11,9 @@ spec:
         - resources:
             kinds:
             - Pod
+            names: 
+            - "prod-*"
+            - "staging"
       validate:
         cel:
           expressions:
