@@ -145,7 +145,16 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 				continue
 			}
 
-			return handlerPath, err
+			skipSiblingExists := false
+			for _, skipError := range skipErrors {
+				if _, ok := skipError.(*PatternError); !ok {
+					skipSiblingExists = true
+					break
+				}
+			}
+			if !skipSiblingExists {
+				return handlerPath, err
+			}
 		}
 
 		applyCount++
