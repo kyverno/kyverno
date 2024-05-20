@@ -12,7 +12,7 @@ func JoinPatches(patches ...[]byte) []byte {
 		return nil
 	}
 
-	var patchOperations []string
+	patchOperations := make([]string, 0, len(patches))
 	for _, patch := range patches {
 		str := strings.TrimSpace(string(patch))
 		if len(str) == 0 {

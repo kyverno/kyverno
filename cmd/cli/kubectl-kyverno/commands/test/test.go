@@ -142,7 +142,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, auditWa
 		}
 	}
 	// validate policies
-	var validPolicies []kyvernov1.PolicyInterface
+	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
 		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))

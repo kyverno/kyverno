@@ -19,7 +19,7 @@ type ValidatingAdmissionPolicyProcessor struct {
 }
 
 func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
-	var responses []engineapi.EngineResponse
+	responses := make([]engineapi.EngineResponse, 0, len(p.Policies))
 	for _, policy := range p.Policies {
 		policyData := validatingadmissionpolicy.NewPolicyData(policy)
 		for _, binding := range p.Bindings {

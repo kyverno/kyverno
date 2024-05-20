@@ -21,7 +21,7 @@ func fetchUniqueKinds(rule kyvernov1.Rule) []string {
 }
 
 func convertlist(ulists []unstructured.Unstructured) []*unstructured.Unstructured {
-	var result []*unstructured.Unstructured
+	result := make([]*unstructured.Unstructured, 0, len(ulists))
 	for _, list := range ulists {
 		result = append(result, list.DeepCopy())
 	}

@@ -162,7 +162,7 @@ func addImages(checks []pssutils.PSSCheckResult, imageInfos map[string]map[strin
 
 // return image references for containers
 func getImages(containerNames []string, imageInfos map[string]map[string]api.ImageInfo) []string {
-	var images []string
+	images := make([]string, 0, len(containerNames))
 	for _, cn := range containerNames {
 		image := getImageReference(cn, imageInfos)
 		images = append(images, image)

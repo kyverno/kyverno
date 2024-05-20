@@ -72,7 +72,7 @@ func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.Fa
 }
 
 func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistrationv1.OperationType, defaultOpn []admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
-	var rules []admissionregistrationv1.RuleWithOperations
+	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(wh.rules))
 
 	for gv, resources := range wh.rules {
 		firstResource := sets.List(resources)[0]

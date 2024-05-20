@@ -419,7 +419,7 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	reports = append(reports, ephemeralReports...)
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
 	mergeReports(policyMap, vapMap, merged, types.UID(name), reports...)
-	var results []policyreportv1alpha2.PolicyReportResult
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(merged))
 	for _, result := range merged {
 		results = append(results, result)
 	}

@@ -138,7 +138,7 @@ func isImageVerified(resource unstructured.Unstructured, image string, log logr.
 }
 
 func ExpandStaticKeys(attestorSet kyvernov1.AttestorSet) kyvernov1.AttestorSet {
-	var entries []kyvernov1.Attestor
+	entries := make([]kyvernov1.Attestor, 0, len(attestorSet.Entries))
 	for _, e := range attestorSet.Entries {
 		if e.Keys != nil {
 			keys := splitPEM(e.Keys.PublicKeys)
@@ -165,7 +165,7 @@ func splitPEM(pem string) []string {
 }
 
 func createStaticKeyAttestors(keys []string) []kyvernov1.Attestor {
-	var attestors []kyvernov1.Attestor
+	attestors := make([]kyvernov1.Attestor, 0, len(keys))
 	for _, k := range keys {
 		a := kyvernov1.Attestor{
 			Keys: &kyvernov1.StaticKeyAttestor{
@@ -179,7 +179,7 @@ func createStaticKeyAttestors(keys []string) []kyvernov1.Attestor {
 
 func buildStatementMap(statements []map[string]interface{}) (map[string][]map[string]interface{}, []string) {
 	results := map[string][]map[string]interface{}{}
-	var predicateTypes []string
+	predicateTypes := make([]string, 0, len(statements))
 	for _, s := range statements {
 		predicateType := s["type"].(string)
 		if results[predicateType] != nil {

@@ -147,7 +147,7 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 		}
 	}
 
-	var newDefaultCheckResults []pssutils.PSSCheckResult
+	newDefaultCheckResults := make([]pssutils.PSSCheckResult, 0, len(defaultCheckResultsMap))
 	for _, result := range defaultCheckResultsMap {
 		newDefaultCheckResults = append(newDefaultCheckResults, result)
 	}
@@ -189,7 +189,7 @@ func parseField(field string) (string, []int, string, bool) {
 	matchesIdx := regexIndex.FindAllStringSubmatch(field, -1)
 	matchesStr := regexStr.FindAllString(field, -1)
 	field = regexIndex.ReplaceAllString(field, "*")
-	var indexes []int
+	indexes := make([]int, 0, len(matchesIdx))
 	for _, match := range matchesIdx {
 		index, _ := strconv.Atoi(match[0])
 		indexes = append(indexes, index)

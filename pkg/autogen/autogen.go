@@ -42,8 +42,8 @@ func checkAutogenSupport(needed *bool, subjects ...kyvernov1.ResourceDescription
 
 // stripCronJob removes CronJob from controllers
 func stripCronJob(controllers string) string {
-	var newControllers []string
 	controllerArr := splitKinds(controllers, ",")
+	newControllers := make([]string, 0, len(controllerArr))
 	for _, c := range controllerArr {
 		if c == PodControllerCronJob {
 			continue

@@ -176,7 +176,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 	policyType := pol.GetType()
 	annotations := pol.GetAnnotations()
 
-	var results []policyreportv1alpha2.PolicyReportResult
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
 		results = append(results, result)
