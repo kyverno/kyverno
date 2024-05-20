@@ -13,9 +13,7 @@ import (
 // Evaluate evaluates the condition
 func Evaluate(logger logr.Logger, ctx context.EvalInterface, condition kyvernov1.Condition) (bool, string, error) {
 	key, err := SubstituteAllInPreconditions(logger, ctx, condition.GetKey())
-	// fmt.Printf("HI \n%+v\n", key)
 	if err != nil {
-		// fmt.Printf("HI \n%+v\n\n%+v\n", key, err)
 		return false, "", fmt.Errorf("failed to substitute variables in condition key: %w", err)
 	}
 	value, err := SubstituteAllInPreconditions(logger, ctx, condition.GetValue())
@@ -26,8 +24,6 @@ func Evaluate(logger logr.Logger, ctx context.EvalInterface, condition kyvernov1
 	if handler == nil {
 		return false, "", fmt.Errorf("failed to create handler for condition operator: %w", err)
 	}
-	// fmt.Printf("\n%+v\n \n%+v\n \n%+v\n", key, value, handler)
-	// fmt.Printf("Valid : \n%+v\n", handler.Evaluate(key, value))
 	return handler.Evaluate(key, value), condition.Message, nil
 }
 
