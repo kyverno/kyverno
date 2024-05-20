@@ -66,6 +66,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 	defer f.policyContext.JSONContext().Restore()
 
 	patchedResource := f.resource
+	patchedResource.unstructured = *f.resource.unstructured.DeepCopy()
 
 	reverse := false
 	// if it's a patch strategic merge, reverse by default
@@ -76,7 +77,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		reverse = *foreach.Order == kyvernov1.Descending
 	}
 	if reverse {
-		engineutils.InvertedElement(elements)
+		elements = engineutils.InvertElements(elements)
 	}
 
 	for index, element := range elements {
