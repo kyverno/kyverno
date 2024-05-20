@@ -88,7 +88,7 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 
 func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
 	pol := response.Policy()
-	var results []policyreportv1alpha2.PolicyReportResult
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	if pol.GetType() == engineapi.KyvernoPolicyType {
 		key, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
 		for _, ruleResult := range response.PolicyResponse.Rules {
