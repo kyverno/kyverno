@@ -19,7 +19,6 @@ func (e *engine) verifyAndPatchImages(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) (engineapi.PolicyResponse, unstructured.Unstructured, engineapi.ImageVerificationMetadata) {
-	// fmt.Printf("Hello")
 	resp := engineapi.NewPolicyResponse()
 	policy := policyContext.Policy()
 	matchedResource := policyContext.NewResource()
@@ -36,7 +35,6 @@ func (e *engine) verifyAndPatchImages(
 			if !rule.HasVerifyImages() {
 				return nil, nil
 			}
-			// fmt.Printf("Hello")
 			return mutation.NewMutateImageHandler(
 				policyContext,
 				matchedResource,
