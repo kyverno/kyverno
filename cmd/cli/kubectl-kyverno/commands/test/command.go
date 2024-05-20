@@ -183,7 +183,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 }
 
 func lookupEngineResponses(test v1alpha1.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
-	var matches []engineapi.EngineResponse
+	matches := make([]engineapi.EngineResponse, 0, len(responses))
 	for _, response := range responses {
 		policy := response.Policy()
 		resource := response.Resource

@@ -41,11 +41,11 @@ type CustomNamespaceLister struct {
 }
 
 func (c *CustomNamespaceLister) List(selector labels.Selector) (ret []*corev1.Namespace, err error) {
-	var namespaces []*corev1.Namespace
 	namespace, err := c.dClient.GetKubeClient().CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
+	namespaces := make([]*corev1.Namespace, 0, len(namespace.Items))
 	for _, ns := range namespace.Items {
 		nsCopy := ns
 		namespaces = append(namespaces, &nsCopy)

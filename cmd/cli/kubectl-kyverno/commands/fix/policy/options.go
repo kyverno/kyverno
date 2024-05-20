@@ -65,10 +65,10 @@ func (o options) processFile(out io.Writer, path string) {
 	if err != nil {
 		return
 	}
-	if len(results.Policies) == 0 {
+	if results == nil || len(results.Policies) == 0 {
 		return
 	}
-	var fixed []kyvernov1.PolicyInterface
+	fixed := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
 	for _, policy := range results.Policies {
 		copy := policy.CreateDeepCopy()
 		fmt.Fprintf(out, "Processing file (%s)...\n", path)

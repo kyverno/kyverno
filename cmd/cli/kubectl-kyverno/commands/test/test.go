@@ -93,11 +93,19 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 	if vars != nil {
 		vars.SetInStore(&store)
 	}
+
+	policyCount := len(results.Policies) + len(results.VAPs)
+	policyPlural := pluralize.Pluralize(len(results.Policies)+len(results.VAPs), "policy", "policies")
+	resourceCount := len(uniques)
+	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
 	if len(exceptions) > 0 {
-		fmt.Fprintln(out, "  Applying", len(results.Policies)+len(results.VAPs), pluralize.Pluralize(len(results.Policies)+len(results.VAPs), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "with", len(exceptions), pluralize.Pluralize(len(exceptions), "exception", "exceptions"), "...")
+		exceptionCount := len(exceptions)
+		exceptionsPlural := pluralize.Pluralize(len(exceptions), "exception", "exceptions")
+		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "with", exceptionCount, exceptionsPlural, "...")
 	} else {
-		fmt.Fprintln(out, "  Applying", len(results.Policies)+len(results.VAPs), pluralize.Pluralize(len(results.Policies)+len(results.VAPs), "policy", "policies"), "to", len(uniques), pluralize.Pluralize(len(uniques), "resource", "resources"), "...")
+		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "...")
 	}
+
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range results.Policies {
@@ -142,7 +150,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 		}
 	}
 	// validate policies
-	var validPolicies []kyvernov1.PolicyInterface
+	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
 	for _, pol := range results.Policies {
 		// TODO we should return this info to the caller
 		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
