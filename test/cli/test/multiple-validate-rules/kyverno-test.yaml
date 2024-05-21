@@ -12,10 +12,10 @@ results:
   resources:
   - service-example-port-22
   result: pass
-  rule: restrict-port-range
+  rule: restrict-nodeport
 - kind: Service
   policy: restrict-service-ports
   resources:
   - service-example-port-22
   result: pass
-  rule: restrict-nodeport
+  rule: restrict-port-range
