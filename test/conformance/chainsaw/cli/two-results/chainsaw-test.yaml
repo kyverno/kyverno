@@ -1,0 +1,15 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test
+spec:
+  steps:
+  - name: two-results
+    try:
+    - script:
+        content: kyverno test .
+        check:
+          ($error != null): true
+          ($stderr): "Error: failed to run test (The policy named precondition cannot be found.\nThe policy named preconditiions cannot be found.\nThe rule any-ule cannot be found in the policy named precondition.\nThe rule any-rle cannot be found in the policy named preconditiions.\n)"
+
+  

@@ -1,0 +1,13 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test
+spec:
+  steps:
+  - name: two-results-with-namespace
+    try:
+    - script:
+        content: kyverno test .
+        check:
+          ($error != null): true
+          ($stderr): "Error: failed to run test (The rule test-jmespath cannot be found in the policy named default/test-jmespath.\n)"
