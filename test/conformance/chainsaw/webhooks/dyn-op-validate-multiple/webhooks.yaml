@@ -11,6 +11,7 @@ webhooks:
     apiVersions:
     - v1
     operations:
+    - CONNECT
     - CREATE
     - UPDATE
     - CONNECT
