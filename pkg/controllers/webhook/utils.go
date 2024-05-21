@@ -86,6 +86,10 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 			continue
 		}
 
+		slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
+			return cmp.Compare(a, b)
+		})
+
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gv.Group},
