@@ -532,8 +532,6 @@ func isGlobalContextEntryReady(name string, gctxentries *kyvernov2alpha1.GlobalC
 
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 	vars, err := hasVariables(p)
-
-	// fmt.Printf("HI \n%+v\n \n%+v\n", vars, err)
 	if err != nil {
 		return err
 	}
@@ -543,7 +541,6 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 		}
 	}
 	if err := hasInvalidVariables(p, backgroundMode); err != nil {
-		// fmt.Printf("\nHell \n%+v\n", err)
 		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
 	}
 	return nil
@@ -1046,7 +1043,6 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 					}
 				}
 			}
-			// fmt.Printf("\nHello %+v \n", vi.Validation.Deny)
 			if rule.HasValidateImageVerification() {
 				if target := vi.Validation.Deny.GetAnyAllConditions(); target != nil {
 					if path, err := validateConditions(target, "conditions"); err != nil {
