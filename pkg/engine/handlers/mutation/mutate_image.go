@@ -111,14 +111,6 @@ func (h mutateImageHandler) Process(
 		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
 		patches = append(patches, patch...)
 		engineResponses = append(engineResponses, ruleResponse...)
-
-		// if err := iv.Validate(imageVerify, ctx); err != nil {
-		// 	msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
-		// 	logger.Error(err, "failed to validate in verifyImage")
-		// 	return resource, handlers.WithResponses(
-		// 		engineapi.RuleFail(rule.Name, engineapi.ImageVerify, msg),
-		// 	)
-		// }
 	}
 	if len(patches) != 0 {
 		patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)

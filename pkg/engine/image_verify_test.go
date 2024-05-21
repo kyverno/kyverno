@@ -1509,95 +1509,228 @@ func Test_SkipImageReferences(t *testing.T) {
 			engineapi.RuleStatusPass, erSkip.PolicyResponse.Rules[0].Status(), erSkip.PolicyResponse.Rules[0].Message()))
 }
 
-var multipleImageVerificationAttestationPolicy = `{
-  "apiVersion": "kyverno.io/v1",
-  "kind": "ClusterPolicy",
-  "metadata": {
-    "name": "attest"
-  },
-  "spec": {
-    "rules": [
-      {
-        "name": "attest",
-        "match": {
-          "resources": {
-            "kinds": [
-              "Pod"
-            ]
-          }
-        },
-        "verifyImages": [
-          {
-            "image": "*",
-            "key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
-            "attestations": [
-              {
-				"name": "one",
-                "predicateType": "https://example.com/CodeReview/v1",
-				"attestors": [
-					{
-						"entries": [
-							{
-								"keys": {
-									"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
-									"rekor": {
-										"url": "https://rekor.sigstore.dev",
-										"ignoreTlog": true
-									},
-									"ctlog": {
-										"ignoreSCT": true
-									}
-								}
-							}
-						]
-					}
-				]
-              },
-			  {
-				"name": "two",
-                "predicateType": "https://example.com/CodeReview/v1",
-				"attestors": [
-					{
-						"entries": [
-							{
-								"keys": {
-									"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----",
-									"rekor": {
-										"url": "https://rekor.sigstore.dev",
-										"ignoreTlog": true
-									},
-									"ctlog": {
-										"ignoreSCT": true
-									}
-								}
-							}
-						]
-					}
-				]
-              }
-            ],
-			"validate": {
-				"deny": {
-					"conditions": {
-						"any": [
-							{
-								"key": "{{ one }}",
-								"operator": "Equals",
-								"value": "{{ two }}"
-							}
-						]
-					}
-				}
-			}
-          }
+var multipleImageVerificationAttestationPolicyPass = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "check-image-attestation"
+    },
+    "spec": {
+        "validationFailureAction": "Enforce",
+        "webhookTimeoutSeconds": 30,
+        "failurePolicy": "Fail",
+        "rules": [
+            {
+                "name": "verify-attestation-notary",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Pod"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "context": [
+                    {
+                        "name": "keys",
+                        "configMap": {
+                            "name": "keys",
+                            "namespace": "notary-verify-attestation"
+                        }
+                    }
+                ],
+                "verifyImages": [
+                    {
+                        "type": "Notary",
+                        "imageReferences": [
+                            "ghcr.io/kyverno/test-verify-image*"
+                        ],
+                        "attestations": [
+                            {
+                                "type": "sbom/cyclone-dx",
+                                "name": "one",
+                                "attestors": [
+                                    {
+                                        "entries": [
+                                            {
+                                                "certificates": {
+                                                    "cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "sbom/cyclone-dx",
+                                "name": "two",
+                                "attestors": [
+                                    {
+                                        "entries": [
+                                            {
+                                                "certificates": {
+                                                    "cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ],
+                        "validate": {
+                            "deny": {
+                                "conditions": {
+                                    "any": [
+                                        {
+                                            "key": "{{ one[0].type }}",
+                                            "operator": "NotEquals",
+                                            "value": "{{ two[0].type }}"
+                                        }
+                                    ]
+                                }
+                            },
+                            "message": "Sample Validation"
+                        }
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  }
+    }
 }`
 
-func Test_MultipleImageVerificationAttestation(t *testing.T) {
-	policyContext := buildContext(t, multipleImageVerificationAttestationPolicy, testResource, "")
+var multipleImageVerificationAttestationPolicyFail = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "check-image-attestation"
+    },
+    "spec": {
+        "validationFailureAction": "Enforce",
+        "webhookTimeoutSeconds": 30,
+        "failurePolicy": "Fail",
+        "rules": [
+            {
+                "name": "verify-attestation-notary",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Pod"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "context": [
+                    {
+                        "name": "keys",
+                        "configMap": {
+                            "name": "keys",
+                            "namespace": "notary-verify-attestation"
+                        }
+                    }
+                ],
+                "verifyImages": [
+                    {
+                        "type": "Notary",
+                        "imageReferences": [
+                            "ghcr.io/kyverno/test-verify-image*"
+                        ],
+                        "attestations": [
+                            {
+                                "type": "sbom/cyclone-dx",
+                                "name": "one",
+                                "attestors": [
+                                    {
+                                        "entries": [
+                                            {
+                                                "certificates": {
+                                                    "cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "sbom/cyclone-dx",
+                                "name": "two",
+                                "attestors": [
+                                    {
+                                        "entries": [
+                                            {
+                                                "certificates": {
+                                                    "cert": "-----BEGIN CERTIFICATE-----\nMIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV\nBAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG\nTm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx\nMTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0\ndGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+\nb+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL\nhVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m\nIia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0\nVp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f\nETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG\nA1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G\nCSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9\nkYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8\nZq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF\nByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ\n5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0\nuOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz\n-----END CERTIFICATE-----"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ],
+                        "validate": {
+                            "deny": {
+                                "conditions": {
+                                    "any": [
+                                        {
+                                            "key": "{{ one[0].type }}",
+                                            "operator": "Equals",
+                                            "value": "{{ two[0].type }}"
+                                        }
+                                    ]
+                                }
+                            },
+                            "message": "Sample Validation"
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}`
 
-	t.Logf("%+v", policyContext)
+func Test_MultipleImageVerificationAttestationPass(t *testing.T) {
+	policyContextPass := buildContext(t, multipleImageVerificationAttestationPolicyPass, excludeVerifyImageNotaryResourcePass, "")
+
+	// Passes as image is included and not excluded
+	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextPass, cfg)
+	assert.Equal(t, len(erPass.PolicyResponse.Rules), 1)
+	assert.Equal(t, erPass.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			engineapi.RuleStatusPass, erPass.PolicyResponse.Rules[0].Status(), erPass.PolicyResponse.Rules[0].Message()))
+	assert.Equal(t, ivm.IsEmpty(), false)
+
+	policyContextSkip := buildContext(t, excludeVerifyImageNotaryPolicy, excludeVerifyImageNotaryResourceSkip, "")
+
+	// Skipped as image is excluded
+	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextSkip, cfg)
+	assert.Equal(t, len(erSkip.PolicyResponse.Rules), 1)
+	assert.Equal(t, erSkip.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			engineapi.RuleStatusPass, erSkip.PolicyResponse.Rules[0].Status(), erSkip.PolicyResponse.Rules[0].Message()))
+}
+
+func Test_MultipleImageVerificationAttestationFail(t *testing.T) {
+	policyContextPass := buildContext(t, multipleImageVerificationAttestationPolicyFail, excludeVerifyImageNotaryResourcePass, "")
+
+	// Passes as image is included and not excluded
+	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextPass, cfg)
+	assert.Equal(t, len(erPass.PolicyResponse.Rules), 2)
+	assert.Equal(t, erPass.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			engineapi.RuleStatusPass, erPass.PolicyResponse.Rules[0].Status(), erPass.PolicyResponse.Rules[0].Message()))
+	assert.Equal(t, ivm.IsEmpty(), false)
+
+	policyContextSkip := buildContext(t, excludeVerifyImageNotaryPolicy, excludeVerifyImageNotaryResourceSkip, "")
+
+	// Skipped as image is excluded
+	erSkip, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextSkip, cfg)
+	assert.Equal(t, len(erSkip.PolicyResponse.Rules), 1)
+	assert.Equal(t, erSkip.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			engineapi.RuleStatusPass, erSkip.PolicyResponse.Rules[0].Status(), erSkip.PolicyResponse.Rules[0].Message()))
 }
