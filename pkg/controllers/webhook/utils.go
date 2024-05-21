@@ -86,6 +86,10 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 			continue
 		}
 
+		slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
+			return cmp.Compare(a, b)
+		})
+
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gv.Group},
@@ -300,7 +304,7 @@ func computeOperationsForMutatingWebhookConf(r kyvernov1.Rule, operationStatusMa
 	return operationStatusMap
 }
 
-func getMinimumOperations(operationStatusMap map[string]bool) []admissionregistrationv1.OperationType {
+func mergeOperations(operationStatusMap map[string]bool, currentOps []admissionregistrationv1.OperationType) []admissionregistrationv1.OperationType {
 	operationReq := make([]admissionregistrationv1.OperationType, 0, 4)
 	for k, v := range operationStatusMap {
 		if v {
@@ -308,7 +312,8 @@ func getMinimumOperations(operationStatusMap map[string]bool) []admissionregistr
 			operationReq = append(operationReq, oper)
 		}
 	}
-	return operationReq
+	result := sets.New(currentOps...).Insert(operationReq...)
+	return result.UnsortedList()
 }
 
 func getOperationStatusMap() map[string]bool {
@@ -330,7 +335,7 @@ func appendResource(r string, mapResourceToOpn map[string]map[string]bool, opnSt
 			}
 		}
 		mapResourceToOpn[r] = opnStatusMap
-		mapResourceToOpnType[r] = getMinimumOperations(opnStatusMap)
+		mapResourceToOpnType[r] = mergeOperations(opnStatusMap, mapResourceToOpnType[r])
 	} else {
 		if mapResourceToOpn == nil {
 			mapResourceToOpn = make(map[string]map[string]bool)
@@ -339,7 +344,7 @@ func appendResource(r string, mapResourceToOpn map[string]map[string]bool, opnSt
 		if mapResourceToOpnType == nil {
 			mapResourceToOpnType = make(map[string][]admissionregistrationv1.OperationType)
 		}
-		mapResourceToOpnType[r] = getMinimumOperations(opnStatusMap)
+		mapResourceToOpnType[r] = mergeOperations(opnStatusMap, mapResourceToOpnType[r])
 	}
 	return mapResourceToOpn, mapResourceToOpnType
 }
