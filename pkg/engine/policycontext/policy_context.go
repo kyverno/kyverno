@@ -6,6 +6,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -123,6 +124,10 @@ func (c *PolicyContext) SetElement(element unstructured.Unstructured) {
 
 func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
+}
+
+func (c PolicyContext) Copy() engineapi.PolicyContext {
+	return &c
 }
 
 // Mutators
