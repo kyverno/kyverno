@@ -643,7 +643,7 @@ jobs:
         uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@a20ae166ad6fe8f7165f4b3ee218acf72d9c45e8
+        uses: sigstore/scaffolding/actions/setup@ca17aba7fb36a399884feb08ea114e1fdb3ea2cf
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version.version }}
