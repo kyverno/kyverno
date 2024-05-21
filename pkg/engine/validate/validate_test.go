@@ -1663,6 +1663,30 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			resource: []byte(`{"spec": {"initContainers": [{"name": "istio-init", "securityContext": {"runAsUser": 0}}], "containers": [{"name": "nginx", "image": "nginx"}]}}`),
 			status:   engineapi.RuleStatusPass,
 		},
+		{
+			name:     "test-51",
+			pattern:  []byte(`{"spec": {"=(volumes)": [{"(name)": "!credential-socket&!istio-data&!istio-envoy&!workload-certs&!workload-socket","=(emptyDir)": {"sizeLimit": "?*"}}]}}`),
+			resource: []byte(`{"spec": {"volumes": [{"name": "credential-socket","emptyDir": {"sizeLimit": "1Gi"}}]}}`),
+			status:   engineapi.RuleStatusSkip,
+		},
+		{
+			name:     "test-52",
+			pattern:  []byte(`{"spec": {"=(volumes)": [{"(name)": "!credential-socket&!istio-data&!istio-envoy&!workload-certs&!workload-socket","=(emptyDir)": {"sizeLimit": "?*"}}]}}`),
+			resource: []byte(`{"spec": {"volumes": [{"name": "cache-volume","emptyDir": {"sizeLimit": "1Gi"}}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-53",
+			pattern:  []byte(`{"spec": {"=(volumes)": [{"(name)": "!credential-socket&!istio-data&!istio-envoy&!workload-certs&!workload-socket","=(emptyDir)": {"sizeLimit": "?*"}}]}}`),
+			resource: []byte(`{"spec": {"volumes": [{"name": "cache-volume"}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-54",
+			pattern:  []byte(`{"spec": {"=(volumes)": [{"(name)": "!credential-socket&!istio-data&!istio-envoy&!workload-certs&!workload-socket","=(emptyDir)": {"sizeLimit": "?*"}}]}}`),
+			resource: []byte(`{"spec": {"volumes": [{"name": "cache-volume","emptyDir": {}}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
 	}
 
 	for _, testCase := range testCases {
