@@ -86,6 +86,10 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 			continue
 		}
 
+		slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
+			return cmp.Compare(a, b)
+		})
+
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gv.Group},
@@ -309,7 +313,7 @@ func mergeOperations(operationStatusMap map[string]bool, currentOps []admissionr
 		}
 	}
 	result := sets.New(currentOps...).Insert(operationReq...)
-	return sets.List(result)
+	return result.UnsortedList()
 }
 
 func getOperationStatusMap() map[string]bool {
