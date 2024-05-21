@@ -50,7 +50,6 @@ func NewMutateImageHandler(
 	if len(ruleImages) == 0 {
 		return nil, nil
 	}
-	// fmt.Printf("Hello there\n")
 	return mutateImageHandler{
 		configuration:  configuration,
 		rclientFactory: rclientFactory,
@@ -69,7 +68,6 @@ func (h mutateImageHandler) Process(
 	contextLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	// fmt.Printf("HI\n")
 	// check if there is a policy exception matches the incoming resource
 	exception := engineutils.MatchesException(exceptions, policyContext, logger)
 	if exception != nil {
@@ -154,8 +152,6 @@ func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, l
 			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = nil
 		}
 	}
-
-	// Add similar 10 line 138 and 153. Doing it attestation not known at time of execution of validate
 
 	var err error
 	ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, ruleCopy)
