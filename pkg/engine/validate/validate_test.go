@@ -1615,6 +1615,12 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			resource: []byte(`{"metadata": {"labels": {"run": "nginx"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/var/run/docker.sock"}}]}}`),
 			status:   engineapi.RuleStatusFail,
 		},
+		{
+			name:     "test-43",
+			pattern:  []byte(`{"spec": {"=(volumes)": [{"(name)": "!cache-volume","=(emptyDir)": {"sizeLimit": "?*"}}]}}`),
+			resource: []byte(`{"spec": {"volumes": [{"name": "cache-volume","emptyDir": {}}]}}`),
+			status:   engineapi.RuleStatusSkip,
+		},
 	}
 
 	for _, testCase := range testCases {

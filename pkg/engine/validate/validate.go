@@ -154,6 +154,8 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 			}
 			if !skipSiblingExists {
 				return handlerPath, err
+			} else {
+				continue
 			}
 		}
 
