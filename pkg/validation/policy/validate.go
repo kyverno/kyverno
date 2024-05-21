@@ -149,7 +149,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	specPath := field.NewPath("spec")
 
 	err := ValidateVariables(policy, background)
-	// fmt.Printf("\n%+v\n\n", err)
 	if err != nil {
 		return warnings, err
 	}
@@ -433,7 +432,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 						validationElem.Deny.RawAnyAllConditions = nil
 					}
 					validationJson, err := json.Marshal(validationElem)
-					// fmt.Printf("\n%+v\n", validationJson)
 					if err != nil {
 						return nil, err
 					}
