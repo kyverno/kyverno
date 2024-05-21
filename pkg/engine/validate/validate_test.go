@@ -1621,6 +1621,48 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			resource: []byte(`{"spec": {"volumes": [{"name": "cache-volume","emptyDir": {}}]}}`),
 			status:   engineapi.RuleStatusSkip,
 		},
+		{
+			name:     "test-44",
+			pattern:  []byte(`{"spec": {"=(initContainers)": [{"(name)": "!istio-init", "=(securityContext)": {"=(runAsUser)": ">0"}}], "=(containers)": [{"=(securityContext)": {"=(runAsUser)": ">0"}}]}}`),
+			resource: []byte(`{"spec": {"initContainers": [{"name": "nginx", "securityContext": {"runAsUser": 1000}}], "containers": [{"name": "nginx", "image": "nginx"}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-45",
+			pattern:  []byte(`{"spec": {"=(initContainers)": [{"(name)": "!istio-init", "=(securityContext)": {"=(runAsUser)": ">0"}}], "=(containers)": [{"=(securityContext)": {"=(runAsUser)": ">0"}}]}}`),
+			resource: []byte(`{"spec": {"initContainers": [{"name": "nginx", "securityContext": {"runAsUser": 0}}], "containers": [{"name": "nginx", "image": "nginx"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-46",
+			pattern:  []byte(`{"spec": {"=(initContainers)": [{"(name)": "!istio-init", "=(securityContext)": {"=(runAsUser)": ">0"}}], "=(containers)": [{"=(securityContext)": {"=(runAsUser)": ">0"}}]}}`),
+			resource: []byte(`{"spec": {"initContainers": [{"name": "istio-init", "securityContext": {"runAsUser": 0}}], "containers": [{"securityContext": {"runAsUser": 1000}}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-47",
+			pattern:  []byte(`{"spec": {"=(initContainers)": [{"(name)": "!istio-init", "=(securityContext)": {"=(runAsUser)": ">0"}}], "=(containers)": [{"=(securityContext)": {"=(runAsUser)": ">0"}}]}}`),
+			resource: []byte(`{"spec": {"initContainers": [{"name": "istio-init", "securityContext": {"runAsUser": 1000}}], "containers": [{"securityContext": {"runAsUser": 0}}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-48",
+			pattern:  []byte(`{"spec": {"=(initContainers)": [{"(name)": "!istio-init", "=(securityContext)": {"=(runAsUser)": ">0"}}], "=(containers)": [{"=(securityContext)": {"=(runAsUser)": ">0"}}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"securityContext": {"runAsUser": 1000}}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-49",
+			pattern:  []byte(`{"spec": {"=(initContainers)": [{"(name)": "!istio-init", "=(securityContext)": {"=(runAsUser)": ">0"}}], "=(containers)": [{"=(securityContext)": {"=(runAsUser)": ">0"}}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"securityContext": {"runAsUser": 0}}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-50",
+			pattern:  []byte(`{"spec": {"=(initContainers)": [{"(name)": "!istio-init", "=(securityContext)": {"=(runAsUser)": ">0"}}], "=(containers)": [{"=(securityContext)": {"=(runAsUser)": ">0"}}]}}`),
+			resource: []byte(`{"spec": {"initContainers": [{"name": "istio-init", "securityContext": {"runAsUser": 0}}], "containers": [{"name": "nginx", "image": "nginx"}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
 	}
 
 	for _, testCase := range testCases {
