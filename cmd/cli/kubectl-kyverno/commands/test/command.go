@@ -116,16 +116,16 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, test, registryAccess, false)
+			responses, err := runTest(out, test, registryAccess)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
 			fmt.Fprintln(out, "  Checking results ...")
 			var resultsTable table.Table
-			if err := printTestResult(out, filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
+			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
-			if err := printCheckResult(out, test.Test.Checks, responses, rc, &resultsTable); err != nil {
+			if err := printCheckResult(test.Test.Checks, responses, rc, &resultsTable); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)

@@ -16,7 +16,6 @@ import (
 )
 
 func printCheckResult(
-	out io.Writer,
 	checks []v1alpha1.CheckResult,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,
@@ -162,7 +161,6 @@ func printCheckResult(
 }
 
 func printTestResult(
-	out io.Writer,
 	tests []v1alpha1.TestResult,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,

@@ -355,22 +355,23 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 				return nil, nil, skipInvalidPolicies, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
-				policiesFromFile, vapsFromFile, vapBindingsFromFile, err := policy.Load(fs, "", policyYaml)
+				loaderResults, err := policy.Load(fs, "", policyYaml)
 				if err != nil {
 					continue
 				}
-				policies = append(policies, policiesFromFile...)
-				vaps = append(vaps, vapsFromFile...)
-				vapBindings = append(vapBindings, vapBindingsFromFile...)
+				policies = append(policies, loaderResults.Policies...)
+				vaps = append(vaps, loaderResults.VAPs...)
+				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 			}
 		} else {
-			policiesFromFile, vapsFromFile, vapBindingsFromFile, err := policy.Load(nil, "", path)
+			loaderResults, err := policy.Load(nil, "", path)
 			if err != nil {
-				return nil, nil, skipInvalidPolicies, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
+			} else {
+				policies = append(policies, loaderResults.Policies...)
+				vaps = append(vaps, loaderResults.VAPs...)
+				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 			}
-			policies = append(policies, policiesFromFile...)
-			vaps = append(vaps, vapsFromFile...)
-			vapBindings = append(vapBindings, vapBindingsFromFile...)
 		}
 	}
 
