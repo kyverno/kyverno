@@ -15,10 +15,10 @@ import (
 )
 
 func TestComputeClusterPolicyReports(t *testing.T) {
-	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	results, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1)
-	policy := policies[0]
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
 	er.PolicyResponse.Add(
@@ -49,10 +49,10 @@ func TestComputeClusterPolicyReports(t *testing.T) {
 }
 
 func TestComputePolicyReports(t *testing.T) {
-	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/pol-pod-requirements.yaml")
+	results, err := policy.Load(nil, "", "../_testdata/policies/pol-pod-requirements.yaml")
 	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1)
-	policy := policies[0]
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
 	er.PolicyResponse.Add(
@@ -84,10 +84,10 @@ func TestComputePolicyReports(t *testing.T) {
 }
 
 func TestComputePolicyReportResultsPerPolicyOld(t *testing.T) {
-	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	loaderResults, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1)
-	policy := policies[0]
+	assert.Equal(t, len(loaderResults.Policies), 1)
+	policy := loaderResults.Policies[0]
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
 	er.PolicyResponse.Add(
@@ -162,10 +162,10 @@ func TestMergeClusterReport(t *testing.T) {
 }
 
 func TestComputePolicyReportResult(t *testing.T) {
-	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	results, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1)
-	policy := policies[0]
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
 	tests := []struct {
 		name           string
 		auditWarn      bool
@@ -267,6 +267,46 @@ func TestComputePolicyReportResult(t *testing.T) {
 			Scored:    true,
 			Category:  "Pod Security Standards (Restricted)",
 			Severity:  policyreportv1alpha2.SeverityMedium,
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
+			got.Timestamp = metav1.Timestamp{}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ComputePolicyReportResult() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPSSComputePolicyReportResult(t *testing.T) {
+	results, err := policy.Load(nil, "", "../_testdata/policies/restricted.yaml")
+	assert.NilError(t, err)
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
+	tests := []struct {
+		name           string
+		auditWarn      bool
+		engineResponse engineapi.EngineResponse
+		ruleResponse   engineapi.RuleResponse
+		want           policyreportv1alpha2.PolicyReportResult
+	}{{
+		name:           "fail",
+		auditWarn:      false,
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test"),
+		want: policyreportv1alpha2.PolicyReportResult{
+			Source:     "kyverno",
+			Policy:     "psa",
+			Rule:       "xxx",
+			Result:     policyreportv1alpha2.StatusFail,
+			Resources:  []corev1.ObjectReference{{}},
+			Message:    "test",
+			Scored:     true,
+			Category:   "Pod Security Standards (Restricted)",
+			Severity:   policyreportv1alpha2.SeverityMedium,
+			Properties: nil,
 		},
 	}}
 	for _, tt := range tests {
