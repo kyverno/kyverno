@@ -92,8 +92,6 @@ func (ctx *MockContext) getVariables() []string {
 	return vars
 }
 
-//Reference for whitelist
-
 // InvalidVariableError represents error for non-white-listed variables
 type InvalidVariableError struct {
 	variable        string
