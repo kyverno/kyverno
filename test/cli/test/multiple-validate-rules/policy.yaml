@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-service-ports
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: restrict-port-range
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+    preconditions:
+      all:
+        - key: "{{ request.object.spec.type }}"
+          operator: Equals
+          value: 'LoadBalancer'
+    validate:
+      message: >-
+        Only approved ports may be used for LoadBalancer services.
+      foreach:
+        - list: request.object.spec.ports[]
+          deny:
+            conditions:
+              all:
+                - key: "{{ element.port }}"
+                  operator: AnyNotIn
+                  value:
+                    - 22
+                    - 80
+                    - 443
+  - name: restrict-nodeport
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+    validate:
+      message: "NodePort services are not allowed. This is {{ request.object.spec.type }}"
+      pattern:
+        spec:
+          =(type): "!NodePort"
