@@ -309,7 +309,7 @@ func mergeOperations(operationStatusMap map[string]bool, currentOps []admissionr
 		}
 	}
 	result := sets.New(currentOps...).Insert(operationReq...)
-	return result.UnsortedList()
+	return sets.List(result)
 }
 
 func getOperationStatusMap() map[string]bool {
