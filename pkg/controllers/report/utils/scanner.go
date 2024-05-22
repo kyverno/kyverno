@@ -66,14 +66,17 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 			}
 			spec := pol.GetSpec()
 			if spec.HasVerifyImages() && len(errors) == 0 {
-				// remove responses of verify image rules
-				ruleResponses := make([]engineapi.RuleResponse, 0, len(response.PolicyResponse.Rules))
-				for _, v := range response.PolicyResponse.Rules {
-					if v.RuleType() != engineapi.ImageVerify {
-						ruleResponses = append(ruleResponses, v)
+				if response != nil {
+					// remove responses of verify image rules
+					ruleResponses := make([]engineapi.RuleResponse, 0, len(response.PolicyResponse.Rules))
+					for _, v := range response.PolicyResponse.Rules {
+						if v.RuleType() != engineapi.ImageVerify {
+							ruleResponses = append(ruleResponses, v)
+						}
 					}
+					response.PolicyResponse.Rules = ruleResponses
 				}
-				response.PolicyResponse.Rules = ruleResponses
+
 				ivResponse, err := s.validateImages(ctx, resource, nsLabels, pol)
 				if err != nil {
 					logger.Error(err, "failed to scan images")
