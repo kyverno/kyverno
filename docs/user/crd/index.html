@@ -4599,7 +4599,8 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
 </p>
 <p>
 <p>ValidateImageVerification checks conditions across multiple image
@@ -8841,6 +8842,20 @@ bool
 </td>
 <td>
 <p>VerifyDigest validates that images have a digest.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validate</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidateImageVerification">
+ValidateImageVerification
+</a>
+</em>
+</td>
+<td>
+<p>Validation checks conditions across multiple image
+verification attestations or context entries</p>
 </td>
 </tr>
 <tr>
