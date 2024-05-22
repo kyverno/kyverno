@@ -19,11 +19,11 @@ import (
 )
 
 func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
-	var resources []*unstructured.Unstructured
 	documents, err := yamlutils.SplitDocuments(resourceBytes)
 	if err != nil {
 		return nil, err
 	}
+	resources := make([]*unstructured.Unstructured, 0, len(documents))
 	for _, document := range documents {
 		resource, err := YamlToUnstructured(document)
 		if err != nil {

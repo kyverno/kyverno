@@ -11,13 +11,13 @@ import (
 func getAndCompareResource(actualResource unstructured.Unstructured, fs billy.Filesystem, path string) (bool, error) {
 	expectedResource, err := resource.GetResourceFromPath(fs, path)
 	if err != nil {
-		return false, fmt.Errorf("Error: failed to load resource (%s)", err)
+		return false, fmt.Errorf("error: failed to load resource (%s)", err)
 	}
 	resource.FixupGenerateLabels(actualResource)
 	resource.FixupGenerateLabels(*expectedResource)
 	equals, err := resource.Compare(actualResource, *expectedResource, true)
 	if err != nil {
-		return false, fmt.Errorf("Error: failed to compare resources (%s)", err)
+		return false, fmt.Errorf("error: failed to compare resources (%s)", err)
 	}
 	return equals, nil
 }
