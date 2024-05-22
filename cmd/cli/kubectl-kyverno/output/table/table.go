@@ -20,7 +20,7 @@ func (t *Table) Rows(detailed bool) interface{} {
 	if detailed {
 		return t.RawRows
 	}
-	var rows []RowCompact
+	rows := make([]RowCompact, 0, len(t.RawRows))
 	for _, row := range t.RawRows {
 		rows = append(rows, row.RowCompact)
 	}

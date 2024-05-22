@@ -30,6 +30,40 @@ func Test_Check_Resources(t *testing.T) {
   ]
 }
 `),
+			expected: true,
+		},
+		{
+			name: "namespaces-with-wildcards",
+			resource: []byte(`
+{
+  "kinds": [
+    "Service"
+  ],
+  "namespaces": [
+    "prod-*"
+  ],
+  "operations": [
+    "CREATE"
+  ]
+}
+`),
+			expected: false,
+		},
+		{
+			name: "resource-names-with-wildcards",
+			resource: []byte(`
+{
+  "kinds": [
+    "Service"
+  ],
+  "names": [
+    "svc-*"
+  ],
+  "operations": [
+    "CREATE"
+  ]
+}
+`),
 			expected: false,
 		},
 		{

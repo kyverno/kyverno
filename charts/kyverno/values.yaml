@@ -601,6 +601,8 @@ grafana:
   # according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
   grafanaDashboard:
     create: false
+    folder: kyverno
+    allowCrossNamespaceImport: true
     matchLabels:
       dashboards: "grafana"
 
@@ -703,6 +705,9 @@ cleanupJobs:
     # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
     backoffLimit: 3
 
+    # -- Time until the pod from the cronjob is deleted
+    ttlSecondsAfterFinished: ""
+
     image:
       # -- (string) Image registry
       registry: ~
@@ -779,6 +784,9 @@ cleanupJobs:
 
     # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
     backoffLimit: 3
+
+    # -- Time until the pod from the cronjob is deleted
+    ttlSecondsAfterFinished: ""
 
     image:
       # -- (string) Image registry

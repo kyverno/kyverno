@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-label-app-4
+spec:
+  validationFailureAction: Audit
+  rules:
+    - name: check-label-app
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            - Deployment
+            names: 
+            - "staging"
+      validate:
+        cel:
+          expressions:
+            - expression: "'app' in object.metadata.labels"

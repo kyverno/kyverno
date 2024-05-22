@@ -41,6 +41,10 @@ annotations:
       description: Add podLabels to the post-upgrade hook
     - kind: added
       description: Add podLabels to the pre-delete hook
+    - kind: added
+      description: Add cronjob ttl support
+    - kind: fixed
+      description: Ensure CA certificate config maps are created when data is provided
 dependencies:
   - name: grafana
     version: v0.0.0

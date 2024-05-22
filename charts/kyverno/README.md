@@ -683,7 +683,7 @@ The chart values are organised per component.
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
 | grafana.labels | object | `{"grafana_dashboard":"1"}` | Grafana dashboard configmap labels |
-| grafana.grafanaDashboard | object | `{"create":false,"matchLabels":{"dashboards":"grafana"}}` | create GrafanaDashboard custom resource referencing to the configMap. according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/ |
+| grafana.grafanaDashboard | object | `{"allowCrossNamespaceImport":true,"create":false,"folder":"kyverno","matchLabels":{"dashboards":"grafana"}}` | create GrafanaDashboard custom resource referencing to the configMap. according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/ |
 
 ### Webhooks cleanup
 
@@ -729,6 +729,7 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | cleanupJobs.admissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.admissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
+| cleanupJobs.admissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
 | cleanupJobs.admissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.admissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
@@ -750,6 +751,7 @@ The chart values are organised per component.
 | cleanupJobs.admissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
 | cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.clusterAdmissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
+| cleanupJobs.clusterAdmissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
 | cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
 | cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
