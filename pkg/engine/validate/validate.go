@@ -145,17 +145,45 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 				continue
 			}
 
-			return handlerPath, err
+			skipSiblingExists := false
+			for _, skipError := range skipErrors {
+				if _, ok := skipError.(*PatternError); !ok {
+					skipSiblingExists = true
+					break
+				}
+			}
+			if !skipSiblingExists {
+				return handlerPath, err
+			} else {
+				continue
+			}
 		}
 
 		applyCount++
 	}
 
-	if applyCount == 0 && len(skipErrors) > 0 {
-		return path, &PatternError{
-			Err:  multierr.Combine(skipErrors...),
-			Path: path,
-			Skip: true,
+	if len(skipErrors) > 0 {
+		if applyCount == 0 {
+			return path, &PatternError{
+				Err:  multierr.Combine(skipErrors...),
+				Path: path,
+				Skip: true,
+			}
+		} else {
+			skipSiblingExists := false
+			for _, skipError := range skipErrors {
+				if _, ok := skipError.(*PatternError); !ok {
+					skipSiblingExists = true
+					break
+				}
+			}
+			if skipSiblingExists {
+				return path, &PatternError{
+					Err:  multierr.Combine(skipErrors...),
+					Path: path,
+					Skip: true,
+				}
+			}
 		}
 	}
 
