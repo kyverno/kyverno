@@ -1,0 +1,22 @@
+name: add-network-policy
+version: 1.0.0
+displayName: Add Network Policy
+createdAt: "2023-04-10T19:47:15.000Z"
+description: >-
+  By default, Kubernetes allows communications across all Pods within a cluster. The NetworkPolicy resource and a CNI plug-in that supports NetworkPolicy must be used to restrict communications. A default NetworkPolicy should be configured for each Namespace to default deny all ingress and egress traffic to the Pods in the Namespace. Application teams can then configure additional NetworkPolicy resources to allow desired traffic to application Pods from select sources. This policy will create a new NetworkPolicy resource named `default-deny` which will deny all traffic anytime a new Namespace is created.
+install: |-
+  ```shell
+  kubectl apply -f https://raw.githubusercontent.com/kyverno/policies/main/best-practices/add-network-policy/add-network-policy.yaml
+  ```
+keywords:
+  - kyverno
+  - Multi-Tenancy
+  - EKS Best Practices
+readme: |
+  By default, Kubernetes allows communications across all Pods within a cluster. The NetworkPolicy resource and a CNI plug-in that supports NetworkPolicy must be used to restrict communications. A default NetworkPolicy should be configured for each Namespace to default deny all ingress and egress traffic to the Pods in the Namespace. Application teams can then configure additional NetworkPolicy resources to allow desired traffic to application Pods from select sources. This policy will create a new NetworkPolicy resource named `default-deny` which will deny all traffic anytime a new Namespace is created.
+  
+  Refer to the documentation for more details on Kyverno annotations: https://artifacthub.io/docs/topics/annotations/kyverno/
+annotations:
+  kyverno/category: "Multi-Tenancy, EKS Best Practices"
+  kyverno/subject: "NetworkPolicy"
+digest: d01c7f24cf053549534bba5b98cc479ee0e5a4a01f810b8a45d11c86b26d846e
