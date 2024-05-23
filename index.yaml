@@ -7244,6 +7244,33 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.12.2
+    created: "2024-05-23T15:29:25.761940095Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 9f0bcb59b5966c80aed82c9f150afc2836b2e315c759e5d73af1a4ac4219e192
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - email: cncf-kyverno-maintainers@lists.cncf.io
+      name: kyverno-maintainers
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-3.2.2.tgz
+    version: 3.2.2
+  - annotations:
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.12.2-rc.3
     created: "2024-05-23T09:52:44.474445045Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -11303,4 +11330,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2024-05-23T15:28:18.421393066Z"
+generated: "2024-05-23T15:29:25.760087548Z"
