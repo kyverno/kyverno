@@ -859,13 +859,8 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-<<<<<<< HEAD
 |  | crds | 3.2.3 |
 |  | grafana | 3.2.3 |
-=======
-|  | crds | 3.2.3-rc.3 |
-|  | grafana | 3.2.3-rc.3 |
->>>>>>> release-1.12
 
 ## Maintainers
 
