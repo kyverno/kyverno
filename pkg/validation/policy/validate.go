@@ -753,7 +753,6 @@ func addImageVerifyVariables(rule *kyvernov1.Rule, ctx *enginecontext.MockContex
 	if rule.HasValidateImageVerification() {
 		for _, verifyImage := range rule.VerifyImages {
 			for _, attestation := range verifyImage.Attestations {
-				// Name validation, If name does not exists it should an error not panic
 				ctx.AddVariable(attestation.Name + "*")
 			}
 		}
