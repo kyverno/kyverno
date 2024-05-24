@@ -475,7 +475,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
 					continue
 				}
-				if err := validate.MatchPattern(logger, generatedObj.Object, newResource.Object); err == nil {
+				if err := validate.MatchPattern(logger, newResource.Object, generatedObj.Object); err == nil {
 					logger.V(4).Info("patterns match, skipping updates")
 					continue
 				}
