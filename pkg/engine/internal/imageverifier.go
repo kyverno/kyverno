@@ -298,7 +298,7 @@ func (iv *ImageVerifier) Verify(
 		} else {
 			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
 			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
-			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
+			if ruleResp != nil && (ruleResp.Status() == engineapi.RuleStatusPass || (ruleResp.Status() == engineapi.RuleStatusFail && digest != "")) {
 				if iv.ivCache != nil {
 					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
 					if err != nil {
@@ -327,20 +327,17 @@ func (iv *ImageVerifier) Verify(
 			}
 		}
 
-		if ruleResp != nil {
+		// When validate fails it trigers if statement
+		if ruleResp.Status() == engineapi.RuleStatusFail && digest != "" {
+			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
+				iv.ivm.Add(image, engineapi.ImageVerificationPass)
+			}
+			responses = append(responses, ruleResp)
+		} else if ruleResp != nil {
 			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
 				iv.ivm.Add(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))
 			}
 			responses = append(responses, ruleResp)
-		}
-	}
-
-	for _, imageVerify := range iv.rule.VerifyImages {
-		if err := iv.validate(imageVerify, ctx); err != nil {
-			msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
-			iv.logger.Error(err, "failed to validate in verifyImage")
-			responses = append(responses, engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg))
-			continue
 		}
 	}
 
@@ -537,18 +534,17 @@ func (iv *ImageVerifier) verifyAttestations(
 	if iv.rule.HasValidateImageVerification() {
 		for _, imageVerify := range iv.rule.VerifyImages {
 			if err := iv.validate(imageVerify, ctx); err != nil {
-				msg := fmt.Sprintf("validation in verifyImages failed: %v", err)
-				iv.logger.Error(err, "validation in verifyImages failed")
+				msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
+				iv.logger.Error(err, "failed to validate in verifyImage")
 				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 			}
 		}
-		msg := fmt.Sprintf("verifyImages validation is passed in %v rule", iv.rule.Name)
+		msg := fmt.Sprintf("Validated verifyImages in %v", iv.rule.Name)
 		return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 	}
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
-
 	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 }
 
