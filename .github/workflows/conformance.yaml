@@ -86,13 +86,13 @@ jobs:
               - standard
         k8s-version:
           - name: v1.27
-            version: v1.27.14
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.10
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.5
+            version: v1.29.4
           - name: v1.30
-            version: v1.30.1
+            version: v1.30.0
         tests:
           - ^autogen$
           - ^background-only$
@@ -181,7 +181,7 @@ jobs:
               - generate-validating-admission-policy
         k8s-version:
           - name: v1.27
-            version: v1.27.14
+            version: v1.27.13
         tests:
           - generate-validating-admission-policy
     needs: prepare-images
@@ -250,11 +250,11 @@ jobs:
               - generate-validating-admission-policy
         k8s-version:
           - name: v1.28
-            version: v1.28.10
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.5
+            version: v1.29.4
           - name: v1.30
-            version: v1.30.1
+            version: v1.30.0
         tests:
           - generate-validating-admission-policy
           - webhook-configurations
@@ -324,7 +324,7 @@ jobs:
               - validating-admission-policy-reports
         k8s-version:
           - name: v1.27
-            version: v1.27.14
+            version: v1.27.13
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
@@ -393,11 +393,11 @@ jobs:
               - validating-admission-policy-reports
         k8s-version:
           - name: v1.28
-            version: v1.28.10
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.5
+            version: v1.29.4
           - name: v1.30
-            version: v1.30.1
+            version: v1.30.0
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
@@ -466,13 +466,13 @@ jobs:
               - force-failure-policy-ignore
         k8s-version:
           - name: v1.27
-            version: v1.27.14
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.10
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.5
+            version: v1.29.4
           - name: v1.30
-            version: v1.30.1
+            version: v1.30.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -542,13 +542,13 @@ jobs:
               - ttl
         k8s-version:
           - name: v1.27
-            version: v1.27.14
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.10
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.5
+            version: v1.29.4
           - name: v1.30
-            version: v1.30.1
+            version: v1.30.0
         tests:
           - ttl
     needs: prepare-images
@@ -711,13 +711,13 @@ jobs:
               - default
         k8s-version:
           - name: v1.27
-            version: v1.27.14
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.10
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.5
+            version: v1.29.4
           - name: v1.30
-            version: v1.30.1
+            version: v1.30.0
         tests:
           - rbac
     needs: prepare-images
@@ -783,13 +783,13 @@ jobs:
               - standard
         k8s-version:
           - name: v1.27
-            version: v1.27.14
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.10
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.5
+            version: v1.29.4
           - name: v1.30
-            version: v1.30.1
+            version: v1.30.0
         tests:
           - ^argo$
           - ^aws$
