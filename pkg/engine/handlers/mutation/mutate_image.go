@@ -100,7 +100,7 @@ func (h mutateImageHandler) Process(
 				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err),
 			)
 		}
-		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm, contextLoader)
+		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm)
 		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
 		patches = append(patches, patch...)
 		engineResponses = append(engineResponses, ruleResponse...)
