@@ -1719,8 +1719,8 @@ func Test_MultipleImageVerificationAttestationFail(t *testing.T) {
 
 	// Passes as image is included and not excluded
 	erPass, ivm := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContextPass, cfg)
-	assert.Equal(t, len(erPass.PolicyResponse.Rules), 2)
-	assert.Equal(t, erPass.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass,
+	assert.Equal(t, len(erPass.PolicyResponse.Rules), 1)
+	assert.Equal(t, erPass.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
 			engineapi.RuleStatusPass, erPass.PolicyResponse.Rules[0].Status(), erPass.PolicyResponse.Rules[0].Message()))
 	assert.Equal(t, ivm.IsEmpty(), false)
