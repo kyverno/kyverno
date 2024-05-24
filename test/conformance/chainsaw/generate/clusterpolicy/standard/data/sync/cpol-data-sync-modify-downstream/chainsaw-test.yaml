@@ -37,7 +37,7 @@ spec:
     try:
     - sleep:
         duration: 3s
-- name: step-08
+  - name: step-08
     try:
     - assert:
         file: chainsaw-step-08-assert-1-1.yaml
