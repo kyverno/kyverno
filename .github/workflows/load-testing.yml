@@ -50,8 +50,8 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version:
-          - name: v1.29
-            version: v1.29.1
+          - name: v1.30
+            version: v1.30.0
         kyverno-config:
           - name: default
             values:
