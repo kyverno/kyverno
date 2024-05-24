@@ -85,14 +85,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.14
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.10
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.5
+          - name: v1.30
+            version: v1.30.1
         tests:
           - ^autogen$
           - ^background-only$
@@ -181,7 +181,7 @@ jobs:
               - generate-validating-admission-policy
         k8s-version:
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.14
         tests:
           - generate-validating-admission-policy
     needs: prepare-images
@@ -250,9 +250,11 @@ jobs:
               - generate-validating-admission-policy
         k8s-version:
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.10
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.5
+          - name: v1.30
+            version: v1.30.1
         tests:
           - generate-validating-admission-policy
           - webhook-configurations
@@ -321,10 +323,8 @@ jobs:
               - standard
               - validating-admission-policy-reports
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.14
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
@@ -393,9 +393,11 @@ jobs:
               - validating-admission-policy-reports
         k8s-version:
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.10
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.5
+          - name: v1.30
+            version: v1.30.1
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
@@ -463,14 +465,14 @@ jobs:
               - standard
               - force-failure-policy-ignore
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.14
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.10
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.5
+          - name: v1.30
+            version: v1.30.1
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -539,14 +541,14 @@ jobs:
               - standard
               - ttl
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.14
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.10
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.5
+          - name: v1.30
+            version: v1.30.1
         tests:
           - ttl
     needs: prepare-images
@@ -614,14 +616,14 @@ jobs:
               - standard
               - custom-sigstore
         k8s-version:
-          - name: v1.26
-            version: v1.26.x
           - name: v1.27
             version: v1.27.x
           - name: v1.28
             version: v1.28.x
           - name: v1.29
             version: v1.29.x
+          - name: v1.30
+            version: v1.30.x
         tests:
           - custom-sigstore
     needs: prepare-images
@@ -643,7 +645,7 @@ jobs:
         uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@a20ae166ad6fe8f7165f4b3ee218acf72d9c45e8
+        uses: sigstore/scaffolding/actions/setup@c59aa57be4062453b4efcdeac05f1b737bdc5cba
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version.version }}
@@ -708,14 +710,14 @@ jobs:
             values:
               - default
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.14
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.10
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.5
+          - name: v1.30
+            version: v1.30.1
         tests:
           - rbac
     needs: prepare-images
@@ -780,14 +782,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.14
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.10
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.5
+          - name: v1.30
+            version: v1.30.1
         tests:
           - ^argo$
           - ^aws$
