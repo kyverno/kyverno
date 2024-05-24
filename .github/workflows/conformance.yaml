@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -85,14 +85,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - ^autogen$
           - ^background-only$
@@ -119,7 +119,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -181,14 +181,14 @@ jobs:
               - generate-validating-admission-policy
         k8s-version:
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
         tests:
           - generate-validating-admission-policy
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -250,9 +250,11 @@ jobs:
               - generate-validating-admission-policy
         k8s-version:
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - generate-validating-admission-policy
           - webhook-configurations
@@ -260,7 +262,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -321,17 +323,15 @@ jobs:
               - standard
               - validating-admission-policy-reports
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -393,16 +393,18 @@ jobs:
               - validating-admission-policy-reports
         k8s-version:
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -463,14 +465,14 @@ jobs:
               - standard
               - force-failure-policy-ignore
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -478,7 +480,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -539,21 +541,21 @@ jobs:
               - standard
               - ttl
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - ttl
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -614,21 +616,21 @@ jobs:
               - standard
               - custom-sigstore
         k8s-version:
-          - name: v1.26
-            version: v1.26.x
           - name: v1.27
             version: v1.27.x
           - name: v1.28
             version: v1.28.x
           - name: v1.29
             version: v1.29.x
+          - name: v1.30
+            version: v1.30.x
         tests:
           - custom-sigstore
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -643,7 +645,7 @@ jobs:
         uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@a20ae166ad6fe8f7165f4b3ee218acf72d9c45e8
+        uses: sigstore/scaffolding/actions/setup@c59aa57be4062453b4efcdeac05f1b737bdc5cba
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version.version }}
@@ -708,21 +710,21 @@ jobs:
             values:
               - default
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - rbac
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -780,14 +782,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - ^argo$
           - ^aws$
@@ -826,9 +828,9 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Checkout kyverno/policies
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           repository: kyverno/policies
           path: policies
@@ -899,7 +901,7 @@ jobs:
     needs: prepare-images
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -957,7 +959,7 @@ jobs:
     name: ${{ matrix.tests }} - chainsaw
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
