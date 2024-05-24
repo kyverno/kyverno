@@ -313,17 +313,19 @@ func (iv *ImageVerifier) Verify(
 			}
 		}
 
-		// When validate fails it trigers if statement
-		if ruleResp.Status() == engineapi.RuleStatusFail && digest != "" {
-			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
-				iv.ivm.Add(image, engineapi.ImageVerificationPass)
+		if ruleResp != nil {
+			// When validate fails it trigers if statement
+			if ruleResp.Status() == engineapi.RuleStatusFail && digest != "" {
+				if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
+					iv.ivm.Add(image, engineapi.ImageVerificationPass)
+				}
+				responses = append(responses, ruleResp)
+			} else {
+				if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
+					iv.ivm.Add(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))
+				}
+				responses = append(responses, ruleResp)
 			}
-			responses = append(responses, ruleResp)
-		} else if ruleResp != nil {
-			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
-				iv.ivm.Add(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))
-			}
-			responses = append(responses, ruleResp)
 		}
 	}
 
@@ -509,7 +511,7 @@ func (iv *ImageVerifier) verifyAttestations(
 				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 			}
 		}
-		msg := fmt.Sprintf("Validated verifyImages in %v", iv.rule.Name)
+		msg := fmt.Sprintf("validated verifyImages in %v", iv.rule.Name)
 		return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 	}
 
