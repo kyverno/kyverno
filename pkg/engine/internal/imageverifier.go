@@ -536,12 +536,12 @@ func (iv *ImageVerifier) verifyAttestations(
 	if iv.rule.HasValidateImageVerification() {
 		for _, imageVerify := range iv.rule.VerifyImages {
 			if err := iv.validate(imageVerify, ctx); err != nil {
-				msg := fmt.Sprintf("failed to validate in verifyImage: %v", err)
-				iv.logger.Error(err, "failed to validate in verifyImage")
+				msg := fmt.Sprintf("verifyImages validation is failed: %v", err)
+				iv.logger.Error(err, "verifyImages validation is failed")
 				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 			}
 		}
-		msg := fmt.Sprintf("validated verifyImages in %v", iv.rule.Name)
+		msg := fmt.Sprintf("verifyImages validation is passed in %v rule", iv.rule.Name)
 		return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
 	}
 
