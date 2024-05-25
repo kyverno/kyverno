@@ -62,7 +62,7 @@ spec:
             - entries:
               - certificates: 
                   cert: "{{ keys.data.certificate }}"
-          - type: sbom/cyclone-dx
+          - type: vulnerability-scan
             name: two
             attestors:
             - entries:
