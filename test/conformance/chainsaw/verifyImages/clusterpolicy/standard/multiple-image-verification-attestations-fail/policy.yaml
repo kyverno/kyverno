@@ -72,7 +72,12 @@ spec:
           deny:
             conditions:
               any:
-                - key: '{{ one[0].type }}'
-                  operator: Equals
-                  value: '{{ two[0].type }}'
+              - key: '{{ one[0].predicate.bomFormat}}'
+                operator: NotEquals
+                value: CycloneDX
+                message: test1
+              - key: '{{ two[0].schemaVersion }}'
+                operator: GreaterThan
+                value: 0
+                message: test2
           message: Sample Validation
