@@ -3,14 +3,19 @@ package v1
 import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	log "github.com/kyverno/kyverno/pkg/logging"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func FromJSON(in *apiextv1.JSON) apiextensions.JSON {
+	if in == nil {
+		return nil
+	}
+
 	var out apiextensions.JSON
-	if err := apiextv1.Convert_v1_JSON_To_apiextensions_JSON(in, &out, nil); err != nil {
+	if err := jsonutils.Unmarshal(in.Raw, &out); err != nil {
 		log.Error(err, "failed to convert JSON to interface")
 	}
 	return out

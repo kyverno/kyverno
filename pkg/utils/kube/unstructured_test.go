@@ -28,7 +28,7 @@ func TestConvertToUnstructured(t *testing.T) {
 		{
 			name: "Test invalid JSON",
 			obj:  func() {},
-			err:  fmt.Errorf("json: unsupported type: func()"),
+			err:  fmt.Errorf("func() is unsupported type"),
 		},
 		{
 			name: "Test struct input",
@@ -44,13 +44,13 @@ func TestConvertToUnstructured(t *testing.T) {
 		{
 			name: "Test slice input",
 			obj:  []string{"a", "b", "c"},
-			err:  fmt.Errorf("json: cannot unmarshal array into Go value of type map[string]interface {}"),
+			err:  fmt.Errorf("ReadMapCB: expect { or n, but found [, error found in #1 byte of ...|[\"a\",\"b\",\"c|..., bigger context ...|[\"a\",\"b\",\"c\"]|..."),
 		},
 
 		{
 			name: "Test number input",
 			obj:  123,
-			err:  fmt.Errorf("json: cannot unmarshal number into Go value of type map[string]interface {}"),
+			err:  fmt.Errorf("ReadMapCB: expect { or n, but found 1, error found in #1 byte of ...|123|..., bigger context ...|123|..."),
 		},
 	}
 	for _, tc := range testCases {
@@ -66,6 +66,34 @@ func TestConvertToUnstructured(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("expected %v but got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestBytesToUnstructured(t *testing.T) {
+	testCases := []struct {
+		name     string
+		data     []byte
+		expected *unstructured.Unstructured
+	}{
+		{
+			name: "Test valid JSON",
+			data: []byte(`{"key": "value"}`),
+			expected: &unstructured.Unstructured{Object: map[string]interface{}{
+				"key": "value",
+			}},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual, err := BytesToUnstructured(tc.data)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(actual, tc.expected) {
+				t.Errorf("expected %v, but got %v", tc.expected, actual)
 			}
 		})
 	}

@@ -7,11 +7,12 @@ import (
 
 // BytesToUnstructured converts the resource to unstructured format
 func BytesToUnstructured(data []byte) (*unstructured.Unstructured, error) {
-	resource := &unstructured.Unstructured{}
-	err := resource.UnmarshalJSON(data)
+	var resourceMap map[string]interface{}
+	err := jsonutils.Unmarshal(data, &resourceMap)
 	if err != nil {
 		return nil, err
 	}
+	resource := &unstructured.Unstructured{Object: resourceMap}
 	return resource, nil
 }
 
