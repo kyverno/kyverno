@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -22,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/notary"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
@@ -67,12 +67,12 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 		return false
 	}
 	var newValueObj, oldValueObj map[string]engineapi.ImageVerificationMetadataStatus
-	err := json.Unmarshal([]byte(newValue), &newValueObj)
+	err := jsonutils.Unmarshal([]byte(newValue), &newValueObj)
 	if err != nil {
 		log.Error(err, "failed to parse new resource annotation.")
 		return true
 	}
-	err = json.Unmarshal([]byte(oldValue), &oldValueObj)
+	err = jsonutils.Unmarshal([]byte(oldValue), &oldValueObj)
 	if err != nil {
 		log.Error(err, "failed to parse old resource annotation.")
 		return true

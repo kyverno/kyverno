@@ -2,7 +2,6 @@ package loaders
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -11,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 type Store interface {
@@ -104,7 +104,7 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 	if _, ok := data.([]byte); ok {
 		jsonData = data.([]byte)
 	} else {
-		jsonData, err = json.Marshal(data)
+		jsonData, err = jsonutils.Marshal(data)
 		if err != nil {
 			return nil, err
 		}
@@ -134,12 +134,12 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 	}
 	g.logger.V(6).Info("applied jmespath expression", "name", g.entry.Name, "results", results)
 
-	return json.Marshal(results)
+	return jsonutils.Marshal(results)
 }
 
 func (a *gctxLoader) applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
 	var data interface{}
-	err := json.Unmarshal(jsonData, &data)
+	err := jsonutils.Unmarshal(jsonData, &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %w", string(jsonData), err)
 	}

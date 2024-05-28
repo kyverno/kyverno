@@ -3,9 +3,9 @@ package autogen
 import (
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -190,13 +190,11 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 }
 
 func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
-	json := jsoniter.ConfigCompatibleWithStandardLibrary
-
-	if bytes, err := json.Marshal(rule); err != nil {
+	if bytes, err := jsonutils.Marshal(rule); err != nil {
 		return nil, err
 	} else {
 		bytes = updateGenRuleByte(bytes, kind)
-		if err := json.Unmarshal(bytes, &rule); err != nil {
+		if err := jsonutils.Unmarshal(bytes, &rule); err != nil {
 			return nil, err
 		}
 
@@ -204,7 +202,7 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		// Therefore CEL expressions can be either written as object.spec or request.object.spec
 		if rule.Validation != nil && rule.Validation.CEL != nil {
 			bytes = updateCELFields(bytes, kind)
-			if err := json.Unmarshal(bytes, &rule); err != nil {
+			if err := jsonutils.Unmarshal(bytes, &rule); err != nil {
 				return nil, err
 			}
 		}

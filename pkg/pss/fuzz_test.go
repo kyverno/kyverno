@@ -7,12 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-
-	corev1 "k8s.io/api/core/v1"
-
 	fuzz "github.com/AdamKorcz/go-fuzz-headers-1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"golang.org/x/exp/slices"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -369,11 +368,11 @@ var (
 )
 
 func init() {
-	err := json.Unmarshal(baselineV126Policy, &baselineV124Rule)
+	err := jsonutils.Unmarshal(baselineV126Policy, &baselineV124Rule)
 	if err != nil {
 		panic(err)
 	}
-	err = json.Unmarshal(baselineLatestPolicy, &baselineLatestRule)
+	err = jsonutils.Unmarshal(baselineLatestPolicy, &baselineLatestRule)
 	if err != nil {
 		panic(err)
 	}

@@ -1,11 +1,11 @@
 package patch
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -974,7 +974,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 
 func toJSON(t *testing.T, b []byte) interface{} {
 	var i interface{}
-	err := json.Unmarshal(b, &i)
+	err := jsonutils.Unmarshal(b, &i)
 	assert.NilError(t, err)
 	return i
 }

@@ -1,9 +1,9 @@
 package v2beta1
 
 import (
-	"encoding/json"
 	"testing"
 
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -90,7 +90,7 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 	 }`)
 
 	var policy *ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	for _, rule := range policy.Spec.Rules {
 		path := field.NewPath("dummy")
@@ -149,7 +149,7 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 	`)
 
 	var policy *ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	for _, rule := range policy.Spec.Rules {
 		path := field.NewPath("dummy")
@@ -222,7 +222,7 @@ func Test_doesMatchExcludeConflict(t *testing.T) {
 	}
 	for _, testcase := range testcases {
 		var rule Rule
-		err := json.Unmarshal(testcase.rule, &rule)
+		err := jsonutils.Unmarshal(testcase.rule, &rule)
 		assert.NilError(t, err)
 		errs := rule.ValidateMatchExcludeConflict(path)
 		var expectedErrs field.ErrorList
@@ -532,7 +532,7 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 
 	for _, testcase := range testcases {
 		var rule *Rule
-		err := json.Unmarshal(testcase.rule, &rule)
+		err := jsonutils.Unmarshal(testcase.rule, &rule)
 		assert.NilError(t, err, testcase.name)
 		errs := rule.ValidateGenerate(path, false, "", nil)
 		assert.Equal(t, len(errs) != 0, testcase.shouldFail, testcase.name)

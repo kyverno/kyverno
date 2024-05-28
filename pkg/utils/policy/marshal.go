@@ -1,15 +1,14 @@
 package policy
 
 import (
-	"encoding/json"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"sigs.k8s.io/yaml"
 )
 
 // ToJson marshals a policy into corresponding json bytes.
 func ToJson(policy kyvernov1.PolicyInterface) ([]byte, error) {
-	return json.Marshal(policy)
+	return jsonutils.Marshal(policy)
 }
 
 // ToYaml marshals a policy into corresponding yaml bytes.

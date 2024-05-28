@@ -3,7 +3,6 @@ package report
 import (
 	"crypto/md5" //nolint:gosec
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -144,7 +144,7 @@ func CalculateResourceHash(resource unstructured.Unstructured) string {
 	// fix for pods
 	unstructured.RemoveNestedField(obj, "spec", "nodeName")
 	input := []interface{}{labels, annotations, obj}
-	data, err := json.Marshal(input)
+	data, err := jsonutils.Marshal(input)
 	if err != nil {
 		return ""
 	}

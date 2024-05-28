@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -9,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -94,10 +94,10 @@ func Test_ForceMutateSubstituteVars(t *testing.T) {
 	`)
 
 	var expectedResource interface{}
-	assert.NilError(t, json.Unmarshal(expectedRawResource, &expectedResource))
+	assert.NilError(t, jsonutils.Unmarshal(expectedRawResource, &expectedResource))
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -200,10 +200,10 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 	`)
 
 	var expectedResource unstructured.Unstructured
-	assert.NilError(t, json.Unmarshal(rawExpected, &expectedResource))
+	assert.NilError(t, jsonutils.Unmarshal(rawExpected, &expectedResource))
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -287,10 +287,10 @@ func Test_ForceMutateSubstituteVarsWithPatchStrategicMerge(t *testing.T) {
 	  `)
 
 	var expectedResource interface{}
-	assert.NilError(t, json.Unmarshal(expectedRawResource, &expectedResource))
+	assert.NilError(t, jsonutils.Unmarshal(expectedRawResource, &expectedResource))
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)

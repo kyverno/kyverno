@@ -1,16 +1,15 @@
 package utils
 
 import (
-	"encoding/json"
 	"testing"
-
-	authenticationv1 "k8s.io/api/authentication/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -898,7 +897,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 
 	for i, tc := range tcs {
 		var policy v1.Policy
-		err := json.Unmarshal(tc.Policy, &policy)
+		err := jsonutils.Unmarshal(tc.Policy, &policy)
 		if err != nil {
 			t.Errorf("Testcase %d invalid policy raw", i+1)
 		}
@@ -1803,7 +1802,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 
 	for i, tc := range tcs {
 		var policy v1.Policy
-		err := json.Unmarshal(tc.Policy, &policy)
+		err := jsonutils.Unmarshal(tc.Policy, &policy)
 		if err != nil {
 			t.Errorf("Testcase %d invalid policy raw", i+1)
 		}

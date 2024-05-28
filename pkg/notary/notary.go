@@ -3,7 +3,6 @@ package notary
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -12,6 +11,7 @@ import (
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/logging"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
@@ -302,7 +302,7 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 		return nil, fmt.Errorf("error in fetching statement: %w", err)
 	}
 	var manifest ocispec.Manifest
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+	if err := jsonutils.Unmarshal(manifestBytes, &manifest); err != nil {
 		return nil, err
 	}
 	if len(manifest.Layers) == 0 {
@@ -344,12 +344,12 @@ func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descr
 	}
 
 	predicate := make(map[string]interface{})
-	if err := json.Unmarshal(predicateBytes.Bytes(), &predicate); err != nil {
+	if err := jsonutils.Unmarshal(predicateBytes.Bytes(), &predicate); err != nil {
 		return nil, err
 	}
 
 	data := make(map[string]interface{})
-	if err := json.Unmarshal(manifestBytes, &data); err != nil {
+	if err := jsonutils.Unmarshal(manifestBytes, &data); err != nil {
 		return nil, err
 	}
 	if data["type"] == nil {

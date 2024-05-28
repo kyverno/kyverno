@@ -2,7 +2,6 @@ package validation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -410,13 +410,13 @@ func deserializeAnyPattern(anyPattern apiextensions.JSON) ([]interface{}, error)
 		return nil, nil
 	}
 
-	ap, err := json.Marshal(anyPattern)
+	ap, err := jsonutils.Marshal(anyPattern)
 	if err != nil {
 		return nil, err
 	}
 
 	var res []interface{}
-	if err := json.Unmarshal(ap, &res); err != nil {
+	if err := jsonutils.Unmarshal(ap, &res); err != nil {
 		return nil, err
 	}
 

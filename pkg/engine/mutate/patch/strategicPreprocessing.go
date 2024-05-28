@@ -1,12 +1,12 @@
 package patch
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -372,7 +372,7 @@ func convertRNodeToInterface(document *yaml.RNode) (interface{}, error) {
 
 	var documentInterface interface{}
 
-	err = json.Unmarshal(rawDocument, &documentInterface)
+	err = jsonutils.Unmarshal(rawDocument, &documentInterface)
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/assert"
@@ -51,7 +51,7 @@ func testMutate(
 
 func loadResource[T any](t *testing.T, bytes []byte) T {
 	var result T
-	require.NoError(t, json.Unmarshal(bytes, &result))
+	require.NoError(t, jsonutils.Unmarshal(bytes, &result))
 	return result
 }
 
@@ -611,7 +611,7 @@ func Test_foreach(t *testing.T) {
   }
 }`)
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &policy)
+	err := jsonutils.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
@@ -712,7 +712,7 @@ func Test_foreach_element_mutation(t *testing.T) {
   }
 }`)
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &policy)
+	err := jsonutils.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
@@ -832,7 +832,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
     }
  }`)
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &policy)
+	err := jsonutils.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
 	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
@@ -1948,7 +1948,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
   }`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &policy)
+	err := jsonutils.Unmarshal(policyRaw, &policy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -2366,7 +2366,7 @@ func Test_SpecialCharacters(t *testing.T) {
 
 			// Parse policy document.
 			var policy kyverno.ClusterPolicy
-			if err := json.Unmarshal(tt.policyRaw, &policy); err != nil {
+			if err := jsonutils.Unmarshal(tt.policyRaw, &policy); err != nil {
 				t.Error(err)
 			}
 

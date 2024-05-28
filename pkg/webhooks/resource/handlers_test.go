@@ -2,7 +2,6 @@ package resource
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"testing"
@@ -17,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"gotest.tools/assert"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -400,7 +400,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	resourceHandlers := NewFakeHandlers(ctx, policyCache)
 
 	var validPolicy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyCheckLabel), &validPolicy)
+	err := jsonutils.Unmarshal([]byte(policyCheckLabel), &validPolicy)
 	assert.NilError(t, err)
 
 	key := makeKey(&validPolicy)
@@ -445,7 +445,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	resourceHandlers := NewFakeHandlers(ctx, policyCache)
 
 	var invalidPolicy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyInvalid), &invalidPolicy)
+	err := jsonutils.Unmarshal([]byte(policyInvalid), &invalidPolicy)
 	assert.NilError(t, err)
 
 	request := handlers.AdmissionRequest{
@@ -487,7 +487,7 @@ func Test_ImageVerify(t *testing.T) {
 	resourceHandlers := NewFakeHandlers(ctx, policyCache)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyVerifySignature), &policy)
+	err := jsonutils.Unmarshal([]byte(policyVerifySignature), &policy)
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
@@ -531,7 +531,7 @@ func Test_MutateAndVerify(t *testing.T) {
 	resourceHandlers := NewFakeHandlers(ctx, policyCache)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyMutateAndVerify), &policy)
+	err := jsonutils.Unmarshal([]byte(policyMutateAndVerify), &policy)
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
@@ -569,14 +569,14 @@ func Test_MutateAndGenerate(t *testing.T) {
 	resourceHandlers.pcBuilder = mockPcBuilder
 
 	var generatePolicy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(mutateAndGenerateGeneratePolicy), &generatePolicy)
+	err := jsonutils.Unmarshal([]byte(mutateAndGenerateGeneratePolicy), &generatePolicy)
 	assert.NilError(t, err)
 
 	key := makeKey(&generatePolicy)
 	policyCache.Set(key, &generatePolicy, policycache.TestResourceFinder{})
 
 	var mutatePolicy kyverno.ClusterPolicy
-	err = json.Unmarshal([]byte(mutateAndGenerateMutatePolicy), &mutatePolicy)
+	err = jsonutils.Unmarshal([]byte(mutateAndGenerateMutatePolicy), &mutatePolicy)
 	assert.NilError(t, err)
 
 	key = makeKey(&mutatePolicy)

@@ -3,11 +3,11 @@ package policy
 import (
 	"crypto/md5" //nolint:gosec
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -58,7 +58,7 @@ func buildHashes(rules []kyvernov1.Rule) (sets.Set[string], error) {
 	ruleHashes := sets.New[string]()
 	for _, rule := range rules {
 		r := resetMutableFields(rule)
-		data, err := json.Marshal(r)
+		data, err := jsonutils.Marshal(r)
 		if err != nil {
 			return ruleHashes, fmt.Errorf("failed to create hash from the generate rule %v", err)
 		}

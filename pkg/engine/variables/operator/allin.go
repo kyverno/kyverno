@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 // NewAllInHandler returns handler to manage AllIn operations
@@ -74,7 +75,7 @@ func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 
 		var arr []string
 		if json.Valid([]byte(valuesAvailable)) {
-			if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+			if err := jsonutils.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
 				log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 				return true, false
 			}
@@ -156,7 +157,7 @@ func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNo
 
 		var arr []string
 		if json.Valid([]byte(valuesAvailable)) {
-			if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+			if err := jsonutils.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
 				log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 				return true, false
 			}

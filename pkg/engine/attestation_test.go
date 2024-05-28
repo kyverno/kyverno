@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -12,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/image"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -257,7 +257,7 @@ func Test_Conditions(t *testing.T) {
 	}
 
 	var dataMap map[string]interface{}
-	err := json.Unmarshal([]byte(scanPredicate), &dataMap)
+	err := jsonutils.Unmarshal([]byte(scanPredicate), &dataMap)
 	assert.NilError(t, err)
 
 	pass, _, err := internal.EvaluateConditions(conditions, ctx, dataMap, logr.Discard())

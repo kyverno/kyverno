@@ -1,8 +1,7 @@
 package data
 
 import (
-	"encoding/json"
-
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -31,12 +30,12 @@ func ToMap(data interface{}) (map[string]interface{}, error) {
 	if m, ok := data.(map[string]interface{}); ok {
 		return m, nil
 	}
-	b, err := json.Marshal(data)
+	b, err := jsonutils.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 	mapData := make(map[string]interface{})
-	err = json.Unmarshal(b, &mapData)
+	err = jsonutils.Unmarshal(b, &mapData)
 	if err != nil {
 		return nil, err
 	}

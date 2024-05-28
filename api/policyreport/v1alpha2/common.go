@@ -14,8 +14,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"encoding/json"
-
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -62,9 +61,9 @@ type PolicyReportSummary struct {
 }
 
 func (prs PolicyReportSummary) ToMap() map[string]interface{} {
-	b, _ := json.Marshal(&prs)
+	b, _ := jsonutils.Marshal(&prs)
 	var m map[string]interface{}
-	_ = json.Unmarshal(b, &m)
+	_ = jsonutils.Unmarshal(b, &m)
 	return m
 }
 

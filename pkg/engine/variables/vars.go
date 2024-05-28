@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	jsoniter "github.com/json-iterator/go"
 	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
@@ -16,10 +15,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 )
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // ReplaceAllVars replaces all variables with the value defined in the replacement function
 // This is used to avoid validation errors
@@ -78,13 +76,13 @@ func SubstituteAllInType[T any](log logr.Logger, ctx context.EvalInterface, t *T
 		return nil, err
 	}
 
-	jsonBytes, err := json.Marshal(untypedResults)
+	jsonBytes, err := jsonutils.Marshal(untypedResults)
 	if err != nil {
 		return nil, err
 	}
 
 	var result T
-	err = json.Unmarshal(jsonBytes, &result)
+	err = jsonutils.Unmarshal(jsonBytes, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -102,13 +100,13 @@ func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, rule kyvern
 }
 
 func untypedToTyped[T any](untyped interface{}) (*T, error) {
-	jsonRule, err := json.Marshal(untyped)
+	jsonRule, err := jsonutils.Marshal(untyped)
 	if err != nil {
 		return nil, err
 	}
 
 	var t T
-	err = json.Unmarshal(jsonRule, &t)
+	err = jsonutils.Unmarshal(jsonRule, &t)
 	if err != nil {
 		return nil, err
 	}
@@ -131,13 +129,13 @@ func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, condi
 }
 
 func ConditionsToJSONObject(conditions []kyvernov1.AnyAllConditions) ([]map[string]interface{}, error) {
-	bytes, err := json.Marshal(conditions)
+	bytes, err := jsonutils.Marshal(conditions)
 	if err != nil {
 		return nil, err
 	}
 
 	m := []map[string]interface{}{}
-	if err := json.Unmarshal(bytes, &m); err != nil {
+	if err := jsonutils.Unmarshal(bytes, &m); err != nil {
 		return nil, err
 	}
 
@@ -145,13 +143,13 @@ func ConditionsToJSONObject(conditions []kyvernov1.AnyAllConditions) ([]map[stri
 }
 
 func JSONObjectToConditions(data interface{}) ([]kyvernov1.AnyAllConditions, error) {
-	bytes, err := json.Marshal(data)
+	bytes, err := jsonutils.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 
 	var c []kyvernov1.AnyAllConditions
-	if err := json.Unmarshal(bytes, &c); err != nil {
+	if err := jsonutils.Unmarshal(bytes, &c); err != nil {
 		return nil, err
 	}
 
@@ -406,7 +404,7 @@ func substituteVarInPattern(prefix, pattern, variable string, value interface{})
 	if s, ok := value.(string); ok {
 		stringToSubstitute = s
 	} else {
-		buffer, err := json.Marshal(value)
+		buffer, err := jsonutils.Marshal(value)
 		if err != nil {
 			return "", fmt.Errorf("failed to marshal %T: %v", value, value)
 		}
@@ -532,7 +530,7 @@ func getValueFromReference(fullDocument interface{}, path string) (interface{}, 
 }
 
 func replaceSubstituteVariables(document interface{}) interface{} {
-	rawDocument, err := json.Marshal(document)
+	rawDocument, err := jsonutils.Marshal(document)
 	if err != nil {
 		return document
 	}
@@ -554,7 +552,7 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 	}
 
 	var output interface{}
-	err = json.Unmarshal(rawDocument, &output)
+	err = jsonutils.Unmarshal(rawDocument, &output)
 	if err != nil {
 		logging.Error(err, "failed to unmarshall JSON", "document", string(rawDocument))
 		return document

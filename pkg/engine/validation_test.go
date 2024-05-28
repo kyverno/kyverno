@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -143,7 +143,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	`)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -244,7 +244,7 @@ func TestValidate_image_tag_pass(t *testing.T) {
 	`)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -322,7 +322,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	`)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -405,7 +405,7 @@ func TestValidate_host_network_port(t *testing.T) {
 	 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -495,7 +495,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 	 }	 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -584,7 +584,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	 }	 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
@@ -653,7 +653,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -740,7 +740,7 @@ func TestValidate_foreach_zero_reported_asskip(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -813,7 +813,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -887,7 +887,7 @@ func TestValidate_inequality_List_Processing(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -967,7 +967,7 @@ func TestValidate_inequality_List_ProcessingBrackets(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -1041,7 +1041,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -1116,7 +1116,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -1191,7 +1191,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -1261,7 +1261,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -1331,7 +1331,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -1419,7 +1419,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 	 }	 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -1506,7 +1506,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 	 	 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -1574,7 +1574,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	  }`)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(policyraw, &policy)
+	err := jsonutils.Unmarshal(policyraw, &policy)
 	assert.NilError(t, err)
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
@@ -1661,7 +1661,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 	  }`)
 
 	var policy kyvernov1.ClusterPolicy
-	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	assert.NilError(t, jsonutils.Unmarshal(policyraw, &policy))
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
@@ -1715,7 +1715,7 @@ func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
 	  }`)
 
 	var policy kyvernov1.ClusterPolicy
-	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	assert.NilError(t, jsonutils.Unmarshal(policyraw, &policy))
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
@@ -1799,7 +1799,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 	  }`)
 
 	var policy kyvernov1.ClusterPolicy
-	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	assert.NilError(t, jsonutils.Unmarshal(policyraw, &policy))
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
@@ -1885,7 +1885,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 	  }`)
 
 	var policy kyvernov1.ClusterPolicy
-	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	assert.NilError(t, jsonutils.Unmarshal(policyraw, &policy))
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
@@ -1983,7 +1983,7 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 	  }`)
 
 	var policy kyvernov1.ClusterPolicy
-	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	assert.NilError(t, jsonutils.Unmarshal(policyraw, &policy))
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
@@ -2029,7 +2029,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 
 	for _, test := range tests {
 		var policy kyvernov1.ClusterPolicy
-		assert.NilError(t, json.Unmarshal(test.policyRaw, &policy))
+		assert.NilError(t, jsonutils.Unmarshal(test.policyRaw, &policy))
 		resourceUnstructured, err := kubeutils.BytesToUnstructured(test.resourceRaw)
 		assert.NilError(t, err)
 
@@ -2208,19 +2208,19 @@ func Test_denyFeatureIssue744_BlockDelete(t *testing.T) {
 
 func executeTest(t *testing.T, test testCase) {
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(test.policy, &policy)
+	err := jsonutils.Unmarshal(test.policy, &policy)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var request admissionv1.AdmissionRequest
-	err = json.Unmarshal(test.request, &request)
+	err = jsonutils.Unmarshal(test.request, &request)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var userInfo kyvernov1beta1.RequestInfo
-	err = json.Unmarshal(test.userInfo, &userInfo)
+	err = jsonutils.Unmarshal(test.userInfo, &userInfo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2306,7 +2306,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 	`)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
@@ -2409,7 +2409,7 @@ func Test_EmptyStringInDenyCondition(t *testing.T) {
   }`)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &policy)
+	err := jsonutils.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
@@ -2497,7 +2497,7 @@ func Test_StringInDenyCondition(t *testing.T) {
   }`)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &policy)
+	err := jsonutils.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
@@ -3168,7 +3168,7 @@ func Test_foreach_validate_nested(t *testing.T) {
 
 func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string, status engineapi.RuleStatus, contextLoader engineapi.ContextLoaderFactory) {
 	var policy kyvernov1.ClusterPolicy
-	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	assert.NilError(t, jsonutils.Unmarshal(policyraw, &policy))
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
@@ -3226,7 +3226,7 @@ func Test_delete_ignore_pattern(t *testing.T) {
 			}}]}}`)
 
 	var policy kyvernov1.ClusterPolicy
-	assert.NilError(t, json.Unmarshal(policyRaw, &policy))
+	assert.NilError(t, jsonutils.Unmarshal(policyRaw, &policy))
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
@@ -3293,7 +3293,7 @@ func Test_ValidatePattern_anyPattern(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			err := json.Unmarshal(tc.rawPolicy, &policy)
+			err := jsonutils.Unmarshal(tc.rawPolicy, &policy)
 			assert.NilError(t, err)
 
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)

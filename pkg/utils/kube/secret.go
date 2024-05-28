@@ -1,10 +1,10 @@
 package kube
 
 import (
-	"encoding/json"
 	"fmt"
 
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -12,11 +12,11 @@ import (
 // RedactSecret masks keys of data and metadata.annotation fields of Secrets.
 func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructured, error) {
 	var secret *corev1.Secret
-	data, err := json.Marshal(resource.Object)
+	data, err := jsonutils.Marshal(resource.Object)
 	if err != nil {
 		return *resource, err
 	}
-	err = json.Unmarshal(data, &secret)
+	err = jsonutils.Unmarshal(data, &secret)
 	if err != nil {
 		return *resource, fmt.Errorf("unable to convert object to secret: %w", err)
 	}
@@ -35,11 +35,11 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 		secret.Annotations[key] = "**REDACTED**"
 	}
 	updateSecret := map[string]interface{}{}
-	raw, err := json.Marshal(stringSecret)
+	raw, err := jsonutils.Marshal(stringSecret)
 	if err != nil {
 		return *resource, nil
 	}
-	err = json.Unmarshal(raw, &updateSecret)
+	err = jsonutils.Unmarshal(raw, &updateSecret)
 	if err != nil {
 		return *resource, fmt.Errorf("unable to convert object from secret: %w", err)
 	}

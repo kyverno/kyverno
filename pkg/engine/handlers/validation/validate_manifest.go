@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -22,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineresources "github.com/kyverno/kyverno/pkg/engine/resources"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -98,16 +98,16 @@ func (h validateManifestHandler) verifyManifest(
 	if err != nil {
 		return false, "", fmt.Errorf("failed to get a request from policyContext: %w", err)
 	}
-	reqByte, _ := json.Marshal(request)
+	reqByte, _ := jsonutils.Marshal(request)
 	var adreq *admissionv1.AdmissionRequest
-	err = json.Unmarshal(reqByte, &adreq)
+	err = jsonutils.Unmarshal(reqByte, &adreq)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to unmarshal a request from requestByte: %w", err)
 	}
 	// unmarshal admission request object
 	var resource unstructured.Unstructured
 	objectBytes := adreq.Object.Raw
-	err = json.Unmarshal(objectBytes, &resource)
+	err = jsonutils.Unmarshal(objectBytes, &resource)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to Unmarshal a requested object: %w", err)
 	}
@@ -287,7 +287,7 @@ func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor,
 			return false, "", fmt.Errorf("%s: %w", attestorPath+subPath, err)
 		}
 	} else {
-		resBytes, _ := json.Marshal(result)
+		resBytes, _ := jsonutils.Marshal(result)
 		logger.V(4).Info("verify result", string(resBytes))
 		if result.Verified {
 			// verification success.

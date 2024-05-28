@@ -1,7 +1,6 @@
 package loaders
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -10,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	jsonutilities "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 type variableLoader struct {
@@ -108,7 +108,7 @@ func (vl *variableLoader) loadVariable() (err error) {
 		return fmt.Errorf("failed to add context entry for variable %s since it evaluated to nil", entry.Name)
 	}
 
-	vl.data, err = json.Marshal(output)
+	vl.data, err = jsonutilities.Marshal(output)
 	if err != nil {
 		return fmt.Errorf("failed to add context entry for variable %s: %v", entry.Name, err)
 	}

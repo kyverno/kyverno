@@ -3,12 +3,12 @@ package notary
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -81,7 +81,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	}
 
 	var manifest ocispec.Manifest
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+	if err := jsonutils.Unmarshal(manifestBytes, &manifest); err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
 	manifestDesc := manifest.Layers[0]

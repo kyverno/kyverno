@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -177,7 +177,7 @@ func (a *executor) buildRequestData(data []kyvernov1.RequestData) (io.Reader, er
 	}
 
 	buffer := new(bytes.Buffer)
-	if err := json.NewEncoder(buffer).Encode(dataMap); err != nil {
+	if err := jsonutils.NewEncoder(buffer).Encode(dataMap); err != nil {
 		return nil, fmt.Errorf("failed to encode HTTP POST data %v for APICall %s: %w", dataMap, a.name, err)
 	}
 

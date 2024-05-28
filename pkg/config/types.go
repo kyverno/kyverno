@@ -1,12 +1,12 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,7 +19,7 @@ type WebhookConfig struct {
 
 func parseWebhooks(in string) ([]WebhookConfig, error) {
 	webhookCfgs := make([]WebhookConfig, 0, 10)
-	if err := json.Unmarshal([]byte(in), &webhookCfgs); err != nil {
+	if err := jsonutils.Unmarshal([]byte(in), &webhookCfgs); err != nil {
 		return nil, err
 	}
 	return webhookCfgs, nil
@@ -49,7 +49,7 @@ func parseExclusions(in string) (exclusions, inclusions []string) {
 
 func parseWebhookAnnotations(in string) (map[string]string, error) {
 	var out map[string]string
-	if err := json.Unmarshal([]byte(in), &out); err != nil {
+	if err := jsonutils.Unmarshal([]byte(in), &out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -57,7 +57,7 @@ func parseWebhookAnnotations(in string) (map[string]string, error) {
 
 func parseWebhookLabels(in string) (map[string]string, error) {
 	var out map[string]string
-	if err := json.Unmarshal([]byte(in), &out); err != nil {
+	if err := jsonutils.Unmarshal([]byte(in), &out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -65,7 +65,7 @@ func parseWebhookLabels(in string) (map[string]string, error) {
 
 func parseMatchConditions(in string) ([]admissionregistrationv1.MatchCondition, error) {
 	var out []admissionregistrationv1.MatchCondition
-	if err := json.Unmarshal([]byte(in), &out); err != nil {
+	if err := jsonutils.Unmarshal([]byte(in), &out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -78,7 +78,7 @@ type namespacesConfig struct {
 
 func parseIncludeExcludeNamespacesFromNamespacesConfig(in string) (namespacesConfig, error) {
 	var namespacesConfigObject namespacesConfig
-	err := json.Unmarshal([]byte(in), &namespacesConfigObject)
+	err := jsonutils.Unmarshal([]byte(in), &namespacesConfigObject)
 	return namespacesConfigObject, err
 }
 
@@ -90,7 +90,7 @@ type metricExposureConfig struct {
 
 func parseMetricExposureConfig(in string, defaultBoundaries []float64) (map[string]metricExposureConfig, error) {
 	var metricExposureMap map[string]metricExposureConfig
-	err := json.Unmarshal([]byte(in), &metricExposureMap)
+	err := jsonutils.Unmarshal([]byte(in), &metricExposureMap)
 	if err != nil {
 		return nil, err
 	}

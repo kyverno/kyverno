@@ -1,8 +1,9 @@
 package regex
 
 import (
-	"encoding/json"
 	"fmt"
+
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
@@ -19,7 +20,7 @@ func IsReference(value string) bool {
 
 func ObjectHasVariables(object interface{}) error {
 	var err error
-	objectJSON, err := json.Marshal(object)
+	objectJSON, err := jsonutils.Marshal(object)
 	if err != nil {
 		return err
 	}

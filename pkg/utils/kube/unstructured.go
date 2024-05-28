@@ -1,8 +1,7 @@
 package kube
 
 import (
-	"encoding/json"
-
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -17,12 +16,12 @@ func BytesToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 }
 
 func ObjToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	raw, err := json.Marshal(obj)
+	raw, err := jsonutils.Marshal(obj)
 	if err != nil {
 		return nil, err
 	}
 	unstrObj := map[string]interface{}{}
-	err = json.Unmarshal(raw, &unstrObj)
+	err = jsonutils.Unmarshal(raw, &unstrObj)
 	if err != nil {
 		return nil, err
 	}

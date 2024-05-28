@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -25,6 +24,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gomodules.xyz/jsonpatch/v2"
 	"gotest.tools/assert"
@@ -357,7 +357,7 @@ func Test_CosignMockAttest_fail(t *testing.T) {
 
 func buildContext(t *testing.T, policy, resource string, oldResource string) *PolicyContext {
 	var cpol kyvernov1.ClusterPolicy
-	err := json.Unmarshal([]byte(policy), &cpol)
+	err := jsonutils.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resource))

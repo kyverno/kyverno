@@ -2,7 +2,6 @@ package generate
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -28,6 +27,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	validationpolicy "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/pkg/errors"
@@ -353,7 +353,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if rule.Generation.Synchronize {
-			ruleRaw, err := json.Marshal(rule.DeepCopy())
+			ruleRaw, err := jsonutils.Marshal(rule.DeepCopy())
 			if err != nil {
 				return nil, fmt.Errorf("failed to serialize the policy: %v", err)
 			}
@@ -505,7 +505,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 }
 
 func GetUnstrRule(rule *kyvernov1.Generation) (*unstructured.Unstructured, error) {
-	ruleData, err := json.Marshal(rule)
+	ruleData, err := jsonutils.Marshal(rule)
 	if err != nil {
 		return nil, err
 	}

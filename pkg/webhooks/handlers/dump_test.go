@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
 	"testing"
 
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -139,7 +139,7 @@ func Test_RedactPayload(t *testing.T) {
 	for _, c := range tc {
 		t.Run(c.name, func(t *testing.T) {
 			var req admissionv1.AdmissionRequest
-			err := json.Unmarshal(c.requestPayload, &req)
+			err := jsonutils.Unmarshal(c.requestPayload, &req)
 			assert.NilError(t, err)
 			payload, err := newAdmissionRequestPayload(AdmissionRequest{AdmissionRequest: req})
 			assert.NilError(t, err)

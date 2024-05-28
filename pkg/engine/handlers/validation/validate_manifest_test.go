@@ -2,7 +2,6 @@ package validation
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -12,6 +11,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
@@ -628,7 +628,7 @@ var (
 func Test_VerifyManifest_SignedYAML(t *testing.T) {
 	policyContext := buildContext(t, kyvernov1.Create, test_policy, signed_resource, "")
 	var request v1.AdmissionRequest
-	_ = json.Unmarshal([]byte(signed_adreq), &request)
+	_ = jsonutils.Unmarshal([]byte(signed_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
@@ -650,7 +650,7 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 	policyContext := buildContext(t, kyvernov1.Create, test_policy, unsigned_resource, "")
 	var request v1.AdmissionRequest
-	_ = json.Unmarshal([]byte(unsigned_adreq), &request)
+	_ = jsonutils.Unmarshal([]byte(unsigned_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
@@ -672,7 +672,7 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 	policyContext := buildContext(t, kyvernov1.Create, test_policy, invalid_resource, "")
 	var request v1.AdmissionRequest
-	_ = json.Unmarshal([]byte(invalid_adreq), &request)
+	_ = jsonutils.Unmarshal([]byte(invalid_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
@@ -694,7 +694,7 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 	policyContext := buildContext(t, kyvernov1.Create, test_policy, multi_sig_resource, "")
 	var request v1.AdmissionRequest
-	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
+	_ = jsonutils.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
@@ -722,7 +722,7 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 	policyContext := buildContext(t, kyvernov1.Create, test_policy, multi_sig2_resource, "")
 	var request v1.AdmissionRequest
-	_ = json.Unmarshal([]byte(multi_sig2_adreq), &request)
+	_ = jsonutils.Unmarshal([]byte(multi_sig2_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
@@ -754,7 +754,7 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 	policyContext := buildContext(t, kyvernov1.Create, test_policy, multi_sig_resource, "")
 	var request v1.AdmissionRequest
-	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
+	_ = jsonutils.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
 	policyContext.Policy().SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
@@ -782,7 +782,7 @@ func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 
 func buildContext(t *testing.T, operation kyvernov1.AdmissionOperation, policy, resource string, oldResource string) engineapi.PolicyContext {
 	var cpol kyvernov1.ClusterPolicy
-	err := json.Unmarshal([]byte(policy), &cpol)
+	err := jsonutils.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resource))

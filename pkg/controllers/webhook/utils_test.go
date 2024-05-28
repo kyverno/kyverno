@@ -1,13 +1,13 @@
 package webhook
 
 import (
-	"encoding/json"
 	"reflect"
 	"sort"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -155,7 +155,7 @@ var policy = `
 
 func Test_RuleCount(t *testing.T) {
 	var cpol kyvernov1.ClusterPolicy
-	err := json.Unmarshal([]byte(policy), &cpol)
+	err := jsonutils.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
 	status := cpol.GetStatus()
 	rules := autogen.ComputeRules(&cpol, "")

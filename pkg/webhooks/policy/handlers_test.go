@@ -1,7 +1,7 @@
 package policy
 
 // import (
-// 	"encoding/json"
+// 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 // 	"testing"
 
 // 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -14,8 +14,8 @@ package policy
 
 // func compareJSONAsMap(t *testing.T, expected, actual []byte) {
 // 	var expectedMap, actualMap map[string]interface{}
-// 	assert.NilError(t, json.Unmarshal(expected, &expectedMap))
-// 	assert.NilError(t, json.Unmarshal(actual, &actualMap))
+// 	assert.NilError(t, jsonutils.Unmarshal(expected, &expectedMap))
+// 	assert.NilError(t, jsonutils.Unmarshal(actual, &actualMap))
 
 // 	if !assertnew.Equal(t, expectedMap, actualMap) {
 // 		t.FailNow()
@@ -32,7 +32,7 @@ package policy
 // 	  }`)
 
 // 	var policy kyverno.ClusterPolicy
-// 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+// 	assert.Assert(t, jsonutils.Unmarshal(policyRaw, &policy))
 // 	patches, errs := policymutation.GeneratePodControllerRule(&policy, log.GlobalLogger())
 // 	assert.Assert(t, len(errs) == 0)
 
@@ -65,7 +65,7 @@ package policy
 // 	  }`)
 
 // 	var policy kyverno.ClusterPolicy
-// 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+// 	assert.Assert(t, jsonutils.Unmarshal(policyRaw, &policy))
 // 	patches, errs := policymutation.GeneratePodControllerRule(&policy, log.GlobalLogger())
 // 	assert.Assert(t, len(errs) == 0)
 // 	assert.Assert(t, len(patches) == 1)
@@ -116,7 +116,7 @@ package policy
 // 	  }`)
 
 // 	var policy kyverno.ClusterPolicy
-// 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+// 	assert.Assert(t, jsonutils.Unmarshal(policyRaw, &policy))
 // 	patches, errs := policymutation.GeneratePodControllerRule(&policy, log.GlobalLogger())
 // 	assert.Assert(t, len(errs) == 0)
 // 	assert.Assert(t, len(patches) == 0)
@@ -167,7 +167,7 @@ package policy
 // 	  }`)
 
 // 	var policy kyverno.ClusterPolicy
-// 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+// 	assert.Assert(t, jsonutils.Unmarshal(policyRaw, &policy))
 // 	patches, errs := policymutation.GeneratePodControllerRule(&policy, log.GlobalLogger())
 // 	assert.Assert(t, len(errs) == 0)
 
@@ -301,7 +301,7 @@ package policy
 // 	  }`)
 
 // 	var policy kyverno.ClusterPolicy
-// 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+// 	assert.Assert(t, jsonutils.Unmarshal(policyRaw, &policy))
 // 	patches, errs := policymutation.GeneratePodControllerRule(&policy, log.GlobalLogger())
 // 	assert.Assert(t, len(errs) == 0)
 
@@ -373,7 +373,7 @@ package policy
 // 	  }`)
 
 // 	var policy kyverno.ClusterPolicy
-// 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+// 	assert.Assert(t, jsonutils.Unmarshal(policyRaw, &policy))
 // 	patches, errs := policymutation.GeneratePodControllerRule(&policy, log.GlobalLogger())
 // 	assert.Assert(t, len(errs) == 0)
 
@@ -512,7 +512,7 @@ package policy
 
 // 	var policy kyverno.ClusterPolicy
 // 	// var policy, generatePolicy unstructured.Unstructured
-// 	assert.Assert(t, json.Unmarshal(policyRaw, &policy))
+// 	assert.Assert(t, jsonutils.Unmarshal(policyRaw, &policy))
 // 	patches, errs := policymutation.GeneratePodControllerRule(&policy, log.GlobalLogger())
 // 	assert.Assert(t, len(errs) == 0)
 

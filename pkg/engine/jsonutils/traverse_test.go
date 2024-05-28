@@ -3,6 +3,7 @@ package jsonutils
 import (
 	"testing"
 
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 )
 
@@ -38,7 +39,7 @@ func Test_TraverseLeafsCheckIfTheyHit(t *testing.T) {
 	}
 
 	var originalJSON interface{}
-	err := json.Unmarshal(document, &originalJSON)
+	err := jsonutils.Unmarshal(document, &originalJSON)
 	assert.NilError(t, err)
 
 	traversal := NewTraversal(originalJSON, OnlyForLeafsAndKeys(func(data *ActionData) (interface{}, error) {
@@ -61,7 +62,7 @@ func Test_PathMustBeCorrectEveryTime(t *testing.T) {
 	expectedPath := "/name"
 
 	var originalJSON interface{}
-	err := json.Unmarshal(document, &originalJSON)
+	err := jsonutils.Unmarshal(document, &originalJSON)
 	assert.NilError(t, err)
 
 	traversal := NewTraversal(originalJSON, OnlyForLeafsAndKeys(func(data *ActionData) (interface{}, error) {

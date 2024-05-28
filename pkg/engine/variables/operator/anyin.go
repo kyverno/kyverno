@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/engine/pattern"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 // NewAnyInHandler returns handler to manage AnyIn operations
@@ -79,7 +80,7 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 
 		var arr []string
 		if json.Valid([]byte(valuesAvailable)) {
-			if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+			if err := jsonutils.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
 				log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 				return true, false
 			}
@@ -176,7 +177,7 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 
 		var arr []string
 		if json.Valid([]byte(valuesAvailable)) {
-			if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+			if err := jsonutils.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
 				log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 				return true, false
 			}

@@ -1,17 +1,17 @@
 package policy
 
 import (
-	"encoding/json"
 	"errors"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 func ExtractVariables(policy kyvernov1.PolicyInterface) ([]string, error) {
 	var variables []string
-	raw, err := json.Marshal(policy)
+	raw, err := jsonutils.Marshal(policy)
 	if err != nil {
 		return nil, err
 	}

@@ -29,6 +29,7 @@ import (
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	regen "github.com/zach-klippenstein/goregen"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -1011,7 +1012,7 @@ func jpParseJson(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 	var output interface{}
-	err = json.Unmarshal([]byte(input.String()), &output)
+	err = jsonutils.Unmarshal([]byte(input.String()), &output)
 	return output, err
 }
 
@@ -1025,7 +1026,7 @@ func jpParseYAML(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 	var output interface{}
-	err = json.Unmarshal(jsonData, &output)
+	err = jsonutils.Unmarshal(jsonData, &output)
 	return output, err
 }
 
@@ -1168,7 +1169,7 @@ func encode[T any](in T) (interface{}, error) {
 		return nil, err
 	}
 	res := map[string]interface{}{}
-	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
+	if err := jsonutils.Unmarshal(buf.Bytes(), &res); err != nil {
 		return nil, err
 	}
 	return res, nil

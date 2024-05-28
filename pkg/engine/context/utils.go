@@ -3,6 +3,7 @@ package context
 import (
 	"reflect"
 
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -13,7 +14,7 @@ func AddJSONObject(ctx Interface, data map[string]interface{}) error {
 
 func AddResource(ctx Interface, dataRaw []byte) error {
 	var data map[string]interface{}
-	if err := json.Unmarshal(dataRaw, &data); err != nil {
+	if err := jsonutils.Unmarshal(dataRaw, &data); err != nil {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}
@@ -22,7 +23,7 @@ func AddResource(ctx Interface, dataRaw []byte) error {
 
 func AddOldResource(ctx Interface, dataRaw []byte) error {
 	var data map[string]interface{}
-	if err := json.Unmarshal(dataRaw, &data); err != nil {
+	if err := jsonutils.Unmarshal(dataRaw, &data); err != nil {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}

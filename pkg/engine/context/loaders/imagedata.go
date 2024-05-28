@@ -2,7 +2,6 @@ package loaders
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -11,6 +10,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 type imageDataLoader struct {
@@ -56,7 +56,7 @@ func (idl *imageDataLoader) loadImageData() error {
 			return err
 		}
 
-		idl.data, err = json.Marshal(imageData)
+		idl.data, err = jsonutils.Marshal(imageData)
 		if err != nil {
 			return err
 		}
@@ -114,12 +114,12 @@ func (idl *imageDataLoader) fetchImageDataMap(client engineapi.ImageDataClient, 
 	}
 
 	var manifest interface{}
-	if err := json.Unmarshal(desc.Manifest, &manifest); err != nil {
+	if err := jsonutils.Unmarshal(desc.Manifest, &manifest); err != nil {
 		return nil, fmt.Errorf("failed to decode manifest for image reference: %s, error: %v", ref, err)
 	}
 
 	var configData interface{}
-	if err := json.Unmarshal(desc.Config, &configData); err != nil {
+	if err := jsonutils.Unmarshal(desc.Config, &configData); err != nil {
 		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
 	}
 
@@ -137,13 +137,13 @@ func (idl *imageDataLoader) fetchImageDataMap(client engineapi.ImageDataClient, 
 	// evaluation works correctly. go-jmespath cannot handle function calls like max/sum
 	// for types like integers for eg. the conversion to untyped allows the stdlib json
 	// to convert all the types to types that are compatible with jmespath.
-	jsonDoc, err := json.Marshal(data)
+	jsonDoc, err := jsonutils.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 
 	var untyped interface{}
-	err = json.Unmarshal(jsonDoc, &untyped)
+	err = jsonutils.Unmarshal(jsonDoc, &untyped)
 	if err != nil {
 		return nil, err
 	}

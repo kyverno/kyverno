@@ -2,7 +2,6 @@ package resource
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"gotest.tools/assert"
@@ -1068,7 +1068,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			var policy kyvernov1.ClusterPolicy
-			err := json.Unmarshal(tc.rawPolicy, &policy)
+			err := jsonutils.Unmarshal(tc.rawPolicy, &policy)
 			assert.NilError(t, err)
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
@@ -1137,7 +1137,7 @@ func Test_RuleSelector(t *testing.T) {
 	}`)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)

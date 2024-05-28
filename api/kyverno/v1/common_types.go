@@ -1,11 +1,11 @@
 package v1
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -544,13 +544,13 @@ func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
 }
 
 func deserializePattern(pattern apiextensions.JSON) ([]interface{}, error) {
-	anyPattern, err := json.Marshal(pattern)
+	anyPattern, err := jsonutils.Marshal(pattern)
 	if err != nil {
 		return nil, err
 	}
 
 	var res []interface{}
-	if err := json.Unmarshal(anyPattern, &res); err != nil {
+	if err := jsonutils.Unmarshal(anyPattern, &res); err != nil {
 		return nil, err
 	}
 	return res, nil

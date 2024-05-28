@@ -1,12 +1,12 @@
 package operator
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 // NewInHandler returns handler to manage In operations
@@ -72,7 +72,7 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 		}
 
 		var arr []string
-		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+		if err := jsonutils.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
 			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 			return true, false
 		}
@@ -128,7 +128,7 @@ func setExistsInArray(key []string, value interface{}, log logr.Logger, notIn bo
 		}
 
 		var arr []string
-		if err := json.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
+		if err := jsonutils.Unmarshal([]byte(valuesAvailable), &arr); err != nil {
 			log.Error(err, "failed to unmarshal value to JSON string array", "key", key, "value", value)
 			return true, false
 		}

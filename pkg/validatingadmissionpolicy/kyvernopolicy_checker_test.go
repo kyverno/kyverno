@@ -1,10 +1,10 @@
 package validatingadmissionpolicy
 
 import (
-	"encoding/json"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 )
@@ -129,7 +129,7 @@ func Test_Check_Resources(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			var res kyvernov1.ResourceDescription
-			err := json.Unmarshal(test.resource, &res)
+			err := jsonutils.Unmarshal(test.resource, &res)
 			assert.NilError(t, err)
 			out, _ := checkResources(res)
 			assert.Equal(t, out, test.expected)

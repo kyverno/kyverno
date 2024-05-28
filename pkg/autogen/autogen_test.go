@@ -1,13 +1,13 @@
 package autogen
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -145,7 +145,7 @@ func Test_CanAutoGen(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			var policy kyvernov1.ClusterPolicy
-			err := json.Unmarshal(test.policy, &policy)
+			err := jsonutils.Unmarshal(test.policy, &policy)
 			assert.NilError(t, err)
 
 			applyAutoGen, controllers := CanAutoGen(&policy.Spec)
@@ -250,7 +250,7 @@ func Test_GetSupportedControllers(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			var policy kyvernov1.ClusterPolicy
-			err := json.Unmarshal(test.policy, &policy)
+			err := jsonutils.Unmarshal(test.policy, &policy)
 			assert.NilError(t, err)
 
 			controllers := GetSupportedControllers(&policy.Spec)

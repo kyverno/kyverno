@@ -2,7 +2,6 @@ package validation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -200,7 +200,7 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		if err != nil {
 			return nil, nil, err
 		}
-		err = json.Unmarshal(resourceBytes, &deployment)
+		err = jsonutils.Unmarshal(resourceBytes, &deployment)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -213,7 +213,7 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		if err != nil {
 			return nil, nil, err
 		}
-		err = json.Unmarshal(resourceBytes, &cronJob)
+		err = jsonutils.Unmarshal(resourceBytes, &cronJob)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -226,7 +226,7 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		if err != nil {
 			return nil, nil, err
 		}
-		err = json.Unmarshal(resourceBytes, &pod)
+		err = jsonutils.Unmarshal(resourceBytes, &pod)
 		if err != nil {
 			return nil, nil, err
 		}

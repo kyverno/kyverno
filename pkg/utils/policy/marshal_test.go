@@ -1,11 +1,11 @@
 package policy
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -39,7 +39,7 @@ func TestToJson(t *testing.T) {
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			expectedResult, err := json.Marshal(test.policy)
+			expectedResult, err := jsonutils.Marshal(test.policy)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}

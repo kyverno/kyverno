@@ -2,10 +2,10 @@ package generate
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 )
 
@@ -32,7 +32,7 @@ func Test_Validate_Generate(t *testing.T) {
 	 }`)
 
 	var genRule kyverno.Generation
-	err := json.Unmarshal(rawGenerate, &genRule)
+	err := jsonutils.Unmarshal(rawGenerate, &genRule)
 	assert.NilError(t, err)
 	checker := NewFakeGenerate(genRule)
 	_, err = checker.Validate(context.TODO())
@@ -64,7 +64,7 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 	 }`)
 
 	var genRule kyverno.Generation
-	err = json.Unmarshal(rawGenerate, &genRule)
+	err = jsonutils.Unmarshal(rawGenerate, &genRule)
 	assert.NilError(t, err)
 	checker := NewFakeGenerate(genRule)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -81,7 +81,7 @@ func Test_Validate_Generate_HasAnchors(t *testing.T) {
 		}
 	 }`)
 
-	err = json.Unmarshal(rawGenerate, &genRule)
+	err = jsonutils.Unmarshal(rawGenerate, &genRule)
 	assert.NilError(t, err)
 	checker = NewFakeGenerate(genRule)
 	if _, err := checker.Validate(context.TODO()); err != nil {

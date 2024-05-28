@@ -2,7 +2,6 @@ package report
 
 import (
 	"cmp"
-	"encoding/json"
 	"slices"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -162,7 +162,7 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyre
 		}
 	}
 	if len(controls) > 0 {
-		controlsJson, _ := json.Marshal(controls)
+		controlsJson, _ := jsonutils.Marshal(controls)
 		result.Properties["standard"] = string(pss.Level)
 		result.Properties["version"] = pss.Version
 		result.Properties["controls"] = strings.Join(controlIDs, ",")

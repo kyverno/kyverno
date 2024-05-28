@@ -1,10 +1,10 @@
 package v2
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
 
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -695,7 +695,7 @@ func Test_doesMatchExcludeConflict_cleanupPolicy(t *testing.T) {
 	for _, testcase := range testcases {
 		t.Run(testcase.description, func(t *testing.T) {
 			var policySpec CleanupPolicySpec
-			err := json.Unmarshal(testcase.policySpec, &policySpec)
+			err := jsonutils.Unmarshal(testcase.policySpec, &policySpec)
 			assert.NilError(t, err)
 			errs := policySpec.ValidateMatchExcludeConflict(path)
 			var expectedErrs field.ErrorList

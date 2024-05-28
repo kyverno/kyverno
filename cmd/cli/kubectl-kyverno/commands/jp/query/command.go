@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
@@ -173,7 +174,7 @@ func printResult(cmd *cobra.Command, query string, result interface{}, unquoted 
 		var toJSON []byte
 		var err error
 		if compact {
-			toJSON, err = json.Marshal(result)
+			toJSON, err = jsonutils.Marshal(result)
 		} else {
 			toJSON, err = json.MarshalIndent(result, "", "  ")
 		}

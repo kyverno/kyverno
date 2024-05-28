@@ -1,12 +1,12 @@
 package patch
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -242,21 +242,21 @@ func Test_PolicyDeserilize(t *testing.T) {
 `)
 
 	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	overlayPatches := autogen.ComputeRules(&policy, "")[0].Mutation.GetPatchStrategicMerge()
-	patchString, err := json.Marshal(overlayPatches)
+	patchString, err := jsonutils.Marshal(overlayPatches)
 	assert.NilError(t, err)
 
 	out, err := strategicMergePatch(logr.Discard(), string(baseBytes), string(patchString))
 	assert.NilError(t, err)
 
 	var ep unstructured.Unstructured
-	err = json.Unmarshal(expectBytes, &ep)
+	err = jsonutils.Unmarshal(expectBytes, &ep)
 	assert.NilError(t, err)
 
-	eb, err := json.Marshal(ep.Object)
+	eb, err := jsonutils.Marshal(ep.Object)
 	assert.NilError(t, err)
 
 	if !assertnew.Equal(t, string(eb), string(out)) {

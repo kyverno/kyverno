@@ -1,10 +1,10 @@
 package policy
 
 import (
-	"encoding/json"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 )
 
@@ -65,7 +65,7 @@ func Test_Validation_valid_backgroundPolicy(t *testing.T) {
 		`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	err = ValidateVariables(&policy, true)
@@ -129,7 +129,7 @@ func Test_Validation_invalid_backgroundPolicy(t *testing.T) {
 		`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	err = ValidateVariables(&policy, true)
 	assert.ErrorContains(t, err, "variable {{serviceAccountName}} is not allowed")

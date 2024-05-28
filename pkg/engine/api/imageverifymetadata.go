@@ -1,12 +1,12 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gomodules.xyz/jsonpatch/v2"
 )
 
@@ -53,7 +53,7 @@ func (ivm *ImageVerificationMetadata) ImageVerificationStatus(image string) Imag
 
 func ParseImageMetadata(jsonData string) (*ImageVerificationMetadata, error) {
 	var data map[string]ImageVerificationMetadataStatus
-	if err := json.Unmarshal([]byte(jsonData), &data); err != nil {
+	if err := jsonutils.Unmarshal([]byte(jsonData), &data); err != nil {
 		return nil, err
 	}
 	return &ImageVerificationMetadata{
@@ -62,7 +62,7 @@ func ParseImageMetadata(jsonData string) (*ImageVerificationMetadata, error) {
 }
 
 func (ivm *ImageVerificationMetadata) Patches(hasAnnotations bool, log logr.Logger) ([]jsonpatch.JsonPatchOperation, error) {
-	if data, err := json.Marshal(ivm.Data); err != nil {
+	if data, err := jsonutils.Marshal(ivm.Data); err != nil {
 		return nil, fmt.Errorf("failed to marshal metadata value: %v: %w", data, err)
 	} else {
 		var patches []jsonpatch.JsonPatchOperation

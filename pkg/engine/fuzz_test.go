@@ -7,12 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	kyvFuzz "github.com/kyverno/kyverno/pkg/utils/fuzz"
-
-	corev1 "k8s.io/api/core/v1"
-
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -24,7 +19,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	kyvFuzz "github.com/kyverno/kyverno/pkg/utils/fuzz"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -90,7 +88,7 @@ func buildFuzzContext(ff *fuzz.ConsumeFuzzer) (*PolicyContext, error) {
 			return nil, err
 		}
 
-		oldResource, err := json.Marshal(oldResourceUnstructured)
+		oldResource, err := jsonutils.Marshal(oldResourceUnstructured)
 		if err != nil {
 			return policyContext, nil
 		}

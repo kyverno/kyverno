@@ -2,7 +2,6 @@ package apicall
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -10,6 +9,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 type apiCall struct {
@@ -101,7 +101,7 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, a.entry.Name, err)
 	}
 
-	contextData, err := json.Marshal(results)
+	contextData, err := jsonutils.Marshal(results)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshall APICall data for context entry %s: %w", a.entry.Name, err)
 	}
@@ -117,7 +117,7 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 
 func (a *apiCall) applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
 	var data interface{}
-	err := json.Unmarshal(jsonData, &data)
+	err := jsonutils.Unmarshal(jsonData, &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %w", string(jsonData), err)
 	}

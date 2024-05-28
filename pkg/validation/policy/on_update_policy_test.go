@@ -1,10 +1,10 @@
 package policy
 
 import (
-	"encoding/json"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 )
 
@@ -58,7 +58,7 @@ func Test_valid_onUpdatePolicyPolicy(t *testing.T) {
 	  }`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	err = ValidateOnPolicyUpdate(&policy, true)
@@ -102,7 +102,7 @@ func Test_invalid_onUpdatePolicyPolicy(t *testing.T) {
 	  }`)
 
 	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	err = ValidateOnPolicyUpdate(&policy, true)
 	assert.ErrorContains(t, err, "only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: variable {{request.userInfo.username}} is not allowed ")

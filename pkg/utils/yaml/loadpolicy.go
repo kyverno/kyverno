@@ -1,13 +1,13 @@
 package yaml
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	log "github.com/kyverno/kyverno/pkg/logging"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,7 +27,7 @@ func GetPolicy(bytes []byte) (policies []kyvernov1.PolicyInterface, validatingAd
 		}
 		us := &unstructured.Unstructured{}
 
-		if err := json.Unmarshal(policyBytes, us); err != nil {
+		if err := jsonutils.Unmarshal(policyBytes, us); err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to decode policy: %v", err)
 		}
 		if us.IsList() {

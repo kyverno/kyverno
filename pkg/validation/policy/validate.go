@@ -2,7 +2,6 @@ package policy
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -29,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -375,7 +375,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			if validationElem.Deny != nil {
 				validationElem.Deny.RawAnyAllConditions = nil
 			}
-			validationJson, err := json.Marshal(validationElem)
+			validationJson, err := jsonutils.Marshal(validationElem)
 			if err != nil {
 				return nil, err
 			}
@@ -384,7 +384,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		if rule.HasMutate() {
-			mutationJson, err := json.Marshal(rule.Mutation)
+			mutationJson, err := jsonutils.Marshal(rule.Mutation)
 			targets := rule.Mutation.Targets
 			for _, target := range targets {
 				allKinds = append(allKinds, target.GetKind())
@@ -591,7 +591,7 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 // hasVariables - check for variables in the policy
 func hasVariables(policy kyvernov1.PolicyInterface) ([][]string, error) {
 	polCopy := cleanup(policy.CreateDeepCopy())
-	policyRaw, err := json.Marshal(polCopy)
+	policyRaw, err := jsonutils.Marshal(polCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize the policy: %v", err)
 	}
@@ -652,7 +652,7 @@ func jsonPatchPathHasVariables(patch string) error {
 
 func objectHasVariables(object interface{}) error {
 	var err error
-	objectJSON, err := json.Marshal(object)
+	objectJSON, err := jsonutils.Marshal(object)
 	if err != nil {
 		return err
 	}
@@ -731,13 +731,13 @@ func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.Mo
 }
 
 func validateElementInForEach(document apiextensions.JSON) error {
-	jsonByte, err := json.Marshal(document)
+	jsonByte, err := jsonutils.Marshal(document)
 	if err != nil {
 		return err
 	}
 
 	var jsonInterface interface{}
-	err = json.Unmarshal(jsonByte, &jsonInterface)
+	err = jsonutils.Unmarshal(jsonByte, &jsonInterface)
 	if err != nil {
 		return err
 	}

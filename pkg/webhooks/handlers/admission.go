@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -35,7 +35,7 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			return
 		}
 		var admissionReview admissionv1.AdmissionReview
-		if err := json.Unmarshal(body, &admissionReview); err != nil {
+		if err := jsonutils.Unmarshal(body, &admissionReview); err != nil {
 			HttpError(request.Context(), writer, request, logger, err, http.StatusExpectationFailed)
 			return
 		}
@@ -56,7 +56,7 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 		}
 		admissionResponse := inner(request.Context(), logger, admissionRequest, startTime)
 		admissionReview.Response = &admissionResponse
-		responseJSON, err := json.Marshal(admissionReview)
+		responseJSON, err := jsonutils.Marshal(admissionReview)
 		if err != nil {
 			HttpError(request.Context(), writer, request, logger, err, http.StatusInternalServerError)
 			return

@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -14,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	jsonutilities "github.com/kyverno/kyverno/pkg/utils/json"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,7 +21,6 @@ import (
 
 var (
 	logger       = logging.WithName("context")
-	json         = jsoniter.ConfigCompatibleWithStandardLibrary
 	ReservedKeys = regexp.MustCompile(`request|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|image|([a-z_0-9]+\()[^{}]`)
 )
 
@@ -186,7 +185,7 @@ func (ctx *context) AddVariable(key string, value interface{}) error {
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 	var data interface{}
-	if err := json.Unmarshal(dataRaw, &data); err != nil {
+	if err := jsonutilities.Unmarshal(dataRaw, &data); err != nil {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}
@@ -195,7 +194,7 @@ func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 
 func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 	var data interface{}
-	if err := json.Unmarshal(dataRaw, &data); err != nil {
+	if err := jsonutilities.Unmarshal(dataRaw, &data); err != nil {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}

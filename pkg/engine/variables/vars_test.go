@@ -9,6 +9,7 @@ import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	ju "github.com/kyverno/kyverno/pkg/engine/jsonutils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 )
 
@@ -53,11 +54,11 @@ func Test_subVars_success(t *testing.T) {
 
 	var pattern, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -114,11 +115,11 @@ func Test_subVars_failed(t *testing.T) {
 
 	var pattern, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -207,9 +208,9 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 
 	var err error
 	var pattern, resource interface{}
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	assert.NilError(t, err)
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	// context
 	ctx := context.NewContext(jp)
@@ -218,7 +219,7 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 
 	output, err := SubstituteAll(logr.Discard(), ctx, pattern)
 	assert.NilError(t, err)
-	out, err := json.Marshal(output)
+	out, err := jsonutils.Marshal(output)
 	assert.NilError(t, err)
 	assert.Equal(t, string(out), compact(t, expectedRaw))
 }
@@ -262,9 +263,9 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 	var err error
 
 	var pattern, resource interface{}
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	assert.NilError(t, err)
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	// context
 	ctx := context.NewContext(jp)
@@ -273,7 +274,7 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 
 	output, err := SubstituteAll(logr.Discard(), ctx, pattern)
 	assert.NilError(t, err)
-	out, err := json.Marshal(output)
+	out, err := jsonutils.Marshal(output)
 	assert.NilError(t, err)
 	assert.Equal(t, string(out), compact(t, expectedRaw))
 }
@@ -288,9 +289,9 @@ func Test_subVars_withMerge(t *testing.T) {
 	var err error
 
 	var pattern, resource interface{}
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	assert.NilError(t, err)
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	// context
 	ctx := context.NewContext(jp)
@@ -299,17 +300,17 @@ func Test_subVars_withMerge(t *testing.T) {
 
 	output, err := SubstituteAll(logr.Discard(), ctx, pattern)
 	assert.NilError(t, err)
-	out, err := json.Marshal(output)
+	out, err := jsonutils.Marshal(output)
 	assert.NilError(t, err)
 	assert.Equal(t, string(out), compact(t, expectedRaw))
 }
 
 func compact(t *testing.T, in []byte) string {
 	var tmp map[string]interface{}
-	err := json.Unmarshal(in, &tmp)
+	err := jsonutils.Unmarshal(in, &tmp)
 	assert.NilError(t, err)
 
-	out, err := json.Marshal(tmp)
+	out, err := jsonutils.Marshal(tmp)
 	assert.NilError(t, err)
 	return string(out)
 }
@@ -341,9 +342,9 @@ func Test_subVars_withRegexReplaceAll(t *testing.T) {
 
 	var pattern, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	assert.NilError(t, err)
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	// context
 	ctx := context.NewContext(jp)
@@ -352,7 +353,7 @@ func Test_subVars_withRegexReplaceAll(t *testing.T) {
 
 	output, err := SubstituteAll(logr.Discard(), ctx, pattern)
 	assert.NilError(t, err)
-	out, err := json.Marshal(output)
+	out, err := jsonutils.Marshal(output)
 	assert.NilError(t, err)
 	assert.Equal(t, string(out), string(expected))
 }
@@ -387,7 +388,7 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 
 	var pattern interface{}
 	var err error
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
 	ctxMap, err := unmarshalToMap(resourceRaw)
@@ -404,7 +405,7 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 
 func unmarshalToMap(jsonBytes []byte) (map[string]interface{}, error) {
 	var data map[string]interface{}
-	if err := json.Unmarshal(jsonBytes, &data); err != nil {
+	if err := jsonutils.Unmarshal(jsonBytes, &data); err != nil {
 		return nil, err
 	}
 
@@ -433,7 +434,7 @@ func Test_ReplacingNestedVariableWhenDeleting(t *testing.T) {
 
 	var pattern interface{}
 	var err error
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
 	ctxMap, err := unmarshalToMap(resourceRaw)
@@ -468,7 +469,7 @@ func Test_SubstituteSuccess(t *testing.T) {
 
 	var pattern interface{}
 	patternRaw := []byte(`"{{request.object.metadata.annotations.test}}"`)
-	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+	assert.Assert(t, jsonutils.Unmarshal(patternRaw, &pattern))
 
 	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
@@ -492,7 +493,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 
 	var pattern interface{}
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test2}}}}"`)
-	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+	assert.Assert(t, jsonutils.Unmarshal(patternRaw, &pattern))
 
 	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
@@ -506,7 +507,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	}
 
 	patternRaw = []byte(`"{{request.object.metadata2.{{request.object.metadata.annotations.test}}}}"`)
-	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+	assert.Assert(t, jsonutils.Unmarshal(patternRaw, &pattern))
 
 	action = substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
 	results, err = action(&ju.ActionData{
@@ -526,7 +527,7 @@ func Test_SubstituteRecursive(t *testing.T) {
 
 	var pattern interface{}
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test}}}}"`)
-	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
+	assert.Assert(t, jsonutils.Unmarshal(patternRaw, &pattern))
 
 	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
@@ -559,7 +560,7 @@ func Test_policyContextValidation(t *testing.T) {
 	`)
 
 	var contextMap interface{}
-	err := json.Unmarshal(policyContext, &contextMap)
+	err := jsonutils.Unmarshal(policyContext, &contextMap)
 	assert.NilError(t, err)
 
 	ctx := context.NewMockContext(nil, "request.object")
@@ -636,7 +637,7 @@ func Test_variableSubstitution_array(t *testing.T) {
 `)
 
 	var rule v1.Rule
-	err := json.Unmarshal(ruleRaw, &rule)
+	err := jsonutils.Unmarshal(ruleRaw, &rule)
 	assert.NilError(t, err)
 
 	ctxMap, err := unmarshalToMap(configmapRaw)
@@ -682,10 +683,10 @@ func Test_SubstituteNull(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -711,10 +712,10 @@ func Test_SubstituteNullInString(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -740,10 +741,10 @@ func Test_SubstituteArray(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -769,10 +770,10 @@ func Test_SubstituteArrayInString(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -798,10 +799,10 @@ func Test_SubstituteInt(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -827,10 +828,10 @@ func Test_SubstituteIntInString(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -856,10 +857,10 @@ func Test_SubstituteBool(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -885,10 +886,10 @@ func Test_SubstituteBoolInString(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -914,10 +915,10 @@ func Test_SubstituteString(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -943,10 +944,10 @@ func Test_SubstituteStringInString(t *testing.T) {
 
 	var err error
 	var pattern, resource map[string]interface{}
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	assert.NilError(t, err)
 
-	err = json.Unmarshal(variableObject, &resource)
+	err = jsonutils.Unmarshal(variableObject, &resource)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -993,11 +994,11 @@ func Test_ReferenceSubstitution(t *testing.T) {
 	}`)
 
 	var document interface{}
-	err := json.Unmarshal(jsonRaw, &document)
+	err := jsonutils.Unmarshal(jsonRaw, &document)
 	assert.NilError(t, err)
 
 	var expectedDocument interface{}
-	err = json.Unmarshal(expectedJSON, &expectedDocument)
+	err = jsonutils.Unmarshal(expectedJSON, &expectedDocument)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -1073,7 +1074,7 @@ func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
 	resolvedReference := "<=2048Mi"
 
 	var pattern interface{}
-	assert.NilError(t, json.Unmarshal(rawPattern, &pattern))
+	assert.NilError(t, jsonutils.Unmarshal(rawPattern, &pattern))
 
 	// pattern, err := actualizePattern(log.Log, pattern, referencePath, absolutePath)
 
@@ -1139,11 +1140,11 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 	}`)
 
 	var document interface{}
-	err := json.Unmarshal(jsonRaw, &document)
+	err := jsonutils.Unmarshal(jsonRaw, &document)
 	assert.NilError(t, err)
 
 	var expectedDocument interface{}
-	err = json.Unmarshal(expectedJSON, &expectedDocument)
+	err = jsonutils.Unmarshal(expectedJSON, &expectedDocument)
 	assert.NilError(t, err)
 
 	ctx := context.NewContext(jp)
@@ -1178,7 +1179,7 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 
 	var pattern interface{}
 	var err error
-	err = json.Unmarshal(patternRaw, &pattern)
+	err = jsonutils.Unmarshal(patternRaw, &pattern)
 	if err != nil {
 		t.Error(err)
 	}

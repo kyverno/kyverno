@@ -1,7 +1,6 @@
 package mutate
 
 import (
-	"encoding/json"
 	"os"
 	"testing"
 
@@ -11,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -72,7 +72,7 @@ func makeRuleWithPatch(t *testing.T, patch jsonPatch) *types.Rule {
 }
 
 func makeRuleWithPatches(t *testing.T, patches []jsonPatch) *types.Rule {
-	jsonPatches, err := json.Marshal(patches)
+	jsonPatches, err := jsonutils.Marshal(patches)
 	if err != nil {
 		t.Errorf("failed to marshal patch: %v", err)
 	}

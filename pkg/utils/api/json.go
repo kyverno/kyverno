@@ -1,10 +1,10 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 
@@ -13,12 +13,12 @@ func DeserializeJSONArray[T any](in apiextensions.JSON) ([]T, error) {
 	if in == nil {
 		return nil, nil
 	}
-	data, err := json.Marshal(in)
+	data, err := jsonutils.Marshal(in)
 	if err != nil {
 		return nil, err
 	}
 	var res []T
-	if err := json.Unmarshal(data, &res); err != nil {
+	if err := jsonutils.Unmarshal(data, &res); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -37,7 +37,7 @@ func ApiextensionsJsonToKyvernoConditions(in apiextensions.JSON) (interface{}, e
 			"all": true,
 		}
 		var jsonDecoded map[string]interface{}
-		if err := json.Unmarshal(jsonByteArr, &jsonDecoded); err != nil {
+		if err := jsonutils.Unmarshal(jsonByteArr, &jsonDecoded); err != nil {
 			return fmt.Errorf("error occurred while checking for unknown fields under %s: %+v", path, err)
 		}
 		for k := range jsonDecoded {
@@ -49,13 +49,13 @@ func ApiextensionsJsonToKyvernoConditions(in apiextensions.JSON) (interface{}, e
 	}
 
 	// marshalling the abstract apiextensions.JSON back to JSON form
-	jsonByte, err := json.Marshal(in)
+	jsonByte, err := jsonutils.Marshal(in)
 	if err != nil {
 		return nil, fmt.Errorf("error occurred while marshalling %s: %+v", path, err)
 	}
 
 	var kyvernoOldConditions []kyvernov1.Condition
-	if err = json.Unmarshal(jsonByte, &kyvernoOldConditions); err == nil {
+	if err = jsonutils.Unmarshal(jsonByte, &kyvernoOldConditions); err == nil {
 		var validConditionOperator bool
 
 		for _, jsonOp := range kyvernoOldConditions {
@@ -74,7 +74,7 @@ func ApiextensionsJsonToKyvernoConditions(in apiextensions.JSON) (interface{}, e
 	}
 
 	var kyvernoAnyAllConditions kyvernov1.AnyAllConditions
-	if err = json.Unmarshal(jsonByte, &kyvernoAnyAllConditions); err == nil {
+	if err = jsonutils.Unmarshal(jsonByte, &kyvernoAnyAllConditions); err == nil {
 		// checking if unknown fields exist or not
 		err = unknownFieldChecker(jsonByte, path)
 		if err != nil {

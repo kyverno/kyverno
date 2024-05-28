@@ -1,11 +1,11 @@
 package pss
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -39,11 +39,11 @@ func Test_EvaluatePod(t *testing.T) {
 
 	for _, test := range testCases {
 		var pod corev1.Pod
-		err := json.Unmarshal(test.rawPod, &pod)
+		err := jsonutils.Unmarshal(test.rawPod, &pod)
 		assert.NilError(t, err)
 
 		var rule kyvernov1.PodSecurity
-		err = json.Unmarshal(test.rawRule, &rule)
+		err = jsonutils.Unmarshal(test.rawRule, &rule)
 		assert.NilError(t, err)
 
 		levelVersion, err := ParseVersion(rule.Level, rule.Version)

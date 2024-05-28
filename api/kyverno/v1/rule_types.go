@@ -1,12 +1,12 @@
 package v1
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -235,20 +235,20 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	excludeNamespaces := sets.New(r.ExcludeResources.Namespaces...)
 	excludeSubjects := sets.New[string]()
 	for _, subject := range r.ExcludeResources.Subjects {
-		subjectRaw, _ := json.Marshal(subject)
+		subjectRaw, _ := jsonutils.Marshal(subject)
 		excludeSubjects.Insert(string(subjectRaw))
 	}
 	excludeSelectorMatchExpressions := sets.New[string]()
 	if r.ExcludeResources.Selector != nil {
 		for _, matchExpression := range r.ExcludeResources.Selector.MatchExpressions {
-			matchExpressionRaw, _ := json.Marshal(matchExpression)
+			matchExpressionRaw, _ := jsonutils.Marshal(matchExpression)
 			excludeSelectorMatchExpressions.Insert(string(matchExpressionRaw))
 		}
 	}
 	excludeNamespaceSelectorMatchExpressions := sets.New[string]()
 	if r.ExcludeResources.NamespaceSelector != nil {
 		for _, matchExpression := range r.ExcludeResources.NamespaceSelector.MatchExpressions {
-			matchExpressionRaw, _ := json.Marshal(matchExpression)
+			matchExpressionRaw, _ := jsonutils.Marshal(matchExpression)
 			excludeNamespaceSelectorMatchExpressions.Insert(string(matchExpressionRaw))
 		}
 	}
@@ -267,7 +267,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 			return errs
 		}
 		for _, subject := range r.MatchResources.UserInfo.Subjects {
-			subjectRaw, _ := json.Marshal(subject)
+			subjectRaw, _ := jsonutils.Marshal(subject)
 			if !excludeSubjects.Has(string(subjectRaw)) {
 				return errs
 			}
@@ -315,7 +315,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 				return errs
 			}
 			for _, matchExpression := range r.MatchResources.Selector.MatchExpressions {
-				matchExpressionRaw, _ := json.Marshal(matchExpression)
+				matchExpressionRaw, _ := jsonutils.Marshal(matchExpression)
 				if !excludeSelectorMatchExpressions.Has(string(matchExpressionRaw)) {
 					return errs
 				}
@@ -338,7 +338,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 				return errs
 			}
 			for _, matchExpression := range r.MatchResources.NamespaceSelector.MatchExpressions {
-				matchExpressionRaw, _ := json.Marshal(matchExpression)
+				matchExpressionRaw, _ := jsonutils.Marshal(matchExpression)
 				if !excludeNamespaceSelectorMatchExpressions.Has(string(matchExpressionRaw)) {
 					return errs
 				}

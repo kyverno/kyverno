@@ -1,7 +1,7 @@
 package policy
 
 // import (
-// 	"encoding/json"
+// 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 // 	"errors"
 // 	"fmt"
 // 	"testing"
@@ -21,7 +21,7 @@ package policy
 // 	rawResourcedescirption := []byte(`{}`)
 
 // 	var rd kyverno.ResourceDescription
-// 	err = json.Unmarshal(rawResourcedescirption, &rd)
+// 	err = jsonutils.Unmarshal(rawResourcedescirption, &rd)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateMatchedResourceDescription(rd)
@@ -42,7 +42,7 @@ package policy
 // 	 }`)
 
 // 	var rd kyverno.ResourceDescription
-// 	err := json.Unmarshal(rawResourcedescirption, &rd)
+// 	err := jsonutils.Unmarshal(rawResourcedescirption, &rd)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateMatchedResourceDescription(rd)
@@ -53,7 +53,7 @@ package policy
 // 	denyConditions := []byte(`[]`)
 
 // 	var dcs apiextensions.JSON
-// 	err := json.Unmarshal(denyConditions, &dcs)
+// 	err := jsonutils.Unmarshal(denyConditions, &dcs)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateConditions(dcs, "conditions")
@@ -67,7 +67,7 @@ package policy
 // 	preConditions := []byte(`[]`)
 
 // 	var pcs apiextensions.JSON
-// 	err := json.Unmarshal(preConditions, &pcs)
+// 	err := jsonutils.Unmarshal(preConditions, &pcs)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateConditions(pcs, "preconditions")
@@ -109,7 +109,7 @@ package policy
 // 	`)
 
 // 	var dcs apiextensions.JSON
-// 	err := json.Unmarshal(denyConditions, &dcs)
+// 	err := jsonutils.Unmarshal(denyConditions, &dcs)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateConditions(dcs, "conditions")
@@ -136,7 +136,7 @@ package policy
 // 	`)
 
 // 	var dcs apiextensions.JSON
-// 	err := json.Unmarshal(denyConditions, &dcs)
+// 	err := jsonutils.Unmarshal(denyConditions, &dcs)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateConditions(dcs, "conditions")
@@ -163,7 +163,7 @@ package policy
 // 	`)
 
 // 	var dcs []kyverno.Condition
-// 	err := json.Unmarshal(denyConditions, &dcs)
+// 	err := jsonutils.Unmarshal(denyConditions, &dcs)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateConditions(dcs, "conditions")
@@ -187,7 +187,7 @@ package policy
 // 	`)
 
 // 	var pcs apiextensions.JSON
-// 	err := json.Unmarshal(preConditions, &pcs)
+// 	err := jsonutils.Unmarshal(preConditions, &pcs)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateConditions(pcs, "preconditions")
@@ -225,7 +225,7 @@ package policy
 // 	`)
 
 // 	var dcs []kyverno.Condition
-// 	err := json.Unmarshal(denyConditions, &dcs)
+// 	err := jsonutils.Unmarshal(denyConditions, &dcs)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateConditions(dcs, "conditions")
@@ -254,7 +254,7 @@ package policy
 // 	`)
 
 // 	var pcs apiextensions.JSON
-// 	err := json.Unmarshal(preConditions, &pcs)
+// 	err := jsonutils.Unmarshal(preConditions, &pcs)
 // 	assert.NilError(t, err)
 
 // 	_, err = validateConditions(pcs, "preconditions")
@@ -348,7 +348,7 @@ package policy
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	_, err = Validate(policy, nil, nil, true, openApiManager, "admin")
@@ -494,7 +494,7 @@ package policy
 // 	`)
 
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -527,7 +527,7 @@ package policy
 //   }
 //  `)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = containsUserVariables(policy, nil)
@@ -559,7 +559,7 @@ package policy
 // 	  }
 //  `)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = containsUserVariables(policy, nil)
@@ -594,7 +594,7 @@ package policy
 // 		}
 // 	  } `)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = containsUserVariables(policy, nil)
@@ -625,7 +625,7 @@ package policy
 // 	  }
 // 	`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = ValidateVariables(policy, true)
@@ -697,7 +697,7 @@ package policy
 //   }
 // }`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = ValidateVariables(policy, true)
@@ -728,7 +728,7 @@ package policy
 // 	  }
 // 	`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = ValidateVariables(policy, true)
@@ -759,7 +759,7 @@ package policy
 // 	  }
 // 	`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = ValidateVariables(policy, true)
@@ -794,7 +794,7 @@ package policy
 // 		}
 // 	  }	`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = ValidateVariables(policy, true)
@@ -829,7 +829,7 @@ package policy
 // 		}
 // 	  }	`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = ValidateVariables(policy, true)
@@ -864,7 +864,7 @@ package policy
 // 		}
 // 	  }	`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	err = ValidateVariables(policy, true)
@@ -921,7 +921,7 @@ package policy
 
 // 	for i, testcase := range testcases {
 // 		var rule kyverno.Rule
-// 		_ = json.Unmarshal(testcase.rule, &rule)
+// 		_ = jsonutils.Unmarshal(testcase.rule, &rule)
 // 		output := ruleOnlyDealsWithResourceMetaData(rule)
 // 		if output != testcase.expectedOutput {
 // 			t.Errorf("Testcase [%d] (%s) failed", i+1, testcase.description)
@@ -968,7 +968,7 @@ package policy
 // 	`)
 
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1017,7 +1017,7 @@ package policy
 // 	}`)
 
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1107,7 +1107,7 @@ package policy
 // 	`)
 
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1157,7 +1157,7 @@ package policy
 // 	`)
 
 // 	var policy *kyverno.Policy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1205,7 +1205,7 @@ package policy
 // 	`)
 
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1253,7 +1253,7 @@ package policy
 // 		}
 // 	  }`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1401,7 +1401,7 @@ package policy
 // 	}
 // 	for _, testcase := range testcases {
 // 		var policy *kyverno.ClusterPolicy
-// 		err := json.Unmarshal(testcase.policy, &policy)
+// 		err := jsonutils.Unmarshal(testcase.policy, &policy)
 // 		assert.NilError(t, err)
 
 // 		openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1451,7 +1451,7 @@ package policy
 // 		}
 // 	  }`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1507,7 +1507,7 @@ package policy
 // `)
 
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1564,7 +1564,7 @@ package policy
 // `)
 
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -1621,7 +1621,7 @@ package policy
 // `)
 
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -2163,7 +2163,7 @@ package policy
 // 		}
 // 	}`)
 // 	var policy *kyverno.ClusterPolicy
-// 	err = json.Unmarshal(rawPolicy, &policy)
+// 	err = jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	openApiManager, _ := openapi.NewManager(logr.Discard())
@@ -2219,7 +2219,7 @@ package policy
 // 	}`)
 
 // 	var policy *kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	err := jsonutils.Unmarshal(rawPolicy, &policy)
 // 	assert.NilError(t, err)
 
 // 	expectedErr := fmt.Errorf("path: spec.rules[0]: jmespath may not be used in an image extractor when mutating digests with verify images")
@@ -3286,9 +3286,9 @@ package policy
 
 // 	for _, test := range tests {
 // 		var old, new *kyverno.Policy
-// 		err := json.Unmarshal(test.oldPolicy, &old)
+// 		err := jsonutils.Unmarshal(test.oldPolicy, &old)
 // 		assert.NilError(t, err)
-// 		err = json.Unmarshal(test.newPolicy, &new)
+// 		err = jsonutils.Unmarshal(test.newPolicy, &new)
 // 		assert.NilError(t, err)
 
 // 		err = immutableGenerateFields(new, old)

@@ -1,11 +1,11 @@
 package scan
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
 	jsonengine "github.com/kyverno/kyverno-json/pkg/json-engine"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 type output interface {
@@ -32,7 +32,7 @@ func (t *jsonOutput) println(args ...any) {
 }
 
 func (t *jsonOutput) responses(responses ...jsonengine.Response) {
-	payload, err := json.MarshalIndent(responses, "", "  ")
+	payload, err := jsonutils.MarshalIndent(responses, "", "  ")
 	if err != nil {
 		fmt.Fprintln(t.out, err)
 	} else {

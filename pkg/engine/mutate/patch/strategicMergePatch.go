@@ -2,10 +2,10 @@ package patch
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"sigs.k8s.io/kustomize/api/filters/patchstrategicmerge"
 	filtersutil "sigs.k8s.io/kustomize/kyaml/filtersutil"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
@@ -13,7 +13,7 @@ import (
 
 // ProcessStrategicMergePatch ...
 func ProcessStrategicMergePatch(logger logr.Logger, overlay interface{}, resource resource) (resource, error) {
-	overlayBytes, err := json.Marshal(overlay)
+	overlayBytes, err := jsonutils.Marshal(overlay)
 	if err != nil {
 		logger.Error(err, "failed to marshal resource")
 		return nil, err

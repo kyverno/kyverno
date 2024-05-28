@@ -1,11 +1,11 @@
 package policycache
 
 import (
-	"encoding/json"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	kubecache "k8s.io/client-go/tools/cache"
@@ -273,7 +273,7 @@ func newPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 		}
 	  }`)
 	var policy *kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }
@@ -444,7 +444,7 @@ func newAnyPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 		}
 	}`)
 	var policy *kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }
@@ -549,7 +549,7 @@ func newNsPolicy(t *testing.T) kyvernov1.PolicyInterface {
 		}
 	  }`)
 	var policy *kyvernov1.Policy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }
@@ -604,7 +604,7 @@ func newGVKPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 		}
 	 }`)
 	var policy *kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }
@@ -644,7 +644,7 @@ func newUserTestPolicy(t *testing.T) kyvernov1.PolicyInterface {
 		}
 	 }`)
 	var policy *kyvernov1.Policy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }
@@ -691,7 +691,7 @@ func newGeneratePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 		}
 	 }`)
 	var policy *kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }
@@ -734,7 +734,7 @@ func newMutatePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 		}
 	  }`)
 	var policy *kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }
@@ -778,7 +778,7 @@ func newNsMutatePolicy(t *testing.T) kyvernov1.PolicyInterface {
 		}
 	  }`)
 	var policy *kyvernov1.Policy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }
@@ -830,7 +830,7 @@ func newValidateAuditPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 		}
 	  }`)
 	var policy *kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }
@@ -882,7 +882,7 @@ func newValidateEnforcePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 		}
 	  }`)
 	var policy *kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	err := jsonutils.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	return policy
 }

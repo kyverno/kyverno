@@ -1,13 +1,13 @@
 package jmespath
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"runtime"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 )
 
@@ -498,7 +498,7 @@ func Test_RegexReplaceAll(t *testing.T) {
 	expected := "Glo world, Gworldlo"
 
 	var resource interface{}
-	err := json.Unmarshal(resourceRaw, &resource)
+	err := jsonutils.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 	query, err := jmespathInterface.Query(`regex_replace_all('([Hh]e|G)l', spec.field, '${2}G')`)
 	assert.NilError(t, err)
@@ -528,7 +528,7 @@ func Test_RegexReplaceAllLiteral(t *testing.T) {
 	expected := "Glo world, Gworldlo"
 
 	var resource interface{}
-	err := json.Unmarshal(resourceRaw, &resource)
+	err := jsonutils.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 
 	query, err := jmespathInterface.Query(`regex_replace_all_literal('[Hh]el?', spec.field, 'G')`)
@@ -583,7 +583,7 @@ func Test_LabelMatch(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			var resource interface{}
-			err := json.Unmarshal(tc.resource, &resource)
+			err := jsonutils.Unmarshal(tc.resource, &resource)
 			assert.NilError(t, err)
 
 			query, err := jmespathInterface.Query("label_match(`" + tc.test + "`, metadata.labels)")
@@ -669,7 +669,7 @@ func Test_Base64Decode_Secret(t *testing.T) {
 		}
 	}`)
 	var resource interface{}
-	err := json.Unmarshal(resourceRaw, &resource)
+	err := jsonutils.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
 
 	query, err := jmespathInterface.Query(`base64_decode(data.example1)`)
@@ -999,7 +999,7 @@ func Test_Lookup(t *testing.T) {
 			assert.NilError(t, err)
 
 			var expectedResult interface{}
-			err = json.Unmarshal([]byte(tc.expectedResult), &expectedResult)
+			err = jsonutils.Unmarshal([]byte(tc.expectedResult), &expectedResult)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, result, expectedResult)
@@ -1087,7 +1087,7 @@ func Test_Items(t *testing.T) {
 			assert.Assert(t, ok)
 
 			var resource []map[string]interface{}
-			err = json.Unmarshal([]byte(tc.expectedResult), &resource)
+			err = jsonutils.Unmarshal([]byte(tc.expectedResult), &resource)
 			assert.NilError(t, err)
 
 			assert.DeepEqual(t, result, resource)
@@ -1210,7 +1210,7 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 	}
 	resExpected := make([]map[string]interface{}, 3)
 	for i, v := range resList {
-		err := json.Unmarshal([]byte(v), &resExpected[i])
+		err := jsonutils.Unmarshal([]byte(v), &resExpected[i])
 		assert.NilError(t, err)
 	}
 	testCases := []struct {

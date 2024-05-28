@@ -2,7 +2,6 @@ package loaders
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -10,6 +9,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 type configMapLoader struct {
@@ -87,7 +87,7 @@ func (cml *configMapLoader) fetchConfigMap() ([]byte, error) {
 	// extract configmap data
 	contextData["data"] = obj.Data
 	contextData["metadata"] = obj.ObjectMeta
-	data, err := json.Marshal(contextData)
+	data, err := jsonutils.Marshal(contextData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %v", namespace, name, err)
 	}

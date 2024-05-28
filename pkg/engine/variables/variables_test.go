@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
@@ -64,15 +65,15 @@ func Test_variablesub1(t *testing.T) {
 
 	var pattern, patternCopy, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(patternMap, &patternCopy)
+	err = jsonutils.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -91,7 +92,7 @@ func Test_variablesub1(t *testing.T) {
 	if patternCopy, err = SubstituteAll(logr.Discard(), ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
-	resultRaw, err := json.Marshal(patternCopy)
+	resultRaw, err := jsonutils.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -152,16 +153,16 @@ func Test_variablesub_multiple(t *testing.T) {
 
 	var pattern, patternCopy, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(patternMap, &patternCopy)
+	err = jsonutils.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -181,7 +182,7 @@ func Test_variablesub_multiple(t *testing.T) {
 	if patternCopy, err = SubstituteAll(logr.Discard(), ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
-	resultRaw, err := json.Marshal(patternCopy)
+	resultRaw, err := jsonutils.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -240,16 +241,16 @@ func Test_variablesubstitution(t *testing.T) {
 	}
 	var pattern, patternCopy, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(patternMap, &patternCopy)
+	err = jsonutils.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -269,7 +270,7 @@ func Test_variablesubstitution(t *testing.T) {
 	if patternCopy, err = SubstituteAll(logr.Discard(), ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
-	resultRaw, err := json.Marshal(patternCopy)
+	resultRaw, err := jsonutils.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -305,16 +306,16 @@ func Test_variableSubstitutionValue(t *testing.T) {
 
 	var pattern, patternCopy, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(patternMap, &patternCopy)
+	err = jsonutils.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -329,7 +330,7 @@ func Test_variableSubstitutionValue(t *testing.T) {
 	if patternCopy, err = SubstituteAll(logr.Discard(), ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
-	resultRaw, err := json.Marshal(patternCopy)
+	resultRaw, err := jsonutils.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -362,16 +363,16 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 
 	var pattern, patternCopy, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(patternMap, &patternCopy)
+	err = jsonutils.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -386,7 +387,7 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 	if patternCopy, err = SubstituteAll(logr.Discard(), ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
-	resultRaw, err := json.Marshal(patternCopy)
+	resultRaw, err := jsonutils.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -420,16 +421,16 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 
 	var pattern, patternCopy, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(patternMap, &patternCopy)
+	err = jsonutils.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -477,16 +478,16 @@ func Test_variableSubstitutionObject(t *testing.T) {
 
 	var pattern, patternCopy, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(patternMap, &patternCopy)
+	err = jsonutils.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -501,7 +502,7 @@ func Test_variableSubstitutionObject(t *testing.T) {
 	if patternCopy, err = SubstituteAll(logr.Discard(), ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
-	resultRaw, err := json.Marshal(patternCopy)
+	resultRaw, err := jsonutils.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
@@ -541,16 +542,16 @@ func Test_variableSubstitutionObjectOperatorNotEqualFail(t *testing.T) {
 
 	var pattern, patternCopy, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(patternMap, &patternCopy)
+	err = jsonutils.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -616,16 +617,16 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 
 	var pattern, patternCopy, resource interface{}
 	var err error
-	err = json.Unmarshal(patternMap, &pattern)
+	err = jsonutils.Unmarshal(patternMap, &pattern)
 	if err != nil {
 		t.Error(err)
 	}
-	err = json.Unmarshal(patternMap, &patternCopy)
+	err = jsonutils.Unmarshal(patternMap, &patternCopy)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = json.Unmarshal(resourceRaw, &resource)
+	err = jsonutils.Unmarshal(resourceRaw, &resource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -640,7 +641,7 @@ func Test_variableSubstitutionMultipleObject(t *testing.T) {
 	if patternCopy, err = SubstituteAll(logr.Discard(), ctx, patternCopy); err != nil {
 		t.Error(err)
 	}
-	resultRaw, err := json.Marshal(patternCopy)
+	resultRaw, err := jsonutils.Marshal(patternCopy)
 	if err != nil {
 		t.Error(err)
 	}

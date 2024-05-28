@@ -2,10 +2,10 @@ package validate
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 )
 
@@ -14,7 +14,7 @@ func Test_Validate_OverlayPattern_Empty(t *testing.T) {
    {}`)
 
 	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
+	err := jsonutils.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 
 	checker := NewValidateFactory(&validation)
@@ -29,7 +29,7 @@ func Test_Validate_OverlayPattern_Nil_PatternAnypattern(t *testing.T) {
 	`)
 
 	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
+	err := jsonutils.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -67,7 +67,7 @@ func Test_Validate_OverlayPattern_Exist_PatternAnypattern(t *testing.T) {
 	  }`)
 
 	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
+	err := jsonutils.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -105,7 +105,7 @@ func Test_Validate_OverlayPattern_Valid(t *testing.T) {
 `)
 
 	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
+	err := jsonutils.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -138,7 +138,7 @@ func Test_Validate_ExistingAnchor_AnchorOnMap(t *testing.T) {
 `)
 
 	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
+	err := jsonutils.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -168,7 +168,7 @@ func Test_Validate_ExistingAnchor_AnchorOnString(t *testing.T) {
 	  		  `)
 
 	var validation kyverno.Validation
-	err := json.Unmarshal(rawValidation, &validation)
+	err := jsonutils.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -201,7 +201,7 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 		]
 	 }`)
 
-	err = json.Unmarshal(rawValidation, &validation)
+	err = jsonutils.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validation)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -226,7 +226,7 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 		   }
 		}
 	 }	`)
-	err = json.Unmarshal(rawValidation, &validation)
+	err = jsonutils.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
 	checker = NewValidateFactory(&validation)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -266,7 +266,7 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 		]
 	 }`)
 
-	err = json.Unmarshal(rawValidate, &validate)
+	err = jsonutils.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
 	checker := NewValidateFactory(&validate)
@@ -288,7 +288,7 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 		}
 	}`)
 
-	err = json.Unmarshal(rawValidate, &validate)
+	err = jsonutils.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
 	checker = NewValidateFactory(&validate)
@@ -316,7 +316,7 @@ func Test_Validate_Validate_Mismatched(t *testing.T) {
 	 }`)
 
 	var validate kyverno.Validation
-	err := json.Unmarshal(rawValidate, &validate)
+	err := jsonutils.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validate)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -346,7 +346,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 		}
 	}`)
 
-	err = json.Unmarshal(rawValidate, &validate)
+	err = jsonutils.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 	checker := NewValidateFactory(&validate)
 	if _, err := checker.Validate(context.TODO()); err != nil {
@@ -371,7 +371,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 		}
 	}`)
 
-	err = json.Unmarshal(rawValidate, &validate)
+	err = jsonutils.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
 	checker = NewValidateFactory(&validate)

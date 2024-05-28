@@ -6,7 +6,6 @@ import (
 	"crypto"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
 	"github.com/sigstore/cosign/v2/pkg/cosign/attestation"
 	"github.com/sigstore/cosign/v2/pkg/oci"
@@ -372,7 +372,7 @@ func decodeStatement(sig oci.Signature) (map[string]interface{}, string, error) 
 	}
 
 	sci := payload.SimpleContainerImage{}
-	if err := json.Unmarshal(pld, &sci); err != nil {
+	if err := jsonutils.Unmarshal(pld, &sci); err != nil {
 		return nil, "", fmt.Errorf("error decoding the payload: %w", err)
 	}
 
@@ -381,7 +381,7 @@ func decodeStatement(sig oci.Signature) (map[string]interface{}, string, error) 
 	}
 
 	data := make(map[string]interface{})
-	if err := json.Unmarshal(pld, &data); err != nil {
+	if err := jsonutils.Unmarshal(pld, &data); err != nil {
 		return nil, "", fmt.Errorf("failed to unmarshal JSON payload: %v: %w", sig, err)
 	}
 
@@ -405,7 +405,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 	}
 
 	var statement in_toto.Statement
-	if err := json.Unmarshal(statementRaw, &statement); err != nil {
+	if err := jsonutils.Unmarshal(statementRaw, &statement); err != nil {
 		return nil, err
 	}
 
@@ -453,7 +453,7 @@ func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
 	}
 
 	data := map[string]interface{}{}
-	if err := json.Unmarshal([]byte(s), &data); err != nil {
+	if err := jsonutils.Unmarshal([]byte(s), &data); err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON: %w", err)
 	}
 
@@ -479,7 +479,7 @@ func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, e
 		}
 
 		sci := payload.SimpleContainerImage{}
-		if err := json.Unmarshal(pld, &sci); err != nil {
+		if err := jsonutils.Unmarshal(pld, &sci); err != nil {
 			return nil, fmt.Errorf("error decoding the payload: %w", err)
 		}
 

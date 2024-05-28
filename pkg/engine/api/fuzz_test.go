@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 

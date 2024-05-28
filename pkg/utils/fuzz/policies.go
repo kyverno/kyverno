@@ -1,12 +1,12 @@
 package fuzz
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -507,7 +507,7 @@ var (
 func InitFuzz() {
 	mi2048, _ = resource.ParseQuantity("2048Mi")
 	cp1 = &kyvernov1.ClusterPolicy{}
-	err := json.Unmarshal(ContainerNamePolicy, cp1)
+	err := jsonutils.Unmarshal(ContainerNamePolicy, cp1)
 	if err != nil {
 		panic(err)
 	}
@@ -517,7 +517,7 @@ func InitFuzz() {
 		ClusterPolicy: cp1,
 	}
 	cp2 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(LatestImageTagPolicy, cp2)
+	err = jsonutils.Unmarshal(LatestImageTagPolicy, cp2)
 	if err != nil {
 		panic(err)
 	}
@@ -527,7 +527,7 @@ func InitFuzz() {
 		ClusterPolicy: cp2,
 	}
 	cp3 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(SecurityContextPolicy, cp3)
+	err = jsonutils.Unmarshal(SecurityContextPolicy, cp3)
 	if err != nil {
 		panic(err)
 	}
@@ -537,7 +537,7 @@ func InitFuzz() {
 		ClusterPolicy: cp3,
 	}
 	cp4 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(EqualityHostpathPolicy, cp4)
+	err = jsonutils.Unmarshal(EqualityHostpathPolicy, cp4)
 	if err != nil {
 		panic(err)
 	}
@@ -547,7 +547,7 @@ func InitFuzz() {
 		ClusterPolicy: cp4,
 	}
 	cp5 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(PodExistencePolicy, cp5)
+	err = jsonutils.Unmarshal(PodExistencePolicy, cp5)
 	if err != nil {
 		panic(err)
 	}
@@ -557,7 +557,7 @@ func InitFuzz() {
 		ClusterPolicy: cp5,
 	}
 	cp6 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(HostPathCannotExistPolicy, cp6)
+	err = jsonutils.Unmarshal(HostPathCannotExistPolicy, cp6)
 	if err != nil {
 		panic(err)
 	}
@@ -567,7 +567,7 @@ func InitFuzz() {
 		ClusterPolicy: cp6,
 	}
 	cp7 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(NamespaceCannotBeEmptyOrDefaultPolicy, cp7)
+	err = jsonutils.Unmarshal(NamespaceCannotBeEmptyOrDefaultPolicy, cp7)
 	if err != nil {
 		panic(err)
 	}
@@ -577,7 +577,7 @@ func InitFuzz() {
 		ClusterPolicy: cp7,
 	}
 	cp8 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(HostnetworkAndPortNotAllowedPolicy, cp8)
+	err = jsonutils.Unmarshal(HostnetworkAndPortNotAllowedPolicy, cp8)
 	if err != nil {
 		panic(err)
 	}
@@ -587,7 +587,7 @@ func InitFuzz() {
 		ClusterPolicy: cp8,
 	}
 	cp9 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(SupplementalGroupsShouldBeHigherThanZeroPolicy, cp9)
+	err = jsonutils.Unmarshal(SupplementalGroupsShouldBeHigherThanZeroPolicy, cp9)
 	if err != nil {
 		panic(err)
 	}
@@ -597,7 +597,7 @@ func InitFuzz() {
 		ClusterPolicy: cp9,
 	}
 	cp10 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(SupplementalGroupsShouldBeBetween, cp10)
+	err = jsonutils.Unmarshal(SupplementalGroupsShouldBeBetween, cp10)
 	if err != nil {
 		panic(err)
 	}
@@ -607,7 +607,7 @@ func InitFuzz() {
 		ClusterPolicy: cp10,
 	}
 	cp11 = &kyvernov1.ClusterPolicy{}
-	err = json.Unmarshal(ShouldHaveMoreMemoryThanFirstContainer, cp11)
+	err = jsonutils.Unmarshal(ShouldHaveMoreMemoryThanFirstContainer, cp11)
 	if err != nil {
 		panic(err)
 	}

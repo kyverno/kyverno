@@ -1,19 +1,17 @@
 package jsonutils
 
-import jsoniter "github.com/json-iterator/go"
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+import jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 
 // DocumentToUntyped converts a typed object to JSON data
 // i.e. string, []interface{}, map[string]interface{}
 func DocumentToUntyped(doc interface{}) (interface{}, error) {
-	jsonDoc, err := json.Marshal(doc)
+	jsonDoc, err := jsonutils.Marshal(doc)
 	if err != nil {
 		return nil, err
 	}
 
 	var untyped interface{}
-	err = json.Unmarshal(jsonDoc, &untyped)
+	err = jsonutils.Unmarshal(jsonDoc, &untyped)
 	if err != nil {
 		return nil, err
 	}

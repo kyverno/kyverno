@@ -1,7 +1,6 @@
 package mutate
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -112,13 +112,13 @@ func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface,
 		return nil, err
 	}
 
-	bytes, err := json.Marshal(data)
+	bytes, err := jsonutils.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 
 	var updatedForEach kyvernov1.ForEachMutation
-	if err := json.Unmarshal(bytes, &updatedForEach); err != nil {
+	if err := jsonutils.Unmarshal(bytes, &updatedForEach); err != nil {
 		return nil, err
 	}
 

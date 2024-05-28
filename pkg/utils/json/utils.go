@@ -1,7 +1,10 @@
 package json
 
 import (
+	"io"
 	"strings"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 // JoinPatches joins array of serialized JSON patches to the single JSONPatch array
@@ -34,4 +37,22 @@ func JoinPatches(patches ...[]byte) []byte {
 
 	result := "[" + strings.Join(patchOperations, ", ") + "]"
 	return []byte(result)
+}
+
+var stdjson = jsoniter.ConfigCompatibleWithStandardLibrary
+
+func Marshal(obj interface{}) ([]byte, error) {
+	return stdjson.Marshal(obj)
+}
+
+func Unmarshal(data []byte, obj interface{}) error {
+	return stdjson.Unmarshal(data, obj)
+}
+
+func MarshalIndent(v any, prefix, indent string) ([]byte, error) {
+	return stdjson.MarshalIndent(v, prefix, indent)
+}
+
+func NewEncoder(w io.Writer) *jsoniter.Encoder {
+	return stdjson.NewEncoder(w)
 }
