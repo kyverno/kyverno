@@ -35,7 +35,7 @@ The following policies are included in each profile.
 
 An additional policy "require-non-root-groups" is included in an `other` group as this was previously included in the official PSS controls but since removed.
 
-For the latest version of these PSS policies, always refer to the kyverno/policies
+For the latest version of these PSS policies, always refer to the kyverno/policies repo at https://github.com/kyverno/policies/tree/main/pod-security.
 
 ## Deploy custom policies
 If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
