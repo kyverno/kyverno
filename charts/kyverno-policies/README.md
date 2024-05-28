@@ -35,7 +35,17 @@ The following policies are included in each profile.
 
 An additional policy "require-non-root-groups" is included in an `other` group as this was previously included in the official PSS controls but since removed.
 
-For the latest version of these PSS policies, always refer to the kyverno/policies repo at https://github.com/kyverno/policies/tree/main/pod-security.
+For the latest version of these PSS policies, always refer to the kyverno/policies
+
+## Deploy custom policies
+If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
+````yaml
+customPolicies:
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    metadata: # metadata
+    spec: # spec
+````
 
 ## Installing the Chart
 
@@ -69,6 +79,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
+| customPolicies | list | `[]` | List of custom polciies to deploy. |
 | failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/writing-policies/policy-settings/ |
 | validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
