@@ -22,6 +22,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -452,6 +453,13 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 			} else {
 				if !rule.Generation.Synchronize {
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
+					continue
+				}
+				if err := validate.MatchPattern(logger, newResource.Object, generatedObj.Object); err == nil {
+					if err := validate.MatchPattern(logger, generatedObj.Object, newResource.Object); err == nil {
+						logger.V(4).Info("patterns match, skipping updates")
+						continue
+					}
 				}
 				logger.V(4).Info("updating existing resource")
 				if targetMeta.GetAPIVersion() == "" {
