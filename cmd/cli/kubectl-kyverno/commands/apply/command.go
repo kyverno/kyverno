@@ -67,7 +67,7 @@ type ApplyCommandConfig struct {
 	warnExitCode   int
 	warnNoPassed   bool
 	Exception      []string
-	continueOnFail bool
+	ContinueOnFail bool
 }
 
 func Command() *cobra.Command {
@@ -122,7 +122,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
-	cmd.Flags().BoolVar(&applyCommandConfig.continueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
+	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
 	return cmd
 }
 
@@ -236,7 +236,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
-			if c.continueOnFail {
+			if c.ContinueOnFail {
 				fmt.Printf("failed to apply policies on resource %s (%v)\n", resource.GetName(), err)
 				continue
 			}
@@ -264,7 +264,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	}
 	var rc processor.ResultCounts
 	// validate policies
-	var validPolicies []kyvernov1.PolicyInterface
+	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
 		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
@@ -304,7 +304,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			if c.continueOnFail {
+			if c.ContinueOnFail {
 				fmt.Printf("failed to apply policies on resource %v (%v)\n", resource.GetName(), err)
 				continue
 			}
@@ -355,22 +355,23 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 				return nil, nil, skipInvalidPolicies, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
-				policiesFromFile, vapsFromFile, vapBindingsFromFile, err := policy.Load(fs, "", policyYaml)
+				loaderResults, err := policy.Load(fs, "", policyYaml)
 				if err != nil {
 					continue
 				}
-				policies = append(policies, policiesFromFile...)
-				vaps = append(vaps, vapsFromFile...)
-				vapBindings = append(vapBindings, vapBindingsFromFile...)
+				policies = append(policies, loaderResults.Policies...)
+				vaps = append(vaps, loaderResults.VAPs...)
+				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 			}
 		} else {
-			policiesFromFile, vapsFromFile, vapBindingsFromFile, err := policy.Load(nil, "", path)
+			loaderResults, err := policy.Load(nil, "", path)
 			if err != nil {
-				return nil, nil, skipInvalidPolicies, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
+			} else {
+				policies = append(policies, loaderResults.Policies...)
+				vaps = append(vaps, loaderResults.VAPs...)
+				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 			}
-			policies = append(policies, policiesFromFile...)
-			vaps = append(vaps, vapsFromFile...)
-			vapBindings = append(vapBindings, vapBindingsFromFile...)
 		}
 	}
 

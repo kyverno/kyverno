@@ -24,7 +24,7 @@ jobs:
       reports-controller-digest: ${{ steps.release-reports-controller.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -35,7 +35,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 30
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@b2933f565dbc598b29947660e66259e3c7bc8561 # v0.20.0
+        uses: aquasecurity/trivy-action@fd25fed6972e341ff0007ddb61f77e88103953c2 # v0.21.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -233,7 +233,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -269,7 +269,7 @@ jobs:
       packages: write # needed for ghcr access  
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -278,7 +278,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@534684601ec8888beb0cc4f51117b59e97606c4d # v2.2.3
+        uses: fluxcd/flux2/action@896e0fa46d5107a05e953dd0a5261d78a145ec8c # v2.3.0
         with:
           version: 0.35.0
       - name: Install Cosign
@@ -300,7 +300,7 @@ jobs:
           file_glob: true
           tag: ${{ github.ref }}
       - name: Login to GHCR
-        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446 # v3.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -326,7 +326,7 @@ jobs:
     needs: create-release
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
