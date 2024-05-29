@@ -1,0 +1,91 @@
+{{- if .Values.cleanupJobs.ephemeralReports.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ template "kyverno.name" . }}-cleanup-ephemeral-reports
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.cleanup.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cleanupJobs.ephemeralReports.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.cleanupJobs.ephemeralReports.history.success }}
+  failedJobsHistoryLimit: {{ .Values.cleanupJobs.ephemeralReports.history.failure }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.cleanupJobs.ephemeralReports.backoffLimit }}
+      {{- if .Values.cleanupJobs.ephemeralReports.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ .Values.cleanupJobs.ephemeralReports.ttlSecondsAfterFinished }}
+      {{- end }}
+      template:
+        metadata:
+          {{- with .Values.cleanupJobs.ephemeralReports.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.ephemeralReports.podLabels }}
+          labels:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          serviceAccountName: {{ template "kyverno.name" . }}-cleanup-jobs
+          {{- with .Values.cleanupJobs.ephemeralReports.podSecurityContext }}
+          securityContext:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.ephemeralReports.priorityClassName }}
+          priorityClassName: {{ . }}
+          {{- end }}
+          containers:
+          - name: cleanup
+            image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.cleanupJobs.ephemeralReports.image)) | quote }}
+            imagePullPolicy: {{ .Values.cleanupJobs.ephemeralReports.image.pullPolicy }}
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              COUNT=$(kubectl get ephemeralreports.reports.kyverno.io -A | wc -l)
+              if [ "$COUNT" -gt {{ .Values.cleanupJobs.ephemeralReports.threshold }} ]; then
+                echo "too many ephemeralreports found ($COUNT), cleaning up..."
+                kubectl delete ephemeralreports.reports.kyverno.io -A --all
+              else
+                echo "($COUNT) reports found, no clean up needed"
+              fi
+            {{- with .Values.cleanupJobs.ephemeralReports.securityContext }}
+            securityContext:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.ephemeralReports.resources }}
+            resources:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+          {{- with .Values.cleanupJobs.ephemeralReports.imagePullSecrets }}
+          imagePullSecrets:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          restartPolicy: OnFailure
+          {{- with .Values.cleanupJobs.ephemeralReports.tolerations }}
+          tolerations:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.ephemeralReports.nodeSelector | default .Values.global.nodeSelector }}
+          nodeSelector:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.cleanupJobs.ephemeralReports.podAntiAffinity .Values.cleanupJobs.ephemeralReports.podAffinity .Values.cleanupJobs.ephemeralReports.nodeAffinity }}
+          affinity:
+            {{- with .Values.cleanupJobs.ephemeralReports.podAntiAffinity }}
+            podAntiAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.ephemeralReports.podAffinity }}
+            podAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.ephemeralReports.nodeAffinity }}
+            nodeAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+          {{- end }}
+{{- end -}}
