@@ -193,7 +193,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				responses = append(responses, generateResponse)
 			}
-			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
+			p.Rc.addGenerateResponse(p.AuditWarn, generateResponse)
 		}
 	}
 	p.Rc.addEngineResponses(p.AuditWarn, responses...)
@@ -331,7 +331,7 @@ func (p *PolicyProcessor) makePolicyContext(
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-	printMutatedRes := p.Rc.addMutateResponse(resourcePath, response)
+	printMutatedRes := p.Rc.addMutateResponse(response)
 	if printMutatedRes && p.PrintPatchResource {
 		yamlEncodedResource, err := yamlv2.Marshal(response.PatchedResource.Object)
 		if err != nil {
