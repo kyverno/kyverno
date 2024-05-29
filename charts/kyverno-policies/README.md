@@ -79,7 +79,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
-| customPolicies | list | `[]` | List of custom policies to deploy. |
+| customPolicies | list | `[]` | Additional custom policies to include. |
 | failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/writing-policies/policy-settings/ |
 | validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
