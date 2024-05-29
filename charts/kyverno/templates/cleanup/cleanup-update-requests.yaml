@@ -1,0 +1,91 @@
+{{- if .Values.cleanupJobs.updateRequests.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ template "kyverno.name" . }}-cleanup-update-requests
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.cleanup.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cleanupJobs.updateRequests.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.cleanupJobs.updateRequests.history.success }}
+  failedJobsHistoryLimit: {{ .Values.cleanupJobs.updateRequests.history.failure }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.cleanupJobs.updateRequests.backoffLimit }}
+      {{- if .Values.cleanupJobs.updateRequests.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ .Values.cleanupJobs.updateRequests.ttlSecondsAfterFinished }}
+      {{- end }}
+      template:
+        metadata:
+          {{- with .Values.cleanupJobs.updateRequests.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.updateRequests.podLabels }}
+          labels:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          serviceAccountName: {{ template "kyverno.name" . }}-cleanup-jobs
+          {{- with .Values.cleanupJobs.updateRequests.podSecurityContext }}
+          securityContext:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.updateRequests.priorityClassName }}
+          priorityClassName: {{ . }}
+          {{- end }}
+          containers:
+          - name: cleanup
+            image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.cleanupJobs.updateRequests.image)) | quote }}
+            imagePullPolicy: {{ .Values.cleanupJobs.updateRequests.image.pullPolicy }}
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              COUNT=$(kubectl get updaterequests.kyverno.io -A | wc -l)
+              if [ "$COUNT" -gt {{ .Values.cleanupJobs.updateRequests.threshold }} ]; then
+                echo "too many updaterequests found ($COUNT), cleaning up..."
+                kubectl delete updaterequests.kyverno.io --all -n kyverno
+              else
+                echo "($COUNT) reports found, no clean up needed"
+              fi
+            {{- with .Values.cleanupJobs.updateRequests.securityContext }}
+            securityContext:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.updateRequests.resources }}
+            resources:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+          {{- with .Values.cleanupJobs.updateRequests.imagePullSecrets }}
+          imagePullSecrets:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          restartPolicy: OnFailure
+          {{- with .Values.cleanupJobs.updateRequests.tolerations }}
+          tolerations:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.updateRequests.nodeSelector | default .Values.global.nodeSelector }}
+          nodeSelector:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.cleanupJobs.updateRequests.podAntiAffinity .Values.cleanupJobs.updateRequests.podAffinity .Values.cleanupJobs.admissionReports.nodeAffinity }}
+          affinity:
+            {{- with .Values.cleanupJobs.updateRequests.podAntiAffinity }}
+            podAntiAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.updateRequests.podAffinity }}
+            podAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.updateRequests.nodeAffinity }}
+            nodeAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+          {{- end }}
+{{- end -}}
