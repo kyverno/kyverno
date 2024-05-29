@@ -57,8 +57,6 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 
 {{/* Set if custom policies are managed */}}
-{{ include "kyverno-policies.customPolicies" ( dict "value" .Values.path.to.the.Value "context" $) }}
-*/}}
 {{- define "kyverno-policies.customPolicies" -}}
     {{- if typeIs "string" .value }}
         {{- tpl .value .context }}
