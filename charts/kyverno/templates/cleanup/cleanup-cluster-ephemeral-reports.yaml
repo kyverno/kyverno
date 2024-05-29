@@ -1,0 +1,91 @@
+{{- if .Values.cleanupJobs.clusterEphemeralReports.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ template "kyverno.name" . }}-cleanup-cluster-ephemeral-reports
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.cleanup.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cleanupJobs.clusterEphemeralReports.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.cleanupJobs.clusterEphemeralReports.history.success }}
+  failedJobsHistoryLimit: {{ .Values.cleanupJobs.clusterEphemeralReports.history.failure }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.cleanupJobs.clusterEphemeralReports.backoffLimit }}
+      {{- if .Values.cleanupJobs.clusterEphemeralReports.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ .Values.cleanupJobs.clusterEphemeralReports.ttlSecondsAfterFinished }}
+      {{- end }}
+      template:
+        metadata:
+          {{- with .Values.cleanupJobs.clusterEphemeralReports.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.clusterEphemeralReports.podLabels }}
+          labels:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          serviceAccountName: {{ template "kyverno.name" . }}-cleanup-jobs
+          {{- with .Values.cleanupJobs.clusterEphemeralReports.podSecurityContext }}
+          securityContext:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.clusterEphemeralReports.priorityClassName }}
+          priorityClassName: {{ . }}
+          {{- end }}
+          containers:
+          - name: cleanup
+            image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.cleanupJobs.clusterEphemeralReports.image)) | quote }}
+            imagePullPolicy: {{ .Values.cleanupJobs.clusterEphemeralReports.image.pullPolicy }}
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              COUNT=$(kubectl get clusterephemeralreports.reports.kyverno.io -A | wc -l)
+              if [ "$COUNT" -gt {{ .Values.cleanupJobs.clusterEphemeralReports.threshold }} ]; then
+                echo "too many clusterephemeralreports found ($COUNT), cleaning up..."
+                kubectl delete clusterephemeralreports.reports.kyverno.io -A --all
+              else
+                echo "($COUNT) reports found, no clean up needed"
+              fi
+            {{- with .Values.cleanupJobs.clusterEphemeralReports.securityContext }}
+            securityContext:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.clusterEphemeralReports.resources }}
+            resources:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+          {{- with .Values.cleanupJobs.clusterEphemeralReports.imagePullSecrets }}
+          imagePullSecrets:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          restartPolicy: OnFailure
+          {{- with .Values.cleanupJobs.clusterEphemeralReports.tolerations }}
+          tolerations:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupJobs.clusterEphemeralReports.nodeSelector | default .Values.global.nodeSelector }}
+          nodeSelector:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.cleanupJobs.clusterEphemeralReports.podAntiAffinity .Values.cleanupJobs.clusterEphemeralReports.podAffinity .Values.cleanupJobs.clusterEphemeralReports.nodeAffinity }}
+          affinity:
+            {{- with .Values.cleanupJobs.clusterEphemeralReports.podAntiAffinity }}
+            podAntiAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.clusterEphemeralReports.podAffinity }}
+            podAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+            {{- with .Values.cleanupJobs.clusterEphemeralReports.nodeAffinity }}
+            nodeAffinity:
+              {{- tpl (toYaml .) $ | nindent 14 }}
+            {{- end }}
+          {{- end }}
+{{- end -}}
