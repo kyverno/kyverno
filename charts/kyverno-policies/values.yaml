@@ -20,6 +20,13 @@ includeOtherPolicies: []
 includeRestrictedPolicies: []
 # - require-run-as-non-root-user
 
+# -- Additional custom policies to include.
+customPolicies: []
+# - apiVersion: kyverno.io/v1
+#   kind: ClusterPolicy
+#   metadata: # metadata
+#   spec: # spec
+
 # -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
 # For more info: https://kyverno.io/docs/writing-policies/policy-settings/
 failurePolicy: Fail
