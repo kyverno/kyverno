@@ -23,7 +23,7 @@ jobs:
           value: ${{ secrets.PR_UPDATE_TOKEN }}
       - name: Automatically update PR
         if: steps.checksecret.outputs.result == 'true'
-        uses: adRise/update-pr-branch@1dc4248ce8a2480d1e432fa641f243ef12f6708e # v0.7.2
+        uses: adRise/update-pr-branch@5d273948c50bda6275d3a71e26f71c54e18392c1 # v0.8.1
         with:
           token: ${{ secrets.PR_UPDATE_TOKEN }}
           base: ${{ github.ref_name }}
