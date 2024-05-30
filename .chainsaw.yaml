@@ -12,3 +12,4 @@ spec:
   excludeTestRegex: '_.+'
   forceTerminationGracePeriod: 5s
   delayBeforeCleanup: 3s
+  template: false
