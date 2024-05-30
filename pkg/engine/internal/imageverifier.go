@@ -224,8 +224,8 @@ func EvaluateConditions(
 
 func getRawResp(statements []map[string]interface{}) ([]byte, error) {
 	for _, statement := range statements {
-		predicate, ok := statement["predicate"].(map[string]interface{})
-		if ok {
+		predicate, exists := statement["predicate"]
+		if exists {
 			rawResp, err := json.Marshal(predicate)
 			if err != nil {
 				return nil, err
@@ -481,14 +481,14 @@ func (iv *ImageVerifier) verifyAttestations(
 
 				name := imageVerify.Attestations[i].Name
 
-				rawCosignResp, err := json.Marshal(cosignResp.Statements)
+				rawResp, err := getRawResp(cosignResp.Statements)
 				if err != nil {
-					iv.logger.Error(err, "Error marshaling cosignResp")
+					iv.logger.Error(err, "Error while finding report in statement")
 					errorList = append(errorList, err)
 					continue
 				}
 
-				err = iv.policyContext.JSONContext().AddContextEntry(name, rawCosignResp)
+				err = iv.policyContext.JSONContext().AddContextEntry(name, rawResp)
 				if err != nil {
 					iv.logger.Error(err, "failed to add resource data to context entry")
 					errorList = append(errorList, err)

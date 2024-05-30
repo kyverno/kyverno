@@ -57,13 +57,13 @@ spec:
           - "ghcr.io/kyverno/test-verify-image*"
         attestations:
           - type: sbom/cyclone-dx
-            name: one
+            name: sbom
             attestors:
             - entries:
               - certificates: 
                   cert: "{{ keys.data.certificate }}"
           - type: vulnerability-scan
-            name: two
+            name: scan
             attestors:
             - entries:
               - certificates: 
@@ -72,12 +72,12 @@ spec:
           deny:
             conditions:
               any:
-              - key: '{{ one[0].predicate.bomFormat}}'
+              - key: '{{ sbom.bomFormat }}'
                 operator: NotEquals
                 value: CycloneDX
                 message: test1
-              - key: '{{ two[0].schemaVersion }}'
-                operator: LessThan
-                value: 0
+              - key: "{{ time_after('{{ sbom.metadata.timestamp }}', '{{ scan.descriptor.timestamp }}' ) }}"
+                operator: Equals
+                value: False
                 message: test2
-          message: Sample Validation
+          message: scan report should be created after sbom
