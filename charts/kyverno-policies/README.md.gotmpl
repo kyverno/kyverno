@@ -37,6 +37,16 @@ An additional policy "require-non-root-groups" is included in an `other` group a
 
 For the latest version of these PSS policies, always refer to the kyverno/policies repo at https://github.com/kyverno/policies/tree/main/pod-security.
 
+## Deploy custom policies
+If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
+````yaml
+customPolicies:
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    metadata: # metadata
+    spec: # spec
+````
+
 ## Installing the Chart
 
 These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
