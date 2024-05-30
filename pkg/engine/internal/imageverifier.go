@@ -224,7 +224,7 @@ func EvaluateConditions(
 
 func getRawResp(statements []map[string]interface{}) ([]byte, error) {
 	for _, statement := range statements {
-		predicate, ok := statement["predicate"].(map[string]interface{})
+		predicate, ok := statement["predicate"]
 		if ok {
 			rawResp, err := json.Marshal(predicate)
 			if err != nil {
