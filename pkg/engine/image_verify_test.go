@@ -1551,7 +1551,7 @@ var multipleImageVerificationAttestationPolicyPass = `{
                         "attestations": [
                             {
                                 "type": "sbom/cyclone-dx",
-                                "name": "one",
+                                "name": "sbom",
                                 "attestors": [
                                     {
                                         "entries": [
@@ -1565,8 +1565,8 @@ var multipleImageVerificationAttestationPolicyPass = `{
                                 ]
                             },
                             {
-                                "type": "sbom/cyclone-dx",
-                                "name": "two",
+                                "type": "vulnerability-scan",
+                                "name": "scan",
                                 "attestors": [
                                     {
                                         "entries": [
@@ -1585,9 +1585,9 @@ var multipleImageVerificationAttestationPolicyPass = `{
                                 "conditions": {
                                     "any": [
                                         {
-                                            "key": "{{ one[0].type }}",
-                                            "operator": "NotEquals",
-                                            "value": "{{ two[0].type }}"
+                                            "key": "{{ time_after('{{ sbom.metadata.timestamp }}', '{{ scan.descriptor.timestamp }}' ) }}",
+                                            "operator": "Equals",
+                                            "value": "False"
                                         }
                                     ]
                                 }
@@ -1643,7 +1643,7 @@ var multipleImageVerificationAttestationPolicyFail = `{
                         "attestations": [
                             {
                                 "type": "sbom/cyclone-dx",
-                                "name": "one",
+                                "name": "sbom",
                                 "attestors": [
                                     {
                                         "entries": [
@@ -1657,8 +1657,8 @@ var multipleImageVerificationAttestationPolicyFail = `{
                                 ]
                             },
                             {
-                                "type": "sbom/cyclone-dx",
-                                "name": "two",
+                                "type": "vulnerability-scan",
+                                "name": "scan",
                                 "attestors": [
                                     {
                                         "entries": [
@@ -1677,9 +1677,9 @@ var multipleImageVerificationAttestationPolicyFail = `{
                                 "conditions": {
                                     "any": [
                                         {
-                                            "key": "{{ one[0].type }}",
+                                            "key": "{{ time_after('{{ sbom.metadata.timestamp }}', '{{ scan.descriptor.timestamp }}' ) }}",
                                             "operator": "Equals",
-                                            "value": "{{ two[0].type }}"
+                                            "value": "True"
                                         }
                                     ]
                                 }
