@@ -335,13 +335,65 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.26.4'
+    tag: '1.28.5'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
 
   # -- Image pull secrets
   imagePullSecrets: []
+
+  # -- Security context for the pod
+  podSecurityContext: {}
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Pod anti affinity constraints.
+  podAntiAffinity: {}
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
+  # -- Security context for the hook containers
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    runAsNonRoot: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+
+policyReportsCleanup:
+  # -- Create a helm post-upgrade hook to cleanup the old policy reports.
+  enabled: true
+
+  image:
+    # -- (string) Image registry
+    registry: ~
+    # -- Image repository
+    repository: bitnami/kubectl
+    # -- Image tag
+    # Defaults to `latest` if omitted
+    tag: '1.28.5'
+    # -- (string) Image pull policy
+    # Defaults to image.pullPolicy if omitted
+    pullPolicy: ~
+
+  # -- Image pull secrets
+  imagePullSecrets: []
+  # - name: secretName
 
   # -- Security context for the pod
   podSecurityContext: {}
@@ -500,7 +552,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.26.10'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -571,7 +623,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.26.4'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~

@@ -51,6 +51,10 @@ const (
 	IdleDeadline              = tickerInterval * 10
 	maxRetries                = 10
 	tickerInterval            = 10 * time.Second
+	webhookCreate             = "CREATE"
+	webhookUpdate             = "UPDATE"
+	webhookDelete             = "DELETE"
+	webhookConnect            = "CONNECT"
 )
 
 var (
@@ -92,14 +96,15 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// config
-	server             string
-	defaultTimeout     int32
-	servicePort        int32
-	autoUpdateWebhooks bool
-	admissionReports   bool
-	runtime            runtimeutils.Runtime
-	configuration      config.Configuration
-	caSecretName       string
+	server                       string
+	defaultTimeout               int32
+	servicePort                  int32
+	autoUpdateWebhooks           bool
+	admissionReports             bool
+	disableAutoWebhookGeneration bool
+	runtime                      runtimeutils.Runtime
+	configuration                config.Configuration
+	caSecretName                 string
 
 	// state
 	lock        sync.Mutex
@@ -127,30 +132,32 @@ func NewController(
 	runtime runtimeutils.Runtime,
 	configuration config.Configuration,
 	caSecretName string,
+	disableAutoWebhookGeneration bool,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		discoveryClient:    discoveryClient,
-		mwcClient:          mwcClient,
-		vwcClient:          vwcClient,
-		leaseClient:        leaseClient,
-		kyvernoClient:      kyvernoClient,
-		mwcLister:          mwcInformer.Lister(),
-		vwcLister:          vwcInformer.Lister(),
-		cpolLister:         cpolInformer.Lister(),
-		polLister:          polInformer.Lister(),
-		secretLister:       secretInformer.Lister(),
-		leaseLister:        leaseInformer.Lister(),
-		clusterroleLister:  clusterroleInformer.Lister(),
-		queue:              queue,
-		server:             server,
-		defaultTimeout:     defaultTimeout,
-		servicePort:        servicePort,
-		autoUpdateWebhooks: autoUpdateWebhooks,
-		admissionReports:   admissionReports,
-		runtime:            runtime,
-		configuration:      configuration,
-		caSecretName:       caSecretName,
+		discoveryClient:              discoveryClient,
+		mwcClient:                    mwcClient,
+		vwcClient:                    vwcClient,
+		leaseClient:                  leaseClient,
+		kyvernoClient:                kyvernoClient,
+		mwcLister:                    mwcInformer.Lister(),
+		vwcLister:                    vwcInformer.Lister(),
+		cpolLister:                   cpolInformer.Lister(),
+		polLister:                    polInformer.Lister(),
+		secretLister:                 secretInformer.Lister(),
+		leaseLister:                  leaseInformer.Lister(),
+		clusterroleLister:            clusterroleInformer.Lister(),
+		queue:                        queue,
+		server:                       server,
+		defaultTimeout:               defaultTimeout,
+		servicePort:                  servicePort,
+		autoUpdateWebhooks:           autoUpdateWebhooks,
+		admissionReports:             admissionReports,
+		runtime:                      runtime,
+		configuration:                configuration,
+		caSecretName:                 caSecretName,
+		disableAutoWebhookGeneration: disableAutoWebhookGeneration,
 		policyState: map[string]sets.Set[string]{
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
@@ -476,6 +483,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+	if c.disableAutoWebhookGeneration {
+		return nil
+	}
 	switch name {
 	case config.MutatingWebhookConfigurationName:
 		if c.runtime.IsRollingUpdate() {
@@ -640,6 +650,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 			return nil, err
 		}
 		c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
+		var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
@@ -649,6 +660,8 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					} else {
 						c.mergeWebhook(fail, p, false)
 					}
+					rules := p.GetSpec().Rules
+					mapResourceToOpnType = addOpnForMutatingWebhookConf(rules, mapResourceToOpnType)
 				}
 			}
 		}
@@ -664,7 +677,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 				admissionregistrationv1.MutatingWebhook{
 					Name:                    config.MutatingWebhookName + "-ignore",
 					ClientConfig:            c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/ignore"),
-					Rules:                   ignore.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
+					Rules:                   ignore.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1"},
@@ -683,7 +696,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 				admissionregistrationv1.MutatingWebhook{
 					Name:                    config.MutatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
+					Rules:                   fail.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1"},
@@ -699,6 +712,34 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		c.recordPolicyState(config.MutatingWebhookConfigurationName)
 	}
 	return &result, nil
+}
+
+func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
+	var mapResourceToOpn map[string]map[string]bool
+	for _, r := range rules {
+		var resources []string
+		operationStatusMap := getOperationStatusMap()
+		operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
+		resources = computeResourcesOfRule(r)
+		for _, r := range resources {
+			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+		}
+	}
+	return mapResourceToOpnType
+}
+
+func addOpnForValidatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
+	var mapResourceToOpn map[string]map[string]bool
+	for _, r := range rules {
+		var resources []string
+		operationStatusMap := getOperationStatusMap()
+		operationStatusMap = computeOperationsForValidatingWebhookConf(r, operationStatusMap)
+		resources = computeResourcesOfRule(r)
+		for _, r := range resources {
+			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+		}
+	}
+	return mapResourceToOpnType
 }
 
 func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
@@ -766,6 +807,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 			return nil, err
 		}
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
+		var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
@@ -777,6 +819,8 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					}
 				}
 			}
+			rules := p.GetSpec().Rules
+			mapResourceToOpnType = addOpnForValidatingWebhookConf(rules, mapResourceToOpnType)
 		}
 		webhookCfg := config.WebhookConfig{}
 		webhookCfgs := cfg.GetWebhooks()
@@ -794,7 +838,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-ignore",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
-					Rules:                   ignore.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
+					Rules:                   ignore.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
@@ -812,7 +856,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
+					Rules:                   fail.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},

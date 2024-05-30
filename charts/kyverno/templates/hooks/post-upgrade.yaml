@@ -1,0 +1,85 @@
+{{- if .Values.policyReportsCleanup.enabled -}}
+  {{- if not .Values.templating.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "kyverno.fullname" . }}-hook-post-upgrade
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      serviceAccount: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      {{- with .Values.policyReportsCleanup.podSecurityContext }}
+      securityContext:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      containers:
+        - name: kubectl
+          image: {{ (include "kyverno.image" (dict "globalRegistry" ((.Values.global).image).registry "image" .Values.policyReportsCleanup.image "defaultTag" (default .Chart.AppVersion .Values.policyReportsCleanup.image.tag))) | quote }}
+          imagePullPolicy: {{ .Values.policyReportsCleanup.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              NAMESPACES=$(kubectl get namespaces --no-headers=true | awk '{print $1}')
+
+              for ns in ${NAMESPACES[@]};
+              do
+                COUNT=$(kubectl get policyreports.wgpolicyk8s.io -n $ns --no-headers=true | awk '/pol/{print $1}' | wc -l)
+
+                if [ $COUNT -gt 0 ]; then
+                  echo "deleting $COUNT policyreports in namespace $ns"
+                  kubectl get policyreports.wgpolicyk8s.io -n $ns --no-headers=true | awk '/pol/{print $1}' | xargs kubectl delete -n $ns policyreports.wgpolicyk8s.io
+                else
+                  echo "no policyreports in namespace $ns"
+                fi
+              done
+
+              COUNT=$(kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '/pol/{print $1}' | wc -l)
+                
+              if [ $COUNT -gt 0 ]; then
+                echo "deleting $COUNT clusterpolicyreports"
+                kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '/pol/{print $1}' | xargs kubectl delete clusterpolicyreports.wgpolicyk8s.io
+              else
+                echo "no clusterpolicyreports"
+              fi
+          {{- with .Values.policyReportsCleanup.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.policyReportsCleanup.imagePullSecrets }}
+      imagePullSecrets:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.policyReportsCleanup.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.policyReportsCleanup.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.policyReportsCleanup.podAntiAffinity .Values.policyReportsCleanup.podAffinity .Values.policyReportsCleanup.nodeAffinity }}
+      affinity:
+        {{- with .Values.policyReportsCleanup.podAntiAffinity }}
+        podAntiAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.policyReportsCleanup.podAffinity }}
+        podAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.policyReportsCleanup.nodeAffinity }}
+        nodeAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+      {{- end }}
+  {{- end -}}
+{{- end -}}

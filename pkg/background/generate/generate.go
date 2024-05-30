@@ -101,9 +101,10 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	trigger, err := c.getTrigger(ur.Spec)
 	if err != nil {
 		logger.V(3).Info("the trigger resource does not exist or is pending creation, re-queueing", "details", err.Error())
-		if err := common.UpdateRetryAnnotation(c.kyvernoClient, ur); err != nil {
+		if err := updateStatus(c.statusControl, *ur, err, nil); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	if trigger == nil {
@@ -113,19 +114,27 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
 	genResources, err = c.applyGenerate(*trigger, *ur, namespaceLabels)
 	if err != nil {
-		// Need not update the status when policy doesn't apply on resource, because all the update requests are removed by the cleanup controller
 		if strings.Contains(err.Error(), doesNotApply) {
-			logger.V(4).Info("skipping updating status of update request")
-			return nil
+			ur.Status.State = kyvernov1beta1.Completed
+			logger.V(4).Info(fmt.Sprintf("%s, updating UR status to Completed", err.Error()))
+			_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+			return err
 		}
 
-		policy, _ := c.getPolicySpec(*ur)
+		policy, err := c.getPolicySpec(*ur)
+		if err != nil {
+			return err
+		}
+
 		events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.Rule, event.GeneratePolicyController,
 			kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
 		c.eventGen.Add(events...)
 	}
 
-	return updateStatus(c.statusControl, *ur, err, genResources)
+	if err = updateStatus(c.statusControl, *ur, err, genResources); err != nil {
+		return err
+	}
+	return err
 }
 
 const doesNotApply = "policy does not apply to resource"
@@ -366,8 +375,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 
 		genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 		if err != nil {
-			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
-				"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
+			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(), "rule", rule.Name, "resource", resource.GetName())
 			return nil, err
 		}
 		ruleNameToProcessingTime[rule.Name] = time.Since(startTime)

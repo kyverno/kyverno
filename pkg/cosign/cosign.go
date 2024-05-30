@@ -31,6 +31,14 @@ import (
 	"go.uber.org/multierr"
 )
 
+var signatureAlgorithmMap = map[string]crypto.Hash{
+	"":       crypto.SHA256,
+	"sha224": crypto.SHA224,
+	"sha256": crypto.SHA256,
+	"sha384": crypto.SHA384,
+	"sha512": crypto.SHA512,
+}
+
 func NewVerifier() images.ImageVerifier {
 	return &cosignVerifier{}
 }
@@ -89,11 +97,6 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.CheckOpts, error) {
 	var remoteOpts []remote.Option
 	var err error
-	signatureAlgorithmMap := map[string]crypto.Hash{
-		"":       crypto.SHA256,
-		"sha256": crypto.SHA256,
-		"sha512": crypto.SHA512,
-	}
 
 	cosignRemoteOpts, err := opts.Client.BuildCosignRemoteOption(ctx)
 	if err != nil {
@@ -121,9 +124,13 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 
 	if opts.Key != "" {
 		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
-			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithmMap[opts.SignatureAlgorithm])
-			if err != nil {
-				return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
+			if signatureAlgorithm, ok := signatureAlgorithmMap[opts.SignatureAlgorithm]; ok {
+				cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithm)
+				if err != nil {
+					return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
+				}
+			} else {
+				return nil, fmt.Errorf("invalid signature algorithm provided %s", opts.SignatureAlgorithm)
 			}
 		} else {
 			// this supports Kubernetes secrets and KMS
@@ -206,6 +213,21 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		}
 
 		cosignOpts.RegistryClientOpts = append(cosignOpts.RegistryClientOpts, remote.WithTargetRepository(signatureRepo))
+	}
+
+	if opts.TSACertChain != "" {
+		leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.TSACertChain))
+		if err != nil {
+			return nil, fmt.Errorf("error splitting tsa certificates: %w", err)
+		}
+		if len(leaves) > 1 {
+			return nil, fmt.Errorf("certificate chain must contain at most one TSA certificate")
+		}
+		if len(leaves) == 1 {
+			cosignOpts.TSACertificate = leaves[0]
+		}
+		cosignOpts.TSAIntermediateCertificates = intermediates
+		cosignOpts.TSARootCertificates = roots
 	}
 
 	return cosignOpts, nil
@@ -602,4 +624,26 @@ func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTrans
 		return nil, fmt.Errorf("failed to get transparency log public keys: %w", err)
 	}
 	return &publicKeys, nil
+}
+
+func splitPEMCertificateChain(pem []byte) (leaves, intermediates, roots []*x509.Certificate, err error) {
+	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(pem)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	for _, cert := range certs {
+		if !cert.IsCA {
+			leaves = append(leaves, cert)
+		} else {
+			// root certificates are self-signed
+			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
+				roots = append(roots, cert)
+			} else {
+				intermediates = append(intermediates, cert)
+			}
+		}
+	}
+
+	return leaves, intermediates, roots, nil
 }

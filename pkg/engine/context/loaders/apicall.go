@@ -19,6 +19,7 @@ type apiLoader struct {
 	enginectx enginecontext.Interface
 	jp        jmespath.Interface
 	client    engineapi.RawClient
+	config    apicall.APICallConfiguration
 	data      []byte
 }
 
@@ -29,6 +30,7 @@ func NewAPILoader(
 	enginectx enginecontext.Interface,
 	jp jmespath.Interface,
 	client engineapi.RawClient,
+	apiCallConfig apicall.APICallConfiguration,
 ) enginecontext.Loader {
 	return &apiLoader{
 		ctx:       ctx,
@@ -37,6 +39,7 @@ func NewAPILoader(
 		enginectx: enginectx,
 		jp:        jp,
 		client:    client,
+		config:    apiCallConfig,
 	}
 }
 
@@ -45,7 +48,7 @@ func (a *apiLoader) HasLoaded() bool {
 }
 
 func (a *apiLoader) LoadData() error {
-	executor, err := apicall.New(a.logger, a.jp, a.entry, a.enginectx, a.client)
+	executor, err := apicall.New(a.logger, a.jp, a.entry, a.enginectx, a.client, a.config)
 	if err != nil {
 		return fmt.Errorf("failed to initiaize APICal: %w", err)
 	}

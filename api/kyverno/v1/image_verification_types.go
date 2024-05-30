@@ -28,6 +28,14 @@ const (
 	GHCR    ImageRegistryCredentialsProvidersType = "github"
 )
 
+var signatureAlgorithmMap = map[string]bool{
+	"":       true,
+	"sha224": true,
+	"sha256": true,
+	"sha384": true,
+	"sha512": true,
+}
+
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
@@ -166,7 +174,7 @@ type StaticKeyAttestor struct {
 	// (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
-	// Specify signature algorithm for public keys. Supported values are sha256 and sha512.
+	// Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.
 	// +kubebuilder:default=sha256
 	SignatureAlgorithm string `json:"signatureAlgorithm,omitempty" yaml:"signatureAlgorithm,omitempty"`
 
@@ -247,7 +255,7 @@ type KeylessAttestor struct {
 
 type Rekor struct {
 	// URL is the address of the transparency log. Defaults to the public Rekor log instance https://rekor.sigstore.dev.
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:Default:=https://rekor.sigstore.dev
 	URL string `json:"url" yaml:"url"`
 
@@ -270,6 +278,12 @@ type CTLog struct {
 	// PubKey, if set, is used to validate SCTs against a custom source.
 	// +kubebuilder:validation:Optional
 	CTLogPubKey string `json:"pubkey,omitempty" yaml:"pubkey,omitempty"`
+
+	// TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
+	// contain the root CA certificate. Optionally may contain intermediate CA certificates, and
+	// may contain the leaf TSA certificate if not present in the timestamurce.
+	// +kubebuilder:validation:Optional
+	TSACertChain string `json:"tsaCertChain,omitempty" yaml:"tsaCertChain,omitempty"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.
@@ -450,8 +464,10 @@ func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) 
 	if ska.PublicKeys == "" && ska.KMS == "" && ska.Secret == nil {
 		errs = append(errs, field.Invalid(path, ska, "A public key, kms key or secret is required"))
 	}
-	if ska.PublicKeys != "" && ska.SignatureAlgorithm != "" && ska.SignatureAlgorithm != "sha256" && ska.SignatureAlgorithm != "sha512" {
-		errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+	if ska.PublicKeys != "" {
+		if _, ok := signatureAlgorithmMap[ska.SignatureAlgorithm]; !ok {
+			errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+		}
 	}
 	return errs
 }

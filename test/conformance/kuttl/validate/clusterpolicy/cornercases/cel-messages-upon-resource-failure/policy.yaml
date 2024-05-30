@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-port-in-pods
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: host-port-pods
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: "hostPort must either be unset or set to 0"
+        cel:
+          expressions:
+            - expression: "object.spec.containers.all(container, !has(container.ports) || container.ports.all(port, !has(port.hostPort) || port.hostPort == 0))"

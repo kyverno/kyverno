@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- bad-pod.yaml
+assert:
+- bad-pod-ready.yaml

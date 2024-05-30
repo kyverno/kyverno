@@ -1,8 +1,8 @@
-apiVersion: kyverno.io/v2alpha1
+apiVersion: kyverno.io/v2beta1
 kind: PolicyException
 metadata:
   name: {{ .Name }}
-  namespace: {{ .Namespace }}
+  namespace: {{ or .Namespace "default" }}
 spec:
   background: {{ .Background }}
   match:
@@ -10,29 +10,28 @@ spec:
 {{- with .Match.Any }}
     any:
 {{- range . }}
-      -
 {{- with .Kinds }}
-        kinds:
+    - kinds:
 {{- range . }}
-          - {{ . }}
+        - {{ . }}
 {{- end }}
 {{- end }}
 {{- with .Names }}
-        names:
+      names:
 {{- range . }}
-          - {{ . }}
+        - {{ . }}
 {{- end }}
 {{- end }}
 {{- with .Namespaces }}
-        namespaces:
+      namespaces:
 {{- range . }}
-          - {{ . }}
+        - {{ . }}
 {{- end }}
 {{- end }}
 {{- with .Operations }}
-        operations:
+      operations:
 {{- range . }}
-          - {{ . }}
+        - {{ . }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -41,29 +40,28 @@ spec:
 {{- with .Match.All }}
     all:
 {{- range . }}
-      -
 {{- with .Kinds }}
-        kinds:
+    - kinds:
 {{- range . }}
-          - {{ . }}
+        - {{ . }}
 {{- end }}
 {{- end }}
 {{- with .Names }}
-        names:
+      names:
 {{- range . }}
-          - {{ . }}
+        - {{ . }}
 {{- end }}
 {{- end }}
 {{- with .Namespaces }}
-        namespaces:
+      namespaces:
 {{- range . }}
-          - {{ . }}
+        - {{ . }}
 {{- end }}
 {{- end }}
 {{- with .Operations }}
-        operations:
+      operations:
 {{- range . }}
-          - {{ . }}
+        - {{ . }}
 {{- end }}
 {{- end }}
 {{- end }}

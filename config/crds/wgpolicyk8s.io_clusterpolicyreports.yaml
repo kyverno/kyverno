@@ -19,11 +19,9 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
       name: Kind
-      priority: 1
       type: string
     - jsonPath: .scope.name
       name: Name
-      priority: 1
       type: string
     - jsonPath: .summary.pass
       name: Pass

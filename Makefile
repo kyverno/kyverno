@@ -746,7 +746,7 @@ test-kuttl: $(KUTTL) ## Run kuttl tests
 #############
 
 TEST_GIT_BRANCH ?= main
-TEST_GIT_REPO   ?= https://github.com/kyverno/policies
+TEST_GIT_REPO   ?= https://github.com/nirmata/policies
 
 .PHONY: test-cli
 test-cli: test-cli-policies test-cli-local ## Run all CLI tests

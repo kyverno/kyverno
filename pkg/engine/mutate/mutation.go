@@ -47,7 +47,8 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	if patcher == nil {
 		return NewErrorResponse("empty mutate rule", nil)
 	}
-	resourceBytes, err := resource.MarshalJSON()
+	patchedResource := resource.DeepCopy()
+	resourceBytes, err := patchedResource.MarshalJSON()
 	if err != nil {
 		return NewErrorResponse("failed to marshal resource", err)
 	}
@@ -58,19 +59,15 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	if strings.TrimSpace(string(resourceBytes)) == strings.TrimSpace(string(patchedBytes)) {
 		return NewResponse(engineapi.RuleStatusSkip, resource, "no patches applied")
 	}
-	if err := resource.UnmarshalJSON(patchedBytes); err != nil {
+	if err := patchedResource.UnmarshalJSON(patchedBytes); err != nil {
 		return NewErrorResponse("failed to unmarshal patched resource", err)
 	}
 	if rule.IsMutateExisting() {
-		if err := ctx.SetTargetResource(resource.Object); err != nil {
-			return NewErrorResponse("failed to update patched resource in the JSON context", err)
-		}
-	} else {
-		if err := ctx.AddResource(resource.Object); err != nil {
-			return NewErrorResponse("failed to update patched resource in the JSON context", err)
+		if err := ctx.SetTargetResource(patchedResource.Object); err != nil {
+			return NewErrorResponse("failed to update patched target resource in the JSON context", err)
 		}
 	}
-	return NewResponse(engineapi.RuleStatusPass, resource, "resource patched")
+	return NewResponse(engineapi.RuleStatusPass, *patchedResource, "resource patched")
 }
 
 func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engineapi.PolicyContext, resource unstructured.Unstructured, element interface{}, logger logr.Logger) *Response {
@@ -83,7 +80,8 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	if patcher == nil {
 		return NewErrorResponse("empty mutate rule", nil)
 	}
-	resourceBytes, err := resource.MarshalJSON()
+	patchedResource := resource.DeepCopy()
+	resourceBytes, err := patchedResource.MarshalJSON()
 	if err != nil {
 		return NewErrorResponse("failed to marshal resource", err)
 	}
@@ -94,13 +92,10 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	if strings.TrimSpace(string(resourceBytes)) == strings.TrimSpace(string(patchedBytes)) {
 		return NewResponse(engineapi.RuleStatusSkip, resource, "no patches applied")
 	}
-	if err := resource.UnmarshalJSON(patchedBytes); err != nil {
+	if err := patchedResource.UnmarshalJSON(patchedBytes); err != nil {
 		return NewErrorResponse("failed to unmarshal patched resource", err)
-	} else if err := ctx.AddResource(resource.Object); err != nil {
-		return NewErrorResponse("failed to update patched resource in the JSON context", err)
-	} else {
-		return NewResponse(engineapi.RuleStatusPass, resource, "resource patched")
 	}
+	return NewResponse(engineapi.RuleStatusPass, *patchedResource, "resource patched")
 }
 
 func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyvernov1.ForEachMutation, error) {
