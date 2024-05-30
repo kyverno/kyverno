@@ -964,6 +964,13 @@ jobs:
           name: kubectl-kyverno
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@3bf0752f44d348d859fefa022f113bda6a24a1ae # v0.1.7
+      # create cluster
+      - name: Create kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        with:
+          node_image: kindest/node:v1.30.0
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
       - name: Install Kyverno CLI
         shell: bash
         run: |
@@ -977,7 +984,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --no-cluster
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
       - name: Fix test files
         shell: bash
         run: |
