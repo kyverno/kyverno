@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: first-pod
+  namespace: shared-dp
+spec:
+  containers:
+    - name: container
+      image: nginx

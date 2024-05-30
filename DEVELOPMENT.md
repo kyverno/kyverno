@@ -27,6 +27,10 @@ It contains instructions to build, run, and test Kyverno.
   - [Generating helm charts CRDs](#generating-helm-charts-crds)
   - [Generating helm charts docs](#generating-helm-charts-docs)
 - [Debugging local code](#debugging-local-code)
+- [Profiling](#profiling)
+- [Other Topics](#other-topics)
+- [Selecting Issues](#selecting-issues)
+
 
 ## Open project in devcontainer (recommended)
 - Clone the project to your local machine.
@@ -427,3 +431,83 @@ go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443 --b
 ```
 
 You will need to adapt those steps to run debug sessions in your IDE of choice, but the general idea remains the same.
+
+
+## Profiling
+
+### Enable profiling
+To profile Kyverno application running inside a Kubernetes pod, set `--profile` flag to `true` in [install.yaml](https://github.com/kyverno/kyverno/blob/main/definitions/install.yaml). The default profiling port is 6060, and it can be configured via `profile-port`.
+
+```
+  --profile
+        Set this flag to 'true', to enable profiling.
+  --profile-port string
+        Enable profiling at given port, defaults to 6060. (default "6060")
+```
+
+### Expose the endpoint on a local port
+You can get at the application in the pod by port forwarding with kubectl, for example:
+
+````shell
+$ kubectl -n kyverno get pod
+NAME                       READY   STATUS    RESTARTS   AGE
+kyverno-7d67c967c6-slbpr   1/1     Running   0          19s
+````
+
+````bash
+$ kubectl -n kyverno port-forward kyverno-7d67c967c6-slbpr 6060
+Forwarding from 127.0.0.1:6060 -> 6060
+Forwarding from [::1]:6060 -> 6060
+````
+
+The HTTP endpoint will now be available as a local port.
+
+Alternatively, use a Service of the type `LoadBalancer` to expose Kyverno. An example Service manifest is given below:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: pproc-service
+  namespace: kyverno
+spec:
+  selector:
+    app: kyverno
+  ports:
+    - protocol: TCP
+      port: 6060
+      targetPort: 6060
+  type: LoadBalancer
+```
+
+
+### Generate the data
+You can then generate the file for the **memory** profile with curl and pipe the data to a file:
+````shell
+$ curl http://localhost:6060/debug/pprof/heap  > heap.pprof
+````
+
+Generate the file for the **CPU** profile with curl and pipe the data to a file:
+```shell
+curl "http://localhost:6060/debug/pprof/profile?seconds=60" > cpu.pprof
+```
+
+### Analyze the data
+To analyze the data:
+````shell
+go tool pprof heap.pprof
+````
+
+### Read more about profiling
+- [Profiling Golang Programs on Kubernetes](https://danlimerick.wordpress.com/2017/01/24/profiling-golang-programs-on-kubernetes/)
+- [Official GO blog](https://blog.golang.org/pprof)
+
+
+## Other Topics
+
+Additional advanced developer docs are avaialable in the [developer docs folder](./docs/dev/).
+
+
+## Selecting Issues
+
+When you are ready to contribute, you can select issue at [Good First Issues](https://github.com/orgs/kyverno/projects/10). 

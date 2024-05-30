@@ -14,10 +14,10 @@ import (
 )
 
 func TestComputeClusterPolicyReports(t *testing.T) {
-	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	results, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1)
-	policy := policies[0]
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
 	er.PolicyResponse.Add(
@@ -48,10 +48,10 @@ func TestComputeClusterPolicyReports(t *testing.T) {
 }
 
 func TestComputePolicyReports(t *testing.T) {
-	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/pol-pod-requirements.yaml")
+	results, err := policy.Load(nil, "", "../_testdata/policies/pol-pod-requirements.yaml")
 	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1)
-	policy := policies[0]
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
 	er.PolicyResponse.Add(
@@ -83,10 +83,10 @@ func TestComputePolicyReports(t *testing.T) {
 }
 
 func TestComputePolicyReportResultsPerPolicyOld(t *testing.T) {
-	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	loaderResults, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1)
-	policy := policies[0]
+	assert.Equal(t, len(loaderResults.Policies), 1)
+	policy := loaderResults.Policies[0]
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
 	er.PolicyResponse.Add(
@@ -161,10 +161,10 @@ func TestMergeClusterReport(t *testing.T) {
 }
 
 func TestComputePolicyReportResult(t *testing.T) {
-	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	results, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1)
-	policy := policies[0]
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
 	tests := []struct {
 		name           string
 		auditWarn      bool
@@ -280,10 +280,10 @@ func TestComputePolicyReportResult(t *testing.T) {
 }
 
 func TestPSSComputePolicyReportResult(t *testing.T) {
-	policies, _, _, err := policy.Load(nil, "", "../_testdata/policies/restricted.yaml")
+	results, err := policy.Load(nil, "", "../_testdata/policies/restricted.yaml")
 	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1)
-	policy := policies[0]
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
 	tests := []struct {
 		name           string
 		auditWarn      bool

@@ -55,7 +55,7 @@ func buildFuzzContext(ff *fuzz.ConsumeFuzzer) (*PolicyContext, error) {
 	cpol := &kyverno.ClusterPolicy{}
 	cpol.Spec = cpSpec
 
-	if len(autogen.ComputeRules(cpol)) == 0 {
+	if len(autogen.ComputeRules(cpol, "")) == 0 {
 		return nil, fmt.Errorf("No rules created")
 	}
 
@@ -145,7 +145,7 @@ func FuzzEngineValidateTest(f *testing.F) {
 		policy := &kyverno.ClusterPolicy{}
 		policy.Spec = cpSpec
 
-		if len(autogen.ComputeRules(policy)) == 0 {
+		if len(autogen.ComputeRules(policy, "")) == 0 {
 			return
 		}
 
@@ -213,15 +213,14 @@ func FuzzPodBypass(f *testing.F) {
 			validateContext,
 			pc.WithPolicy(testPolicy.ClusterPolicy),
 		)
-		failurePolicy := kyverno.Fail
-		blocked := blockRequest([]engineapi.EngineResponse{er}, failurePolicy)
+		blocked := blockRequest([]engineapi.EngineResponse{er})
 		if blocked != shouldBlock {
 			panic(fmt.Sprintf("\nDid not block a resource that should be blocked:\n%s\n should have been blocked by \n%+v\n\nshouldBlock was %t\nblocked was %t\n", string(resource), testPolicy.ClusterPolicy, shouldBlock, blocked))
 		}
 	})
 }
 
-func blockRequest(engineResponses []engineapi.EngineResponse, failurePolicy kyverno.FailurePolicyType) bool {
+func blockRequest(engineResponses []engineapi.EngineResponse) bool {
 	for _, er := range engineResponses {
 		if er.IsFailed() {
 			return true
@@ -242,7 +241,7 @@ func FuzzMutateTest(f *testing.F) {
 		policy := &kyverno.ClusterPolicy{}
 		policy.Spec = cpSpec
 
-		if len(autogen.ComputeRules(policy)) == 0 {
+		if len(autogen.ComputeRules(policy, "")) == 0 {
 			return
 		}
 

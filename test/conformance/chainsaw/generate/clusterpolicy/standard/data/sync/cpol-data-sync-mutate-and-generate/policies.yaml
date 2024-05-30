@@ -1,0 +1,72 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-mutate
+spec:
+  rules:    
+    - name: test-mutate
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            operations:
+            - CREATE
+      context:
+      - name: list_pods
+        apiCall:
+          urlPath: "/api/v1/namespaces/{{request.namespace}}/pods"
+          jmesPath: "items[]"
+      preconditions:
+        all:
+        - key: "{{ length(list_pods) }}"
+          operator: GreaterThan
+          value: 0
+      mutate:
+        targets:
+          - apiVersion: v1
+            kind: Pod
+            name: "{{ list_pods[0].metadata.name }}"
+        patchesJson6902: |-
+          - path: "/spec/priority"
+            op: add
+            value: 1000
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-generate
+spec:
+  rules:    
+    - name: test-generate
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            operations:
+            - CREATE
+      context:
+      - name: list_pods
+        apiCall:
+          urlPath: "/api/v1/namespaces/{{request.namespace}}/pods"
+          jmesPath: "items[]"
+      preconditions:
+        all:
+        - key: "{{ length(list_pods) }}"
+          operator: GreaterThan
+          value: 0
+      generate:
+        synchronize: true
+        apiVersion: v1
+        kind: Pod
+        name: pod1-{{request.name}}
+        namespace: shared-dp
+        data:
+          spec:
+            containers:
+              - name: container
+                image: nginx
+                volumeMounts:
+                - name: shared-volume
+                  mountPath: /data

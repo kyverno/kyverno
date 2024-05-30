@@ -40,7 +40,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 	var errors []error
 	for _, rule := range policy.GetSpec().Rules {
 		ruleType := kyvernov1beta1.Generate
-		triggers := generateTriggers(pc.client, rule, pc.log)
+		triggers := getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 		for _, trigger := range triggers {
 			ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
 			skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
@@ -64,7 +64,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 
 func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {
 	var errs []error
-	rules := autogen.ComputeRules(policy)
+	rules := autogen.ComputeRules(policy, "")
 	for _, r := range rules {
 		generateType, sync, orphanDownstreamOnPolicyDelete := r.GetTypeAndSyncAndOrphanDownstream()
 		if sync && (generateType == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {

@@ -1,0 +1,12 @@
+{{- if or .Values.reportsController.caCertificates.data .Values.global.caCertificates.data -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kyverno.reports-controller.caCertificatesConfigMapName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+data:
+  ca-certificates: |
+    {{ .Values.reportsController.caCertificates.data | default .Values.global.caCertificates.data | indent 4 | trim }}
+{{- end -}}

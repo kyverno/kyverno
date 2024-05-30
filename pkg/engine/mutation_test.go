@@ -61,7 +61,7 @@ func loadUnstructured(t *testing.T, bytes []byte) unstructured.Unstructured {
 	return resource
 }
 
-func createContext(t *testing.T, policy kyverno.PolicyInterface, resource unstructured.Unstructured, operation kyverno.AdmissionOperation) *PolicyContext {
+func createContext(t *testing.T, policy kyverno.PolicyInterface, resource unstructured.Unstructured) *PolicyContext {
 	ctx, err := NewPolicyContext(
 		jp,
 		resource,
@@ -125,7 +125,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
   }`)
 	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
 	resource := loadUnstructured(t, resourceRaw)
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 
 	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 	require.Equal(t, 1, len(er.PolicyResponse.Rules))
@@ -186,7 +186,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 
 	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
 	resource := loadUnstructured(t, resourceRaw)
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 
 	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -252,7 +252,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 
 	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
 	resource := loadUnstructured(t, resourceRaw)
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
 		nil,
 		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
@@ -357,7 +357,7 @@ func Test_chained_rules(t *testing.T) {
   }`)
 	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
 	resource := loadUnstructured(t, resourceRaw)
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 
 	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 	require.Equal(t, 2, len(er.PolicyResponse.Rules))
@@ -432,7 +432,7 @@ func Test_precondition(t *testing.T) {
   }`)
 	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
 	resource := loadUnstructured(t, resourceRaw)
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 
 	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 	require.Equal(t, 1, len(er.PolicyResponse.Rules))
@@ -515,7 +515,7 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 
 	policy := loadResource[kyverno.ClusterPolicy](t, []byte(policyRaw))
 	resource := loadUnstructured(t, []byte(resourceRaw))
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 
 	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 	require.Equal(t, 2, len(er.PolicyResponse.Rules))
@@ -954,7 +954,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
   }`)
 	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
 	resource := loadUnstructured(t, resourceRaw)
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 
 	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 
@@ -1054,7 +1054,7 @@ func Test_patchStrategicMerge_descending(t *testing.T) {
   }`)
 	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
 	resource := loadUnstructured(t, resourceRaw)
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 
 	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 
@@ -1154,7 +1154,7 @@ func Test_patchStrategicMerge_ascending(t *testing.T) {
   }`)
 	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
 	resource := loadUnstructured(t, resourceRaw)
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 
 	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 
@@ -1348,7 +1348,7 @@ func Test_mutate_nested_foreach(t *testing.T) {
 	policy := loadResource[kyverno.ClusterPolicy](t, policyRaw)
 	resource := loadUnstructured(t, resourceRaw)
 	expected := loadUnstructured(t, expectedRaw)
-	policyContext := createContext(t, &policy, resource, kyverno.Create)
+	policyContext := createContext(t, &policy, resource)
 
 	er := testMutate(context.TODO(), nil, nil, policyContext, nil)
 	require.Equal(t, 1, len(er.PolicyResponse.Rules))
@@ -1848,7 +1848,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 			targets = append(targets, &target)
 			patchedTargets = append(patchedTargets, loadUnstructured(t, test.patchedTargets[i]))
 		}
-		policyContext := createContext(t, &policy, trigger, kyverno.Create)
+		policyContext := createContext(t, &policy, trigger)
 
 		gvrToListKind := map[schema.GroupVersionResource]string{
 			{Group: patchedTargets[0].GroupVersionKind().Group, Version: patchedTargets[0].GroupVersionKind().Version, Resource: patchedTargets[0].GroupVersionKind().Kind}: test.targetList,

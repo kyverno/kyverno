@@ -51,7 +51,7 @@ func ForceMutate(
 			}
 		} else {
 			m := r.Mutation
-			patchedResource, err = applyPatches(r.Name, m.GetPatchStrategicMerge(), m.PatchesJSON6902, patchedResource, logger)
+			patchedResource, err = applyPatches(m.GetPatchStrategicMerge(), m.PatchesJSON6902, patchedResource, logger)
 			if err != nil {
 				return patchedResource, err
 			}
@@ -73,7 +73,7 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 			return applyForEachMutate(name, nestedForEach, patchedResource, logger)
 		}
 
-		patchedResource, err = applyPatches(name, fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, patchedResource, logger)
+		patchedResource, err = applyPatches(fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, patchedResource, logger)
 		if err != nil {
 			return resource, err
 		}
@@ -82,7 +82,7 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 	return patchedResource, nil
 }
 
-func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, logger logr.Logger) (unstructured.Unstructured, error) {
+func applyPatches(mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, logger logr.Logger) (unstructured.Unstructured, error) {
 	patcher := mutate.NewPatcher(mergePatch, jsonPatch)
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {

@@ -104,7 +104,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	var responses []engineapi.EngineResponse
+	responses := make([]engineapi.EngineResponse, 0, len(p.Policies))
 	// mutate
 	for _, policy := range p.Policies {
 		if !policy.GetSpec().HasMutate() {
@@ -194,7 +194,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				responses = append(responses, generateResponse)
 			}
-			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
+			p.Rc.addGenerateResponse(p.AuditWarn, generateResponse)
 		}
 	}
 	p.Rc.addEngineResponses(p.AuditWarn, responses...)
@@ -332,7 +332,7 @@ func (p *PolicyProcessor) makePolicyContext(
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-	printMutatedRes := p.Rc.addMutateResponse(resourcePath, response)
+	printMutatedRes := p.Rc.addMutateResponse(response)
 	if printMutatedRes && p.PrintPatchResource {
 		yamlEncodedResource, err := yamlv2.Marshal(response.PatchedResource.Object)
 		if err != nil {

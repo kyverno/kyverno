@@ -31,10 +31,48 @@ func TestLoad(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, _, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			_, err := Load(tt.fs, tt.resourcePath, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+		})
+	}
+}
+
+func TestLoadInvalid(t *testing.T) {
+	tests := []struct {
+		name         string
+		fs           billy.Filesystem
+		resourcePath string
+		paths        []string
+		wantErr      bool
+		count        int
+	}{{
+		name:         "invalid policy resources",
+		fs:           nil,
+		resourcePath: "",
+		paths:        []string{"../_testdata/policies-invalid/"},
+		wantErr:      false,
+		count:        0,
+	}, {
+		name:         "mixed policy resources",
+		fs:           nil,
+		resourcePath: "",
+		paths:        []string{"../_testdata/policies-mixed/"},
+		wantErr:      false,
+		count:        2,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			if tt.wantErr {
+				assert.NotNil(t, err, "result mismatch")
+			} else {
+				assert.NotNil(t, results)
+				if results != nil {
+					assert.Equal(t, tt.count, len(results.Policies), "policy count mismatch")
+				}
 			}
 		})
 	}
@@ -87,13 +125,13 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			policies, vaps, _, err := LoadWithLoader(KubectlValidateLoader, tt.fs, tt.resourcePath, tt.paths...)
+			results, err := LoadWithLoader(KubectlValidateLoader, tt.fs, tt.resourcePath, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.checks != nil {
-				tt.checks(t, policies, vaps)
+				tt.checks(t, results.Policies, results.VAPs)
 			}
 		})
 	}

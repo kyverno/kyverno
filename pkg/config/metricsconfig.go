@@ -1,6 +1,7 @@
 package config
 
 import (
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -77,30 +78,44 @@ func (mcd *metricsConfig) GetBucketBoundaries() []float64 {
 func (mcd *metricsConfig) BuildMeterProviderViews() []sdkmetric.View {
 	mcd.mux.RLock()
 	defer mcd.mux.RUnlock()
-	var views []sdkmetric.View
-	for key, value := range mcd.metricsExposure {
-		if *value.Enabled {
-			views = append(views, sdkmetric.NewView(
-				sdkmetric.Instrument{Name: key},
-				sdkmetric.Stream{
-					AttributeFilter: func(kv attribute.KeyValue) bool {
-						return !slices.Contains(value.DisabledLabelDimensions, string(kv.Key))
-					},
-					Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-						Boundaries: value.BucketBoundaries,
-						NoMinMax:   false,
-					},
-				},
-			))
-		} else if !*value.Enabled {
-			views = append(views, sdkmetric.NewView(
-				sdkmetric.Instrument{Name: key},
-				sdkmetric.Stream{
-					Aggregation: sdkmetric.AggregationDrop{},
-				},
-			))
-		}
+
+	views := []sdkmetric.View{}
+
+	if len(mcd.metricsExposure) > 0 {
+		metricsExposure := maps.Clone(mcd.metricsExposure)
+		views = append(views, func(i sdkmetric.Instrument) (sdkmetric.Stream, bool) {
+			s := sdkmetric.Stream{Name: i.Name, Description: i.Description, Unit: i.Unit}
+
+			config, exists := metricsExposure[i.Name]
+			if !exists {
+				return s, false
+			}
+
+			if config.Enabled != nil && !*config.Enabled {
+				s.Aggregation = sdkmetric.AggregationDrop{}
+				return s, true
+			}
+
+			if len(config.DisabledLabelDimensions) > 0 {
+				s.AttributeFilter = func(kv attribute.KeyValue) bool {
+					return !slices.Contains(config.DisabledLabelDimensions, string(kv.Key))
+				}
+			}
+
+			if len(config.BucketBoundaries) > 0 {
+				aggregation := sdkmetric.DefaultAggregationSelector(i.Kind)
+				switch a := aggregation.(type) {
+				case sdkmetric.AggregationExplicitBucketHistogram:
+					a.Boundaries = config.BucketBoundaries
+					a.NoMinMax = false
+					s.Aggregation = a
+				}
+			}
+
+			return s, true
+		})
 	}
+
 	return views
 }
 

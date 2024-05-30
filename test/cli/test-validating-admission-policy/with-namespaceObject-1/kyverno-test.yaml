@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test.yaml
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: check-deployment-namespace
+  resources:
+  - bad-deployment
+  result: fail
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: check-deployment-namespace
+  resources:
+  - good-deployment
+  result: pass
+variables: values.yaml

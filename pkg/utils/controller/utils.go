@@ -149,9 +149,14 @@ func Update[T interface {
 func UpdateStatus[T interface {
 	metav1.Object
 	DeepCopy[T]
-}, S StatusClient[T]](ctx context.Context, obj T, setter S, build func(T) error,
+}, S ObjectStatusClient[T]](ctx context.Context, obj T, setter S, build func(T) error,
 ) (T, error) {
-	mutated := obj.DeepCopy()
+	var objNew T
+	objNew, err := setter.Get(ctx, obj.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return objNew, err
+	}
+	mutated := objNew.DeepCopy()
 	if err := build(mutated); err != nil {
 		var d T
 		return d, err

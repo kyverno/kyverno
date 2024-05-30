@@ -6,6 +6,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -125,51 +126,55 @@ func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }
 
+func (c PolicyContext) Copy() engineapi.PolicyContext {
+	return &c
+}
+
 // Mutators
 
-func (c *PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {
+func (c PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {
 	c.policy = policy
-	return c
+	return &c
 }
 
-func (c *PolicyContext) WithNamespaceLabels(namespaceLabels map[string]string) *PolicyContext {
+func (c PolicyContext) WithNamespaceLabels(namespaceLabels map[string]string) *PolicyContext {
 	c.namespaceLabels = namespaceLabels
-	return c
+	return &c
 }
 
-func (c *PolicyContext) WithAdmissionInfo(admissionInfo kyvernov1beta1.RequestInfo) *PolicyContext {
+func (c PolicyContext) WithAdmissionInfo(admissionInfo kyvernov1beta1.RequestInfo) *PolicyContext {
 	c.admissionInfo = admissionInfo
-	return c
+	return &c
 }
 
-func (c *PolicyContext) WithNewResource(resource unstructured.Unstructured) *PolicyContext {
+func (c PolicyContext) WithNewResource(resource unstructured.Unstructured) *PolicyContext {
 	c.newResource = resource
-	return c
+	return &c
 }
 
-func (c *PolicyContext) WithOldResource(resource unstructured.Unstructured) *PolicyContext {
+func (c PolicyContext) WithOldResource(resource unstructured.Unstructured) *PolicyContext {
 	c.oldResource = resource
-	return c
+	return &c
 }
 
-func (c *PolicyContext) WithResourceKind(gvk schema.GroupVersionKind, subresource string) *PolicyContext {
+func (c PolicyContext) WithResourceKind(gvk schema.GroupVersionKind, subresource string) *PolicyContext {
 	c.gvk = gvk
 	c.subresource = subresource
-	return c
+	return &c
 }
 
-func (c *PolicyContext) WithRequestResource(gvr metav1.GroupVersionResource) *PolicyContext {
+func (c PolicyContext) WithRequestResource(gvr metav1.GroupVersionResource) *PolicyContext {
 	c.requestResource = gvr
-	return c
+	return &c
 }
 
 func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, oldResource unstructured.Unstructured) *PolicyContext {
 	return c.WithNewResource(newResource).WithOldResource(oldResource)
 }
 
-func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
+func (c PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
 	c.admissionOperation = admissionOperation
-	return c
+	return &c
 }
 
 // Constructors

@@ -72,7 +72,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	}
 	var imageVerifyCache imageverifycache.Client
 	if config.UsesImageVerifyCache() {
-		imageVerifyCache = setupImageVerifyCache(ctx, logger)
+		imageVerifyCache = setupImageVerifyCache(logger)
 	}
 	if config.UsesCosign() {
 		setupSigstoreTUF(ctx, logger)
@@ -99,7 +99,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	}
 	var eventsClient eventsv1.EventsV1Interface
 	if config.UsesEventsClient() {
-		eventsClient = createEventsClient(logger, client, metricsManager)
+		eventsClient = createEventsClient(logger, metricsManager)
 	}
 	var metadataClient metadataclient.UpstreamInterface
 	if config.UsesMetadataClient() {

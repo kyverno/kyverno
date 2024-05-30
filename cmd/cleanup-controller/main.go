@@ -154,6 +154,7 @@ func main() {
 	eventGenerator := event.NewEventGenerator(
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
+		maxQueuedEvents,
 	)
 	eventController := internal.NewController(
 		event.ControllerName,

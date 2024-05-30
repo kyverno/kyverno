@@ -222,7 +222,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 		}
 
 		v.policyContext.JSONContext().Reset()
-		policyContext := v.policyContext
+		policyContext := v.policyContext.Copy()
 		if err := engineutils.AddElementToContext(policyContext, element, index, v.nesting, elementScope); err != nil {
 			v.log.Error(err, "failed to add element to context")
 			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to process foreach", err), applyCount
