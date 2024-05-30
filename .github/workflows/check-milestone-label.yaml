@@ -1,0 +1,31 @@
+name: check-milestone-label
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+    types:
+      - opened
+      - synchronize
+      - edited
+      - reopened
+      - labeled
+      - unlabeled
+  
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check_labels:
+    name: Check milestone label for pull request
+    runs-on: ubuntu-latest
+    steps:
+      - name: require milestone label for pull request
+        uses: docker://agilepathway/pull-request-label-checker:latest
+        with:
+          prefix_mode: true
+          one_of: "milestone"
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
