@@ -222,6 +222,20 @@ func EvaluateConditions(
 	return variables.EvaluateAnyAllConditions(log, ctx, c)
 }
 
+func getRawResp(statements []map[string]interface{}) ([]byte, error) {
+	for _, statement := range statements {
+		predicate, exists := statement["predicate"]
+		if exists {
+			rawResp, err := json.Marshal(predicate)
+			if err != nil {
+				return nil, err
+			}
+			return rawResp, nil
+		}
+	}
+	return nil, fmt.Errorf("predicate not found in any statement")
+}
+
 // verify applies policy rules to each matching image. The policy rule results and annotation patches are
 // added to tme imageVerifier `resp` and `ivm` fields.
 func (iv *ImageVerifier) Verify(
@@ -451,14 +465,14 @@ func (iv *ImageVerifier) verifyAttestations(
 
 				name := imageVerify.Attestations[i].Name
 
-				rawCosignResp, err := json.Marshal(cosignResp.Statements)
+				rawResp, err := getRawResp(cosignResp.Statements)
 				if err != nil {
-					iv.logger.Error(err, "Error marshaling cosignResp")
+					iv.logger.Error(err, "Error while finding report in statement")
 					errorList = append(errorList, err)
 					continue
 				}
 
-				err = iv.policyContext.JSONContext().AddContextEntry(name, rawCosignResp)
+				err = iv.policyContext.JSONContext().AddContextEntry(name, rawResp)
 				if err != nil {
 					iv.logger.Error(err, "failed to add resource data to context entry")
 					errorList = append(errorList, err)
