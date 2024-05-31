@@ -12,42 +12,59 @@ func TestConfigure(t *testing.T) {
 
 func Test_isVerbose(t *testing.T) {
 	tests := []struct {
-		name string
-		args []string
-		want bool
+		name  string
+		args  []string
+		want  bool
+		level int
 	}{{
-		name: "nil",
-		args: nil,
-		want: false,
+		name:  "nil",
+		args:  nil,
+		want:  false,
+		level: 0,
 	}, {
-		name: "empty",
-		args: []string{},
-		want: false,
+		name:  "empty",
+		args:  []string{},
+		want:  false,
+		level: 0,
 	}, {
-		name: "not verbose",
-		args: []string{"-verbose", "--verbose", "-vv", "--vv"},
-		want: false,
+		name:  "not verbose",
+		args:  []string{"-verbose", "--verbose", "-vv", "--vv"},
+		want:  false,
+		level: 0,
 	}, {
-		name: "verbose",
-		args: []string{"-v", "3"},
-		want: true,
+		name:  "verbose",
+		args:  []string{"-v", "3"},
+		want:  true,
+		level: 3,
 	}, {
-		name: "verbose",
-		args: []string{"-v=3"},
-		want: true,
+		name:  "verbose",
+		args:  []string{"-v"},
+		want:  true,
+		level: defaultLogLevel,
 	}, {
-		name: "verbose",
-		args: []string{"--v", "3"},
-		want: true,
+		name:  "verbose",
+		args:  []string{"-v=3"},
+		want:  true,
+		level: 3,
 	}, {
-		name: "verbose",
-		args: []string{"--v=3"},
-		want: true,
+		name:  "verbose",
+		args:  []string{"--v", "3"},
+		want:  true,
+		level: 3,
+	}, {
+		name:  "verbose",
+		args:  []string{"--v=3"},
+		want:  true,
+		level: 3,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isVerbose(tt.args...); got != tt.want {
+			got, level, _ := isVerbose(tt.args...)
+			if got != tt.want {
 				t.Errorf("isVerbose() = %v, want %v", got, tt.want)
+			}
+			if level != tt.level {
+				t.Errorf("isVerbose() level = %v, want %v", level, tt.level)
 			}
 		})
 	}

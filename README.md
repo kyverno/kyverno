@@ -2,16 +2,16 @@
 
 **Cloud Native Policy Management 🎉**
 
-![build](https://github.com/kyverno/kyverno/workflows/build/badge.svg)
-![releaser](https://github.com/kyverno/kyverno/workflows/releaser/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno)
 ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
 [![GitHub Repo stars](https://img.shields.io/github/stars/kyverno/kyverno)](https://github.com/kyverno/kyverno/stargazers)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5327/badge)](https://bestpractices.coreinfrastructure.org/projects/5327)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/kyverno/kyverno/badge)](https://api.securityscorecards.dev/projects/github.com/kyverno/kyverno)
-[![codecov](https://codecov.io/gh/kyverno/kyverno/branch/main/graph/badge.svg)](https://app.codecov.io/gh/kyverno/kyverno/branch/main)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/kyverno/kyverno/badge)](https://securityscorecards.dev/viewer/?uri=github.com/kyverno/kyverno)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kyverno)](https://artifacthub.io/packages/search?repo=kyverno)
+[![codecov](https://codecov.io/gh/kyverno/kyverno/branch/main/graph/badge.svg)](https://app.codecov.io/gh/kyverno/kyverno/branch/main)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno?ref=badge_shield)
+
 
 <a href="https://kyverno.io" rel="kyverno.io">![logo](img/Kyverno_Horizontal.png)</a>
 
@@ -30,7 +30,7 @@ Kyverno is a policy engine designed for Kubernetes platform engineering teams. I
 
 ## 📙 Documentation
 
-Kyverno installation and reference documents are available at kyverno.io.
+Kyverno installation and reference documents are available at [kyverno.io] (https://kyverno.io).
 
 👉 **[Quick Start](https://kyverno.io/docs/introduction/#quick-start)**
 
@@ -80,6 +80,6 @@ Made with [contributors-img](https://contrib.rocks).
 
 ## License
 
-Copyright 2023, the Kyverno project. All rights reserved. Kyverno is licensed under the [Apache License 2.0](LICENSE).
+Copyright 2024, the Kyverno project. All rights reserved. Kyverno is licensed under the [Apache License 2.0](LICENSE).
 
 Kyverno is a [Cloud Native Computing Foundation (CNCF) Incubating project](https://www.cncf.io/projects/) and was contributed by [Nirmata](https://nirmata.com/?utm_source=github&utm_medium=repository).

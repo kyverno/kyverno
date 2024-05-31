@@ -503,7 +503,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	}
 	// load background policies
 	kyvernoPolicies = utils.RemoveNonBackgroundPolicies(kyvernoPolicies...)
-	var policies []engineapi.GenericPolicy
+	policies := make([]engineapi.GenericPolicy, 0, len(kyvernoPolicies))
 	for _, pol := range kyvernoPolicies {
 		policies = append(policies, engineapi.NewKyvernoPolicy(pol))
 	}

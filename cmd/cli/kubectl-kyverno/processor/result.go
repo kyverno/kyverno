@@ -4,25 +4,18 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"k8s.io/api/admissionregistration/v1alpha1"
 )
 
 type ResultCounts struct {
-	pass int
-	fail int
-	warn int
-	err  int
-	skip int
+	Pass  int
+	Fail  int
+	Warn  int
+	Error int
+	Skip  int
 }
 
-func (rc ResultCounts) Pass() int  { return rc.pass }
-func (rc ResultCounts) Fail() int  { return rc.fail }
-func (rc ResultCounts) Warn() int  { return rc.warn }
-func (rc ResultCounts) Error() int { return rc.err }
-func (rc ResultCounts) Skip() int  { return rc.skip }
-
 func (rc *ResultCounts) IncrementError(inc int) {
-	rc.err += inc
+	rc.Error += inc
 }
 
 func (rc *ResultCounts) addEngineResponses(auditWarn bool, responses ...engineapi.EngineResponse) {
@@ -45,22 +38,22 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 					if rule.Name == valResponseRule.Name() {
 						switch valResponseRule.Status() {
 						case engineapi.RuleStatusPass:
-							rc.pass++
+							rc.Pass++
 						case engineapi.RuleStatusFail:
 							if !scored {
-								rc.warn++
+								rc.Warn++
 								break
 							} else if auditWarn && response.GetValidationFailureAction().Audit() {
-								rc.warn++
+								rc.Warn++
 							} else {
-								rc.fail++
+								rc.Fail++
 							}
 						case engineapi.RuleStatusError:
-							rc.err++
+							rc.Error++
 						case engineapi.RuleStatusWarn:
-							rc.warn++
+							rc.Warn++
 						case engineapi.RuleStatusSkip:
-							rc.skip++
+							rc.Skip++
 						}
 						continue
 					}
@@ -70,7 +63,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 	}
 }
 
-func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, response engineapi.EngineResponse) {
+func (rc *ResultCounts) addGenerateResponse(auditWarn bool, response engineapi.EngineResponse) {
 	genericPolicy := response.Policy()
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return
@@ -80,12 +73,12 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 		for _, ruleResponse := range response.PolicyResponse.Rules {
 			if policyRule.Name == ruleResponse.Name() {
 				if ruleResponse.Status() == engineapi.RuleStatusPass {
-					rc.pass++
+					rc.Pass++
 				} else {
 					if auditWarn && response.GetValidationFailureAction().Audit() {
-						rc.warn++
+						rc.Warn++
 					} else {
-						rc.fail++
+						rc.Fail++
 					}
 				}
 				continue
@@ -94,7 +87,7 @@ func (rc *ResultCounts) addGenerateResponse(auditWarn bool, resPath string, resp
 	}
 }
 
-func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineapi.EngineResponse) bool {
+func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) bool {
 	genericPolicy := response.Policy()
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return false
@@ -114,14 +107,14 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 		for _, mutateResponseRule := range response.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name() {
 				if mutateResponseRule.Status() == engineapi.RuleStatusPass {
-					rc.pass++
+					rc.Pass++
 					printMutatedRes = true
 				} else if mutateResponseRule.Status() == engineapi.RuleStatusSkip {
-					rc.skip++
+					rc.Skip++
 				} else if mutateResponseRule.Status() == engineapi.RuleStatusError {
-					rc.err++
+					rc.Error++
 				} else {
-					rc.fail++
+					rc.Fail++
 				}
 				continue
 			}
@@ -130,14 +123,14 @@ func (rc *ResultCounts) addMutateResponse(resourcePath string, response engineap
 	return printMutatedRes
 }
 
-func (rc *ResultCounts) addValidatingAdmissionResponse(vap v1alpha1.ValidatingAdmissionPolicy, engineResponse engineapi.EngineResponse) {
+func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.EngineResponse) {
 	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
 		if ruleResp.Status() == engineapi.RuleStatusPass {
-			rc.pass++
+			rc.Pass++
 		} else if ruleResp.Status() == engineapi.RuleStatusFail {
-			rc.fail++
+			rc.Fail++
 		} else if ruleResp.Status() == engineapi.RuleStatusError {
-			rc.err++
+			rc.Error++
 		}
 	}
 }

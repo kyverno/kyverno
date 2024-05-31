@@ -26,8 +26,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
@@ -54,6 +54,7 @@ func createReportControllers(
 	aggregateReports bool,
 	policyReports bool,
 	validatingAdmissionPolicyReports bool,
+	aggregationWorkers int,
 	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
@@ -102,7 +103,7 @@ func createReportControllers(
 					kyvernoV1.ClusterPolicies(),
 					vapInformer,
 				),
-				aggregatereportcontroller.Workers,
+				aggregationWorkers,
 			))
 		}
 		if backgroundScan {
@@ -148,6 +149,7 @@ func createrLeaderControllers(
 	aggregateReports bool,
 	policyReports bool,
 	validatingAdmissionPolicyReports bool,
+	aggregationWorkers int,
 	backgroundScanWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -166,6 +168,7 @@ func createrLeaderControllers(
 		aggregateReports,
 		policyReports,
 		validatingAdmissionPolicyReports,
+		aggregationWorkers,
 		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
@@ -190,6 +193,7 @@ func main() {
 		reportsChunkSize                 int
 		backgroundScanWorkers            int
 		backgroundScanInterval           time.Duration
+		aggregationWorkers               int
 		maxQueuedEvents                  int
 		omitEvents                       string
 		skipResourceFilters              bool
@@ -202,6 +206,7 @@ func main() {
 	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
 	flagset.BoolVar(&validatingAdmissionPolicyReports, "validatingAdmissionPolicyReports", false, "Enable or disable validating admission policy reports.")
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 0, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
+	flagset.IntVar(&aggregationWorkers, "aggregationWorkers", aggregatereportcontroller.Workers, "Configure the number of ephemeral reports aggregation workers.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -253,9 +258,9 @@ func main() {
 	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
 	// check if validating admission policies are registered in the API server
 	if validatingAdmissionPolicyReports {
-		groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
-		if _, err := setup.KyvernoDynamicClient.GetKubeClient().Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
-			setup.Logger.Error(err, "validating admission policies aren't supported.")
+		registered, err := validatingadmissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
+		if !registered {
+			setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
 			os.Exit(1)
 		}
 	}
@@ -266,6 +271,7 @@ func main() {
 	eventGenerator := event.NewEventGenerator(
 		setup.EventsClient,
 		logging.WithName("EventGenerator"),
+		maxQueuedEvents,
 		strings.Split(omitEvents, ",")...,
 	)
 	eventController := internal.NewController(
@@ -332,6 +338,7 @@ func main() {
 				aggregateReports,
 				policyReports,
 				validatingAdmissionPolicyReports,
+				aggregationWorkers,
 				backgroundScanWorkers,
 				kubeInformer,
 				kyvernoInformer,
