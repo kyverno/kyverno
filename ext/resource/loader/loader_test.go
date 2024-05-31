@@ -43,7 +43,7 @@ func TestNew(t *testing.T) {
 		}(),
 	}, {
 		name:    "invalid local",
-		client:  openapiclient.NewLocalCRDFiles(data.Crds(), "blam"),
+		client:  openapiclient.NewLocalCRDFiles(data.Crds()),
 		wantErr: true,
 	}, {
 		name:   "composite - no clients",
@@ -65,7 +65,7 @@ func TestNew(t *testing.T) {
 		wantErr: true,
 	}, {
 		name:    "composite - invalid local",
-		client:  openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds(), "blam")),
+		client:  openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds())),
 		wantErr: true,
 	}}
 	for _, tt := range tests {
@@ -111,16 +111,16 @@ func Test_loader_Load(t *testing.T) {
 		wantErr  bool
 	}{{
 		name:    "nil",
-		loader:  newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
+		loader:  newLoader(openapiclient.NewLocalCRDFiles(data.Crds())),
 		wantErr: true,
 	}, {
 		name:     "empty GVK",
-		loader:   newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
+		loader:   newLoader(openapiclient.NewLocalCRDFiles(data.Crds())),
 		document: []byte(`foo: bar`),
 		wantErr:  true,
 	}, {
 		name:   "not yaml",
-		loader: newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
+		loader: newLoader(openapiclient.NewLocalCRDFiles(data.Crds())),
 		document: []byte(`
 		foo
 		  bar
@@ -128,7 +128,7 @@ func Test_loader_Load(t *testing.T) {
 		wantErr: true,
 	}, {
 		name:     "unknown GVK",
-		loader:   newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
+		loader:   newLoader(openapiclient.NewLocalCRDFiles(data.Crds())),
 		document: loadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml"),
 		wantErr:  true,
 	}, {
