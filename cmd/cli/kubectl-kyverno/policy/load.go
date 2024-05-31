@@ -131,7 +131,6 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		openapiclient.NewHardcodedBuiltins("1.28"),
 		openapiclient.NewLocalCRDFiles(crds),
 	))
-
 	if err != nil {
 		return nil, err
 	}
