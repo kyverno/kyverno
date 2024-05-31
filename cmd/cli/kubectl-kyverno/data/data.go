@@ -13,7 +13,3 @@ var crdsFs embed.FS
 func Crds() (fs.FS, error) {
 	return fs.Sub(crdsFs, crdsFolder)
 }
-
-func CrdsWithFolder(folder string) (fs.FS, error) {
-	return fs.Sub(crdsFs, folder)
-}
