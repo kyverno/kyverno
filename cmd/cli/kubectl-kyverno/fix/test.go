@@ -31,7 +31,7 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 	if len(test.Resources) == 0 {
 		messages = append(messages, "test has no resources")
 	}
-	var results []v1alpha1.TestResult
+	results := make([]v1alpha1.TestResult, 0, len(test.Results))
 	for _, result := range test.Results {
 		if result.Resource != "" && len(result.Resources) != 0 {
 			messages = append(messages, "test result should not use both `resource` and `resources` fields")

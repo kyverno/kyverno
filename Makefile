@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.29.1
+KIND_IMAGE           ?= kindest/node:v1.30.0
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -34,9 +34,9 @@ USE_CONFIG           ?= standard
 
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
-KIND_VERSION                       ?= v0.21.0
+KIND_VERSION                       ?= v0.23.0
 CONTROLLER_GEN                     ?= $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             ?= v0.14.0
+CONTROLLER_GEN_VERSION             ?= v0.15.0
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
