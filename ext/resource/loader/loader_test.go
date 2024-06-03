@@ -33,9 +33,9 @@ func TestNew(t *testing.T) {
 		wantErr: true,
 	}, {
 		name:   "builtin",
-		client: openapiclient.NewHardcodedBuiltins("1.27"),
+		client: openapiclient.NewHardcodedBuiltins("1.30"),
 		want: func() Loader {
-			validator, err := validator.New(openapiclient.NewHardcodedBuiltins("1.27"))
+			validator, err := validator.New(openapiclient.NewHardcodedBuiltins("1.30"))
 			require.NoError(t, err)
 			return &loader{
 				validator: validator,
@@ -57,7 +57,7 @@ func TestNew(t *testing.T) {
 		wantErr: true,
 	}, {
 		name:    "composite - with err client",
-		client:  openapiclient.NewComposite(openapiclient.NewHardcodedBuiltins("1.27"), errClient{}),
+		client:  openapiclient.NewComposite(openapiclient.NewHardcodedBuiltins("1.30"), errClient{}),
 		wantErr: true,
 	}}
 	for _, tt := range tests {
@@ -143,7 +143,7 @@ func Test_loader_Load(t *testing.T) {
 		wantErr:  true,
 	}, {
 		name:   "bad schema",
-		loader: newLoader(openapiclient.NewHardcodedBuiltins("1.27")),
+		loader: newLoader(openapiclient.NewHardcodedBuiltins("1.30")),
 		document: []byte(`
 		apiVersion: v1
 		kind: Namespace
@@ -155,7 +155,7 @@ func Test_loader_Load(t *testing.T) {
 		wantErr: true,
 	}, {
 		name:     "ok",
-		loader:   newLoader(openapiclient.NewHardcodedBuiltins("1.27")),
+		loader:   newLoader(openapiclient.NewHardcodedBuiltins("1.30")),
 		document: loadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml"),
 		want:     toUnstructured(loadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml")),
 	}}
