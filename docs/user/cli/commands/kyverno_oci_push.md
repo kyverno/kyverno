@@ -6,7 +6,11 @@ Push policie(s) that are included in an OCI image to OCI registry.
 
 Push policie(s) that are included in an OCI image to OCI registry.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+:::note Note
+
+This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
+:::
 
   For more information visit https://kyverno.io/docs/kyverno-cli/#pushing
 

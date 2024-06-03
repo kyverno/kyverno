@@ -9,7 +9,11 @@ Fix inconsistencies and deprecated usage of Kyverno resources.
   The fix command provides a command-line interface to fix inconsistencies and deprecated usage of Kyverno resources.
   It can be used to fix Kyverno test files.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+:::note Note
+
+This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
+:::
 
 ```
 kyverno fix [flags]

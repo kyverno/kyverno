@@ -6,7 +6,11 @@ Pulls/pushes images that include policie(s) from/to OCI registries.
 
 Pulls/pushes images that include policie(s) from/to OCI registries.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+:::note Note
+
+This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
+:::
 
   For more information visit https://kyverno.io/docs/kyverno-cli/#oci
 

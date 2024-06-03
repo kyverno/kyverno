@@ -6,7 +6,11 @@ Runs tests against any json compatible payloads/policies.
 
 Runs tests against any json compatible payloads/policies.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+:::note Note
+
+This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
+:::
 
 ```
 kyverno json scan [flags]

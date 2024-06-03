@@ -6,7 +6,11 @@ Fix inconsistencies and deprecated usage in Kyverno policy files.
 
 Fix inconsistencies and deprecated usage in Kyverno policy files.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+:::note Note
+
+This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
+:::
 
 ```
 kyverno fix policy [dir]... [flags]
