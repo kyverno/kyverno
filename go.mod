@@ -34,8 +34,8 @@ require (
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-json v0.0.3-0.20240401145725-a17ecb70f39e
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
-	github.com/notaryproject/notation-core-go v1.0.2
-	github.com/notaryproject/notation-go v1.1.0
+	github.com/notaryproject/notation-core-go v1.0.3
+	github.com/notaryproject/notation-go v1.1.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.33.1
 	github.com/opencontainers/go-digest v1.0.0
@@ -92,6 +92,8 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
 )
+
+require github.com/notaryproject/notation-plugin-framework-go v1.0.0 // indirect
 
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
@@ -199,7 +201,7 @@ require (
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
-	github.com/go-ldap/ldap/v3 v3.4.6 // indirect
+	github.com/go-ldap/ldap/v3 v3.4.8 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.23.0 // indirect
 	github.com/go-openapi/errors v0.22.0 // indirect
@@ -376,7 +378,7 @@ require (
 	k8s.io/component-base v0.29.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340
 	k8s.io/kubectl v0.29.2 // indirect
-	oras.land/oras-go/v2 v2.3.1 // indirect
+	oras.land/oras-go/v2 v2.5.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.29.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
