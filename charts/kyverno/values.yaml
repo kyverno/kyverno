@@ -1019,7 +1019,7 @@ cleanupJobs:
 
     # -- Node affinity constraints.
     nodeAffinity: {}
-    
+
   clusterEphemeralReports:
 
     # -- Enable cleanup cronjob
