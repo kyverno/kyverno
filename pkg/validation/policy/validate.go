@@ -37,7 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/cel/openapi/resolver"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/restmapper"
@@ -438,7 +438,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return nil, err
 		}
 		mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
-		checker := &validatingadmissionpolicy.TypeChecker{
+		checker := &validating.TypeChecker{
 			SchemaResolver: resolver,
 			RestMapper:     mapper,
 		}
@@ -453,10 +453,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		if err != nil {
 			return nil, err
 		}
-		v1beta1vap := vaputils.ConvertValidatingAdmissionPolicy(*vap)
+		v1vap := vaputils.ConvertValidatingAdmissionPolicy(*vap)
 
 		// check cel expression warnings
-		ctx := checker.CreateContext(&v1beta1vap)
+		ctx := checker.CreateContext(&v1vap)
 		fieldRef := field.NewPath("spec", "rules[0]", "validate", "cel", "expressions")
 		for i, e := range spec.Rules[0].Validation.CEL.Expressions {
 			results := checker.CheckExpression(ctx, e.Expression)

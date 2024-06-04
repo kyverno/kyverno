@@ -51,6 +51,7 @@ import (
 	schedulingv1 "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1"
 	schedulingv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1alpha1"
 	schedulingv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1beta1"
+	storagemigrationv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/storagemigrationv1alpha1"
 	storagev1 "github.com/kyverno/kyverno/pkg/clients/kube/storagev1"
 	storagev1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/storagev1alpha1"
 	storagev1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/storagev1beta1"
@@ -108,6 +109,7 @@ import (
 	k8s_io_client_go_kubernetes_typed_storage_v1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	k8s_io_client_go_kubernetes_typed_storage_v1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_storage_v1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	k8s_io_client_go_kubernetes_typed_storagemigration_v1alpha1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
 )
 
 type clientset struct {
@@ -163,6 +165,7 @@ type clientset struct {
 	storagev1                     k8s_io_client_go_kubernetes_typed_storage_v1.StorageV1Interface
 	storagev1alpha1               k8s_io_client_go_kubernetes_typed_storage_v1alpha1.StorageV1alpha1Interface
 	storagev1beta1                k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface
+	storagemigrationv1alpha1      k8s_io_client_go_kubernetes_typed_storagemigration_v1alpha1.StoragemigrationV1alpha1Interface
 }
 
 func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
@@ -321,6 +324,9 @@ func (c *clientset) StorageV1alpha1() k8s_io_client_go_kubernetes_typed_storage_
 func (c *clientset) StorageV1beta1() k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface {
 	return c.storagev1beta1
 }
+func (c *clientset) StoragemigrationV1alpha1() k8s_io_client_go_kubernetes_typed_storagemigration_v1alpha1.StoragemigrationV1alpha1Interface {
+	return c.storagemigrationv1alpha1
+}
 
 func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes.Interface {
 	return &clientset{
@@ -376,6 +382,7 @@ func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.Metr
 		storagev1:                     storagev1.WithMetrics(inner.StorageV1(), m, clientType),
 		storagev1alpha1:               storagev1alpha1.WithMetrics(inner.StorageV1alpha1(), m, clientType),
 		storagev1beta1:                storagev1beta1.WithMetrics(inner.StorageV1beta1(), m, clientType),
+		storagemigrationv1alpha1:      storagemigrationv1alpha1.WithMetrics(inner.StoragemigrationV1alpha1(), m, clientType),
 	}
 }
 
@@ -433,6 +440,7 @@ func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_
 		storagev1:                     storagev1.WithTracing(inner.StorageV1(), "StorageV1"),
 		storagev1alpha1:               storagev1alpha1.WithTracing(inner.StorageV1alpha1(), "StorageV1alpha1"),
 		storagev1beta1:                storagev1beta1.WithTracing(inner.StorageV1beta1(), "StorageV1beta1"),
+		storagemigrationv1alpha1:      storagemigrationv1alpha1.WithTracing(inner.StoragemigrationV1alpha1(), "StoragemigrationV1alpha1"),
 	}
 }
 
@@ -490,5 +498,6 @@ func WrapWithLogging(inner k8s_io_client_go_kubernetes.Interface, logger logr.Lo
 		storagev1:                     storagev1.WithLogging(inner.StorageV1(), logger.WithValues("group", "StorageV1")),
 		storagev1alpha1:               storagev1alpha1.WithLogging(inner.StorageV1alpha1(), logger.WithValues("group", "StorageV1alpha1")),
 		storagev1beta1:                storagev1beta1.WithLogging(inner.StorageV1beta1(), logger.WithValues("group", "StorageV1beta1")),
+		storagemigrationv1alpha1:      storagemigrationv1alpha1.WithLogging(inner.StoragemigrationV1alpha1(), logger.WithValues("group", "StoragemigrationV1alpha1")),
 	}
 }

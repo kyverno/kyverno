@@ -233,6 +233,7 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -292,6 +293,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
@@ -613,6 +615,7 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -672,6 +675,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
