@@ -25,6 +25,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	policiesv1 "github.com/kyverno/kyverno/api/policies/v1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,6 +45,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	kyvernov2.AddToScheme,
 	kyvernov2beta1.AddToScheme,
 	kyvernov2alpha1.AddToScheme,
+	policiesv1.AddToScheme,
 	wgpolicyk8sv1alpha2.AddToScheme,
 	reportsv1.AddToScheme,
 }

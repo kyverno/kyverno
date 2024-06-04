@@ -25,6 +25,7 @@ import (
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	policiesv1 "github.com/kyverno/kyverno/api/policies/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
@@ -33,6 +34,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
+	applyconfigurationspoliciesv1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/policies/v1"
 	applyconfigurationspolicyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/policyreport/v1alpha2"
 	applyconfigurationsreportsv1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/reports/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -267,6 +269,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.PolicyExceptionApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
 		return &kyvernov2beta1.PolicyExceptionSpecApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("ResourceDescription"):
+		return &kyvernov2beta1.ResourceDescriptionApplyConfiguration{}
+	case v2beta1.SchemeGroupVersion.WithKind("ResourceFilter"):
+		return &kyvernov2beta1.ResourceFilterApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Rule"):
 		return &kyvernov2beta1.RuleApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Spec"):
@@ -275,6 +281,38 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
 		return &kyvernov2beta1.WebhookConfigurationApplyConfiguration{}
+
+		// Group=policies.kyverno.io, Version=v1
+	case policiesv1.SchemeGroupVersion.WithKind("AnyAllConditions"):
+		return &applyconfigurationspoliciesv1.AnyAllConditionsApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("Attestation"):
+		return &applyconfigurationspoliciesv1.AttestationApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("ClusterPolicy"):
+		return &applyconfigurationspoliciesv1.ClusterPolicyApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("Condition"):
+		return &applyconfigurationspoliciesv1.ConditionApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("Deny"):
+		return &applyconfigurationspoliciesv1.DenyApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("Generation"):
+		return &applyconfigurationspoliciesv1.GenerationApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("ImageVerification"):
+		return &applyconfigurationspoliciesv1.ImageVerificationApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("MatchResources"):
+		return &applyconfigurationspoliciesv1.MatchResourcesApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("Mutation"):
+		return &applyconfigurationspoliciesv1.MutationApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("Policy"):
+		return &applyconfigurationspoliciesv1.PolicyApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("Rule"):
+		return &applyconfigurationspoliciesv1.RuleApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("Spec"):
+		return &applyconfigurationspoliciesv1.SpecApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("TargetResourceSpec"):
+		return &applyconfigurationspoliciesv1.TargetResourceSpecApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("Validation"):
+		return &applyconfigurationspoliciesv1.ValidationApplyConfiguration{}
+	case policiesv1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
+		return &applyconfigurationspoliciesv1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=reports.kyverno.io, Version=v1
 	case reportsv1.SchemeGroupVersion.WithKind("ClusterEphemeralReport"):

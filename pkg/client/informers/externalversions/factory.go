@@ -26,6 +26,7 @@ import (
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	kyverno "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno"
+	policies "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies"
 	policyreport "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport"
 	reports "github.com/kyverno/kyverno/pkg/client/informers/externalversions/reports"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -246,12 +247,17 @@ type SharedInformerFactory interface {
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
 	Kyverno() kyverno.Interface
+	Policies() policies.Interface
 	Wgpolicyk8s() policyreport.Interface
 	Reports() reports.Interface
 }
 
 func (f *sharedInformerFactory) Kyverno() kyverno.Interface {
 	return kyverno.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Policies() policies.Interface {
+	return policies.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Wgpolicyk8s() policyreport.Interface {
