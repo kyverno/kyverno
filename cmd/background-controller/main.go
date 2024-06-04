@@ -159,7 +159,7 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
-	urGenerator := generator.NewUpdateRequestGenerator()
+	urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration)
 	gcstore := store.New()
 	gceController := internal.NewController(
 		globalcontextcontroller.ControllerName,
