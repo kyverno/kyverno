@@ -395,5 +395,5 @@ replace (
 	github.com/prometheus/client_golang v1.19.0 => github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/common v0.48.0 => github.com/prometheus/common v0.44.0
 	github.com/sigstore/cosign/v2 v2.2.4 => github.com/kyverno/cosign/v2 v2.2.4-deps-fix
-	k8s.io/pod-security-admission v0.30.1 => github.com/YTGhost/pod-security-admission v0.22.0-beta.0.0.20240519085631-da0d1123e10e
+	k8s.io/pod-security-admission v0.30.1 => github.com/YTGhost/pod-security-admission v0.22.0-beta.0.0.20240603173423-11663473ae49
 )

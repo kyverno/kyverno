@@ -89,8 +89,8 @@ github.com/ProtonMail/go-crypto v1.0.0 h1:LRuvITjQWX+WIfr930YHG2HNfjR1uOfyf5vE0k
 github.com/ProtonMail/go-crypto v1.0.0/go.mod h1:EjAoLdwvbIOoOQr3ihjnSoLZRtE8azugULFRteWMNc0=
 github.com/ThalesIgnite/crypto11 v1.2.5 h1:1IiIIEqYmBvUYFeMnHqRft4bwf/O36jryEUpY+9ef8E=
 github.com/ThalesIgnite/crypto11 v1.2.5/go.mod h1:ILDKtnCKiQ7zRoNxcp36Y1ZR8LBPmR2E23+wTQe/MlE=
-github.com/YTGhost/pod-security-admission v0.22.0-beta.0.0.20240519085631-da0d1123e10e h1:KM3gWRRlglqENJtBTKJDl+lWRDWt0gwlgrJXiQHqPB4=
-github.com/YTGhost/pod-security-admission v0.22.0-beta.0.0.20240519085631-da0d1123e10e/go.mod h1:wJpTzOGwDdTbVbIqwBuAX7io1eDQIuW/UfMaK5/Xzn0=
+github.com/YTGhost/pod-security-admission v0.22.0-beta.0.0.20240603173423-11663473ae49 h1:dwYC6vA5cR+2YFeEasNoJGVj/NrsXCSIWww3qQxeQFY=
+github.com/YTGhost/pod-security-admission v0.22.0-beta.0.0.20240603173423-11663473ae49/go.mod h1:wJpTzOGwDdTbVbIqwBuAX7io1eDQIuW/UfMaK5/Xzn0=
 github.com/agnivade/levenshtein v1.1.1 h1:QY8M92nrzkmr798gCo3kmMyqXFzdQVpxLlGPRBij0P8=
 github.com/agnivade/levenshtein v1.1.1/go.mod h1:veldBMzWxcCG2ZvUTKD2kJNRdCk5hVbJomOvKkmgYbo=
 github.com/alessio/shellescape v1.4.1 h1:V7yhSDDn8LP4lc4jS8pFkt0zCnzVJlG5JXy9BVKJUX0=
