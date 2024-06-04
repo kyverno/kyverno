@@ -82,10 +82,12 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 		},
 		Spec: urSpec,
 	}
-	created, err := g.urGenerator.Generate(ctx, g.client, &ur)
+	created, err := g.urGenerator.Generate(ctx, g.client, &ur, l)
 	if err != nil {
 		l.V(4).Error(err, "failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
 		return err
+	} else if created == nil {
+		return nil
 	}
 	updated := created.DeepCopy()
 	updated.Status.State = kyvernov1beta1.Pending

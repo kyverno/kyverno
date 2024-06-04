@@ -113,7 +113,7 @@ func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface
 		trigger := generateutils.TriggerFromLabels(labels)
 		ur := newUR(policy, trigger, rule.Name, kyvernov1beta1.Generate, deleteDownstream)
 
-		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur)
+		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 		if err != nil {
 			errorList = append(errorList, err)
 			continue

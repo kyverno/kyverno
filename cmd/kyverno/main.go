@@ -291,6 +291,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
+		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -501,7 +502,7 @@ func main() {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
-	urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration)
+	urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
 		setup.KyvernoClient,

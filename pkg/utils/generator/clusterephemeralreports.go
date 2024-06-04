@@ -3,6 +3,7 @@ package generator
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +24,7 @@ func NewClusterEphemeralReportGenerator() ClusterEphemeralReportGenerator {
 	}
 }
 
-func (g *clusterephemeralreportsgenerator) Generate(ctx context.Context, client versioned.Interface, resource *reportsv1.ClusterEphemeralReport) (*reportsv1.ClusterEphemeralReport, error) {
+func (g *clusterephemeralreportsgenerator) Generate(ctx context.Context, client versioned.Interface, resource *reportsv1.ClusterEphemeralReport, _ logr.Logger) (*reportsv1.ClusterEphemeralReport, error) {
 	if g.count >= g.threshold {
 		return nil, nil
 	}

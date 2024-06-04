@@ -415,7 +415,7 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		}
 
 		pc.log.V(2).Info("creating new UR for generate")
-		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur)
+		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 		if err != nil {
 			return false, err
 		}

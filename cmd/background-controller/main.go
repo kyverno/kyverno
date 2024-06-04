@@ -120,6 +120,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
+		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -159,7 +160,7 @@ func main() {
 		eventGenerator,
 		event.Workers,
 	)
-	urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration)
+	urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
 	gcstore := store.New()
 	gceController := internal.NewController(
 		globalcontextcontroller.ControllerName,
