@@ -74,17 +74,17 @@ require (
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.29.4
-	k8s.io/apiextensions-apiserver v0.29.3
-	k8s.io/apimachinery v0.30.0
-	k8s.io/apiserver v0.29.3
+	k8s.io/api v0.30.1
+	k8s.io/apiextensions-apiserver v0.30.1
+	k8s.io/apimachinery v0.30.1
+	k8s.io/apiserver v0.30.1
 	k8s.io/cli-runtime v0.29.4
-	k8s.io/client-go v0.29.4
+	k8s.io/client-go v0.30.1
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/kube-aggregator v0.29.3
 	k8s.io/pod-security-admission v0.29.2
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
-	sigs.k8s.io/controller-runtime v0.17.3
+	sigs.k8s.io/controller-runtime v0.18.3
 	sigs.k8s.io/kubectl-validate v0.0.3
 	sigs.k8s.io/kustomize/api v0.17.2
 	sigs.k8s.io/kustomize/kyaml v0.17.1
@@ -230,7 +230,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
-	github.com/google/cel-go v0.17.7 // indirect
+	github.com/google/cel-go v0.17.8 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-github/v55 v55.0.0 // indirect
@@ -382,7 +382,7 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/component-base v0.29.3 // indirect
+	k8s.io/component-base v0.30.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340
 	k8s.io/kubectl v0.29.2 // indirect
 	oras.land/oras-go/v2 v2.5.0 // indirect
