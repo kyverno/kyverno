@@ -84,7 +84,7 @@ require (
 	k8s.io/kube-aggregator v0.30.1
 	k8s.io/pod-security-admission v0.30.1
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
-	sigs.k8s.io/controller-runtime v0.17.3
+	sigs.k8s.io/controller-runtime v0.18.3
 	sigs.k8s.io/kubectl-validate v0.0.4
 	sigs.k8s.io/kustomize/api v0.17.2
 	sigs.k8s.io/kustomize/kyaml v0.17.1
@@ -93,19 +93,14 @@ require (
 	sigs.k8s.io/yaml v1.4.0
 )
 
-require github.com/notaryproject/notation-plugin-framework-go v1.0.0 // indirect
-
 require (
 	cloud.google.com/go v0.113.0 // indirect
 	cloud.google.com/go/auth v0.4.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
-	cloud.google.com/go/longrunning v0.5.7 // indirect
-)
-
-require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.8 // indirect
 	cloud.google.com/go/kms v1.17.1 // indirect
+	cloud.google.com/go/longrunning v0.5.7 // indirect
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20240314152124-224736b49f2e // indirect
 	cuelang.org/go v0.8.1 // indirect
 	dario.cat/mergo v1.0.0 // indirect
@@ -290,6 +285,7 @@ require (
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/mozillazg/docker-credential-acr-helper v0.3.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/notaryproject/notation-plugin-framework-go v1.0.0 // indirect
 	github.com/nozzle/throttler v0.0.0-20180817012639-2ea982251481 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
