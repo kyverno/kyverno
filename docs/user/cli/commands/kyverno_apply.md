@@ -40,6 +40,7 @@ kyverno apply [flags]
       --audit-warn           If set to true, will flag audit policies as warnings instead of failures
   -c, --cluster              Checks if policies should be applied to cluster in the current context
       --context string       The name of the kubeconfig context to use
+      --continue-on-fail     If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
       --detailed-results     If set to true, display detailed results
   -e, --exception strings    Policy exception to be considered when evaluating policies against resources
       --exceptions strings   Policy exception to be considered when evaluating policies against resources

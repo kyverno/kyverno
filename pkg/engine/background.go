@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -20,17 +19,15 @@ import (
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func (e *engine) applyBackgroundChecks(
-	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) engineapi.PolicyResponse {
-	return e.filterRules(policyContext, logger, time.Now())
+	return e.filterRules(policyContext, logger)
 }
 
 func (e *engine) filterRules(
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
-	startTime time.Time,
 ) engineapi.PolicyResponse {
 	policy := policyContext.Policy()
 	resp := engineapi.NewPolicyResponse()

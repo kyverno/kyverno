@@ -25,7 +25,6 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -79,13 +78,8 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 }
 
 func createNonLeaderControllers(
-	eng engineapi.Engine,
-	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	kubeClient kubernetes.Interface,
-	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
-	configuration config.Configuration,
 	policyCache policycache.Cache,
 ) ([]internal.Controller, func(context.Context) error) {
 	policyCacheController := policycachecontroller.NewController(
@@ -426,13 +420,8 @@ func main() {
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
-		engine,
-		kubeInformer,
 		kyvernoInformer,
-		setup.KubeClient,
-		setup.KyvernoClient,
 		setup.KyvernoDynamicClient,
-		setup.Configuration,
 		policyCache,
 	)
 	// start informers and wait for cache sync

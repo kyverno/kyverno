@@ -14,6 +14,9 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: {{ .Values.cleanupJobs.clusterAdmissionReports.backoffLimit }}
+      {{- if .Values.cleanupJobs.clusterAdmissionReports.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ .Values.cleanupJobs.clusterAdmissionReports.ttlSecondsAfterFinished }}
+      {{- end }}
       template:
         metadata:
           {{- with .Values.cleanupJobs.clusterAdmissionReports.podAnnotations }}
@@ -62,7 +65,7 @@ spec:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           restartPolicy: OnFailure
-          {{- with .Values.cleanupJobs.clusterAdmissionReports.tolerations }}
+          {{- with .Values.cleanupJobs.clusterAdmissionReports.tolerations | default .Values.global.tolerations}}
           tolerations:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}

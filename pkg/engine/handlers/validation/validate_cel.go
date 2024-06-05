@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/client-go/tools/cache"
@@ -122,7 +123,7 @@ func (h validateCELHandler) Process(
 	// newMatcher will be used to check if the incoming resource matches the CEL preconditions
 	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, policyKind, "", policyName)
 	// newValidator will be used to validate CEL expressions against the incoming object
-	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
+	validator := validating.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
 
 	var namespace *corev1.Namespace
 	// Special case, the namespace object has the namespace of itself.
@@ -130,12 +131,20 @@ func (h validateCELHandler) Process(
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
 	}
-	if namespaceName != "" && h.client != nil {
-		namespace, err = h.client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
-		if err != nil {
-			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err),
-			)
+	if namespaceName != "" {
+		if h.client != nil {
+			namespace, err = h.client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
+			if err != nil {
+				return resource, handlers.WithResponses(
+					engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err),
+				)
+			}
+		} else {
+			namespace = &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespaceName,
+				},
+			}
 		}
 	}
 
@@ -145,7 +154,7 @@ func (h validateCELHandler) Process(
 	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
 	authorizer := internal.NewAuthorizer(h.client, resourceKind)
 	// validate the incoming object against the rule
-	var validationResults []validatingadmissionpolicy.ValidateResult
+	var validationResults []validating.ValidateResult
 	if hasParam {
 		paramKind := rule.Validation.CEL.ParamKind
 		paramRef := rule.Validation.CEL.ParamRef
@@ -165,15 +174,22 @@ func (h validateCELHandler) Process(
 	}
 
 	for _, validationResult := range validationResults {
+		// no validations are returned if preconditions aren't met
+		if datautils.DeepEqual(validationResult, validating.ValidateResult{}) {
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "cel preconditions not met"),
+			)
+		}
+
 		for _, decision := range validationResult.Decisions {
 			switch decision.Action {
-			case validatingadmissionpolicy.ActionAdmit:
-				if decision.Evaluation == validatingadmissionpolicy.EvalError {
+			case validating.ActionAdmit:
+				if decision.Evaluation == validating.EvalError {
 					return resource, handlers.WithResponses(
 						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil),
 					)
 				}
-			case validatingadmissionpolicy.ActionDeny:
+			case validating.ActionDeny:
 				return resource, handlers.WithResponses(
 					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message),
 				)

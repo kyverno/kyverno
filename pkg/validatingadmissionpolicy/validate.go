@@ -9,18 +9,22 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/admissionregistration/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy/matching"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/generic"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
@@ -63,7 +67,12 @@ func GetKinds(policy v1alpha1.ValidatingAdmissionPolicy) []string {
 	return kindList
 }
 
-func Validate(policyData PolicyData, resource unstructured.Unstructured, namespaceSelectorMap map[string]map[string]string, client dclient.Interface) (engineapi.EngineResponse, error) {
+func Validate(
+	policyData PolicyData,
+	resource unstructured.Unstructured,
+	namespaceSelectorMap map[string]map[string]string,
+	client dclient.Interface,
+) (engineapi.EngineResponse, error) {
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	policy := policyData.definition
 	bindings := policyData.bindings
@@ -75,6 +84,24 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, namespa
 		Version:  gvk.Version,
 		Resource: strings.ToLower(gvk.Kind) + "s",
 	}
+
+	var namespace *corev1.Namespace
+	namespaceName := resource.GetNamespace()
+	// Special case, the namespace object has the namespace of itself.
+	// unset it if the incoming object is a namespace
+	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
+		namespaceName = ""
+	}
+
+	if namespaceName != "" {
+		namespace = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   namespaceName,
+				Labels: namespaceSelectorMap[namespaceName],
+			},
+		}
+	}
+
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 	if len(bindings) == 0 {
@@ -86,15 +113,15 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, namespa
 			return engineResponse, nil
 		}
 		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-		return validateResource(policy, nil, resource, a)
+		return validateResource(policy, nil, resource, *namespace, a)
 	}
 
 	if client != nil {
 		nsLister := NewCustomNamespaceLister(client)
-		matcher := validatingadmissionpolicy.NewMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
+		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 
-		// convert policy from v1alpha1 to v1beta1
-		v1beta1policy := ConvertValidatingAdmissionPolicy(policy)
+		// convert policy from v1alpha1 to v1
+		v1policy := ConvertValidatingAdmissionPolicy(policy)
 
 		// construct admission attributes
 		gvr, err := client.Discovery().GetGVRFromGVK(gvk)
@@ -105,7 +132,7 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, namespa
 
 		// check if policy matches the incoming resource
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-		isMatch, _, _, err := matcher.DefinitionMatches(a, o, &v1beta1policy)
+		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(&v1policy))
 		if err != nil {
 			return engineResponse, err
 		}
@@ -113,10 +140,17 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, namespa
 			return engineResponse, nil
 		}
 
+		if namespaceName != "" {
+			namespace, err = client.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
+			if err != nil {
+				return engineResponse, err
+			}
+		}
+
 		for i, binding := range bindings {
-			// convert policy binding from v1alpha1 to v1beta1
-			v1beta1binding := ConvertValidatingAdmissionPolicyBinding(binding)
-			isMatch, err := matcher.BindingMatches(a, o, &v1beta1binding)
+			// convert policy binding from v1alpha1 to v1
+			v1binding := ConvertValidatingAdmissionPolicyBinding(binding)
+			isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&v1binding))
 			if err != nil {
 				return engineResponse, err
 			}
@@ -125,7 +159,7 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, namespa
 			}
 
 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, a)
+			return validateResource(policy, &bindings[i], resource, *namespace, a)
 		}
 	} else {
 		for i, binding := range bindings {
@@ -137,14 +171,20 @@ func Validate(policyData PolicyData, resource unstructured.Unstructured, namespa
 				continue
 			}
 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, a)
+			return validateResource(policy, &bindings[i], resource, *namespace, a)
 		}
 	}
 
 	return engineResponse, nil
 }
 
-func validateResource(policy v1alpha1.ValidatingAdmissionPolicy, binding *v1alpha1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, a admission.Attributes) (engineapi.EngineResponse, error) {
+func validateResource(
+	policy v1alpha1.ValidatingAdmissionPolicy,
+	binding *v1alpha1.ValidatingAdmissionPolicyBinding,
+	resource unstructured.Unstructured,
+	namespace corev1.Namespace,
+	a admission.Attributes,
+) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
 	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
@@ -176,7 +216,7 @@ func validateResource(policy v1alpha1.ValidatingAdmissionPolicy, binding *v1alph
 	}
 
 	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchExpressions(optionalVars), &failPolicy, "", string(matchPolicy), "")
-	validator := validatingadmissionpolicy.NewValidator(
+	validator := validating.NewValidator(
 		compiler.CompileValidateExpressions(optionalVars),
 		newMatcher,
 		compiler.CompileAuditAnnotationsExpressions(optionalVars),
@@ -184,23 +224,28 @@ func validateResource(policy v1alpha1.ValidatingAdmissionPolicy, binding *v1alph
 		&failPolicy,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
-	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, nil, celconfig.RuntimeCELCostBudget, nil)
+	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, &namespace, celconfig.RuntimeCELCostBudget, nil)
 
-	isPass := true
-	for _, policyDecision := range validateResult.Decisions {
-		if policyDecision.Evaluation == validatingadmissionpolicy.EvalError {
-			isPass = false
-			ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
-			break
-		} else if policyDecision.Action == validatingadmissionpolicy.ActionDeny {
-			isPass = false
-			ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message)
-			break
+	// no validations are returned if match conditions aren't met
+	if datautils.DeepEqual(validateResult, validating.ValidateResult{}) {
+		ruleResp = engineapi.RuleSkip(policy.GetName(), engineapi.Validation, "match conditions aren't met")
+	} else {
+		isPass := true
+		for _, policyDecision := range validateResult.Decisions {
+			if policyDecision.Evaluation == validating.EvalError {
+				isPass = false
+				ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
+				break
+			} else if policyDecision.Action == validating.ActionDeny {
+				isPass = false
+				ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message)
+				break
+			}
 		}
-	}
 
-	if isPass {
-		ruleResp = engineapi.RulePass(policy.GetName(), engineapi.Validation, "")
+		if isPass {
+			ruleResp = engineapi.RulePass(policy.GetName(), engineapi.Validation, "")
+		}
 	}
 
 	if binding != nil {
