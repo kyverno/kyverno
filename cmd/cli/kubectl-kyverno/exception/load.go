@@ -18,7 +18,6 @@ import (
 )
 
 var (
-	factory, _        = resourceloader.New(openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds(), data.CrdsFolder)))
 	exceptionV2alpha1 = schema.GroupVersion(kyvernov2alpha1.GroupVersion).WithKind("PolicyException")
 	exceptionV2beta1  = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
 	exceptionV2       = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
@@ -46,6 +45,16 @@ func load(content []byte) ([]*kyvernov2beta1.PolicyException, error) {
 		return nil, err
 	}
 	var exceptions []*kyvernov2beta1.PolicyException
+	crds, err := data.Crds()
+	if err != nil {
+		return nil, err
+	}
+
+	factory, err := resourceloader.New(openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(crds)))
+	if err != nil {
+		return nil, err
+	}
+
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {
