@@ -127,7 +127,9 @@ func NewController(
 	if _, err := controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addException, c.updateException, c.deleteException)
+	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addException, c.updateException, c.deleteException); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
 		// if it's a deletion, nothing to do
 		if eventType == resource.Deleted {

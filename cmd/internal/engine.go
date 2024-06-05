@@ -64,12 +64,15 @@ func NewExceptionSelector(
 	if !enablePolicyException {
 		return nil, nil
 	}
-	polexCache := exceptioncontroller.NewController(
+	polexCache, err := exceptioncontroller.NewController(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions(),
 		exceptionNamespace,
 	)
+	if err != nil {
+		checkError(logger, err, "failed to create policy cache")
+	}
 	polexController := NewController(
 		exceptioncontroller.ControllerName,
 		polexCache,

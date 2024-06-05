@@ -52,11 +52,15 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	polexInformer kyvernov2alpha1informers.PolicyExceptionInformer,
 	namespace string,
-) *controller {
+) (*controller, error) {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), queue)
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), queue); err != nil {
+		return nil, err
+	}
 
-	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), queue)
+	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), queue); err != nil {
+		return nil, err
+	}
 
 	c := &controller{
 		cpolLister:  cpolInformer.Lister(),
@@ -66,8 +70,10 @@ func NewController(
 		index:       policyIndex{},
 		namespace:   namespace,
 	}
-	controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addPolex, c.updatePolex, c.deletePolex)
-	return c
+	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addPolex, c.updatePolex, c.deletePolex); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
