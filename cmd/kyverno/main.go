@@ -325,6 +325,7 @@ func main() {
 		omitEventsValues,
 		logging.WithName("EventGenerator"),
 	)
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 	// this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(
 		setup.MetricsManager,
@@ -365,6 +366,7 @@ func main() {
 		setup.KyvernoClient,
 		setup.RegistrySecretLister,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		polexCache,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -528,6 +530,9 @@ func main() {
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
+	}
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
 	}
 	// start webhooks server
 	server.Run(signalCtx.Done())

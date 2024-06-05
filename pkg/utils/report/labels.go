@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,12 +33,13 @@ const (
 	LabelPrefixClusterPolicy             = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                    = LabelDomainPolicy + "/"
 	LabelPrefixValidatingAdmissionPolicy = "validatingadmissionpolicy.apiserver.io/"
+	LabelPrefixPolicyException           = "polex.kyverno.io/"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
 
 func IsPolicyLabel(label string) bool {
-	return strings.HasPrefix(label, LabelPrefixPolicy) || strings.HasPrefix(label, LabelPrefixClusterPolicy)
+	return strings.HasPrefix(label, LabelPrefixPolicy) || strings.HasPrefix(label, LabelPrefixClusterPolicy) || strings.HasPrefix(label, LabelPrefixPolicyException)
 }
 
 func PolicyNameFromLabel(namespace, label string) (string, error) {
@@ -60,6 +62,14 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 		return LabelPrefixClusterPolicy
 	}
 	return LabelPrefixValidatingAdmissionPolicy
+}
+
+func PolicyExceptionLabel(exception kyvernov2alpha1.PolicyException) string {
+	return LabelPrefixPolicyException + exception.GetName()
+}
+
+func SetPolicyExceptionLabel(report kyvernov1alpha2.ReportInterface, exception kyvernov2alpha1.PolicyException) {
+	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
 func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
