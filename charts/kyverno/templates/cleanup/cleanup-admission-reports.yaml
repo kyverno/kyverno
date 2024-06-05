@@ -65,7 +65,7 @@ spec:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           restartPolicy: OnFailure
-          {{- with .Values.cleanupJobs.admissionReports.tolerations }}
+          {{- with .Values.cleanupJobs.admissionReports.tolerations | default .Values.global.tolerations}}
           tolerations:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}

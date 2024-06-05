@@ -45,6 +45,8 @@ annotations:
       description: Add cronjob ttl support
     - kind: fixed
       description: Ensure CA certificate config maps are created when data is provided
+    - kind: added
+      description: Add global tolerations
 dependencies:
   - name: grafana
     version: v0.0.0
