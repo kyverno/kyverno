@@ -123,6 +123,7 @@ func (e *entry) setData(data any, err error) {
 		e.err = err
 	} else {
 		e.data = data
+		e.err = nil
 	}
 }
 
