@@ -4,8 +4,10 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -14,6 +16,20 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 )
+
+func FetchPolicyExceptions(polexLister kyvernov2alpha1listers.PolicyExceptionLister, namespace string) ([]kyvernov2alpha1.PolicyException, error) {
+	var exceptions []kyvernov2alpha1.PolicyException
+	if polexs, err := polexLister.PolicyExceptions(namespace).List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, polex := range polexs {
+			if polex.Spec.BackgroundProcessingEnabled() {
+				exceptions = append(exceptions, *polex)
+			}
+		}
+	}
+	return exceptions, nil
+}
 
 func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	if !p.BackgroundProcessingEnabled() {
