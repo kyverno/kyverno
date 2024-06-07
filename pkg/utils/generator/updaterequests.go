@@ -35,7 +35,6 @@ func (g *updaterequestsgenerator) Generate(ctx context.Context, client versioned
 			Resource: "updaterequests",
 		},
 	).List(ctx, metav1.ListOptions{})
-
 	if err != nil {
 		return nil, err
 	}
