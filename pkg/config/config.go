@@ -99,7 +99,7 @@ const (
 	updateRequestThreshold        = "updateRequestThreshold"
 )
 
-const UpdateRequestThreshold = 10000
+const UpdateRequestThreshold = 1000
 
 var (
 	// kyvernoNamespace is the Kyverno namespace
