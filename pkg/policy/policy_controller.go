@@ -419,6 +419,9 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		if err != nil {
 			return false, err
 		}
+		if created == nil {
+			continue
+		}
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov1beta1.Pending
 		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})

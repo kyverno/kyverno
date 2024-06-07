@@ -118,6 +118,9 @@ func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface
 			errorList = append(errorList, err)
 			continue
 		}
+		if created == nil {
+			continue
+		}
 		updated := created.DeepCopy()
 		updated.Status = newURStatus(downstream)
 		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
