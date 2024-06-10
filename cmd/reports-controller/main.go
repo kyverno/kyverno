@@ -240,156 +240,158 @@ func main() {
 		internal.WithDefaultQps(300),
 		internal.WithDefaultBurst(300),
 	)
-	// setup
-	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
-	defer sdown()
-	// show warnings
-	if reportsChunkSize != 0 {
-		logger := setup.Logger.WithName("wanings")
-		logger.Info("Warning: reportsChunkSize is deprecated and will be removed in 1.13.")
-	}
-	// THIS IS AN UGLY FIX
-	// ELSE KYAML IS NOT THREAD SAFE
-	kyamlopenapi.Schema()
-	if err := sanityChecks(setup.ApiServerClient); err != nil {
-		setup.Logger.Error(err, "sanity checks failed")
-		os.Exit(1)
-	}
-	setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
-	// check if validating admission policies are registered in the API server
-	if validatingAdmissionPolicyReports {
-		registered, err := validatingadmissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
-		if !registered {
-			setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
+	var wg sync.WaitGroup
+	func() {
+		// setup
+		ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
+		defer sdown()
+		// show warnings
+		if reportsChunkSize != 0 {
+			logger := setup.Logger.WithName("wanings")
+			logger.Info("Warning: reportsChunkSize is deprecated and will be removed in 1.13.")
+		}
+		// THIS IS AN UGLY FIX
+		// ELSE KYAML IS NOT THREAD SAFE
+		kyamlopenapi.Schema()
+		if err := sanityChecks(setup.ApiServerClient); err != nil {
+			setup.Logger.Error(err, "sanity checks failed")
 			os.Exit(1)
 		}
-	}
-	// informer factories
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-	var wg sync.WaitGroup
-	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
-	eventGenerator := event.NewEventGenerator(
-		setup.EventsClient,
-		logging.WithName("EventGenerator"),
-		maxQueuedEvents,
-		strings.Split(omitEvents, ",")...,
-	)
-	eventController := internal.NewController(
-		event.ControllerName,
-		eventGenerator,
-		event.Workers,
-	)
-	gcstore := store.New()
-	gceController := internal.NewController(
-		globalcontextcontroller.ControllerName,
-		globalcontextcontroller.NewController(
-			kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
-			setup.KyvernoDynamicClient,
-			setup.KyvernoClient,
-			gcstore,
+		setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
+		// check if validating admission policies are registered in the API server
+		if validatingAdmissionPolicyReports {
+			registered, err := validatingadmissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
+			if !registered {
+				setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
+				os.Exit(1)
+			}
+		}
+		// informer factories
+		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
+		eventGenerator := event.NewEventGenerator(
+			setup.EventsClient,
+			logging.WithName("EventGenerator"),
+			maxQueuedEvents,
+			strings.Split(omitEvents, ",")...,
+		)
+		eventController := internal.NewController(
+			event.ControllerName,
 			eventGenerator,
-			maxAPICallResponseLength,
-			false,
-		),
-		globalcontextcontroller.Workers,
-	)
-	// engine
-	engine := internal.NewEngine(
-		ctx,
-		setup.Logger,
-		setup.Configuration,
-		setup.MetricsConfiguration,
-		setup.Jp,
-		setup.KyvernoDynamicClient,
-		setup.RegistryClient,
-		setup.ImageVerifyCacheClient,
-		setup.KubeClient,
-		setup.KyvernoClient,
-		setup.RegistrySecretLister,
-		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
-		polexCache,
-		gcstore,
-	)
-	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
-		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-		os.Exit(1)
-	}
-	// setup leader election
-	le, err := leaderelection.New(
-		setup.Logger.WithName("leader-election"),
-		"kyverno-reports-controller",
-		config.KyvernoNamespace(),
-		setup.LeaderElectionClient,
-		config.KyvernoPodName(),
-		internal.LeaderElectionRetryPeriod(),
-		func(ctx context.Context) {
-			logger := setup.Logger.WithName("leader")
-			// create leader factories
-			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-			metadataInformer := metadatainformers.NewSharedInformerFactory(setup.MetadataClient, 15*time.Minute)
-			// create leader controllers
-			leaderControllers, warmup, err := createrLeaderControllers(
-				engine,
-				backgroundScan,
-				admissionReports,
-				aggregateReports,
-				policyReports,
-				validatingAdmissionPolicyReports,
-				aggregationWorkers,
-				backgroundScanWorkers,
-				kubeInformer,
-				kyvernoInformer,
-				metadataInformer,
-				setup.KyvernoClient,
+			event.Workers,
+		)
+		gcstore := store.New()
+		gceController := internal.NewController(
+			globalcontextcontroller.ControllerName,
+			globalcontextcontroller.NewController(
+				kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 				setup.KyvernoDynamicClient,
-				setup.Configuration,
-				setup.Jp,
+				setup.KyvernoClient,
+				gcstore,
 				eventGenerator,
-				backgroundScanInterval,
-			)
-			if err != nil {
-				logger.Error(err, "failed to create leader controllers")
-				os.Exit(1)
-			}
-			// start informers and wait for cache sync
-			if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
-				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-				os.Exit(1)
-			}
-			internal.StartInformers(ctx, metadataInformer)
-			if !internal.CheckCacheSync(logger, metadataInformer.WaitForCacheSync(ctx.Done())) {
-				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-				os.Exit(1)
-			}
-			if err := warmup(ctx); err != nil {
-				logger.Error(err, "failed to run warmup")
-				os.Exit(1)
-			}
-			// start leader controllers
-			var wg sync.WaitGroup
-			for _, controller := range leaderControllers {
-				controller.Run(ctx, logger.WithName("controllers"), &wg)
-			}
-			// wait all controllers shut down
-			wg.Wait()
-		},
-		nil,
-	)
-	if err != nil {
-		setup.Logger.Error(err, "failed to initialize leader election")
-		os.Exit(1)
-	}
-	// start non leader controllers
-	eventController.Run(ctx, setup.Logger, &wg)
-	gceController.Run(ctx, setup.Logger, &wg)
-	if polexController != nil {
-		polexController.Run(ctx, setup.Logger, &wg)
-	}
-	// start leader election
-	le.Run(ctx)
+				maxAPICallResponseLength,
+				false,
+			),
+			globalcontextcontroller.Workers,
+		)
+		// engine
+		engine := internal.NewEngine(
+			ctx,
+			setup.Logger,
+			setup.Configuration,
+			setup.MetricsConfiguration,
+			setup.Jp,
+			setup.KyvernoDynamicClient,
+			setup.RegistryClient,
+			setup.ImageVerifyCacheClient,
+			setup.KubeClient,
+			setup.KyvernoClient,
+			setup.RegistrySecretLister,
+			apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+			polexCache,
+			gcstore,
+		)
+		// start informers and wait for cache sync
+		if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
+			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+			os.Exit(1)
+		}
+		// setup leader election
+		le, err := leaderelection.New(
+			setup.Logger.WithName("leader-election"),
+			"kyverno-reports-controller",
+			config.KyvernoNamespace(),
+			setup.LeaderElectionClient,
+			config.KyvernoPodName(),
+			internal.LeaderElectionRetryPeriod(),
+			func(ctx context.Context) {
+				logger := setup.Logger.WithName("leader")
+				// create leader factories
+				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
+				kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+				metadataInformer := metadatainformers.NewSharedInformerFactory(setup.MetadataClient, 15*time.Minute)
+				// create leader controllers
+				leaderControllers, warmup, err := createrLeaderControllers(
+					engine,
+					backgroundScan,
+					admissionReports,
+					aggregateReports,
+					policyReports,
+					validatingAdmissionPolicyReports,
+					aggregationWorkers,
+					backgroundScanWorkers,
+					kubeInformer,
+					kyvernoInformer,
+					metadataInformer,
+					setup.KyvernoClient,
+					setup.KyvernoDynamicClient,
+					setup.Configuration,
+					setup.Jp,
+					eventGenerator,
+					backgroundScanInterval,
+				)
+				if err != nil {
+					logger.Error(err, "failed to create leader controllers")
+					os.Exit(1)
+				}
+				// start informers and wait for cache sync
+				if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+					os.Exit(1)
+				}
+				internal.StartInformers(ctx, metadataInformer)
+				if !internal.CheckCacheSync(logger, metadataInformer.WaitForCacheSync(ctx.Done())) {
+					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+					os.Exit(1)
+				}
+				if err := warmup(ctx); err != nil {
+					logger.Error(err, "failed to run warmup")
+					os.Exit(1)
+				}
+				// start leader controllers
+				var wg sync.WaitGroup
+				for _, controller := range leaderControllers {
+					controller.Run(ctx, logger.WithName("controllers"), &wg)
+				}
+				// wait all controllers shut down
+				wg.Wait()
+			},
+			nil,
+		)
+		if err != nil {
+			setup.Logger.Error(err, "failed to initialize leader election")
+			os.Exit(1)
+		}
+		// start non leader controllers
+		eventController.Run(ctx, setup.Logger, &wg)
+		gceController.Run(ctx, setup.Logger, &wg)
+		if polexController != nil {
+			polexController.Run(ctx, setup.Logger, &wg)
+		}
+		// start leader election
+		le.Run(ctx)
+	}()
 	// wait for everything to shut down and exit
 	wg.Wait()
 }
