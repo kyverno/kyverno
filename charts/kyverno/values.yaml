@@ -37,6 +37,9 @@ global:
   # -- Global node labels for pod assignment. Non-global values will override the global value.
   nodeSelector: {}
 
+  # -- Global List of node taints to tolerate. Non-global values will override the global value.
+  tolerations: []
+
 # -- (string) Override the name of the chart
 nameOverride: ~
 
