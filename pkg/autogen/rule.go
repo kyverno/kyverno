@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"reflect"
 	"sort"
 	"strings"
 
@@ -164,7 +165,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.Validation = podSecurity
 		return rule
 	}
-	if rule.Validation.GetAnyPattern() != nil {
+	if !rule.Validation.IsAnyPatternEmpty() {
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
 			logger.Error(err, "failed to deserialize anyPattern, expect type array")
@@ -312,34 +313,67 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 	)
 }
 
-func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
+func updateGenRuleByte(rule *kyvernoRule, kind string) {
 	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.template.metadata"))
+		replaceStrings(reflect.ValueOf(rule), "request.object.spec", "request.object.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "request.oldObject.spec", "request.oldObject.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "request.object.metadata", "request.object.spec.template.metadata")
+		replaceStrings(reflect.ValueOf(rule), "request.oldObject.metadata", "request.oldObject.spec.template.metadata")
 	}
 	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.jobTemplate.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.jobTemplate.spec.template.metadata"))
+		replaceStrings(reflect.ValueOf(rule), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "request.object.metadata", "request.object.spec.jobTemplate.spec.template.metadata")
+		replaceStrings(reflect.ValueOf(rule), "request.oldObject.metadata", "request.oldObject.spec.jobTemplate.spec.template.metadata")
 	}
-	return obj
 }
 
-func updateCELFields(pbyte []byte, kind string) (obj []byte) {
+func updateCELFields(rule *kyvernoRule, kind string) {
 	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.template.metadata"))
+		replaceStrings(reflect.ValueOf(rule), "object.spec", "object.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "oldObject.spec", "oldObject.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "object.metadata", "object.spec.template.metadata")
+		replaceStrings(reflect.ValueOf(rule), "oldObject.metadata", "oldObject.spec.template.metadata")
 	}
 	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.jobTemplate.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.jobTemplate.spec.template.metadata"))
+		replaceStrings(reflect.ValueOf(rule), "object.spec", "object.spec.jobTemplate.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "oldObject.spec", "oldObject.spec.jobTemplate.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "object.metadata", "object.spec.jobTemplate.spec.template.metadata")
+		replaceStrings(reflect.ValueOf(rule), "oldObject.metadata", "oldObject.spec.jobTemplate.spec.template.metadata")
 	}
-	return obj
+}
+
+func replaceStrings(v reflect.Value, old, new string) {
+	switch v.Kind() {
+	case reflect.Ptr:
+		if !v.IsNil() {
+			replaceStrings(v.Elem(), old, new)
+		}
+	case reflect.Interface:
+		if !v.IsNil() {
+			replaceStrings(v.Elem(), old, new)
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			replaceStrings(v.Field(i), old, new)
+		}
+	case reflect.Slice:
+		for i := 0; i < v.Len(); i++ {
+			replaceStrings(v.Index(i), old, new)
+		}
+	case reflect.Map:
+		for _, key := range v.MapKeys() {
+			val := v.MapIndex(key)
+			replaceStrings(val, old, new)
+			if key.Kind() == reflect.String {
+				newKey := strings.Replace(key.String(), old, new, -1)
+				if newKey != key.String() {
+					v.SetMapIndex(reflect.ValueOf(newKey), val)
+					v.SetMapIndex(key, reflect.Value{})
+				}
+			}
+		}
+	case reflect.String:
+		v.SetString(strings.Replace(v.String(), old, new, -1))
+	}
 }

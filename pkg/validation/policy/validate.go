@@ -818,7 +818,7 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 			patternMap, ok := rule.Validation.GetPattern().(map[string]interface{})
 			if ok {
 				return checkMetadata(patternMap)
-			} else if rule.Validation.GetAnyPattern() != nil {
+			} else if !rule.Validation.IsAnyPatternEmpty() {
 				anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 				if err != nil {
 					logging.Error(err, "failed to deserialize anyPattern, expect type array")
@@ -1469,7 +1469,7 @@ func validateWildcard(kinds []string, background bool, rule kyvernov1.Rule) erro
 		}
 
 		if rule.HasValidate() {
-			if rule.Validation.GetPattern() != nil || rule.Validation.GetAnyPattern() != nil {
+			if rule.Validation.GetPattern() != nil || !rule.Validation.IsAnyPatternEmpty() {
 				if !ruleOnlyDealsWithResourceMetaData(rule) {
 					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 						" the rule does not match any kind")

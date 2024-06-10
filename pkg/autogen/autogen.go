@@ -3,7 +3,6 @@ package autogen
 import (
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -190,24 +189,12 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 }
 
 func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
-	json := jsoniter.ConfigCompatibleWithStandardLibrary
+	updateGenRuleByte(&rule, kind)
 
-	if bytes, err := json.Marshal(rule); err != nil {
-		return nil, err
-	} else {
-		bytes = updateGenRuleByte(bytes, kind)
-		if err := json.Unmarshal(bytes, &rule); err != nil {
-			return nil, err
-		}
-
-		// CEL variables are object, oldObject, request, params and authorizer.
-		// Therefore CEL expressions can be either written as object.spec or request.object.spec
-		if rule.Validation != nil && rule.Validation.CEL != nil {
-			bytes = updateCELFields(bytes, kind)
-			if err := json.Unmarshal(bytes, &rule); err != nil {
-				return nil, err
-			}
-		}
+	// CEL variables are object, oldObject, request, params and authorizer.
+	// Therefore CEL expressions can be either written as object.spec or request.object.spec
+	if rule.Validation != nil && rule.Validation.CEL != nil {
+		updateCELFields(&rule, kind)
 	}
 
 	out := kyvernov1.Rule{

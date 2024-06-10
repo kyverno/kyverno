@@ -169,29 +169,32 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
+	var warnings []string
 	mh := mutation.NewMutationHandler(logger, h.engine, h.eventGen, h.nsLister, h.metricsConfig)
 	mutatePatches, mutateWarnings, err := mh.HandleMutation(ctx, request.AdmissionRequest, mutatePolicies, policyContext, startTime)
 	if err != nil {
 		logger.Error(err, "mutation failed")
 		return admissionutils.Response(request.UID, err)
 	}
-	newRequest := patchRequest(mutatePatches, request.AdmissionRequest, logger)
-	// rebuild context to process images updated via mutate policies
-	policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
-	if err != nil {
-		logger.Error(err, "failed to build policy context")
-		return admissionutils.Response(request.UID, err)
-	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister)
-	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
-	if err != nil {
-		logger.Error(err, "image verification failed")
-		return admissionutils.Response(request.UID, err)
-	}
-	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
-	var warnings []string
 	warnings = append(warnings, mutateWarnings...)
-	warnings = append(warnings, imageVerifyWarnings...)
+	patch := []byte(mutatePatches)
+	if len(verifyImagesPolicies) > 0 {
+		newRequest := patchRequest(mutatePatches, request.AdmissionRequest, logger)
+		// rebuild context to process images updated via mutate policies
+		policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+		if err != nil {
+			logger.Error(err, "failed to build policy context")
+			return admissionutils.Response(request.UID, err)
+		}
+		ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister)
+		imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
+		if err != nil {
+			logger.Error(err, "image verification failed")
+			return admissionutils.Response(request.UID, err)
+		}
+		patch = jsonutils.JoinPatches(mutatePatches, imagePatches)
+		warnings = append(warnings, imageVerifyWarnings...)
+	}
 	return admissionutils.MutationResponse(request.UID, patch, warnings...)
 }
 

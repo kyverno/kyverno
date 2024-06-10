@@ -42,7 +42,7 @@ func (v *Validate) Validate(ctx context.Context) (string, error) {
 		}
 	}
 
-	if target := v.rule.GetAnyPattern(); target != nil {
+	if !v.rule.IsAnyPatternEmpty() {
 		anyPattern, err := v.rule.DeserializeAnyPattern()
 		if err != nil {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
@@ -142,11 +142,11 @@ func validationElemCount(v *kyvernov1.Validation) int {
 	}
 
 	count := 0
-	if v.GetPattern() != nil {
+	if !v.IsAnyPatternEmpty() {
 		count++
 	}
 
-	if v.GetAnyPattern() != nil {
+	if !v.IsAnyPatternEmpty() {
 		count++
 	}
 
@@ -192,11 +192,11 @@ func (v *Validate) validateForEach(foreach kyvernov1.ForEachValidation) error {
 
 func foreachElemCount(foreach kyvernov1.ForEachValidation) int {
 	count := 0
-	if foreach.GetPattern() != nil {
+	if !foreach.IsPatternEmpty() {
 		count++
 	}
 
-	if foreach.GetAnyPattern() != nil {
+	if !foreach.IsAnyPatternEmpty() {
 		count++
 	}
 

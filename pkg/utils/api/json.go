@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -13,20 +14,24 @@ func DeserializeJSONArray[T any](in apiextensions.JSON) ([]T, error) {
 	if in == nil {
 		return nil, nil
 	}
-	data, err := json.Marshal(in)
-	if err != nil {
-		return nil, err
+
+	data, ok := in.([]byte)
+	if !ok {
+		return nil, errors.New("input is not a valid JSON byte slice")
 	}
+
 	var res []T
 	if err := json.Unmarshal(data, &res); err != nil {
 		return nil, err
 	}
+
 	return res, nil
 }
 
 // ApiextensionsJsonToKyvernoConditions takes in user-provided conditions in abstract apiextensions.JSON form
 // and converts it into []kyverno.Condition or kyverno.AnyAllConditions according to its content.
 // it also helps in validating the condtions as it returns an error when the conditions are provided wrongfully by the user.
+// TODO: Is Marshaling and Unmarshaling the best way to convert between these types?
 func ApiextensionsJsonToKyvernoConditions(in apiextensions.JSON) (interface{}, error) {
 	path := "preconditions/validate.deny.conditions"
 

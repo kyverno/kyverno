@@ -18,7 +18,8 @@ func Test_validateOldObject(t *testing.T) {
 
 	policyContext := buildTestNamespaceLabelsContext(t)
 	rule := policyContext.Policy().GetSpec().Rules[0]
-	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+	v, err := newValidator(logr.Discard(), mockCL, policyContext, rule)
+	assert.Nil(t, err)
 
 	ctx := context.TODO()
 	resp := v.validate(ctx)
@@ -26,7 +27,8 @@ func Test_validateOldObject(t *testing.T) {
 	assert.Equal(t, api.RuleStatusPass, resp.Status())
 
 	rule2 := policyContext.Policy().GetSpec().Rules[1]
-	v2 := newValidator(logr.Discard(), mockCL, policyContext, rule2)
+	v2, err := newValidator(logr.Discard(), mockCL, policyContext, rule2)
+	assert.Nil(t, err)
 	resp2 := v2.validate(ctx)
 	assert.NotNil(t, resp2 != nil)
 	assert.Equal(t, api.RuleStatusFail, resp2.Status())

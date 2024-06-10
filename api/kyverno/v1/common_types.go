@@ -533,24 +533,12 @@ func (c *CEL) GetParamRef() v1alpha1.ParamRef {
 	return *c.ParamRef
 }
 
-// DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
-func (in *Validation) DeserializeAnyPattern() ([]interface{}, error) {
-	anyPattern := in.GetAnyPattern()
-	if anyPattern == nil {
+func (in *Validation) DeserializeAnyPattern() ([]apiextensions.JSON, error) {
+	if in.IsAnyPatternEmpty() {
 		return nil, nil
 	}
-	res, nil := deserializePattern(anyPattern)
-	return res, nil
-}
-
-func deserializePattern(pattern apiextensions.JSON) ([]interface{}, error) {
-	anyPattern, err := json.Marshal(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	var res []interface{}
-	if err := json.Unmarshal(anyPattern, &res); err != nil {
+	var res []apiextensions.JSON
+	if err := json.Unmarshal(in.RawAnyPattern.Raw, &res); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -564,12 +552,20 @@ func (v *Validation) SetPattern(in apiextensions.JSON) {
 	v.RawPattern = ToJSON(in)
 }
 
+func (v *Validation) IsPatternEmpty() bool {
+	return IsJSONEmpty(v.RawPattern)
+}
+
 func (v *Validation) GetAnyPattern() apiextensions.JSON {
 	return FromJSON(v.RawAnyPattern)
 }
 
 func (v *Validation) SetAnyPattern(in apiextensions.JSON) {
 	v.RawAnyPattern = ToJSON(in)
+}
+
+func (v *Validation) IsAnyPatternEmpty() bool {
+	return IsJSONEmpty(v.RawAnyPattern)
 }
 
 func (v *Validation) GetForeach() apiextensions.JSON {
@@ -638,6 +634,17 @@ type ForEachValidation struct {
 	ForEachValidation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
+func (in *ForEachValidation) DeserializeAnyPattern() ([]apiextensions.JSON, error) {
+	if in.IsAnyPatternEmpty() {
+		return nil, nil
+	}
+	var res []apiextensions.JSON
+	if err := json.Unmarshal(in.RawAnyPattern.Raw, &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (v *ForEachValidation) GetPattern() apiextensions.JSON {
 	return FromJSON(v.RawPattern)
 }
@@ -646,12 +653,20 @@ func (v *ForEachValidation) SetPattern(in apiextensions.JSON) {
 	v.RawPattern = ToJSON(in)
 }
 
+func (v *ForEachValidation) IsPatternEmpty() bool {
+	return IsJSONEmpty(v.RawPattern)
+}
+
 func (v *ForEachValidation) GetAnyPattern() apiextensions.JSON {
 	return FromJSON(v.RawAnyPattern)
 }
 
 func (v *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
 	v.RawAnyPattern = ToJSON(in)
+}
+
+func (v *ForEachValidation) IsAnyPatternEmpty() bool {
+	return IsJSONEmpty(v.RawAnyPattern)
 }
 
 // Generation defines how new resources should be created and managed.

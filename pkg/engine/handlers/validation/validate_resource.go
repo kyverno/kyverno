@@ -2,7 +2,6 @@ package validation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -54,7 +53,10 @@ func (h validateResourceHandler) Process(
 			)
 		}
 	}
-	v := newValidator(logger, contextLoader, policyContext, rule)
+	v, err := newValidator(logger, contextLoader, policyContext, rule)
+	if err != nil {
+		return resource, handlers.WithError(rule, engineapi.Validation, "failed to create validator", err)
+	}
 	return resource, handlers.WithResponses(v.validate(ctx))
 }
 
@@ -65,26 +67,27 @@ type validator struct {
 	contextEntries   []kyvernov1.ContextEntry
 	anyAllConditions apiextensions.JSON
 	pattern          apiextensions.JSON
-	anyPattern       apiextensions.JSON
+	anyPatterns      []apiextensions.JSON
 	deny             *kyvernov1.Deny
 	forEach          []kyvernov1.ForEachValidation
 	contextLoader    engineapi.EngineContextLoader
 	nesting          int
 }
 
-func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) (*validator, error) {
 	anyAllConditions, _ := datautils.ToMap(rule.RawAnyAllConditions)
+	anyPattern, _ := rule.Validation.DeserializeAnyPattern()
 	return &validator{
 		log:              log,
 		rule:             rule,
 		policyContext:    ctx,
 		contextLoader:    contextLoader,
 		pattern:          rule.Validation.GetPattern(),
-		anyPattern:       rule.Validation.GetAnyPattern(),
+		anyPatterns:      anyPattern,
 		deny:             rule.Validation.Deny,
 		anyAllConditions: anyAllConditions,
 		forEach:          rule.Validation.ForEachValidation,
-	}
+	}, nil
 }
 
 func newForEachValidator(
@@ -103,6 +106,10 @@ func newForEachValidator(
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
 	}
+	anyPattern, err := foreach.DeserializeAnyPattern()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyPattern: %w", err)
+	}
 	return &validator{
 		log:              log,
 		policyContext:    ctx,
@@ -111,7 +118,7 @@ func newForEachValidator(
 		contextEntries:   foreach.Context,
 		anyAllConditions: anyAllConditions,
 		pattern:          foreach.GetPattern(),
-		anyPattern:       foreach.GetAnyPattern(),
+		anyPatterns:      anyPattern,
 		deny:             foreach.Deny,
 		forEach:          nestedForEach,
 		nesting:          nesting,
@@ -135,7 +142,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return v.validateDeny()
 	}
 
-	if v.pattern != nil || v.anyPattern != nil {
+	if v.pattern != nil || v.anyPatterns != nil {
 		if err = v.substitutePatterns(); err != nil {
 			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "variable substitution failed", err)
 		}
@@ -347,17 +354,11 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 		return engineapi.RulePass(v.rule.Name, engineapi.Validation, msg)
 	}
 
-	if v.anyPattern != nil {
+	if v.anyPatterns != nil {
 		var failedAnyPatternsErrors []error
 		var skippedAnyPatternErrors []error
-		var err error
 
-		anyPatterns, err := deserializeAnyPattern(v.anyPattern)
-		if err != nil {
-			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to deserialize anyPattern, expected type array", err)
-		}
-
-		for idx, pattern := range anyPatterns {
+		for idx, pattern := range v.anyPatterns {
 			err := validate.MatchPattern(v.log, resource.Object, pattern)
 			if err == nil {
 				msg := fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", v.rule.Name, idx)
@@ -403,24 +404,6 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 	}
 
 	return engineapi.RulePass(v.rule.Name, engineapi.Validation, v.rule.Validation.Message)
-}
-
-func deserializeAnyPattern(anyPattern apiextensions.JSON) ([]interface{}, error) {
-	if anyPattern == nil {
-		return nil, nil
-	}
-
-	ap, err := json.Marshal(anyPattern)
-	if err != nil {
-		return nil, err
-	}
-
-	var res []interface{}
-	if err := json.Unmarshal(ap, &res); err != nil {
-		return nil, err
-	}
-
-	return res, nil
 }
 
 func (v *validator) buildErrorMessage(err error, path string) string {
@@ -476,12 +459,12 @@ func (v *validator) substitutePatterns() error {
 		return nil
 	}
 
-	if v.anyPattern != nil {
-		i, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.anyPattern)
+	if v.anyPatterns != nil {
+		i, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.anyPatterns)
 		if err != nil {
 			return err
 		}
-		v.anyPattern = i.(apiextensions.JSON)
+		v.anyPatterns = i.([]apiextensions.JSON)
 		return nil
 	}
 

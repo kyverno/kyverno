@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"bytes"
+
 	"github.com/kyverno/kyverno/api/kyverno"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -25,6 +27,10 @@ func ToJSON(in apiextensions.JSON) *apiextv1.JSON {
 		log.Error(err, "failed to convert interface to JSON")
 	}
 	return &out
+}
+
+func IsJSONEmpty(in *apiextv1.JSON) bool {
+	return in == nil || len(in.Raw) == 0 || bytes.Equal(in.Raw, []byte(`null`))
 }
 
 // ValidatePolicyName validates policy name
