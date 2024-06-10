@@ -7,6 +7,6 @@ metadata:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 {{- with .Values.admissionController.priorityLevelConfigurationSpec }}
 spec:
-  {{- tpl (toYaml .) $ | nindent 8 }}
+  {{- tpl (toYaml .) $ | nindent 2 }}
 {{- end }}
 {{- end }}
