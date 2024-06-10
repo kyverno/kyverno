@@ -1,7 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: admission-controller-lease
+  name: background-controller-lease
 spec:
   concurrent: false
   steps:
@@ -13,7 +13,7 @@ spec:
           metadata:
             namespace: kyverno
             labels:
-              app.kubernetes.io/component: admission-controller
+              app.kubernetes.io/component: background-controller
               app.kubernetes.io/instance: kyverno
               app.kubernetes.io/part-of: kyverno
           status:
@@ -25,7 +25,7 @@ spec:
           apiVersion: coordination.k8s.io/v1
           kind: Lease
           metadata:
-            name: kyverno
+            name: kyverno-background-controller
             namespace: kyverno
           spec:
             holderIdentity: foo
@@ -36,7 +36,7 @@ spec:
           metadata:
             namespace: kyverno
             labels:
-              app.kubernetes.io/component: admission-controller
+              app.kubernetes.io/component: background-controller
               app.kubernetes.io/instance: kyverno
               app.kubernetes.io/part-of: kyverno
           status:
