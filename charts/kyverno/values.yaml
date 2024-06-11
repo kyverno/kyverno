@@ -177,6 +177,9 @@ config:
   # -- Create the configmap.
   create: true
 
+  # -- Preserve the configmap settings during upgrade.
+  preserve: true
+
   # -- (string) The configmap name (required if `create` is `false`).
   name: ~
 

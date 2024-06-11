@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
@@ -52,6 +53,7 @@ func createrLeaderControllers(
 	eventGenerator event.Interface,
 	jp jmespath.Interface,
 	backgroundScanInterval time.Duration,
+	urGenerator generator.UpdateRequestGenerator,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -67,6 +69,7 @@ func createrLeaderControllers(
 		backgroundScanInterval,
 		metricsConfig,
 		jp,
+		urGenerator,
 	)
 	if err != nil {
 		return nil, err
@@ -117,6 +120,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
+		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -157,6 +161,7 @@ func main() {
 			eventGenerator,
 			event.Workers,
 		)
+		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
 		gcstore := store.New()
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
@@ -224,6 +229,7 @@ func main() {
 					eventGenerator,
 					setup.Jp,
 					bgscanInterval,
+					urGenerator,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")
