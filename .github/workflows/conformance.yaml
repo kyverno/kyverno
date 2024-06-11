@@ -105,6 +105,7 @@ jobs:
           - ^generate$/^policy$
           - ^generate$/^validation$
           - ^globalcontext$
+          - ^lease$
           - ^mutate$
           - ^policy-validation$
           - ^rangeoperators$
@@ -645,7 +646,7 @@ jobs:
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@a7cba019075a061dc5e6dd4910cc5b0006302f3e
+        uses: sigstore/scaffolding/actions/setup@19922c022ce4d4d5511e0adcd56df6eb2f41b8a6
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version.version }}
