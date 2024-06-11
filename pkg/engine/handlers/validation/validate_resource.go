@@ -131,6 +131,10 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, s)
 	}
 
+	if !v.policyContext.Policy().IsReady() {
+		return engineapi.RuleError(v.rule.Name, engineapi.Validation, "policy is not ready", nil)
+	}
+
 	if v.deny != nil {
 		return v.validateDeny()
 	}

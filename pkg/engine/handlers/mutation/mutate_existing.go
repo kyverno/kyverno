@@ -89,6 +89,10 @@ func (h mutateExistingHandler) Process(
 			continue
 		}
 
+		if !policyContext.Policy().IsReady() {
+			return resource, handlers.WithError(rule, engineapi.Validation, "policy is not ready", nil)
+		}
+
 		// logger.V(4).Info("apply rule to resource", "resource namespace", patchedResource.unstructured.GetNamespace(), "resource name", patchedResource.unstructured.GetName())
 		var mutateResp *mutate.Response
 		if rule.Mutation.ForEachMutation != nil {

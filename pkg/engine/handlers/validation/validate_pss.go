@@ -59,6 +59,10 @@ func (h validatePssHandler) Process(
 		}
 	}
 
+	if !policyContext.Policy().IsReady() {
+		return resource, handlers.WithError(rule, engineapi.Validation, "policy is not ready", nil)
+	}
+
 	// Marshal pod metadata and spec
 	podSecurity := rule.Validation.PodSecurity
 	if resource.Object == nil {

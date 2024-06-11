@@ -83,6 +83,10 @@ func (h mutateImageHandler) Process(
 		}
 	}
 
+	if !policyContext.Policy().IsReady() {
+		return resource, handlers.WithError(rule, engineapi.Validation, "policy is not ready", nil)
+	}
+
 	jsonContext := policyContext.JSONContext()
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
