@@ -12,7 +12,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.4-rc.1
-    created: "2024-06-11T10:21:44.453299526Z"
+    created: "2024-06-11T19:27:29.56833166Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -23,7 +23,7 @@ entries:
       repository: ""
       version: 3.2.5-rc.1
     description: Kubernetes Native Policy Management
-    digest: 04ecfd77e1f5f63d0db4c44499ddd7b797b5ffdb2233a1e21a7fb7a2c084c926
+    digest: a98e8b2869e955d73380305b71f029948f804627d7203ad355988e1cf1556d00
     home: https://kyverno.io/
     icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
     keywords:
@@ -11558,4 +11558,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2024-06-11T10:22:46.039014893Z"
+generated: "2024-06-11T19:27:29.554091765Z"
