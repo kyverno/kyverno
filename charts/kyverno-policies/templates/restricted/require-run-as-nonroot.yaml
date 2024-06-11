@@ -5,8 +5,12 @@ kind: {{ .Values.policyKind }}
 metadata:
   name: {{ $name }}
   annotations:
+    {{- if hasKey .Values.autogenControllersOverride $name }}
+    pod-policies.kyverno.io/autogen-controllers: {{ get .Values.autogenControllersOverride $name }}
+    {{- else }}
     {{- with .Values.autogenControllers }}
     pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
     {{- end }}
     policies.kyverno.io/title: Require runAsNonRoot
     policies.kyverno.io/category: Pod Security Standards (Restricted)

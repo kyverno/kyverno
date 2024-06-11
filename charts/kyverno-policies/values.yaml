@@ -99,6 +99,10 @@ policyPreconditions: {}
 # For more info https://kyverno.io/docs/writing-policies/autogen/.
 autogenControllers: ""
 
+# -- Override autogenControllers for individual policies
+autogenControllersOverride: {}
+  # disallow-capabilities: Deployment,DaemonSet,StatefulSet
+
 # -- Name override.
 nameOverride:
 
