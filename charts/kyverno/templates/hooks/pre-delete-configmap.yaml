@@ -1,16 +1,70 @@
-{{- if .Values.webhooksCleanup.enabled -}}
+{{- if .Values.config.preserve -}}
 {{- if not .Values.templating.enabled -}}
-apiVersion: batch/v1
-kind: Job
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
-  name: {{ template "kyverno.fullname" . }}-scale-to-zero
+  name: {{ template "kyverno.fullname" . }}:remove-configmap
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: pre-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
-    helm.sh/hook-weight: "100"
+    helm.sh/hook-weight: "0"
+rules:
+  - apiGroups:
+    - ""
+    resources:
+    - configmaps
+    verbs:
+    - list
+    - get
+    - delete
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.fullname" . }}:remove-configmap
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-weight: "0"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ template "kyverno.fullname" . }}:remove-configmap
+  namespace: {{ template "kyverno.namespace" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "kyverno.fullname" . }}-remove-configmap
+    namespace: {{ template "kyverno.namespace" . }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "kyverno.fullname" . }}-remove-configmap
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "0"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "kyverno.fullname" . }}-remove-configmap
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-weight: "10"
 spec:
   backoffLimit: 2
   template:
@@ -24,7 +78,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccount: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      serviceAccount: {{ template "kyverno.fullname" . }}-remove-configmap
       {{- with .Values.webhooksCleanup.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
@@ -43,15 +97,12 @@ spec:
             - '-c'
             - |-
               set -euo pipefail
-              kubectl scale -n {{ template "kyverno.namespace" . }} deployment -l app.kubernetes.io/part-of={{ template "kyverno.fullname" . }} --replicas=0
-              sleep 30
-              kubectl delete validatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
-              kubectl delete mutatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno
+              kubectl delete cm -n {{ template "kyverno.namespace" . }} {{ template "kyverno.config.configMapName" . }}
           {{- with .Values.webhooksCleanup.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.webhooksCleanup.tolerations | default .Values.global.tolerations}}
+      {{- with .Values.webhooksCleanup.tolerations }}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

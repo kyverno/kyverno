@@ -112,9 +112,13 @@ func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
 		ur := newUR(policy, trigger, rule.Name, kyvernov1beta1.Generate, deleteDownstream)
-		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+
+		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 		if err != nil {
 			errorList = append(errorList, err)
+			continue
+		}
+		if created == nil {
 			continue
 		}
 		updated := created.DeepCopy()

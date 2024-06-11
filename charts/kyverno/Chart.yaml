@@ -34,19 +34,7 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: added
-      description: Add profiling support
-    - kind: added
-      description: Add global nodeSelector
-    - kind: added
-      description: Add podLabels to the post-upgrade hook
-    - kind: added
-      description: Add podLabels to the pre-delete hook
-    - kind: added
-      description: Add cronjob ttl support
-    - kind: fixed
-      description: Ensure CA certificate config maps are created when data is provided
-    - kind: added
-      description: Add global tolerations
+      description: Add a key to preserve configmap settings during upgrade
 dependencies:
   - name: grafana
     version: v0.0.0
