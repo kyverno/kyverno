@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -24,6 +25,12 @@ func (e *engine) verifyAndPatchImages(
 	matchedResource := policyContext.NewResource()
 	applyRules := policy.GetSpec().GetApplyRules()
 	ivm := engineapi.ImageVerificationMetadata{}
+
+	if !policy.IsReady() {
+		errorMessage := "policy is not ready"
+		resp.Add(engineapi.NewExecutionStats(time.Now(), time.Now()), *engineapi.RuleError("ready", engineapi.ImageVerify, errorMessage, errors.New(errorMessage)))
+		return resp, matchedResource, ivm
+	}
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()

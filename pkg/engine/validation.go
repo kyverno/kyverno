@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -22,6 +23,12 @@ func (e *engine) validate(
 	policy := policyContext.Policy()
 	matchedResource := policyContext.NewResource()
 	applyRules := policy.GetSpec().GetApplyRules()
+
+	if !policy.IsReady() {
+		errorMessage := "policy is not ready"
+		resp.Add(engineapi.NewExecutionStats(time.Now(), time.Now()), *engineapi.RuleError("ready", engineapi.Validation, errorMessage, errors.New(errorMessage)))
+		return resp
+	}
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
