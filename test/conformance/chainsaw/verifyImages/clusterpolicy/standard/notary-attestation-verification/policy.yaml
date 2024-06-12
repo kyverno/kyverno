@@ -61,3 +61,19 @@ spec:
             - entries:
               - certificates: 
                   cert: "{{ keys.data.certificate }}"
+            conditions:
+            - all:
+              - key: "{{ components[].licenses[].expression }}"
+                operator: AllIn
+                value: ["GPL-3.0"]
+          - type: vulnerability-scan
+            attestors:
+            - entries:
+              - certificates: 
+                  cert: "{{ keys.data.certificate }}"
+            conditions:
+            - all:
+              - key: "{{ source.type }}"
+                operator: Equals
+                value: "image"
+

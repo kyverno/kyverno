@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: clusterephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io

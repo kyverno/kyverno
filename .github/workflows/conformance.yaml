@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -85,14 +85,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - ^autogen$
           - ^background-only$
@@ -105,6 +105,7 @@ jobs:
           - ^generate$/^policy$
           - ^generate$/^validation$
           - ^globalcontext$
+          - ^lease$
           - ^mutate$
           - ^policy-validation$
           - ^rangeoperators$
@@ -119,7 +120,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -127,7 +128,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -181,14 +182,14 @@ jobs:
               - generate-validating-admission-policy
         k8s-version:
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
         tests:
           - generate-validating-admission-policy
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -196,7 +197,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -250,9 +251,11 @@ jobs:
               - generate-validating-admission-policy
         k8s-version:
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - generate-validating-admission-policy
           - webhook-configurations
@@ -260,7 +263,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -268,7 +271,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -321,17 +324,15 @@ jobs:
               - standard
               - validating-admission-policy-reports
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -339,7 +340,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -393,16 +394,18 @@ jobs:
               - validating-admission-policy-reports
         k8s-version:
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -410,7 +413,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -463,14 +466,14 @@ jobs:
               - standard
               - force-failure-policy-ignore
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -478,7 +481,7 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -486,7 +489,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -539,21 +542,21 @@ jobs:
               - standard
               - ttl
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - ttl
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -561,7 +564,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -614,21 +617,21 @@ jobs:
               - standard
               - custom-sigstore
         k8s-version:
-          - name: v1.26
-            version: v1.26.x
           - name: v1.27
             version: v1.27.x
           - name: v1.28
             version: v1.28.x
           - name: v1.29
             version: v1.29.x
+          - name: v1.30
+            version: v1.30.x
         tests:
           - custom-sigstore
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -636,14 +639,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install crane
-        uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c
+        uses: imjasonh/setup-crane@31b88efe9de28ae0ffa220711af4b60be9435f6e
       - name: Install Cosign
         uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@a20ae166ad6fe8f7165f4b3ee218acf72d9c45e8
+        uses: sigstore/scaffolding/actions/setup@19922c022ce4d4d5511e0adcd56df6eb2f41b8a6
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version.version }}
@@ -708,21 +711,21 @@ jobs:
             values:
               - default
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - rbac
     needs: prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Install helm
         id: helm
@@ -730,7 +733,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -780,14 +783,14 @@ jobs:
             values:
               - standard
         k8s-version:
-          - name: v1.26
-            version: v1.26.13
           - name: v1.27
-            version: v1.27.10
+            version: v1.27.13
           - name: v1.28
-            version: v1.28.6
+            version: v1.28.9
           - name: v1.29
-            version: v1.29.1
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
         tests:
           - ^argo$
           - ^aws$
@@ -826,9 +829,9 @@ jobs:
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Checkout kyverno/policies
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           repository: kyverno/policies
           path: policies
@@ -839,7 +842,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -899,7 +902,7 @@ jobs:
     needs: prepare-images
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -957,14 +960,21 @@ jobs:
     name: ${{ matrix.tests }} - chainsaw
     steps:
       - name: Checkout
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
       # install tools
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: kubectl-kyverno
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@748066cc1580718e7924c9b689a8d366bde05100 # v0.2.0
+        uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+      # create cluster
+      - name: Create kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        with:
+          node_image: kindest/node:v1.30.0
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
       - name: Install Kyverno CLI
         shell: bash
         run: |
@@ -978,7 +988,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml --no-cluster
+          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
       - name: Fix test files
         shell: bash
         run: |

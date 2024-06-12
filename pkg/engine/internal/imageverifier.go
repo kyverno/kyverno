@@ -138,7 +138,7 @@ func isImageVerified(resource unstructured.Unstructured, image string, log logr.
 }
 
 func ExpandStaticKeys(attestorSet kyvernov1.AttestorSet) kyvernov1.AttestorSet {
-	var entries []kyvernov1.Attestor
+	entries := make([]kyvernov1.Attestor, 0, len(attestorSet.Entries))
 	for _, e := range attestorSet.Entries {
 		if e.Keys != nil {
 			keys := splitPEM(e.Keys.PublicKeys)
@@ -165,7 +165,7 @@ func splitPEM(pem string) []string {
 }
 
 func createStaticKeyAttestors(keys []string) []kyvernov1.Attestor {
-	var attestors []kyvernov1.Attestor
+	attestors := make([]kyvernov1.Attestor, 0, len(keys))
 	for _, k := range keys {
 		a := kyvernov1.Attestor{
 			Keys: &kyvernov1.StaticKeyAttestor{
@@ -179,7 +179,7 @@ func createStaticKeyAttestors(keys []string) []kyvernov1.Attestor {
 
 func buildStatementMap(statements []map[string]interface{}) (map[string][]map[string]interface{}, []string) {
 	results := map[string][]map[string]interface{}{}
-	var predicateTypes []string
+	predicateTypes := make([]string, 0, len(statements))
 	for _, s := range statements {
 		predicateType := s["type"].(string)
 		if results[predicateType] != nil {
@@ -347,7 +347,7 @@ func (iv *ImageVerifier) verifyImage(
 			iv.ivm.Add(image, engineapi.ImageVerificationSkip)
 			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name)).WithEmitWarning(true), ""
 		}
-		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo, "")
+		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo)
 		if ruleResp.Status() != engineapi.RuleStatusPass {
 			return ruleResp, ""
 		}
@@ -367,7 +367,6 @@ func (iv *ImageVerifier) verifyAttestors(
 	attestors []kyvernov1.AttestorSet,
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
-	predicateType string,
 ) (*engineapi.RuleResponse, *images.Response) {
 	var cosignResponse *images.Response
 	image := imageInfo.String()
@@ -536,7 +535,7 @@ func (iv *ImageVerifier) buildVerifier(
 ) (images.ImageVerifier, *images.Options, string) {
 	switch imageVerify.Type {
 	case kyvernov1.Notary:
-		return iv.buildNotaryVerifier(attestor, imageVerify, image, attestation)
+		return iv.buildNotaryVerifier(attestor, image, attestation)
 	default:
 		return iv.buildCosignVerifier(attestor, imageVerify, image, attestation)
 	}
@@ -658,7 +657,6 @@ func (iv *ImageVerifier) buildCosignVerifier(
 
 func (iv *ImageVerifier) buildNotaryVerifier(
 	attestor kyvernov1.Attestor,
-	imageVerify kyvernov1.ImageVerification,
 	image string,
 	attestation *kyvernov1.Attestation,
 ) (images.ImageVerifier, *images.Options, string) {

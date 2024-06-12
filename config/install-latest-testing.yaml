@@ -72,6 +72,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+  annotations:
+    helm.sh/resource-policy: "keep"
 data:
   enableDefaultRegistryMutation: "true"
   defaultRegistry: "docker.io"
@@ -216,7 +218,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: admissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -887,7 +889,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: backgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -1476,7 +1478,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -5211,7 +5213,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: clusteradmissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -5884,7 +5886,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: clusterbackgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -6473,7 +6475,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -10208,7 +10210,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -27112,7 +27114,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: globalcontextentries.kyverno.io
 spec:
   group: kyverno.io
@@ -27366,7 +27368,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -44273,7 +44275,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -46184,7 +46186,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -46414,6 +46416,7 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -46473,6 +46476,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
@@ -46794,6 +46798,7 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -46853,6 +46858,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
@@ -46968,7 +46974,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: clusterephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io
@@ -47327,7 +47333,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: ephemeralreports.reports.kyverno.io
 spec:
   group: reports.kyverno.io
@@ -47686,7 +47692,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -48072,7 +48078,7 @@ metadata:
     app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -48833,6 +48839,16 @@ rules:
     resources:
       - admissionreports
       - clusteradmissionreports
+      - updaterequests
+    verbs:
+      - list
+      - deletecollection
+      - delete
+  - apiGroups:
+      - reports.kyverno.io
+    resources:
+      - ephemeralreports
+      - clusterephemeralreports
     verbs:
       - list
       - deletecollection
@@ -50302,6 +50318,156 @@ spec:
               if [ "$COUNT" -gt 10000 ]; then
                 echo "too many reports found ($COUNT), cleaning up..."
                 kubectl delete clusteradmissionreports.kyverno.io -A -l='!audit.kyverno.io/report.aggregate'
+              else
+                echo "($COUNT) reports found, no clean up needed"
+              fi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kyverno-cleanup-cluster-ephemeral-reports
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/component: cleanup
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        metadata:
+        spec:
+          serviceAccountName: kyverno-cleanup-jobs
+          containers:
+          - name: cleanup
+            image: "bitnami/kubectl:1.28.5"
+            imagePullPolicy: 
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              COUNT=$(kubectl get clusterephemeralreports.reports.kyverno.io -A | wc -l)
+              if [ "$COUNT" -gt 10000 ]; then
+                echo "too many clusterephemeralreports found ($COUNT), cleaning up..."
+                kubectl delete clusterephemeralreports.reports.kyverno.io -A --all
+              else
+                echo "($COUNT) reports found, no clean up needed"
+              fi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kyverno-cleanup-ephemeral-reports
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/component: cleanup
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        metadata:
+        spec:
+          serviceAccountName: kyverno-cleanup-jobs
+          containers:
+          - name: cleanup
+            image: "bitnami/kubectl:1.28.5"
+            imagePullPolicy: 
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              COUNT=$(kubectl get ephemeralreports.reports.kyverno.io -A | wc -l)
+              if [ "$COUNT" -gt 10000 ]; then
+                echo "too many ephemeralreports found ($COUNT), cleaning up..."
+                kubectl delete ephemeralreports.reports.kyverno.io -A --all
+              else
+                echo "($COUNT) reports found, no clean up needed"
+              fi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kyverno-cleanup-update-requests
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/component: cleanup
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        metadata:
+        spec:
+          serviceAccountName: kyverno-cleanup-jobs
+          containers:
+          - name: cleanup
+            image: "bitnami/kubectl:1.28.5"
+            imagePullPolicy: 
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              COUNT=$(kubectl get updaterequests.kyverno.io -A | wc -l)
+              if [ "$COUNT" -gt 10000 ]; then
+                echo "too many updaterequests found ($COUNT), cleaning up..."
+                kubectl delete updaterequests.kyverno.io --all -n kyverno
               else
                 echo "($COUNT) reports found, no clean up needed"
               fi
