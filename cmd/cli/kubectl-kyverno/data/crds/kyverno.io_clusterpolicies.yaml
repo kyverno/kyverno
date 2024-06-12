@@ -4082,7 +4082,6 @@ spec:
                               type: object
                             type: array
                           cosignOCI11:
-                            default: false
                             description: |-
                               CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
                               Defaults to false.
@@ -8353,7 +8352,6 @@ spec:
                                   type: object
                                 type: array
                               cosignOCI11:
-                                default: false
                                 description: |-
                                   CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
                                   Defaults to false.
@@ -16661,7 +16659,6 @@ spec:
                                   type: object
                                 type: array
                               cosignOCI11:
-                                default: false
                                 description: |-
                                   CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
                                   Defaults to false.

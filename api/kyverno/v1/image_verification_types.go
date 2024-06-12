@@ -97,9 +97,8 @@ type ImageVerification struct {
 
 	// CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
 	// Defaults to false.
-	// +kubebuilder:default=false
-	// +kubebuilder:validation:Optional
-	CosignOCI11 bool `json:"cosignOCI11,omitempty" yaml:"cosignOCI11,omitempty"`
+	// +optional
+	CosignOCI11 bool `json:"cosignOCI11,omitempty"`
 
 	// MutateDigest enables replacement of image tags with digests.
 	// Defaults to true.
