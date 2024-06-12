@@ -12,39 +12,32 @@ import (
 
 func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleMutate").WithName(policyKey)
-	logger.Info("update URs on policy event")
 
-	triggerList := make(map[string][]*unstructured.Unstructured, len(policy.GetSpec().Rules))
+	logger.Info("update URs on policy event")
 	for _, rule := range policy.GetSpec().Rules {
 		var ruleType kyvernov1beta1.RequestType
-		if !rule.HasMutateExisting() {
-			continue
-		}
-
-		ruleType = kyvernov1beta1.Mutate
-		triggers := getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
-		triggerList[rule.Name] = append(triggerList[rule.Name], triggers...)
-
-		for rule, triggers := range triggerList {
+		if rule.HasMutateExisting() {
+			ruleType = kyvernov1beta1.Mutate
+			triggers := getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 			for _, trigger := range triggers {
 				murs := pc.listMutateURs(policyKey, trigger)
 				if murs != nil {
-					logger.V(4).Info("UR was created", "rule", rule, "rule type", ruleType, "trigger", trigger.GetNamespace()+trigger.GetName())
+					logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+trigger.GetName())
 					continue
 				}
 
 				logger.Info("creating new UR for mutate")
-				ur := newUR(policy, backgroundcommon.ResourceSpecFromUnstructured(*trigger), rule, ruleType, false)
-				skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
+				ur := newUR(policy, backgroundcommon.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
+				skip, err := pc.handleUpdateRequest(ur, trigger, rule.Name, policy)
 				if err != nil {
-					pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule, "rule type", ruleType,
+					pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
 						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 					continue
 				}
 				if skip {
 					continue
 				}
-				pc.log.V(2).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule, "rule type", ruleType,
+				pc.log.V(2).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
 					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 			}
 		}
