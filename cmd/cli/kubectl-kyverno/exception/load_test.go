@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -52,9 +51,6 @@ func Test_SelectFrom(t *testing.T) {
 		&corev1.ConfigMap{TypeMeta: v1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"}},
 		&kyvernov2.PolicyException{TypeMeta: v1.TypeMeta{
 			Kind: exceptionV2.Kind, APIVersion: exceptionV2.GroupVersion().String()},
-		},
-		&kyvernov2alpha1.PolicyException{TypeMeta: v1.TypeMeta{
-			Kind: exceptionV2alpha1.Kind, APIVersion: exceptionV2alpha1.GroupVersion().String()},
 		},
 		&kyvernov2beta1.PolicyException{TypeMeta: v1.TypeMeta{
 			Kind: exceptionV2beta1.Kind, APIVersion: exceptionV2beta1.GroupVersion().String()},
