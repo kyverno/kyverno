@@ -8,6 +8,10 @@ on:
   workflow_dispatch: {}
   schedule:
     - cron: '23 2 * * *' # Every day at 02:23
+  pull_request:
+    branches:
+      - 'main'
+      - 'release*'
 
 env:
   REGISTRY: ghcr.io
@@ -22,7 +26,7 @@ jobs:
     - name: Get Branches Name
       id: get-branches
       run: |
-        all_branches=$(curl -s https://api.github.com/repos/${{ env.IMAGE_NAME }}/branches | jq -r '.[].name | select(startswith("release-"))' | sort -rV | head -n 2)
+        all_branches=$(curl -s 'https://api.github.com/repos/${{ env.IMAGE_NAME }}/branches?per_page=100' | jq -r '.[].name | select(startswith("release-"))' | sort -rV | head -n 2)
         releasebranch1=$(echo "$all_branches" | sed -n 1p)
         releasebranch2=$(echo "$all_branches" | sed -n 2p)
 
