@@ -22,6 +22,9 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
+    - jsonPath: .spec.rule
+      name: Rule
+      type: string
     - jsonPath: .spec.requestType
       name: RuleType
       type: string
