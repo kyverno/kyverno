@@ -17,7 +17,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          allowed-prefixes: "dependabot/,temp-cherry-pick-,cherry-pick-"
+          allowed-prefixes: "dependabot/,temp-cherry-pick-"
           last-commit-age-days: 7
           dry-run: true
           rate-limit: true
