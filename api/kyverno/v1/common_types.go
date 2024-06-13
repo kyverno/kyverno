@@ -323,7 +323,6 @@ func (r ResourceFilter) IsEmpty() bool {
 // Mutation defines how resource are modified.
 type Mutation struct {
 	// MutateExistingOnPolicyUpdate controls if the mutateExisting rule will be applied on policy events.
-	// Default value is "false".
 	// +optional
 	MutateExistingOnPolicyUpdate *bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
 

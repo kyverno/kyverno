@@ -62,8 +62,7 @@ type Spec struct {
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 
-	// MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-	// Default value is "false".
+	// Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead
 	// +optional
 	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
 
@@ -213,8 +212,8 @@ func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	for _, rule := range s.Rules {
 		if rule.HasMutate() {
 			isMutateExisting := rule.Mutation.IsMutateExistingOnPolicyUpdate()
-			if isMutateExisting != nil && *isMutateExisting {
-				return true
+			if isMutateExisting != nil {
+				return *isMutateExisting
 			}
 		}
 	}
@@ -226,8 +225,8 @@ func (s *Spec) IsGenerateExisting() bool {
 	for _, rule := range s.Rules {
 		if rule.HasGenerate() {
 			isGenerateExisting := rule.Generation.IsGenerateExisting()
-			if isGenerateExisting != nil && *isGenerateExisting {
-				return true
+			if isGenerateExisting != nil {
+				return *isGenerateExisting
 			}
 		}
 	}
@@ -283,6 +282,12 @@ func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 			}
 			if s.GenerateExisting {
 				errs = append(errs, field.Forbidden(path.Child("generateExisting"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
+			}
+		}
+
+		if rule.HasMutate() && rule.Mutation.IsMutateExistingOnPolicyUpdate() != nil {
+			if s.MutateExistingOnPolicyUpdate {
+				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.mutate[*].mutateExistingOnPolicyUpdate instead"))
 			}
 		}
 	}
