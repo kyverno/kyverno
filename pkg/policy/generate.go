@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.PolicyInterface) error {
@@ -38,14 +39,19 @@ func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.Po
 
 func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInterface) error {
 	var errors []error
+	var triggers []*unstructured.Unstructured
+	ruleType := kyvernov1beta1.Generate
+	policyNew := policy.CreateDeepCopy()
+	policyNew.GetSpec().Rules = nil
+
 	for _, rule := range policy.GetSpec().Rules {
-		ruleType := kyvernov1beta1.Generate
-		triggers := getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
+		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
+		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
-			ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
-			skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
+			ur := newUR(policyNew, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
+			skip, err := pc.handleUpdateRequest(ur, trigger, rule.Name, policyNew)
 			if err != nil {
-				pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+				pc.log.Error(err, "failed to create new UR on policy update", "policy", policyNew.GetName(), "rule", rule.Name, "rule type", ruleType,
 					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 				errors = append(errors, err)
 				continue
@@ -55,7 +61,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 				continue
 			}
 
-			pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+			pc.log.V(4).Info("successfully created UR on policy update", "policy", policyNew.GetName(), "rule", rule.Name, "rule type", ruleType,
 				"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 		}
 	}
