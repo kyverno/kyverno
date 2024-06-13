@@ -71,10 +71,7 @@ type Spec struct {
 	// +optional
 	GenerateExistingOnPolicyUpdate *bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
 
-	// GenerateExisting controls whether to trigger generate rule in existing resources
-	// If is set to "true" generate rule will be triggered and applied to existing matched resources.
-	// Defaults to "false" if not specified.
-	// +optional
+	// Deprecated, use generateExisting under the generate rule instead
 	GenerateExisting bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
 
 	// UseServerSideApply controls whether to use server-side apply for generate rules
@@ -218,6 +215,14 @@ func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 
 // IsGenerateExisting return GenerateExisting set value
 func (s *Spec) IsGenerateExisting() bool {
+	for _, rule := range s.Rules {
+		if rule.HasGenerate() {
+			isGenerateExisting := rule.Generation.IsGenerateExisting()
+			if isGenerateExisting != nil && *isGenerateExisting {
+				return true
+			}
+		}
+	}
 	if s.GenerateExistingOnPolicyUpdate != nil && *s.GenerateExistingOnPolicyUpdate {
 		return true
 	}
@@ -263,8 +268,15 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace 
 }
 
 func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
-	if s.GenerateExistingOnPolicyUpdate != nil && s.GenerateExisting {
-		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use generateExisting instead"))
+	for _, rule := range s.Rules {
+		if rule.HasGenerate() && rule.Generation.IsGenerateExisting() != nil {
+			if s.GenerateExistingOnPolicyUpdate != nil {
+				errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
+			}
+			if s.GenerateExisting {
+				errs = append(errs, field.Forbidden(path.Child("generateExisting"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
+			}
+		}
 	}
 	return errs
 }

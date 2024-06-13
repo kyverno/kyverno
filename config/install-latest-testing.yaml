@@ -10324,10 +10324,8 @@ spec:
                 - Fail
                 type: string
               generateExisting:
-                description: |-
-                  GenerateExisting controls whether to trigger generate rule in existing resources
-                  If is set to "true" generate rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+                description: Deprecated, use generateExisting under the generate rule
+                  instead
                 type: boolean
               generateExistingOnPolicyUpdate:
                 description: Deprecated, use generateExisting instead
@@ -11287,6 +11285,11 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
+                        generateExisting:
+                          description: |-
+                            GenerateExisting controls whether to trigger the rule in existing resources
+                            If is set to "true" the rule will be triggered and applied to existing matched resources.
+                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -15505,6 +15508,11 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
+                            generateExisting:
+                              description: |-
+                                GenerateExisting controls whether to trigger the rule in existing resources
+                                If is set to "true" the rule will be triggered and applied to existing matched resources.
+                              type: boolean
                             kind:
                               description: Kind specifies resource kind.
                               type: string
@@ -18880,10 +18888,8 @@ spec:
                 - Fail
                 type: string
               generateExisting:
-                description: |-
-                  GenerateExisting controls whether to trigger generate rule in existing resources
-                  If is set to "true" generate rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+                description: Deprecated, use generateExisting under the generate rule
+                  instead
                 type: boolean
               generateExistingOnPolicyUpdate:
                 description: Deprecated, use generateExisting instead
@@ -19641,6 +19647,11 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
+                        generateExisting:
+                          description: |-
+                            GenerateExisting controls whether to trigger the rule in existing resources
+                            If is set to "true" the rule will be triggered and applied to existing matched resources.
+                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -23807,6 +23818,11 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
+                            generateExisting:
+                              description: |-
+                                GenerateExisting controls whether to trigger the rule in existing resources
+                                If is set to "true" the rule will be triggered and applied to existing matched resources.
+                              type: boolean
                             kind:
                               description: Kind specifies resource kind.
                               type: string
@@ -27465,10 +27481,8 @@ spec:
                 - Fail
                 type: string
               generateExisting:
-                description: |-
-                  GenerateExisting controls whether to trigger generate rule in existing resources
-                  If is set to "true" generate rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+                description: Deprecated, use generateExisting under the generate rule
+                  instead
                 type: boolean
               generateExistingOnPolicyUpdate:
                 description: Deprecated, use generateExisting instead
@@ -28428,6 +28442,11 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
+                        generateExisting:
+                          description: |-
+                            GenerateExisting controls whether to trigger the rule in existing resources
+                            If is set to "true" the rule will be triggered and applied to existing matched resources.
+                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -32647,6 +32666,11 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
+                            generateExisting:
+                              description: |-
+                                GenerateExisting controls whether to trigger the rule in existing resources
+                                If is set to "true" the rule will be triggered and applied to existing matched resources.
+                              type: boolean
                             kind:
                               description: Kind specifies resource kind.
                               type: string
@@ -36023,10 +36047,8 @@ spec:
                 - Fail
                 type: string
               generateExisting:
-                description: |-
-                  GenerateExisting controls whether to trigger generate rule in existing resources
-                  If is set to "true" generate rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+                description: Deprecated, use generateExisting under the generate rule
+                  instead
                 type: boolean
               generateExistingOnPolicyUpdate:
                 description: Deprecated, use generateExisting instead
@@ -36784,6 +36806,11 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
+                        generateExisting:
+                          description: |-
+                            GenerateExisting controls whether to trigger the rule in existing resources
+                            If is set to "true" the rule will be triggered and applied to existing matched resources.
+                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -40950,6 +40977,11 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
+                            generateExisting:
+                              description: |-
+                                GenerateExisting controls whether to trigger the rule in existing resources
+                                If is set to "true" the rule will be triggered and applied to existing matched resources.
+                              type: boolean
                             kind:
                               description: Kind specifies resource kind.
                               type: string

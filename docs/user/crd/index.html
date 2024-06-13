@@ -274,9 +274,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>Deprecated, use generateExisting under the generate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -552,9 +550,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>Deprecated, use generateExisting under the generate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -1930,6 +1926,19 @@ Kubernetes apiextensions/v1.JSON
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger the rule in existing resources
+If is set to &ldquo;true&rdquo; the rule will be triggered and applied to existing matched resources.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>ResourceSpec</code><br/>
@@ -4046,9 +4055,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>Deprecated, use generateExisting under the generate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -8809,10 +8816,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>Deprecated, use generateExisting under the generate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -9086,10 +9090,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>Deprecated, use generateExisting under the generate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -10483,10 +10484,7 @@ bool
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
+<p>Deprecated, use generateExisting under the generate rule instead</p>
 </td>
 </tr>
 <tr>
