@@ -322,6 +322,11 @@ func (r ResourceFilter) IsEmpty() bool {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
+	// MutateExistingOnPolicyUpdate controls if the mutateExisting rule will be applied on policy events.
+	// Default value is "false".
+	// +optional
+	MutateExistingOnPolicyUpdate *bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
+
 	// Targets defines the target resources to be mutated.
 	// +optional
 	Targets []TargetResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
@@ -348,6 +353,10 @@ func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
 
 func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
+}
+
+func (m *Mutation) IsMutateExistingOnPolicyUpdate() *bool {
+	return m.MutateExistingOnPolicyUpdate
 }
 
 // ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.

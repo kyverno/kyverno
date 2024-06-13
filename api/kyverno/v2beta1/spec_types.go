@@ -210,6 +210,14 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 
 // GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
 func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
+	for _, rule := range s.Rules {
+		if rule.HasMutate() {
+			isMutateExisting := rule.Mutation.IsMutateExistingOnPolicyUpdate()
+			if isMutateExisting != nil && *isMutateExisting {
+				return true
+			}
+		}
+	}
 	return s.MutateExistingOnPolicyUpdate
 }
 
