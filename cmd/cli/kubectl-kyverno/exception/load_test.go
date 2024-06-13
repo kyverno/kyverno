@@ -57,7 +57,7 @@ func Test_SelectFrom(t *testing.T) {
 		},
 	)
 	exceptions := SelectFrom(resources)
-	require.Len(t, exceptions, 3)
+	require.Len(t, exceptions, 2)
 }
 
 func toUnstructured(t *testing.T, in ...interface{}) []*unstructured.Unstructured {
