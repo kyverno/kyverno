@@ -239,7 +239,7 @@ func main() {
 							{
 								Rule: admissionregistrationv1.Rule{
 									APIGroups:   []string{"kyverno.io"},
-									APIVersions: []string{"beta1"},
+									APIVersions: []string{"v2beta1"},
 									Resources: []string{
 										"cleanuppolicies/*",
 										"clustercleanuppolicies/*",
