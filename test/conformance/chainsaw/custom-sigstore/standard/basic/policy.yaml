@@ -27,7 +27,7 @@ spec:
         entries:
         - keyless:
             issuer: "https://kubernetes.default.svc.cluster.local"
-            subject: "*"
+            subject: "https://kubernetes.io/namespaces/default/serviceaccounts/default"
             rekor:
               url: "{{ tufvalues.data.REKOR_URL }}"
       required: true
