@@ -11,6 +11,7 @@ import (
 	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	generatorutils "github.com/kyverno/kyverno/pkg/utils/generator"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -27,13 +28,16 @@ type generator struct {
 
 	// listers
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
+
+	urGenerator generatorutils.UpdateRequestGenerator
 }
 
 // NewGenerator returns a new instance of UpdateRequest resource generator
-func NewGenerator(client versioned.Interface, urInformer kyvernov1beta1informers.UpdateRequestInformer) Generator {
+func NewGenerator(client versioned.Interface, urInformer kyvernov1beta1informers.UpdateRequestInformer, urGenerator generatorutils.UpdateRequestGenerator) Generator {
 	return &generator{
-		client:   client,
-		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
+		client:      client,
+		urLister:    urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
+		urGenerator: urGenerator,
 	}
 }
 
@@ -78,10 +82,12 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 		},
 		Spec: urSpec,
 	}
-	created, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(ctx, &ur, metav1.CreateOptions{})
+	created, err := g.urGenerator.Generate(ctx, g.client, &ur, l)
 	if err != nil {
 		l.V(4).Error(err, "failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
 		return err
+	} else if created == nil {
+		return nil
 	}
 	updated := created.DeepCopy()
 	updated.Status.State = kyvernov1beta1.Pending
