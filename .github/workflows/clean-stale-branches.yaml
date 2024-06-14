@@ -4,9 +4,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * *' # This schedule runs the workflow at midnight every day
-  pull_request:
-    branches:
-      - 'main'
 
 jobs:
   cleanup-stale-branches:
@@ -19,5 +16,5 @@ jobs:
           repository: ${{ github.repository }}
           allowed-prefixes: "dependabot/,temp-cherry-pick-,cherry-pick-"
           last-commit-age-days: 7
-          dry-run: true
+          dry-run: false
           rate-limit: true
