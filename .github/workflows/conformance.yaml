@@ -686,7 +686,6 @@ jobs:
           crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
           cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
           COSIGN_EXPERIMENTAL=1 cosign sign --rekor-url $REKOR_URL --fulcio-url $FULCIO_URL $TEST_IMAGE_URL --identity-token $OIDC_TOKEN -y
-          COSIGN_EXPERIMENTAL=1 cosign verify --rekor-url $REKOR_URL $TEST_IMAGE_URL --certificate-identity "https://kubernetes.io/namespaces/default/serviceaccounts/default" --certificate-oidc-issuer "https://kubernetes.default.svc.cluster.local"
           echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
       # run tests
       - name: Test with Chainsaw
