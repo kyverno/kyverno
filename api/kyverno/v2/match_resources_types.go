@@ -11,11 +11,11 @@ import (
 type MatchResources struct {
 	// Any allows specifying resources which will be ORed
 	// +optional
-	Any kyvernov1.ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
+	Any kyvernov1.ResourceFilters `json:"any,omitempty"`
 
 	// All allows specifying resources which will be ANDed
 	// +optional
-	All kyvernov1.ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
+	All kyvernov1.ResourceFilters `json:"all,omitempty"`
 }
 
 // GetKinds returns all kinds

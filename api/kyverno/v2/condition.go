@@ -44,21 +44,21 @@ var ConditionOperators = map[string]ConditionOperator{
 
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
-	RawKey *apiextv1.JSON `json:"key,omitempty" yaml:"key,omitempty"`
+	RawKey *apiextv1.JSON `json:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
 	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
 	// GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
 	// DurationLessThanOrEquals, DurationLessThan
-	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
+	Operator ConditionOperator `json:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using JMESPath.
 	// +optional
-	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	RawValue *apiextv1.JSON `json:"value,omitempty"`
 
 	// Message is an optional display message
-	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() apiextensions.JSON {
@@ -83,12 +83,12 @@ type AnyAllConditions struct {
 	// using JMESPath notation.
 	// Here, at least one of the conditions need to pass.
 	// +optional
-	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
+	AnyConditions []Condition `json:"any,omitempty"`
 
 	// AllConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
 	// Here, all of the conditions need to pass.
 	// +optional
-	AllConditions []Condition `json:"all,omitempty" yaml:"all,omitempty"`
+	AllConditions []Condition `json:"all,omitempty"`
 }

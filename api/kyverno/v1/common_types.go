@@ -55,7 +55,7 @@ const (
 type WebhookConfiguration struct {
 	// MatchCondition configures admission webhook matchConditions.
 	// +optional
-	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
+	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty"`
 }
 
 // AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -67,56 +67,56 @@ type AnyAllConditions struct {
 	// using JMESPath notation.
 	// Here, at least one of the conditions need to pass
 	// +optional
-	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
+	AnyConditions []Condition `json:"any,omitempty"`
 
 	// AllConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
 	// Here, all of the conditions need to pass
 	// +optional
-	AllConditions []Condition `json:"all,omitempty" yaml:"all,omitempty"`
+	AllConditions []Condition `json:"all,omitempty"`
 }
 
 // ContextEntry adds variables and data sources to a rule Context. Either a
 // ConfigMap reference or a APILookup must be provided.
 type ContextEntry struct {
 	// Name is the variable name.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 
 	// ConfigMap is the ConfigMap reference.
-	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
+	ConfigMap *ConfigMapReference `json:"configMap,omitempty"`
 
 	// APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
 	// The data returned is stored in the context with the name for the context entry.
-	APICall *ContextAPICall `json:"apiCall,omitempty" yaml:"apiCall,omitempty"`
+	APICall *ContextAPICall `json:"apiCall,omitempty"`
 
 	// ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
 	// details.
-	ImageRegistry *ImageRegistry `json:"imageRegistry,omitempty" yaml:"imageRegistry,omitempty"`
+	ImageRegistry *ImageRegistry `json:"imageRegistry,omitempty"`
 
 	// Variable defines an arbitrary JMESPath context variable that can be defined inline.
-	Variable *Variable `json:"variable,omitempty" yaml:"variable,omitempty"`
+	Variable *Variable `json:"variable,omitempty"`
 
 	// GlobalContextEntryReference is a reference to a cached global context entry.
 	// +kubebuilder:validation:Required
-	GlobalReference *GlobalContextEntryReference `json:"globalReference,omitempty" yaml:"globalReference,omitempty"`
+	GlobalReference *GlobalContextEntryReference `json:"globalReference,omitempty"`
 }
 
 // Variable defines an arbitrary JMESPath context variable that can be defined inline.
 type Variable struct {
 	// Value is any arbitrary JSON object representable in YAML or JSON form.
 	// +optional
-	Value *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	Value *apiextv1.JSON `json:"value,omitempty"`
 
 	// JMESPath is an optional JMESPath Expression that can be used to
 	// transform the variable.
 	// +optional
-	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+	JMESPath string `json:"jmesPath,omitempty"`
 
 	// Default is an optional arbitrary JSON object that the variable may take if the JMESPath
 	// expression evaluates to nil
 	// +optional
-	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
+	Default *apiextv1.JSON `json:"default,omitempty"`
 }
 
 // ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
@@ -124,26 +124,26 @@ type Variable struct {
 type ImageRegistry struct {
 	// Reference is image reference to a container image in the registry.
 	// Example: ghcr.io/kyverno/kyverno:latest
-	Reference string `json:"reference" yaml:"reference"`
+	Reference string `json:"reference"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the ImageData struct returned as a result of processing
 	// the image reference.
 	// +optional
-	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+	JMESPath string `json:"jmesPath,omitempty"`
 
 	// ImageRegistryCredentials provides credentials that will be used for authentication with registry
 	// +kubebuilder:validation:Optional
-	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty" yaml:"imageRegistryCredentials,omitempty"`
+	ImageRegistryCredentials *ImageRegistryCredentials `json:"imageRegistryCredentials,omitempty"`
 }
 
 // ConfigMapReference refers to a ConfigMap
 type ConfigMapReference struct {
 	// Name is the ConfigMap name.
-	Name string `json:"name" yaml:"name"`
+	Name string `json:"name"`
 
 	// Namespace is the ConfigMap namespace.
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 type APICall struct {
@@ -154,26 +154,26 @@ type APICall struct {
 	// for details.
 	// It's mutually exclusive with the Service field.
 	// +kubebuilder:validation:Optional
-	URLPath string `json:"urlPath" yaml:"urlPath"`
+	URLPath string `json:"urlPath"`
 
 	// Method is the HTTP request type (GET or POST). Defaults to GET.
 	// +kubebuilder:default=GET
-	Method Method `json:"method,omitempty" yaml:"method,omitempty"`
+	Method Method `json:"method,omitempty"`
 
 	// The data object specifies the POST data sent to the server.
 	// Only applicable when the method field is set to POST.
 	// +kubebuilder:validation:Optional
-	Data []RequestData `json:"data,omitempty" yaml:"data,omitempty"`
+	Data []RequestData `json:"data,omitempty"`
 
 	// Service is an API call to a JSON web service.
 	// This is used for non-Kubernetes API server calls.
 	// It's mutually exclusive with the URLPath field.
 	// +kubebuilder:validation:Optional
-	Service *ServiceCall `json:"service,omitempty" yaml:"service,omitempty"`
+	Service *ServiceCall `json:"service,omitempty"`
 }
 
 type ContextAPICall struct {
-	APICall `json:",inline" yaml:",inline"`
+	APICall `json:",inline"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example
@@ -181,13 +181,13 @@ type ContextAPICall struct {
 	// for the URLPath "/apis/apps/v1/deployments" will return the total count
 	// of deployments across all namespaces.
 	// +kubebuilder:validation:Optional
-	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+	JMESPath string `json:"jmesPath,omitempty"`
 }
 
 type GlobalContextEntryReference struct {
 	// Name of the global context entry
 	// +kubebuilder:validation:Required
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example
@@ -195,18 +195,18 @@ type GlobalContextEntryReference struct {
 	// for the URLPath "/apis/apps/v1/deployments" will return the total count
 	// of deployments across all namespaces.
 	// +kubebuilder:validation:Optional
-	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+	JMESPath string `json:"jmesPath,omitempty"`
 }
 
 type ServiceCall struct {
 	// URL is the JSON web service URL. A typical form is
 	// `https://{service}.{namespace}:{port}/{path}`.
-	URL string `json:"url" yaml:"url"`
+	URL string `json:"url"`
 
 	// CABundle is a PEM encoded CA bundle which will be used to validate
 	// the server certificate.
 	// +kubebuilder:validation:Optional
-	CABundle string `json:"caBundle" yaml:"caBundle"`
+	CABundle string `json:"caBundle"`
 }
 
 // Method is a HTTP request type.
@@ -216,30 +216,30 @@ type Method string
 // RequestData contains the HTTP POST data
 type RequestData struct {
 	// Key is a unique identifier for the data value
-	Key string `json:"key" yaml:"key"`
+	Key string `json:"key"`
 
 	// Value is the data value
-	Value *apiextv1.JSON `json:"value" yaml:"value"`
+	Value *apiextv1.JSON `json:"value"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
-	RawKey *apiextv1.JSON `json:"key,omitempty" yaml:"key,omitempty"`
+	RawKey *apiextv1.JSON `json:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
 	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
 	// GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
 	// DurationLessThanOrEquals, DurationLessThan
-	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
+	Operator ConditionOperator `json:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using JMESPath.
 	// +optional
-	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	RawValue *apiextv1.JSON `json:"value,omitempty"`
 
 	// Message is an optional display message
-	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() apiextensions.JSON {
@@ -310,10 +310,10 @@ type ResourceFilters []ResourceFilter
 type ResourceFilter struct {
 	// UserInfo contains information about the user performing the operation.
 	// +optional
-	UserInfo `json:",omitempty" yaml:",omitempty"`
+	UserInfo `json:",omitempty"`
 
 	// ResourceDescription contains information about the resource being created or modified.
-	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
+	ResourceDescription `json:"resources,omitempty"`
 }
 
 func (r ResourceFilter) IsEmpty() bool {
@@ -324,22 +324,22 @@ func (r ResourceFilter) IsEmpty() bool {
 type Mutation struct {
 	// Targets defines the target resources to be mutated.
 	// +optional
-	Targets []TargetResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Targets []TargetResourceSpec `json:"targets,omitempty"`
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
 	// +optional
-	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
+	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty"`
 
 	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
-	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
+	PatchesJSON6902 string `json:"patchesJson6902,omitempty"`
 
 	// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
-	ForEachMutation []ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	ForEachMutation []ForEachMutation `json:"foreach,omitempty"`
 }
 
 func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
@@ -354,38 +354,38 @@ func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
-	List string `json:"list,omitempty" yaml:"list,omitempty"`
+	List string `json:"list,omitempty"`
 
 	// Order defines the iteration order on the list.
 	// Can be Ascending to iterate from first to last element or Descending to iterate in from last to first element.
 	// +optional
-	Order *ForeachOrder `json:"order,omitempty" yaml:"order,omitempty"`
+	Order *ForeachOrder `json:"order,omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
-	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+	Context []ContextEntry `json:"context,omitempty"`
 
 	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty"`
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
 	// +optional
-	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
+	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty"`
 
 	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
-	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
+	PatchesJSON6902 string `json:"patchesJson6902,omitempty"`
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachMutation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	ForEachMutation *apiextv1.JSON `json:"foreach,omitempty"`
 }
 
 func (m *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
@@ -400,37 +400,37 @@ func (m *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 type Validation struct {
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
-	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+	Message string `json:"message,omitempty"`
 
 	// Manifest specifies conditions for manifest verification
 	// +optional
-	Manifests *Manifests `json:"manifests,omitempty" yaml:"manifests,omitempty"`
+	Manifests *Manifests `json:"manifests,omitempty"`
 
 	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
-	ForEachValidation []ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	ForEachValidation []ForEachValidation `json:"foreach,omitempty"`
 
 	// Pattern specifies an overlay-style pattern used to check resources.
 	// +optional
-	RawPattern *apiextv1.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
+	RawPattern *apiextv1.JSON `json:"pattern,omitempty"`
 
 	// AnyPattern specifies list of validation patterns. At least one of the patterns
 	// must be satisfied for the validation rule to succeed.
 	// +optional
-	RawAnyPattern *apiextv1.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
+	RawAnyPattern *apiextv1.JSON `json:"anyPattern,omitempty"`
 
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
-	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+	Deny *Deny `json:"deny,omitempty"`
 
 	// PodSecurity applies exemptions for Kubernetes Pod Security admission
 	// by specifying exclusions for Pod Security Standards controls.
 	// +optional
-	PodSecurity *PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+	PodSecurity *PodSecurity `json:"podSecurity,omitempty"`
 
 	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 	// +optional
-	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
+	CEL *CEL `json:"cel,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -439,16 +439,16 @@ type PodSecurity struct {
 	// Level defines the Pod Security Standard level to be applied to workloads.
 	// Allowed values are privileged, baseline, and restricted.
 	// +kubebuilder:validation:Enum=privileged;baseline;restricted
-	Level api.Level `json:"level,omitempty" yaml:"level,omitempty"`
+	Level api.Level `json:"level,omitempty"`
 
 	// Version defines the Pod Security Standard versions that Kubernetes supports.
 	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, v1.26, v1.27, v1.28, v1.29, latest. Defaults to latest.
 	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;v1.26;v1.27;v1.28;v1.29;latest
 	// +optional
-	Version string `json:"version,omitempty" yaml:"version,omitempty"`
+	Version string `json:"version,omitempty"`
 
 	// Exclude specifies the Pod Security Standard controls to be excluded.
-	Exclude []PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+	Exclude []PodSecurityStandard `json:"exclude,omitempty"`
 }
 
 // PodSecurityStandard specifies the Pod Security Standard controls to be excluded.
@@ -456,23 +456,23 @@ type PodSecurityStandard struct {
 	// ControlName specifies the name of the Pod Security Standard control.
 	// See: https://kubernetes.io/docs/concepts/security/pod-security-standards/
 	// +kubebuilder:validation:Enum=HostProcess;Host Namespaces;Privileged Containers;Capabilities;HostPath Volumes;Host Ports;AppArmor;SELinux;/proc Mount Type;Seccomp;Sysctls;Volume Types;Privilege Escalation;Running as Non-root;Running as Non-root user
-	ControlName string `json:"controlName" yaml:"controlName"`
+	ControlName string `json:"controlName"`
 
 	// Images selects matching containers and applies the container level PSS.
 	// Each image is the image name consisting of the registry address, repository, image, and tag.
 	// Empty list matches no containers, PSS checks are applied at the pod level only.
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// +optional
-	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
+	Images []string `json:"images,omitempty"`
 
 	// RestrictedField selects the field for the given Pod Security Standard control.
 	// When not set, all restricted fields for the control are selected.
 	// +optional
-	RestrictedField string `json:"restrictedField,omitempty" yaml:"restrictedField,omitempty"`
+	RestrictedField string `json:"restrictedField,omitempty"`
 
 	// Values defines the allowed values that can be excluded.
 	// +optional
-	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
+	Values []string `json:"values,omitempty"`
 }
 
 func (pss *PodSecurityStandard) Validate(path *field.Path) (errs field.ErrorList) {
@@ -500,25 +500,25 @@ func (pss *PodSecurityStandard) Validate(path *field.Path) (errs field.ErrorList
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 type CEL struct {
 	// Expressions is a list of CELExpression types.
-	Expressions []v1alpha1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
+	Expressions []v1alpha1.Validation `json:"expressions,omitempty"`
 
 	// ParamKind is a tuple of Group Kind and Version.
 	// +optional
-	ParamKind *v1alpha1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
+	ParamKind *v1alpha1.ParamKind `json:"paramKind,omitempty"`
 
 	// ParamRef references a parameter resource.
 	// +optional
-	ParamRef *v1alpha1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
+	ParamRef *v1alpha1.ParamRef `json:"paramRef,omitempty"`
 
 	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
 	// +optional
-	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty"`
 
 	// Variables contain definitions of variables that can be used in composition of other expressions.
 	// Each variable is defined as a named CEL expression.
 	// The variables defined here will be available under `variables` in other expressions of the policy.
 	// +optional
-	Variables []v1alpha1.Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
+	Variables []v1alpha1.Variable `json:"variables,omitempty"`
 }
 
 func (c *CEL) HasParam() bool {
@@ -586,7 +586,7 @@ type Deny struct {
 	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
 	// but will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
-	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty"`
 }
 
 func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
@@ -601,41 +601,41 @@ func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
 type ForEachValidation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
-	List string `json:"list,omitempty" yaml:"list,omitempty"`
+	List string `json:"list,omitempty"`
 
 	// ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified.
 	// When set to "false", "request.object" is used as the validation scope within the foreach
 	// block to allow referencing other elements in the subtree.
 	// +optional
-	ElementScope *bool `json:"elementScope,omitempty" yaml:"elementScope,omitempty"`
+	ElementScope *bool `json:"elementScope,omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
-	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+	Context []ContextEntry `json:"context,omitempty"`
 
 	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +kubebuilder:validation:XPreserveUnknownFields
 	// +optional
-	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty"`
 
 	// Pattern specifies an overlay-style pattern used to check resources.
 	// +optional
-	RawPattern *apiextv1.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
+	RawPattern *apiextv1.JSON `json:"pattern,omitempty"`
 
 	// AnyPattern specifies list of validation patterns. At least one of the patterns
 	// must be satisfied for the validation rule to succeed.
 	// +optional
-	RawAnyPattern *apiextv1.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
+	RawAnyPattern *apiextv1.JSON `json:"anyPattern,omitempty"`
 
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
-	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+	Deny *Deny `json:"deny,omitempty"`
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachValidation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	ForEachValidation *apiextv1.JSON `json:"foreach,omitempty"`
 }
 
 func (v *ForEachValidation) GetPattern() apiextensions.JSON {
@@ -659,40 +659,40 @@ type Generation struct {
 	// GenerateExisting controls whether to trigger the rule in existing resources
 	// If is set to "true" the rule will be triggered and applied to existing matched resources.
 	// +optional
-	GenerateExisting *bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
+	GenerateExisting *bool `json:"generateExisting,omitempty"`
 
 	// ResourceSpec contains information to select the resource.
-	ResourceSpec `json:",omitempty" yaml:",omitempty"`
+	ResourceSpec `json:",omitempty"`
 
 	// Synchronize controls if generated resources should be kept in-sync with their source resource.
 	// If Synchronize is set to "true" changes to generated resources will be overwritten with resource
 	// data from Data or the resource specified in the Clone declaration.
 	// Optional. Defaults to "false" if not specified.
 	// +optional
-	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
+	Synchronize bool `json:"synchronize,omitempty"`
 
 	// OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
 	// them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
 	// See https://kyverno.io/docs/writing-policies/generate/#data-examples.
 	// Defaults to "false" if not specified.
 	// +optional
-	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty" yaml:"orphanDownstreamOnPolicyDelete,omitempty"`
+	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty"`
 
 	// Data provides the resource declaration used to populate each generated resource.
 	// At most one of Data or Clone must be specified. If neither are provided, the generated
 	// resource will be created with default data only.
 	// +optional
-	RawData *apiextv1.JSON `json:"data,omitempty" yaml:"data,omitempty"`
+	RawData *apiextv1.JSON `json:"data,omitempty"`
 
 	// Clone specifies the source resource used to populate each generated resource.
 	// At most one of Data or Clone can be specified. If neither are provided, the generated
 	// resource will be created with default data only.
 	// +optional
-	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
+	Clone CloneFrom `json:"clone,omitempty"`
 
 	// CloneList specifies the list of source resource used to populate each generated resource.
 	// +optional
-	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
+	CloneList CloneList `json:"cloneList,omitempty"`
 }
 
 func (g *Generation) IsGenerateExisting() *bool {
@@ -701,15 +701,15 @@ func (g *Generation) IsGenerateExisting() *bool {
 
 type CloneList struct {
 	// Namespace specifies source resource namespace.
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 
 	// Kinds is a list of resource kinds.
-	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
+	Kinds []string `json:"kinds,omitempty"`
 
 	// Selector is a label selector. Label keys and values in `matchLabels`.
 	// wildcard characters are not supported.
 	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
 func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
@@ -844,32 +844,32 @@ func (g *Generation) GetTypeAndSyncAndOrphanDownstream() (GenerateType, bool, bo
 type CloneFrom struct {
 	// Namespace specifies source resource namespace.
 	// +optional
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 
 	// Name specifies name of the resource.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
 type Manifests struct {
 	// Attestors specified the required attestors (i.e. authorities)
 	// +kubebuilder:validation:Optional
-	Attestors []AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
+	Attestors []AttestorSet `json:"attestors,omitempty"`
 
 	// AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
 	// +optional
-	AnnotationDomain string `json:"annotationDomain,omitempty" yaml:"annotationDomain,omitempty"`
+	AnnotationDomain string `json:"annotationDomain,omitempty"`
 
 	// Fields which will be ignored while comparing manifests.
 	// +optional
-	IgnoreFields IgnoreFieldList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
+	IgnoreFields IgnoreFieldList `json:"ignoreFields,omitempty"`
 
 	// DryRun configuration
 	// +optional
-	DryRunOption DryRunOption `json:"dryRun,omitempty" yaml:"dryRun,omitempty"`
+	DryRunOption DryRunOption `json:"dryRun,omitempty"`
 
 	// Repository is an optional alternate OCI repository to use for resource bundle reference.
 	// The repository can be overridden per Attestor or Attestation.
-	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+	Repository string `json:"repository,omitempty"`
 }
 
 // DryRunOption is a configuration for dryrun.
@@ -877,8 +877,8 @@ type Manifests struct {
 // which provides robust matching against changes by defaults and other admission controllers.
 // Dryrun requires additional permissions. See config/dryrun/dryrun_rbac.yaml
 type DryRunOption struct {
-	Enable    bool   `json:"enable,omitempty" yaml:"enable,omitempty"`
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Enable    bool   `json:"enable,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 type IgnoreFieldList []ObjectFieldBinding

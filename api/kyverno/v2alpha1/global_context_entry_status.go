@@ -19,7 +19,7 @@ const (
 
 type GlobalContextEntryStatus struct {
 	// Deprecated in favor of Conditions
-	Ready bool `json:"ready" yaml:"ready"`
+	Ready bool `json:"ready"`
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// Indicates the time when the globalcontextentry was last refreshed successfully for the API Call

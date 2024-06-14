@@ -40,7 +40,7 @@ type GlobalContextEntry struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
-	Spec GlobalContextEntrySpec `json:"spec" yaml:"spec"`
+	Spec GlobalContextEntrySpec `json:"spec"`
 
 	// Status contains globalcontextentry runtime data.
 	// +optional

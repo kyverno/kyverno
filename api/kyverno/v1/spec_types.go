@@ -42,30 +42,30 @@ func (a ValidationFailureAction) IsValid() bool {
 
 type ValidationFailureActionOverride struct {
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
-	Action            ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
-	Namespaces        []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
-	NamespaceSelector *metav1.LabelSelector   `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
+	Action            ValidationFailureAction `json:"action,omitempty"`
+	Namespaces        []string                `json:"namespaces,omitempty"`
+	NamespaceSelector *metav1.LabelSelector   `json:"namespaceSelector,omitempty"`
 }
 
 // Spec contains a list of Rule instances and other policy controls.
 type Spec struct {
 	// Rules is a list of Rule instances. A Policy contains multiple rules and
 	// each rule can validate, mutate, or generate resources.
-	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
+	Rules []Rule `json:"rules,omitempty"`
 
 	// ApplyRules controls how rules in a policy are applied. Rule are processed in
 	// the order of declaration. When set to `One` processing stops after a rule has
 	// been applied i.e. the rule matches and results in a pass, fail, or error. When
 	// set to `All` all rules in the policy are processed. The default is `All`.
 	// +optional
-	ApplyRules *ApplyRulesType `json:"applyRules,omitempty" yaml:"applyRules,omitempty"`
+	ApplyRules *ApplyRulesType `json:"applyRules,omitempty"`
 
 	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 	// Rules within the same policy share the same failure behavior.
 	// This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
-	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
+	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty"`
 
 	// ValidationFailureAction defines if a validation policy rule violation should block
 	// the admission review request (enforce), or allow (audit) the admission review request
@@ -74,57 +74,57 @@ type Spec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	// +kubebuilder:default=Audit
-	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
 	// +optional
-	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
+	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty"`
 
 	// Admission controls if rules are applied during admission.
 	// Optional. Default value is "true".
 	// +optional
 	// +kubebuilder:default=true
-	Admission *bool `json:"admission,omitempty" yaml:"admission,omitempty"`
+	Admission *bool `json:"admission,omitempty"`
 
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
 	// +optional
 	// +kubebuilder:default=true
-	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
+	Background *bool `json:"background,omitempty"`
 
 	// Deprecated.
-	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
+	SchemaValidation *bool `json:"schemaValidation,omitempty"`
 
 	// WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
-	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
+	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty"`
 
 	// MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
 	// Default value is "false".
 	// +optional
-	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
+	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty"`
 
 	// Deprecated, use generateExisting instead
 	// +optional
-	GenerateExistingOnPolicyUpdate *bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
+	GenerateExistingOnPolicyUpdate *bool `json:"generateExistingOnPolicyUpdate,omitempty"`
 
 	// Deprecated, use generateExisting under the generate rule instead
 	// +optional
-	GenerateExisting bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
+	GenerateExisting bool `json:"generateExisting,omitempty"`
 
 	// UseServerSideApply controls whether to use server-side apply for generate rules
 	// If is set to "true" create & update for generate rules will use apply instead of create/update.
 	// Defaults to "false" if not specified.
 	// +optional
-	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
+	UseServerSideApply bool `json:"useServerSideApply,omitempty"`
 
 	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
 	// Requires Kubernetes 1.27 or later.
 	// +optional
-	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty" yaml:"webhookConfiguration,omitempty"`
+	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty"`
 }
 
 func (s *Spec) CustomWebhookConfiguration() bool {
