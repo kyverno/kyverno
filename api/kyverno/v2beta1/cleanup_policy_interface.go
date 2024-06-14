@@ -1,4 +1,4 @@
-package v2alpha1
+package v2beta1
 
 import (
 	"time"

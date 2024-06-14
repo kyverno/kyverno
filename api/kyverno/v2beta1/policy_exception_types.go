@@ -26,7 +26,7 @@ import (
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=polex,categories=kyverno
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException struct {
