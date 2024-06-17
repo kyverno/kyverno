@@ -615,8 +615,6 @@ jobs:
               - standard
               - custom-sigstore
         k8s-version:
-          - name: v1.26
-            version: v1.26.x
           - name: v1.27
             version: v1.27.x
           - name: v1.28
