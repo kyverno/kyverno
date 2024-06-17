@@ -4,6 +4,8 @@ metadata:
   creationTimestamp: null
   name: imageextractors-complex-keyless
 spec:
+  timeouts:
+    apply: 10s
   steps:
   - name: step-00
     try:
