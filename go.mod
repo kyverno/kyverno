@@ -1,7 +1,6 @@
 module github.com/kyverno/kyverno
 
 go 1.22.2
-
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24
 	github.com/AdamKorcz/go-fuzz-headers-1 v0.0.0-20230919221257-8b5d3ce2d11d
@@ -41,7 +40,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.19.1
 	github.com/robfig/cron v1.2.0
 	github.com/sigstore/cosign/v2 v2.2.4
 	github.com/sigstore/k8s-manifest-sigstore v0.5.4
@@ -143,7 +142,7 @@ require (
 	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
 	github.com/aliyun/credentials-go v1.3.4 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
-	github.com/aptible/supercronic v0.2.29
+	github.com/aptible/supercronic v0.2.30
 	github.com/aws/aws-sdk-go-v2 v1.27.1 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.27.17 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.17 // indirect
