@@ -294,7 +294,7 @@ func (iv *ImageVerifier) Verify(
 		} else {
 			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
 			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
-			if ruleResp != nil && (ruleResp.Status() == engineapi.RuleStatusPass || (ruleResp.Status() == engineapi.RuleStatusFail && digest != "")) {
+			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
 				if iv.ivCache != nil {
 					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
 					if err != nil {
@@ -330,7 +330,6 @@ func (iv *ImageVerifier) Verify(
 			responses = append(responses, ruleResp)
 		}
 	}
-
 	return patches, responses
 }
 
