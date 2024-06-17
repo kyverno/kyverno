@@ -324,18 +324,10 @@ func (iv *ImageVerifier) Verify(
 		}
 
 		if ruleResp != nil {
-			// When validate fails it trigers if statement
-			if ruleResp.Status() == engineapi.RuleStatusFail && digest != "" {
-				if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
-					iv.ivm.Add(image, engineapi.ImageVerificationPass)
-				}
-				responses = append(responses, ruleResp)
-			} else {
-				if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
-					iv.ivm.Add(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))
-				}
-				responses = append(responses, ruleResp)
+			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
+				iv.ivm.Add(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))
 			}
+			responses = append(responses, ruleResp)
 		}
 	}
 
