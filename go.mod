@@ -25,7 +25,7 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49
-	github.com/google/go-containerregistry v0.19.1
+	github.com/google/go-containerregistry v0.19.2
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20240530172801-3764db238e3e
 	github.com/in-toto/in-toto-golang v0.9.0
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
@@ -51,7 +51,7 @@ require (
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.4
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.4
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.4
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.51.0
@@ -78,7 +78,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.30.1
 	k8s.io/apimachinery v0.30.2
 	k8s.io/apiserver v0.30.1
-	k8s.io/cli-runtime v0.30.1
+	k8s.io/cli-runtime v0.30.2
 	k8s.io/client-go v0.30.2
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/kube-aggregator v0.30.1
