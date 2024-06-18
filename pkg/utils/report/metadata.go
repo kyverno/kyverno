@@ -9,8 +9,8 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -110,11 +110,11 @@ func SetSource(obj metav1.Object, source string) {
 	controllerutils.SetLabel(obj, LabelSource, source)
 }
 
-func SetResourceUid(report kyvernov1alpha2.ReportInterface, uid types.UID) {
+func SetResourceUid(report reportsv1.ReportInterface, uid types.UID) {
 	controllerutils.SetLabel(report, LabelResourceUid, string(uid))
 }
 
-func SetResourceGVR(report kyvernov1alpha2.ReportInterface, gvr schema.GroupVersionResource) {
+func SetResourceGVR(report reportsv1.ReportInterface, gvr schema.GroupVersionResource) {
 	if gvr.Group != "" {
 		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version+"."+gvr.Group)
 	} else {
@@ -122,13 +122,13 @@ func SetResourceGVR(report kyvernov1alpha2.ReportInterface, gvr schema.GroupVers
 	}
 }
 
-func SetResourceGVK(report kyvernov1alpha2.ReportInterface, gvk schema.GroupVersionKind) {
+func SetResourceGVK(report reportsv1.ReportInterface, gvk schema.GroupVersionKind) {
 	controllerutils.SetLabel(report, LabelResourceGroup, gvk.Group)
 	controllerutils.SetLabel(report, LabelResourceVersion, gvk.Version)
 	controllerutils.SetLabel(report, LabelResourceKind, gvk.Kind)
 }
 
-func SetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface, namespace, name string) {
+func SetResourceNamespaceAndName(report reportsv1.ReportInterface, namespace, name string) {
 	controllerutils.SetAnnotation(report, AnnotationResourceNamespace, namespace)
 	controllerutils.SetAnnotation(report, AnnotationResourceName, name)
 }
@@ -152,7 +152,7 @@ func CalculateResourceHash(resource unstructured.Unstructured) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func SetResourceVersionLabels(report kyvernov1alpha2.ReportInterface, resource *unstructured.Unstructured) {
+func SetResourceVersionLabels(report reportsv1.ReportInterface, resource *unstructured.Unstructured) {
 	if resource != nil {
 		controllerutils.SetLabel(report, LabelResourceHash, CalculateResourceHash(*resource))
 	} else {
@@ -160,15 +160,15 @@ func SetResourceVersionLabels(report kyvernov1alpha2.ReportInterface, resource *
 	}
 }
 
-func SetPolicyLabel(report kyvernov1alpha2.ReportInterface, policy engineapi.GenericPolicy) {
+func SetPolicyLabel(report reportsv1.ReportInterface, policy engineapi.GenericPolicy) {
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
 }
 
-func SetPolicyExceptionLabel(report kyvernov1alpha2.ReportInterface, exception kyvernov2beta1.PolicyException) {
+func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyvernov2beta1.PolicyException) {
 	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
-func SetValidatingAdmissionPolicyBindingLabel(report kyvernov1alpha2.ReportInterface, binding admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding) {
+func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding) {
 	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
 }
 
