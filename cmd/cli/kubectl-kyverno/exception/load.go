@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/ext/resource/convert"
@@ -18,9 +17,8 @@ import (
 )
 
 var (
-	exceptionV2alpha1 = schema.GroupVersion(kyvernov2alpha1.GroupVersion).WithKind("PolicyException")
-	exceptionV2beta1  = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
-	exceptionV2       = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
+	exceptionV2beta1 = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
+	exceptionV2      = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
 )
 
 func Load(paths ...string) ([]*kyvernov2beta1.PolicyException, error) {
@@ -61,7 +59,7 @@ func load(content []byte) ([]*kyvernov2beta1.PolicyException, error) {
 			return nil, err
 		}
 		switch gvk {
-		case exceptionV2alpha1, exceptionV2beta1, exceptionV2:
+		case exceptionV2beta1, exceptionV2:
 			exception, err := convert.To[kyvernov2beta1.PolicyException](untyped)
 			if err != nil {
 				return nil, err
@@ -78,7 +76,7 @@ func SelectFrom(resources []*unstructured.Unstructured) []*kyvernov2beta1.Policy
 	var exceptions []*kyvernov2beta1.PolicyException
 	for _, resource := range resources {
 		switch resource.GroupVersionKind() {
-		case exceptionV2alpha1, exceptionV2beta1, exceptionV2:
+		case exceptionV2beta1, exceptionV2:
 			exception, err := convert.To[kyvernov2beta1.PolicyException](*resource)
 			if err == nil {
 				exceptions = append(exceptions, exception)
