@@ -25,6 +25,7 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
+	"github.com/kyverno/kyverno/pkg/d4f"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -122,7 +123,6 @@ func createrLeaderControllers(
 	eventGenerator event.Interface,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
-
 	certManager := certmanager.NewController(
 		caInformer,
 		tlsInformer,
@@ -515,6 +515,14 @@ func main() {
 			setup.KyvernoClient,
 			backgroundServiceAccountName,
 		)
+		ephrs, err := StartAdmissionReportsWatcher(signalCtx, setup.MetadataClient)
+		if err != nil {
+			setup.Logger.Error(errors.New("failed to start admission reports watcher"), "failed to start admission reports watcher")
+			os.Exit(1)
+		}
+		reportsBreaker := d4f.NewBreaker("admission reports", func(context.Context) bool {
+			return ephrs.Count() > 10
+		})
 		resourceHandlers := webhooksresource.NewHandlers(
 			engine,
 			setup.KyvernoDynamicClient,
@@ -533,6 +541,7 @@ func main() {
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,
+			reportsBreaker,
 		)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),

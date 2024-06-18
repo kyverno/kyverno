@@ -17,6 +17,7 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/d4f"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
@@ -63,6 +64,7 @@ type resourceHandlers struct {
 	admissionReports             bool
 	backgroundServiceAccountName string
 	auditPool                    *pond.WorkerPool
+	reportsBreaker               d4f.Breaker
 }
 
 func NewHandlers(
@@ -83,6 +85,7 @@ func NewHandlers(
 	jp jmespath.Interface,
 	maxAuditWorkers int,
 	maxAuditCapacity int,
+	reportsBreaker d4f.Breaker,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
@@ -101,6 +104,7 @@ func NewHandlers(
 		admissionReports:             admissionReports,
 		backgroundServiceAccountName: backgroundServiceAccountName,
 		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
+		reportsBreaker:               reportsBreaker,
 	}
 }
 
@@ -120,7 +124,19 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
-	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration, h.nsLister)
+	vh := validation.NewValidationHandler(
+		logger,
+		h.kyvernoClient,
+		h.engine,
+		h.pCache,
+		h.pcBuilder,
+		h.eventGen,
+		h.admissionReports,
+		h.metricsConfig,
+		h.configuration,
+		h.nsLister,
+		h.reportsBreaker,
+	)
 	var wg sync.WaitGroup
 	var ok bool
 	var msg string
@@ -132,7 +148,10 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	}()
 
 	go h.auditPool.Submit(func() {
-		vh.HandleValidationAudit(ctx, request)
+		_ = h.reportsBreaker.Do(ctx, func(context.Context) error {
+			vh.HandleValidationAudit(ctx, request)
+			return nil
+		})
 	})
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
 		h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime, nil)
@@ -182,7 +201,16 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration, h.nsLister)
+	ivh := imageverification.NewImageVerificationHandler(
+		logger,
+		h.kyvernoClient,
+		h.engine,
+		h.eventGen,
+		h.admissionReports,
+		h.configuration,
+		h.nsLister,
+		h.reportsBreaker,
+	)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")
