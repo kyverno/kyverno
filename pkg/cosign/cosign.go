@@ -229,6 +229,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		cosignOpts.TSARootCertificates = roots
 	}
 
+	cosignOpts.ExperimentalOCI11 = opts.CosignOCI11
 	return cosignOpts, nil
 }
 

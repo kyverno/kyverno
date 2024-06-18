@@ -4091,6 +4091,11 @@ spec:
                                   type: array
                               type: object
                             type: array
+                          cosignOCI11:
+                            description: |-
+                              CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                              Defaults to false.
+                            type: boolean
                           image:
                             description: Deprecated. Use ImageReferences instead.
                             type: string
@@ -8362,6 +8367,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignOCI11:
+                                description: |-
+                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                                  Defaults to false.
+                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
@@ -16673,6 +16683,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignOCI11:
+                                description: |-
+                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                                  Defaults to false.
+                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
