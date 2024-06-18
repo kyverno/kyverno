@@ -251,6 +251,7 @@ func main() {
 		renewBefore                  time.Duration
 		maxAuditWorkers              int
 		maxAuditCapacity             int
+		maxAdmissionReports          int
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -273,6 +274,7 @@ func main() {
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
+	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -521,7 +523,7 @@ func main() {
 			os.Exit(1)
 		}
 		reportsBreaker := d4f.NewBreaker("admission reports", func(context.Context) bool {
-			return ephrs.Count() > 10
+			return ephrs.Count() > maxAdmissionReports
 		})
 		resourceHandlers := webhooksresource.NewHandlers(
 			engine,
