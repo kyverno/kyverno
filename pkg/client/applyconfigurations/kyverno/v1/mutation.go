@@ -25,16 +25,25 @@ import (
 // MutationApplyConfiguration represents an declarative configuration of the Mutation type for use
 // with apply.
 type MutationApplyConfiguration struct {
-	Targets                []TargetResourceSpecApplyConfiguration `json:"targets,omitempty"`
-	RawPatchStrategicMerge *apiextensionsv1.JSON                  `json:"patchStrategicMerge,omitempty"`
-	PatchesJSON6902        *string                                `json:"patchesJson6902,omitempty"`
-	ForEachMutation        []ForEachMutationApplyConfiguration    `json:"foreach,omitempty"`
+	MutateExistingOnPolicyUpdate *bool                                  `json:"mutateExistingOnPolicyUpdate,omitempty"`
+	Targets                      []TargetResourceSpecApplyConfiguration `json:"targets,omitempty"`
+	RawPatchStrategicMerge       *apiextensionsv1.JSON                  `json:"patchStrategicMerge,omitempty"`
+	PatchesJSON6902              *string                                `json:"patchesJson6902,omitempty"`
+	ForEachMutation              []ForEachMutationApplyConfiguration    `json:"foreach,omitempty"`
 }
 
 // MutationApplyConfiguration constructs an declarative configuration of the Mutation type for use with
 // apply.
 func Mutation() *MutationApplyConfiguration {
 	return &MutationApplyConfiguration{}
+}
+
+// WithMutateExistingOnPolicyUpdate sets the MutateExistingOnPolicyUpdate field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the MutateExistingOnPolicyUpdate field is set to the value of the last call.
+func (b *MutationApplyConfiguration) WithMutateExistingOnPolicyUpdate(value bool) *MutationApplyConfiguration {
+	b.MutateExistingOnPolicyUpdate = &value
+	return b
 }
 
 // WithTargets adds the given value to the Targets field in the declarative configuration
