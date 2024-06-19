@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
@@ -220,7 +219,7 @@ func (c *controller) enqueueResources() {
 	}
 }
 
-func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
 	if namespace == "" {
 		return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
@@ -444,7 +443,7 @@ func (c *controller) reconcileReport(
 	return nil
 }
 
-func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov1alpha2.ReportInterface) error {
+func (c *controller) storeReport(ctx context.Context, observed, desired reportsv1.ReportInterface) error {
 	var err error
 	hasReport := observed.GetResourceVersion() != ""
 	wantsReport := desired != nil && len(desired.GetResults()) != 0
