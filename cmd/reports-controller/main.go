@@ -42,8 +42,8 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsInstalled(apiserverClient,
 		"clusterpolicyreports.wgpolicyk8s.io",
 		"policyreports.wgpolicyk8s.io",
-		"clusterbackgroundscanreports.kyverno.io",
-		"backgroundscanreports.kyverno.io",
+		"ephemeralreports.reports.kyverno.io",
+		"clusterephemeralreports.reports.kyverno.io",
 	)
 }
 
