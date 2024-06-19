@@ -10,7 +10,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,11 +64,11 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	return LabelPrefixValidatingAdmissionPolicy
 }
 
-func PolicyExceptionLabel(exception kyvernov2alpha1.PolicyException) string {
+func PolicyExceptionLabel(exception kyvernov2beta1.PolicyException) string {
 	return LabelPrefixPolicyException + exception.GetName()
 }
 
-func SetPolicyExceptionLabel(report kyvernov1alpha2.ReportInterface, exception kyvernov2alpha1.PolicyException) {
+func SetPolicyExceptionLabel(report kyvernov1alpha2.ReportInterface, exception kyvernov2beta1.PolicyException) {
 	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 

@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -207,7 +207,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2alpha1.PolicyException, policies ...engineapi.GenericPolicy) (bool, bool, error) {
+func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2beta1.PolicyException, policies ...engineapi.GenericPolicy) (bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
 	reportMetadata, err := c.getMeta(namespace, name)
 	if err != nil {
@@ -263,7 +263,7 @@ func (c *controller) reconcileReport(
 	uid types.UID,
 	gvk schema.GroupVersionKind,
 	resource resource.Resource,
-	exceptions []kyvernov2alpha1.PolicyException,
+	exceptions []kyvernov2beta1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) error {
 	// namespace labels to be used by the scanner
@@ -470,16 +470,16 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	return nil
 }
 
-func (c *controller) addException(obj *kyvernov2alpha1.PolicyException) {
+func (c *controller) addException(obj *kyvernov2beta1.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateException(old, obj *kyvernov2alpha1.PolicyException) {
+func (c *controller) updateException(old, obj *kyvernov2beta1.PolicyException) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteException(obj *kyvernov2alpha1.PolicyException) {
+func (c *controller) deleteException(obj *kyvernov2beta1.PolicyException) {
 	c.enqueueResources()
 }
