@@ -551,6 +551,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 	opts := &images.Options{
 		ImageRef:    image,
 		Repository:  imageVerify.Repository,
+		CosignOCI11: imageVerify.CosignOCI11,
 		Annotations: imageVerify.Annotations,
 		Client:      iv.rclient,
 	}
