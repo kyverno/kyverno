@@ -20,7 +20,7 @@ func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource,
 	} else {
 		report = &reportsv1.EphemeralReport{Spec: reportsv1.EphemeralReportSpec{}}
 	}
-	report.SetName(name)
+	report.SetGenerateName(name + "-")
 	report.SetNamespace(namespace)
 	SetResourceUid(report, resource.GetUID())
 	SetResourceGVR(report, gvr)
