@@ -3,8 +3,8 @@ package utils
 import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
@@ -63,7 +63,7 @@ func RemoveNonValidationPolicies(policies ...kyvernov1.PolicyInterface) []kyvern
 	return validationPolicies
 }
 
-func ReportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
+func ReportsAreIdentical(before, after reportsv1.ReportInterface) bool {
 	if !datautils.DeepEqual(before.GetAnnotations(), after.GetAnnotations()) {
 		return false
 	}
