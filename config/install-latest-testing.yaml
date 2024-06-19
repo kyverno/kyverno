@@ -6654,9 +6654,8 @@ spec:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -8642,6 +8641,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -12883,6 +12886,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -15228,9 +15236,8 @@ spec:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -16812,6 +16819,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -21198,6 +21209,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -23826,9 +23842,8 @@ spec:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -25814,6 +25829,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -30056,6 +30075,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -32402,9 +32426,8 @@ spec:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -33986,6 +34009,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -38372,6 +38399,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
