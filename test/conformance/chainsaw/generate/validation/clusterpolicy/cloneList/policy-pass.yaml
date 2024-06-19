@@ -49,7 +49,6 @@ kind: ClusterPolicy
 metadata:
   name: target-scope-validation-pass-3
 spec:
-  generateExisting: false
   rules:
   - name: sync-secret
     match:
@@ -66,6 +65,7 @@ spec:
           - kube-public
           - kyverno
     generate:
+      generateExisting: false
       namespace: "{{request.object.metadata.name}}"
       synchronize : true
       cloneList:

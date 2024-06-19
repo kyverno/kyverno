@@ -3,8 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: zk-kafka-address
 spec:
-  # generateExisting does not work for sub-resources
-  generateExisting: false
   rules:
     - name: k-kafka-address
       match:
@@ -13,6 +11,8 @@ spec:
               kinds:
                 - "Pod/exec"
       generate:
+        # generateExisting does not work for sub-resources
+        generateExisting: false
         # synchronization does not work for sub-resources
         synchronize: false
         apiVersion: v1

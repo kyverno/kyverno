@@ -4,7 +4,6 @@ metadata:
   name: generate-update-clonelist
   namespace: default
 spec:
-  generateExisting: false
   rules:
   - name: sync-secret
     match:
@@ -13,6 +12,7 @@ spec:
           kinds:
           - ConfigMap
     generate:
+      generateExisting: false
       namespace: default
       synchronize : true
       cloneList:

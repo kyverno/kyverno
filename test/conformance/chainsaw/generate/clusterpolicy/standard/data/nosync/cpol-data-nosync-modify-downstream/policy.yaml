@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: cpol-data-nosync-modify-downstream-policy
 spec:
-  generateExisting: false
   rules:
   - name: cpol-data-nosync-modify-downstream-rule
     match:
@@ -20,6 +19,7 @@ spec:
           - kube-public
           - kyverno
     generate:
+      generateExisting: false
       synchronize: false
       apiVersion: v1
       kind: ConfigMap

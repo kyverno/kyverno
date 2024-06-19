@@ -9,7 +9,6 @@ metadata:
   name: pol-data-nosync-delete-rule-policy
   namespace: otter
 spec:
-  generateExisting: false
   rules:
   - name: pol-data-nosync-delete-rule-policy-ruleone
     match:
@@ -18,6 +17,7 @@ spec:
           kinds:
           - Secret
     generate:
+      generateExisting: false
       synchronize: false
       apiVersion: v1
       kind: ConfigMap

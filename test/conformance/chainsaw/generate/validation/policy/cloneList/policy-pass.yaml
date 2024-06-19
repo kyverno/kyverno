@@ -52,7 +52,6 @@ metadata:
   name: target-scope-validation-pass-3
   namespace: target-scope-validation-fail-ns
 spec:
-  generateExisting: false
   rules:
   - name: sync-secret
     match:
@@ -61,6 +60,7 @@ spec:
           kinds:
           - ConfigMap
     generate:
+      generateExisting: false
       namespace: target-scope-validation-fail-ns
       synchronize : true
       cloneList:

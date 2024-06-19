@@ -4,7 +4,6 @@ metadata:
   name: generate-update-rule-spec
   namespace: default
 spec:
-  generateExisting: false
   rules:
   - name: k-kafka-address
     match:
@@ -20,6 +19,7 @@ spec:
           names:
           - test
     generate:
+      generateExisting: false
       synchronize: true
       apiVersion: v1
       kind: ConfigMap

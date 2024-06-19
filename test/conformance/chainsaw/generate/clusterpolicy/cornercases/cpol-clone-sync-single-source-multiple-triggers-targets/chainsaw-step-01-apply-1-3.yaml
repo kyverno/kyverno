@@ -3,9 +3,9 @@ kind: ClusterPolicy
 metadata:
   name: cpol-clone-sync-single-source-multiple-targets
 spec:
-  generateExisting: false
   rules:
   - generate:
+      generateExisting: false
       apiVersion: v1
       clone:
         name: foosource

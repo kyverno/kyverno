@@ -3,7 +3,6 @@ kind: Policy
 metadata:
   name: pol-cluster-target
 spec:
-  generateExisting: false
   rules:
   - name: pol-cluster-target
     match:
@@ -12,6 +11,7 @@ spec:
           kinds:
           - ConfigMap
     generate:
+      generateExisting: false
       synchronize: false
       apiVersion: v1
       kind: Secret

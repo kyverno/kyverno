@@ -4,7 +4,6 @@ metadata:
   name: generate-update-downstream-rule
   namespace: default
 spec:
-  generateExisting: false
   rules:
   - name: k-kafka-address
     match:
@@ -13,6 +12,7 @@ spec:
           kinds:
           - ConfigMap
     generate:
+      generateExisting: false
       synchronize: true
       apiVersion: v1
       kind: ConfigMap

@@ -4,9 +4,9 @@ metadata:
   name: generate-update-downstream-rule
   namespace: default
 spec:
-  generateExisting: false
   rules:
   - generate:
+      generateExisting: false
       apiVersion: v1
       data:
         data:

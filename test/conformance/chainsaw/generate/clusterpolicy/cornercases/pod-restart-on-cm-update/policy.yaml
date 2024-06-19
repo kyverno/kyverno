@@ -6,7 +6,6 @@ metadata:
     policies.kyverno.io/description: >-
       This policy generates and synchronizes a configmap for custom resource kube-state-metrics.
 spec:
-  generateExisting: true
   mutateExistingOnPolicyUpdate: false
   schemaValidation: false
   rules:
@@ -24,6 +23,7 @@ spec:
                 matchLabels:
                   kubestatemetrics.platform.example: source
       generate:
+        generateExisting: true
         synchronize: true
         apiVersion: v1
         kind: Secret
