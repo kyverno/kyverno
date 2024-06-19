@@ -1,2 +1,0 @@
-{{- if .Values.groups.kyverno.clusteradmissionreports }}
-{{- end }}

@@ -610,11 +610,7 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
-	$(call generate_crd,kyverno.io_admissionreports.yaml,kyverno,kyverno.io,kyverno,admissionreports)
-	$(call generate_crd,kyverno.io_backgroundscanreports.yaml,kyverno,kyverno.io,kyverno,backgroundscanreports)
 	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
-	$(call generate_crd,kyverno.io_clusteradmissionreports.yaml,kyverno,kyverno.io,kyverno,clusteradmissionreports)
-	$(call generate_crd,kyverno.io_clusterbackgroundscanreports.yaml,kyverno,kyverno.io,kyverno,clusterbackgroundscanreports)
 	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno,clustercleanuppolicies)
 	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno,clusterpolicies)
 	$(call generate_crd,kyverno.io_globalcontextentries.yaml,kyverno,kyverno.io,kyverno,globalcontextentries)
