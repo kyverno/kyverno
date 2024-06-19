@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: reload
 spec:
-  mutateExistingOnPolicyUpdate: false
   rules:
   - match:
       any:
@@ -14,6 +13,7 @@ spec:
             matchLabels:
               kyverno.io/watch: "true"
     mutate:
+      mutateExistingOnPolicyUpdate: false
       patchStrategicMerge:
         metadata:
           annotations:

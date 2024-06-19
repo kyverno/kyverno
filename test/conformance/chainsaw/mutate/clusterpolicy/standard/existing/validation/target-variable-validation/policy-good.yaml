@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: target-variable-validation-cpol
 spec:
-  mutateExistingOnPolicyUpdate: true
   schemaValidation: false
   background: true
   rules:
@@ -14,6 +13,7 @@ spec:
               kinds:
                 - Secret
       mutate:
+        mutateExistingOnPolicyUpdate: true
         targets:
           - apiVersion: v1
             kind: ConfigMap
