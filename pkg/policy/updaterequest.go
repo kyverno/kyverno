@@ -2,7 +2,7 @@ package policy
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string, ruleType kyvernov1beta1.RequestType, deleteDownstream bool) *kyvernov1beta1.UpdateRequest {
+func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string, ruleType kyvernov2.RequestType, deleteDownstream bool) *kyvernov2.UpdateRequest {
 	var policyNameNamespaceKey string
 
 	if policy.IsNamespaced() {
@@ -20,15 +20,15 @@ func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, rul
 	}
 
 	var label labels.Set
-	if ruleType == kyvernov1beta1.Mutate {
+	if ruleType == kyvernov2.Mutate {
 		label = common.MutateLabelsSet(policyNameNamespaceKey, trigger)
 	} else {
 		label = common.GenerateLabelsSet(policyNameNamespaceKey, trigger)
 	}
 
-	return &kyvernov1beta1.UpdateRequest{
+	return &kyvernov2.UpdateRequest{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: kyvernov1beta1.SchemeGroupVersion.String(),
+			APIVersion: kyvernov2.SchemeGroupVersion.String(),
 			Kind:       "UpdateRequest",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -36,7 +36,7 @@ func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, rul
 			Namespace:    config.KyvernoNamespace(),
 			Labels:       label,
 		},
-		Spec: kyvernov1beta1.UpdateRequestSpec{
+		Spec: kyvernov2.UpdateRequestSpec{
 			Type:   ruleType,
 			Policy: policyNameNamespaceKey,
 			Rule:   ruleName,
@@ -52,9 +52,9 @@ func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, rul
 	}
 }
 
-func newURStatus(downstream unstructured.Unstructured) kyvernov1beta1.UpdateRequestStatus {
-	return kyvernov1beta1.UpdateRequestStatus{
-		State: kyvernov1beta1.Pending,
+func newURStatus(downstream unstructured.Unstructured) kyvernov2.UpdateRequestStatus {
+	return kyvernov2.UpdateRequestStatus{
+		State: kyvernov2.Pending,
 		GeneratedResources: []kyvernov1.ResourceSpec{
 			{
 				APIVersion: downstream.GetAPIVersion(),

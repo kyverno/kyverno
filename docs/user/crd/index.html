@@ -21,9 +21,6 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv1"><b style="color: white">kyverno.io/v1</b></a>
 </li>
 <li>
-<a href="#kyverno.io%2fv1alpha2"><b style="color: white">kyverno.io/v1alpha2</b></a>
-</li>
-<li>
 <a href="#kyverno.io%2fv1beta1"><b style="color: white">kyverno.io/v1beta1</b></a>
 </li>
 <li>
@@ -249,8 +246,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &ldquo;false&rdquo;.</p>
+<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -525,8 +521,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &ldquo;false&rdquo;.</p>
+<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -2475,6 +2470,19 @@ The repository can also be overridden per Attestor or Attestation.</p>
 </tr>
 <tr>
 <td>
+<code>cosignOCI11</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+Defaults to false.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>mutateDigest</code><br/>
 <em>
 bool
@@ -2830,6 +2838,18 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>mutateExistingOnPolicyUpdate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MutateExistingOnPolicyUpdate controls if the mutateExisting rule will be applied on policy events.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>targets</code><br/>
@@ -4030,8 +4050,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &ldquo;false&rdquo;.</p>
+<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -4652,416 +4671,6 @@ expression evaluates to nil</p>
 </tbody>
 </table>
 <hr />
-<h2 id="kyverno.io/v1alpha2">kyverno.io/v1alpha2</h2>
-<p>
-<p>Package v1alpha2 contains API Schema definitions for the policy v1alpha2 API group</p>
-</p>
-Resource Types:
-<ul><li>
-<a href="#kyverno.io/v1alpha2.AdmissionReport">AdmissionReport</a>
-</li><li>
-<a href="#kyverno.io/v1alpha2.BackgroundScanReport">BackgroundScanReport</a>
-</li><li>
-<a href="#kyverno.io/v1alpha2.ClusterAdmissionReport">ClusterAdmissionReport</a>
-</li><li>
-<a href="#kyverno.io/v1alpha2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>
-</li></ul>
-<hr />
-<h3 id="kyverno.io/v1alpha2.AdmissionReport">AdmissionReport
-</h3>
-<p>
-<p>AdmissionReport is the Schema for the AdmissionReports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v1alpha2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>AdmissionReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v2.AdmissionReportSpec">
-AdmissionReportSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>owner</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
-Kubernetes meta/v1.OwnerReference
-</a>
-</em>
-</td>
-<td>
-<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha2.BackgroundScanReport">BackgroundScanReport
-</h3>
-<p>
-<p>BackgroundScanReport is the Schema for the BackgroundScanReports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v1alpha2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>BackgroundScanReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">
-BackgroundScanReportSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha2.ClusterAdmissionReport">ClusterAdmissionReport
-</h3>
-<p>
-<p>ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v1alpha2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>ClusterAdmissionReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v2.AdmissionReportSpec">
-AdmissionReportSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>owner</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
-Kubernetes meta/v1.OwnerReference
-</a>
-</em>
-</td>
-<td>
-<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha2.ClusterBackgroundScanReport">ClusterBackgroundScanReport
-</h3>
-<p>
-<p>ClusterBackgroundScanReport is the Schema for the ClusterBackgroundScanReports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v1alpha2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>ClusterBackgroundScanReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">
-BackgroundScanReportSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha2.ReportInterface">ReportInterface
-</h3>
-<p>
-<p>ReportInterface abstracts the concrete report change request type</p>
-</p>
 <h2 id="kyverno.io/v1beta1">kyverno.io/v1beta1</h2>
 <p>
 <p>Package v1beta1 contains API Schema definitions for the policy v1beta1 API group</p>
@@ -5589,15 +5198,7 @@ int
 </p>
 Resource Types:
 <ul><li>
-<a href="#kyverno.io/v2.AdmissionReport">AdmissionReport</a>
-</li><li>
-<a href="#kyverno.io/v2.BackgroundScanReport">BackgroundScanReport</a>
-</li><li>
 <a href="#kyverno.io/v2.CleanupPolicy">CleanupPolicy</a>
-</li><li>
-<a href="#kyverno.io/v2.ClusterAdmissionReport">ClusterAdmissionReport</a>
-</li><li>
-<a href="#kyverno.io/v2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>
 </li><li>
 <a href="#kyverno.io/v2.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
 </li><li>
@@ -5605,201 +5206,6 @@ Resource Types:
 </li><li>
 <a href="#kyverno.io/v2.UpdateRequest">UpdateRequest</a>
 </li></ul>
-<hr />
-<h3 id="kyverno.io/v2.AdmissionReport">AdmissionReport
-</h3>
-<p>
-<p>AdmissionReport is the Schema for the AdmissionReports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>AdmissionReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v2.AdmissionReportSpec">
-AdmissionReportSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>owner</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
-Kubernetes meta/v1.OwnerReference
-</a>
-</em>
-</td>
-<td>
-<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v2.BackgroundScanReport">BackgroundScanReport
-</h3>
-<p>
-<p>BackgroundScanReport is the Schema for the BackgroundScanReports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>BackgroundScanReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">
-BackgroundScanReportSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
 <hr />
 <h3 id="kyverno.io/v2.CleanupPolicy">CleanupPolicy
 </h3>
@@ -5945,201 +5351,6 @@ CleanupPolicyStatus
 <td>
 <em>(Optional)</em>
 <p>Status contains policy runtime data.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v2.ClusterAdmissionReport">ClusterAdmissionReport
-</h3>
-<p>
-<p>ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>ClusterAdmissionReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v2.AdmissionReportSpec">
-AdmissionReportSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>owner</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
-Kubernetes meta/v1.OwnerReference
-</a>
-</em>
-</td>
-<td>
-<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v2.ClusterBackgroundScanReport">ClusterBackgroundScanReport
-</h3>
-<p>
-<p>ClusterBackgroundScanReport is the Schema for the ClusterBackgroundScanReports API</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v2
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>ClusterBackgroundScanReport</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">
-BackgroundScanReportSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</table>
 </td>
 </tr>
 </tbody>
@@ -6589,69 +5800,6 @@ UpdateRequestStatus
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1alpha2.AdmissionReport">AdmissionReport</a>, 
-<a href="#kyverno.io/v1alpha2.ClusterAdmissionReport">ClusterAdmissionReport</a>, 
-<a href="#kyverno.io/v2.AdmissionReport">AdmissionReport</a>, 
-<a href="#kyverno.io/v2.ClusterAdmissionReport">ClusterAdmissionReport</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>owner</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
-Kubernetes meta/v1.OwnerReference
-</a>
-</em>
-</td>
-<td>
-<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v2.AdmissionRequestInfoObject">AdmissionRequestInfoObject
 </h3>
 <p>
@@ -6746,56 +5894,6 @@ Here, at least one of the conditions need to pass.</p>
 finer control of when an rule is applied. A condition can reference object data
 using JMESPath notation.
 Here, all of the conditions need to pass.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1alpha2.BackgroundScanReport">BackgroundScanReport</a>, 
-<a href="#kyverno.io/v1alpha2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>, 
-<a href="#kyverno.io/v2.BackgroundScanReport">BackgroundScanReport</a>, 
-<a href="#kyverno.io/v2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>summary</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
-PolicyReportSummary
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportSummary provides a summary of results</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>results</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
-[]PolicyReportResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PolicyReportResult provides result details</p>
 </td>
 </tr>
 </tbody>
@@ -8350,8 +7448,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &ldquo;false&rdquo;.</p>
+<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -8624,8 +7721,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &ldquo;false&rdquo;.</p>
+<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -10018,8 +9114,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &ldquo;false&rdquo;.</p>
+<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
 </td>
 </tr>
 <tr>
@@ -10522,6 +9617,11 @@ PolicyReportSummary
 </tbody>
 </table>
 <hr />
+<h3 id="reports.kyverno.io/v1.ReportInterface">ReportInterface
+</h3>
+<p>
+<p>ReportInterface abstracts the concrete report change request type</p>
+</p>
 <h2 id="wgpolicyk8s.io/v1alpha2">wgpolicyk8s.io/v1alpha2</h2>
 Resource Types:
 <ul><li>
@@ -10744,8 +9844,6 @@ PolicyReportSummary
 (<em>Appears on:</em>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
-<a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>, 
 <a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
 </p>
 <p>
@@ -10919,8 +10017,6 @@ PolicySeverity
 (<em>Appears on:</em>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
-<a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
-<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>, 
 <a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
 </p>
 <p>

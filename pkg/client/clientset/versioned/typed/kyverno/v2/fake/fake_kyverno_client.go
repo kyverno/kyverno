@@ -28,24 +28,8 @@ type FakeKyvernoV2 struct {
 	*testing.Fake
 }
 
-func (c *FakeKyvernoV2) AdmissionReports(namespace string) v2.AdmissionReportInterface {
-	return &FakeAdmissionReports{c, namespace}
-}
-
-func (c *FakeKyvernoV2) BackgroundScanReports(namespace string) v2.BackgroundScanReportInterface {
-	return &FakeBackgroundScanReports{c, namespace}
-}
-
 func (c *FakeKyvernoV2) CleanupPolicies(namespace string) v2.CleanupPolicyInterface {
 	return &FakeCleanupPolicies{c, namespace}
-}
-
-func (c *FakeKyvernoV2) ClusterAdmissionReports() v2.ClusterAdmissionReportInterface {
-	return &FakeClusterAdmissionReports{c}
-}
-
-func (c *FakeKyvernoV2) ClusterBackgroundScanReports() v2.ClusterBackgroundScanReportInterface {
-	return &FakeClusterBackgroundScanReports{c}
 }
 
 func (c *FakeKyvernoV2) ClusterCleanupPolicies() v2.ClusterCleanupPolicyInterface {

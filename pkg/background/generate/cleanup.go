@@ -6,7 +6,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, ur *kyvernov1beta1.UpdateRequest) (err error) {
+func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest) (err error) {
 	if !ur.Spec.DeleteDownstream {
 		return nil
 	}
@@ -49,7 +49,7 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 	return c.handleNonPolicyChanges(policy, ur)
 }
 
-func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInterface, ur *kyvernov1beta1.UpdateRequest) error {
+func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest) error {
 	if !ur.Spec.DeleteDownstream {
 		return nil
 	}
@@ -95,7 +95,7 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 	return nil
 }
 
-func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[string]string, ur *kyvernov1beta1.UpdateRequest) (*unstructured.UnstructuredList, error) {
+func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[string]string, ur *kyvernov2.UpdateRequest) (*unstructured.UnstructuredList, error) {
 	gv, err := ur.Spec.GetResource().GetGroupVersion()
 	if err != nil {
 		return nil, err

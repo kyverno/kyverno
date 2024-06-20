@@ -51,6 +51,7 @@ type UpdateRequestStatus struct {
 // +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=ur,categories=kyverno
+// +kubebuilder:storageversion
 
 // UpdateRequest is a request to process mutate and generate rules in background.
 type UpdateRequest struct {
