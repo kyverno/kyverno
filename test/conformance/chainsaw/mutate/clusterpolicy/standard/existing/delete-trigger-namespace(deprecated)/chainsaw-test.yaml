@@ -1,0 +1,44 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: delete-trigger-namespace
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: secret.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: configmap.yaml
+  - name: step-05
+    try:
+    - assert:
+        file: patched-secret.yaml
+  - name: step-06
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Namespace
+          name: staging
+  - name: step-07
+    try:
+    - script:
+        content: kubectl get updaterequests -n kyverno
+        check:
+          # This check ensures the contents of stderr are exactly as shown.
+          ($stderr): |-
+            No resources found in kyverno namespace.
