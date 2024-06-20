@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
@@ -245,7 +245,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 					nsLabels,
 					// TODO(eddycharly): we don't have user info here, we should check that
 					// we don't have user conditions in the policy rule
-					kyvernov1beta1.RequestInfo{},
+					kyvernov2.RequestInfo{},
 					resource.GroupVersionKind(),
 					"",
 				)
@@ -260,7 +260,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 						nsLabels,
 						// TODO(eddycharly): we don't have user info here, we should check that
 						// we don't have user conditions in the policy rule
-						kyvernov1beta1.RequestInfo{},
+						kyvernov2.RequestInfo{},
 						resource.GroupVersionKind(),
 						"",
 					)
@@ -286,7 +286,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 							nsLabels,
 							// TODO(eddycharly): we don't have user info here, we should check that
 							// we don't have user conditions in the policy rule
-							kyvernov1beta1.RequestInfo{},
+							kyvernov2.RequestInfo{},
 							resource.GroupVersionKind(),
 							"",
 						)

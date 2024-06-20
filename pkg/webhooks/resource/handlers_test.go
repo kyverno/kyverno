@@ -9,7 +9,7 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -652,7 +652,7 @@ func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, r
 	b.Lock()
 	defer b.Unlock()
 
-	userRequestInfo := kyvernov1beta1.RequestInfo{
+	userRequestInfo := kyvernov2.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
