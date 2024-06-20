@@ -3,7 +3,7 @@ package updaterequest
 import (
 	"context"
 
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 )
 
 func NewFake() Generator {
@@ -12,6 +12,6 @@ func NewFake() Generator {
 
 type fakeGenerator struct{}
 
-func (f *fakeGenerator) Apply(ctx context.Context, gr kyvernov1beta1.UpdateRequestSpec) error {
+func (f *fakeGenerator) Apply(ctx context.Context, gr kyvernov2.UpdateRequestSpec) error {
 	return nil
 }

@@ -322,6 +322,10 @@ func (r ResourceFilter) IsEmpty() bool {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
+	// MutateExistingOnPolicyUpdate controls if the mutateExisting rule will be applied on policy events.
+	// +optional
+	MutateExistingOnPolicyUpdate *bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
+
 	// Targets defines the target resources to be mutated.
 	// +optional
 	Targets []TargetResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
@@ -348,6 +352,10 @@ func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
 
 func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
+}
+
+func (m *Mutation) IsMutateExistingOnPolicyUpdate() *bool {
+	return m.MutateExistingOnPolicyUpdate
 }
 
 // ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
@@ -656,6 +664,11 @@ func (v *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
 
 // Generation defines how new resources should be created and managed.
 type Generation struct {
+	// GenerateExisting controls whether to trigger the rule in existing resources
+	// If is set to "true" the rule will be triggered and applied to existing matched resources.
+	// +optional
+	GenerateExisting *bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
+
 	// ResourceSpec contains information to select the resource.
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
@@ -688,6 +701,10 @@ type Generation struct {
 	// CloneList specifies the list of source resource used to populate each generated resource.
 	// +optional
 	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
+}
+
+func (g *Generation) IsGenerateExisting() *bool {
+	return g.GenerateExisting
 }
 
 type CloneList struct {

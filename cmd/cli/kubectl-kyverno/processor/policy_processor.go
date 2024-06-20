@@ -10,7 +10,7 @@ import (
 
 	json_patch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -44,7 +44,7 @@ type PolicyProcessor struct {
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 *variables.Variables
-	UserInfo                  *kyvernov1beta1.RequestInfo
+	UserInfo                  *kyvernov2.RequestInfo
 	PolicyReport              bool
 	NamespaceSelectorMap      map[string]map[string]string
 	Stdin                     bool
@@ -194,7 +194,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				responses = append(responses, generateResponse)
 			}
-			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
+			p.Rc.addGenerateResponse(p.AuditWarn, generateResponse)
 		}
 	}
 	p.Rc.addEngineResponses(p.AuditWarn, responses...)
@@ -254,6 +254,14 @@ func (p *PolicyProcessor) makePolicyContext(
 		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
 			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
 		}
+	}
+	if p.Client != nil && len(namespaceLabels) == 0 && resource.GetKind() != "Namespace" {
+		ns, err := p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resource.GetNamespace())
+		if err != nil {
+			log.Log.Error(err, "failed to get the resource's namespace")
+			return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
+		}
+		namespaceLabels = ns.GetLabels()
 	}
 	policyContext = policyContext.
 		WithPolicy(policy).
@@ -332,7 +340,7 @@ func (p *PolicyProcessor) makePolicyContext(
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-	printMutatedRes := p.Rc.addMutateResponse(resourcePath, response)
+	printMutatedRes := p.Rc.addMutateResponse(response)
 	if printMutatedRes && p.PrintPatchResource {
 		yamlEncodedResource, err := yamlv2.Marshal(response.PatchedResource.Object)
 		if err != nil {

@@ -5,7 +5,7 @@ import (
 	"io"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -45,7 +45,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 		return nil, err
 	}
 	// user info
-	var userInfo *v1beta1.RequestInfo
+	var userInfo *kyvernov2.RequestInfo
 	if testCase.Test.UserInfo != "" {
 		fmt.Fprintln(out, "  Loading user infos", "...")
 		info, err := userinfo.Load(testCase.Fs, testCase.Test.UserInfo, testDir)

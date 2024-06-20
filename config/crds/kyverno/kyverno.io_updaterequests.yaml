@@ -22,6 +22,9 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
+    - jsonPath: .spec.rule
+      name: Rule
+      type: string
     - jsonPath: .spec.requestType
       name: RuleType
       type: string
@@ -40,6 +43,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
     name: v1beta1
     schema:
       openAPIV3Schema:
@@ -233,6 +237,7 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -292,6 +297,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
@@ -395,7 +401,7 @@ spec:
             type: object
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -613,6 +619,7 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -672,6 +679,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
@@ -772,6 +780,6 @@ spec:
             type: object
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}

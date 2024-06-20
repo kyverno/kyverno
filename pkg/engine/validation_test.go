@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -52,7 +52,7 @@ func newPolicyContext(
 	t *testing.T,
 	resource unstructured.Unstructured,
 	operation kyvernov1.AdmissionOperation,
-	admissionInfo *kyvernov1beta1.RequestInfo,
+	admissionInfo *kyvernov2.RequestInfo,
 ) *PolicyContext {
 	t.Helper()
 	p, err := NewPolicyContext(jp, resource, operation, admissionInfo, cfg)
@@ -2219,7 +2219,7 @@ func executeTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	var userInfo kyvernov1beta1.RequestInfo
+	var userInfo kyvernov2.RequestInfo
 	err = json.Unmarshal(test.userInfo, &userInfo)
 	if err != nil {
 		t.Fatal(err)
