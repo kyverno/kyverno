@@ -29,7 +29,7 @@ type kyvernoRule struct {
 	AnyAllConditions *apiextensions.JSON           `json:"preconditions,omitempty"`
 	Mutation         *kyvernov1.Mutation           `json:"mutate,omitempty"`
 	Validation       *kyvernov1.Validation         `json:"validate,omitempty"`
-	VerifyImages     []kyvernov1.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	VerifyImages     []kyvernov1.ImageVerification `json:"verifyImages,omitempty"`
 }
 
 func createRule(rule *kyvernov1.Rule) *kyvernoRule {

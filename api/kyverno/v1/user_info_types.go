@@ -12,15 +12,15 @@ import (
 type UserInfo struct {
 	// Roles is the list of namespaced role names for the user.
 	// +optional
-	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
+	Roles []string `json:"roles,omitempty"`
 
 	// ClusterRoles is the list of cluster-wide role names for the user.
 	// +optional
-	ClusterRoles []string `json:"clusterRoles,omitempty" yaml:"clusterRoles,omitempty"`
+	ClusterRoles []string `json:"clusterRoles,omitempty"`
 
 	// Subjects is the list of subject names like users, user groups, and service accounts.
 	// +optional
-	Subjects []rbacv1.Subject `json:"subjects,omitempty" yaml:"subjects,omitempty"`
+	Subjects []rbacv1.Subject `json:"subjects,omitempty"`
 }
 
 func (r UserInfo) IsEmpty() bool {

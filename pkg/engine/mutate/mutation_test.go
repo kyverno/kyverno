@@ -27,9 +27,9 @@ func loadYaml(t *testing.T, file string) []byte {
 
 // jsonPatch is used to build test patches
 type jsonPatch struct {
-	Path      string             `json:"path,omitempty" yaml:"path,omitempty"`
-	Operation string             `json:"op,omitempty" yaml:"op,omitempty"`
-	Value     apiextensions.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	Path      string             `json:"path,omitempty"`
+	Operation string             `json:"op,omitempty"`
+	Value     apiextensions.JSON `json:"value,omitempty"`
 }
 
 func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engineapi.RuleResponse, unstructured.Unstructured) {
