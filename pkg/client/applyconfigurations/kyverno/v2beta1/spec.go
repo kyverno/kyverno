@@ -39,7 +39,7 @@ type SpecApplyConfiguration struct {
 	GenerateExistingOnPolicyUpdate   *bool                                                         `json:"generateExistingOnPolicyUpdate,omitempty"`
 	GenerateExisting                 *bool                                                         `json:"generateExisting,omitempty"`
 	UseServerSideApply               *bool                                                         `json:"useServerSideApply,omitempty"`
-	WebhookConfiguration             *WebhookConfigurationApplyConfiguration                       `json:"webhookConfiguration,omitempty"`
+	WebhookConfiguration             *kyvernov1.WebhookConfigurationApplyConfiguration             `json:"webhookConfiguration,omitempty"`
 }
 
 // SpecApplyConfiguration constructs an declarative configuration of the Spec type for use with
@@ -165,7 +165,7 @@ func (b *SpecApplyConfiguration) WithUseServerSideApply(value bool) *SpecApplyCo
 // WithWebhookConfiguration sets the WebhookConfiguration field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the WebhookConfiguration field is set to the value of the last call.
-func (b *SpecApplyConfiguration) WithWebhookConfiguration(value *WebhookConfigurationApplyConfiguration) *SpecApplyConfiguration {
+func (b *SpecApplyConfiguration) WithWebhookConfiguration(value *kyvernov1.WebhookConfigurationApplyConfiguration) *SpecApplyConfiguration {
 	b.WebhookConfiguration = value
 	return b
 }
