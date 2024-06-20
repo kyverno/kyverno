@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	configutils "github.com/kyverno/kyverno/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/metadata"
 )
 
-type UpdateRequestGenerator = Generator[*v1beta1.UpdateRequest]
+type UpdateRequestGenerator = Generator[*kyvernov2.UpdateRequest]
 
 type updaterequestsgenerator struct {
 	config     configutils.Configuration
@@ -27,11 +27,11 @@ func NewUpdateRequestGenerator(config configutils.Configuration, metaClient meta
 	}
 }
 
-func (g *updaterequestsgenerator) Generate(ctx context.Context, client versioned.Interface, resource *v1beta1.UpdateRequest, log logr.Logger) (*v1beta1.UpdateRequest, error) {
+func (g *updaterequestsgenerator) Generate(ctx context.Context, client versioned.Interface, resource *kyvernov2.UpdateRequest, log logr.Logger) (*kyvernov2.UpdateRequest, error) {
 	objects, err := g.metaClient.Resource(
 		schema.GroupVersionResource{
 			Group:    "kyverno.io",
-			Version:  "v1beta1",
+			Version:  "v2",
 			Resource: "updaterequests",
 		},
 	).List(ctx, metav1.ListOptions{})
@@ -48,6 +48,6 @@ func (g *updaterequestsgenerator) Generate(ctx context.Context, client versioned
 		return nil, nil
 	}
 
-	created, err := client.KyvernoV1beta1().UpdateRequests(configutils.KyvernoNamespace()).Create(ctx, resource, metav1.CreateOptions{})
+	created, err := client.KyvernoV2().UpdateRequests(configutils.KyvernoNamespace()).Create(ctx, resource, metav1.CreateOptions{})
 	return created, err
 }
