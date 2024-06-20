@@ -427,8 +427,7 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
         <td>
           
 
-          <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &quot;false&quot;.</p>
+          <p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
 
 
           
@@ -482,9 +481,7 @@ Default value is &quot;false&quot;.</p>
         <td>
           
 
-          <p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &quot;true&quot; generate rule will be triggered and applied to existing matched resources.
-Defaults to &quot;false&quot; if not specified.</p>
+          <p>Deprecated, use generateExisting under the generate rule instead</p>
 
 
           
@@ -991,8 +988,7 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
         <td>
           
 
-          <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &quot;false&quot;.</p>
+          <p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
 
 
           
@@ -1046,9 +1042,7 @@ Default value is &quot;false&quot;.</p>
         <td>
           
 
-          <p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &quot;true&quot; generate rule will be triggered and applied to existing matched resources.
-Defaults to &quot;false&quot; if not specified.</p>
+          <p>Deprecated, use generateExisting under the generate rule instead</p>
 
 
           
@@ -3879,6 +3873,34 @@ must be satisfied for the validation rule to succeed.</p>
     
     
       <tr>
+        <td><code>generateExisting</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GenerateExisting controls whether to trigger the rule in existing resources
+If is set to &quot;true&quot; the rule will be triggered and applied to existing matched resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>ResourceSpec</code>
           
           <span style="color:blue;"> *</span>
@@ -4871,6 +4893,34 @@ The repository can also be overridden per Attestor or Attestation.</p>
     
     
       <tr>
+        <td><code>cosignOCI11</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+Defaults to false.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>mutateDigest</code>
           
           <span style="color:blue;"> *</span>
@@ -5636,6 +5686,33 @@ Please specify under &quot;any&quot; or &quot;all&quot; instead.</p>
         
 
   
+  
+    
+    
+      <tr>
+        <td><code>mutateExistingOnPolicyUpdate</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>MutateExistingOnPolicyUpdate controls if the mutateExisting rule will be applied on policy events.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
   
     
     
@@ -7949,8 +8026,7 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
         <td>
           
 
-          <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-Default value is &quot;false&quot;.</p>
+          <p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
 
 
           
@@ -8004,9 +8080,7 @@ Default value is &quot;false&quot;.</p>
         <td>
           
 
-          <p>GenerateExisting controls whether to trigger generate rule in existing resources
-If is set to &quot;true&quot; generate rule will be triggered and applied to existing matched resources.
-Defaults to &quot;false&quot; if not specified.</p>
+          <p>Deprecated, use generateExisting under the generate rule instead</p>
 
 
           

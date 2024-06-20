@@ -6,8 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
@@ -50,7 +49,7 @@ type controller struct {
 
 	// queue
 	queue   workqueue.RateLimitingInterface
-	enqueue controllerutils.EnqueueFuncT[kyvernov2alpha1.CleanupPolicyInterface]
+	enqueue controllerutils.EnqueueFuncT[kyvernov2beta1.CleanupPolicyInterface]
 
 	// config
 	configuration config.Configuration
@@ -85,11 +84,11 @@ func NewController(
 	gctxStore loaders.Store,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
-	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2alpha1.CleanupPolicyInterface]
+	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2beta1.CleanupPolicyInterface]
 	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
-	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[kyvernov2alpha1.CleanupPolicyInterface] {
+	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[kyvernov2beta1.CleanupPolicyInterface] {
 		logger = logger.WithValues("kind", kind, "operation", operation)
-		return func(obj kyvernov2alpha1.CleanupPolicyInterface) error {
+		return func(obj kyvernov2beta1.CleanupPolicyInterface) error {
 			logger = logger.WithValues("name", obj.GetName())
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
@@ -162,7 +161,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) getPolicy(namespace, name string) (kyvernov2alpha1.CleanupPolicyInterface, error) {
+func (c *controller) getPolicy(namespace, name string) (kyvernov2beta1.CleanupPolicyInterface, error) {
 	if namespace == "" {
 		cpolicy, err := c.cpolLister.Get(name)
 		if err != nil {
@@ -178,7 +177,7 @@ func (c *controller) getPolicy(namespace, name string) (kyvernov2alpha1.CleanupP
 	}
 }
 
-func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface) error {
+func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyvernov2beta1.CleanupPolicyInterface) error {
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
@@ -246,7 +245,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 					nsLabels,
 					// TODO(eddycharly): we don't have user info here, we should check that
 					// we don't have user conditions in the policy rule
-					kyvernov1beta1.RequestInfo{},
+					kyvernov2.RequestInfo{},
 					resource.GroupVersionKind(),
 					"",
 				)
@@ -261,7 +260,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 						nsLabels,
 						// TODO(eddycharly): we don't have user info here, we should check that
 						// we don't have user conditions in the policy rule
-						kyvernov1beta1.RequestInfo{},
+						kyvernov2.RequestInfo{},
 						resource.GroupVersionKind(),
 						"",
 					)
@@ -287,7 +286,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 							nsLabels,
 							// TODO(eddycharly): we don't have user info here, we should check that
 							// we don't have user conditions in the policy rule
-							kyvernov1beta1.RequestInfo{},
+							kyvernov2.RequestInfo{},
 							resource.GroupVersionKind(),
 							"",
 						)
@@ -423,7 +422,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2alpha1.CleanupPolicyInterface, namespace string, time time.Time) error {
+func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2beta1.CleanupPolicyInterface, namespace string, time time.Time) error {
 	switch obj := policy.(type) {
 	case *kyvernov2beta1.ClusterCleanupPolicy:
 		latest := obj.DeepCopy()

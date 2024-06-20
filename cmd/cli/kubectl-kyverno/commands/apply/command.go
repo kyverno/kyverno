@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -49,25 +49,26 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig     string
-	Context        string
-	Namespace      string
-	MutateLogPath  string
-	Variables      []string
-	ValuesFile     string
-	UserInfoPath   string
-	Cluster        bool
-	PolicyReport   bool
-	Stdin          bool
-	RegistryAccess bool
-	AuditWarn      bool
-	ResourcePaths  []string
-	PolicyPaths    []string
-	GitBranch      string
-	warnExitCode   int
-	warnNoPassed   bool
-	Exception      []string
-	ContinueOnFail bool
+	KubeConfig       string
+	Context          string
+	Namespace        string
+	MutateLogPath    string
+	Variables        []string
+	ValuesFile       string
+	UserInfoPath     string
+	Cluster          bool
+	PolicyReport     bool
+	Stdin            bool
+	RegistryAccess   bool
+	AuditWarn        bool
+	ResourcePaths    []string
+	PolicyPaths      []string
+	GitBranch        string
+	warnExitCode     int
+	warnNoPassed     bool
+	Exception        []string
+	ContinueOnFail   bool
+	inlineExceptions bool
 }
 
 func Command() *cobra.Command {
@@ -123,6 +124,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
+	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
 	return cmd
 }
 
@@ -139,7 +141,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	var userInfo *v1beta1.RequestInfo
+	var userInfo *kyvernov2.RequestInfo
 	if c.UserInfoPath != "" {
 		info, err := userinfo.Load(nil, c.UserInfoPath, "")
 		if err != nil {
@@ -165,9 +167,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	exceptions, err := exception.Load(c.Exception...)
-	if err != nil {
-		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+	var exceptions []*kyvernov2beta1.PolicyException
+	if c.inlineExceptions {
+		exceptions = exception.SelectFrom(resources)
+	} else {
+		exceptions, err = exception.Load(c.Exception...)
+		if err != nil {
+			return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+		}
 	}
 	if !c.Stdin && !c.PolicyReport {
 		var policyRulesCount int
@@ -256,7 +263,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	exceptions []*kyvernov2beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
-	userInfo *v1beta1.RequestInfo,
+	userInfo *kyvernov2.RequestInfo,
 	mutateLogPathIsDir bool,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
 	if vars != nil {

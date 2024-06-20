@@ -37,6 +37,9 @@ global:
   # -- Global node labels for pod assignment. Non-global values will override the global value.
   nodeSelector: {}
 
+  # -- Global List of node taints to tolerate. Non-global values will override the global value.
+  tolerations: []
+
 # -- (string) Override the name of the chart
 nameOverride: ~
 
@@ -66,11 +69,7 @@ crds:
 
     # -- Install CRDs in group `kyverno.io`
     kyverno:
-      admissionreports: true
-      backgroundscanreports: true
       cleanuppolicies: true
-      clusteradmissionreports: true
-      clusterbackgroundscanreports: true
       clustercleanuppolicies: true
       clusterpolicies: true
       globalcontextentries: true
@@ -103,11 +102,7 @@ crds:
 
     # -- Resources to migrate
     resources:
-      - admissionreports.kyverno.io
-      - backgroundscanreports.kyverno.io
       - cleanuppolicies.kyverno.io
-      - clusteradmissionreports.kyverno.io
-      - clusterbackgroundscanreports.kyverno.io
       - clustercleanuppolicies.kyverno.io
       - clusterpolicies.kyverno.io
       - globalcontextentries.kyverno.io
@@ -174,6 +169,9 @@ config:
   # -- Create the configmap.
   create: true
 
+  # -- Preserve the configmap settings during upgrade.
+  preserve: true
+
   # -- (string) The configmap name (required if `create` is `false`).
   name: ~
 
@@ -223,14 +221,6 @@ config:
     - '[Pod/binding,*,*]'
     - '[ReplicaSet,*,*]'
     - '[ReplicaSet/*,*,*]'
-    - '[AdmissionReport,*,*]'
-    - '[AdmissionReport/*,*,*]'
-    - '[ClusterAdmissionReport,*,*]'
-    - '[ClusterAdmissionReport/*,*,*]'
-    - '[BackgroundScanReport,*,*]'
-    - '[BackgroundScanReport/*,*,*]'
-    - '[ClusterBackgroundScanReport,*,*]'
-    - '[ClusterBackgroundScanReport/*,*,*]'
     # exclude resources from the chart
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}]'
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:core]'
@@ -475,7 +465,7 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.28.5'
+    tag: '1.30.2'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -532,7 +522,7 @@ policyReportsCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.28.5'
+    tag: '1.30.2'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -715,7 +705,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.28.5'
+      tag: '1.30.2'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -795,7 +785,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.28.5'
+      tag: '1.30.2'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -875,7 +865,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.28.5'
+      tag: '1.30.2'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -955,7 +945,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.28.5'
+      tag: '1.30.2'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -1016,7 +1006,7 @@ cleanupJobs:
 
     # -- Node affinity constraints.
     nodeAffinity: {}
-    
+
   clusterEphemeralReports:
 
     # -- Enable cleanup cronjob
@@ -1035,7 +1025,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.28.5'
+      tag: '1.30.2'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~

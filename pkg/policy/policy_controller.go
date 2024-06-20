@@ -8,14 +8,14 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
+	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -71,7 +72,7 @@ type policyController struct {
 	npLister kyvernov1listers.PolicyLister
 
 	// urLister can list/get update request from the shared informer's store
-	urLister kyvernov1beta1listers.UpdateRequestLister
+	urLister kyvernov2listers.UpdateRequestLister
 
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
@@ -88,6 +89,8 @@ type policyController struct {
 	metricsConfig metrics.MetricsConfigManager
 
 	jp jmespath.Interface
+
+	urGenerator generator.UpdateRequestGenerator
 }
 
 // NewPolicyController create a new PolicyController
@@ -97,7 +100,7 @@ func NewPolicyController(
 	engine engineapi.Engine,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
-	urInformer kyvernov1beta1informers.UpdateRequestInformer,
+	urInformer kyvernov2informers.UpdateRequestInformer,
 	configuration config.Configuration,
 	eventGen event.Interface,
 	namespaces corev1informers.NamespaceInformer,
@@ -105,6 +108,7 @@ func NewPolicyController(
 	reconcilePeriod time.Duration,
 	metricsConfig metrics.MetricsConfigManager,
 	jp jmespath.Interface,
+	urGenerator generator.UpdateRequestGenerator,
 ) (*policyController, error) {
 	// Event broad caster
 	eventInterface := client.GetEventsInterface()
@@ -131,6 +135,7 @@ func NewPolicyController(
 		metricsConfig:   metricsConfig,
 		log:             log,
 		jp:              jp,
+		urGenerator:     urGenerator,
 	}
 
 	pc.pLister = pInformer.Lister()
@@ -159,7 +164,7 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 		val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
 		interval, err := time.ParseDuration(val)
 		if err != nil {
-			logger.V(4).Info("failed to parse BACKGROUND_SCAN_INTERVAL env variable, falling to default 1h", "msg", err.Error())
+			logger.V(4).Info("The BACKGROUND_SCAN_INTERVAL env variable is not set, therefore the default interval of 1h will be used.", "msg", err.Error())
 			interval = time.Hour
 		}
 		if p.GetCreationTimestamp().Add(interval).After(time.Now()) {
@@ -391,11 +396,11 @@ func (pc *policyController) requeuePolicies() {
 	}
 }
 
-func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
+func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, triggerResource *unstructured.Unstructured, ruleName string, policy kyvernov1.PolicyInterface) (skip bool, err error) {
 	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(triggerResource.GetKind(), triggerResource.GetNamespace(), pc.nsLister, pc.log)
 	policyContext, err := backgroundcommon.NewBackgroundContext(pc.log, pc.client, ur, policy, triggerResource, pc.configuration, pc.jp, namespaceLabels)
 	if err != nil {
-		return false, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err)
+		return false, fmt.Errorf("failed to build policy context for rule %s: %w", ruleName, err)
 	}
 
 	engineResponse := pc.engine.ApplyBackgroundChecks(context.TODO(), policyContext)
@@ -405,18 +410,25 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 
 	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
 		if ruleResponse.Status() != engineapi.RuleStatusPass {
-			pc.log.V(4).Info("skip creating URs on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status())
+			pc.log.V(4).Info("skip creating URs on policy update", "policy", policy.GetName(), "rule", ruleName, "rule.Status", ruleResponse.Status())
+			continue
+		}
+
+		if ruleResponse.Name() != ur.Spec.GetRuleName() {
 			continue
 		}
 
 		pc.log.V(2).Info("creating new UR for generate")
-		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 		if err != nil {
 			return false, err
 		}
+		if created == nil {
+			continue
+		}
 		updated := created.DeepCopy()
-		updated.Status.State = kyvernov1beta1.Pending
-		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		updated.Status.State = kyvernov2.Pending
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
