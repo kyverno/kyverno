@@ -131,9 +131,8 @@ spec:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -2119,6 +2118,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -4091,6 +4094,11 @@ spec:
                                   type: array
                               type: object
                             type: array
+                          cosignOCI11:
+                            description: |-
+                              CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                              Defaults to false.
+                            type: boolean
                           image:
                             description: Deprecated. Use ImageReferences instead.
                             type: string
@@ -6356,6 +6364,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -8362,6 +8375,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignOCI11:
+                                description: |-
+                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                                  Defaults to false.
+                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
@@ -8697,9 +8715,8 @@ spec:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -10281,6 +10298,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -14667,6 +14688,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -16673,6 +16699,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignOCI11:
+                                description: |-
+                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                                  Defaults to false.
+                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string

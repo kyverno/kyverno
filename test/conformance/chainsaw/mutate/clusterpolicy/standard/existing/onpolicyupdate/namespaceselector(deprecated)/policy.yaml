@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: org-label-inheritance-existing
+  annotations:  
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  mutateExistingOnPolicyUpdate: true
+  validationFailureAction: Enforce
+  rules:
+  - name: propagate org label from namespace
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          namespaceSelector:
+            matchExpressions:
+              - key: org
+                operator: Exists
+    context:
+    - name: org
+      apiCall:
+        urlPath: /api/v1/namespaces/{{ request.object.metadata.namespace }}
+        jmesPath: metadata.labels.org
+    mutate:
+      targets:
+      - apiVersion: v1
+        kind: Pod
+        namespace: "{{ request.object.metadata.namespace }}"
+        name: "{{ request.object.metadata.name }}"
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            org: "{{ org }}"
