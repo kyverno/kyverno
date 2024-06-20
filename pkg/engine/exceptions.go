@@ -3,7 +3,7 @@ package engine
 import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"k8s.io/client-go/tools/cache"
@@ -13,7 +13,7 @@ func findExceptions(
 	selector engineapi.PolicyExceptionSelector,
 	policy kyvernov1.PolicyInterface,
 	rule string,
-) ([]*kyvernov2alpha1.PolicyException, error) {
+) ([]*kyvernov2beta1.PolicyException, error) {
 	if selector == nil {
 		return nil, nil
 	}
@@ -25,7 +25,7 @@ func matchesException(
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
-) (*kyvernov2alpha1.PolicyException, error) {
+) (*kyvernov2beta1.PolicyException, error) {
 	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
 	if err != nil {
 		return nil, err
