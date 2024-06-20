@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
@@ -63,10 +62,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().ClusterPolicies().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("policies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().Policies().Informer()}, nil
-
-		// Group=kyverno.io, Version=v1beta1
-	case v1beta1.SchemeGroupVersion.WithResource("updaterequests"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1beta1().UpdateRequests().Informer()}, nil
 
 		// Group=kyverno.io, Version=v2
 	case v2.SchemeGroupVersion.WithResource("cleanuppolicies"):

@@ -403,6 +403,7 @@ GOPATH_SHIM                 := ${PWD}/.gopath
 PACKAGE_SHIM                := $(GOPATH_SHIM)/src/$(PACKAGE)
 OUT_PACKAGE                 := $(PACKAGE)/pkg/client
 INPUT_DIRS                  := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2
+CLIENT_INPUT_DIRS           := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v2,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2
 CLIENTSET_PACKAGE           := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE             := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
@@ -432,7 +433,7 @@ codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 		--clientset-name versioned \
 		--output-package $(CLIENTSET_PACKAGE) \
 		--input-base "" \
-		--input $(INPUT_DIRS)
+		--input $(CLIENT_INPUT_DIRS)
 
 .PHONY: codegen-client-listers
 codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
@@ -441,7 +442,7 @@ codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
 	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-package $(LISTERS_PACKAGE) \
-		--input-dirs $(INPUT_DIRS)
+		--input-dirs $(CLIENT_INPUT_DIRS)
 
 .PHONY: codegen-client-informers
 codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
@@ -450,7 +451,7 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-package $(INFORMERS_PACKAGE) \
-		--input-dirs $(INPUT_DIRS) \
+		--input-dirs $(CLIENT_INPUT_DIRS) \
 		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned \
 		--listers-package $(LISTERS_PACKAGE)
 

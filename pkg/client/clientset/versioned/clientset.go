@@ -23,7 +23,6 @@ import (
 	"net/http"
 
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
@@ -37,7 +36,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	KyvernoV1() kyvernov1.KyvernoV1Interface
-	KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface
 	KyvernoV2() kyvernov2.KyvernoV2Interface
 	KyvernoV2beta1() kyvernov2beta1.KyvernoV2beta1Interface
 	KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface
@@ -49,7 +47,6 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	kyvernoV1           *kyvernov1.KyvernoV1Client
-	kyvernoV1beta1      *kyvernov1beta1.KyvernoV1beta1Client
 	kyvernoV2           *kyvernov2.KyvernoV2Client
 	kyvernoV2beta1      *kyvernov2beta1.KyvernoV2beta1Client
 	kyvernoV2alpha1     *kyvernov2alpha1.KyvernoV2alpha1Client
@@ -60,11 +57,6 @@ type Clientset struct {
 // KyvernoV1 retrieves the KyvernoV1Client
 func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
 	return c.kyvernoV1
-}
-
-// KyvernoV1beta1 retrieves the KyvernoV1beta1Client
-func (c *Clientset) KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface {
-	return c.kyvernoV1beta1
 }
 
 // KyvernoV2 retrieves the KyvernoV2Client
@@ -140,10 +132,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.kyvernoV1beta1, err = kyvernov1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.kyvernoV2, err = kyvernov2.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -186,7 +174,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.kyvernoV1 = kyvernov1.New(c)
-	cs.kyvernoV1beta1 = kyvernov1beta1.New(c)
 	cs.kyvernoV2 = kyvernov2.New(c)
 	cs.kyvernoV2beta1 = kyvernov2beta1.New(c)
 	cs.kyvernoV2alpha1 = kyvernov2alpha1.New(c)
