@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
@@ -433,7 +434,7 @@ type Validation struct {
 
 	// Pattern specifies an overlay-style pattern used to check resources.
 	// +optional
-	RawPattern *apiextv1.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
+	RawPattern kjson.Any `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 
 	// AnyPattern specifies list of validation patterns. At least one of the patterns
 	// must be satisfied for the validation rule to succeed.
@@ -578,11 +579,11 @@ func deserializePattern(pattern apiextensions.JSON) ([]interface{}, error) {
 }
 
 func (v *Validation) GetPattern() apiextensions.JSON {
-	return FromJSON(v.RawPattern)
+	return v.RawPattern.Value
 }
 
 func (v *Validation) SetPattern(in apiextensions.JSON) {
-	v.RawPattern = ToJSON(in)
+	v.RawPattern.Value = in
 }
 
 func (v *Validation) GetAnyPattern() apiextensions.JSON {
@@ -594,11 +595,11 @@ func (v *Validation) SetAnyPattern(in apiextensions.JSON) {
 }
 
 func (v *Validation) GetForeach() apiextensions.JSON {
-	return FromJSON(v.RawPattern)
+	return v.RawPattern.Value
 }
 
 func (v *Validation) SetForeach(in apiextensions.JSON) {
-	v.RawPattern = ToJSON(in)
+	v.RawPattern.Value = in
 }
 
 // Deny specifies a list of conditions used to pass or fail a validation rule.

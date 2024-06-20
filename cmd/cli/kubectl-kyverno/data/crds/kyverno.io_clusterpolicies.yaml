@@ -3337,6 +3337,7 @@ spec:
                         pattern:
                           description: Pattern specifies an overlay-style pattern
                             used to check resources.
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                         podSecurity:
                           description: |-
@@ -7621,6 +7622,7 @@ spec:
                             pattern:
                               description: Pattern specifies an overlay-style pattern
                                 used to check resources.
+                              type: object
                               x-kubernetes-preserve-unknown-fields: true
                             podSecurity:
                               description: |-
@@ -15958,6 +15960,7 @@ spec:
                             pattern:
                               description: Pattern specifies an overlay-style pattern
                                 used to check resources.
+                              type: object
                               x-kubernetes-preserve-unknown-fields: true
                             podSecurity:
                               description: |-

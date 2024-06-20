@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	v1alpha1 "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -28,7 +29,7 @@ type ValidationApplyConfiguration struct {
 	Message           *string                               `json:"message,omitempty"`
 	Manifests         *ManifestsApplyConfiguration          `json:"manifests,omitempty"`
 	ForEachValidation []ForEachValidationApplyConfiguration `json:"foreach,omitempty"`
-	RawPattern        *apiextensionsv1.JSON                 `json:"pattern,omitempty"`
+	RawPattern        *v1alpha1.Any                         `json:"pattern,omitempty"`
 	RawAnyPattern     *apiextensionsv1.JSON                 `json:"anyPattern,omitempty"`
 	Deny              *DenyApplyConfiguration               `json:"deny,omitempty"`
 	PodSecurity       *PodSecurityApplyConfiguration        `json:"podSecurity,omitempty"`
@@ -73,7 +74,7 @@ func (b *ValidationApplyConfiguration) WithForEachValidation(values ...*ForEachV
 // WithRawPattern sets the RawPattern field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawPattern field is set to the value of the last call.
-func (b *ValidationApplyConfiguration) WithRawPattern(value apiextensionsv1.JSON) *ValidationApplyConfiguration {
+func (b *ValidationApplyConfiguration) WithRawPattern(value v1alpha1.Any) *ValidationApplyConfiguration {
 	b.RawPattern = &value
 	return b
 }
