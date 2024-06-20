@@ -148,10 +148,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	}()
 
 	go h.auditPool.Submit(func() {
-		_ = h.reportsBreaker.Do(ctx, func(context.Context) error {
-			vh.HandleValidationAudit(ctx, request)
-			return nil
-		})
+		vh.HandleValidationAudit(ctx, request)
 	})
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
 		h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime, nil)

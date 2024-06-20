@@ -177,16 +177,16 @@ func (v *imageVerificationHandler) handleAudit(
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
 			if createReport {
-				_ = v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-					report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
-					if len(report.GetResults()) > 0 {
+				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
+				if len(report.GetResults()) > 0 {
+					err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
 						_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
-						if err != nil {
-							v.log.Error(err, "failed to create report")
-						}
+						return err
+					})
+					if err != nil {
+						v.log.Error(err, "failed to create report")
 					}
-					return nil
-				})
+				}
 			}
 		},
 		trace.WithLinks(trace.LinkFromContext(ctx)),

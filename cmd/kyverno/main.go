@@ -517,7 +517,7 @@ func main() {
 			setup.KyvernoClient,
 			backgroundServiceAccountName,
 		)
-		ephrs, err := StartAdmissionReportsWatcher(signalCtx, setup.MetadataClient)
+		ephrs, err := StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
 			setup.Logger.Error(errors.New("failed to start admission reports watcher"), "failed to start admission reports watcher")
 			os.Exit(1)

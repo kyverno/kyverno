@@ -7,7 +7,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/metric"
 )
 
@@ -16,46 +15,48 @@ type Breaker interface {
 }
 
 type breaker struct {
-	open func(context.Context) bool
+	name  string
+	drops sdkmetric.Int64Counter
+	total sdkmetric.Int64Counter
+	open  func(context.Context) bool
 }
 
 func NewBreaker(name string, open func(context.Context) bool) *breaker {
 	logger := logging.WithName("cricuit-breaker")
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
-	breakerOpen, err := meter.Int64ObservableGauge(
-		"kyverno_circuitbreaker_open",
-		sdkmetric.WithDescription("track circuit breakers state"),
+	drops, err := meter.Int64Counter(
+		"kyverno_admissionreports_drops",
+		sdkmetric.WithDescription("track number of admission reports dropped"),
 	)
 	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_controller_reconcile_total")
+		logger.Error(err, "Failed to create instrument, kyverno_admissionreports_drops")
 	}
-	b := &breaker{
-		open: open,
+	total, err := meter.Int64Counter(
+		"kyverno_admissionreports_total",
+		sdkmetric.WithDescription("track number of admission reports processed"),
+	)
+	if err != nil {
+		logger.Error(err, "Failed to create instrument, kyverno_admissionreports_total")
 	}
-	if breakerOpen != nil {
-		callback := func(ctx context.Context, observer metric.Observer) error {
-			value := 0
-			if open(ctx) {
-				value = 1
-			}
-			observer.ObserveInt64(
-				breakerOpen,
-				int64(value),
-				metric.WithAttributes(
-					attribute.String("name", name),
-				),
-			)
-			return nil
-		}
-		if _, err := meter.RegisterCallback(callback, breakerOpen); err != nil {
-			logger.Error(err, "failed to register callback")
-		}
+	return &breaker{
+		name:  name,
+		drops: drops,
+		total: total,
+		open:  open,
 	}
-	return b
 }
 
 func (b *breaker) Do(ctx context.Context, inner func(context.Context) error) error {
+	attributes := sdkmetric.WithAttributes(
+		attribute.String("circuit_name", b.name),
+	)
+	if b.total != nil {
+		b.total.Add(ctx, 1, attributes)
+	}
 	if b.open(ctx) {
+		if b.drops != nil {
+			b.drops.Add(ctx, 1, attributes)
+		}
 		return nil
 	}
 	return inner(ctx)

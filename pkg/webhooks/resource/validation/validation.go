@@ -227,14 +227,15 @@ func (v *validationHandler) createReports(
 	request handlers.AdmissionRequest,
 	engineResponses ...engineapi.EngineResponse,
 ) error {
-	return v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
-		report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, engineResponses...)
-		if len(report.GetResults()) > 0 {
+	report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, engineResponses...)
+	if len(report.GetResults()) > 0 {
+		err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateReport(ctx, report, v.kyvernoClient)
-			if err != nil {
-				return err
-			}
+			return err
+		})
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	return nil
 }
