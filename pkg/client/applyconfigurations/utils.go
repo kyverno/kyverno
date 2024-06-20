@@ -243,8 +243,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.SpecApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
-	case v2beta1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
-		return &kyvernov2beta1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=reports.kyverno.io, Version=v1
 	case reportsv1.SchemeGroupVersion.WithKind("ClusterEphemeralReport"):
