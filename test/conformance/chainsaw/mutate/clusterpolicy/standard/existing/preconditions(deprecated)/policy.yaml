@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test
+spec:
+  mutateExistingOnPolicyUpdate: true
+  rules:
+    - name: test
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - default
+      mutate:
+        targets:
+          - kind: Pod
+            apiVersion: '*'
+            name: '*'
+            namespace: "{{ request.object.metadata.name }}"
+            preconditions:
+              all:
+                - key: "{{ target.metadata.annotations.\"policy.lan/value\" }}"
+                  operator: Equals
+                  value: foo
+        patchStrategicMerge:
+          metadata:
+            labels:
+              policy-applied: 'true'
