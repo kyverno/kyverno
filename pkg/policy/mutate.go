@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -14,7 +14,7 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 	logger := pc.log.WithName("handleMutate").WithName(policyKey)
 	logger.Info("update URs on policy event")
 
-	ruleType := kyvernov1beta1.Mutate
+	ruleType := kyvernov2.Mutate
 	policyNew := policy.CreateDeepCopy()
 	policyNew.GetSpec().Rules = nil
 
@@ -50,7 +50,7 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 	return nil
 }
 
-func (pc *policyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
+func (pc *policyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov2.UpdateRequest {
 	mutateURs, err := pc.urLister.List(labels.SelectorFromSet(backgroundcommon.MutateLabelsSet(policyKey, trigger)))
 	if err != nil {
 		pc.log.Error(err, "failed to list update request for mutate policy")
