@@ -45,7 +45,6 @@ type UpdateRequestStatus struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Policy",type="string",JSONPath=".spec.policy"
 // +kubebuilder:printcolumn:name="Rule",type="string",JSONPath=".spec.rule"
@@ -56,6 +55,7 @@ type UpdateRequestStatus struct {
 // +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=ur,categories=kyverno
+// +kubebuilder:deprecatedversion
 
 // UpdateRequest is a request to process mutate and generate rules in background.
 type UpdateRequest struct {

@@ -14,7 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/d4f"
@@ -53,7 +53,7 @@ type resourceHandlers struct {
 
 	// listers
 	nsLister   corev1listers.NamespaceLister
-	urLister   kyvernov1beta1listers.UpdateRequestNamespaceLister
+	urLister   kyvernov2listers.UpdateRequestNamespaceLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 
@@ -75,7 +75,7 @@ func NewHandlers(
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
 	nsLister corev1listers.NamespaceLister,
-	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
+	urLister kyvernov2listers.UpdateRequestNamespaceLister,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	urGenerator webhookgenerate.Generator,

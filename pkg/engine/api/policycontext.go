@@ -2,7 +2,7 @@ package api
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,7 +17,7 @@ type PolicyContext interface {
 	NewResource() unstructured.Unstructured
 	OldResource() unstructured.Unstructured
 	SetResources(oldResource, newResource unstructured.Unstructured) error
-	AdmissionInfo() kyvernov1beta1.RequestInfo
+	AdmissionInfo() kyvernov2.RequestInfo
 	Operation() kyvernov1.AdmissionOperation
 	NamespaceLabels() map[string]string
 	RequestResource() metav1.GroupVersionResource

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    org: kyverno-test
+  name: test-org
+  namespace: org-label-inheritance-existing-standard-ns

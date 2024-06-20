@@ -509,7 +509,7 @@ func main() {
 		// create webhooks server
 		urgen := webhookgenerate.NewGenerator(
 			setup.KyvernoClient,
-			kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+			kyvernoInformer.Kyverno().V2().UpdateRequests(),
 			urGenerator,
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
@@ -533,7 +533,7 @@ func main() {
 			setup.MetricsManager,
 			policyCache,
 			kubeInformer.Core().V1().Namespaces().Lister(),
-			kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			urgen,

@@ -1030,9 +1030,10 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 	}
 
 	spec := policy.GetSpec()
-	if spec.WebhookTimeoutSeconds != nil {
-		if dst.maxWebhookTimeout < *spec.WebhookTimeoutSeconds {
-			dst.maxWebhookTimeout = *spec.WebhookTimeoutSeconds
+	webhookTimeoutSeconds := spec.GetWebhookTimeoutSeconds()
+	if webhookTimeoutSeconds != nil {
+		if dst.maxWebhookTimeout < *webhookTimeoutSeconds {
+			dst.maxWebhookTimeout = *webhookTimeoutSeconds
 		}
 	}
 }

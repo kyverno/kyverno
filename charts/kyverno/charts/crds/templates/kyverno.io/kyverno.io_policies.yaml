@@ -114,11 +114,8 @@ spec:
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
-                description: |-
-                  FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-                  Rules within the same policy share the same failure behavior.
-                  This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
-                  Allowed values are Ignore or Fail. Defaults to Fail.
+                description: Deprecated, use failurePolicy under the webhookConfiguration
+                  instead.
                 enum:
                 - Ignore
                 - Fail
@@ -131,9 +128,8 @@ spec:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -2119,6 +2115,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -4091,6 +4091,11 @@ spec:
                                   type: array
                               type: object
                             type: array
+                          cosignOCI11:
+                            description: |-
+                              CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                              Defaults to false.
+                            type: boolean
                           image:
                             description: Deprecated. Use ImageReferences instead.
                             type: string
@@ -4290,12 +4295,23 @@ spec:
                   type: object
                 type: array
               webhookConfiguration:
-                description: |-
-                  WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-                  Requires Kubernetes 1.27 or later.
+                description: WebhookConfiguration specifies the custom configuration
+                  for Kubernetes admission webhookconfiguration.
                 properties:
+                  failurePolicy:
+                    description: |-
+                      FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+                      Rules within the same policy share the same failure behavior.
+                      This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
+                      Allowed values are Ignore or Fail. Defaults to Fail.
+                    enum:
+                    - Ignore
+                    - Fail
+                    type: string
                   matchConditions:
-                    description: MatchCondition configures admission webhook matchConditions.
+                    description: |-
+                      MatchCondition configures admission webhook matchConditions.
+                      Requires Kubernetes 1.27 or later.
                     items:
                       description: MatchCondition represents a condition which must
                         by fulfilled for a request to be sent to a webhook.
@@ -4336,12 +4352,17 @@ spec:
                       - name
                       type: object
                     type: array
+                  timeoutSeconds:
+                    description: |-
+                      TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+                      After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+                      based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                    format: int32
+                    type: integer
                 type: object
               webhookTimeoutSeconds:
-                description: |-
-                  WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-                  After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-                  based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                description: Deprecated, use webhookTimeoutSeconds under webhookConfiguration
+                  instead.
                 format: int32
                 type: integer
             type: object
@@ -6356,6 +6377,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -8362,6 +8388,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignOCI11:
+                                description: |-
+                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                                  Defaults to false.
+                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
@@ -8681,10 +8712,8 @@ spec:
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
-                description: |-
-                  FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-                  Rules within the same policy share the same failure behavior.
-                  Allowed values are Ignore or Fail. Defaults to Fail.
+                description: Deprecated, use failurePolicy under the webhookConfiguration
+                  instead.
                 enum:
                 - Ignore
                 - Fail
@@ -8697,9 +8726,8 @@ spec:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -10281,6 +10309,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -12602,12 +12634,23 @@ spec:
                   type: object
                 type: array
               webhookConfiguration:
-                description: |-
-                  WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-                  Requires Kubernetes 1.27 or later.
+                description: WebhookConfiguration specifies the custom configuration
+                  for Kubernetes admission webhookconfiguration.
                 properties:
+                  failurePolicy:
+                    description: |-
+                      FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+                      Rules within the same policy share the same failure behavior.
+                      This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
+                      Allowed values are Ignore or Fail. Defaults to Fail.
+                    enum:
+                    - Ignore
+                    - Fail
+                    type: string
                   matchConditions:
-                    description: MatchCondition configures admission webhook matchConditions.
+                    description: |-
+                      MatchCondition configures admission webhook matchConditions.
+                      Requires Kubernetes 1.27 or later.
                     items:
                       description: MatchCondition represents a condition which must
                         by fulfilled for a request to be sent to a webhook.
@@ -12648,12 +12691,17 @@ spec:
                       - name
                       type: object
                     type: array
+                  timeoutSeconds:
+                    description: |-
+                      TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+                      After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+                      based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                    format: int32
+                    type: integer
                 type: object
               webhookTimeoutSeconds:
-                description: |-
-                  WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-                  After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-                  based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                description: Deprecated, use webhookTimeoutSeconds under webhookConfiguration
+                  instead.
                 format: int32
                 type: integer
             type: object
@@ -14667,6 +14715,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -16673,6 +16726,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignOCI11:
+                                description: |-
+                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                                  Defaults to false.
+                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
