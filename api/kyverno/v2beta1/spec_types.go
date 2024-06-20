@@ -287,7 +287,6 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace 
 func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
 	if s.WebhookTimeoutSeconds != nil && s.WebhookConfiguration != nil && s.WebhookConfiguration.TimeoutSeconds != nil {
 		errs = append(errs, field.Forbidden(path.Child("webhookTimeoutSeconds"), "remove the deprecated field and use spec.webhookConfiguration.timeoutSeconds instead"))
-
 	}
 
 	if s.FailurePolicy != nil && s.WebhookConfiguration != nil && s.WebhookConfiguration.FailurePolicy != nil {
