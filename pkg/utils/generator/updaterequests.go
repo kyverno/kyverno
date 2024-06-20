@@ -31,7 +31,7 @@ func (g *updaterequestsgenerator) Generate(ctx context.Context, client versioned
 	objects, err := g.metaClient.Resource(
 		schema.GroupVersionResource{
 			Group:    "kyverno.io",
-			Version:  "v1beta1",
+			Version:  "v2",
 			Resource: "updaterequests",
 		},
 	).List(ctx, metav1.ListOptions{})
