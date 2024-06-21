@@ -62,6 +62,10 @@ func (h validateImageHandler) Process(
 		}
 	}
 
+	if !policyContext.Policy().IsReady() {
+		return resource, handlers.WithError(rule, engineapi.Validation, "policy is not ready", nil)
+	}
+
 	skippedImages := make([]string, 0)
 	passedImages := make([]string, 0)
 	for _, v := range rule.VerifyImages {

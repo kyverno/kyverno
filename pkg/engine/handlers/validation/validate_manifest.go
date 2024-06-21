@@ -74,6 +74,10 @@ func (h validateManifestHandler) Process(
 		}
 	}
 
+	if !policyContext.Policy().IsReady() {
+		return resource, handlers.WithError(rule, engineapi.Validation, "policy is not ready", nil)
+	}
+
 	// verify manifest
 	verified, reason, err := h.verifyManifest(ctx, logger, policyContext, *rule.Validation.Manifests)
 	if err != nil {

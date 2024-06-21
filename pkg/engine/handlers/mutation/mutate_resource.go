@@ -45,6 +45,10 @@ func (h mutateResourceHandler) Process(
 		}
 	}
 
+	if !policyContext.Policy().IsReady() {
+		return resource, handlers.WithError(rule, engineapi.Validation, "policy is not ready", nil)
+	}
+
 	_, subresource := policyContext.ResourceKind()
 	logger.V(3).Info("processing mutate rule")
 	var parentResourceGVR metav1.GroupVersionResource
