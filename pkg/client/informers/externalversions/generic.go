@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
@@ -64,21 +63,9 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case v1.SchemeGroupVersion.WithResource("policies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().Policies().Informer()}, nil
 
-		// Group=kyverno.io, Version=v1beta1
-	case v1beta1.SchemeGroupVersion.WithResource("updaterequests"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1beta1().UpdateRequests().Informer()}, nil
-
 		// Group=kyverno.io, Version=v2
-	case v2.SchemeGroupVersion.WithResource("admissionreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().AdmissionReports().Informer()}, nil
-	case v2.SchemeGroupVersion.WithResource("backgroundscanreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().BackgroundScanReports().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("cleanuppolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().CleanupPolicies().Informer()}, nil
-	case v2.SchemeGroupVersion.WithResource("clusteradmissionreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterAdmissionReports().Informer()}, nil
-	case v2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterBackgroundScanReports().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("clustercleanuppolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2().ClusterCleanupPolicies().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("policyexceptions"):
