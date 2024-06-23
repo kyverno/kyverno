@@ -53,10 +53,13 @@ func (b *breaker) Do(ctx context.Context, inner func(context.Context) error) err
 	if b.total != nil {
 		b.total.Add(ctx, 1, attributes)
 	}
-	if b.open(ctx) {
+	if b.open != nil && b.open(ctx) {
 		if b.drops != nil {
 			b.drops.Add(ctx, 1, attributes)
 		}
+		return nil
+	}
+	if inner == nil {
 		return nil
 	}
 	return inner(ctx)
