@@ -9,7 +9,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -85,7 +85,7 @@ func PolicyLabel(policy engineapi.GenericPolicy) string {
 	return PolicyLabelPrefix(policy) + policy.GetName()
 }
 
-func PolicyExceptionLabel(exception kyvernov2beta1.PolicyException) string {
+func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
 	return LabelPrefixPolicyException + exception.GetName()
 }
 
@@ -164,7 +164,7 @@ func SetPolicyLabel(report reportsv1.ReportInterface, policy engineapi.GenericPo
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
 }
 
-func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyvernov2beta1.PolicyException) {
+func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyvernov2.PolicyException) {
 	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
