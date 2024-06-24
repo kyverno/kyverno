@@ -11,7 +11,6 @@ import (
 	json_patch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -40,7 +39,7 @@ type PolicyProcessor struct {
 	Store                     *store.Store
 	Policies                  []kyvernov1.PolicyInterface
 	Resource                  unstructured.Unstructured
-	PolicyExceptions          []*kyvernov2beta1.PolicyException
+	PolicyExceptions          []*kyvernov2.PolicyException
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 *variables.Variables

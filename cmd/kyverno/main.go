@@ -221,7 +221,7 @@ func createrLeaderControllers(
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
+			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
