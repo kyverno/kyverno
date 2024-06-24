@@ -25,18 +25,18 @@ func NewBreaker(name string, open func(context.Context) bool) *breaker {
 	logger := logging.WithName("cricuit-breaker")
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	drops, err := meter.Int64Counter(
-		"kyverno_admissionreports_drops",
-		sdkmetric.WithDescription("track number of admission reports dropped"),
+		"kyverno_breaker_drops",
+		sdkmetric.WithDescription("track the number of times the breaker failed open and dropped"),
 	)
 	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_admissionreports_drops")
+		logger.Error(err, "Failed to create instrument, kyverno_breaker_drops")
 	}
 	total, err := meter.Int64Counter(
-		"kyverno_admissionreports_total",
-		sdkmetric.WithDescription("track number of admission reports processed"),
+		"kyverno_breaker_total",
+		sdkmetric.WithDescription("track number of times the breaker was invoked"),
 	)
 	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_admissionreports_total")
+		logger.Error(err, "Failed to create instrument, kyverno_breaker_total")
 	}
 	return &breaker{
 		name:  name,
