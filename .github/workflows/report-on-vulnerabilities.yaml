@@ -138,7 +138,11 @@ jobs:
 
       - name: Set scan output
         id: set-scan-output
-        run: echo "results=$(python3 beautifier.py)" >> $GITHUB_OUTPUT
+        run: |
+          python3 beautifier.py 
+          python3 beautifier.py >> $$GITHUB_STEP_SUMMARY
+          result=python3 beautifier.py
+           echo "results=$(echo $result)" >> $GITHUB_OUTPUT
 
       - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
         env:
