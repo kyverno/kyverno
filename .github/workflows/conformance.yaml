@@ -129,6 +129,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -198,6 +200,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -272,6 +276,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -341,6 +347,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -414,6 +422,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -490,6 +500,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -565,6 +577,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -644,6 +658,8 @@ jobs:
         uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@fb8d1817d2571303daf88f49d3a23daeb7474e84
@@ -734,6 +750,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -843,6 +861,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -968,6 +988,8 @@ jobs:
           name: kubectl-kyverno
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        with:
+          release: v0.2.5-rc.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
