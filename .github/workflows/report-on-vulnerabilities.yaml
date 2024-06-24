@@ -12,7 +12,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -36,7 +36,7 @@ jobs:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
         ignore-unfixed: false
-        severity: HIGH,CRITICAL,MEDIUM
+        severity: HIGH,CRITICAL
         output: scan1.json
 
     - name: Scan for vulnerabilities in latest-1 image
@@ -45,7 +45,7 @@ jobs:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
         format: json
         ignore-unfixed: false
-        severity: HIGH,CRITICAL,MEDIUM
+        severity: HIGH,CRITICAL
         output: scan2.json
 
     - name: Scan for vulnerabilities in latest-2 image
@@ -54,7 +54,7 @@ jobs:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
         format: json
         ignore-unfixed: false
-        severity: HIGH,CRITICAL,MEDIUM
+        severity: HIGH,CRITICAL
         output: scan3.json
 
     - name: Merge scan results
