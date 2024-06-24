@@ -102,37 +102,37 @@ jobs:
         id: beautifier
         run: |
           cat > beautifier.py<<EOF
-            import json
+          import json
 
-            # Load the JSON file
-            file_path = 'scan.json'
-            with open(file_path, 'r') as file:
-                json_data = json.load(file)
-            
-            # Extract the artifact name
-            artifact_name = json_data['Results'][0]['Target']
-            
-            # Extract vulnerabilities
-            vulnerabilities = json_data['Results'][1]['Vulnerabilities']
-            
-            # Create markdown content
-            markdown_content = f'ArtifactName: "{artifact_name}"\n\n'
-            markdown_content += "| VulnerabilityID | Severity | CVSS | InstalledVersion | FixedVersion | Status | Title |\n"
-            markdown_content += "|---|---|---|---|---|---|---|\n"
-            
-            for vuln in vulnerabilities:
-                vuln_id = vuln.get('VulnerabilityID', 'N/A')
-                severity = vuln.get('Severity', 'N/A')
-                cvss = vuln.get('CVSS', {}).get('ghsa', {}).get('V3Score', 'N/A')
-                installed_version = vuln.get('InstalledVersion', 'N/A')
-                fixed_version = vuln.get('FixedVersion', 'N/A')
-                status = vuln.get('Status', 'N/A')
-                title = vuln.get('Title', 'N/A')
+          # Load the JSON file
+          file_path = 'scan.json'
+          with open(file_path, 'r') as file:
+              json_data = json.load(file)
+          
+          # Extract the artifact name
+          artifact_name = json_data['Results'][0]['Target']
+          
+          # Extract vulnerabilities
+          vulnerabilities = json_data['Results'][1]['Vulnerabilities']
+          
+          # Create markdown content
+          markdown_content = f'ArtifactName: "{artifact_name}"\n\n'
+          markdown_content += "| VulnerabilityID | Severity | CVSS | InstalledVersion | FixedVersion | Status | Title |\n"
+          markdown_content += "|---|---|---|---|---|---|---|\n"
+          
+          for vuln in vulnerabilities:
+              vuln_id = vuln.get('VulnerabilityID', 'N/A')
+              severity = vuln.get('Severity', 'N/A')
+              cvss = vuln.get('CVSS', {}).get('ghsa', {}).get('V3Score', 'N/A')
+              installed_version = vuln.get('InstalledVersion', 'N/A')
+              fixed_version = vuln.get('FixedVersion', 'N/A')
+              status = vuln.get('Status', 'N/A')
+              title = vuln.get('Title', 'N/A')
 
-                markdown_content += f"| {vuln_id} | {severity} | {cvss} | {installed_version} | {fixed_version} | {status} | {title} |\n"
-            
-            # Print markdown content
-            print(markdown_content)
+              markdown_content += f"| {vuln_id} | {severity} | {cvss} | {installed_version} | {fixed_version} | {status} | {title} |\n"
+          
+          # Print markdown content
+          print(markdown_content)
 
           EOF
 
