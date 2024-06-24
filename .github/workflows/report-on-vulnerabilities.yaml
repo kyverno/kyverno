@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: kyverno
+  IMAGE_NAME: kyverno/kyverno
 
 jobs:
   scan:
