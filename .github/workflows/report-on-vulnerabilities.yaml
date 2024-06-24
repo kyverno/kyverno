@@ -143,7 +143,6 @@ jobs:
       - name: Set scan output
         id: set-scan-output
         run: |
-          python3 beautifier.py 
           python3 beautifier.py >> $GITHUB_STEP_SUMMARY
           result=$(python3 beautifier.py)
           artifact_name=$(echo "$result" | grep "ArtifactName:" | cut -d ':' -f2- | xargs)
