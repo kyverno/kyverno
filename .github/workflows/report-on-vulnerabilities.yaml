@@ -34,7 +34,7 @@ jobs:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
         ignore-unfixed: false
-        severity: HIGH,CRITICAL,LOW,MEDIUM
+        severity: HIGH,CRITICAL,MEDIUM
         output: scan1.json
 
     - name: Scan for vulnerabilities in latest-1 image
@@ -43,7 +43,7 @@ jobs:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
         format: json
         ignore-unfixed: false
-        severity: HIGH,CRITICAL,LOW,MEDIUM
+        severity: HIGH,CRITICAL,MEDIUM
         output: scan2.json
 
     - name: Scan for vulnerabilities in latest-2 image
@@ -52,7 +52,7 @@ jobs:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
         format: json
         ignore-unfixed: false
-        severity: HIGH,CRITICAL,LOW,MEDIUM
+        severity: HIGH,CRITICAL,MEDIUM
         output: scan3.json
 
     - name: Merge scan results
