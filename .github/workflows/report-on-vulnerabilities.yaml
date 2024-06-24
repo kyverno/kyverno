@@ -6,11 +6,13 @@ permissions: {}
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: '23 2 * * *' # Every day at 02:23
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: kyverno/kyverno
-
+  IMAGE_NAME: ${{ github.repository }}
+  
 jobs:
   scan:
     runs-on: ubuntu-latest
