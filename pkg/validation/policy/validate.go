@@ -133,7 +133,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
-	if policy.GetSpec().CustomWebhookConfiguration() &&
+	if policy.GetSpec().CustomWebhookMatchConditions() &&
 		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
 	}

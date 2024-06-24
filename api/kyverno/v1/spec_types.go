@@ -119,8 +119,8 @@ type Spec struct {
 	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty" yaml:"webhookConfiguration,omitempty"`
 }
 
-func (s *Spec) CustomWebhookConfiguration() bool {
-	return s.WebhookConfiguration != nil
+func (s *Spec) CustomWebhookMatchConditions() bool {
+	return s.WebhookConfiguration != nil && len(s.WebhookConfiguration.MatchConditions) != 0
 }
 
 func (s *Spec) SetRules(rules []Rule) {

@@ -4,9 +4,7 @@ metadata:
   name: validate-yaml
 spec:
   validationFailureAction: Enforce
-  background: false
-  webhookTimeoutSeconds: 30
-  failurePolicy: Fail  
+  background: false  
   rules:
     - name: validate-yaml
       match:
@@ -40,3 +38,6 @@ spec:
                   ignoreTlog: true
                 ctlog:
                   ignoreSCT: true
+  webhookConfiguration:
+    timeoutSeconds: 30
+    failurePolicy: Fail
