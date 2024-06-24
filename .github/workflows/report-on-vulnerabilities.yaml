@@ -117,7 +117,8 @@ jobs:
           
           # Create markdown content
           #markdown_content = f'ArtifactName: "{artifact_name}"\n\n'
-          markdown_content  = "| VulnerabilityID | Severity | CVSS | InstalledVersion | FixedVersion | Status | Title |\n"
+          markdown_content = "\n"  # Add an empty line before the table
+          markdown_content += "| VulnerabilityID | Severity | CVSS | InstalledVersion | FixedVersion | Status | Title |\n"
           markdown_content += "|---|---|---|---|---|---|---|\n"
           
           for vuln in vulnerabilities:
@@ -131,6 +132,8 @@ jobs:
 
               markdown_content += f"| {vuln_id} | {severity} | {cvss} | {installed_version} | {fixed_version} | {status} | {title} |\n"
           
+          # Add an empty line after the table
+          markdown_content += "\n"
           # Print markdown content
           print(markdown_content)
 
@@ -142,7 +145,9 @@ jobs:
           python3 beautifier.py 
           python3 beautifier.py >> $GITHUB_STEP_SUMMARY
           result=$(python3 beautifier.py)
-           echo "results=$(echo $result)" >> $GITHUB_OUTPUT
+          echo "results<<EOF" >> $GITHUB_OUTPUT
+          echo "$result" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
         env:
