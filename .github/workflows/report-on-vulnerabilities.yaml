@@ -110,7 +110,7 @@ jobs:
               json_data = json.load(file)
           
           # Extract the artifact name
-          artifact_name = json_data['Results'][0]['Target']
+          artifact_name = json_data['ArtifactName']
           
           # Extract vulnerabilities
           vulnerabilities = json_data['Results'][1]['Vulnerabilities']
