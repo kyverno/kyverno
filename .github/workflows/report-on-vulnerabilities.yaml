@@ -116,8 +116,7 @@ jobs:
           vulnerabilities = json_data['Results'][1]['Vulnerabilities']
           
           # Create markdown content
-          #markdown_content = f'ArtifactName: "{artifact_name}"\n\n'
-          markdown_content = "\n"  # Add an empty line before the table
+          markdown_content = f'ArtifactName: "{artifact_name}"\n\n'
           markdown_content += "| VulnerabilityID | Severity | CVSS | InstalledVersion | FixedVersion | Status | Title |\n"
           markdown_content += "|---|---|---|---|---|---|---|\n"
           
@@ -145,13 +144,16 @@ jobs:
           python3 beautifier.py 
           python3 beautifier.py >> $GITHUB_STEP_SUMMARY
           result=$(python3 beautifier.py)
+          artifact_name=$(echo "$result" | grep "ArtifactName:" | cut -d ':' -f2- | xargs)
           echo "results<<EOF" >> $GITHUB_OUTPUT
           echo "$result" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          echo "artifact_name=$artifact_name" >> $GITHUB_OUTPUT
 
       - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RESULTS: ${{ steps.set-scan-output.outputs.results }}
+          ARTIFACT_NAME: ${{ steps.set-scan-output.outputs.artifact_name }}
         with:
           filename: .github/ISSUE_TEMPLATE/VULN-TEMPLATE.md
