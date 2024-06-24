@@ -92,13 +92,53 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
       - name: Download scan
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
           name: scan.json
+
+      - name: Beautifier Trivy Scan Output
+        id: beautifier
+        run: |
+          cat > beautifier.py<<EOF
+            import json
+
+            # Load the JSON file
+            file_path = 'scan.json'
+            with open(file_path, 'r') as file:
+                json_data = json.load(file)
+            
+            # Extract the artifact name
+            artifact_name = json_data['Results'][0]['Target']
+            
+            # Extract vulnerabilities
+            vulnerabilities = json_data['Results'][1]['Vulnerabilities']
+            
+            # Create markdown content
+            markdown_content = f'ArtifactName: "{artifact_name}"\n\n'
+            markdown_content += "| VulnerabilityID | Severity | CVSS | InstalledVersion | FixedVersion | Status | Title |\n"
+            markdown_content += "|---|---|---|---|---|---|---|\n"
+            
+            for vuln in vulnerabilities:
+                vuln_id = vuln.get('VulnerabilityID', 'N/A')
+                severity = vuln.get('Severity', 'N/A')
+                cvss = vuln.get('CVSS', {}).get('ghsa', {}).get('V3Score', 'N/A')
+                installed_version = vuln.get('InstalledVersion', 'N/A')
+                fixed_version = vuln.get('FixedVersion', 'N/A')
+                status = vuln.get('Status', 'N/A')
+                title = vuln.get('Title', 'N/A')
+
+                markdown_content += f"| {vuln_id} | {severity} | {cvss} | {installed_version} | {fixed_version} | {status} | {title} |\n"
+            
+            # Print markdown content
+            print(markdown_content)
+
+          EOF
+
       - name: Set scan output
         id: set-scan-output
-        run: echo "results=$(cat scan.json | jq -c)" >> $GITHUB_OUTPUT
+        run: echo "results=$(python3 beautifier.py)" >> $GITHUB_OUTPUT
 
       - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
         env:
