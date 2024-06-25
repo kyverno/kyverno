@@ -1,0 +1,49 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-resources
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail  
+  rules:
+    - name: validate-resources
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+              - Pod
+            name: test*
+      exclude:
+        any:
+        - resources:
+            kinds:
+              - Pod
+          subjects:
+          - kind: ServiceAccount
+            namespace: kube-system
+            name: replicaset-controller
+        - resources:
+            kinds:
+              - ReplicaSet
+          subjects:
+          - kind: ServiceAccount
+            namespace: kube-system
+            name: deployment-controller
+      validate:
+        manifests:
+          attestors:
+          - entries:
+            - keys: 
+                publicKeys:  |-
+                  -----BEGIN PUBLIC KEY-----
+                  MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
+                  BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
+                  -----END PUBLIC KEY-----
+                rekor:
+                  url: https://rekor.sigstore.dev
+                  ignoreTlog: true
+                ctlog:
+                  ignoreSCT: true
