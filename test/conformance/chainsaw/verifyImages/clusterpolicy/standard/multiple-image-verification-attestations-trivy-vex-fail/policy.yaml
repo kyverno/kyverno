@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: notary-verify-attestation
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keys
+  namespace: notary-verify-attestation
+data:
+  certificate: |-
+    -----BEGIN CERTIFICATE-----
+    MIIDmDCCAoCgAwIBAgIUCntgF4FftePAhEa6nZTsu/NMT3cwDQYJKoZIhvcNAQEL
+    BQAwTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0dGxl
+    MQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwHhcNMjQwNjEwMTYzMTQ2
+    WhcNMzQwNjA4MTYzMTQ2WjBMMQswCQYDVQQGEwJVUzELMAkGA1UECAwCV0ExEDAO
+    BgNVBAcMB1NlYXR0bGUxDzANBgNVBAoMBk5vdGFyeTENMAsGA1UEAwwEdGVzdDCC
+    ASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJkEGqbILiWye6C1Jz+jwwDY
+    k/rovpXzxS+EQDvfj/YKvx37Kr4cjboJORu3wtzICWhPUtVWZ21ShfjerKgNq0iB
+    mrlF4cqz2KcOfuUT3XBglH/NwhEAqOrGPQrMsoQEFWgnilr0RTc+j4vDnkdkcTj2
+    K/qPhQHRAeb97TdvFCqcZfAGqiOVUqzDGxd2INz/fJd4/nYRX3LJBn9pUGxqRwZV
+    ElP5B/aCBjJDdh6tAElT5aDnLGAB+3+W2YwG342ELyAl2ILpbSRUpKLNAfKEd7Nj
+    1moIl4or5AIlTkgewZ/AK68HPFJEV3SwNbzkgAC+/mLVCD8tqu0o0ziyIUJtoQMC
+    AwEAAaNyMHAwHQYDVR0OBBYEFFTIzCppwv0vZnAVmETPm1CfMdcYMB8GA1UdIwQY
+    MBaAFFTIzCppwv0vZnAVmETPm1CfMdcYMAkGA1UdEwQCMAAwDgYDVR0PAQH/BAQD
+    AgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0GCSqGSIb3DQEBCwUAA4IBAQB8/vfP
+    /TQ3X80JEZDsttdvd9NLm08bTJ/T+nh0DIiV10aHymQT9/u+iahfm1+7mj+uv8LS
+    Y63LepQCX5p9SoFzt513pbNYXMBbRrOKpth3DD49IPL2Gce86AFGydfrakd86CL1
+    9MhFeWhtRf0KndyUX8J2s7jbpoN8HrN4/wZygiEqbQWZG8YtIZ9EewmoVMYirQqH
+    EvW93NcgmjiELuhjndcT/kHjhf8fUAgSuxiPIy6ern02fJjw40KzgiKNvxMoI9su
+    G2zu6gXmxkw+x0SMe9kX+Rg4hCIjTUM7dc66XL5LcTp4S5YEZNVC40/FgTIZoK0e
+    r1dC2/Y1SmmrIoA1
+    -----END CERTIFICATE-----
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-image-attestation
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail  
+  rules:
+    - name: verify-attestation-notary
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      context:
+      - name: keys
+        configMap:
+          name: keys
+          namespace: notary-verify-attestation
+      verifyImages:
+      - type: Notary
+        imageReferences:
+          - "ghcr.io/kyverno/test-verify-image*"
+        attestations:
+          - type: trivy/vulnerability-fail-test
+            name: trivy
+            attestors:
+            - entries:
+              - certificates: 
+                  cert: "{{ keys.data.certificate }}"
+          - type: vex/cyclone-dx
+            name: vex
+            attestors:
+            - entries:
+              - certificates: 
+                  cert: "{{ keys.data.certificate }}"
+        validate:
+          deny:
+            conditions:
+              any:
+              - key: '{{ trivy.Vulnerabilities[*].VulnerabilityID }}'
+                operator: AnyNotIn
+                value: '{{ vex.vulnerabilities[*].id }}'
+          message: All vulnerabilities in trivy and vex should be same
