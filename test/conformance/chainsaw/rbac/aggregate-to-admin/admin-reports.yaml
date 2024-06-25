@@ -6,21 +6,6 @@ metadata:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
   - apiGroups:
-      - kyverno.io
-    resources:
-      - admissionreports
-      - clusteradmissionreports
-      - backgroundscanreports
-      - clusterbackgroundscanreports
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
       - reports.kyverno.io
     resources:
       - ephemeralreports
