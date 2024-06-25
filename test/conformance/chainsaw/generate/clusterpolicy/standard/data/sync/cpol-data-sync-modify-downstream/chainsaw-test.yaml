@@ -29,3 +29,15 @@ spec:
     try:
     - assert:
         file: chainsaw-step-05-assert-1-1.yaml
+  - name: step-06
+    try:
+    - apply:
+        file: chainsaw-step-06-apply-1-1.yaml
+  - name: step-07
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-08
+    try:
+    - assert:
+        file: chainsaw-step-08-assert-1-1.yaml
