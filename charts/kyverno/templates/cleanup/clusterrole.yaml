@@ -8,8 +8,6 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - admissionreports
-      - clusteradmissionreports
       - updaterequests
     verbs:
       - list
