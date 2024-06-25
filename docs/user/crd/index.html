@@ -147,11 +147,7 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-Rules within the same policy share the same failure behavior.
-This field should not be accessed directly, instead <code>GetFailurePolicy()</code> should be used.
-Allowed values are Ignore or Fail. Defaults to Fail.</p>
+<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -232,9 +228,7 @@ int32
 </em>
 </td>
 <td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -298,8 +292,7 @@ WebhookConfiguration
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-Requires Kubernetes 1.27 or later.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
 </td>
 </tr>
 </table>
@@ -422,11 +415,7 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-Rules within the same policy share the same failure behavior.
-This field should not be accessed directly, instead <code>GetFailurePolicy()</code> should be used.
-Allowed values are Ignore or Fail. Defaults to Fail.</p>
+<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -507,9 +496,7 @@ int32
 </em>
 </td>
 <td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -573,8 +560,7 @@ WebhookConfiguration
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-Requires Kubernetes 1.27 or later.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
 </td>
 </tr>
 </table>
@@ -1631,6 +1617,7 @@ string
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Spec">Spec</a>, 
+<a href="#kyverno.io/v1.WebhookConfiguration">WebhookConfiguration</a>, 
 <a href="#kyverno.io/v2beta1.Spec">Spec</a>)
 </p>
 <p>
@@ -3951,11 +3938,7 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-Rules within the same policy share the same failure behavior.
-This field should not be accessed directly, instead <code>GetFailurePolicy()</code> should be used.
-Allowed values are Ignore or Fail. Defaults to Fail.</p>
+<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -4036,9 +4019,7 @@ int32
 </em>
 </td>
 <td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -4102,8 +4083,7 @@ WebhookConfiguration
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-Requires Kubernetes 1.27 or later.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
 </td>
 </tr>
 </tbody>
@@ -4641,7 +4621,8 @@ expression evaluates to nil</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Spec">Spec</a>)
+<a href="#kyverno.io/v1.Spec">Spec</a>, 
+<a href="#kyverno.io/v2beta1.Spec">Spec</a>)
 </p>
 <p>
 <p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
@@ -4656,6 +4637,36 @@ expression evaluates to nil</p>
 <tbody>
 <tr>
 <td>
+<code>failurePolicy</code><br/>
+<em>
+<a href="#kyverno.io/v1.FailurePolicyType">
+FailurePolicyType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+This field should not be accessed directly, instead <code>GetFailurePolicy()</code> should be used.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>timeoutSeconds</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>matchConditions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
@@ -4665,7 +4676,8 @@ expression evaluates to nil</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>MatchCondition configures admission webhook matchConditions.</p>
+<p>MatchCondition configures admission webhook matchConditions.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </tbody>
@@ -7350,10 +7362,7 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-Rules within the same policy share the same failure behavior.
-Allowed values are Ignore or Fail. Defaults to Fail.</p>
+<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -7434,9 +7443,7 @@ int32
 </em>
 </td>
 <td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -7492,15 +7499,14 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>webhookConfiguration</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.WebhookConfiguration">
+<a href="#kyverno.io/v1.WebhookConfiguration">
 WebhookConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-Requires Kubernetes 1.27 or later.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
 </td>
 </tr>
 </table>
@@ -7623,10 +7629,7 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-Rules within the same policy share the same failure behavior.
-Allowed values are Ignore or Fail. Defaults to Fail.</p>
+<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -7707,9 +7710,7 @@ int32
 </em>
 </td>
 <td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -7765,15 +7766,14 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>webhookConfiguration</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.WebhookConfiguration">
+<a href="#kyverno.io/v1.WebhookConfiguration">
 WebhookConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-Requires Kubernetes 1.27 or later.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
 </td>
 </tr>
 </table>
@@ -9016,10 +9016,7 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-Rules within the same policy share the same failure behavior.
-Allowed values are Ignore or Fail. Defaults to Fail.</p>
+<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -9100,9 +9097,7 @@ int32
 </em>
 </td>
 <td>
-<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
 </td>
 </tr>
 <tr>
@@ -9158,15 +9153,14 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>webhookConfiguration</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.WebhookConfiguration">
+<a href="#kyverno.io/v1.WebhookConfiguration">
 WebhookConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-Requires Kubernetes 1.27 or later.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
 </td>
 </tr>
 </tbody>
@@ -9299,40 +9293,6 @@ CEL
 <td>
 <em>(Optional)</em>
 <p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v2beta1.WebhookConfiguration">WebhookConfiguration
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2beta1.Spec">Spec</a>)
-</p>
-<p>
-<p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>matchConditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
-[]Kubernetes admissionregistration/v1.MatchCondition
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MatchCondition configures admission webhook matchConditions.</p>
 </td>
 </tr>
 </tbody>
