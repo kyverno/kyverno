@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: image-verify-polset-failurepolicy-ignore
+spec:
+  background: false
+  failurePolicy: Ignore
+  rules:
+    - context:
+        - configMap:
+            name: myconfigmap
+            namespace: mynamespace
+          name: myconfigmap
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      name: image-verify-pol1
+      verifyImages:
+        - imageReferences:
+            - ghcr.io/*
+          mutateDigest: false
+          verifyDigest: false
+          attestors:
+            - entries:
+                - keys:
+                    publicKeys: '{{myconfigmap.data.configmapkey}}'
+                    rekor:
+                      url: https://rekor.sigstore.dev
+                      ignoreTlog: true
+                    ctlog:
+                      ignoreSCT: true
+  validationFailureAction: Audit
+  webhookTimeoutSeconds: 30

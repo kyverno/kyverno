@@ -2,7 +2,7 @@ package engine
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -10,7 +10,7 @@ import (
 func (e *engine) GetPolicyExceptions(
 	policy kyvernov1.PolicyInterface,
 	rule string,
-) ([]*kyvernov2beta1.PolicyException, error) {
+) ([]*kyvernov2.PolicyException, error) {
 	if e.exceptionSelector == nil {
 		return nil, nil
 	}

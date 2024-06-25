@@ -42,8 +42,8 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsInstalled(apiserverClient,
 		"clusterpolicyreports.wgpolicyk8s.io",
 		"policyreports.wgpolicyk8s.io",
-		"clusterbackgroundscanreports.kyverno.io",
-		"backgroundscanreports.kyverno.io",
+		"ephemeralreports.reports.kyverno.io",
+		"clusterephemeralreports.reports.kyverno.io",
 	)
 }
 
@@ -76,7 +76,7 @@ func createReportControllers(
 		vapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings()
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV2beta1 := kyvernoInformer.Kyverno().V2beta1()
+	kyvernoV2 := kyvernoInformer.Kyverno().V2()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
@@ -114,7 +114,7 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
-				kyvernoV2beta1.PolicyExceptions(),
+				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),

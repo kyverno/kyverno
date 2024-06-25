@@ -4,9 +4,7 @@ metadata:
   name: validate-yaml
 spec:
   validationFailureAction: Enforce
-  background: false
-  webhookTimeoutSeconds: 30
-  failurePolicy: Fail  
+  background: false 
   rules:
     - name: validate-yaml
       match:
@@ -31,3 +29,6 @@ spec:
                     MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE8uGVnyDWPPlB7M5KOHRzxzPHtAy
                     FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
                     -----END PUBLIC KEY-----
+  webhookConfiguration:
+    timeoutSeconds: 30
+    failurePolicy: Fail
