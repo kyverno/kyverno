@@ -28,7 +28,12 @@ It contains instructions to build, run, and test Kyverno.
   - [Generating helm charts docs](#generating-helm-charts-docs)
 - [Debugging local code](#debugging-local-code)
 - [Profiling](#profiling)
-- [Other Topics](#other-topics)
+- [API Design](#api-design)
+- [Controllers Design](#controllers-design)
+- [Logging](#logging)
+- [Feature Flags](#feature-flags)
+- [Reports Design](#reports-design)
+- [Troubleshooting](#troubleshooting)
 - [Selecting Issues](#selecting-issues)
 
 
@@ -499,14 +504,33 @@ go tool pprof heap.pprof
 ````
 
 ### Read more about profiling
+
 - [Profiling Golang Programs on Kubernetes](https://danlimerick.wordpress.com/2017/01/24/profiling-golang-programs-on-kubernetes/)
 - [Official GO blog](https://blog.golang.org/pprof)
 
+## API Design
 
-## Other Topics
+See [docs/dev/api](./docs/dev/api/README.md)
 
-Additional advanced developer docs are avaialable in the [developer docs folder](./docs/dev/).
+## Controllers Design
 
+See [docs/dev/controllers](./docs/dev/controllers/README.md)
+
+## Logging
+
+See [docs/dev/logging/logging.md](./docs/dev/logging/logging.md)
+
+## Feature Flags
+
+See [docs/dev/feature-flags](./docs/dev/feature-flags/README.md)
+
+## Reports Design
+
+See [docs/dev/reports](./docs/dev/reports/README.md)
+
+## Troubleshooting
+
+See [docs/dev/troubleshooting](./docs/dev/troubleshooting/)
 
 ## Selecting Issues
 

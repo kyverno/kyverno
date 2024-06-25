@@ -27,6 +27,7 @@ import (
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=polex,categories=kyverno
+// +kubebuilder:storageversion
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException struct {
@@ -99,6 +100,11 @@ func (p *PolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) 
 	exceptionsPath := path.Child("exceptions")
 	for i, e := range p.Exceptions {
 		errs = append(errs, e.Validate(exceptionsPath.Index(i))...)
+	}
+
+	podSecuityPath := path.Child("podSecurity")
+	for i, p := range p.PodSecurity {
+		errs = append(errs, p.Validate(podSecuityPath.Index(i))...)
 	}
 	return errs
 }

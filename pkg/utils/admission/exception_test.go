@@ -6,7 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/json"
 
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -56,7 +56,7 @@ func TestUnmarshalPolicyException(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				var exception *kyvernov2beta1.PolicyException
+				var exception *kyvernov2.PolicyException
 				json.Unmarshal(test.raw, &exception)
 				if !reflect.DeepEqual(result, exception) {
 					t.Errorf("Expected %+v, got %+v", exception, result)
@@ -155,7 +155,7 @@ func TestGetPolicyExceptions(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			p1, p2, _ := GetPolicyExceptions(test.args.request)
-			var empty *kyvernov2beta1.PolicyException
+			var empty *kyvernov2.PolicyException
 			expectedP1, err := UnmarshalPolicyException(test.args.request.Object.Raw)
 			if err != nil {
 				expectedP2 := empty

@@ -39,7 +39,7 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 		}
 		// filter by resource filters
 		if c.ToFilter(request.GroupVersionKind, request.SubResource, request.Namespace, request.Name) {
-			return filtered(ctx, logger, request, "admission request filtered because it apears in configmap resource filters")
+			return filtered(ctx, logger, request, "admission request filtered because it appears in configmap resource filters")
 		}
 		// filter kyverno resources
 		if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {

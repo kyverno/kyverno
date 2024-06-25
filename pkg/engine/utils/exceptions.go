@@ -3,7 +3,7 @@ package utils
 import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/utils/conditions"
@@ -15,7 +15,7 @@ import (
 
 // MatchesException takes a list of exceptions and checks if there is an exception applies to the incoming resource.
 // It returns the matched policy exception.
-func MatchesException(polexs []*kyvernov2beta1.PolicyException, policyContext engineapi.PolicyContext, logger logr.Logger) *kyvernov2beta1.PolicyException {
+func MatchesException(polexs []*kyvernov2.PolicyException, policyContext engineapi.PolicyContext, logger logr.Logger) *kyvernov2.PolicyException {
 	gvk, subresource := policyContext.ResourceKind()
 	resource := policyContext.NewResource()
 	if resource.Object == nil {
@@ -50,7 +50,7 @@ func checkMatchesResources(
 	resource unstructured.Unstructured,
 	statement kyvernov2beta1.MatchResources,
 	namespaceLabels map[string]string,
-	admissionInfo kyvernov1beta1.RequestInfo,
+	admissionInfo kyvernov2.RequestInfo,
 	gvk schema.GroupVersionKind,
 	subresource string,
 ) bool {
@@ -76,7 +76,7 @@ func checkResourceFilter(
 	statement kyvernov1.ResourceFilter,
 	resource unstructured.Unstructured,
 	namespaceLabels map[string]string,
-	admissionInfo kyvernov1beta1.RequestInfo,
+	admissionInfo kyvernov2.RequestInfo,
 	gvk schema.GroupVersionKind,
 	subresource string,
 ) bool {
@@ -156,7 +156,7 @@ func checkResourceDescription(
 	return true
 }
 
-func checkUserInfo(userInfo kyvernov1.UserInfo, admissionInfo kyvernov1beta1.RequestInfo) bool {
+func checkUserInfo(userInfo kyvernov1.UserInfo, admissionInfo kyvernov2.RequestInfo) bool {
 	if len(userInfo.Roles) > 0 {
 		if !datautils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
 			return false

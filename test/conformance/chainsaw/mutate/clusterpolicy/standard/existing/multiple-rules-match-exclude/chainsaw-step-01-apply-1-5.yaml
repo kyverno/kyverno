@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: cpol-multiple-rules-match-exclude
 spec:
-  mutateExistingOnPolicyUpdate: false
   rules:
   - match:
       any:
@@ -14,6 +13,7 @@ spec:
             matchLabels:
               policy.lan/flag: "true"
     mutate:
+      mutateExistingOnPolicyUpdate: false
       patchStrategicMerge:
         metadata:
           labels:

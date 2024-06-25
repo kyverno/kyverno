@@ -22,7 +22,7 @@ jobs:
     - name: Get Branches Name
       id: get-branches
       run: |
-        all_branches=$(curl -s https://api.github.com/repos/${{ env.IMAGE_NAME }}/branches | jq -r '.[].name | select(startswith("release-"))' | sort -rV | head -n 2)
+        all_branches=$(curl -s 'https://api.github.com/repos/${{ env.IMAGE_NAME }}/branches?per_page=100' | jq -r '.[].name | select(startswith("release-"))' | sort -rV | head -n 2)
         releasebranch1=$(echo "$all_branches" | sed -n 1p)
         releasebranch2=$(echo "$all_branches" | sed -n 2p)
 
@@ -30,7 +30,7 @@ jobs:
         echo "releasebranch2=$releasebranch2" >> $GITHUB_OUTPUT
     
     - name: Scan for vulnerabilities in latest image
-      uses: aquasecurity/trivy-action@fd25fed6972e341ff0007ddb61f77e88103953c2 # v0.8.0 (Trivy v0.34.0)
+      uses: aquasecurity/trivy-action@7c2007bcb556501da015201bcba5aa14069b74e2 # v0.8.0 (Trivy v0.34.0)
 
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -40,7 +40,7 @@ jobs:
         output: scan1.json
 
     - name: Scan for vulnerabilities in latest-1 image
-      uses: aquasecurity/trivy-action@fd25fed6972e341ff0007ddb61f77e88103953c2 # v0.8.0 (Trivy v0.34.0)
+      uses: aquasecurity/trivy-action@7c2007bcb556501da015201bcba5aa14069b74e2 # v0.8.0 (Trivy v0.34.0)
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
         format: json
@@ -49,7 +49,7 @@ jobs:
         output: scan2.json
 
     - name: Scan for vulnerabilities in latest-2 image
-      uses: aquasecurity/trivy-action@fd25fed6972e341ff0007ddb61f77e88103953c2 # v0.8.0 (Trivy v0.34.0)
+      uses: aquasecurity/trivy-action@7c2007bcb556501da015201bcba5aa14069b74e2 # v0.8.0 (Trivy v0.34.0)
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
         format: json
@@ -93,7 +93,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Download scan
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:

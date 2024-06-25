@@ -62,10 +62,6 @@ rules:
       - updaterequests/status
       - globalcontextentries
       - globalcontextentries/status
-      - admissionreports
-      - clusteradmissionreports
-      - backgroundscanreports
-      - clusterbackgroundscanreports
       - policyexceptions
     verbs:
       - create

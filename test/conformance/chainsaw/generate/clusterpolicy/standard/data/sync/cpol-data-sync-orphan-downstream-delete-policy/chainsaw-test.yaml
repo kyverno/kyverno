@@ -2,21 +2,21 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: cpol-data-sync-delete-policy
+  name: cpol-data-sync-delete-policy-with-orphan
 spec:
   steps:
   - name: step-01
     try:
     - apply:
-        file: chainsaw-step-01-apply-1-1.yaml
+        file: policy.yaml
     - assert:
-        file: chainsaw-step-01-assert-1-1.yaml
+        file: policy-ready.yaml
   - name: step-02
     try:
     - apply:
-        file: chainsaw-step-02-apply-1-1.yaml
+        file: namespace.yaml
     - assert:
-        file: chainsaw-step-02-assert-1-1.yaml
+        file: configmap.yaml
   - name: step-03
     try:
     - delete:
@@ -24,5 +24,39 @@ spec:
           apiVersion: kyverno.io/v1
           kind: ClusterPolicy
           name: cpol-data-sync-orphan-downstream-delete-policy
+    - error:
+        file: configmap-assert.yaml
+  - name: step-04
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Namespace
+          name: cpol-data-sync-orphan-downstream-delete-policy-ns
+  - name: step-05
+    try:
+    - apply:
+        file: policy.yaml
     - assert:
-        file: chainsaw-step-02-assert-1-1.yaml
+        file: policy-ready.yaml
+  - name: step-06
+    try:
+    - apply:
+        file: policy-orphan.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-07
+    try:
+    - apply:
+        file: namespace.yaml
+    - assert:
+        file: configmap.yaml
+  - name: step-08
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: cpol-data-sync-orphan-downstream-delete-policy
+    - assert:
+        file: configmap.yaml

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -27,7 +27,7 @@ func CheckMatchesResources(
 	resource unstructured.Unstructured,
 	statement kyvernov2beta1.MatchResources,
 	namespaceLabels map[string]string,
-	admissionInfo kyvernov1beta1.RequestInfo,
+	admissionInfo kyvernov2.RequestInfo,
 	gvk schema.GroupVersionKind,
 	subresource string,
 ) error {
@@ -76,7 +76,7 @@ func checkResourceFilter(
 	statement kyvernov1.ResourceFilter,
 	resource unstructured.Unstructured,
 	namespaceLabels map[string]string,
-	admissionInfo kyvernov1beta1.RequestInfo,
+	admissionInfo kyvernov2.RequestInfo,
 	gvk schema.GroupVersionKind,
 	subresource string,
 ) []error {
@@ -104,7 +104,7 @@ func checkResourceFilter(
 
 func checkUserInfo(
 	userInfo kyvernov1.UserInfo,
-	admissionInfo kyvernov1beta1.RequestInfo,
+	admissionInfo kyvernov2.RequestInfo,
 ) []error {
 	var errs []error
 	if len(userInfo.Roles) > 0 {

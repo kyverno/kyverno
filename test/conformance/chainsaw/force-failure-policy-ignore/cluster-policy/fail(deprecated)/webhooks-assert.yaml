@@ -1,0 +1,39 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-validating-webhook-cfg
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /validate/ignore
+      port: 443
+  failurePolicy: Ignore
+  matchPolicy: Equivalent
+  name: validate.kyverno.svc-ignore
+  sideEffects: NoneOnDryRun
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-resource-mutating-webhook-cfg
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /mutate/ignore
+      port: 443
+  failurePolicy: Ignore
+  matchPolicy: Equivalent
+  name: mutate.kyverno.svc-ignore
+  sideEffects: NoneOnDryRun

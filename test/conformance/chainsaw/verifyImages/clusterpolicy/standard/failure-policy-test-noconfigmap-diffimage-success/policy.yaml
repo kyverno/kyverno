@@ -6,7 +6,6 @@ metadata:
   name: image-verify-polset-failurepolicy-ignore
 spec:
   background: false
-  failurePolicy: Ignore
   rules:
     - context:
         - configMap:
@@ -34,4 +33,6 @@ spec:
                     ctlog:
                       ignoreSCT: true
   validationFailureAction: Audit
-  webhookTimeoutSeconds: 30
+  webhookConfiguration:
+    timeoutSeconds: 30
+    failurePolicy: Ignore

@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: test-post-mutation-create-policy
 spec:
-  mutateExistingOnPolicyUpdate: true
   rules:
   - match:
       any:
@@ -15,6 +14,7 @@ spec:
           namespaces:
           - staging-3
     mutate:
+      mutateExistingOnPolicyUpdate: true
       patchStrategicMerge:
         metadata:
           labels:

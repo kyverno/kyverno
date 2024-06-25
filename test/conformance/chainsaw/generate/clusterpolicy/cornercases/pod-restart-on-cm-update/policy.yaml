@@ -7,7 +7,6 @@ metadata:
       This policy generates and synchronizes a configmap for custom resource kube-state-metrics.
 spec:
   generateExisting: true
-  mutateExistingOnPolicyUpdate: false
   schemaValidation: false
   rules:
     - name: generate-cm-for-kube-state-metrics-crds
@@ -55,6 +54,7 @@ spec:
             operator: Equals
             value: UPDATE
       mutate:
+        mutateExistingOnPolicyUpdate: false
         targets:
           - apiVersion: apps/v1
             kind: Deployment

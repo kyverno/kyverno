@@ -28,10 +28,6 @@ import (
 )
 
 var (
-	factory, _ = resourceloader.New(openapiclient.NewComposite(
-		openapiclient.NewHardcodedBuiltins("1.28"),
-		openapiclient.NewLocalCRDFiles(data.Crds(), data.CrdsFolder),
-	))
 	policyV1              = schema.GroupVersion(kyvernov1.GroupVersion).WithKind("Policy")
 	policyV2              = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("Policy")
 	clusterPolicyV1       = schema.GroupVersion(kyvernov1.GroupVersion).WithKind("ClusterPolicy")
@@ -125,6 +121,20 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		return nil, err
 	}
 	results := &LoaderResults{}
+
+	crds, err := data.Crds()
+	if err != nil {
+		return nil, err
+	}
+
+	factory, err := resourceloader.New(openapiclient.NewComposite(
+		openapiclient.NewHardcodedBuiltins("1.30"),
+		openapiclient.NewLocalCRDFiles(crds),
+	))
+	if err != nil {
+		return nil, err
+	}
+
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {

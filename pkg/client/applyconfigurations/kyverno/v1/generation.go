@@ -26,6 +26,7 @@ import (
 // GenerationApplyConfiguration represents an declarative configuration of the Generation type for use
 // with apply.
 type GenerationApplyConfiguration struct {
+	GenerateExisting                *bool `json:"generateExisting,omitempty"`
 	*ResourceSpecApplyConfiguration `json:"ResourceSpec,omitempty"`
 	Synchronize                     *bool                        `json:"synchronize,omitempty"`
 	OrphanDownstreamOnPolicyDelete  *bool                        `json:"orphanDownstreamOnPolicyDelete,omitempty"`
@@ -38,6 +39,14 @@ type GenerationApplyConfiguration struct {
 // apply.
 func Generation() *GenerationApplyConfiguration {
 	return &GenerationApplyConfiguration{}
+}
+
+// WithGenerateExisting sets the GenerateExisting field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the GenerateExisting field is set to the value of the last call.
+func (b *GenerationApplyConfiguration) WithGenerateExisting(value bool) *GenerationApplyConfiguration {
+	b.GenerateExisting = &value
+	return b
 }
 
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value

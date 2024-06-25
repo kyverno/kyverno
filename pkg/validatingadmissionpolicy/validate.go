@@ -22,8 +22,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy/matching"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/generic"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
@@ -117,10 +118,10 @@ func Validate(
 
 	if client != nil {
 		nsLister := NewCustomNamespaceLister(client)
-		matcher := validatingadmissionpolicy.NewMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
+		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 
-		// convert policy from v1alpha1 to v1beta1
-		v1beta1policy := ConvertValidatingAdmissionPolicy(policy)
+		// convert policy from v1alpha1 to v1
+		v1policy := ConvertValidatingAdmissionPolicy(policy)
 
 		// construct admission attributes
 		gvr, err := client.Discovery().GetGVRFromGVK(gvk)
@@ -131,7 +132,7 @@ func Validate(
 
 		// check if policy matches the incoming resource
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-		isMatch, _, _, err := matcher.DefinitionMatches(a, o, &v1beta1policy)
+		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(&v1policy))
 		if err != nil {
 			return engineResponse, err
 		}
@@ -147,9 +148,9 @@ func Validate(
 		}
 
 		for i, binding := range bindings {
-			// convert policy binding from v1alpha1 to v1beta1
-			v1beta1binding := ConvertValidatingAdmissionPolicyBinding(binding)
-			isMatch, err := matcher.BindingMatches(a, o, &v1beta1binding)
+			// convert policy binding from v1alpha1 to v1
+			v1binding := ConvertValidatingAdmissionPolicyBinding(binding)
+			isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&v1binding))
 			if err != nil {
 				return engineResponse, err
 			}
@@ -215,7 +216,7 @@ func validateResource(
 	}
 
 	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchExpressions(optionalVars), &failPolicy, "", string(matchPolicy), "")
-	validator := validatingadmissionpolicy.NewValidator(
+	validator := validating.NewValidator(
 		compiler.CompileValidateExpressions(optionalVars),
 		newMatcher,
 		compiler.CompileAuditAnnotationsExpressions(optionalVars),
@@ -226,16 +227,16 @@ func validateResource(
 	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, &namespace, celconfig.RuntimeCELCostBudget, nil)
 
 	// no validations are returned if match conditions aren't met
-	if datautils.DeepEqual(validateResult, validatingadmissionpolicy.ValidateResult{}) {
+	if datautils.DeepEqual(validateResult, validating.ValidateResult{}) {
 		ruleResp = engineapi.RuleSkip(policy.GetName(), engineapi.Validation, "match conditions aren't met")
 	} else {
 		isPass := true
 		for _, policyDecision := range validateResult.Decisions {
-			if policyDecision.Evaluation == validatingadmissionpolicy.EvalError {
+			if policyDecision.Evaluation == validating.EvalError {
 				isPass = false
 				ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
 				break
-			} else if policyDecision.Action == validatingadmissionpolicy.ActionDeny {
+			} else if policyDecision.Action == validating.ActionDeny {
 				isPass = false
 				ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message)
 				break

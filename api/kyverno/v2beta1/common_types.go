@@ -2,17 +2,9 @@ package v2beta1
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
-
-// WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.
-type WebhookConfiguration struct {
-	// MatchCondition configures admission webhook matchConditions.
-	// +optional
-	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
-}
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {

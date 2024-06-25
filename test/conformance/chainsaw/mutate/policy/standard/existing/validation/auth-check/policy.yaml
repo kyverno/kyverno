@@ -4,7 +4,6 @@ metadata:
   name: pol-mutate-existing-auth-check
   namespace: pol-mutate-existing-auth-check-ns
 spec:
-  mutateExistingOnPolicyUpdate: true
   background: false
   rules:
   - name: label-privileged-namespaces
@@ -14,6 +13,7 @@ spec:
           kinds:
           - ConfigMap
     mutate:
+      mutateExistingOnPolicyUpdate: true
       targets:
         - apiVersion: v1
           kind: ServiceAccount
