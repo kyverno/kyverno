@@ -73,7 +73,7 @@ spec:
           nodeSelector:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if or .Values.cleanupJobs.updateRequests.podAntiAffinity .Values.cleanupJobs.updateRequests.podAffinity .Values.cleanupJobs.admissionReports.nodeAffinity }}
+          {{- if or .Values.cleanupJobs.updateRequests.podAntiAffinity .Values.cleanupJobs.updateRequests.podAffinity .Values.cleanupJobs.updateRequests.nodeAffinity }}
           affinity:
             {{- with .Values.cleanupJobs.updateRequests.podAntiAffinity }}
             podAntiAffinity:
