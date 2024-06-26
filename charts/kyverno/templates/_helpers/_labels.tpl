@@ -18,7 +18,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 
 {{- define "kyverno.labels.version" -}}
-app.kubernetes.io/version: {{ template "kyverno.chartVersion" . }}
+app.kubernetes.io/version: {{ template "kyverno.appVersion" .}}
 {{- end -}}
 
 {{- define "kyverno.labels.common" -}}
