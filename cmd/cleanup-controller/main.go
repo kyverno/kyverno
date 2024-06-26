@@ -143,13 +143,13 @@ func main() {
 		genericloggingcontroller.NewController(
 			setup.Logger.WithName("cleanup-policy"),
 			"CleanupPolicy",
-			kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
+			kyvernoInformer.Kyverno().V2().CleanupPolicies(),
 			genericloggingcontroller.CheckGeneration,
 		)
 		genericloggingcontroller.NewController(
 			setup.Logger.WithName("cluster-cleanup-policy"),
 			"ClusterCleanupPolicy",
-			kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
+			kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies(),
 			genericloggingcontroller.CheckGeneration,
 		)
 		eventGenerator := event.NewEventGenerator(
@@ -303,8 +303,8 @@ func main() {
 					cleanup.NewController(
 						setup.KyvernoDynamicClient,
 						setup.KyvernoClient,
-						kyvernoInformer.Kyverno().V2beta1().ClusterCleanupPolicies(),
-						kyvernoInformer.Kyverno().V2beta1().CleanupPolicies(),
+						kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies(),
+						kyvernoInformer.Kyverno().V2().CleanupPolicies(),
 						nsLister,
 						setup.Configuration,
 						cmResolver,

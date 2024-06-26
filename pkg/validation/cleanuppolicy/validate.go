@@ -6,7 +6,7 @@ import (
 	"regexp"
 
 	"github.com/go-logr/logr"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -42,7 +42,7 @@ func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets
 }
 
 // Validate checks policy is valid
-func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface, policy kyvernov2beta1.CleanupPolicyInterface) error {
+func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface, policy kyvernov2.CleanupPolicyInterface) error {
 	clusteredResources, err := FetchClusteredResources(logger, client)
 	if err != nil {
 		return err
@@ -61,13 +61,13 @@ func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface,
 }
 
 // validatePolicy checks the policy and rules declarations for required configurations
-func validatePolicy(clusterResources sets.Set[string], policy kyvernov2beta1.CleanupPolicyInterface) error {
+func validatePolicy(clusterResources sets.Set[string], policy kyvernov2.CleanupPolicyInterface) error {
 	errs := policy.Validate(clusterResources)
 	return errs.ToAggregate()
 }
 
 // validateAuth checks the the delete action is allowed
-func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov2beta1.CleanupPolicyInterface) error {
+func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov2.CleanupPolicyInterface) error {
 	namespace := policy.GetNamespace()
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
@@ -93,7 +93,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	return nil
 }
 
-func validateVariables(logger logr.Logger, policy kyvernov2beta1.CleanupPolicyInterface) error {
+func validateVariables(logger logr.Logger, policy kyvernov2.CleanupPolicyInterface) error {
 	ctx := enginecontext.NewMockContext(allowedVariables)
 
 	c := policy.GetSpec().Conditions
