@@ -19,12 +19,13 @@ func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 		return false, msg
 	}
 
-	if len(spec.ValidationFailureActionOverrides) > 1 {
+	validationFailureActionOverrides := spec.GetValidationFailureActionOverrides()
+	if len(validationFailureActionOverrides) > 1 {
 		msg = "skip generating ValidatingAdmissionPolicy: multiple validationFailureActionOverrides are not applicable."
 		return false, msg
 	}
 
-	if len(spec.ValidationFailureActionOverrides) != 0 && len(spec.ValidationFailureActionOverrides[0].Namespaces) != 0 {
+	if len(validationFailureActionOverrides) != 0 && len(validationFailureActionOverrides[0].Namespaces) != 0 {
 		msg = "skip generating ValidatingAdmissionPolicy: Namespaces in validationFailureActionOverrides is not applicable."
 		return false, msg
 	}

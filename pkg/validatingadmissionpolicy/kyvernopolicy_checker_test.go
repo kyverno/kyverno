@@ -395,6 +395,110 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "policy-with-multiple-validationFailureActionOverrides-in-validate-rule",
+			policy: []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "disallow-host-path"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "host-path",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "validate": {
+          "validationFailureAction": "Enforce",
+          "validationFailureActionOverrides": [
+            {
+              "action": "Enforce",
+              "namespaces": [
+                "default"
+              ]
+            },
+            {
+              "action": "Audit",
+              "namespaces": [
+                "test"
+              ]
+            }
+          ],
+          "cel": {
+            "expressions": [
+              {
+                "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+`),
+			expected: false,
+		},
+		{
+			name: "policy-with-namespace-in-validationFailureActionOverrides-in-validate-rule",
+			policy: []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "disallow-host-path"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "host-path",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "validate": {
+          "validationFailureAction": "Enforce",
+          "validationFailureActionOverrides": [
+            {
+              "action": "Enforce",
+              "namespaces": [
+                "test-ns"
+              ]
+            }
+          ],
+          "cel": {
+            "expressions": [
+              {
+                "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+`),
+			expected: false,
+		},
+		{
 			name: "policy-with-subjects-and-clusterroles",
 			policy: []byte(`
 {
