@@ -9,10 +9,8 @@ import (
 // +k8s:deepcopy-gen=false
 type Any struct {
 	// Value contains the value of the Any object.
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
 	// +optional
-	Value any `json:",inline"`
+	Value any `json:"-"`
 }
 
 func (in *Any) DeepCopyInto(out *Any) {
@@ -82,7 +80,9 @@ var ConditionOperators = map[string]ConditionOperator{
 
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
-	RawKey *Any `json:"key,omitempty" yaml:"key,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawKey Any `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
 	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
@@ -92,8 +92,9 @@ type Condition struct {
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using JMESPath.
-	// +optional
-	RawValue *Any `json:"value,omitempty" yaml:"value,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawValue Any `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// Message is an optional display message
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
