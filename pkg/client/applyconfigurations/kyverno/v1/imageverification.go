@@ -38,6 +38,7 @@ type ImageVerificationApplyConfiguration struct {
 	Attestations             []AttestationApplyConfiguration              `json:"attestations,omitempty"`
 	Annotations              map[string]string                            `json:"annotations,omitempty"`
 	Repository               *string                                      `json:"repository,omitempty"`
+	CosignOCI11              *bool                                        `json:"cosignOCI11,omitempty"`
 	MutateDigest             *bool                                        `json:"mutateDigest,omitempty"`
 	VerifyDigest             *bool                                        `json:"verifyDigest,omitempty"`
 	Validation               *ValidateImageVerificationApplyConfiguration `json:"validate,omitempty"`
