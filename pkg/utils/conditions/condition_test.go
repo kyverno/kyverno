@@ -34,11 +34,11 @@ func Test_checkCondition(t *testing.T) {
 			logger: logging.GlobalLogger(),
 			ctx:    ctx,
 			condition: kyvernov2.Condition{
-				RawKey: kyvernov2.Any{
+				RawKey: &kyvernov2.Any{
 					Value: "{{ request.object.name }}",
 				},
 				Operator: kyvernov2.ConditionOperators["Equals"],
-				RawValue: kyvernov2.Any{
+				RawValue: &kyvernov2.Any{
 					Value: "dummy",
 				},
 			},

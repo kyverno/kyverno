@@ -82,7 +82,7 @@ type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
-	RawKey Any `json:"key,omitempty" yaml:"key,omitempty"`
+	RawKey *Any `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
 	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
@@ -94,26 +94,40 @@ type Condition struct {
 	// or can be variables declared using JMESPath.
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
-	RawValue Any `json:"value,omitempty" yaml:"value,omitempty"`
+	RawValue *Any `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// Message is an optional display message
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() any {
+	if c.RawKey == nil {
+		return nil
+	}
 	return c.RawKey.Value
 }
 
 func (c *Condition) SetKey(in any) {
-	c.RawKey.Value = in
+	var new *Any
+	if in != nil {
+		new = &Any{in}
+	}
+	c.RawKey = new
 }
 
 func (c *Condition) GetValue() any {
+	if c.RawValue == nil {
+		return nil
+	}
 	return c.RawValue.Value
 }
 
 func (c *Condition) SetValue(in any) {
-	c.RawValue.Value = in
+	var new *Any
+	if in != nil {
+		new = &Any{in}
+	}
+	c.RawValue = new
 }
 
 type AnyAllConditions struct {
