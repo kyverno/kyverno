@@ -3430,7 +3430,6 @@ ResourceDescription
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>, 
-<a href="#kyverno.io/v2.MatchResources">MatchResources</a>, 
 <a href="#kyverno.io/v2beta1.MatchResources">MatchResources</a>)
 </p>
 <p>
@@ -5313,7 +5312,7 @@ CleanupPolicySpec
 <td>
 <code>match</code><br/>
 <em>
-<a href="#kyverno.io/v2.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -5329,7 +5328,7 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v2.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -5462,7 +5461,7 @@ CleanupPolicySpec
 <td>
 <code>match</code><br/>
 <em>
-<a href="#kyverno.io/v2.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -5478,7 +5477,7 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v2.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -5623,7 +5622,7 @@ MatchResources
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.AnyAllConditions">
+<a href="#kyverno.io/v2.AnyAllConditions">
 AnyAllConditions
 </a>
 </em>
@@ -5880,7 +5879,8 @@ Kubernetes admission/v1.Operation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>)
+<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>, 
+<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 </p>
@@ -5929,6 +5929,11 @@ Here, all of the conditions need to pass.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2.CleanupPolicyInterface">CleanupPolicyInterface
+</h3>
+<p>
+<p>CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)</p>
+</p>
 <h3 id="kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec
 </h3>
 <p>
@@ -5966,7 +5971,7 @@ and schedule when the matching resources needs deleted.</p>
 <td>
 <code>match</code><br/>
 <em>
-<a href="#kyverno.io/v2.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -5982,7 +5987,7 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v2.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -6194,55 +6199,6 @@ references a ClusterPolicy.</p>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2.MatchResources">MatchResources
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>)
-</p>
-<p>
-<p>MatchResources is used to specify resource and admission review request data for
-which a policy rule is applicable.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>any</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceFilters">
-ResourceFilters
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Any allows specifying resources which will be ORed</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>all</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceFilters">
-ResourceFilters
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>All allows specifying resources which will be ANDed</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec
 </h3>
 <p>
@@ -6290,7 +6246,7 @@ MatchResources
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.AnyAllConditions">
+<a href="#kyverno.io/v2.AnyAllConditions">
 AnyAllConditions
 </a>
 </em>
@@ -7939,7 +7895,6 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
 <a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
@@ -7992,11 +7947,6 @@ Here, all of the conditions need to pass.</p>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2beta1.CleanupPolicyInterface">CleanupPolicyInterface
-</h3>
-<p>
-<p>CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)</p>
-</p>
 <h3 id="kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec
 </h3>
 <p>
@@ -8463,6 +8413,7 @@ bool
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
