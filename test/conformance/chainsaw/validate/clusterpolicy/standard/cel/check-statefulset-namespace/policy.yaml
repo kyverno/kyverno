@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-statefulset-namespace
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: statefulset-namespace
@@ -13,6 +12,7 @@ spec:
             kinds:
               - StatefulSet
       validate:
+        validationFailureAction: Enforce
         cel:
           expressions:
             - expression: "namespaceObject.metadata.name == 'production'"
