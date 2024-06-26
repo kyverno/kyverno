@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: validate-resources
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: validate-resources
@@ -31,6 +30,7 @@ spec:
             namespace: kube-system
             name: deployment-controller
       validate:
+        validationFailureAction: Enforce
         manifests:
           attestors:
           - entries:

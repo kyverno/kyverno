@@ -10,11 +10,7 @@ groups:
   # -- Install CRDs in group `kyverno.io`
   # -- This field can be overwritten by setting crds.labels in the parent chart
   kyverno:
-    admissionreports: true
-    backgroundscanreports: true
     cleanuppolicies: true
-    clusteradmissionreports: true
-    clusterbackgroundscanreports: true
     clustercleanuppolicies: true
     clusterpolicies: true
     globalcontextentries: true

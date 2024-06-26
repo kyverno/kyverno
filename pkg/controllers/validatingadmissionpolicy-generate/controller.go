@@ -7,13 +7,13 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
+	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -48,7 +48,7 @@ type controller struct {
 
 	// listers
 	cpolLister       kyvernov1listers.ClusterPolicyLister
-	polexLister      kyvernov2beta1listers.PolicyExceptionLister
+	polexLister      kyvernov2listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyBindingLister
 
@@ -64,7 +64,7 @@ func NewController(
 	kyvernoClient versioned.Interface,
 	discoveryClient dclient.IDiscovery,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	polexInformer kyvernov2beta1informers.PolicyExceptionInformer,
+	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
@@ -148,12 +148,12 @@ func (c *controller) enqueuePolicy(obj kyvernov1.PolicyInterface) {
 	c.queue.Add(key)
 }
 
-func (c *controller) addException(obj *kyvernov2beta1.PolicyException) {
+func (c *controller) addException(obj *kyvernov2.PolicyException) {
 	logger.Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueException(obj)
 }
 
-func (c *controller) updateException(old, obj *kyvernov2beta1.PolicyException) {
+func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
@@ -161,14 +161,14 @@ func (c *controller) updateException(old, obj *kyvernov2beta1.PolicyException) {
 	c.enqueueException(obj)
 }
 
-func (c *controller) deleteException(obj *kyvernov2beta1.PolicyException) {
-	polex := kubeutils.GetObjectWithTombstone(obj).(*kyvernov2beta1.PolicyException)
+func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
+	polex := kubeutils.GetObjectWithTombstone(obj).(*kyvernov2.PolicyException)
 
 	logger.Info("policy exception deleted", "uid", polex.GetUID(), "kind", polex.GetKind(), "name", polex.GetName())
 	c.enqueueException(obj)
 }
 
-func (c *controller) enqueueException(obj *kyvernov2beta1.PolicyException) {
+func (c *controller) enqueueException(obj *kyvernov2.PolicyException) {
 	for _, exception := range obj.Spec.Exceptions {
 		// skip adding namespaced policies in the queue.
 		// skip adding policies with multiple rules in the queue.

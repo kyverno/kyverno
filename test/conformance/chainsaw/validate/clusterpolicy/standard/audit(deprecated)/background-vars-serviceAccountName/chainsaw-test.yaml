@@ -1,0 +1,18 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: background-vars-serviceaccountname
+spec:
+  steps:
+  - name: step-01
+    try:
+    - script:
+        content: kubectl apply -f manifests.yaml
+        check:
+          # This check below ensures that the string 'variable {{serviceAccountName}} is not allowed' is found in stderr or else fails
+          (contains($stderr, 'variable {{serviceAccountName}} is not allowed')): true
+  - name: step-02
+    try:
+    - error:
+        file: chainsaw-step-02-error-1-1.yaml

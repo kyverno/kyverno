@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-x509-decode
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: test-x509-decode
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - test-*
+    validate:
+      message: "public key modulus mismatch: \"{{ x509_decode('{{request.object.data.cert}}').PublicKey.N }}\" != \"{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').PublicKey.N }}\""
+      deny:
+        conditions:
+          any:
+            - key: "{{ x509_decode('{{request.object.data.cert}}').PublicKey.N }}"
+              operator: NotEquals
+              value: "{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').PublicKey.N }}"
