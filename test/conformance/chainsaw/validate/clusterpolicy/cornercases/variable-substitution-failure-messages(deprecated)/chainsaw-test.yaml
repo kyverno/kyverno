@@ -1,0 +1,33 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: variable-substitution-failure-messages
+spec:
+  steps:
+  - name: step-01 
+    try: 
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml    
+  - name: step-02  
+    try:  
+    - script:  
+        content: kubectl apply -f pod.yaml  
+        check:  
+          ($error != null): true
+          # This check ensures the contents of stderr are exactly as shown.  
+          ($stderr): |-
+            Error from server: error when creating "pod.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+            resource Pod/default/ba was blocked due to the following policies 
+
+            uid-groups-fsgroup-validate:
+              check-runasuser: 'validation error: Running with specific user IDs 9999 | 4000.
+                The fields spec.securityContext.runAsGroup, spec.containers[*].securityContext.runAsGroup,
+                spec.initContainers[*].securityContext.runAsGroup, and spec.ephemeralContainers[*].securityContext.runAsGroup
+                must be set to one of the 9999 | 4000 values. rule check-runasuser[0] failed at
+                path /spec/containers/0/securityContext/runAsUser/ rule check-runasuser[1] failed
+                at path /spec/containers/0/securityContext/runAsUser/'
+       

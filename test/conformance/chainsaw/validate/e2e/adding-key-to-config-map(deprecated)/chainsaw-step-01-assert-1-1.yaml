@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: configmap-policy
+  namespace: test-validate-e2e-adding-key-to-config-map
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
