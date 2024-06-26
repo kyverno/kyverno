@@ -71,7 +71,7 @@ type PolicyExceptionSpec struct {
 	// Conditions are used to determine if a resource applies to the exception by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements.
 	// +optional
-	Conditions *kyvernov2beta1.AnyAllConditions `json:"conditions,omitempty"`
+	Conditions *AnyAllConditions `json:"conditions,omitempty"`
 
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions" yaml:"exceptions"`
