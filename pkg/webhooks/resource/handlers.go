@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alitto/pond"
@@ -141,11 +142,11 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	var ok bool
 	var msg string
 	var warnings []string
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	ok, msg, warnings = vh.HandleValidationEnforce(ctx, request, policies, auditWarnPolicies, startTime)
-	// }()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ok, msg, warnings = vh.HandleValidationEnforce(ctx, request, policies, auditWarnPolicies, startTime)
+	}()
 
 	go h.auditPool.Submit(func() {
 		vh.HandleValidationAudit(ctx, request)
@@ -157,7 +158,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		return admissionutils.ResponseSuccess(request.UID)
 	}
 
-	// wg.Wait()
+	wg.Wait()
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
