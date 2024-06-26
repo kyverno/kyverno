@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: image-matches-namespace-environment.policy.example.com
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: image-matches-namespace-environment
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+      validate:
+        cel:
+          variables:
+            - name: environment
+              expression: "'environment' in namespaceObject.metadata.labels ? namespaceObject.metadata.labels['environment'] : 'prod'"
+            - name: exempt
+              expression: "has(object.metadata.labels) && 'exempt' in object.metadata.labels && object.metadata.labels['exempt'] == 'true'"
+            - name: containers
+              expression: "object.spec.template.spec.containers"
+            - name: containersToCheck
+              expression: "variables.containers.filter(c, c.image.contains('example.com/'))"
+          expressions:
+            - expression: "variables.exempt || variables.containersToCheck.all(c, c.image.startsWith(variables.environment + '.'))"
+              messageExpression: "'only ' + variables.environment + ' images are allowed in namespace ' + namespaceObject.metadata.name"

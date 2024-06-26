@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: goodpod
+  namespace: default
+  labels:
+    foo: bar
+spec:
+  containers:
+  - name: container01
+    image: busybox:1.35
+    args:
+    - sleep
+    - 1d

@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-statefulset-replicas
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: statefulset-replicas
@@ -13,6 +12,7 @@ spec:
             kinds:
               - StatefulSet
       validate:
+        validationFailureAction: Enforce
         cel:
           paramKind: 
             apiVersion: rules.example.com/v1

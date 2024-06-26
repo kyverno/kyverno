@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-deployment-replicas-1
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: deployment-replicas
@@ -13,6 +12,7 @@ spec:
             kinds:
               - Deployment
       validate:
+        validationFailureAction: Enforce
         cel:
           expressions:
             - expression: "authorizer.serviceAccount('default', 'test-account-1').group('apps').resource('deployments').namespace('default').check('delete').allowed()"

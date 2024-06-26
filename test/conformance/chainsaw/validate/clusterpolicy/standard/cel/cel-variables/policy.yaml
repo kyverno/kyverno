@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: image-matches-namespace-environment.policy.example.com
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: image-matches-namespace-environment
@@ -13,6 +12,7 @@ spec:
             kinds:
               - Deployment
       validate:
+        validationFailureAction: Enforce
         cel:
           variables:
             - name: environment
