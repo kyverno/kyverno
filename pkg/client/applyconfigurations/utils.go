@@ -165,6 +165,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=kyverno.io, Version=v2
 	case v2.SchemeGroupVersion.WithKind("AdmissionRequestInfoObject"):
 		return &kyvernov2.AdmissionRequestInfoObjectApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("Any"):
+		return &kyvernov2.AnyApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("AnyAllConditions"):
 		return &kyvernov2.AnyAllConditionsApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("CleanupPolicy"):

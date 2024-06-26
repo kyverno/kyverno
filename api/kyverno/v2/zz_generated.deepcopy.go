@@ -265,13 +265,11 @@ func (in *Condition) DeepCopyInto(out *Condition) {
 	*out = *in
 	if in.RawKey != nil {
 		in, out := &in.RawKey, &out.RawKey
-		*out = new(Any)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	if in.RawValue != nil {
 		in, out := &in.RawValue, &out.RawValue
-		*out = new(Any)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	return
 }

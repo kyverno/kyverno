@@ -71,6 +71,7 @@ spec:
                         key:
                           description: Key is the context entry (using JMESPath) for
                             conditional rule evaluation.
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                         message:
                           description: Message is an optional display message
@@ -101,6 +102,7 @@ spec:
                           description: |-
                             Value is the conditional value, or set of values. The values can be fixed set
                             or can be variables declared using JMESPath.
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
                     type: array
@@ -115,6 +117,7 @@ spec:
                         key:
                           description: Key is the context entry (using JMESPath) for
                             conditional rule evaluation.
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                         message:
                           description: Message is an optional display message
@@ -145,6 +148,7 @@ spec:
                           description: |-
                             Value is the conditional value, or set of values. The values can be fixed set
                             or can be variables declared using JMESPath.
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
                     type: array
