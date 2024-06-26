@@ -80,10 +80,10 @@ func newPolicyMap() *policyMap {
 }
 
 func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
-	if spec.ValidationFailureAction.Enforce() {
+	if spec.GetValidationFailureAction().Enforce() {
 		return true
 	}
-	for _, k := range spec.ValidationFailureActionOverrides {
+	for _, k := range spec.GetValidationFailureActionOverrides() {
 		if k.Action.Enforce() {
 			return true
 		}

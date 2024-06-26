@@ -78,8 +78,8 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace 
 }
 
 func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) bool {
-	validationFailureAction := policy.GetSpec().ValidationFailureAction
-	validationFailureActionOverrides := policy.GetSpec().ValidationFailureActionOverrides
+	validationFailureAction := policy.GetSpec().GetValidationFailureAction()
+	validationFailureActionOverrides := policy.GetSpec().GetValidationFailureActionOverrides()
 	if validationFailureAction.Enforce() != enforce && (ns == "" || len(validationFailureActionOverrides) == 0) {
 		return false
 	}

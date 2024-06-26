@@ -26,18 +26,12 @@ type Spec struct {
 	// Deprecated, use failurePolicy under the webhookConfiguration instead.
 	FailurePolicy *kyvernov1.FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
 
-	// ValidationFailureAction defines if a validation policy rule violation should block
-	// the admission review request (enforce), or allow (audit) the admission review request
-	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce. The default value is "Audit".
-	// +optional
+	// Deprecated, use validationFailureAction under the validate rule instead.
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	// +kubebuilder:default=Audit
 	ValidationFailureAction kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
-	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-	// +optional
+	// Deprecated, use validationFailureActionOverrides under the validate rule instead.
 	ValidationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
 	// Admission controls if rules are applied during admission.
@@ -201,6 +195,32 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	}
 
 	return *s.Background
+}
+
+// GetValidationFailureAction returns the value of the validationFailureAction
+func (s *Spec) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
+	for _, rule := range s.Rules {
+		if rule.HasValidate() {
+			validationFailureAction := rule.Validation.ValidationFailureAction
+			if validationFailureAction != nil {
+				return *validationFailureAction
+			}
+		}
+	}
+	return s.ValidationFailureAction
+}
+
+// GetValidationFailureActionOverrides returns the value of the validationFailureActionOverrides
+func (s *Spec) GetValidationFailureActionOverrides() []kyvernov1.ValidationFailureActionOverride {
+	for _, rule := range s.Rules {
+		if rule.HasValidate() {
+			validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
+			if len(validationFailureActionOverrides) != 0 {
+				return validationFailureActionOverrides
+			}
+		}
+	}
+	return s.ValidationFailureActionOverrides
 }
 
 // GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
