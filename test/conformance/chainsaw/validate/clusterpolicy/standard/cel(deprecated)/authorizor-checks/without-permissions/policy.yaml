@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-deployment-replicas-1
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deployment-replicas
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+      validate:
+        cel:
+          expressions:
+            - expression: "authorizer.serviceAccount('default', 'test-account-1').group('apps').resource('deployments').namespace('default').check('delete').allowed()"
+              message: "The user isn't allowed to delete deployments in the 'default' namespace."
+            - expression: "object.spec.replicas <= 3"
+              message: "Deployment spec.replicas must be less than 3."

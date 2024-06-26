@@ -82,7 +82,6 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 }
 
 func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.ResourceSpec, policyCtx engineapi.PolicyContext) ([]resourceInfo, error) {
-	var targetObjects []resourceInfo
 	namespace := target.Namespace
 	name := target.Name
 	policy := policyCtx.Policy()
@@ -95,6 +94,7 @@ func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.R
 	if err != nil {
 		return nil, err
 	}
+	targetObjects := make([]resourceInfo, 0, len(resources))
 	for _, resource := range resources {
 		targetObjects = append(targetObjects, resourceInfo{
 			unstructured: resource.Unstructured,

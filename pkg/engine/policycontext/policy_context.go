@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -31,7 +32,7 @@ type PolicyContext struct {
 	element unstructured.Unstructured
 
 	// admissionInfo contains the admission request information
-	admissionInfo kyvernov1beta1.RequestInfo
+	admissionInfo kyvernov2.RequestInfo
 
 	// operation contains the admission operatipn
 	operation kyvernov1.AdmissionOperation
@@ -97,7 +98,7 @@ func (c *PolicyContext) ResourceKind() (schema.GroupVersionKind, string) {
 	return c.gvk, c.subresource
 }
 
-func (c *PolicyContext) AdmissionInfo() kyvernov1beta1.RequestInfo {
+func (c *PolicyContext) AdmissionInfo() kyvernov2.RequestInfo {
 	return c.admissionInfo
 }
 
@@ -125,6 +126,10 @@ func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }
 
+func (c PolicyContext) Copy() engineapi.PolicyContext {
+	return &c
+}
+
 // Mutators
 
 func (c PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {
@@ -137,7 +142,7 @@ func (c PolicyContext) WithNamespaceLabels(namespaceLabels map[string]string) *P
 	return &c
 }
 
-func (c PolicyContext) WithAdmissionInfo(admissionInfo kyvernov1beta1.RequestInfo) *PolicyContext {
+func (c PolicyContext) WithAdmissionInfo(admissionInfo kyvernov2.RequestInfo) *PolicyContext {
 	c.admissionInfo = admissionInfo
 	return &c
 }
@@ -185,7 +190,7 @@ func NewPolicyContext(
 	jp jmespath.Interface,
 	resource unstructured.Unstructured,
 	operation kyvernov1.AdmissionOperation,
-	admissionInfo *kyvernov1beta1.RequestInfo,
+	admissionInfo *kyvernov2.RequestInfo,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
 	enginectx := enginectx.NewContext(jp)
@@ -232,7 +237,7 @@ func NewPolicyContext(
 func NewPolicyContextFromAdmissionRequest(
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
-	admissionInfo kyvernov1beta1.RequestInfo,
+	admissionInfo kyvernov2.RequestInfo,
 	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
@@ -261,7 +266,7 @@ func NewPolicyContextFromAdmissionRequest(
 func newJsonContext(
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
-	userRequestInfo *kyvernov1beta1.RequestInfo,
+	userRequestInfo *kyvernov2.RequestInfo,
 ) (enginectx.Interface, error) {
 	engineCtx := enginectx.NewContext(jp)
 	if err := engineCtx.AddRequest(request); err != nil {

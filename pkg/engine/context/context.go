@@ -8,7 +8,7 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
@@ -71,7 +71,7 @@ type Interface interface {
 	AddOperation(data string) error
 
 	// AddUserInfo merges userInfo json under kyverno.userInfo
-	AddUserInfo(userInfo kyvernov1beta1.RequestInfo) error
+	AddUserInfo(userInfo kyvernov2.RequestInfo) error
 
 	// AddServiceAccount merges ServiceAccount types
 	AddServiceAccount(userName string) error
@@ -236,7 +236,7 @@ func (ctx *context) AddOperation(data string) error {
 }
 
 // AddUserInfo adds userInfo at path request.userInfo
-func (ctx *context) AddUserInfo(userRequestInfo kyvernov1beta1.RequestInfo) error {
+func (ctx *context) AddUserInfo(userRequestInfo kyvernov2.RequestInfo) error {
 	if data, err := toUnstructured(&userRequestInfo); err == nil {
 		return addToContext(ctx, data, "request")
 	} else {

@@ -5,7 +5,6 @@ metadata:
   namespace: test-validate-e2e-adding-key-to-config-map
 spec:
   background: false
-  failurePolicy: Fail
   rules:
   - match:
       all:
@@ -19,8 +18,10 @@ spec:
         operator: Equals
         value: '{{ request.object.data.lock || '''' }}'
     validate:
+      validationFailureAction: Enforce
       anyPattern:
       - data:
           key: abc
       message: Configmap key must be "abc"
-  validationFailureAction: Enforce
+  webhookConfiguration:
+    failurePolicy: Fail

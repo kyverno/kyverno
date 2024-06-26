@@ -7,7 +7,6 @@ metadata:
       This policy generates and synchronizes a configmap for custom resource kube-state-metrics.
 spec:
   generateExisting: true
-  mutateExistingOnPolicyUpdate: true
   rules:
     - name: restart-kube-state-metrics-on-cm-change
       match:
@@ -25,6 +24,7 @@ spec:
             operator: NotEquals
             value: source
       mutate:
+        mutateExistingOnPolicyUpdate: true
         targets:
           - apiVersion: apps/v1
             kind: Deployment

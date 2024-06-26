@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
     name: external-metrics-policy
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
   - name: external-metrics-rule
@@ -15,6 +14,7 @@ spec:
           kinds:
           - Secret
     validate:
+      validationFailureAction: Enforce
       message: 'You should be careful when trying to change/delete {{request.oldObject.kind}} in {{request.oldObject.name}}. These are my-precious resources and touching them might break my heart.'
       deny:
         conditions:

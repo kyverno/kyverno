@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-namespace-name-02
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: namespace-name-02
+      match:
+        any:
+        - resources:
+            kinds:
+              - Namespace
+      validate:
+        cel:
+          paramKind: 
+            apiVersion: rules.example.com/v1
+            kind: NameConstraint
+          paramRef:
+            name: "name-constraint-test.example.com"
+            parameterNotFoundAction: "Deny"
+          expressions:
+            - expression: "object.metadata.name == params.name"
+              messageExpression:  "'Namespace name must be ' + params.name"

@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sample
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: check-container-image
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      pattern:
+        spec:
+          containers:
+          - name: "*"
+            <(image): "someimagename"
+          imagePullSecrets:
+          - name: my-registry-secret

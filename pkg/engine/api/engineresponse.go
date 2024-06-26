@@ -209,7 +209,7 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 		return ""
 	}
 	spec := pol.AsKyvernoPolicy().GetSpec()
-	for _, v := range spec.ValidationFailureActionOverrides {
+	for _, v := range spec.GetValidationFailureActionOverrides() {
 		if !v.Action.IsValid() {
 			continue
 		}
@@ -231,5 +231,5 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 			}
 		}
 	}
-	return spec.ValidationFailureAction
+	return spec.GetValidationFailureAction()
 }

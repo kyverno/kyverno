@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-port-range
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: host-port-range
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      celPreconditions:
+          - name: "first match condition in CEL"
+            expression: "object.metadata.name.matches('nginx-pod')"
+      validate:
+        cel:
+          expressions:
+          - expression: "object.spec.containers.all(container, !has(container.ports) || container.ports.all(port, !has(port.hostPort) || (port.hostPort >= 5000 && port.hostPort <= 6000)))"
+            message: "The only permitted hostPorts are in the range 5000-6000."

@@ -4,7 +4,6 @@ metadata:
   name: deny
 spec:
   validationFailureAction: Audit
-  webhookTimeoutSeconds: 31
   rules:
     - name: deny
       match:
@@ -14,3 +13,5 @@ spec:
                 - Pod
       validate:
         deny: {}
+  webhookConfiguration:
+    timeoutSeconds: 31

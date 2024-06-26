@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -22,7 +22,7 @@ func Test_checkCondition(t *testing.T) {
 	type args struct {
 		logger    logr.Logger
 		ctx       enginecontext.Interface
-		condition kyvernov2beta1.Condition
+		condition kyvernov2.Condition
 	}
 	tests := []struct {
 		name    string
@@ -34,11 +34,11 @@ func Test_checkCondition(t *testing.T) {
 		args: args{
 			logger: logging.GlobalLogger(),
 			ctx:    ctx,
-			condition: kyvernov2beta1.Condition{
+			condition: kyvernov2.Condition{
 				RawKey: &v1.JSON{
 					Raw: []byte(`"{{ request.object.name }}"`),
 				},
-				Operator: kyvernov2beta1.ConditionOperators["Equals"],
+				Operator: kyvernov2.ConditionOperators["Equals"],
 				RawValue: &v1.JSON{
 					Raw: []byte(`"dummy"`),
 				},

@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-scale-deployment
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Audit
+  background: false
+  rules:
+    - name: deny-scale-deployment
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment/scale
+      validate:
+        deny: {}
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-scale-statefulset
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deny-scale-statefulset
+      match:
+        any:
+          - resources:
+              kinds:
+                - StatefulSet/scale
+      validate:
+        deny: {}

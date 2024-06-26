@@ -20,16 +20,17 @@ package v2
 
 import (
 	v1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
+	v2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
 )
 
 // CleanupPolicySpecApplyConfiguration represents an declarative configuration of the CleanupPolicySpec type for use
 // with apply.
 type CleanupPolicySpecApplyConfiguration struct {
-	Context          []v1.ContextEntryApplyConfiguration `json:"context,omitempty"`
-	MatchResources   *MatchResourcesApplyConfiguration   `json:"match,omitempty"`
-	ExcludeResources *MatchResourcesApplyConfiguration   `json:"exclude,omitempty"`
-	Schedule         *string                             `json:"schedule,omitempty"`
-	Conditions       *AnyAllConditionsApplyConfiguration `json:"conditions,omitempty"`
+	Context          []v1.ContextEntryApplyConfiguration       `json:"context,omitempty"`
+	MatchResources   *v2beta1.MatchResourcesApplyConfiguration `json:"match,omitempty"`
+	ExcludeResources *v2beta1.MatchResourcesApplyConfiguration `json:"exclude,omitempty"`
+	Schedule         *string                                   `json:"schedule,omitempty"`
+	Conditions       *AnyAllConditionsApplyConfiguration       `json:"conditions,omitempty"`
 }
 
 // CleanupPolicySpecApplyConfiguration constructs an declarative configuration of the CleanupPolicySpec type for use with
@@ -54,7 +55,7 @@ func (b *CleanupPolicySpecApplyConfiguration) WithContext(values ...*v1.ContextE
 // WithMatchResources sets the MatchResources field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the MatchResources field is set to the value of the last call.
-func (b *CleanupPolicySpecApplyConfiguration) WithMatchResources(value *MatchResourcesApplyConfiguration) *CleanupPolicySpecApplyConfiguration {
+func (b *CleanupPolicySpecApplyConfiguration) WithMatchResources(value *v2beta1.MatchResourcesApplyConfiguration) *CleanupPolicySpecApplyConfiguration {
 	b.MatchResources = value
 	return b
 }
@@ -62,7 +63,7 @@ func (b *CleanupPolicySpecApplyConfiguration) WithMatchResources(value *MatchRes
 // WithExcludeResources sets the ExcludeResources field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ExcludeResources field is set to the value of the last call.
-func (b *CleanupPolicySpecApplyConfiguration) WithExcludeResources(value *MatchResourcesApplyConfiguration) *CleanupPolicySpecApplyConfiguration {
+func (b *CleanupPolicySpecApplyConfiguration) WithExcludeResources(value *v2beta1.MatchResourcesApplyConfiguration) *CleanupPolicySpecApplyConfiguration {
 	b.ExcludeResources = value
 	return b
 }

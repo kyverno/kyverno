@@ -1,0 +1,35 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: check-message-upon-resource-failure
+spec:
+  steps:
+  - name: step-01
+    try: 
+    - apply:
+        file: policy-1.yaml
+    - assert:
+        file: policy-assert1.yaml    
+  - name: step-02
+    try:
+    - apply:
+        file: policy-2.yaml
+    - assert:
+        file: policy-assert2.yaml    
+  - name: step-03
+    try:
+    - script:
+       content: kubectl apply -f resource.yaml
+       check:
+         # This check ensures the contents of stderr are exactly as shown.
+         ($stderr): |-
+           Error from server: error when creating "resource.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+           resource Namespace//asdfhl was blocked due to the following policies 
+
+           require-ns-owner-label:
+             check-for-namespace-owner-label: 'validation error: The label `uw.systems/owner`
+               is required. Check policy at https://github.com/utilitywarehouse/system-manifests/tree/master/kyverno/policies/namespaces/require-ns-owner-label.yaml
+               for allowed label values. rule check-for-namespace-owner-label failed at path
+               /metadata/labels/uw.systems/owner/'

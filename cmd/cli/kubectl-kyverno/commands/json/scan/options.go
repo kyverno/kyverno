@@ -76,7 +76,7 @@ func (c *options) run(cmd *cobra.Command, _ []string) error {
 	}
 	out.println("Running", "(", "evaluating", len(resources), pluralize.Pluralize(len(resources), "resource", "resources"), "against", len(policies), pluralize.Pluralize(len(policies), "policy", "policies"), ")", "...")
 	e := jsonengine.New()
-	var responses []jsonengine.Response
+	responses := make([]jsonengine.Response, 0, len(resources))
 	for _, resource := range resources {
 		responses = append(responses, e.Run(context.Background(), jsonengine.Request{
 			Resource: resource,

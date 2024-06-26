@@ -1,0 +1,33 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-update-orphan
+spec:
+  rules:
+    - name: deny-all-traffic
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - default
+                - kube-public
+                - kyverno
+      generate:
+        orphanDownstreamOnPolicyDelete: false
+        kind: NetworkPolicy
+        apiVersion: networking.k8s.io/v1
+        name: deny-all-traffic
+        namespace: "{{request.object.metadata.name}}"
+        data:
+          spec:
+            # select all pods in the namespace
+            podSelector: {}
+            policyTypes:
+              - Ingress
+              - Egress

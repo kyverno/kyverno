@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: descending-jsonpatch
+spec:
+  background: false
+  schemaValidation: false
+  rules:
+  - name: remove-elements
+    match:
+      all:
+      - resources:
+          kinds:
+            - Pod
+          names:
+            - trigger-pod
+    mutate:
+      targets:
+      - apiVersion: v1
+        kind: Pod
+        name: target-pod
+        namespace: default
+      foreach:
+      - list: "target.spec.containers"
+        order: Descending 
+        preconditions:
+          all:
+          - key: "{{ element.name }}"
+            operator: Equals
+            value: container3
+        patchesJson6902: |-
+          - op: replace
+            path: /spec/containers/{{elementIndex}}/image
+            value: ghcr.io/kyverno/test-verify-images:signed

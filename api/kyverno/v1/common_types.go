@@ -53,7 +53,20 @@ const (
 
 // WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.
 type WebhookConfiguration struct {
+	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+	// Rules within the same policy share the same failure behavior.
+	// This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
+	// Allowed values are Ignore or Fail. Defaults to Fail.
+	// +optional
+	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
+
+	// TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty" yaml:"timeoutSeconds,omitempty"`
+
 	// MatchCondition configures admission webhook matchConditions.
+	// Requires Kubernetes 1.27 or later.
 	// +optional
 	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
 }
@@ -322,6 +335,10 @@ func (r ResourceFilter) IsEmpty() bool {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
+	// MutateExistingOnPolicyUpdate controls if the mutateExisting rule will be applied on policy events.
+	// +optional
+	MutateExistingOnPolicyUpdate *bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
+
 	// Targets defines the target resources to be mutated.
 	// +optional
 	Targets []TargetResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
@@ -348,6 +365,10 @@ func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
 
 func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
+}
+
+func (m *Mutation) IsMutateExistingOnPolicyUpdate() *bool {
+	return m.MutateExistingOnPolicyUpdate
 }
 
 // ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
@@ -398,6 +419,19 @@ func (m *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
+	// ValidationFailureAction defines if a validation policy rule violation should block
+	// the admission review request (enforce), or allow (audit) the admission review request
+	// and report an error in a policy report. Optional.
+	// Allowed values are audit or enforce.
+	// +optional
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	ValidationFailureAction *ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+
+	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+	// +optional
+	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
+
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
@@ -656,6 +690,11 @@ func (v *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
 
 // Generation defines how new resources should be created and managed.
 type Generation struct {
+	// GenerateExisting controls whether to trigger the rule in existing resources
+	// If is set to "true" the rule will be triggered and applied to existing matched resources.
+	// +optional
+	GenerateExisting *bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
+
 	// ResourceSpec contains information to select the resource.
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
@@ -688,6 +727,10 @@ type Generation struct {
 	// CloneList specifies the list of source resource used to populate each generated resource.
 	// +optional
 	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
+}
+
+func (g *Generation) IsGenerateExisting() *bool {
+	return g.GenerateExisting
 }
 
 type CloneList struct {

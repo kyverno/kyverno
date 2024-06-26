@@ -1,0 +1,39 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: conditional-anchor
+spec:
+  steps:
+    - name: apply-namespace
+      try:
+        - apply:
+            file: namespace.yaml
+    - name: apply-policy
+      try:
+        - apply:
+            file: policy.yaml
+        - assert:
+            file: policy-ready.yaml
+    - name: apply-labelled-resource
+      try:
+        - apply:
+            file: labelled-resource.yaml
+    - name: apply-unlabelled-resource
+      try:
+        - apply:
+            file: unlabelled-resource.yaml
+    - name: apply-scaling
+      try:
+        - script:
+            content:
+              "if kubectl -n test-anchors scale deployment labelled-deployment --replicas 2\nthen
+              \n  exit 0\nelse \n  exit 1\nfi\n"
+        - script:
+            content:
+              "if kubectl -n test-anchors scale deployment labelled-deployment --replicas 9\nthen
+              \n  exit 1\nelse \n  exit 0\nfi\n"
+        - script:
+            content:
+              "if kubectl -n test-anchors scale deployment unlabelled-deployment --replicas 9\nthen
+              \n  exit 0\nelse \n  exit 1\nfi\n"

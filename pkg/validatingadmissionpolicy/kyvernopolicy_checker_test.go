@@ -33,6 +33,40 @@ func Test_Check_Resources(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "namespaces-with-wildcards",
+			resource: []byte(`
+{
+  "kinds": [
+    "Service"
+  ],
+  "namespaces": [
+    "prod-*"
+  ],
+  "operations": [
+    "CREATE"
+  ]
+}
+`),
+			expected: false,
+		},
+		{
+			name: "resource-names-with-wildcards",
+			resource: []byte(`
+{
+  "kinds": [
+    "Service"
+  ],
+  "names": [
+    "svc-*"
+  ],
+  "operations": [
+    "CREATE"
+  ]
+}
+`),
+			expected: false,
+		},
+		{
 			name: "resource-with-annotations",
 			resource: []byte(`
 {
@@ -345,6 +379,110 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
           ]
         },
         "validate": {
+          "cel": {
+            "expressions": [
+              {
+                "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+`),
+			expected: false,
+		},
+		{
+			name: "policy-with-multiple-validationFailureActionOverrides-in-validate-rule",
+			policy: []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "disallow-host-path"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "host-path",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "validate": {
+          "validationFailureAction": "Enforce",
+          "validationFailureActionOverrides": [
+            {
+              "action": "Enforce",
+              "namespaces": [
+                "default"
+              ]
+            },
+            {
+              "action": "Audit",
+              "namespaces": [
+                "test"
+              ]
+            }
+          ],
+          "cel": {
+            "expressions": [
+              {
+                "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+`),
+			expected: false,
+		},
+		{
+			name: "policy-with-namespace-in-validationFailureActionOverrides-in-validate-rule",
+			policy: []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "disallow-host-path"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "host-path",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "validate": {
+          "validationFailureAction": "Enforce",
+          "validationFailureActionOverrides": [
+            {
+              "action": "Enforce",
+              "namespaces": [
+                "test-ns"
+              ]
+            }
+          ],
           "cel": {
             "expressions": [
               {

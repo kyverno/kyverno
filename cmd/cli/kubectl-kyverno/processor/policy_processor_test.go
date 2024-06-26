@@ -55,13 +55,6 @@ var policyNamespaceSelector = []byte(`{
 `)
 
 func Test_NamespaceSelector(t *testing.T) {
-	type resultCounts struct {
-		pass int
-		fail int
-		warn int
-		err  int
-		skip int
-	}
 	type TestCase struct {
 		policy               []byte
 		resource             []byte

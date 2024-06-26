@@ -19,7 +19,6 @@ func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(out io.Writer, r
 	var err error
 
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
-	var resourceTypes []schema.GroupVersionKind
 	var subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
 
 	for _, policy := range r.policies {
@@ -33,6 +32,7 @@ func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(out io.Writer, r
 		}
 	}
 
+	resourceTypes := make([]schema.GroupVersionKind, 0, len(resourceTypesMap))
 	for kind := range resourceTypesMap {
 		resourceTypes = append(resourceTypes, kind)
 	}

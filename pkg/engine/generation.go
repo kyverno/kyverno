@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"context"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -11,7 +9,6 @@ import (
 
 // GenerateResponse checks for validity of generate rule on the resource
 func (e *engine) generateResponse(
-	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) engineapi.PolicyResponse {

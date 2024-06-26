@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-apply-on-deletion  
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: validate-nodeport
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+    validate:
+      message: "Services of type NodePort are not allowed."
+      pattern:
+        spec:
+          =(type): "!NodePort"

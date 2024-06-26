@@ -1,0 +1,6 @@
+apiVersion: rules.example.com/v1
+kind: DeploymentReplicaLimit
+metadata:
+  name: "replica-limit"
+  namespace: testing-02
+maxReplicas: 3

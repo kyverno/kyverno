@@ -12,10 +12,10 @@ webhooks:
     apiVersions:
     - '*'
     operations:
-    - CREATE
-    - UPDATE
-    - DELETE
     - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
     resources:
     - '*'
     - pods/ephemeralcontainers

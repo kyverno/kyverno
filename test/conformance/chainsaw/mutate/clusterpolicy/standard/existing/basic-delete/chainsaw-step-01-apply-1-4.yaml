@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: test-post-mutation-delete-trigger
 spec:
-  mutateExistingOnPolicyUpdate: false
   rules:
   - match:
       any:
@@ -17,6 +16,7 @@ spec:
           operations:
           - DELETE
     mutate:
+      mutateExistingOnPolicyUpdate: false
       patchStrategicMerge:
         metadata:
           labels:

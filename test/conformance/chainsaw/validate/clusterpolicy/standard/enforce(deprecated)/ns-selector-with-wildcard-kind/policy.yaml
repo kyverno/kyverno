@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: freeze-policy
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: freeze-rule
+      match:
+        any:
+        - resources:
+            kinds:
+            - "*"
+            namespaceSelector:
+              matchExpressions:
+                - key: freeze
+                  operator: In
+                  values:
+                  - "true"
+      validate:
+        message: "Namespace is frozen."
+        deny: {}

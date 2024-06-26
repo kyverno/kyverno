@@ -1,0 +1,39 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-old-object
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: require-labels
+      match:
+        all:
+          - resources:
+              operations:
+                - CREATE
+                - UPDATE
+              kinds:
+                - Namespace
+      validate:
+        message: "The label `size` is required"
+        pattern:
+          metadata:
+            labels:
+              size: "small | medium | large"
+    - name: check-old-object
+      match:
+        all:
+          - resources:
+              operations:
+                - UPDATE
+              kinds:
+                - Namespace
+      validate:
+        message: "request.oldObject cannot be null for update requests"
+        deny:
+          conditions:
+            all:
+              - key: "{{ request.oldObject.metadata == null }}"
+                operator: Equals
+                value: true

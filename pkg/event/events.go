@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -59,7 +59,12 @@ func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.Res
 		fmt.Fprintf(&b, "; %s", resp.Message())
 	}
 
-	return b.String()
+	msg := b.String()
+	if len(msg) > 1024 {
+		msg = msg[0:1021] + "..."
+	}
+
+	return msg
 }
 
 func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineResponse) Info {
@@ -187,7 +192,7 @@ func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule 
 }
 
 func NewBackgroundSuccessEvent(source Source, policy kyvernov1.PolicyInterface, resources []kyvernov1.ResourceSpec) []Info {
-	var events []Info
+	events := make([]Info, 0, len(resources))
 	msg := "resource generated"
 	action := ResourceGenerated
 	if source == MutateExistingController {
@@ -280,10 +285,10 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	return []Info{policyEvent, exceptionEvent}
 }
 
-func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured, err error) Info {
+func NewCleanupPolicyEvent(policy kyvernov2.CleanupPolicyInterface, resource unstructured.Unstructured, err error) Info {
 	regarding := corev1.ObjectReference{
 		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v2beta1",
+		APIVersion: "kyverno.io/v2",
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),

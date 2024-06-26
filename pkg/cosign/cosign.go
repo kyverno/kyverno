@@ -229,6 +229,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		cosignOpts.TSARootCertificates = roots
 	}
 
+	cosignOpts.ExperimentalOCI11 = opts.CosignOCI11
 	return cosignOpts, nil
 }
 
@@ -471,7 +472,7 @@ func decodePEM(raw []byte, signatureAlgorithm crypto.Hash) (signature.Verifier, 
 }
 
 func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, error) {
-	var sigPayloads []payload.SimpleContainerImage
+	sigPayloads := make([]payload.SimpleContainerImage, 0, len(verified))
 	for _, sig := range verified {
 		pld, err := sig.Payload()
 		if err != nil {

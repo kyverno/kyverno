@@ -19,7 +19,7 @@ type ValidatingAdmissionPolicyProcessor struct {
 }
 
 func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
-	var responses []engineapi.EngineResponse
+	responses := make([]engineapi.EngineResponse, 0, len(p.Policies))
 	for _, policy := range p.Policies {
 		policyData := validatingadmissionpolicy.NewPolicyData(policy)
 		for _, binding := range p.Bindings {
@@ -29,7 +29,7 @@ func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineap
 		}
 		response, _ := validatingadmissionpolicy.Validate(policyData, *p.Resource, p.NamespaceSelectorMap, p.Client)
 		responses = append(responses, response)
-		p.Rc.addValidatingAdmissionResponse(policy, response)
+		p.Rc.addValidatingAdmissionResponse(response)
 	}
 	return responses, nil
 }

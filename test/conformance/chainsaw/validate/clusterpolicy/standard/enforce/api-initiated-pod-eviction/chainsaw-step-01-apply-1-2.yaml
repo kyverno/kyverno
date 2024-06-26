@@ -16,6 +16,7 @@ spec:
         - Pod/eviction
     name: deny-evict-by-label
     validate:
+      validationFailureAction: Enforce
       deny:
         conditions:
           all:
@@ -23,4 +24,3 @@ spec:
             operator: Equals
             value: "false"
       message: Evicting Pods protected with the label 'evict=false' is forbidden.
-  validationFailureAction: Enforce

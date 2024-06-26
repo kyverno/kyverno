@@ -38,6 +38,7 @@ type ImageVerificationApplyConfiguration struct {
 	Attestations             []AttestationApplyConfiguration             `json:"attestations,omitempty"`
 	Annotations              map[string]string                           `json:"annotations,omitempty"`
 	Repository               *string                                     `json:"repository,omitempty"`
+	CosignOCI11              *bool                                       `json:"cosignOCI11,omitempty"`
 	MutateDigest             *bool                                       `json:"mutateDigest,omitempty"`
 	VerifyDigest             *bool                                       `json:"verifyDigest,omitempty"`
 	Required                 *bool                                       `json:"required,omitempty"`
@@ -178,6 +179,14 @@ func (b *ImageVerificationApplyConfiguration) WithAnnotations(entries map[string
 // If called multiple times, the Repository field is set to the value of the last call.
 func (b *ImageVerificationApplyConfiguration) WithRepository(value string) *ImageVerificationApplyConfiguration {
 	b.Repository = &value
+	return b
+}
+
+// WithCosignOCI11 sets the CosignOCI11 field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the CosignOCI11 field is set to the value of the last call.
+func (b *ImageVerificationApplyConfiguration) WithCosignOCI11(value bool) *ImageVerificationApplyConfiguration {
+	b.CosignOCI11 = &value
 	return b
 }
 

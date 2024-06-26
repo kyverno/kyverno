@@ -30,6 +30,7 @@ spec:
         operator: Equals
         value: CONNECT
     validate:
+      validationFailureAction: Enforce
       deny:
         conditions:
           all:
@@ -37,4 +38,3 @@ spec:
             operator: Equals
             value: "false"
       message: Exec'ing into Pods protected with the label 'exec=false' is forbidden.
-  validationFailureAction: Enforce

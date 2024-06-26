@@ -7,6 +7,4 @@ status:
   - reason: Succeeded
     status: "True"
     type: Ready
-  validatingadmissionpolicy:
-    generated: true
   

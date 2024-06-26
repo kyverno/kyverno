@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -80,9 +80,9 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 		return nil, err
 	}
 
-	gr := kyvernov1beta1.UpdateRequest{
-		Spec: kyvernov1beta1.UpdateRequestSpec{
-			Type:   kyvernov1beta1.Generate,
+	gr := kyvernov2.UpdateRequest{
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.Generate,
 			Policy: generateResponse.Policy().GetName(),
 			Resource: kyvernov1.ResourceSpec{
 				Kind:       generateResponse.Resource.GetKind(),

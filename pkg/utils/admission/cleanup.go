@@ -3,20 +3,20 @@ package admission
 import (
 	"fmt"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 )
 
-func UnmarshalCleanupPolicy(kind string, raw []byte) (kyvernov2alpha1.CleanupPolicyInterface, error) {
+func UnmarshalCleanupPolicy(kind string, raw []byte) (kyvernov2.CleanupPolicyInterface, error) {
 	if kind == "CleanupPolicy" {
-		var policy *kyvernov2alpha1.CleanupPolicy
+		var policy *kyvernov2.CleanupPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}
 		return policy, nil
 	} else if kind == "ClusterCleanupPolicy" {
-		var policy *kyvernov2alpha1.ClusterCleanupPolicy
+		var policy *kyvernov2.ClusterCleanupPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}
@@ -25,8 +25,8 @@ func UnmarshalCleanupPolicy(kind string, raw []byte) (kyvernov2alpha1.CleanupPol
 	return nil, fmt.Errorf("admission request does not contain a cleanuppolicy")
 }
 
-func GetCleanupPolicies(request admissionv1.AdmissionRequest) (kyvernov2alpha1.CleanupPolicyInterface, kyvernov2alpha1.CleanupPolicyInterface, error) {
-	var emptypolicy kyvernov2alpha1.CleanupPolicyInterface
+func GetCleanupPolicies(request admissionv1.AdmissionRequest) (kyvernov2.CleanupPolicyInterface, kyvernov2.CleanupPolicyInterface, error) {
+	var emptypolicy kyvernov2.CleanupPolicyInterface
 	policy, err := UnmarshalCleanupPolicy(request.Kind.Kind, request.Object.Raw)
 	if err != nil {
 		return policy, emptypolicy, err

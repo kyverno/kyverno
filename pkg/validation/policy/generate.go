@@ -51,6 +51,7 @@ func resetMutableFields(rule kyvernov1.Rule) *kyvernov1.Rule {
 	rule.DeepCopyInto(new)
 	new.Generation.Synchronize = true
 	new.Generation.SetData(nil)
+	new.Generation.OrphanDownstreamOnPolicyDelete = true
 	return new
 }
 

@@ -1,5 +1,6 @@
 cleanupJobs:
-  admissionReports:
+  ephemeralReports:
+    enabled: true
     nodeSelector:
       kubernetes.io/os: linux
     podAntiAffinity:
@@ -13,7 +14,8 @@ cleanupJobs:
                   values:
                     - cleanup
             topologyKey: kubernetes.io/hostname
-  clusterAdmissionReports:
+  clusterEphemeralReports:
+    enabled: true
     nodeSelector:
       kubernetes.io/os: linux
     podAntiAffinity:

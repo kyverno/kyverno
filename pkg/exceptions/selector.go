@@ -1,12 +1,12 @@
 package exceptions
 
 import (
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
 type Lister interface {
-	List(labels.Selector) ([]*kyvernov2beta1.PolicyException, error)
+	List(labels.Selector) ([]*kyvernov2.PolicyException, error)
 }
 
 type selector struct {
@@ -19,12 +19,12 @@ func New(lister Lister) selector {
 	}
 }
 
-func (s selector) Find(policyName string, ruleName string) ([]*kyvernov2beta1.PolicyException, error) {
+func (s selector) Find(policyName string, ruleName string) ([]*kyvernov2.PolicyException, error) {
 	polexs, err := s.lister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	var results []*kyvernov2beta1.PolicyException
+	var results []*kyvernov2.PolicyException
 	for _, polex := range polexs {
 		if polex.Contains(policyName, ruleName) {
 			results = append(results, polex)

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ba
+  labels:
+    app: nginx-users
+spec:
+  securityContext:
+    runAsUser: 115
+  containers:
+    - name: notnginx
+      image: nothingherenginx
+      securityContext:
+        runAsUser: 250

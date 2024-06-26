@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -37,7 +37,7 @@ func (h validatePssHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	_ engineapi.EngineContextLoader,
-	exceptions []*kyvernov2beta1.PolicyException,
+	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		logger.V(3).Info("skipping PSS validation on deleted resource")
@@ -162,7 +162,7 @@ func addImages(checks []pssutils.PSSCheckResult, imageInfos map[string]map[strin
 
 // return image references for containers
 func getImages(containerNames []string, imageInfos map[string]map[string]api.ImageInfo) []string {
-	var images []string
+	images := make([]string, 0, len(containerNames))
 	for _, cn := range containerNames {
 		image := getImageReference(cn, imageInfos)
 		images = append(images, image)

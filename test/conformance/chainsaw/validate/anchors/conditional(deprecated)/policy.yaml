@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: restrict-scale
+  annotations:
+    policies.kyverno.io/title: Restrict Scale
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/severity: medium
+    kyverno.io/kyverno-version: 1.9.0
+    policies.kyverno.io/minversion: 1.9.0
+    kyverno.io/kubernetes-version: "1.24"
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      Pod controllers such as Deployments which implement replicas and permit the scale action
+      use a `/scale` subresource to control this behavior. In addition to checks for creations of
+      such controllers that their replica is in a certain shape, the scale operation and subresource
+      needs to be accounted for as well. This policy, operable beginning in Kyverno 1.9, is a collection
+      of rules which can be used to limit the replica count both upon creation of a Deployment and
+      when a scale operation is performed.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    # This rule can be used to limit scale operations based upon Deployment labels assuming the given label
+    # is also used as a selector.
+    - name: scale-max-eight
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment/scale
+      validate:
+        message: The replica count for this Deployment may not exceed 8.
+        pattern:
+          (status):
+            (selector): "*type=monitoring*"
+          spec:
+            replicas: <9
