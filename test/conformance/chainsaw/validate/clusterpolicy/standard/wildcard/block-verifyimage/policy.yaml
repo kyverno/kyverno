@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: verify-image     
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: verify-image

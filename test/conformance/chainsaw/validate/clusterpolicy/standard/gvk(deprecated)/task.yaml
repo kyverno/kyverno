@@ -1,0 +1,9 @@
+apiVersion: docdb.aws.crossplane.io/v1alpha1
+kind: DBCluster
+metadata:
+  name: db-cluster-not-skipping-final-snapshot
+spec:
+  forProvider:
+    skipFinalSnapshot: false
+    region: eu-central-1
+    engine: docdb

@@ -17,8 +17,8 @@ spec:
           - Pod
     name: validate-labels
     validate:
+      validationFailureAction: Audit
       pattern:
         metadata:
           labels:
             foo: '{{ keys.data.foo }}'
-  validationFailureAction: Audit

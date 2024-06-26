@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-labels
 spec:
-  validationFailureAction: Enforce
   background: true
   rules:
     - name: check-labels
@@ -13,6 +12,7 @@ spec:
             kinds:
               - Pod
       validate:
+        validationFailureAction: Enforce
         pattern:
           metadata:
             labels:
