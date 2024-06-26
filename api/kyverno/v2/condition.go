@@ -5,12 +5,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 )
 
+type Value any
+
 // Any can be any type.
 // +k8s:deepcopy-gen=false
 type Any struct {
 	// Value contains the value of the Any object.
 	// +optional
-	Value any `json:"-"`
+	Value `json:"-"`
 }
 
 func (in *Any) DeepCopyInto(out *Any) {
