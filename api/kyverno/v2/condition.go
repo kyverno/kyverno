@@ -1,10 +1,48 @@
 package v2
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"github.com/jinzhu/copier"
+	"k8s.io/apimachinery/pkg/util/json"
 )
+
+// Any can be any type.
+// +k8s:deepcopy-gen=false
+type Any struct {
+	// Value contains the value of the Any object.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	// +optional
+	Value any `json:",inline"`
+}
+
+func (in *Any) DeepCopyInto(out *Any) {
+	if err := copier.Copy(out, in); err != nil {
+		panic("deep copy failed")
+	}
+}
+
+func (in *Any) DeepCopy() *Any {
+	if in == nil {
+		return nil
+	}
+	out := new(Any)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (a *Any) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.Value)
+}
+
+func (a *Any) UnmarshalJSON(data []byte) error {
+	var v any
+	err := json.Unmarshal(data, &v)
+	if err != nil {
+		return err
+	}
+	a.Value = v
+	return nil
+}
 
 // ConditionOperator is the operation performed on condition key and value.
 // +kubebuilder:validation:Enum=Equals;NotEquals;AnyIn;AllIn;AnyNotIn;AllNotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
@@ -44,7 +82,7 @@ var ConditionOperators = map[string]ConditionOperator{
 
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
-	RawKey *apiextv1.JSON `json:"key,omitempty" yaml:"key,omitempty"`
+	RawKey *Any `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
 	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
@@ -55,26 +93,26 @@ type Condition struct {
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using JMESPath.
 	// +optional
-	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	RawValue *Any `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// Message is an optional display message
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
-func (c *Condition) GetKey() apiextensions.JSON {
-	return kyvernov1.FromJSON(c.RawKey)
+func (c *Condition) GetKey() any {
+	return c.RawKey.Value
 }
 
-func (c *Condition) SetKey(in apiextensions.JSON) {
-	c.RawKey = kyvernov1.ToJSON(in)
+func (c *Condition) SetKey(in any) {
+	c.RawKey.Value = in
 }
 
-func (c *Condition) GetValue() apiextensions.JSON {
-	return kyvernov1.FromJSON(c.RawValue)
+func (c *Condition) GetValue() any {
+	return c.RawValue.Value
 }
 
-func (c *Condition) SetValue(in apiextensions.JSON) {
-	c.RawValue = kyvernov1.ToJSON(in)
+func (c *Condition) SetValue(in any) {
+	c.RawValue.Value = in
 }
 
 type AnyAllConditions struct {
