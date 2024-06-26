@@ -179,8 +179,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.ConditionApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("Exception"):
 		return &kyvernov2.ExceptionApplyConfiguration{}
-	case v2.SchemeGroupVersion.WithKind("MatchResources"):
-		return &kyvernov2.MatchResourcesApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2.PolicyExceptionApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
