@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -34,11 +35,11 @@ func Test_checkCondition(t *testing.T) {
 			logger: logging.GlobalLogger(),
 			ctx:    ctx,
 			condition: kyvernov2.Condition{
-				RawKey: &kyvernov2.Any{
+				RawKey: &kyverno.Any{
 					Value: "{{ request.object.name }}",
 				},
 				Operator: kyvernov2.ConditionOperators["Equals"],
-				RawValue: &kyvernov2.Any{
+				RawValue: &kyverno.Any{
 					Value: "dummy",
 				},
 			},
