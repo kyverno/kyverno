@@ -5875,6 +5875,40 @@ Kubernetes admission/v1.Operation
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2.Any">Any
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.Condition">Condition</a>)
+</p>
+<p>
+<p>Any can be any type.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>-</code><br/>
+<em>
+<a href="#kyverno.io/v2.Value">
+Value
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Value contains the value of the Any object.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2.AnyAllConditions">AnyAllConditions
 </h3>
 <p>
@@ -6092,8 +6126,8 @@ Kubernetes meta/v1.Time
 <td>
 <code>key</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v2.Any">
+Any
 </a>
 </em>
 </td>
@@ -6121,13 +6155,12 @@ DurationLessThanOrEquals, DurationLessThan</p>
 <td>
 <code>value</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v2.Any">
+Any
 </a>
 </em>
 </td>
 <td>
-<em>(Optional)</em>
 <p>Value is the conditional value, or set of values. The values can be fixed set
 or can be variables declared using JMESPath.</p>
 </td>
@@ -6582,6 +6615,14 @@ int
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2.Value">Value
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.Any">Any</a>)
+</p>
+<p>
+</p>
 <h2 id="kyverno.io/v2alpha1">kyverno.io/v2alpha1</h2>
 <p>
 </p>
