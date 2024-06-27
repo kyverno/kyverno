@@ -3,15 +3,16 @@ package v2
 import (
 	"testing"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/json"
 )
 
 func TestCondition_Marshal(t *testing.T) {
 	type fields struct {
-		RawKey   *Any
+		RawKey   *kyverno.Any
 		Operator ConditionOperator
-		RawValue *Any
+		RawValue *kyverno.Any
 		Message  string
 	}
 	tests := []struct {
@@ -25,11 +26,11 @@ func TestCondition_Marshal(t *testing.T) {
 		}, {
 			name: "with key",
 			fields: fields{
-				RawKey: &Any{
+				RawKey: &kyverno.Any{
 					Value: "{{ request.object.name }}",
 				},
 				Operator: ConditionOperators["Equals"],
-				RawValue: &Any{
+				RawValue: &kyverno.Any{
 					Value: "dummy",
 				},
 			},
