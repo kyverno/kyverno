@@ -9,7 +9,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 var jp = jmespath.New(config.NewDefaultConfiguration(false))
@@ -35,12 +34,12 @@ func Test_checkCondition(t *testing.T) {
 			logger: logging.GlobalLogger(),
 			ctx:    ctx,
 			condition: kyvernov2.Condition{
-				RawKey: &v1.JSON{
-					Raw: []byte(`"{{ request.object.name }}"`),
+				RawKey: &kyvernov2.Any{
+					Value: "{{ request.object.name }}",
 				},
 				Operator: kyvernov2.ConditionOperators["Equals"],
-				RawValue: &v1.JSON{
-					Raw: []byte(`"dummy"`),
+				RawValue: &kyvernov2.Any{
+					Value: "dummy",
 				},
 			},
 		},
