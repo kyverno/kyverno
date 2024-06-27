@@ -1,48 +1,8 @@
 package v2
 
 import (
-	"github.com/jinzhu/copier"
-	"k8s.io/apimachinery/pkg/util/json"
+	"github.com/kyverno/kyverno/api/kyverno"
 )
-
-type Value any
-
-// Any can be any type.
-// +k8s:deepcopy-gen=false
-type Any struct {
-	// Value contains the value of the Any object.
-	// +optional
-	Value `json:"-"`
-}
-
-func (in *Any) DeepCopyInto(out *Any) {
-	if err := copier.Copy(out, in); err != nil {
-		panic("deep copy failed")
-	}
-}
-
-func (in *Any) DeepCopy() *Any {
-	if in == nil {
-		return nil
-	}
-	out := new(Any)
-	in.DeepCopyInto(out)
-	return out
-}
-
-func (a *Any) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.Value)
-}
-
-func (a *Any) UnmarshalJSON(data []byte) error {
-	var v any
-	err := json.Unmarshal(data, &v)
-	if err != nil {
-		return err
-	}
-	a.Value = v
-	return nil
-}
 
 // ConditionOperator is the operation performed on condition key and value.
 // +kubebuilder:validation:Enum=Equals;NotEquals;AnyIn;AllIn;AnyNotIn;AllNotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
@@ -84,7 +44,7 @@ type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
-	RawKey *Any `json:"key,omitempty" yaml:"key,omitempty"`
+	RawKey *kyverno.Any `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
 	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
@@ -96,40 +56,26 @@ type Condition struct {
 	// or can be variables declared using JMESPath.
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
-	RawValue *Any `json:"value,omitempty" yaml:"value,omitempty"`
+	RawValue *kyverno.Any `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// Message is an optional display message
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 func (c *Condition) GetKey() any {
-	if c.RawKey == nil {
-		return nil
-	}
-	return c.RawKey.Value
+	return kyverno.FromAny(c.RawKey)
 }
 
 func (c *Condition) SetKey(in any) {
-	var new *Any
-	if in != nil {
-		new = &Any{in}
-	}
-	c.RawKey = new
+	c.RawKey = kyverno.ToAny(in)
 }
 
 func (c *Condition) GetValue() any {
-	if c.RawValue == nil {
-		return nil
-	}
-	return c.RawValue.Value
+	return kyverno.FromAny(c.RawValue)
 }
 
 func (c *Condition) SetValue(in any) {
-	var new *Any
-	if in != nil {
-		new = &Any{in}
-	}
-	c.RawValue = new
+	c.RawValue = kyverno.ToAny(in)
 }
 
 type AnyAllConditions struct {
