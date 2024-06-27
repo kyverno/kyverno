@@ -168,7 +168,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 
 			case engineapi.RuleStatusSkip:
 				err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
-				logger.Info(err.Error())
+				logger.V(4).Info(err.Error())
 
 			case engineapi.RuleStatusPass:
 				patchedNew := patched
