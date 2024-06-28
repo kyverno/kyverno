@@ -92,7 +92,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
 	if err != nil {
-		msg := fmt.Sprintf("failed create policy context (%v)", err)
+		msg := fmt.Sprintf("failed to create policy context: %v", err)
 		return false, msg, nil
 	}
 
