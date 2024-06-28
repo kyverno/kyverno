@@ -29,7 +29,7 @@ spec:
                   url: https://rekor.sigstore.dev
         conditions:
         - all:
-          - key: '{{ predicate.buildDefinition.buildType }}'
+          - key: '{{ buildDefinition.buildType }}'
             operator: Equals
             value: https://actions.github.io/buildtypes/workflow/v1
         type: https://slsa.dev/provenance/v1

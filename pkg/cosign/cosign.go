@@ -289,6 +289,9 @@ func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		}
 
 		statements, err := decodeStatementsFromBundles(results)
+		if err != nil {
+			return nil, err
+		}
 		return &images.Response{Digest: results[0].Desc.Digest.String(), Statements: statements}, nil
 	}
 	cosignOpts, err := buildCosignOptions(ctx, opts)

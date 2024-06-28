@@ -148,7 +148,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 					continue
 				}
 				var intotoStatement in_toto.Statement
-				if err := json.Unmarshal([]byte(dsseEnvelope.Payload), &intotoStatement); err != nil {
+				if err := json.Unmarshal(dsseEnvelope.Payload, &intotoStatement); err != nil {
 					continue
 				}
 
@@ -176,7 +176,7 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 	// TODO: Add full regexp support to sigstore and cosign
 	// Verify images only has subject field, and no subject regexp, subject cannot be passed to subject regexp
 	// because then string containing the subjects will also work. We should just add an issuer regexp
-	// Solve this in a seperate PR,
+	// Solve this in a separate PR,
 	// See: https://github.com/sigstore/cosign/blob/7c20052077a81d667526af879ec40168899dde1f/pkg/cosign/verify.go#L339-L356
 	subjectRegexp := ""
 	if strings.Contains(opts.Subject, "*") {
@@ -235,7 +235,7 @@ func decodeStatementsFromBundles(bundles []*VerificationResult) ([]map[string]in
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to decode statement: %v", intotostatement.Type)
 		}
-		statement["type"] = statement["predicateType"]
+		statement["type"] = intotostatement.PredicateType
 		decodedStatements[i] = statement
 	}
 	return decodedStatements, nil
