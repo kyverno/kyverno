@@ -21,9 +21,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
-var (
-	attestationlimit = 50
-)
+var attestationlimit = 50
 
 type VerificationResult struct {
 	Bundle *Bundle
