@@ -13,6 +13,7 @@ spec:
           - default
           - kube-public
           - kyverno
+          - local-path-storage
     generate:
       apiVersion: v1
       data:
@@ -33,3 +34,119 @@ spec:
           kinds:
           - Namespace
     name: k-kafka-address
+  - exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
+          - local-path-storage
+    generate:
+      apiVersion: v1
+      data:
+        data:
+          KAFKA_ADDRESS: 192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092
+          ZK_ADDRESS: 192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181
+        kind: ConfigMap
+        metadata:
+          labels:
+            somekey: somevalue
+      kind: ConfigMap
+      name: zk-kafka-address-2
+      namespace: '{{request.object.metadata.name}}'
+      synchronize: true
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    name: k-kafka-address-2
+  - exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
+          - local-path-storage
+    generate:
+      apiVersion: v1
+      data:
+        data:
+          KAFKA_ADDRESS: 192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092
+          ZK_ADDRESS: 192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181
+        kind: ConfigMap
+        metadata:
+          labels:
+            somekey: somevalue
+      kind: ConfigMap
+      name: zk-kafka-address-3
+      namespace: '{{request.object.metadata.name}}'
+      synchronize: true
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    name: k-kafka-address-3
+  # - exclude:
+  #     any:
+  #     - resources:
+  #         namespaces:
+  #         - kube-system
+  #         - default
+  #         - kube-public
+  #         - kyverno
+  #         - local-path-storage
+  #   generate:
+  #     apiVersion: v1
+  #     data:
+  #       data:
+  #         KAFKA_ADDRESS: 192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092
+  #         ZK_ADDRESS: 192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181
+  #       kind: ConfigMap
+  #       metadata:
+  #         labels:
+  #           somekey: somevalue
+  #     kind: ConfigMap
+  #     name: zk-kafka-address-4
+  #     namespace: '{{request.object.metadata.name}}'
+  #     synchronize: true
+  #   match:
+  #     any:
+  #     - resources:
+  #         kinds:
+  #         - Namespace
+  #   name: k-kafka-address-4
+  # - exclude:
+  #     any:
+  #     - resources:
+  #         namespaces:
+  #         - kube-system
+  #         - default
+  #         - kube-public
+  #         - kyverno
+  #         - local-path-storage
+  #   generate:
+  #     apiVersion: v1
+  #     data:
+  #       data:
+  #         KAFKA_ADDRESS: 192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092
+  #         ZK_ADDRESS: 192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181
+  #       kind: ConfigMap
+  #       metadata:
+  #         labels:
+  #           somekey: somevalue
+  #     kind: ConfigMap
+  #     name: zk-kafka-address-5
+  #     namespace: '{{request.object.metadata.name}}'
+  #     synchronize: true
+  #   match:
+  #     any:
+  #     - resources:
+  #         kinds:
+  #         - Namespace
+  #   name: k-kafka-address-5
