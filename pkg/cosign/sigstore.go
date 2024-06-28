@@ -237,5 +237,4 @@ func decodeStatementsFromBundles(bundles []*VerificationResult) ([]map[string]in
 		decodedStatements[i] = statement
 	}
 	return decodedStatements, nil
-
 }
