@@ -46,6 +46,19 @@ func NewVerifier() images.ImageVerifier {
 type cosignVerifier struct{}
 
 func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
+	if opts.SigstoreBundle {
+		results, err := verifyBundleAndFetchAttestations(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(results) == 0 {
+			return nil, fmt.Errorf("sigstore bundle verification failed: no matching signatures found")
+		}
+
+		return &images.Response{Digest: results[0].Desc.Digest.String()}, nil
+	}
+
 	ref, err := name.ParseReference(opts.ImageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
@@ -265,6 +278,19 @@ func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
 }
 
 func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
+	if opts.SigstoreBundle {
+		results, err := verifyBundleAndFetchAttestations(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(results) == 0 {
+			return nil, fmt.Errorf("sigstore bundle verification failed: no matching signatures found")
+		}
+
+		statements, err := decodeStatementsFromBundles(results)
+		return &images.Response{Digest: results[0].Desc.Digest.String(), Statements: statements}, nil
+	}
 	cosignOpts, err := buildCosignOptions(ctx, opts)
 	if err != nil {
 		return nil, err

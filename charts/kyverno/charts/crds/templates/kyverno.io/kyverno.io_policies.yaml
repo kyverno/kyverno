@@ -4264,9 +4264,10 @@ spec:
                           type:
                             description: |-
                               Type specifies the method of signature validation. The allowed options
-                              are Cosign and Notary. By default Cosign is used if a type is not specified.
+                              are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                             enum:
                             - Cosign
+                            - SigstoreBundle
                             - Notary
                             type: string
                           useCache:
@@ -8641,9 +8642,10 @@ spec:
                               type:
                                 description: |-
                                   Type specifies the method of signature validation. The allowed options
-                                  are Cosign and Notary. By default Cosign is used if a type is not specified.
+                                  are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
+                                - SigstoreBundle
                                 - Notary
                                 type: string
                               useCache:
@@ -12768,6 +12770,7 @@ spec:
                               are Cosign and Notary. By default Cosign is used if a type is not specified.
                             enum:
                             - Cosign
+                            - SigstoreBundle
                             - Notary
                             type: string
                           useCache:
@@ -17141,9 +17144,10 @@ spec:
                               type:
                                 description: |-
                                   Type specifies the method of signature validation. The allowed options
-                                  are Cosign and Notary. By default Cosign is used if a type is not specified.
+                                  are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
+                                - SigstoreBundle
                                 - Notary
                                 type: string
                               useCache:
