@@ -21,7 +21,10 @@ import (
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
-var attestationlimit = 50
+var (
+	maxLayerSize     = int64(10 * 1000 * 1000) // 10 MB
+	attestationlimit = 50
+)
 
 type VerificationResult struct {
 	Bundle *Bundle
@@ -121,7 +124,18 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
 		}
-		layerBytes, err := layers[0].Uncompressed()
+		if len(layers) == 0 {
+			return nil, nil, fmt.Errorf("layers not found")
+		}
+		layer := layers[0]
+		layerSize, err := layer.Size()
+		if err != nil {
+			return nil, nil, err
+		}
+		if layerSize > maxLayerSize {
+			return nil, nil, fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
+		}
+		layerBytes, err := layer.Uncompressed()
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
 		}
