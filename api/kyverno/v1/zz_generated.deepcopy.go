@@ -1344,6 +1344,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.SkipBackgroundRequests != nil {
+		in, out := &in.SkipBackgroundRequests, &out.SkipBackgroundRequests
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
