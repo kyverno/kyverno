@@ -82,6 +82,15 @@ func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte,
 }
 
 func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
+	if jsonData == nil {
+		jsonData = a.entry.APICall.Default.Raw
+		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", a.entry.Name, err)
+		}
+
+		return jsonData, nil
+	}
 	if a.entry.APICall.JMESPath == "" {
 		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
 		if err != nil {
