@@ -13,15 +13,30 @@ spec:
           operations:
           - CREATE
     context:
-    - name: varNamespace
+    - name: testString
       apiCall:
         urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
         jmesPath: metadata.name
-        default: default    
+        default: default
+    - name: testJSON
+      apiCall:
+        urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
+        default: '{"metadata": {"name": "default"}}'
+    - name: testInteger
+      apiCall:
+        urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
+        jmesPath: metadata.resourceVersion
+        default: 1     
     validate:
       deny:
         conditions:
           all:
-          - key: "{{ varNamespace }}"
+          - key: "{{ testString }}"
             operator: Equals
             value: "{{ request.namespace }}"
+          - key: "{{ testJSON.metadata.name }}"
+            operator: Equals
+            value: "{{ request.namespace }}"
+          - key: "{{ testInteger }}"
+            operator: GreaterThan
+            value: 2
