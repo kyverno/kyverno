@@ -278,62 +278,8 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 						errs = append(errs, err)
 						continue
 					}
-					if spec.ExcludeResources != nil {
-						excluded := match.CheckMatchesResources(
-							resource,
-							*spec.ExcludeResources,
-							nsLabels,
-							// TODO(eddycharly): we don't have user info here, we should check that
-							// we don't have user conditions in the policy rule
-							kyvernov2.RequestInfo{},
-							resource.GroupVersionKind(),
-							"",
-						)
-						if excluded == nil {
-							debug.Info("resource/exclude matched")
-							continue
-						} else {
-							debug.Info("resource/exclude didn't match", "result", excluded)
-						}
-					}
-					// check conditions
-					if spec.Conditions != nil {
-						enginectx.Reset()
-						if err := enginectx.SetTargetResource(resource.Object); err != nil {
-							debug.Error(err, "failed to add resource in context")
-							errs = append(errs, err)
-							continue
-						}
-						if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
-							debug.Error(err, "failed to add namespace in context")
-							errs = append(errs, err)
-							continue
-						}
-						if err := enginectx.AddImageInfos(&resource, c.configuration); err != nil {
-							debug.Error(err, "failed to add image infos in context")
-							errs = append(errs, err)
-							continue
-						}
-						passed, err := conditions.CheckAnyAllConditions(logger, enginectx, *spec.Conditions)
-						if err != nil {
-							debug.Error(err, "failed to check condition")
-							errs = append(errs, err)
-							continue
-						}
-						if !passed {
-							debug.Info("conditions did not pass")
-							continue
-						}
-					}
-					var labels []attribute.KeyValue
-					labels = append(labels, commonLabels...)
-					labels = append(labels, attribute.String("resource_namespace", namespace))
-					logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-					if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
-						if c.metrics.cleanupFailuresTotal != nil {
-							c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
-						}
-						debug.Error(err, "failed to delete resource")
+					if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
+						debug.Error(err, "failed to add namespace in context")
 						errs = append(errs, err)
 						continue
 					}
