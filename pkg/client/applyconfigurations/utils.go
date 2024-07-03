@@ -179,8 +179,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.ConditionApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("Exception"):
 		return &kyvernov2.ExceptionApplyConfiguration{}
-	case v2.SchemeGroupVersion.WithKind("MatchResources"):
-		return &kyvernov2.MatchResourcesApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyException"):
 		return &kyvernov2.PolicyExceptionApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("PolicyExceptionSpec"):
@@ -243,8 +241,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.SpecApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
-	case v2beta1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
-		return &kyvernov2beta1.WebhookConfigurationApplyConfiguration{}
 
 		// Group=reports.kyverno.io, Version=v1
 	case reportsv1.SchemeGroupVersion.WithKind("ClusterEphemeralReport"):

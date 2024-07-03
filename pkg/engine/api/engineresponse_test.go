@@ -680,6 +680,8 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 	resource := unstructured.Unstructured{}
 	resource.SetNamespace("foo")
+	audit := kyvernov1.Audit
+	enforce := kyvernov1.Enforce
 	type fields struct {
 		PatchedResource unstructured.Unstructured
 		GenericPolicy   GenericPolicy
@@ -712,6 +714,36 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		fields: fields{
 			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &audit,
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 						Action:     kyvernov1.Audit,
@@ -736,6 +768,44 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action:     kyvernov1.Audit,
+									Namespaces: []string{"*"},
+								}},
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action:     "invalid",
+									Namespaces: []string{"*"},
+								}},
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
 			PatchedResource: resource,
 			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
@@ -888,6 +958,212 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 							},
 						},
 					}},
+				},
+			}),
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			PatchedResource: resource,
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action:     kyvernov1.Audit,
+									Namespaces: []string{"foo"},
+								}},
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			PatchedResource: resource,
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action:     kyvernov1.Audit,
+									Namespaces: []string{"bar"},
+								}},
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			namespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action: kyvernov1.Audit,
+									NamespaceSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"bar": "foo",
+										},
+									},
+								}},
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			namespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action: kyvernov1.Audit,
+									NamespaceSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"foo": "bar",
+										},
+									},
+								}},
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			namespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action:     kyvernov1.Audit,
+									Namespaces: []string{"foo"},
+									NamespaceSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"bar": "foo",
+										},
+									},
+								}},
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			namespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action:     kyvernov1.Audit,
+									Namespaces: []string{"bar"},
+									NamespaceSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"foo": "bar",
+										},
+									},
+								}},
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			namespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action:     kyvernov1.Audit,
+									Namespaces: []string{"foo"},
+									NamespaceSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"foo": "bar",
+										},
+									},
+								}},
+							},
+						},
+					},
+				},
+			}),
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			namespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{
+						{
+							Validation: kyvernov1.Validation{
+								ValidationFailureAction: &enforce,
+								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+									Action:     kyvernov1.Audit,
+									Namespaces: []string{"*"},
+									NamespaceSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"foo": "bar",
+										},
+									},
+								}},
+							},
+						},
+					},
 				},
 			}),
 		},

@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
+	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type ruleIndex = map[string][]*kyvernov2beta1.PolicyException
+type ruleIndex = map[string][]*kyvernov2.PolicyException
 
 type policyIndex = map[string]ruleIndex
 
@@ -30,7 +30,7 @@ type controller struct {
 	// listers
 	cpolLister  kyvernov1listers.ClusterPolicyLister
 	polLister   kyvernov1listers.PolicyLister
-	polexLister kyvernov2beta1listers.PolicyExceptionLister
+	polexLister kyvernov2listers.PolicyExceptionLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -50,7 +50,7 @@ const (
 func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
-	polexInformer kyvernov2beta1informers.PolicyExceptionInformer,
+	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	namespace string,
 ) *controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -78,13 +78,13 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) Find(policyName string, ruleName string) ([]*kyvernov2beta1.PolicyException, error) {
+func (c *controller) Find(policyName string, ruleName string) ([]*kyvernov2.PolicyException, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.index[policyName][ruleName], nil
 }
 
-func (c *controller) addPolex(polex *kyvernov2beta1.PolicyException) {
+func (c *controller) addPolex(polex *kyvernov2.PolicyException) {
 	names := sets.New[string]()
 	for _, ex := range polex.Spec.Exceptions {
 		names.Insert(ex.PolicyName)
@@ -94,7 +94,7 @@ func (c *controller) addPolex(polex *kyvernov2beta1.PolicyException) {
 	}
 }
 
-func (c *controller) updatePolex(old *kyvernov2beta1.PolicyException, new *kyvernov2beta1.PolicyException) {
+func (c *controller) updatePolex(old *kyvernov2.PolicyException, new *kyvernov2.PolicyException) {
 	names := sets.New[string]()
 	for _, ex := range old.Spec.Exceptions {
 		names.Insert(ex.PolicyName)
@@ -107,7 +107,7 @@ func (c *controller) updatePolex(old *kyvernov2beta1.PolicyException, new *kyver
 	}
 }
 
-func (c *controller) deletePolex(polex *kyvernov2beta1.PolicyException) {
+func (c *controller) deletePolex(polex *kyvernov2.PolicyException) {
 	names := sets.New[string]()
 	for _, ex := range polex.Spec.Exceptions {
 		names.Insert(ex.PolicyName)
@@ -133,7 +133,7 @@ func (c *controller) getPolicy(namespace, name string) (kyvernov1.PolicyInterfac
 	}
 }
 
-func (c *controller) listExceptions() ([]*kyvernov2beta1.PolicyException, error) {
+func (c *controller) listExceptions() ([]*kyvernov2.PolicyException, error) {
 	if c.namespace == "" {
 		return c.polexLister.List(labels.Everything())
 	}
@@ -145,7 +145,7 @@ func (c *controller) buildRuleIndex(key string, policy kyvernov1.PolicyInterface
 	if err != nil {
 		return nil, err
 	}
-	slices.SortFunc(polexList, func(a, b *kyvernov2beta1.PolicyException) int {
+	slices.SortFunc(polexList, func(a, b *kyvernov2.PolicyException) int {
 		if cmp := cmp.Compare(a.Namespace, b.Namespace); cmp != 0 {
 			return cmp
 		}

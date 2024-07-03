@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/d4f"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -45,6 +46,7 @@ func NewValidationHandler(
 	metrics metrics.MetricsConfigManager,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
+	reportsBreaker d4f.Breaker,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -57,6 +59,7 @@ func NewValidationHandler(
 		metrics:          metrics,
 		cfg:              cfg,
 		nsLister:         nsLister,
+		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -71,6 +74,7 @@ type validationHandler struct {
 	metrics          metrics.MetricsConfigManager
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
+	reportsBreaker   d4f.Breaker
 }
 
 func (v *validationHandler) HandleValidationEnforce(
@@ -88,7 +92,8 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
 	if err != nil {
-		return false, "failed create policy context", nil
+		msg := fmt.Sprintf("failed to create policy context: %v", err)
+		return false, msg, nil
 	}
 
 	var engineResponses []engineapi.EngineResponse
@@ -113,7 +118,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 				engineResponses = append(engineResponses, engineResponse)
 				if !engineResponse.IsSuccessful() {
-					logger.V(2).Info("validation failed", "action", policy.GetSpec().ValidationFailureAction, "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
+					logger.V(2).Info("validation failed", "action", policy.GetSpec().GetValidationFailureAction(), "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 					return
 				}
 
@@ -225,7 +230,10 @@ func (v *validationHandler) createReports(
 ) error {
 	report := reportutils.BuildAdmissionReport(resource, request.AdmissionRequest, engineResponses...)
 	if len(report.GetResults()) > 0 {
-		_, err := reportutils.CreateReport(ctx, report, v.kyvernoClient)
+		err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateReport(ctx, report, v.kyvernoClient)
+			return err
+		})
 		if err != nil {
 			return err
 		}

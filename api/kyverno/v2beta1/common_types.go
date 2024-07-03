@@ -2,20 +2,25 @@ package v2beta1
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-// WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.
-type WebhookConfiguration struct {
-	// MatchCondition configures admission webhook matchConditions.
-	// +optional
-	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
-}
-
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
+	// ValidationFailureAction defines if a validation policy rule violation should block
+	// the admission review request (enforce), or allow (audit) the admission review request
+	// and report an error in a policy report. Optional.
+	// Allowed values are audit or enforce.
+	// +optional
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	ValidationFailureAction *kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+
+	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+	// +optional
+	ValidationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
+
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`

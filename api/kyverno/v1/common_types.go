@@ -53,7 +53,20 @@ const (
 
 // WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.
 type WebhookConfiguration struct {
+	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+	// Rules within the same policy share the same failure behavior.
+	// This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
+	// Allowed values are Ignore or Fail. Defaults to Fail.
+	// +optional
+	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
+
+	// TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty" yaml:"timeoutSeconds,omitempty"`
+
 	// MatchCondition configures admission webhook matchConditions.
+	// Requires Kubernetes 1.27 or later.
 	// +optional
 	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
 }
@@ -406,6 +419,19 @@ func (m *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
+	// ValidationFailureAction defines if a validation policy rule violation should block
+	// the admission review request (enforce), or allow (audit) the admission review request
+	// and report an error in a policy report. Optional.
+	// Allowed values are audit or enforce.
+	// +optional
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	ValidationFailureAction *ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+
+	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+	// +optional
+	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
+
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`

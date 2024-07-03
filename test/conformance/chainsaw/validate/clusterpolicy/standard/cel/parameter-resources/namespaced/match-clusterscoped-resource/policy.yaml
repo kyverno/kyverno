@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-namespace-name-02
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: namespace-name-02
@@ -13,6 +12,7 @@ spec:
             kinds:
               - Namespace
       validate:
+        validationFailureAction: Enforce
         cel:
           paramKind: 
             apiVersion: rules.example.com/v1

@@ -19,26 +19,50 @@ limitations under the License.
 package v1
 
 import (
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ValidationApplyConfiguration represents an declarative configuration of the Validation type for use
 // with apply.
 type ValidationApplyConfiguration struct {
-	Message           *string                               `json:"message,omitempty"`
-	Manifests         *ManifestsApplyConfiguration          `json:"manifests,omitempty"`
-	ForEachValidation []ForEachValidationApplyConfiguration `json:"foreach,omitempty"`
-	RawPattern        *apiextensionsv1.JSON                 `json:"pattern,omitempty"`
-	RawAnyPattern     *apiextensionsv1.JSON                 `json:"anyPattern,omitempty"`
-	Deny              *DenyApplyConfiguration               `json:"deny,omitempty"`
-	PodSecurity       *PodSecurityApplyConfiguration        `json:"podSecurity,omitempty"`
-	CEL               *CELApplyConfiguration                `json:"cel,omitempty"`
+	ValidationFailureAction          *v1.ValidationFailureAction                         `json:"validationFailureAction,omitempty"`
+	ValidationFailureActionOverrides []ValidationFailureActionOverrideApplyConfiguration `json:"validationFailureActionOverrides,omitempty"`
+	Message                          *string                                             `json:"message,omitempty"`
+	Manifests                        *ManifestsApplyConfiguration                        `json:"manifests,omitempty"`
+	ForEachValidation                []ForEachValidationApplyConfiguration               `json:"foreach,omitempty"`
+	RawPattern                       *apiextensionsv1.JSON                               `json:"pattern,omitempty"`
+	RawAnyPattern                    *apiextensionsv1.JSON                               `json:"anyPattern,omitempty"`
+	Deny                             *DenyApplyConfiguration                             `json:"deny,omitempty"`
+	PodSecurity                      *PodSecurityApplyConfiguration                      `json:"podSecurity,omitempty"`
+	CEL                              *CELApplyConfiguration                              `json:"cel,omitempty"`
 }
 
 // ValidationApplyConfiguration constructs an declarative configuration of the Validation type for use with
 // apply.
 func Validation() *ValidationApplyConfiguration {
 	return &ValidationApplyConfiguration{}
+}
+
+// WithValidationFailureAction sets the ValidationFailureAction field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ValidationFailureAction field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithValidationFailureAction(value v1.ValidationFailureAction) *ValidationApplyConfiguration {
+	b.ValidationFailureAction = &value
+	return b
+}
+
+// WithValidationFailureActionOverrides adds the given value to the ValidationFailureActionOverrides field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the ValidationFailureActionOverrides field.
+func (b *ValidationApplyConfiguration) WithValidationFailureActionOverrides(values ...*ValidationFailureActionOverrideApplyConfiguration) *ValidationApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithValidationFailureActionOverrides")
+		}
+		b.ValidationFailureActionOverrides = append(b.ValidationFailureActionOverrides, *values[i])
+	}
+	return b
 }
 
 // WithMessage sets the Message field in the declarative configuration to the given value

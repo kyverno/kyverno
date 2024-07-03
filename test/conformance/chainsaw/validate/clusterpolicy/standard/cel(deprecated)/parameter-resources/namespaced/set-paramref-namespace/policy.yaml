@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-deployment-replicas-01
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deployment-replicas-01
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+      validate:
+        cel:
+          paramKind: 
+            apiVersion: rules.example.com/v1
+            kind: DeploymentReplicaLimit
+          paramRef:
+            name: "replica-limit"
+            namespace: "testing-02"
+            parameterNotFoundAction: "Deny"
+          expressions:
+            - expression: "object.spec.replicas <= params.maxReplicas"
+              messageExpression:  "'Deployment spec.replicas must be less than ' + string(params.maxReplicas)"

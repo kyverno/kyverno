@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-annotations
+spec:
+  background: true
+  failurePolicy: Ignore
+  rules:
+  - match:
+      all:
+      - resources:
+          kinds:
+          - Pod
+    name: disallow-annotations
+    validate:
+      message: One or more annotations is not allowed per the policies disallowed
+        values list.
+      pattern:
+        metadata:
+          =(annotations):
+            =(kyverno-policies-test/key): '!disallowed'
+            X(kyverno-policies-test/disallowed): "null"
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
