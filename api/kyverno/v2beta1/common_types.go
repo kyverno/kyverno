@@ -33,12 +33,14 @@ type Validation struct {
 	ForEachValidation []kyvernov1.ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 
 	// Pattern specifies an overlay-style pattern used to check resources.
-	// +optional
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	RawPattern *kyverno.Any `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 
 	// AnyPattern specifies list of validation patterns. At least one of the patterns
 	// must be satisfied for the validation rule to succeed.
-	// +optional
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	RawAnyPattern *kyverno.Any `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
 
 	// Deny defines conditions used to pass or fail a validation rule.
