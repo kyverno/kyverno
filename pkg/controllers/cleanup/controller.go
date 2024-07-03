@@ -90,7 +90,7 @@ func NewController(
 	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[kyvernov2alpha1.CleanupPolicyInterface] {
 		logger = logger.WithValues("kind", kind, "operation", operation)
 		return func(obj kyvernov2alpha1.CleanupPolicyInterface) error {
-			logger = logger.WithValues("name", obj.GetName())
+			logger := logger.WithValues("name", obj.GetName())
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
 			}
