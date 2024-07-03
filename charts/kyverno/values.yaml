@@ -934,7 +934,7 @@ admissionController:
   featuresOverride:
     admissionReports:
       # -- Max number of admission reports allowed in flight until the admission controller stops creating new ones
-      backPressureThreshold: 10000
+      backPressureThreshold: 1000
 
   rbac:
     # -- Create RBAC resources
