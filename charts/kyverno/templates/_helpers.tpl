@@ -12,6 +12,9 @@
 {{- $flags := list -}}
 {{- with .admissionReports -}}
   {{- $flags = append $flags (print "--admissionReports=" .enabled) -}}
+  {{- with .backPressureThreshold -}}
+    {{- $flags = append $flags (print "--maxAdmissionReports=" .) -}}
+  {{- end -}}
 {{- end -}}
 {{- with .aggregateReports -}}
   {{- $flags = append $flags (print "--aggregateReports=" .enabled) -}}
