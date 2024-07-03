@@ -10719,7 +10719,7 @@ spec:
                               key:
                                 description: Key is the context entry (using JMESPath)
                                   for conditional rule evaluation.
-                                x-kubernetes-preserve-unknown-fields: true
+                                type: object
                               message:
                                 description: Message is an optional display message
                                 type: string
@@ -10749,7 +10749,7 @@ spec:
                                 description: |-
                                   Value is the conditional value, or set of values. The values can be fixed set
                                   or can be variables declared using JMESPath.
-                                x-kubernetes-preserve-unknown-fields: true
+                                type: object
                             type: object
                           type: array
                         any:
@@ -10763,7 +10763,7 @@ spec:
                               key:
                                 description: Key is the context entry (using JMESPath)
                                   for conditional rule evaluation.
-                                x-kubernetes-preserve-unknown-fields: true
+                                type: object
                               message:
                                 description: Message is an optional display message
                                 type: string
@@ -10793,7 +10793,7 @@ spec:
                                 description: |-
                                   Value is the conditional value, or set of values. The values can be fixed set
                                   or can be variables declared using JMESPath.
-                                x-kubernetes-preserve-unknown-fields: true
+                                type: object
                             type: object
                           type: array
                       type: object
@@ -10811,7 +10811,7 @@ spec:
                           description: |-
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
-                          x-kubernetes-preserve-unknown-fields: true
+                          type: object
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -11143,7 +11143,7 @@ spec:
                                       key:
                                         description: Key is the context entry (using
                                           JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
+                                        type: object
                                       message:
                                         description: Message is an optional display
                                           message
@@ -11174,7 +11174,7 @@ spec:
                                         description: |-
                                           Value is the conditional value, or set of values. The values can be fixed set
                                           or can be variables declared using JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
+                                        type: object
                                     type: object
                                   type: array
                                 any:
@@ -11188,7 +11188,7 @@ spec:
                                       key:
                                         description: Key is the context entry (using
                                           JMESPath) for conditional rule evaluation.
-                                        x-kubernetes-preserve-unknown-fields: true
+                                        type: object
                                       message:
                                         description: Message is an optional display
                                           message
@@ -11219,7 +11219,7 @@ spec:
                                         description: |-
                                           Value is the conditional value, or set of values. The values can be fixed set
                                           or can be variables declared using JMESPath.
-                                        x-kubernetes-preserve-unknown-fields: true
+                                        type: object
                                     type: object
                                   type: array
                               type: object
@@ -11870,7 +11870,7 @@ spec:
                         pattern:
                           description: Pattern specifies an overlay-style pattern
                             used to check resources.
-                          x-kubernetes-preserve-unknown-fields: true
+                          type: object
                         podSecurity:
                           description: |-
                             PodSecurity applies exemptions for Kubernetes Pod Security admission

@@ -19,9 +19,9 @@ limitations under the License.
 package v2beta1
 
 import (
+	kyverno "github.com/kyverno/kyverno/api/kyverno"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ValidationApplyConfiguration represents an declarative configuration of the Validation type for use
@@ -32,8 +32,8 @@ type ValidationApplyConfiguration struct {
 	Message                          *string                                                       `json:"message,omitempty"`
 	Manifests                        *kyvernov1.ManifestsApplyConfiguration                        `json:"manifests,omitempty"`
 	ForEachValidation                []kyvernov1.ForEachValidationApplyConfiguration               `json:"foreach,omitempty"`
-	RawPattern                       *apiextensionsv1.JSON                                         `json:"pattern,omitempty"`
-	RawAnyPattern                    *apiextensionsv1.JSON                                         `json:"anyPattern,omitempty"`
+	RawPattern                       *kyverno.Any                                                  `json:"pattern,omitempty"`
+	RawAnyPattern                    *kyverno.Any                                                  `json:"anyPattern,omitempty"`
 	Deny                             *DenyApplyConfiguration                                       `json:"deny,omitempty"`
 	PodSecurity                      *kyvernov1.PodSecurityApplyConfiguration                      `json:"podSecurity,omitempty"`
 	CEL                              *kyvernov1.CELApplyConfiguration                              `json:"cel,omitempty"`
@@ -98,7 +98,7 @@ func (b *ValidationApplyConfiguration) WithForEachValidation(values ...*kyvernov
 // WithRawPattern sets the RawPattern field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawPattern field is set to the value of the last call.
-func (b *ValidationApplyConfiguration) WithRawPattern(value apiextensionsv1.JSON) *ValidationApplyConfiguration {
+func (b *ValidationApplyConfiguration) WithRawPattern(value kyverno.Any) *ValidationApplyConfiguration {
 	b.RawPattern = &value
 	return b
 }
@@ -106,7 +106,7 @@ func (b *ValidationApplyConfiguration) WithRawPattern(value apiextensionsv1.JSON
 // WithRawAnyPattern sets the RawAnyPattern field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawAnyPattern field is set to the value of the last call.
-func (b *ValidationApplyConfiguration) WithRawAnyPattern(value apiextensionsv1.JSON) *ValidationApplyConfiguration {
+func (b *ValidationApplyConfiguration) WithRawAnyPattern(value kyverno.Any) *ValidationApplyConfiguration {
 	b.RawAnyPattern = &value
 	return b
 }
