@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: exception
+spec:
+  background: false
+  exceptions:
+  - policyName: require-run-as-non-root-user
+    ruleNames:
+    - run-as-non-root-user
+  match:
+    any:
+    - resources:
+        namespaceSelector:
+          matchExpressions:
+          - key: kyverno.tess.io/mutateresource
+            operator: In
+            values: 
+            - "false"
+        kinds:
+        - Pod
+        operations:
+        - UPDATE
+        - CREATE
