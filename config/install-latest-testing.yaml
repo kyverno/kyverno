@@ -48931,6 +48931,7 @@ spec:
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --admissionReports=true
+            - --maxAdmissionReports=1000
             - --autoUpdateWebhooks=true
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
