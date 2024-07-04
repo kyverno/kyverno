@@ -11,6 +11,9 @@ spec:
         - resources:
             kinds:
               - Namespace
+            operations:
+              - CREATE
+              - UPDATE
       validate:
         validationFailureAction: Enforce
         cel:
