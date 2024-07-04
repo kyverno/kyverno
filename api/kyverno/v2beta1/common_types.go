@@ -102,6 +102,8 @@ type Deny struct {
 
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	RawKey *kyverno.Any `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
@@ -112,7 +114,8 @@ type Condition struct {
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using JMESPath.
-	// +optional
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	RawValue *kyverno.Any `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// Message is an optional display message
