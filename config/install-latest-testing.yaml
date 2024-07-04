@@ -45289,7 +45289,6 @@ spec:
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
-            - --reportsChunkSize=0
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             

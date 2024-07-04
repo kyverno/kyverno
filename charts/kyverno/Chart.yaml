@@ -37,6 +37,8 @@ annotations:
       description: Add a key to preserve configmap settings during upgrade
     - kind: added
       description: Make admission reports breaker threshold configurable
+    - kind: removed
+      description: Deprecated configuration `features.reports.chunkSize` was removed
 dependencies:
   - name: grafana
     version: v0.0.0
