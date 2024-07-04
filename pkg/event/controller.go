@@ -77,7 +77,7 @@ func (gen *controller) Add(infos ...Info) {
 	logger := gen.logger
 	logger.V(3).Info("generating events", "count", len(infos))
 	if gen.maxQueuedEvents == 0 || gen.queue.Len() > gen.maxQueuedEvents {
-		logger.V(2).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
+		logger.V(3).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
 		return
 	}
 	for _, info := range infos {
