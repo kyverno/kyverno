@@ -10,11 +10,11 @@ const (
 	action = "Retrying"
 )
 
-func NewErrorEvent(regarding corev1.ObjectReference, reason event.Reason, err error) event.Info {
+func NewErrorEvent(regarding corev1.ObjectReference, err error) event.Info {
 	return event.Info{
 		Regarding: regarding,
 		Source:    source,
-		Reason:    reason,
+		Reason:    event.PolicyError,
 		Message:   err.Error(),
 		Action:    action,
 		Type:      corev1.EventTypeWarning,
