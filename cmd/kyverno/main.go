@@ -523,7 +523,11 @@ func main() {
 			os.Exit(1)
 		}
 		reportsBreaker := d4f.NewBreaker("admission reports", func(context.Context) bool {
-			return ephrs.Count() > maxAdmissionReports
+			count, isRunning := ephrs.Count()
+			if !isRunning {
+				return true
+			}
+			return count > maxAdmissionReports
 		})
 		resourceHandlers := webhooksresource.NewHandlers(
 			engine,
