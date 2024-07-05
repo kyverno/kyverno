@@ -34,7 +34,7 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: added
-      description: make webhook pod annotations configurable
+      description: Add a key to preserve configmap settings during upgrade
 dependencies:
   - name: grafana
     version: 3.2.5

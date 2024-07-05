@@ -34,6 +34,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
@@ -290,6 +291,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
+		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -499,10 +501,12 @@ func main() {
 			setup.Logger.Error(err, "failed to initialize leader election")
 			os.Exit(1)
 		}
+		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
 		// create webhooks server
 		urgen := webhookgenerate.NewGenerator(
 			setup.KyvernoClient,
 			kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+			urGenerator,
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
 			setup.KyvernoDynamicClient,

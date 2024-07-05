@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -88,6 +89,8 @@ type policyController struct {
 	metricsConfig metrics.MetricsConfigManager
 
 	jp jmespath.Interface
+
+	urGenerator generator.UpdateRequestGenerator
 }
 
 // NewPolicyController create a new PolicyController
@@ -105,6 +108,7 @@ func NewPolicyController(
 	reconcilePeriod time.Duration,
 	metricsConfig metrics.MetricsConfigManager,
 	jp jmespath.Interface,
+	urGenerator generator.UpdateRequestGenerator,
 ) (*policyController, error) {
 	// Event broad caster
 	eventInterface := client.GetEventsInterface()
@@ -131,6 +135,7 @@ func NewPolicyController(
 		metricsConfig:   metricsConfig,
 		log:             log,
 		jp:              jp,
+		urGenerator:     urGenerator,
 	}
 
 	pc.pLister = pInformer.Lister()
@@ -414,9 +419,12 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		}
 
 		pc.log.V(2).Info("creating new UR for generate")
-		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 		if err != nil {
 			return false, err
+		}
+		if created == nil {
+			continue
 		}
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov1beta1.Pending

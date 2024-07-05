@@ -72,6 +72,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+  annotations:
+    helm.sh/resource-policy: "keep"
 data:
   enableDefaultRegistryMutation: "true"
   defaultRegistry: "docker.io"
