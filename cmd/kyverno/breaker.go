@@ -2,28 +2,50 @@ package main
 
 import (
 	"context"
+	"sync"
 
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	watchtools "github.com/kyverno/kyverno/cmd/kyverno/watch"
 	"github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	metadataclient "k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 )
+
+type resourceUIDGetter interface {
+	GetUID() types.UID
+}
 
 type Counter interface {
 	Count() (int, bool)
 }
 
 type counter struct {
-	count        int
+	lock         sync.RWMutex
+	entries      sets.Set[types.UID]
 	retryWatcher *watchtools.RetryWatcher
 }
 
+func (c *counter) Record(uid types.UID) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.entries.Insert(uid)
+}
+
+func (c *counter) Forget(uid types.UID) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.entries.Delete(uid)
+}
+
 func (c *counter) Count() (int, bool) {
-	return c.count, c.retryWatcher.IsRunning()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.entries.Len(), c.retryWatcher.IsRunning()
 }
 
 func StartResourceCounter(ctx context.Context, client metadataclient.Interface, gvr schema.GroupVersionResource, tweakListOptions internalinterfaces.TweakListOptionsFunc) (*counter, error) {
@@ -43,17 +65,26 @@ func StartResourceCounter(ctx context.Context, client metadataclient.Interface, 
 	if err != nil {
 		return nil, err
 	}
+	entries := sets.New[types.UID]()
+	for _, entry := range objs.Items {
+		entries.Insert(entry.GetUID())
+	}
 	w := &counter{
-		count:        len(objs.Items),
+		entries:      entries,
 		retryWatcher: watchInterface,
 	}
 	go func() {
 		for event := range watchInterface.ResultChan() {
-			switch event.Type {
-			case watch.Added:
-				w.count = w.count + 1
-			case watch.Deleted:
-				w.count = w.count - 1
+			getter, ok := event.Object.(resourceUIDGetter)
+			if ok {
+				switch event.Type {
+				case watch.Added:
+					w.Record(getter.GetUID())
+				case watch.Modified:
+					w.Record(getter.GetUID())
+				case watch.Deleted:
+					w.Forget(getter.GetUID())
+				}
 			}
 		}
 	}()
