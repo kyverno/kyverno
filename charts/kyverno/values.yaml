@@ -1096,7 +1096,10 @@ cleanupJobs:
 admissionController:
 
   # -- Overrides features defined at the root level
-  featuresOverride: {}
+  featuresOverride:
+    admissionReports:
+      # -- Max number of admission reports allowed in flight until the admission controller stops creating new ones
+      backPressureThreshold: 1000
 
   rbac:
     # -- Create RBAC resources
