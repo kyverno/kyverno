@@ -76,7 +76,7 @@ func createReportControllers(
 		vapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings()
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV2beta1 := kyvernoInformer.Kyverno().V2beta1()
+	kyvernoV2 := kyvernoInformer.Kyverno().V2()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
@@ -114,7 +114,7 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
-				kyvernoV2beta1.PolicyExceptions(),
+				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
@@ -190,7 +190,6 @@ func main() {
 		aggregateReports                 bool
 		policyReports                    bool
 		validatingAdmissionPolicyReports bool
-		reportsChunkSize                 int
 		backgroundScanWorkers            int
 		backgroundScanInterval           time.Duration
 		aggregationWorkers               int
@@ -205,7 +204,6 @@ func main() {
 	flagset.BoolVar(&aggregateReports, "aggregateReports", true, "Enable or disable aggregated policy reports.")
 	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
 	flagset.BoolVar(&validatingAdmissionPolicyReports, "validatingAdmissionPolicyReports", false, "Enable or disable validating admission policy reports.")
-	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 0, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&aggregationWorkers, "aggregationWorkers", aggregatereportcontroller.Workers, "Configure the number of ephemeral reports aggregation workers.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
@@ -245,11 +243,6 @@ func main() {
 		// setup
 		ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
 		defer sdown()
-		// show warnings
-		if reportsChunkSize != 0 {
-			logger := setup.Logger.WithName("wanings")
-			logger.Info("Warning: reportsChunkSize is deprecated and will be removed in 1.13.")
-		}
 		// THIS IS AN UGLY FIX
 		// ELSE KYAML IS NOT THREAD SAFE
 		kyamlopenapi.Schema()

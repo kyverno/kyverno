@@ -116,10 +116,10 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 
 func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 	msg := "Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."
-	if spec.ValidationFailureAction == "enforce" || spec.ValidationFailureAction == "audit" {
+	if spec.GetValidationFailureAction() == "enforce" || spec.GetValidationFailureAction() == "audit" {
 		return []string{msg}
 	}
-	for _, override := range spec.ValidationFailureActionOverrides {
+	for _, override := range spec.GetValidationFailureActionOverrides() {
 		if override.Action == "enforce" || override.Action == "audit" {
 			return []string{msg}
 		}
@@ -133,7 +133,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
-	if policy.GetSpec().CustomWebhookConfiguration() &&
+	if policy.GetSpec().CustomWebhookMatchConditions() &&
 		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
 	}
@@ -326,7 +326,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			isAuditFailureAction := false
-			if spec.ValidationFailureAction == kyvernov1.Audit {
+			if spec.GetValidationFailureAction() == kyvernov1.Audit {
 				isAuditFailureAction = true
 			}
 
@@ -1555,7 +1555,7 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 		"auditW":   sets.New[string](),
 	}
 
-	for i, vfa := range s.ValidationFailureActionOverrides {
+	for i, vfa := range s.GetValidationFailureActionOverrides() {
 		if !vfa.Action.IsValid() {
 			return fmt.Errorf("invalid action")
 		}

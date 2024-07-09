@@ -4,7 +4,6 @@ metadata:
     name: external-metrics-policy-default
     namespace: default
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
   - name: external-metrics-rule-default
@@ -16,6 +15,7 @@ spec:
           kinds:
           - Secret
     validate:
+      validationFailureAction: Enforce
       message: 'You should be careful when trying to change/delete {{request.oldObject.kind}} in {{request.oldObject.name}}. These are my-precious resources and touching them might break my heart.'
       deny:
         conditions:

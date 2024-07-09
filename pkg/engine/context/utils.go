@@ -8,7 +8,7 @@ import (
 
 // AddJSONObject merges json data
 func AddJSONObject(ctx Interface, data map[string]interface{}) error {
-	return ctx.addJSON(data)
+	return ctx.addJSON(data, false)
 }
 
 func AddResource(ctx Interface, dataRaw []byte) error {
@@ -29,12 +29,12 @@ func AddOldResource(ctx Interface, dataRaw []byte) error {
 	return ctx.AddOldResource(data)
 }
 
-func addToContext(ctx *context, data interface{}, tags ...string) error {
+func addToContext(ctx *context, data interface{}, overwriteMaps bool, tags ...string) error {
 	if v, err := convertStructs(data); err != nil {
 		return err
 	} else {
 		dataRaw := push(v, tags...)
-		return ctx.addJSON(dataRaw)
+		return ctx.addJSON(dataRaw, overwriteMaps)
 	}
 }
 
@@ -90,11 +90,11 @@ func push(data interface{}, tags ...string) map[string]interface{} {
 }
 
 // mergeMaps merges srcMap entries into destMap
-func mergeMaps(srcMap, destMap map[string]interface{}) {
+func mergeMaps(srcMap, destMap map[string]interface{}, overwriteMaps bool) {
 	for k, v := range srcMap {
-		if nextSrcMap, ok := v.(map[string]interface{}); ok {
+		if nextSrcMap, ok := v.(map[string]interface{}); ok && !overwriteMaps {
 			if nextDestMap, ok := destMap[k].(map[string]interface{}); ok {
-				mergeMaps(nextSrcMap, nextDestMap)
+				mergeMaps(nextSrcMap, nextDestMap, overwriteMaps)
 			} else {
 				destMap[k] = nextSrcMap
 			}

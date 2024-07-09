@@ -670,9 +670,6 @@ features:
     - amazon
     - azure
     - github
-  reports:
-    # -- Reports chunk size
-    chunkSize: 0
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
@@ -686,166 +683,6 @@ features:
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
-
-  admissionReports:
-
-    # -- Enable cleanup cronjob
-    enabled: true
-
-    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
-    backoffLimit: 3
-
-    # -- Time until the pod from the cronjob is deleted
-    ttlSecondsAfterFinished: ""
-
-    image:
-      # -- (string) Image registry
-      registry: ~
-      # -- Image repository
-      repository: bitnami/kubectl
-      # -- Image tag
-      # Defaults to `latest` if omitted
-      tag: '1.30.2'
-      # -- (string) Image pull policy
-      # Defaults to image.pullPolicy if omitted
-      pullPolicy: ~
-
-    # -- Image pull secrets
-    imagePullSecrets: []
-      # - name: secretName
-
-    # -- Cronjob schedule
-    schedule: '*/10 * * * *'
-
-    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
-    threshold: 10000
-
-    # -- Cronjob history
-    history:
-      success: 1
-      failure: 1
-
-    # -- Security context for the pod
-    podSecurityContext: {}
-
-    # -- Security context for the containers
-    securityContext:
-      runAsNonRoot: true
-      privileged: false
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-      seccompProfile:
-        type: RuntimeDefault
-
-    # -- Pod PriorityClassName
-    priorityClassName: ""
-
-    # -- Job resources
-    resources: {}
-
-    # -- List of node taints to tolerate
-    tolerations: []
-
-    # -- Node labels for pod assignment
-    nodeSelector: {}
-
-    # -- Pod Annotations
-    podAnnotations: {}
-
-    # -- Pod labels
-    podLabels: {}
-
-    # -- Pod anti affinity constraints.
-    podAntiAffinity: {}
-
-    # -- Pod affinity constraints.
-    podAffinity: {}
-
-    # -- Node affinity constraints.
-    nodeAffinity: {}
-
-  clusterAdmissionReports:
-
-    # -- Enable cleanup cronjob
-    enabled: true
-
-    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
-    backoffLimit: 3
-
-    # -- Time until the pod from the cronjob is deleted
-    ttlSecondsAfterFinished: ""
-
-    image:
-      # -- (string) Image registry
-      registry: ~
-      # -- Image repository
-      repository: bitnami/kubectl
-      # -- Image tag
-      # Defaults to `latest` if omitted
-      tag: '1.30.2'
-      # -- (string) Image pull policy
-      # Defaults to image.pullPolicy if omitted
-      pullPolicy: ~
-
-    # -- Image pull secrets
-    imagePullSecrets: []
-      # - name: secretName
-
-    # -- Cronjob schedule
-    schedule: '*/10 * * * *'
-
-    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
-    threshold: 10000
-
-    # -- Cronjob history
-    history:
-      success: 1
-      failure: 1
-
-    # -- Security context for the pod
-    podSecurityContext: {}
-
-    # -- Security context for the containers
-    securityContext:
-      runAsNonRoot: true
-      privileged: false
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-      seccompProfile:
-        type: RuntimeDefault
-
-    # -- Pod PriorityClassName
-    priorityClassName: ""
-
-    # -- Job resources
-    resources: {}
-
-    # -- List of node taints to tolerate
-    tolerations: []
-
-    # -- Node labels for pod assignment
-    nodeSelector: {}
-
-    # -- Pod Annotations
-    podAnnotations: {}
-
-    # -- Pod Labels
-    podLabels: {}
-
-    # -- Pod anti affinity constraints.
-    podAntiAffinity: {}
-
-    # -- Pod affinity constraints.
-    podAffinity: {}
-
-    # -- Node affinity constraints.
-    nodeAffinity: {}
 
   updateRequests:
 
@@ -930,7 +767,7 @@ cleanupJobs:
   ephemeralReports:
 
     # -- Enable cleanup cronjob
-    enabled: true
+    enabled: false
 
     # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
     backoffLimit: 3
@@ -1010,7 +847,7 @@ cleanupJobs:
   clusterEphemeralReports:
 
     # -- Enable cleanup cronjob
-    enabled: true
+    enabled: false
 
     # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
     backoffLimit: 3
@@ -1091,7 +928,10 @@ cleanupJobs:
 admissionController:
 
   # -- Overrides features defined at the root level
-  featuresOverride: {}
+  featuresOverride:
+    admissionReports:
+      # -- Max number of admission reports allowed in flight until the admission controller stops creating new ones
+      backPressureThreshold: 1000
 
   rbac:
     # -- Create RBAC resources

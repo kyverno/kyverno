@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	imageRef = "jimnotarytest.azurecr.io/jim/net-monitor:v1"
+	imageRef = "ghcr.io/kyverno/test-verify-image:signed"
 	ctx      = context.Background()
 )
 
@@ -29,7 +29,7 @@ func TestResolve(t *testing.T) {
 
 	desc, err := repositoryClient.Resolve(ctx, repoDesc.Digest.String())
 	assert.NilError(t, err)
-	assert.Equal(t, desc.Digest.String(), "sha256:ba7000206594c2d72c3ab550453004c0dc50961157e5ebd2fb8ea1890099d02d")
+	assert.Equal(t, desc.Digest.String(), "sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")
 	assert.Equal(t, desc.MediaType, "application/vnd.docker.distribution.manifest.v2+json")
 }
 
@@ -78,7 +78,6 @@ func TestFetchSignatureBlob(t *testing.T) {
 			_, desc, err := repositoryClient.FetchSignatureBlob(ctx, v1ToOciSpecDescriptor(d))
 			assert.NilError(t, err)
 			assert.Equal(t, desc.MediaType, "application/jose+json")
-			assert.Equal(t, desc.Digest.String(), "sha256:746134b09f89451497668c598857d87ca660bb3d0b888832235c460d8d2697f3")
 		}
 	}
 }

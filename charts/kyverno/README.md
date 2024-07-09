@@ -345,7 +345,6 @@ The chart values are organised per component.
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
-| features.reports.chunkSize | int | `0` | Reports chunk size |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.enabled | bool | `false` | Enables the feature |
 | features.tuf.root | string | `nil` | Tuf root |
@@ -355,7 +354,8 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| admissionController.featuresOverride | object | `{}` | Overrides features defined at the root level |
+| admissionController.featuresOverride | object | `{"admissionReports":{"backPressureThreshold":1000}}` | Overrides features defined at the root level |
+| admissionController.featuresOverride.admissionReports.backPressureThreshold | int | `1000` | Max number of admission reports allowed in flight until the admission controller stops creating new ones |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -728,50 +728,6 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| cleanupJobs.admissionReports.enabled | bool | `true` | Enable cleanup cronjob |
-| cleanupJobs.admissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
-| cleanupJobs.admissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
-| cleanupJobs.admissionReports.image.registry | string | `nil` | Image registry |
-| cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.admissionReports.image.tag | string | `"1.30.2"` | Image tag Defaults to `latest` if omitted |
-| cleanupJobs.admissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| cleanupJobs.admissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
-| cleanupJobs.admissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
-| cleanupJobs.admissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
-| cleanupJobs.admissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
-| cleanupJobs.admissionReports.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupJobs.admissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| cleanupJobs.admissionReports.priorityClassName | string | `""` | Pod PriorityClassName |
-| cleanupJobs.admissionReports.resources | object | `{}` | Job resources |
-| cleanupJobs.admissionReports.tolerations | list | `[]` | List of node taints to tolerate |
-| cleanupJobs.admissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
-| cleanupJobs.admissionReports.podAnnotations | object | `{}` | Pod Annotations |
-| cleanupJobs.admissionReports.podLabels | object | `{}` | Pod labels |
-| cleanupJobs.admissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| cleanupJobs.admissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
-| cleanupJobs.admissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
-| cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
-| cleanupJobs.clusterAdmissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
-| cleanupJobs.clusterAdmissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
-| cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
-| cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.30.2"` | Image tag Defaults to `latest` if omitted |
-| cleanupJobs.clusterAdmissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| cleanupJobs.clusterAdmissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
-| cleanupJobs.clusterAdmissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
-| cleanupJobs.clusterAdmissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
-| cleanupJobs.clusterAdmissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
-| cleanupJobs.clusterAdmissionReports.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupJobs.clusterAdmissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| cleanupJobs.clusterAdmissionReports.priorityClassName | string | `""` | Pod PriorityClassName |
-| cleanupJobs.clusterAdmissionReports.resources | object | `{}` | Job resources |
-| cleanupJobs.clusterAdmissionReports.tolerations | list | `[]` | List of node taints to tolerate |
-| cleanupJobs.clusterAdmissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
-| cleanupJobs.clusterAdmissionReports.podAnnotations | object | `{}` | Pod Annotations |
-| cleanupJobs.clusterAdmissionReports.podLabels | object | `{}` | Pod Labels |
-| cleanupJobs.clusterAdmissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| cleanupJobs.clusterAdmissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
-| cleanupJobs.clusterAdmissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
 | cleanupJobs.updateRequests.enabled | bool | `true` | Enable cleanup cronjob |
 | cleanupJobs.updateRequests.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
 | cleanupJobs.updateRequests.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
@@ -794,7 +750,7 @@ The chart values are organised per component.
 | cleanupJobs.updateRequests.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | cleanupJobs.updateRequests.podAffinity | object | `{}` | Pod affinity constraints. |
 | cleanupJobs.updateRequests.nodeAffinity | object | `{}` | Node affinity constraints. |
-| cleanupJobs.ephemeralReports.enabled | bool | `true` | Enable cleanup cronjob |
+| cleanupJobs.ephemeralReports.enabled | bool | `false` | Enable cleanup cronjob |
 | cleanupJobs.ephemeralReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
 | cleanupJobs.ephemeralReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
 | cleanupJobs.ephemeralReports.image.registry | string | `nil` | Image registry |
@@ -816,7 +772,7 @@ The chart values are organised per component.
 | cleanupJobs.ephemeralReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | cleanupJobs.ephemeralReports.podAffinity | object | `{}` | Pod affinity constraints. |
 | cleanupJobs.ephemeralReports.nodeAffinity | object | `{}` | Node affinity constraints. |
-| cleanupJobs.clusterEphemeralReports.enabled | bool | `true` | Enable cleanup cronjob |
+| cleanupJobs.clusterEphemeralReports.enabled | bool | `false` | Enable cleanup cronjob |
 | cleanupJobs.clusterEphemeralReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
 | cleanupJobs.clusterEphemeralReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
 | cleanupJobs.clusterEphemeralReports.image.registry | string | `nil` | Image registry |
