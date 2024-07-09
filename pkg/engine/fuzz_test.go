@@ -162,6 +162,7 @@ func FuzzEngineValidateTest(f *testing.F) {
 		validateEngine.Validate(
 			validateContext,
 			pc.WithPolicy(policy),
+			false,
 		)
 	})
 }
@@ -212,6 +213,7 @@ func FuzzPodBypass(f *testing.F) {
 		er := validateEngine.Validate(
 			validateContext,
 			pc.WithPolicy(testPolicy.ClusterPolicy),
+			false,
 		)
 		blocked := blockRequest([]engineapi.EngineResponse{er})
 		if blocked != shouldBlock {

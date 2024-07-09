@@ -467,6 +467,18 @@ type Validation struct {
 	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
 }
 
+func (v *Validation) HasEnforce() bool {
+	if v.ValidationFailureAction != nil && v.ValidationFailureAction.Enforce() {
+		return true
+	}
+	for _, action := range v.ValidationFailureActionOverrides {
+		if action.Action.Enforce() {
+			return true
+		}
+	}
+	return false
+}
+
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
 // by specifying exclusions for Pod Security Standards controls.
 type PodSecurity struct {

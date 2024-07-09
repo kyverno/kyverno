@@ -110,7 +110,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 			assert.NotNil(t, policy)
 			spec := policy.GetSpec()
 			assert.NotNil(t, spec)
-			assert.True(t, spec.GetValidationFailureAction().Audit())
+			assert.True(t, spec.ValidationFailureAction.Audit())
 			assert.NotNil(t, spec.Background)
 			assert.True(t, *spec.Background)
 			assert.NotNil(t, spec.Admission)

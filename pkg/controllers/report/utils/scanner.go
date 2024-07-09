@@ -116,7 +116,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithNamespaceLabels(nsLabels)
-	response := s.engine.Validate(ctx, policyCtx)
+	response := s.engine.Validate(ctx, policyCtx, policy.GetSpec().HasValidateEnforce())
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.V(6).Info("validateResource", "policy", policy, "response", response)
 	}

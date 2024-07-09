@@ -2108,6 +2108,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			er := eng.Validate(
 				context.TODO(),
 				ctx,
+				policy.GetSpec().HasValidateEnforce(),
 			)
 			if tc.blocked && tc.messages != nil {
 				for _, r := range er.PolicyResponse.Rules {
@@ -2192,6 +2193,7 @@ func Test_RuleSelector(t *testing.T) {
 	resp := eng.Validate(
 		context.TODO(),
 		ctx,
+		policy.GetSpec().HasValidateEnforce(),
 	)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount() == 2)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount() == 0)
@@ -2205,6 +2207,7 @@ func Test_RuleSelector(t *testing.T) {
 	resp = eng.Validate(
 		context.TODO(),
 		ctx,
+		policy.GetSpec().HasValidateEnforce(),
 	)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount() == 1)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount() == 0)

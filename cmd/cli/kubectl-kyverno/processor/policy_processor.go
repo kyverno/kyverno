@@ -172,7 +172,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return responses, err
 		}
-		validateResponse := eng.Validate(context.TODO(), policyContext)
+		validateResponse := eng.Validate(context.TODO(), policyContext, policy.GetSpec().HasValidateEnforce())
 		responses = append(responses, validateResponse)
 		resource = validateResponse.PatchedResource
 	}

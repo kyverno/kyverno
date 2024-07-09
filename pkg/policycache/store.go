@@ -79,18 +79,6 @@ func newPolicyMap() *policyMap {
 	}
 }
 
-func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
-	if spec.GetValidationFailureAction().Enforce() {
-		return true
-	}
-	for _, k := range spec.GetValidationFailureActionOverrides() {
-		if k.Action.Enforce() {
-			return true
-		}
-	}
-	return false
-}
-
 func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 	if value {
 		return set.Insert(item)
@@ -101,7 +89,7 @@ func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 
 func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	var errs []error
-	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
+	enforcePolicy := policy.GetSpec().HasValidateEnforce()
 	m.policies[key] = policy
 	type state struct {
 		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool

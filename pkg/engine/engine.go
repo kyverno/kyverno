@@ -84,12 +84,13 @@ func NewEngine(
 func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
+	enforce bool,
 ) engineapi.EngineResponse {
 	startTime := time.Now()
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
-		policyResponse := e.validate(ctx, logger, policyContext)
+		policyResponse := e.validate(ctx, logger, policyContext, enforce)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
