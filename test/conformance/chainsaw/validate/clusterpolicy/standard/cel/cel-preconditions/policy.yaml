@@ -12,6 +12,9 @@ spec:
         - resources:
             kinds:
               - Pod
+            operations:
+              - CREATE
+              - UPDATE
       celPreconditions:
           - name: "first match condition in CEL"
             expression: "object.metadata.name.matches('nginx-pod')"
