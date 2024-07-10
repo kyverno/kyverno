@@ -12,6 +12,9 @@
 {{- $flags := list -}}
 {{- with .admissionReports -}}
   {{- $flags = append $flags (print "--admissionReports=" .enabled) -}}
+  {{- with .backPressureThreshold -}}
+    {{- $flags = append $flags (print "--maxAdmissionReports=" .) -}}
+  {{- end -}}
 {{- end -}}
 {{- with .aggregateReports -}}
   {{- $flags = append $flags (print "--aggregateReports=" .enabled) -}}
@@ -66,9 +69,6 @@
 {{- end -}}
 {{- with .protectManagedResources -}}
   {{- $flags = append $flags (print "--protectManagedResources=" .enabled) -}}
-{{- end -}}
-{{- with .reports -}}
-  {{- $flags = append $flags (print "--reportsChunkSize=" .chunkSize) -}}
 {{- end -}}
 {{- with .registryClient -}}
   {{- $flags = append $flags (print "--allowInsecureRegistry=" .allowInsecure) -}}

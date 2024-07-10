@@ -13,6 +13,9 @@ spec:
         - resources:
             kinds:
               - Pod
+            operations:
+              - CREATE
+              - UPDATE
       validate:
         validationFailureAction: Enforce
         message: "hostPort must either be unset or set to 0"

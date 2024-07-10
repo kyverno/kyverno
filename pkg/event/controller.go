@@ -77,7 +77,7 @@ func (gen *controller) Add(infos ...Info) {
 	logger := gen.logger
 	logger.V(3).Info("generating events", "count", len(infos))
 	if gen.maxQueuedEvents == 0 || gen.queue.Len() > gen.maxQueuedEvents {
-		logger.V(2).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
+		logger.V(3).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
 		return
 	}
 	for _, info := range infos {
@@ -175,6 +175,10 @@ func (gen *controller) emitEvent(key Info) {
 	if namespace == "" {
 		namespace = metav1.NamespaceDefault
 	}
+	message := key.Message
+	if len(message) > 1024 {
+		message = message[0:1021] + "..."
+	}
 	event := &eventsv1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%v.%x", refRegarding.Name, t.UnixNano()),
@@ -188,7 +192,7 @@ func (gen *controller) emitEvent(key Info) {
 		Reason:              string(key.Reason),
 		Regarding:           *refRegarding,
 		Related:             refRelated,
-		Note:                key.Message,
+		Note:                message,
 		Type:                eventType,
 	}
 
