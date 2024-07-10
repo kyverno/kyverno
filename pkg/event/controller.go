@@ -175,6 +175,10 @@ func (gen *controller) emitEvent(key Info) {
 	if namespace == "" {
 		namespace = metav1.NamespaceDefault
 	}
+	message := key.Message
+	if len(message) > 1024 {
+		message = message[0:1021] + "..."
+	}
 	event := &eventsv1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%v.%x", refRegarding.Name, t.UnixNano()),
@@ -188,7 +192,7 @@ func (gen *controller) emitEvent(key Info) {
 		Reason:              string(key.Reason),
 		Regarding:           *refRegarding,
 		Related:             refRelated,
-		Note:                key.Message,
+		Note:                message,
 		Type:                eventType,
 	}
 
