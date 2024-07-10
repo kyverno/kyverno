@@ -59,8 +59,10 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 	switch logFormat {
 	case TextFormat:
 		zc = zap.NewDevelopmentConfig()
+		zc.EncoderConfig.EncodeLevel = zapLevelEncoderText
 	case JSONFormat:
 		zc = zap.NewProductionConfig()
+		zc.EncoderConfig.EncodeLevel = zapLevelEncoderJson
 	default:
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}
@@ -185,4 +187,22 @@ func (a *writerAdapter) Write(p []byte) (int, error) {
 
 func StdLogger(logger logr.Logger, prefix string) *stdlog.Logger {
 	return stdlog.New(&writerAdapter{logger: logger}, prefix, stdlog.LstdFlags)
+}
+
+func zapLevelEncoderText(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(zapLevelToString(l))
+}
+
+func zapLevelEncoderJson(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(strings.ToLower(zapLevelToString(l)))
+}
+
+func zapLevelToString(zapLevel zapcore.Level) string {
+	if zapLevel <= 0 && zapLevel >= -2 {
+		return "INFO"
+	} else if zapLevel <= -3 {
+		return "DEBUG"
+	} else {
+		return zapLevel.CapitalString()
+	}
 }
