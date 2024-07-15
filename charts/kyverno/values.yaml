@@ -670,9 +670,6 @@ features:
     - amazon
     - azure
     - github
-  reports:
-    # -- Reports chunk size
-    chunkSize: 0
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
@@ -931,7 +928,10 @@ cleanupJobs:
 admissionController:
 
   # -- Overrides features defined at the root level
-  featuresOverride: {}
+  featuresOverride:
+    admissionReports:
+      # -- Max number of admission reports allowed in flight until the admission controller stops creating new ones
+      backPressureThreshold: 1000
 
   rbac:
     # -- Create RBAC resources

@@ -74,11 +74,11 @@ func (h mutateImageHandler) Process(
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
 			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-			return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+			return resource, handlers.WithError(rule, engineapi.Mutation, "failed to compute exception key", err)
 		} else {
 			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
 			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception),
+				engineapi.RuleSkip(rule.Name, engineapi.Mutation, "rule skipped due to policy exception "+key).WithException(exception),
 			)
 		}
 	}

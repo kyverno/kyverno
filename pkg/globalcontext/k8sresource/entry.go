@@ -69,7 +69,7 @@ func New(
 			Name:       gce.Name,
 			Namespace:  gce.Namespace,
 			UID:        gce.UID,
-		}, entryevent.ReasonInformerRunFailure, eventErr))
+		}, eventErr))
 
 		stop()
 	})
@@ -97,7 +97,7 @@ func New(
 			Name:       gce.Name,
 			Namespace:  gce.Namespace,
 			UID:        gce.UID,
-		}, entryevent.ReasonCacheSyncFailure, err))
+		}, err))
 
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (e *entry) Get() (any, error) {
 			Name:       e.gce.Name,
 			Namespace:  e.gce.Namespace,
 			UID:        e.gce.UID,
-		}, entryevent.ReasonResourceListFailure, err))
+		}, err))
 		return nil, err
 	}
 	return obj, nil

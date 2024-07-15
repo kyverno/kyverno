@@ -24,7 +24,6 @@ package v2beta1
 import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -305,13 +304,11 @@ func (in *Condition) DeepCopyInto(out *Condition) {
 	*out = *in
 	if in.RawKey != nil {
 		in, out := &in.RawKey, &out.RawKey
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	if in.RawValue != nil {
 		in, out := &in.RawValue, &out.RawValue
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	return
 }
@@ -857,13 +854,11 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 	}
 	if in.RawPattern != nil {
 		in, out := &in.RawPattern, &out.RawPattern
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	if in.RawAnyPattern != nil {
 		in, out := &in.RawAnyPattern, &out.RawAnyPattern
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	if in.Deny != nil {
 		in, out := &in.Deny, &out.Deny

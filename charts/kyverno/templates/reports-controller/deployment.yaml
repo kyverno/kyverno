@@ -126,7 +126,6 @@ spec:
               "logging"
               "omitEvents"
               "policyExceptions"
-              "reports"
               "registryClient"
               "tuf"
             ) | nindent 12 }}
