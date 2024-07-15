@@ -15,7 +15,9 @@ import (
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
+	"github.com/notaryproject/notation-go/dir"
 	notationlog "github.com/notaryproject/notation-go/log"
+	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/verifier"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
@@ -51,7 +53,8 @@ func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Option
 
 	trustStore := NewTrustStore("kyverno", certs)
 	policyDoc := v.buildPolicy()
-	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
+	pluginManager := plugin.NewCLIManager(dir.PluginFS())
+	notationVerifier, err := verifier.New(policyDoc, trustStore, pluginManager)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to created verifier")
 	}
