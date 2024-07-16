@@ -88,8 +88,6 @@ github.com/ProtonMail/go-crypto v1.0.0 h1:LRuvITjQWX+WIfr930YHG2HNfjR1uOfyf5vE0k
 github.com/ProtonMail/go-crypto v1.0.0/go.mod h1:EjAoLdwvbIOoOQr3ihjnSoLZRtE8azugULFRteWMNc0=
 github.com/ThalesIgnite/crypto11 v1.2.5 h1:1IiIIEqYmBvUYFeMnHqRft4bwf/O36jryEUpY+9ef8E=
 github.com/ThalesIgnite/crypto11 v1.2.5/go.mod h1:ILDKtnCKiQ7zRoNxcp36Y1ZR8LBPmR2E23+wTQe/MlE=
-github.com/YTGhost/pod-security-admission v0.22.0-beta.0.0.20240603173423-11663473ae49 h1:dwYC6vA5cR+2YFeEasNoJGVj/NrsXCSIWww3qQxeQFY=
-github.com/YTGhost/pod-security-admission v0.22.0-beta.0.0.20240603173423-11663473ae49/go.mod h1:wJpTzOGwDdTbVbIqwBuAX7io1eDQIuW/UfMaK5/Xzn0=
 github.com/agnivade/levenshtein v1.1.1 h1:QY8M92nrzkmr798gCo3kmMyqXFzdQVpxLlGPRBij0P8=
 github.com/agnivade/levenshtein v1.1.1/go.mod h1:veldBMzWxcCG2ZvUTKD2kJNRdCk5hVbJomOvKkmgYbo=
 github.com/alessio/shellescape v1.4.1 h1:V7yhSDDn8LP4lc4jS8pFkt0zCnzVJlG5JXy9BVKJUX0=
@@ -613,6 +611,8 @@ github.com/kyverno/kyverno-json v0.0.3 h1:EImI/YV41dG4hDQer/W0qMZHfxqul1yiHrBEXx
 github.com/kyverno/kyverno-json v0.0.3/go.mod h1:KUgXPXwUh0Sm/UgtHPomZAfEX8v79I3B5RZbUlzNihg=
 github.com/kyverno/pkg/ext v0.0.0-20240418121121-df8add26c55c h1:lAolpR9H8BwM5lRRvgCQ8JowswyxZRH+fgtIQzHFVCk=
 github.com/kyverno/pkg/ext v0.0.0-20240418121121-df8add26c55c/go.mod h1:02vxM0GNXz9+B/i6+rMfWAIwibUuAH+qFsd73IFskgQ=
+github.com/kyverno/pod-security-admission v0.0.0-20240715131510-7fb54a8d376d h1:JNgsQw8TtxEeGA3lkra0qMG+B4fMhUwZiMRdJ8NQah4=
+github.com/kyverno/pod-security-admission v0.0.0-20240715131510-7fb54a8d376d/go.mod h1:wJpTzOGwDdTbVbIqwBuAX7io1eDQIuW/UfMaK5/Xzn0=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7/go.mod h1:YR/zYthNdWfO8+0IOyHDcIDBBBS2JMnYUIwSsnwmRqU=
 github.com/letsencrypt/boulder v0.0.0-20240127020530-97a19b18d21e h1:7QjzPboPE+0pVMsZP1sz1mN26m6vew78YmcIZz1FMrg=
