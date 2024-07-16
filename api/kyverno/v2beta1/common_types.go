@@ -65,6 +65,18 @@ type Validation struct {
 	Assert AssertionTree `json:"assert"`
 }
 
+func (v *Validation) HasEnforce() bool {
+	if v.ValidationFailureAction != nil && v.ValidationFailureAction.Enforce() {
+		return true
+	}
+	for _, action := range v.ValidationFailureActionOverrides {
+		if action.Action.Enforce() {
+			return true
+		}
+	}
+	return false
+}
+
 // ConditionOperator is the operation performed on condition key and value.
 // +kubebuilder:validation:Enum=Equals;NotEquals;AnyIn;AllIn;AnyNotIn;AllNotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
 type ConditionOperator string

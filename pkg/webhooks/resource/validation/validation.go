@@ -118,7 +118,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 				engineResponses = append(engineResponses, engineResponse)
 				if !engineResponse.IsSuccessful() {
-					logger.V(2).Info("validation failed", "action", policy.GetSpec().GetValidationFailureAction(), "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
+					logger.V(2).Info("validation failed", "action", "Enforce", "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 					return
 				}
 

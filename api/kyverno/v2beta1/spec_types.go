@@ -135,6 +135,21 @@ func (s *Spec) HasValidate() bool {
 	return false
 }
 
+// HasValidateEnforce checks if the policy has any validate rules with enforce action
+func (s *Spec) HasValidateEnforce() bool {
+	for _, rule := range s.Rules {
+		if rule.HasValidate() && rule.Validation.HasEnforce() {
+			return true
+		}
+	}
+	for _, override := range s.ValidationFailureActionOverrides {
+		if override.Action.Enforce() {
+			return true
+		}
+	}
+	return s.ValidationFailureAction.Enforce()
+}
+
 // HasGenerate checks for generate rule types
 func (s *Spec) HasGenerate() bool {
 	for _, rule := range s.Rules {
@@ -195,32 +210,6 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	}
 
 	return *s.Background
-}
-
-// GetValidationFailureAction returns the value of the validationFailureAction
-func (s *Spec) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
-	for _, rule := range s.Rules {
-		if rule.HasValidate() {
-			validationFailureAction := rule.Validation.ValidationFailureAction
-			if validationFailureAction != nil {
-				return *validationFailureAction
-			}
-		}
-	}
-	return s.ValidationFailureAction
-}
-
-// GetValidationFailureActionOverrides returns the value of the validationFailureActionOverrides
-func (s *Spec) GetValidationFailureActionOverrides() []kyvernov1.ValidationFailureActionOverride {
-	for _, rule := range s.Rules {
-		if rule.HasValidate() {
-			validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
-			if len(validationFailureActionOverrides) != 0 {
-				return validationFailureActionOverrides
-			}
-		}
-	}
-	return s.ValidationFailureActionOverrides
 }
 
 // GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
