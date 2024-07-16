@@ -45,16 +45,17 @@ type notaryVerifier struct {
 func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
 	v.log.V(2).Info("verifying image", "reference", opts.ImageRef)
 
-	certsPEM := combineCerts(opts)
-	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse certificates")
-	}
+	// certsPEM := combineCerts(opts)
+	// certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
+	// if err != nil {
+	// 	return nil, errors.Wrapf(err, "failed to parse certificates")
+	// }
 
-	trustStore := NewTrustStore("kyverno", certs)
-	policyDoc := v.buildPolicy()
-	pluginManager := plugin.NewCLIManager(dir.PluginFS())
-	notationVerifier, err := verifier.New(policyDoc, trustStore, pluginManager)
+	// trustStore := NewTrustStore("kyverno", certs)
+	// policyDoc := v.buildPolicy()
+	// pluginManager := plugin.NewCLIManager(dir.PluginFS())
+	// notationVerifier, err := verifier.New(policyDoc, trustStore, pluginManager)
+	notationVerifier, err := verifier.NewFromConfig()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to created verifier")
 	}
