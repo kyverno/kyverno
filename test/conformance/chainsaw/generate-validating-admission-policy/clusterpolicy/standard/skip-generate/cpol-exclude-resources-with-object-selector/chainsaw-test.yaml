@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: cpol-exclude
+  name: cpol-exclude-resources-with-object-selector
 spec:
   steps:
   - name: step-01
