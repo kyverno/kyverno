@@ -16,10 +16,10 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: tibdex/github-app-token@v1
+        uses: actions/create-github-app-token@v1
         with:
-          app_id: ${{ secrets.APP_ID }}
-          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.HERALD_APP_ID }}
+          private-key: ${{ secrets.HERALD_APP_KEY }}
 
       - name: Checkout
         uses: actions/checkout@v3
@@ -30,6 +30,6 @@ jobs:
           # Fetch tags from upstream repo
           git fetch https://github.com/kyverno/kyverno --tags
           # Remove release candidates local tags
-          git tag -d $(git tag -l | grep -Ei "\-rc|\-beta|\-dev|\-chart")
+          git tag -d $(git tag -l | grep -Ei "\-rc|\-beta|\-dev|\-chart|\-alpha")
           git push --tags
 
