@@ -96,7 +96,7 @@ func (ivm *ImageVerificationMetadata) Patches(hasAnnotations bool, log logr.Logg
 	}
 }
 
-func (ivm *ImageVerificationMetadata) Merge(other ImageVerificationMetadata) {
+func (ivm *ImageVerificationMetadata) Merge(other *ImageVerificationMetadata) {
 	for k, v := range other.Data {
 		ivm.Add(k, v)
 	}
