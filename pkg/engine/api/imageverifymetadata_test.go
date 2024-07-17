@@ -227,8 +227,10 @@ func TestImageVerificationMetadata_Merge(t *testing.T) {
 		args   args
 		want   *ImageVerificationMetadata
 	}{{
+		name: "empty ivm",
 		want: &ImageVerificationMetadata{},
 	}, {
+		name: "replace entry in ivm",
 		fields: fields{
 			Data: map[string]ImageVerificationMetadataStatus{
 				"test": ImageVerificationPass,
@@ -247,6 +249,7 @@ func TestImageVerificationMetadata_Merge(t *testing.T) {
 			},
 		},
 	}, {
+		name: "concat maps",
 		fields: fields{
 			Data: map[string]ImageVerificationMetadataStatus{
 				"test": ImageVerificationPass,
