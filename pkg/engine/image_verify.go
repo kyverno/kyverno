@@ -18,12 +18,12 @@ func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (engineapi.PolicyResponse, unstructured.Unstructured, engineapi.ImageVerificationMetadata) {
+) (engineapi.PolicyResponse, unstructured.Unstructured, *engineapi.ImageVerificationMetadata) {
 	resp := engineapi.NewPolicyResponse()
 	policy := policyContext.Policy()
 	matchedResource := policyContext.NewResource()
 	applyRules := policy.GetSpec().GetApplyRules()
-	ivm := engineapi.ImageVerificationMetadata{}
+	ivm := &engineapi.ImageVerificationMetadata{}
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
@@ -42,7 +42,7 @@ func (e *engine) verifyAndPatchImages(
 				e.configuration,
 				e.rclientFactory,
 				e.ivCache,
-				&ivm,
+				ivm,
 			)
 		}
 		resource, ruleResp := e.invokeRuleHandler(
