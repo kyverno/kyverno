@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: cpol-exclude-namespace
+  name: cpol-any-exclude-resource-match-with-namespace-selector
 spec:
   steps:
   - name: step-01
@@ -13,7 +13,7 @@ spec:
         file: policy-assert.yaml
   - name: step-02
     try:
-    - error:
+    - assert:
         file: validatingadmissionpolicy.yaml
-    - error:
+    - assert:
         file: validatingadmissionpolicybinding.yaml
