@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -19,10 +20,13 @@ const (
 )
 
 type ImageVerificationMetadata struct {
+	sync.Mutex
 	Data map[string]ImageVerificationMetadataStatus `json:"data"`
 }
 
 func (ivm *ImageVerificationMetadata) Add(image string, verified ImageVerificationMetadataStatus) {
+	ivm.Lock()
+	defer ivm.Unlock()
 	if ivm.Data == nil {
 		ivm.Data = make(map[string]ImageVerificationMetadataStatus)
 	}
@@ -30,6 +34,8 @@ func (ivm *ImageVerificationMetadata) Add(image string, verified ImageVerificati
 }
 
 func (ivm *ImageVerificationMetadata) IsVerified(image string) bool {
+	ivm.Lock()
+	defer ivm.Unlock()
 	if ivm.Data == nil {
 		return false
 	}
@@ -41,6 +47,8 @@ func (ivm *ImageVerificationMetadata) IsVerified(image string) bool {
 }
 
 func (ivm *ImageVerificationMetadata) ImageVerificationStatus(image string) ImageVerificationMetadataStatus {
+	ivm.Lock()
+	defer ivm.Unlock()
 	if ivm.Data == nil {
 		return ImageVerificationFail
 	}
@@ -62,6 +70,8 @@ func ParseImageMetadata(jsonData string) (*ImageVerificationMetadata, error) {
 }
 
 func (ivm *ImageVerificationMetadata) Patches(hasAnnotations bool, log logr.Logger) ([]jsonpatch.JsonPatchOperation, error) {
+	ivm.Lock()
+	defer ivm.Unlock()
 	if data, err := json.Marshal(ivm.Data); err != nil {
 		return nil, fmt.Errorf("failed to marshal metadata value: %v: %w", data, err)
 	} else {
@@ -93,6 +103,8 @@ func (ivm *ImageVerificationMetadata) Merge(other ImageVerificationMetadata) {
 }
 
 func (ivm *ImageVerificationMetadata) IsEmpty() bool {
+	ivm.Lock()
+	defer ivm.Unlock()
 	return len(ivm.Data) == 0
 }
 
