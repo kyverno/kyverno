@@ -37,3 +37,4 @@ nodes:
 featureGates:
   "JobPodFailurePolicy": true
   "PodDisruptionConditions": true
+  "ProcMountType": true
