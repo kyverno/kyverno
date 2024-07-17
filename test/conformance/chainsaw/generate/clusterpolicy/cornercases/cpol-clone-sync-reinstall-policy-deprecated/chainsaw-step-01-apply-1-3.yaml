@@ -1,17 +1,16 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: cpol-clone-sync-single-source-multiple-targets
+  name: cpol-clone-sync-reinstall-policy
 spec:
   rules:
   - generate:
-      generateExisting: false
       apiVersion: v1
       clone:
-        name: foosource
+        name: regcred
         namespace: cpol-clone-sync-single-source-multiple-targets-ns
-      kind: ConfigMap
-      name: footarget
+      kind: Secret
+      name: regcred
       namespace: '{{request.object.metadata.name}}'
       synchronize: true
     match:
@@ -19,4 +18,4 @@ spec:
       - resources:
           kinds:
           - Namespace
-    name: rule-clone-sync-single-source-multiple-targets
+    name: sync-image-pull-secret

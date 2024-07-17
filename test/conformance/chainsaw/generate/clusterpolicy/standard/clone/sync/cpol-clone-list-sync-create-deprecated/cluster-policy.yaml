@@ -1,10 +1,11 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: multiple-gens
+  name: sync-with-multi-clone
 spec:
+  generateExisting: false
   rules:
-  - name: super-secret
+  - name: sync-secret
     match:
       any:
       - resources:
@@ -19,17 +20,13 @@ spec:
           - kube-public
           - kyverno
     generate:
-      generateExisting: false
-      synchronize: true
-      apiVersion: v1
-      kind: Secret
-      name: supersecret
       namespace: "{{request.object.metadata.name}}"
-      data:
-        kind: Secret
-        type: Opaque
-        metadata:
-          labels:
-            somekey: somesecretvalue
-        data:
-          mysupersecretkey: bXlzdXBlcnNlY3JldHZhbHVl
+      synchronize : true
+      cloneList:
+        namespace: default
+        kinds:
+          - v1/Secret
+          - v1/ConfigMap
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"
