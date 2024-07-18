@@ -728,7 +728,7 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| cleanupJobs.updateRequests.enabled | bool | `true` | Enable cleanup cronjob |
+| cleanupJobs.updateRequests.enabled | bool | `false` | Enable cleanup cronjob |
 | cleanupJobs.updateRequests.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
 | cleanupJobs.updateRequests.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
 | cleanupJobs.updateRequests.image.registry | string | `nil` | Image registry |
