@@ -7,9 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -75,13 +73,8 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	return patchedResource, err
 }
 
-func TransformConditions(original apiextensions.JSON) (interface{}, error) {
-	// conditions are currently in the form of []interface{}
-	oldConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(original)
-	if err != nil {
-		return nil, err
-	}
-	switch typedValue := oldConditions.(type) {
+func TransformConditions(original any) (interface{}, error) {
+	switch typedValue := original.(type) {
 	case kyvernov1.AnyAllConditions:
 		return *typedValue.DeepCopy(), nil
 	case []kyvernov1.Condition: // backwards compatibility

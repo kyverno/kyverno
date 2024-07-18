@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	kyvernoapi "github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -76,7 +75,7 @@ type Rule struct {
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
-	RawAnyAllConditions *kyvernoapi.Any `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	RawAnyAllConditions *ConditionsWrapper `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
 	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of CEL conditions. It can only be used with the validate.cel subrule
@@ -182,11 +181,18 @@ func (r *Rule) GetTypeAndSyncAndOrphanDownstream() (_ GenerateType, sync bool, o
 }
 
 func (r *Rule) GetAnyAllConditions() any {
-	return kyvernoapi.FromAny(r.RawAnyAllConditions)
+	if r.RawAnyAllConditions == nil {
+		return nil
+	}
+	return r.RawAnyAllConditions.Conditions
 }
 
 func (r *Rule) SetAnyAllConditions(in any) {
-	r.RawAnyAllConditions = kyvernoapi.ToAny(in)
+	var new *ConditionsWrapper
+	if in != nil {
+		new = &ConditionsWrapper{in}
+	}
+	r.RawAnyAllConditions = new
 }
 
 // ValidateRuleType checks only one type of rule is defined per rule

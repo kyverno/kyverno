@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
 // DenyApplyConfiguration represents an declarative configuration of the Deny type for use
 // with apply.
 type DenyApplyConfiguration struct {
-	RawAnyAllConditions *v1.JSON `json:"conditions,omitempty"`
+	RawAnyAllConditions *v1.ConditionsWrapper `json:"conditions,omitempty"`
 }
 
 // DenyApplyConfiguration constructs an declarative configuration of the Deny type for use with
@@ -37,7 +37,7 @@ func Deny() *DenyApplyConfiguration {
 // WithRawAnyAllConditions sets the RawAnyAllConditions field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawAnyAllConditions field is set to the value of the last call.
-func (b *DenyApplyConfiguration) WithRawAnyAllConditions(value v1.JSON) *DenyApplyConfiguration {
+func (b *DenyApplyConfiguration) WithRawAnyAllConditions(value v1.ConditionsWrapper) *DenyApplyConfiguration {
 	b.RawAnyAllConditions = &value
 	return b
 }

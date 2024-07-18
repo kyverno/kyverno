@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-	kyvernoapi "github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 )
@@ -194,7 +193,7 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyvernov1.Rule, error) {
 		return rule, err
 	}
 	if setRawAnyAllConditions {
-		raac := &kyvernoapi.Any{}
+		raac := &kyvernov1.ConditionsWrapper{}
 		err = f.GenerateStruct(raac)
 		if err != nil {
 			return rule, err

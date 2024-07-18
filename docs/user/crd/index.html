@@ -1324,6 +1324,39 @@ string
 <p>
 <p>ConditionOperator is the operation performed on condition key and value.</p>
 </p>
+<h3 id="kyverno.io/v1.ConditionsWrapper">ConditionsWrapper
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Deny">Deny</a>, 
+<a href="#kyverno.io/v1.Rule">Rule</a>)
+</p>
+<p>
+<p>ConditionsWrapper contains either the deprecated list of Conditions or the new AnyAll Conditions.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>-</code><br/>
+<em>
+any
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that must be satisfied for the rule to be applied.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.ConfigMapReference">ConfigMapReference
 </h3>
 <p>
@@ -1542,8 +1575,8 @@ GlobalContextEntryReference
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ConditionsWrapper">
+ConditionsWrapper
 </a>
 </em>
 </td>
@@ -3616,7 +3649,9 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="#kyverno.io/v1.ConditionsWrapper">
+ConditionsWrapper
+</a>
 </em>
 </td>
 <td>

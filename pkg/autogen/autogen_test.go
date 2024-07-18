@@ -311,82 +311,122 @@ func Test_GetRequestedControllers(t *testing.T) {
 
 func TestUpdateGenRuleByte(t *testing.T) {
 	tests := []struct {
-		pbyte   []byte
+		rule    kyvernoRule
 		kind    string
-		want    []byte
+		want    kyvernoRule
 		wantErr bool
 	}{
 		{
-			pbyte: []byte("request.object.spec"),
-			kind:  "Pod",
-			want:  []byte("request.object.spec.template.spec"),
+			rule: kyvernoRule{
+				Name: "request.object.spec",
+			},
+			kind: "Pod",
+			want: kyvernoRule{
+				Name: "request.object.spec.template.spec",
+			},
 		},
 		{
-			pbyte: []byte("request.oldObject.spec"),
-			kind:  "Pod",
-			want:  []byte("request.oldObject.spec.template.spec"),
+			rule: kyvernoRule{
+				Name: "request.oldObject.spec",
+			},
+			kind: "Pod",
+			want: kyvernoRule{
+				Name: "request.oldObject.spec.template.spec",
+			},
 		},
 		{
-			pbyte: []byte("request.object.spec"),
-			kind:  "Cronjob",
-			want:  []byte("request.object.spec.jobTemplate.spec.template.spec"),
+			rule: kyvernoRule{
+				Name: "request.object.spec",
+			},
+			kind: "Cronjob",
+			want: kyvernoRule{
+				Name: "request.object.spec.jobTemplate.spec.template.spec",
+			},
 		},
 		{
-			pbyte: []byte("request.oldObject.spec"),
-			kind:  "Cronjob",
-			want:  []byte("request.oldObject.spec.jobTemplate.spec.template.spec"),
+			rule: kyvernoRule{
+				Name: "request.oldObject.spec",
+			},
+			kind: "Cronjob",
+			want: kyvernoRule{
+				Name: "request.oldObject.spec.jobTemplate.spec.template.spec",
+			},
 		},
 		{
-			pbyte: []byte("request.object.metadata"),
-			kind:  "Pod",
-			want:  []byte("request.object.spec.template.metadata"),
+			rule: kyvernoRule{
+				Name: "request.object.metadata",
+			},
+			kind: "Pod",
+			want: kyvernoRule{
+				Name: "request.object.spec.template.metadata",
+			},
 		},
 	}
 	for _, tt := range tests {
-		got := updateGenRuleByte(tt.pbyte, tt.kind)
-		if !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("updateGenRuleByte() = %v, want %v", string(got), string(tt.want))
+		updateGenRuleByte(&tt.rule, tt.kind)
+		if !reflect.DeepEqual(tt.rule, tt.want) {
+			t.Errorf("updateGenRuleByte() = %+v, want %+v", tt.rule.Name, tt.want.Name)
 		}
 	}
 }
 
 func TestUpdateCELFields(t *testing.T) {
 	tests := []struct {
-		pbyte   []byte
+		rule    kyvernoRule
 		kind    string
-		want    []byte
+		want    kyvernoRule
 		wantErr bool
 	}{
 		{
-			pbyte: []byte("object.spec"),
-			kind:  "Pod",
-			want:  []byte("object.spec.template.spec"),
+			rule: kyvernoRule{
+				Name: "object.spec",
+			},
+			kind: "Pod",
+			want: kyvernoRule{
+				Name: "object.spec.template.spec",
+			},
 		},
 		{
-			pbyte: []byte("oldObject.spec"),
-			kind:  "Pod",
-			want:  []byte("oldObject.spec.template.spec"),
+			rule: kyvernoRule{
+				Name: "oldObject.spec",
+			},
+			kind: "Pod",
+			want: kyvernoRule{
+				Name: "oldObject.spec.template.spec",
+			},
 		},
 		{
-			pbyte: []byte("object.spec"),
-			kind:  "Cronjob",
-			want:  []byte("object.spec.jobTemplate.spec.template.spec"),
+			rule: kyvernoRule{
+				Name: "object.spec",
+			},
+			kind: "Cronjob",
+			want: kyvernoRule{
+				Name: "object.spec.jobTemplate.spec.template.spec",
+			},
 		},
 		{
-			pbyte: []byte("oldObject.spec"),
-			kind:  "Cronjob",
-			want:  []byte("oldObject.spec.jobTemplate.spec.template.spec"),
+			rule: kyvernoRule{
+				Name: "oldObject.spec",
+			},
+			kind: "Cronjob",
+			want: kyvernoRule{
+				Name: "oldObject.spec.jobTemplate.spec.template.spec",
+			},
 		},
 		{
-			pbyte: []byte("object.metadata"),
-			kind:  "Pod",
-			want:  []byte("object.spec.template.metadata"),
+			rule: kyvernoRule{
+				Name: "object.metadata",
+			},
+			kind: "Pod",
+			want: kyvernoRule{
+				Name: "object.spec.template.metadata",
+			},
 		},
 	}
 	for _, tt := range tests {
-		got := updateCELFields(tt.pbyte, tt.kind)
-		if !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("updateCELFields() = %v, want %v", string(got), string(tt.want))
+		updateCELFields(&tt.rule, tt.kind)
+		if !reflect.DeepEqual(tt.rule, tt.want) {
+			t.Errorf("updateGenRuleByte() = %+v, want %+v", tt.rule.Name, tt.want.Name)
 		}
 	}
 }

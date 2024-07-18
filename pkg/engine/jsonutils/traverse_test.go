@@ -1,6 +1,7 @@
 package jsonutils
 
 import (
+	"encoding/json"
 	"testing"
 
 	"gotest.tools/assert"

@@ -102,15 +102,19 @@ func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, rule kyvern
 }
 
 func untypedToTyped[T any](untyped interface{}) (*T, error) {
-	jsonRule, err := json.Marshal(untyped)
+	if typed, ok := untyped.(*T); ok {
+		return typed, nil
+	}
+
+	// Fallback to JSON marshaling and unmarshaling
+	jsonData, err := json.Marshal(untyped)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal untyped value: %w", err)
 	}
 
 	var t T
-	err = json.Unmarshal(jsonRule, &t)
-	if err != nil {
-		return nil, err
+	if err := json.Unmarshal(jsonData, &t); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal into type %T: %w", t, err)
 	}
 
 	return &t, nil

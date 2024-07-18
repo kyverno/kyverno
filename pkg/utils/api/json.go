@@ -13,15 +13,16 @@ func DeserializeJSONArray[T any](in apiextensions.JSON) ([]T, error) {
 	if in == nil {
 		return nil, nil
 	}
-	data, err := json.Marshal(in)
-	if err != nil {
-		return nil, err
+
+	if inBytes, ok := in.([]byte); ok {
+		var res []T
+		if err := json.Unmarshal(inBytes, &res); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
-	var res []T
-	if err := json.Unmarshal(data, &res); err != nil {
-		return nil, err
-	}
-	return res, nil
+
+	return nil, nil
 }
 
 // ApiextensionsJsonToKyvernoConditions takes in user-provided conditions in abstract apiextensions.JSON form

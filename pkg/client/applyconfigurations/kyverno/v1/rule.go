@@ -21,7 +21,6 @@ package v1
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // RuleApplyConfiguration represents an declarative configuration of the Rule type for use
@@ -32,7 +31,7 @@ type RuleApplyConfiguration struct {
 	MatchResources         *MatchResourcesApplyConfiguration     `json:"match,omitempty"`
 	ExcludeResources       *MatchResourcesApplyConfiguration     `json:"exclude,omitempty"`
 	ImageExtractors        *kyvernov1.ImageExtractorConfigs      `json:"imageExtractors,omitempty"`
-	RawAnyAllConditions    *apiextensionsv1.JSON                 `json:"preconditions,omitempty"`
+	RawAnyAllConditions    *kyvernov1.ConditionsWrapper          `json:"preconditions,omitempty"`
 	CELPreconditions       []v1alpha1.MatchCondition             `json:"celPreconditions,omitempty"`
 	Mutation               *MutationApplyConfiguration           `json:"mutate,omitempty"`
 	Validation             *ValidationApplyConfiguration         `json:"validate,omitempty"`
@@ -95,7 +94,7 @@ func (b *RuleApplyConfiguration) WithImageExtractors(value kyvernov1.ImageExtrac
 // WithRawAnyAllConditions sets the RawAnyAllConditions field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawAnyAllConditions field is set to the value of the last call.
-func (b *RuleApplyConfiguration) WithRawAnyAllConditions(value apiextensionsv1.JSON) *RuleApplyConfiguration {
+func (b *RuleApplyConfiguration) WithRawAnyAllConditions(value kyvernov1.ConditionsWrapper) *RuleApplyConfiguration {
 	b.RawAnyAllConditions = &value
 	return b
 }

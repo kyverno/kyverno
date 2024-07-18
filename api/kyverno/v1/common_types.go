@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jinzhu/copier"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
@@ -316,6 +317,89 @@ var ConditionOperators = map[string]ConditionOperator{
 	"DurationLessThan":            ConditionOperator("DurationLessThan"),
 }
 
+// ConditionsWrapper contains either the deprecated list of Conditions or the new AnyAll Conditions.
+// +k8s:deepcopy-gen=false
+type ConditionsWrapper struct {
+	// Conditions is a list of conditions that must be satisfied for the rule to be applied.
+	// +optional
+	Conditions any `json:"-"`
+}
+
+func (in *ConditionsWrapper) DeepCopyInto(out *ConditionsWrapper) {
+	if err := copier.Copy(out, in); err != nil {
+		panic("deep copy failed")
+	}
+}
+
+func (in *ConditionsWrapper) DeepCopy() *ConditionsWrapper {
+	if in == nil {
+		return nil
+	}
+	out := new(ConditionsWrapper)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (a *ConditionsWrapper) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.Conditions)
+}
+
+func (a *ConditionsWrapper) UnmarshalJSON(data []byte) error {
+	path := "preconditions/validate.deny.conditions"
+	var err error
+
+	// checks for the existence any other field apart from 'any'/'all' under preconditions/validate.deny.conditions
+	unknownFieldChecker := func(jsonByteArr []byte, path string) error {
+		allowedKeys := map[string]bool{
+			"any": true,
+			"all": true,
+		}
+		var jsonDecoded map[string]interface{}
+		if err := json.Unmarshal(jsonByteArr, &jsonDecoded); err != nil {
+			return fmt.Errorf("error occurred while checking for unknown fields under %s: %+v", path, err)
+		}
+		for k := range jsonDecoded {
+			if !allowedKeys[k] {
+				return fmt.Errorf("unknown field '%s' found under %s", k, path)
+			}
+		}
+		return nil
+	}
+
+	var kyvernoOldConditions []Condition
+	if err = json.Unmarshal(data, &kyvernoOldConditions); err == nil {
+		var validConditionOperator bool
+
+		for _, jsonOp := range kyvernoOldConditions {
+			for _, validOp := range ConditionOperators {
+				if jsonOp.Operator == validOp {
+					validConditionOperator = true
+				}
+			}
+			if !validConditionOperator {
+				return fmt.Errorf("invalid condition operator: %s", jsonOp.Operator)
+			}
+			validConditionOperator = false
+		}
+
+		a.Conditions = kyvernoOldConditions
+		return nil
+	}
+
+	var kyvernoAnyAllConditions AnyAllConditions
+	if err = json.Unmarshal(data, &kyvernoAnyAllConditions); err == nil {
+		// checking if unknown fields exist or not
+		err = unknownFieldChecker(data, path)
+		if err != nil {
+			return fmt.Errorf("error occurred while parsing %s: %+v", path, err)
+		}
+		a.Conditions = kyvernoAnyAllConditions
+		return nil
+	}
+
+	return fmt.Errorf("error occurred while parsing %s: %+v", path, err)
+}
+
 // ResourceFilters is a slice of ResourceFilter
 type ResourceFilters []ResourceFilter
 
@@ -620,15 +704,24 @@ type Deny struct {
 	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
 	// but will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
-	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *ConditionsWrapper `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(d.RawAnyAllConditions)
+func (d *Deny) GetAnyAllConditions() any {
+	if d.RawAnyAllConditions == nil {
+		return nil
+	}
+	return d.RawAnyAllConditions
 }
 
-func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
-	d.RawAnyAllConditions = ToJSON(in)
+func (d *Deny) SetAnyAllConditions(in any) {
+	var new *ConditionsWrapper
+	if in != nil {
+		new = in.(*ConditionsWrapper)
+	}
+	d.RawAnyAllConditions = new
 }
 
 // ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.

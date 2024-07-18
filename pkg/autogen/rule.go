@@ -1,12 +1,12 @@
 package autogen
 
 import (
+	"reflect"
 	"sort"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
@@ -51,15 +51,15 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 	}
-	kyvernoAnyAllConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
+	kyvernoAnyAllConditions := rule.GetAnyAllConditions()
 	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		if !datautils.DeepEqual(typedAnyAllConditions, kyvernov1.AnyAllConditions{}) {
-			jsonFriendlyStruct.AnyAllConditions = (*any)(&rule.DeepCopy().RawAnyAllConditions.Value)
+			jsonFriendlyStruct.AnyAllConditions = &rule.DeepCopy().RawAnyAllConditions.Conditions
 		}
 	case []kyvernov1.Condition:
 		if len(typedAnyAllConditions) > 0 {
-			jsonFriendlyStruct.AnyAllConditions = (*any)(&rule.DeepCopy().RawAnyAllConditions.Value)
+			jsonFriendlyStruct.AnyAllConditions = &rule.DeepCopy().RawAnyAllConditions.Conditions
 		}
 	}
 	if len(rule.Context) > 0 {
@@ -311,34 +311,72 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 	)
 }
 
-func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
+func updateGenRuleByte(rule *kyvernoRule, kind string) {
 	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.template.metadata"))
+		replaceStrings(reflect.ValueOf(rule), "request.object.spec", "request.object.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "request.oldObject.spec", "request.oldObject.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "request.object.metadata", "request.object.spec.template.metadata")
+		replaceStrings(reflect.ValueOf(rule), "request.oldObject.metadata", "request.oldObject.spec.template.metadata")
+	} else if kind == "Cronjob" {
+		replaceStrings(reflect.ValueOf(rule), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "request.object.metadata", "request.object.spec.jobTemplate.spec.template.metadata")
+		replaceStrings(reflect.ValueOf(rule), "request.oldObject.metadata", "request.oldObject.spec.jobTemplate.spec.template.metadata")
 	}
-	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.jobTemplate.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.jobTemplate.spec.template.metadata"))
-	}
-	return obj
 }
 
-func updateCELFields(pbyte []byte, kind string) (obj []byte) {
+func updateCELFields(rule *kyvernoRule, kind string) {
 	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.template.metadata"))
+		replaceStrings(reflect.ValueOf(rule), "object.spec", "object.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "oldObject.spec", "oldObject.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "object.metadata", "object.spec.template.metadata")
+		replaceStrings(reflect.ValueOf(rule), "oldObject.metadata", "oldObject.spec.template.metadata")
+	} else if kind == "Cronjob" {
+		replaceStrings(reflect.ValueOf(rule), "object.spec", "object.spec.jobTemplate.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "oldObject.spec", "oldObject.spec.jobTemplate.spec.template.spec")
+		replaceStrings(reflect.ValueOf(rule), "object.metadata", "object.spec.jobTemplate.spec.template.metadata")
+		replaceStrings(reflect.ValueOf(rule), "oldObject.metadata", "oldObject.spec.jobTemplate.spec.template.metadata")
 	}
-	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.jobTemplate.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.jobTemplate.spec.template.metadata"))
+}
+
+func replaceStrings(v reflect.Value, old, new string) {
+	switch v.Kind() {
+	case reflect.Ptr:
+		if !v.IsNil() {
+			replaceStrings(v.Elem(), old, new)
+		}
+	case reflect.Interface:
+		if !v.IsNil() {
+			replaceStrings(v.Elem(), old, new)
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			if field.CanSet() {
+				replaceStrings(field, old, new)
+			}
+		}
+	case reflect.Slice:
+		for i := 0; i < v.Len(); i++ {
+			replaceStrings(v.Index(i), old, new)
+		}
+	case reflect.Map:
+		for _, key := range v.MapKeys() {
+			val := v.MapIndex(key)
+			replaceStrings(val, old, new)
+			if key.Kind() == reflect.String {
+				newKey := strings.Replace(key.String(), old, new, -1)
+				if newKey != key.String() {
+					v.SetMapIndex(reflect.ValueOf(newKey), val)
+					v.SetMapIndex(key, reflect.Value{})
+				}
+			} else {
+				replaceStrings(key, old, new)
+			}
+		}
+	case reflect.String:
+		if v.CanSet() {
+			v.SetString(strings.Replace(v.String(), old, new, -1))
+		}
 	}
-	return obj
 }

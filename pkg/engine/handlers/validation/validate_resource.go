@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -81,7 +80,7 @@ func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, 
 		pattern:          rule.Validation.GetPattern(),
 		anyPattern:       rule.Validation.GetAnyPattern(),
 		deny:             rule.Validation.Deny,
-		anyAllConditions: rule.RawAnyAllConditions,
+		anyAllConditions: rule.RawAnyAllConditions.Conditions,
 		forEach:          rule.Validation.ForEachValidation,
 	}
 }
@@ -94,10 +93,6 @@ func newForEachValidator(
 	ctx engineapi.PolicyContext,
 	log logr.Logger,
 ) (*validator, error) {
-	anyAllConditions, err := datautils.ToMap(foreach.AnyAllConditions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
-	}
 	nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
@@ -108,7 +103,7 @@ func newForEachValidator(
 		rule:             rule,
 		contextLoader:    contextLoader,
 		contextEntries:   foreach.Context,
-		anyAllConditions: anyAllConditions,
+		anyAllConditions: foreach.AnyAllConditions,
 		pattern:          foreach.GetPattern(),
 		anyPattern:       foreach.GetAnyPattern(),
 		deny:             foreach.Deny,

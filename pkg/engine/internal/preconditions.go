@@ -11,12 +11,7 @@ import (
 )
 
 func CheckPreconditions(logger logr.Logger, jsonContext enginecontext.Interface, anyAllConditions apiextensions.JSON) (bool, string, error) {
-	typeConditions, err := utils.TransformConditions(anyAllConditions)
-	if err != nil {
-		return false, "", fmt.Errorf("failed to parse preconditions: %w", err)
-	}
-
-	return variables.EvaluateConditions(logger, jsonContext, typeConditions)
+	return variables.EvaluateConditions(logger, jsonContext, anyAllConditions)
 }
 
 func CheckDenyPreconditions(logger logr.Logger, jsonContext enginecontext.Interface, anyAllConditions apiextensions.JSON) (bool, string, error) {
