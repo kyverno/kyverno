@@ -3616,13 +3616,10 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
-</a>
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
-<em>(Optional)</em>
 <p>Preconditions are used to determine if a policy rule should be applied by evaluating a
 set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements. A direct list
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but

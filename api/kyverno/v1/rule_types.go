@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	kyvernoapi "github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -75,8 +74,9 @@ type Rule struct {
 	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
 	// will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
-	// +optional
-	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *kyvernoapi.Any `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
 	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of CEL conditions. It can only be used with the validate.cel subrule
@@ -181,12 +181,12 @@ func (r *Rule) GetTypeAndSyncAndOrphanDownstream() (_ GenerateType, sync bool, o
 	return r.Generation.GetTypeAndSyncAndOrphanDownstream()
 }
 
-func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(r.RawAnyAllConditions)
+func (r *Rule) GetAnyAllConditions() any {
+	return kyvernoapi.FromAny(r.RawAnyAllConditions)
 }
 
-func (r *Rule) SetAnyAllConditions(in apiextensions.JSON) {
-	r.RawAnyAllConditions = ToJSON(in)
+func (r *Rule) SetAnyAllConditions(in any) {
+	r.RawAnyAllConditions = kyvernoapi.ToAny(in)
 }
 
 // ValidateRuleType checks only one type of rule is defined per rule

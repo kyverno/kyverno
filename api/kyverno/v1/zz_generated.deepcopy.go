@@ -1326,8 +1326,7 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 	if in.RawAnyAllConditions != nil {
 		in, out := &in.RawAnyAllConditions, &out.RawAnyAllConditions
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	if in.CELPreconditions != nil {
 		in, out := &in.CELPreconditions, &out.CELPreconditions

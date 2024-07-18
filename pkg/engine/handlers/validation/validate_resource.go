@@ -73,7 +73,6 @@ type validator struct {
 }
 
 func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
-	anyAllConditions, _ := datautils.ToMap(rule.RawAnyAllConditions)
 	return &validator{
 		log:              log,
 		rule:             rule,
@@ -82,7 +81,7 @@ func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, 
 		pattern:          rule.Validation.GetPattern(),
 		anyPattern:       rule.Validation.GetAnyPattern(),
 		deny:             rule.Validation.Deny,
-		anyAllConditions: anyAllConditions,
+		anyAllConditions: rule.RawAnyAllConditions,
 		forEach:          rule.Validation.ForEachValidation,
 	}
 }
