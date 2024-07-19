@@ -1,6 +1,6 @@
-# golang/k8s.io/apiserver@v0.29.2
-CVE-2020-8561 until=2024-06-30
-# golang/github.com/notaryproject/notation-go@v1.1.0
-CVE-2024-23332 until=2024-06-30
-# golang/github.com/hashicorp/vault/api@v1.12.2
-CVE-2024-2660 until=2024-06-30
+# golang/k8s.io/apiserver@v0.30.1
+CVE-2020-8561 until=2024-12-30
+# golang/github.com/notaryproject/notation-go@v1.1.1
+CVE-2024-23332 until=2024-12-30
+# golang/github.com/hashicorp/vault/api@v1.14.0
+CVE-2024-2660 until=2024-12-30
