@@ -6,4 +6,5 @@ metadata:
   name: conditions
 spec:
   steps:
-  - from: ../../_step-templates/apply-policy.yaml
+  - use:
+      template: ../../_step-templates/apply-policy.yaml

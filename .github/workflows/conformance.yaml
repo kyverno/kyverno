@@ -130,7 +130,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -201,7 +201,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -277,7 +277,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -348,7 +348,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -423,7 +423,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -501,7 +501,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -578,7 +578,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -659,7 +659,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@26f31cb72ca848bb0273fcbd7a4ebf187ec4d711
@@ -751,7 +751,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -862,7 +862,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -989,7 +989,7 @@ jobs:
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
         with:
-          release: v0.2.7-beta.1
+          release: v0.2.7-beta.4
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
