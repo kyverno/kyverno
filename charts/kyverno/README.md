@@ -813,6 +813,7 @@ The chart values are organised per component.
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
 | policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
+| policyReportsCleanup.podLabels | object | `{}` | Pod labels |
 | policyReportsCleanup.image.registry | string | `nil` | Image registry |
 | policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
 | policyReportsCleanup.image.tag | string | `"1.30.2"` | Image tag Defaults to `latest` if omitted |

@@ -12,6 +12,11 @@ metadata:
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
 spec:
   backoffLimit: 2
+  metadata:
+    labels:
+      {{- with .Values.policyReportsCleanup.podLabels }}
+        {{- tpl (toYaml .) $ | nindent 6 }}
+      {{- end }}
   template:
     metadata:
       {{- with .Values.policyReportsCleanup.podAnnotations }}
