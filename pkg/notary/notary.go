@@ -12,12 +12,12 @@ import (
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	_ "github.com/notaryproject/notation-core-go/signature/cose"
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 	"github.com/notaryproject/notation-go"
-	"github.com/notaryproject/notation-go/dir"
+
 	notationlog "github.com/notaryproject/notation-go/log"
-	"github.com/notaryproject/notation-go/plugin"
 	"github.com/notaryproject/notation-go/verifier"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/opencontainers/go-digest"
@@ -42,22 +42,44 @@ type notaryVerifier struct {
 	log logr.Logger
 }
 
+func (v *notaryVerifier) notationVerifier(ctx context.Context, opts images.Options) (notation.Verifier, error) {
+	var notationVerifier notation.Verifier
+	var err error
+	if toggle.FromContext(ctx).DisableAutomaticNotaryConfig() {
+		v.log.V(2).Info("automatic notary config disabled")
+		notationVerifier, err = verifier.NewFromConfig()
+		if err != nil {
+			v.log.V(4).Info("failed to create verifier", "err", err, "automatic", true)
+			return nil, errors.Wrapf(err, "failed to create manually-configured notation verifier")
+		}
+	} else {
+		v.log.V(2).Info("automatic notary config enabled")
+		certsPEM := combineCerts(opts)
+		certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
+		if err != nil {
+			v.log.V(4).Info("failed to parse certificates", "err", err)
+			return nil, errors.Wrapf(err, "failed to parse certificates")
+		}
+		v.log.V(4).Info("parsed certificates")
+
+		trustStore := NewTrustStore("kyverno", certs)
+		policyDoc := v.buildPolicy()
+		notationVerifier, err = verifier.New(policyDoc, trustStore, nil)
+		if err != nil {
+			v.log.V(4).Info("failed to create verifier", "err", err, "automatic", true)
+			return nil, errors.Wrapf(err, "failed to create automatically-configured notation verifier")
+		}
+	}
+	v.log.V(4).Info("created verifier")
+	return notationVerifier, nil
+}
+
 func (v *notaryVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
 	v.log.V(2).Info("verifying image", "reference", opts.ImageRef)
 
-	// certsPEM := combineCerts(opts)
-	// certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
-	// if err != nil {
-	// 	return nil, errors.Wrapf(err, "failed to parse certificates")
-	// }
-
-	// trustStore := NewTrustStore("kyverno", certs)
-	// policyDoc := v.buildPolicy()
-	// pluginManager := plugin.NewCLIManager(dir.PluginFS())
-	// notationVerifier, err := verifier.New(policyDoc, trustStore, pluginManager)
-	notationVerifier, err := verifier.NewFromConfig()
+	notationVerifier, err := v.notationVerifier(ctx, opts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to created verifier")
+		return nil, err
 	}
 
 	v.log.V(4).Info("creating notation repo", "reference", opts.ImageRef)
@@ -228,23 +250,12 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 		}
 		return v1Desc, nil
 	}
-	certsPEM := combineCerts(opts)
-	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
+
+	notationVerifier, err := v.notationVerifier(ctx, opts)
 	if err != nil {
-		v.log.V(4).Info("failed to parse certificates", "err", err)
-		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse certificates")
+		return ocispec.Descriptor{}, err
 	}
 
-	v.log.V(4).Info("parsed certificates")
-	trustStore := NewTrustStore("kyverno", certs)
-	policyDoc := v.buildPolicy()
-	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
-	if err != nil {
-		v.log.V(4).Info("failed to created verifier", "err", err)
-		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to created verifier")
-	}
-
-	v.log.V(4).Info("created verifier")
 	reference := ref.Context().RegistryStr() + "/" + ref.Context().RepositoryStr() + "@" + desc.Digest.String()
 	parsedRef, err := parseReferenceCrane(ctx, reference, opts.Client)
 	if err != nil {

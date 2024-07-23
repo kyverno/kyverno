@@ -1,5 +1,7 @@
 baseImageOverrides:
   github.com/kyverno/kyverno/cmd/kyverno: 193814090748.dkr.ecr.us-east-1.amazonaws.com/workflows/base-supply-chain
+  github.com/kyverno/kyverno/cmd/background-controller: 193814090748.dkr.ecr.us-east-1.amazonaws.com/workflows/base-supply-chain
+  github.com/kyverno/kyverno/cmd/reports-controller: 193814090748.dkr.ecr.us-east-1.amazonaws.com/workflows/base-supply-chain
 
 builds:
 - id: kyverno

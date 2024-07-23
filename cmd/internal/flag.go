@@ -44,6 +44,8 @@ var (
 	enableTUF bool
 	tufMirror string
 	tufRoot   string
+	// notary
+	disableAutomaticNotaryConfig bool
 	// registry client
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
@@ -113,6 +115,10 @@ func initCosignFlags() {
 	flag.BoolVar(&enableTUF, "enableTuf", false, "enable tuf for private sigstore deployments")
 	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification.")
 	flag.StringVar(&tufRoot, "tufRoot", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
+}
+
+func initNotaryFlags() {
+	flag.Func(toggle.DisableAutomaticNotaryConfigFlagName, toggle.DisableAutomaticNotaryConfigDescription, toggle.DisableAutomaticNotaryConfig.Parse)
 }
 
 func initRegistryClientFlags() {
@@ -205,6 +211,10 @@ func initFlags(config Configuration, opts ...Option) {
 	// cosign
 	if config.UsesCosign() {
 		initCosignFlags()
+	}
+	// notary
+	if config.UsesNotary() {
+		initNotaryFlags()
 	}
 	// registry client
 	if config.UsesRegistryClient() {

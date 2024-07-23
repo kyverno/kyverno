@@ -11,6 +11,7 @@ type Toggles interface {
 	ForceFailurePolicyIgnore() bool
 	EnableDeferredLoading() bool
 	GenerateValidatingAdmissionPolicy() bool
+	DisableAutomaticNotaryConfig() bool
 }
 
 type defaultToggles struct{}
@@ -29,6 +30,10 @@ func (defaultToggles) EnableDeferredLoading() bool {
 
 func (defaultToggles) GenerateValidatingAdmissionPolicy() bool {
 	return GenerateValidatingAdmissionPolicy.enabled()
+}
+
+func (defaultToggles) DisableAutomaticNotaryConfig() bool {
+	return DisableAutomaticNotaryConfig.enabled()
 }
 
 type contextKey struct{}
