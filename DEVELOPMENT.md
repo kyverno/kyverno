@@ -455,18 +455,22 @@ You can get at the application in the pod by port forwarding with kubectl, for e
 
 ````shell
 $ kubectl -n kyverno get pod
-NAME                                             READY   STATUS      RESTARTS        AGE
-kyverno-admission-controller-57df6c565f-pxpnh    1/1     Running     0               20s
+NAME                                             READY   STATUS      RESTARTS       AGE
+kyverno-admission-controller-57df6c565f-pxpnh    1/1     Running     0              20s
+kyverno-background-controller-766589695-dhj9m    1/1     Running     0              20s
+kyverno-cleanup-controller-54466dfbc6-5mlrc      1/1     Running     0              19s
+kyverno-cleanup-update-requests-28695530-ft975   1/1     Running     0              19s
+kyverno-reports-controller-76c49549f4-tljwm      1/1     Running     0              20s
 ````
 
-Check the port of the pod you'll like to forward using below command.
+Check the port of the pod you'd like to forward using the command below.
 
 ````bash
 $ kubectl get pod kyverno-admission-controller-57df6c565f-pxpnh -n kyverno  --template='{{(index (index .spec.containers 0).ports 0).containerPort}}{{"\n"}}'
 9443
 ````
 
-Use the resulting port from above to run port-forward with below command.
+Use the exposed port from above to run port-forward with the below command.
 
 ````bash
 $ kubectl -n kyverno port-forward kyverno-admission-controller-57df6c565f-pxpnh 6060:9443
