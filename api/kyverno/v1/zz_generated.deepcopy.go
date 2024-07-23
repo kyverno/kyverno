@@ -560,8 +560,7 @@ func (in *ForEachMutation) DeepCopyInto(out *ForEachMutation) {
 	}
 	if in.RawPatchStrategicMerge != nil {
 		in, out := &in.RawPatchStrategicMerge, &out.RawPatchStrategicMerge
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	if in.ForEachMutation != nil {
 		in, out := &in.ForEachMutation, &out.ForEachMutation

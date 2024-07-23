@@ -55,7 +55,7 @@ func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation
 		tag = tag + fmt.Sprintf("foreach[%d]", i)
 		fem := fe.GetForEachMutation()
 		if len(fem) > 0 {
-			if fe.Context != nil || fe.AnyAllConditions != nil || fe.PatchesJSON6902 != "" || fe.RawPatchStrategicMerge != nil {
+			if fe.Context != nil || fe.AnyAllConditions != nil || fe.PatchesJSON6902 != "" || fe.GetPatchStrategicMerge() != nil {
 				return tag, fmt.Errorf("a nested foreach cannot contain other declarations")
 			}
 
