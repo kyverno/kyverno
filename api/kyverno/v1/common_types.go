@@ -406,7 +406,16 @@ type ForEachMutation struct {
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachMutation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ForEachMutation *ForEachMutationWrapper `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+func (m *ForEachMutation) GetForEachMutation() []ForEachMutation {
+	if m.ForEachMutation == nil {
+		return nil
+	}
+	return m.ForEachMutation.Items
 }
 
 func (m *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
@@ -669,7 +678,16 @@ type ForEachValidation struct {
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachValidation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ForEachValidation *ForEachValidationWrapper `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+func (v *ForEachValidation) GetForEachValidation() []ForEachValidation {
+	if v.ForEachValidation == nil {
+		return nil
+	}
+	return v.ForEachValidation.Items
 }
 
 func (v *ForEachValidation) GetPattern() apiextensions.JSON {

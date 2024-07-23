@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -110,18 +109,14 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		}
 
 		var mutateResp *mutate.Response
-		if foreach.ForEachMutation != nil {
-			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](foreach.ForEachMutation)
-			if err != nil {
-				return mutate.NewErrorResponse("failed to deserialize foreach", err)
-			}
-
+		fem := foreach.GetForEachMutation()
+		if len(fem) > 0 {
 			m := &forEachMutator{
 				rule:          f.rule,
 				policyContext: f.policyContext,
 				resource:      patchedResource,
 				logger:        f.logger,
-				foreach:       nestedForEach,
+				foreach:       fem,
 				nesting:       f.nesting + 1,
 				contextLoader: f.contextLoader,
 			}

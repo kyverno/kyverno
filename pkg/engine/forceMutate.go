@@ -1,15 +1,12 @@
 package engine
 
 import (
-	"fmt"
-
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -64,13 +61,9 @@ func ForceMutate(
 func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resource unstructured.Unstructured, logger logr.Logger) (patchedResource unstructured.Unstructured, err error) {
 	patchedResource = resource
 	for _, fe := range foreach {
-		if fe.ForEachMutation != nil {
-			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
-			if err != nil {
-				return patchedResource, fmt.Errorf("failed to deserialize foreach: %w", err)
-			}
-
-			return applyForEachMutate(name, nestedForEach, patchedResource, logger)
+		fem := fe.GetForEachMutation()
+		if len(fem) > 0 {
+			return applyForEachMutate(name, fem, patchedResource, logger)
 		}
 
 		patchedResource, err = applyPatches(fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, patchedResource, logger)

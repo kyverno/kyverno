@@ -1002,12 +1002,9 @@ func validateValidationForEach(foreach []kyvernov1.ForEachValidation, schemaKey 
 				}
 			}
 		}
-		if fe.ForEachValidation != nil {
-			nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachValidation](fe.ForEachValidation)
-			if err != nil {
-				return schemaKey, err
-			}
-			if path, err := validateValidationForEach(nestedForEach, schemaKey); err != nil {
+		fev := fe.GetForEachValidation()
+		if len(fev) > 0 {
+			if path, err := validateValidationForEach(fev, schemaKey); err != nil {
 				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
@@ -1022,12 +1019,9 @@ func validateMutationForEach(foreach []kyvernov1.ForEachMutation, schemaKey stri
 				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
-		if fe.ForEachMutation != nil {
-			nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
-			if err != nil {
-				return schemaKey, err
-			}
-			if path, err := validateMutationForEach(nestedForEach, schemaKey); err != nil {
+		fem := fe.GetForEachMutation()
+		if len(fem) > 0 {
+			if path, err := validateMutationForEach(fem, schemaKey); err != nil {
 				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
