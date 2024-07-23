@@ -455,14 +455,23 @@ You can get at the application in the pod by port forwarding with kubectl, for e
 
 ````shell
 $ kubectl -n kyverno get pod
-NAME                       READY   STATUS    RESTARTS   AGE
-kyverno-7d67c967c6-slbpr   1/1     Running   0          19s
+NAME                                             READY   STATUS      RESTARTS        AGE
+kyverno-admission-controller-57df6c565f-pxpnh    1/1     Running     0               20s
 ````
 
+Check the port of the pod you'll like to forward using below command.
+
 ````bash
-$ kubectl -n kyverno port-forward kyverno-7d67c967c6-slbpr 6060
-Forwarding from 127.0.0.1:6060 -> 6060
-Forwarding from [::1]:6060 -> 6060
+$ kubectl get pod kyverno-admission-controller-57df6c565f-pxpnh -n kyverno  --template='{{(index (index .spec.containers 0).ports 0).containerPort}}{{"\n"}}'
+9443
+````
+
+Use the resulting port from above to run port-forward with below command.
+
+````bash
+$ kubectl -n kyverno port-forward kyverno-admission-controller-57df6c565f-pxpnh 6060:9443
+Forwarding from 127.0.0.1:6060 -> 9443
+Forwarding from [::1]:6060 -> 9443
 ````
 
 The HTTP endpoint will now be available as a local port.
