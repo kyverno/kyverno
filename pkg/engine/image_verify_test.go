@@ -212,6 +212,7 @@ var cosignTestPolicy = `{
                         "imageReferences": [
                             "ghcr.io/kyverno/test-verify-image:*"
                         ],
+												"useCache": true,
                         "attestors": [
                             {
                                 "entries": [
@@ -266,6 +267,7 @@ var cosignTestPolicyUpdated = `{
                         "imageReferences": [
                             "ghcr.io/kyverno/test-verify-image:*"
                         ],
+												"useCache": true,
                         "attestors": [
                             {
                                 "entries": [
@@ -837,7 +839,6 @@ var testNestedAttestorPolicy = `
 `
 
 func Test_NestedAttestors(t *testing.T) {
-
 	policy := strings.Replace(testNestedAttestorPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
@@ -1193,6 +1194,7 @@ var verifyImageNotaryPolicy = `{
 						"imageReferences": [
 							"ghcr.io/kyverno/test-verify-image*"
 						],
+						"useCache": true,
 						"attestors": [
 							{
 								"count": 1,
@@ -1242,6 +1244,7 @@ var verifyImageNotaryUpdatedPolicy = `{
 						"imageReferences": [
 							"ghcr.io/kyverno/test-verify-image*"
 						],
+						"useCache": true,
 						"attestors": [
 							{
 								"count": 1,
