@@ -128,7 +128,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -197,7 +197,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -271,7 +271,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -340,7 +340,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -413,7 +413,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -489,7 +489,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -564,7 +564,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -643,7 +643,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@26f31cb72ca848bb0273fcbd7a4ebf187ec4d711
@@ -733,7 +733,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -842,7 +842,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
@@ -967,7 +967,7 @@ jobs:
         with:
           name: kubectl-kyverno
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@573a9c636f7c586f86ecb9de9674176daf80ee29 # v0.2.5
+        uses: kyverno/action-install-chainsaw@7ad918efe13995d01bafa59aef8203a5246f5d04 # v0.2.7
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
