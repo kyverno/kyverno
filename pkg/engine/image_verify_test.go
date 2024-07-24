@@ -1113,6 +1113,30 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
 }
 
+func Test_ImageVerifyCacheDisabled(t *testing.T) {
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(false),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24 * time.Hour),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
+
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	firstOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+	secondOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache is disabled, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
+}
+
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	opts := []imageverifycache.Option{
 		imageverifycache.WithCacheEnableFlag(true),
