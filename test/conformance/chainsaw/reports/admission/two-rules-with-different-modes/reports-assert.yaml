@@ -8,8 +8,8 @@ metadata:
     kind: Namespace
     name: good-ns-1
 results:
-- message: 'validation error: You must have label  with value  set on all new namespaces.
-    rule require-ns-env-label failed at path /metadata/labels/environment/'
+- message: 'validation error: You must have label `environment` with value `production`
+    set on all new namespaces. rule require-ns-env-label failed at path /metadata/labels/environment/'
   policy: check-ns-labels
   result: fail
   rule: require-ns-env-label

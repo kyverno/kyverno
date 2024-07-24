@@ -1,6 +1,6 @@
 ## Description
 
-This test ensures that a policy with two rules with different modes is applied correctly on resources.
+This test ensures that a policy with two rules with different modes is applied correctly on resources and reports are successfully created.
 
 ## Expected Behavior
 
@@ -15,6 +15,8 @@ This test ensures that a policy with two rules with different modes is applied c
 4. Create a `bad-ns-1` namespace that doesn't have the `purpose` label. It is expected that the namespace will be blocked with a message reporting the violation of the `require-ns-purpose-label` rule.
 
 5. Create a `bad-ns-2` namespace that doesn't have any labels. It is expected that the namespace will be blocked with messages reporting the violations of both rules.
+
+6. Two ClusterPolicyReports will be created for each of the `good-ns-1` and `good-ns-2` namespaces.
 
 ## Reference Issue(s)
 
