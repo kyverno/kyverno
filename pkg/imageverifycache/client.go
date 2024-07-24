@@ -25,9 +25,7 @@ type cache struct {
 type Option = func(*cache) error
 
 func New(options ...Option) (Client, error) {
-	cache := &cache{
-		isCacheEnabled: true,
-	}
+	cache := &cache{}
 	for _, opt := range options {
 		if err := opt(cache); err != nil {
 			return nil, err
