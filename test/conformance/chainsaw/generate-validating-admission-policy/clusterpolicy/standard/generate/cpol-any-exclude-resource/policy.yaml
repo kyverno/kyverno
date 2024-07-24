@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: disallow-host-path-t10
+  name: disallow-host-path-t13
 spec:
   validationFailureAction: Audit
   background: false
@@ -12,13 +12,22 @@ spec:
         - resources:
             kinds:
             - Deployment
+            - StatefulSet
+            - ReplicaSet
+            - DaemonSet
             operations:
             - CREATE
             - UPDATE
       exclude:
         any:
-        - clusterRoles:
-          - cluster-admin
+        - resources:
+            kinds:
+            - Deployment
+            operations:
+            - CREATE
+            - UPDATE
+            names:
+            - "testing"
       validate:
         cel:
           expressions:
