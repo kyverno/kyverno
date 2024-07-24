@@ -242,7 +242,7 @@ func Test_GetSupportedControllers(t *testing.T) {
 		},
 		{
 			name:                "rule-with-validate-podsecurity",
-			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`),
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"validationFailureAction":"enforce","podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`),
 			expectedControllers: PodControllers,
 		},
 	}
@@ -406,7 +406,6 @@ kind: ClusterPolicy
 metadata:
   name: check-image
 spec:
-  validationFailureAction: enforce
   background: false
   webhookTimeoutSeconds: 30
   failurePolicy: Fail
@@ -540,7 +539,7 @@ kA==
 }
 
 func Test_PodSecurityWithNoExceptions(t *testing.T) {
-	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
+	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"validationFailureAction":"enforce","podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
 	policies, _, _, err := yamlutils.GetPolicy([]byte(policy))
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
@@ -558,7 +557,6 @@ func Test_ValidateWithCELExpressions(t *testing.T) {
 		  "name": "disallow-host-path"
 		},
 		"spec": {
-		  "validationFailureAction": "Enforce",
 		  "background": false,
 		  "rules": [
 			{
@@ -575,6 +573,7 @@ func Test_ValidateWithCELExpressions(t *testing.T) {
 				]
 			  },
 			  "validate": {
+			    "validationFailureAction": "Enforce",
 				"cel": {
 				  "expressions": [
 					{

@@ -138,13 +138,11 @@ func (s *Spec) HasValidate() bool {
 // HasValidateEnforce checks if the policy has any validate rules with enforce action
 func (s *Spec) HasValidateEnforce() bool {
 	for _, rule := range s.Rules {
-		if rule.HasValidate() && rule.Validation.HasEnforce() {
-			return true
-		}
-	}
-	for _, override := range s.ValidationFailureActionOverrides {
-		if override.Action.Enforce() {
-			return true
+		if rule.HasValidate() {
+			action := rule.Validation.ValidationFailureAction
+			if action != nil && action.Enforce() {
+				return true
+			}
 		}
 	}
 	return s.ValidationFailureAction.Enforce()

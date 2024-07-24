@@ -79,6 +79,18 @@ func newPolicyMap() *policyMap {
 	}
 }
 
+func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
+	if spec.ValidationFailureAction.Enforce() {
+		return true
+	}
+	for _, k := range spec.ValidationFailureActionOverrides {
+		if k.Action.Enforce() {
+			return true
+		}
+	}
+	return false
+}
+
 func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 	if value {
 		return set.Insert(item)
@@ -89,13 +101,24 @@ func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 
 func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	var errs []error
-	enforcePolicy := policy.GetSpec().HasValidateEnforce()
+	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
 		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool
 	}
 	kindStates := map[policyKey]state{}
 	for _, rule := range autogen.ComputeRules(policy, "") {
+		if rule.HasValidate() {
+			action := rule.Validation.ValidationFailureAction
+			if action != nil && action.Enforce() {
+				enforcePolicy = true
+			}
+			for _, k := range rule.Validation.ValidationFailureActionOverrides {
+				if k.Action.Enforce() {
+					enforcePolicy = true
+				}
+			}
+		}
 		entries := sets.New[policyKey]()
 		for _, gvk := range rule.MatchResources.GetKinds() {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)

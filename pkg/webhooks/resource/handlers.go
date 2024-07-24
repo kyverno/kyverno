@@ -141,15 +141,13 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	var ok bool
 	var msg string
 	var warnings []string
+	var enforceResponses []engineapi.EngineResponse
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ok, msg, warnings = vh.HandleValidationEnforce(ctx, request, policies, startTime)
+		ok, msg, warnings, enforceResponses = vh.HandleValidationEnforce(ctx, request, policies, startTime)
 	}()
 
-	go h.auditPool.Submit(func() {
-		vh.HandleValidationAudit(ctx, request)
-	})
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
 		h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime, nil)
 	}
@@ -160,9 +158,26 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	wg.Wait()
 	if !ok {
 		logger.Info("admission request denied")
+		events := webhookutils.GenerateEvents(enforceResponses, true)
+		h.eventGen.Add(events...)
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
+	go h.auditPool.Submit(func() {
+		auditResponses := vh.HandleValidationAudit(ctx, request)
+		var events []event.Info
 
+		switch {
+		case len(auditResponses) == 0:
+			events = webhookutils.GenerateEvents(enforceResponses, false)
+		case len(enforceResponses) == 0:
+			events = webhookutils.GenerateEvents(auditResponses, false)
+		default:
+			responses := mergeEngineResponses(auditResponses, enforceResponses)
+			events = webhookutils.GenerateEvents(responses, false)
+		}
+
+		h.eventGen.Add(events...)
+	})
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 
@@ -309,4 +324,35 @@ func filterPolicies(ctx context.Context, failurePolicy string, policies ...kyver
 		}
 	}
 	return results
+}
+
+func mergeEngineResponses(auditResponses, enforceResponses []engineapi.EngineResponse) []engineapi.EngineResponse {
+	responseMap := make(map[string]engineapi.EngineResponse)
+	var responses []engineapi.EngineResponse
+
+	for _, enforceResponse := range enforceResponses {
+		responseMap[enforceResponse.Policy().GetName()] = enforceResponse
+	}
+
+	for _, auditResponse := range auditResponses {
+		policyName := auditResponse.Policy().GetName()
+		if enforceResponse, exists := responseMap[policyName]; exists {
+			response := auditResponse
+			for _, ruleResponse := range enforceResponse.PolicyResponse.Rules {
+				response.PolicyResponse.Add(ruleResponse.Stats(), ruleResponse)
+			}
+			responses = append(responses, response)
+			delete(responseMap, policyName)
+		} else {
+			responses = append(responses, auditResponse)
+		}
+	}
+
+	if len(responseMap) != 0 {
+		for _, enforceResponse := range responseMap {
+			responses = append(responses, enforceResponse)
+		}
+	}
+
+	return responses
 }

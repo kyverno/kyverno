@@ -9,6 +9,10 @@ import (
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
+	// Allowed values are audit or enforce.
+	// +optional
+	ValidationFailureAction *kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+
 	// Type specifies the method of signature validation. The allowed options
 	// are Cosign and Notary. By default Cosign is used if a type is not specified.
 	// +kubebuilder:validation:Optional

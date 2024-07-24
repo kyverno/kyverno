@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: basic-sigstore-test-policy
 spec:
-  validationFailureAction: Enforce
   background: false
   webhookTimeoutSeconds: 30
   failurePolicy: Fail
@@ -31,3 +30,4 @@ spec:
             rekor:
               url: "{{ tufvalues.data.REKOR_URL }}"
       required: true
+      validationFailureAction: Enforce

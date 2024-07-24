@@ -342,12 +342,20 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			isAuditFailureAction := false
-			if !spec.HasValidateEnforce() {
+			if spec.ValidationFailureAction.Audit() {
 				isAuditFailureAction = true
 			}
 
 			verifyImagePath := rulePath.Child("verifyImages")
 			for index, i := range rule.VerifyImages {
+				action := i.ValidationFailureAction
+				if action != nil {
+					if action.Audit() {
+						isAuditFailureAction = true
+					} else {
+						isAuditFailureAction = false
+					}
+				}
 				errs = append(errs, i.Validate(isAuditFailureAction, verifyImagePath.Index(index))...)
 			}
 			if len(errs) != 0 {

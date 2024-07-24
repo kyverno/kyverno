@@ -5,7 +5,6 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: Deployment,StatefulSet,Job
 spec:
-  validationFailureAction: Audit
   rules:
   - match:
       any:
@@ -14,6 +13,7 @@ spec:
             - Pod
     name: require-image-tag
     validate:
+      validationFailureAction: Audit
       message: An image tag is required.
       pattern:
         spec:
@@ -25,6 +25,7 @@ spec:
             kinds:
             - Pod
     name: validate-image-tag
+    validationFailureAction: Audit
     validate:
       message: Using a mutable image tag e.g. 'latest' is not allowed.
       pattern:

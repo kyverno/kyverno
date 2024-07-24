@@ -3,6 +3,7 @@ package policycache
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -80,38 +81,33 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace 
 
 func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
 	var filteredRules []kyvernov1.Rule
-	for _, rule := range policy.GetSpec().Rules {
+	for _, rule := range autogen.ComputeRules(policy, "") {
+		if !rule.HasValidate() {
+			continue
+		}
+
+		// if the field isn't set, use the higher level policy setting
 		validationFailureAction := rule.Validation.ValidationFailureAction
+		if validationFailureAction == nil {
+			validationFailureAction = &policy.GetSpec().ValidationFailureAction
+		}
 
-		if validationFailureAction != nil {
-			validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
+		validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
+		if len(validationFailureActionOverrides) == 0 {
+			validationFailureActionOverrides = policy.GetSpec().ValidationFailureActionOverrides
+		}
 
-			if (ns == "" || len(validationFailureActionOverrides) == 0) && validationFailureAction.Enforce() == enforce {
+		if (ns == "" || len(validationFailureActionOverrides) == 0) && validationFailureAction.Enforce() == enforce {
+			filteredRules = append(filteredRules, rule)
+			continue
+		}
+		for _, action := range validationFailureActionOverrides {
+			if action.Action.Enforce() == enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
 				filteredRules = append(filteredRules, rule)
 				continue
-			}
-			for _, action := range validationFailureActionOverrides {
-				if action.Action.Enforce() == enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
-					filteredRules = append(filteredRules, rule)
-					continue
-				}
-			}
-		} else {
-			validationFailureAction := policy.GetSpec().ValidationFailureAction
-			validationFailureActionOverrides := policy.GetSpec().ValidationFailureActionOverrides
-			if (ns == "" || len(validationFailureActionOverrides) == 0) && validationFailureAction.Enforce() == enforce {
-				filteredRules = append(filteredRules, rule)
-				continue
-			}
-			for _, action := range validationFailureActionOverrides {
-				if action.Action.Enforce() == enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
-					filteredRules = append(filteredRules, rule)
-					continue
-				}
 			}
 		}
 	}
-
 	if len(filteredRules) > 0 {
 		filteredPolicy := policy.CreateDeepCopy()
 		filteredPolicy.GetSpec().Rules = filteredRules
