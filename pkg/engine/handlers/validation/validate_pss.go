@@ -59,7 +59,7 @@ func (h validatePssHandler) Process(
 		}
 
 		if !hasPodSecurity {
-			key, err := cache.MetaNamespaceKeyFunc(polex)
+			key, err := cache.MetaNamespaceKeyFunc(&polex)
 			if err != nil {
 				logger.Error(err, "failed to compute policy exception key", "namespace", polex.GetNamespace(), "name", polex.GetName())
 				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
