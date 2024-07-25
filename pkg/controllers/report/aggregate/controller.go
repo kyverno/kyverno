@@ -92,12 +92,17 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	enqueueAll := func() {
-		if list, err := polrInformer.Lister().List(labels.Everything()); err == nil {
+		labelSet := labels.Set{
+			"app.kubernetes.io/managed-by": "kyverno",
+		}
+		selector := labelSet.AsSelector()
+
+		if list, err := polrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
 				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
 			}
 		}
-		if list, err := cpolrInformer.Lister().List(labels.Everything()); err == nil {
+		if list, err := cpolrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
 				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
 			}
