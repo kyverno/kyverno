@@ -13,7 +13,7 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20240525144225-0fe7eafab216
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/cyphar/filepath-securejoin v0.3.0
+	github.com/cyphar/filepath-securejoin v0.3.1
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/distribution/reference v0.6.0
 	github.com/evanphx/json-patch/v5 v5.9.0
@@ -86,8 +86,8 @@ require (
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 	sigs.k8s.io/controller-runtime v0.18.4
 	sigs.k8s.io/kubectl-validate v0.0.4
-	sigs.k8s.io/kustomize/api v0.17.2
-	sigs.k8s.io/kustomize/kyaml v0.17.1
+	sigs.k8s.io/kustomize/api v0.17.3
+	sigs.k8s.io/kustomize/kyaml v0.17.2
 	sigs.k8s.io/release-utils v0.8.3
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
