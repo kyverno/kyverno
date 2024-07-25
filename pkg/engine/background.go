@@ -78,8 +78,8 @@ func (e *engine) filterRule(
 			keys = append(keys, key)
 		}
 
-		logger.V(3).Info("policy rule skipped due to policy exceptions", "exceptions", keys)
-		return engineapi.RuleSkip(rule.Name, ruleType, "rule skipped due to policy exception "+strings.Join(keys, ", ")).WithExceptions(matchedExceptions)
+		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
+		return engineapi.RuleSkip(rule.Name, ruleType, "rule is skipped due to policy exception "+strings.Join(keys, ", ")).WithExceptions(matchedExceptions)
 	}
 
 	newResource := policyContext.NewResource()

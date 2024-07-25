@@ -64,9 +64,9 @@ func (h validatePssHandler) Process(
 				logger.Error(err, "failed to compute policy exception key", "namespace", polex.GetNamespace(), "name", polex.GetName())
 				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
 			}
-			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			logger.V(3).Info("policy rule is skipped due to policy exception", "exception", key)
 			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithExceptions([]kyvernov2.PolicyException{polex}),
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key).WithExceptions([]kyvernov2.PolicyException{polex}),
 			)
 		}
 	}
@@ -118,9 +118,9 @@ func (h validatePssHandler) Process(
 		pssChecks, err = pss.ApplyPodSecurityExclusion(levelVersion, excludes, pssChecks, pod)
 		if len(pssChecks) == 0 && err == nil {
 			podSecurityChecks.Checks = pssChecks
-			logger.V(3).Info("policy rule skipped due to policy exceptions", "exceptions", keys)
+			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exceptions "+strings.Join(keys, ", ")).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks),
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", ")).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks),
 			)
 		}
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))

@@ -53,9 +53,9 @@ func (h validateResourceHandler) Process(
 			keys = append(keys, key)
 		}
 
-		logger.V(3).Info("policy rule skipped due to policy exceptions", "exceptions", keys)
+		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exceptions"+strings.Join(keys, ", ")).WithExceptions(matchedExceptions),
+			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", ")).WithExceptions(matchedExceptions),
 		)
 	}
 	v := newValidator(logger, contextLoader, policyContext, rule)
