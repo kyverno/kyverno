@@ -90,7 +90,7 @@ func printCheckResult(
 					// patchedTargetSubresourceName string
 					// podSecurityChecks contains pod security checks (only if this is a pod security rule)
 					"podSecurityChecks": rule.PodSecurityChecks(),
-					"exception ":        rule.Exception(),
+					"exceptions":        rule.Exceptions(),
 				}
 				if check.Assert.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
