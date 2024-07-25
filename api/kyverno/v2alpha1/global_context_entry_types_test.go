@@ -17,6 +17,8 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -114,6 +116,16 @@ func TestKubernetesResourceValidate(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "missing group with random version",
+			resource: KubernetesResource{
+				Group:    "",
+				Version:  generateRandomVersion(),
+				Resource: "deployments",
+			},
+			wantErr: true,
+		},
+
 		{
 			name: "missing version",
 			resource: KubernetesResource{
@@ -221,5 +233,14 @@ func TestExternalAPICallValidate(t *testing.T) {
 				t.Errorf("ExternalAPICall.Validate() error = %v, wantErr %v", errs, tt.wantErr)
 			}
 		})
+	}
+}
+func generateRandomVersion() string {
+	rand.NewSource(time.Now().UnixNano())
+	for {
+		version := "v" + strconv.Itoa(rand.Intn(9)+2) // Generates a number between 2 and 10 (inclusive)
+		if version != "v1" {
+			return version
+		}
 	}
 }
