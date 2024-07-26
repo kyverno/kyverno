@@ -110,8 +110,13 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 			*resource,
 		}
 	}
-	if ruleResult.Exception() != nil {
-		addProperty("exception", ruleResult.Exception().Name, &result)
+	exceptions := ruleResult.Exceptions()
+	if len(exceptions) > 0 {
+		var names []string
+		for _, exception := range exceptions {
+			names = append(names, exception.Name)
+		}
+		addProperty("exceptions", strings.Join(names, ","), &result)
 	}
 	pss := ruleResult.PodSecurityChecks()
 	if pss != nil && len(pss.Checks) > 0 {
