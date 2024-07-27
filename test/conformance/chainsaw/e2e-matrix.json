@@ -20,6 +20,9 @@
   "cli": [
     "^cli$/^apply$/^(apply-exception-with-ns-selector|apply-on-cluster-scoped-resources|warn-exit-code)\\[.*\\]$"
   ],
+  "configs": [
+    "^configs$/^(dont-emit-success-events-upon-generateSuccessEvents-set-false|emit-success-events-upon-generateSuccessEvents-set-true)\\[.*\\]$"
+  ],
   "custom-sigstore": [
     "^custom-sigstore$/^standard$/^(basic|basic-deprecated)\\[.*\\]$"
   ],
