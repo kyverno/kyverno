@@ -1678,13 +1678,11 @@ func (in *Variable) DeepCopyInto(out *Variable) {
 	*out = *in
 	if in.Value != nil {
 		in, out := &in.Value, &out.Value
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	if in.Default != nil {
 		in, out := &in.Default, &out.Default
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	return
 }
