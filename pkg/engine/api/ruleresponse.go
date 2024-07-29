@@ -43,8 +43,8 @@ type RuleResponse struct {
 	patchedTargetSubresourceName string
 	// podSecurityChecks contains pod security checks (only if this is a pod security rule)
 	podSecurityChecks *PodSecurityChecks
-	// exception is the exception applied (if any)
-	exception *kyvernov2.PolicyException
+	// exceptions are the exceptions applied (if any)
+	exceptions []kyvernov2.PolicyException
 	// binding is the validatingadmissionpolicybinding (if any)
 	binding *v1alpha1.ValidatingAdmissionPolicyBinding
 	// emitWarning enable passing rule message as warning to api server warning header
@@ -88,8 +88,8 @@ func RuleFail(name string, ruleType RuleType, msg string) *RuleResponse {
 	return NewRuleResponse(name, ruleType, msg, RuleStatusFail)
 }
 
-func (r RuleResponse) WithException(exception *kyvernov2.PolicyException) *RuleResponse {
-	r.exception = exception
+func (r RuleResponse) WithExceptions(exceptions []kyvernov2.PolicyException) *RuleResponse {
+	r.exceptions = exceptions
 	return &r
 }
 
@@ -129,8 +129,8 @@ func (r *RuleResponse) Stats() ExecutionStats {
 	return r.stats
 }
 
-func (r *RuleResponse) Exception() *kyvernov2.PolicyException {
-	return r.exception
+func (r *RuleResponse) Exceptions() []kyvernov2.PolicyException {
+	return r.exceptions
 }
 
 func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *v1alpha1.ValidatingAdmissionPolicyBinding {
@@ -138,7 +138,7 @@ func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *v1alpha1.ValidatingAd
 }
 
 func (r *RuleResponse) IsException() bool {
-	return r.exception != nil
+	return len(r.exceptions) > 0
 }
 
 func (r *RuleResponse) PodSecurityChecks() *PodSecurityChecks {

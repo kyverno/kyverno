@@ -1297,10 +1297,10 @@ func validateVariable(entry kyvernov1.ContextEntry) error {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.Variable.JMESPath, err)
 		}
 	}
-	if entry.Variable.Value == nil && jmesPath == "" {
+	if entry.Variable.GetValue() == nil && jmesPath == "" {
 		return fmt.Errorf("a variable must define a value or a jmesPath expression")
 	}
-	if entry.Variable.Default != nil && jmesPath == "" {
+	if entry.Variable.GetDefault() != nil && jmesPath == "" {
 		return fmt.Errorf("a variable must define a default value only when a jmesPath expression is defined")
 	}
 	return nil
