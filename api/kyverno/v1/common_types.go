@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
@@ -119,7 +120,9 @@ type ContextEntry struct {
 type Variable struct {
 	// Value is any arbitrary JSON object representable in YAML or JSON form.
 	// +optional
-	Value *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Value *kyverno.Any `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// JMESPath is an optional JMESPath Expression that can be used to
 	// transform the variable.
@@ -129,7 +132,25 @@ type Variable struct {
 	// Default is an optional arbitrary JSON object that the variable may take if the JMESPath
 	// expression evaluates to nil
 	// +optional
-	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Default *kyverno.Any `json:"default,omitempty" yaml:"default,omitempty"`
+}
+
+func (v *Variable) GetValue() any {
+	return kyverno.FromAny(v.Value)
+}
+
+func (v *Variable) SetValue(in any) {
+	v.Value = kyverno.ToAny(in)
+}
+
+func (v *Variable) GetDefault() any {
+	return kyverno.FromAny(v.Default)
+}
+
+func (v *Variable) SetDefault(in any) {
+	v.Default = kyverno.ToAny(in)
 }
 
 // ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
