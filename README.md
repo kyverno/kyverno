@@ -16,7 +16,7 @@
 <a href="https://kyverno.io" rel="kyverno.io">![logo](img/Kyverno_Horizontal.png)</a>
 
 <p class="callout info" style="font-size: 100%;">
-Kyverno is a policy engine designed for Kubernetes platform engineering teams. It enables security, automation, compliance, and governance using policy-as-code. Kyverno can validate, mutate, generate, and cleanup configurations using Kubernetes admission controls, background scans, and source code respository scans. Kyverno policies can be managed as Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like kubectl, kustomize, and Git.
+Kyverno is a policy engine designed for cloud native platform engineering teams. It enables security, automation, compliance, and governance using policy-as-code. Kyverno can validate, mutate, generate, and cleanup configurations using Kubernetes admission controls, background scans, and source code respository scans. Kyverno policies can also be used to verify OCI images, for software supply chain security. Kyverno policies can be managed as Kubernetes resources and do not require learning a new language. Kyverno is designed to work nicely with tools you already use like kubectl, kustomize, and Git.
 </p>
 
 <a href="https://opensourcesecurityindex.io/" target="_blank" rel="noopener"> <img
@@ -46,9 +46,9 @@ We are here to help!
 
 👉 For discussions or questions, join the [Kyverno Slack channel](https://slack.k8s.io/#kyverno).
 
-👉 For community meeting access, join the [mailing list](https://groups.google.com/g/kyverno).
+👉 For community meeting access, see [mailing list](https://kyverno.io/community/#community-meetings).
 
-👉 To get updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
+👉 To get follow updates ⭐️ [star this repository](https://github.com/kyverno/kyverno/stargazers).
 
 ## ➕ Contributing
 

@@ -16,7 +16,7 @@ results:
   scored: true
   source: kyverno
   properties:
-    exception: mynewpolex
+    exceptions: mynewpolex
 summary:
   error: 0
   fail: 0

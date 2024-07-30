@@ -343,7 +343,7 @@ func TestUpdateGenRuleByte(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		got := updateGenRuleByte(tt.pbyte, tt.kind)
+		got := updateFields(tt.pbyte, tt.kind, false)
 		if !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("updateGenRuleByte() = %v, want %v", string(got), string(tt.want))
 		}
@@ -384,7 +384,7 @@ func TestUpdateCELFields(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		got := updateCELFields(tt.pbyte, tt.kind)
+		got := updateFields(tt.pbyte, tt.kind, true)
 		if !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("updateCELFields() = %v, want %v", string(got), string(tt.want))
 		}

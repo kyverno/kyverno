@@ -14,8 +14,11 @@ spec:
       exclude:
         any:
         - resources:
-            namespaces:
-            - default
+            kinds:
+             - Pod
+            selector:
+              matchLabels:
+                app: critical
       validate:
         cel:
           expressions:
