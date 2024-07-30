@@ -204,7 +204,7 @@ func foreachElemCount(foreach kyvernov1.ForEachValidation) int {
 		count++
 	}
 
-	if foreach.ForEachValidation != nil {
+	if foreach.GetForEachValidation() != nil && len(foreach.GetForEachValidation()) > 0 {
 		count++
 	}
 
