@@ -16,7 +16,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"github.com/pkg/errors"
@@ -103,9 +102,12 @@ func newForEachValidator(
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
 	}
-	nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
+	var loopItems []kyvernov1.ForEachValidation
+	fev := foreach.GetForEachValidation()
+	if len(fev) > 0 {
+		loopItems = fev
+	} else {
+		loopItems = make([]kyvernov1.ForEachValidation, 0)
 	}
 	return &validator{
 		log:              log,
@@ -117,7 +119,7 @@ func newForEachValidator(
 		pattern:          foreach.GetPattern(),
 		anyPattern:       foreach.GetAnyPattern(),
 		deny:             foreach.Deny,
-		forEach:          nestedForEach,
+		forEach:          loopItems,
 		nesting:          nesting,
 	}, nil
 }
