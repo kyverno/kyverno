@@ -75,30 +75,31 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(wh.rules))
 
 	for gv, resources := range wh.rules {
-		firstResource := sets.List(resources)[0]
-		// if we have pods, we add pods/ephemeralcontainers by default
-		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
-			resources.Insert("pods/ephemeralcontainers")
+		for res := range resources {
+			// if we have pods, we add pods/ephemeralcontainers by default
+			if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
+				resources.Insert("pods/ephemeralcontainers")
+			}
+
+			operations := findKeyContainingSubstring(final, res, defaultOpn)
+			if len(operations) == 0 {
+				continue
+			}
+
+			slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
+				return cmp.Compare(a, b)
+			})
+
+			rules = append(rules, admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{gv.Group},
+					APIVersions: []string{gv.Version},
+					Resources:   []string{res},
+					Scope:       ptr.To(gv.scopeType),
+				},
+				Operations: operations,
+			})
 		}
-
-		operations := findKeyContainingSubstring(final, firstResource, defaultOpn)
-		if len(operations) == 0 {
-			continue
-		}
-
-		slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
-			return cmp.Compare(a, b)
-		})
-
-		rules = append(rules, admissionregistrationv1.RuleWithOperations{
-			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{gv.Group},
-				APIVersions: []string{gv.Version},
-				Resources:   sets.List(resources),
-				Scope:       ptr.To(gv.scopeType),
-			},
-			Operations: operations,
-		})
 	}
 	less := func(a []string, b []string) (int, bool) {
 		if x := cmp.Compare(len(a), len(b)); x != 0 {
