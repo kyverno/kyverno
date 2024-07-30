@@ -76,9 +76,10 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 
 	for gv, resources := range wh.rules {
 		for res := range resources {
+			resource := sets.New(res)
 			// if we have pods, we add pods/ephemeralcontainers by default
-			if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
-				resources.Insert("pods/ephemeralcontainers")
+			if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resource.Has("pods") || resource.Has("*")) {
+				resource.Insert("pods/ephemeralcontainers")
 			}
 
 			operations := findKeyContainingSubstring(final, res, defaultOpn)
@@ -94,7 +95,7 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{gv.Group},
 					APIVersions: []string{gv.Version},
-					Resources:   []string{res},
+					Resources:   sets.List(resource),
 					Scope:       ptr.To(gv.scopeType),
 				},
 				Operations: operations,
