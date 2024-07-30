@@ -18,5 +18,16 @@ webhooks:
     - UPDATE
     resources:
     - 'configmaps'
+    scope: 'Namespaced'
+  - apiGroups:
+    - ''
+    apiVersions:
+    - 'v1'
+    operations:
+    - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
     - 'secrets'
     scope: 'Namespaced'
