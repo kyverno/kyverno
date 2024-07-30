@@ -36,7 +36,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: {{ template "kyverno.fullname" . }}:remove-configmap
-  namespace: {{ template "kyverno.namespace" . }}
 subjects:
   - kind: ServiceAccount
     name: {{ template "kyverno.fullname" . }}-remove-configmap

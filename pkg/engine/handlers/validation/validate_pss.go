@@ -44,17 +44,29 @@ func (h validatePssHandler) Process(
 		return resource, nil
 	}
 
-	// check if there is a policy exception matches the incoming resource
-	exception := engineutils.MatchesException(exceptions, policyContext, logger)
-	if exception != nil && !exception.HasPodSecurity() {
-		key, err := cache.MetaNamespaceKeyFunc(exception)
-		if err != nil {
-			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-			return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
-		} else {
-			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+	// check if there are policy exceptions that match the incoming resource
+	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	if len(matchedExceptions) > 0 {
+		var polex kyvernov2.PolicyException
+		hasPodSecurity := true
+
+		for i, exception := range matchedExceptions {
+			if !exception.HasPodSecurity() {
+				hasPodSecurity = false
+				polex = matchedExceptions[i]
+				break
+			}
+		}
+
+		if !hasPodSecurity {
+			key, err := cache.MetaNamespaceKeyFunc(&polex)
+			if err != nil {
+				logger.Error(err, "failed to compute policy exception key", "namespace", polex.GetNamespace(), "name", polex.GetName())
+				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+			}
+			logger.V(3).Info("policy rule is skipped due to policy exception", "exception", key)
 			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception),
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key).WithExceptions([]kyvernov2.PolicyException{polex}),
 			)
 		}
 	}
@@ -91,21 +103,25 @@ func (h validatePssHandler) Process(
 		)
 	} else {
 		// apply pod security exceptions if exist
-		if exception != nil && exception.HasPodSecurity() {
-			pssChecks, err = pss.ApplyPodSecurityExclusion(levelVersion, exception.Spec.PodSecurity, pssChecks, pod)
-			if len(pssChecks) == 0 && err == nil {
-				key, err := cache.MetaNamespaceKeyFunc(exception)
-				if err != nil {
-					logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-					return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
-				} else {
-					podSecurityChecks.Checks = pssChecks
-					logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-					return resource, handlers.WithResponses(
-						engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception).WithPodSecurityChecks(podSecurityChecks),
-					)
-				}
+		var excludes []kyvernov1.PodSecurityStandard
+		var keys []string
+		for i, exception := range matchedExceptions {
+			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
+			if err != nil {
+				logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
 			}
+			keys = append(keys, key)
+			excludes = append(excludes, exception.Spec.PodSecurity...)
+		}
+
+		pssChecks, err = pss.ApplyPodSecurityExclusion(levelVersion, excludes, pssChecks, pod)
+		if len(pssChecks) == 0 && err == nil {
+			podSecurityChecks.Checks = pssChecks
+			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", ")).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks),
+			)
 		}
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		return resource, handlers.WithResponses(

@@ -7408,7 +7408,7 @@ var restricted_runAsNonRoot = []testCase{
 				]
 			}
 		}`),
-		allowed: true,
+		allowed: false,
 	},
 	{
 		name: "restricted_runAsNonRoot_defines_all_violate_spec_true_container_true_spec_level_allowed_positive",
