@@ -131,7 +131,7 @@ func Test_Check_Resources(t *testing.T) {
 			var res kyvernov1.ResourceDescription
 			err := json.Unmarshal(test.resource, &res)
 			assert.NilError(t, err)
-			out, _ := checkResources(res)
+			out, _ := checkResources(res, true)
 			assert.Equal(t, out, test.expected)
 		})
 	}
