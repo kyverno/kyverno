@@ -18,7 +18,7 @@ spec:
         check:  
           ($error != null): true
           # This check ensures the contents of stderr are exactly as shown.  
-          ($stderr): |-
+          (trim_space($stderr)): |-
             Error from server: error when creating "pod.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
 
             resource Pod/default/ba was blocked due to the following policies 
