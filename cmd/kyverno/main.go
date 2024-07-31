@@ -285,6 +285,7 @@ func main() {
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithCosign(),
+		internal.WithNotary(),
 		internal.WithRegistryClient(),
 		internal.WithImageVerifyCache(),
 		internal.WithLeaderElection(),

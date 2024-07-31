@@ -26,6 +26,11 @@ const (
 	GenerateValidatingAdmissionPolicyDescription = "Set the flag to 'true', to generate validating admission policies."
 	generateValidatingAdmissionPolicyEnvVar      = "FLAG_GENERATE_VALIDATING_ADMISSION_POLICY"
 	defaultGenerateValidatingAdmissionPolicy     = false
+	// external notary configuration
+	DisableAutomaticNotaryConfigFlagName    = "disableAutomaticNotaryConfig"
+	DisableAutomaticNotaryConfigDescription = "Set the flag to 'true', to disable automatic notary configuration."
+	disableAutomaticNotaryConfigEnvVar      = "FLAG_DISABLE_AUTOMATIC_NOTARY_CONFIG"
+	defaultDisableAutomaticNotaryConfig     = false
 )
 
 var (
@@ -33,6 +38,7 @@ var (
 	ForceFailurePolicyIgnore          = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
 	EnableDeferredLoading             = newToggle(defaultEnableDeferredLoading, enableDeferredLoadingEnvVar)
 	GenerateValidatingAdmissionPolicy = newToggle(defaultGenerateValidatingAdmissionPolicy, generateValidatingAdmissionPolicyEnvVar)
+	DisableAutomaticNotaryConfig      = newToggle(defaultDisableAutomaticNotaryConfig, disableAutomaticNotaryConfigEnvVar)
 )
 
 type ToggleFlag interface {

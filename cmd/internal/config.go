@@ -13,6 +13,7 @@ type Configuration interface {
 	UsesConfigMapCaching() bool
 	UsesDeferredLoading() bool
 	UsesCosign() bool
+	UsesNotary() bool
 	UsesRegistryClient() bool
 	UsesImageVerifyCache() bool
 	UsesLeaderElection() bool
@@ -80,6 +81,12 @@ func WithDeferredLoading() ConfigurationOption {
 func WithCosign() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesCosign = true
+	}
+}
+
+func WithNotary() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesNotary = true
 	}
 }
 
@@ -154,6 +161,7 @@ type configuration struct {
 	usesConfigMapCaching     bool
 	usesDeferredLoading      bool
 	usesCosign               bool
+	usesNotary               bool
 	usesRegistryClient       bool
 	usesImageVerifyCache     bool
 	usesLeaderElection       bool
@@ -196,6 +204,10 @@ func (c *configuration) UsesDeferredLoading() bool {
 
 func (c *configuration) UsesCosign() bool {
 	return c.usesCosign
+}
+
+func (c *configuration) UsesNotary() bool {
+	return c.usesNotary
 }
 
 func (c *configuration) UsesRegistryClient() bool {

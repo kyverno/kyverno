@@ -121,6 +121,7 @@ func main() {
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
 		internal.WithMetadataClient(),
+		internal.WithNotary(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
