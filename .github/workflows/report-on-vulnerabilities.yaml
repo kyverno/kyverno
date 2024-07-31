@@ -109,7 +109,7 @@ jobs:
       - name: Set scan output
         id: set-scan-output
         run: |
-          results=$(cat merged_scans.md )
+          result=$(cat merged_scans.md )
           echo "results<<EOF" >> $GITHUB_OUTPUT
           echo "$result" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
