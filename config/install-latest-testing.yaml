@@ -44,16 +44,6 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kyverno-cleanup-jobs
-  namespace: kyverno
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: kyverno-reports-controller
   namespace: kyverno
   labels:
@@ -43961,33 +43951,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:cleanup-jobs
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - updaterequests
-    verbs:
-      - list
-      - deletecollection
-      - delete
-  - apiGroups:
-      - reports.kyverno.io
-    resources:
-      - ephemeralreports
-      - clusterephemeralreports
-    verbs:
-      - list
-      - deletecollection
-      - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: kyverno:rbac:admin:policies
   labels:
     app.kubernetes.io/component: rbac
@@ -44330,23 +44293,6 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-cleanup-controller
   namespace: kyverno
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:cleanup-jobs
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:cleanup-jobs
-subjects:
-  - kind: ServiceAccount
-    name: kyverno-cleanup-jobs
-    namespace: kyverno
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
