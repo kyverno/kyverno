@@ -8,10 +8,8 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/policy/auth"
-	"github.com/kyverno/kyverno/pkg/utils/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // Mutate provides implementation to validate 'mutate' rule
@@ -55,12 +53,13 @@ func (m *Mutate) Validate(ctx context.Context) (string, error) {
 func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation) (string, error) {
 	for i, fe := range foreach {
 		tag = tag + fmt.Sprintf("foreach[%d]", i)
-		if fe.ForEachMutation != nil {
+		fem := fe.GetForEachMutation()
+		if len(fem) > 0 {
 			if fe.Context != nil || fe.AnyAllConditions != nil || fe.PatchesJSON6902 != "" || fe.RawPatchStrategicMerge != nil {
 				return tag, fmt.Errorf("a nested foreach cannot contain other declarations")
 			}
 
-			return m.validateNestedForEach(tag, fe.ForEachMutation)
+			return m.validateNestedForEach(tag, fem)
 		}
 
 		psm := fe.GetPatchStrategicMerge()
@@ -72,13 +71,12 @@ func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation
 	return "", nil
 }
 
-func (m *Mutate) validateNestedForEach(tag string, j *v1.JSON) (string, error) {
-	nestedForeach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](j)
-	if err != nil {
-		return tag, fmt.Errorf("invalid foreach syntax: %w", err)
+func (m *Mutate) validateNestedForEach(tag string, j []kyvernov1.ForEachMutation) (string, error) {
+	if j != nil {
+		return m.validateForEach(tag, j)
 	}
 
-	return m.validateForEach(tag, nestedForeach)
+	return "", nil
 }
 
 func (m *Mutate) hasForEach() bool {

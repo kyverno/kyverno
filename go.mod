@@ -32,12 +32,12 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
-	github.com/kyverno/kyverno-json v0.0.3
+	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/notaryproject/notation-core-go v1.0.3
 	github.com/notaryproject/notation-go v1.1.1
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.34.0
+	github.com/onsi/gomega v1.34.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/pkg/errors v0.9.1
@@ -186,7 +186,7 @@ require (
 	github.com/djherbis/times v1.6.0 // indirect
 	github.com/docker/cli v26.1.3+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v26.1.3+incompatible // indirect
+	github.com/docker/docker v26.1.4+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
@@ -358,9 +358,9 @@ require (
 	go.opentelemetry.io/proto/otlp v1.2.0 // indirect
 	go.starlark.net v0.0.0-20240520160348-046347dcd104 // indirect
 	go.step.sm/crypto v0.46.0 // indirect
-	golang.org/x/exp v0.0.0-20240604190554-fc45aab8b7f8
-	golang.org/x/mod v0.18.0 // indirect
-	golang.org/x/net v0.26.0 // indirect
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
+	golang.org/x/mod v0.19.0 // indirect
+	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect

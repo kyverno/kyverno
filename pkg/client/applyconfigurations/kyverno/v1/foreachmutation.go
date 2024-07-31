@@ -32,7 +32,7 @@ type ForEachMutationApplyConfiguration struct {
 	AnyAllConditions       *AnyAllConditionsApplyConfiguration `json:"preconditions,omitempty"`
 	RawPatchStrategicMerge *apiextensionsv1.JSON               `json:"patchStrategicMerge,omitempty"`
 	PatchesJSON6902        *string                             `json:"patchesJson6902,omitempty"`
-	ForEachMutation        *apiextensionsv1.JSON               `json:"foreach,omitempty"`
+	ForEachMutation        *v1.ForEachMutationWrapper          `json:"foreach,omitempty"`
 }
 
 // ForEachMutationApplyConfiguration constructs an declarative configuration of the ForEachMutation type for use with
@@ -97,7 +97,7 @@ func (b *ForEachMutationApplyConfiguration) WithPatchesJSON6902(value string) *F
 // WithForEachMutation sets the ForEachMutation field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ForEachMutation field is set to the value of the last call.
-func (b *ForEachMutationApplyConfiguration) WithForEachMutation(value apiextensionsv1.JSON) *ForEachMutationApplyConfiguration {
+func (b *ForEachMutationApplyConfiguration) WithForEachMutation(value v1.ForEachMutationWrapper) *ForEachMutationApplyConfiguration {
 	b.ForEachMutation = &value
 	return b
 }
