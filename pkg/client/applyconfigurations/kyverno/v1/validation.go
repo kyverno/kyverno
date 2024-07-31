@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	v1alpha1 "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -36,6 +37,7 @@ type ValidationApplyConfiguration struct {
 	Deny                             *DenyApplyConfiguration                             `json:"deny,omitempty"`
 	PodSecurity                      *PodSecurityApplyConfiguration                      `json:"podSecurity,omitempty"`
 	CEL                              *CELApplyConfiguration                              `json:"cel,omitempty"`
+	Assert                           *v1alpha1.Any                                       `json:"assert,omitempty"`
 }
 
 // ValidationApplyConfiguration constructs an declarative configuration of the Validation type for use with
@@ -131,5 +133,13 @@ func (b *ValidationApplyConfiguration) WithPodSecurity(value *PodSecurityApplyCo
 // If called multiple times, the CEL field is set to the value of the last call.
 func (b *ValidationApplyConfiguration) WithCEL(value *CELApplyConfiguration) *ValidationApplyConfiguration {
 	b.CEL = value
+	return b
+}
+
+// WithAssert sets the Assert field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Assert field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithAssert(value v1alpha1.Any) *ValidationApplyConfiguration {
+	b.Assert = &value
 	return b
 }
