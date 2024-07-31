@@ -115,6 +115,9 @@ type PolicyReportResult struct {
 	// Description is a short user friendly message for the policy rule
 	Message string `json:"message,omitempty"`
 
+	// Origin of the report i.e admission or background
+	Origin string `json:"origin,omitempty"`
+
 	// Result indicates the outcome of the policy rule execution
 	Result PolicyResult `json:"result,omitempty"`
 
