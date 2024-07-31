@@ -184,25 +184,30 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 	clusterResources := sets.New[string]()
 
-	// if not using a mock, we first try to validate and if it fails we retry with cache invalidation in between
-	if !mock {
-		clusterResources, err = getClusteredResources(false)
-		if err != nil {
-			return warnings, err
-		}
-		if errs := policy.Validate(clusterResources); len(errs) != 0 {
-			clusterResources, err = getClusteredResources(true)
+	// if the client is nil then we are not in cluster mode, validations are unrequired. see: https://github.com/kyverno/kyverno/issues/10656
+	if client != nil {
+		// if not using a mock, we first try to validate and if it fails we retry with cache invalidation in between
+		if !mock {
+			clusterResources, err = getClusteredResources(false)
 			if err != nil {
 				return warnings, err
 			}
+			if errs := policy.Validate(clusterResources); len(errs) != 0 {
+				clusterResources, err = getClusteredResources(true)
+				if err != nil {
+					return warnings, err
+				}
+				if errs := policy.Validate(clusterResources); len(errs) != 0 {
+					return warnings, errs.ToAggregate()
+				}
+			}
+		} else {
 			if errs := policy.Validate(clusterResources); len(errs) != 0 {
 				return warnings, errs.ToAggregate()
 			}
 		}
 	} else {
-		if errs := policy.Validate(clusterResources); len(errs) != 0 {
-			return warnings, errs.ToAggregate()
-		}
+		logging.V(2).Info("Skipping validations due to the absence of the --cluster flag")
 	}
 
 	if !policy.IsNamespaced() {
