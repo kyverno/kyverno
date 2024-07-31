@@ -4,6 +4,8 @@ metadata:
   creationTimestamp: null
   name: keyless-attestations-multiple-subjects-2
 spec:
+  timeouts:
+    apply: 10s
   steps:
   - name: step-01
     try:
