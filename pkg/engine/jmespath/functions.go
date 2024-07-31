@@ -64,6 +64,7 @@ var (
 	divide                 = "divide"
 	modulo                 = "modulo"
 	round                  = "round"
+	formatNumber           = "formatNumber"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	pathCanonicalize       = "path_canonicalize"
@@ -326,6 +327,18 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		},
 		ReturnType: []jpType{jpNumber},
 		Note:       "does roundoff to upto the given decimal places",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: formatNumber,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+				{Types: []jpType{jpAny}},
+				{Types: []jpType{jpAny}},
+			},
+			Handler: jpFormatNumber,
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "does roundoff to upto the given decimal places while also accounting for trailing zeroes",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: base64Decode,
@@ -923,6 +936,71 @@ func jpRound(arguments []interface{}) (interface{}, error) {
 	shift := math.Pow(10, float64(intLength))
 	rounded := math.Round(op.Float()*shift) / shift
 	return rounded, nil
+}
+
+func jpFormatNumber(arguments []interface{}) (interface{}, error) {
+	funcCall, err := validateArg(formatNumber, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+	arg := arguments[1:]
+	var formatted string
+
+	switch funcCall.String() {
+	case compare:
+		result, err := jpfCompare(arg)
+		if err != nil {
+			return nil, err
+		}
+		formatted = fmt.Sprintf("%d", result)
+	case add:
+		result, err := jpAdd(arg)
+		if err != nil {
+			return nil, err
+		}
+		formatted = fmt.Sprintf("%v", result)
+	case sum:
+		result, err := jpSum(arg)
+		if err != nil {
+			return nil, err
+		}
+		formatted = fmt.Sprintf("%v", result)
+	case subtract:
+		result, err := jpSubtract(arg)
+		if err != nil {
+			return nil, err
+		}
+		formatted = fmt.Sprintf("%v", result)
+	case multiply:
+		result, err := jpMultiply(arg)
+		if err != nil {
+			return nil, err
+		}
+		formatted = fmt.Sprintf("%v", result)
+	case divide:
+		result, err := jpDivide(arg)
+		if err != nil {
+			return nil, err
+		}
+		formatted = fmt.Sprintf("%v", result)
+	case modulo:
+		result, err := jpModulo(arg)
+		if err != nil {
+			return nil, err
+		}
+		formatted = fmt.Sprintf("%v", result)
+	case round:
+		rounded, err := jpRound(arg)
+		if err != nil {
+			return nil, err
+		}
+		length, _ := validateArg(formatNumber, arg, 1, reflect.Float64)
+		formatted = fmt.Sprintf("%.*f", int(length.Float()), rounded)
+	default:
+		fmt.Println("Only supported functions are: compare, add, sum, subtract, mutiply, divide and modulo.\nPlease enter the correct choice.")
+	}
+
+	return formatted, nil
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
