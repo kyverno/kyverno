@@ -104,7 +104,7 @@ type Rule struct {
 	// generate and mutateExisting rules to those requests.
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
-	SkipBackgroundRequests bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
+	SkipBackgroundRequests *bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
 }
 
 // HasMutate checks for mutate rule
@@ -172,6 +172,13 @@ func (r *Rule) HasGenerate() bool {
 
 func (r *Rule) IsPodSecurity() bool {
 	return r.Validation.PodSecurity != nil
+}
+
+func (r *Rule) SkipBackgroundRequestsEnabled() bool {
+	if r.SkipBackgroundRequests == nil {
+		return true
+	}
+	return *r.SkipBackgroundRequests
 }
 
 func (r *Rule) GetTypeAndSyncAndOrphanDownstream() (_ GenerateType, sync bool, orphanDownstream bool) {

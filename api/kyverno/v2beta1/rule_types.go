@@ -71,7 +71,7 @@ type Rule struct {
 	// generate and mutateExisting rules to those requests.
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
-	SkipBackgroundRequests bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
+	SkipBackgroundRequests *bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
 }
 
 // HasMutate checks for mutate rule
@@ -135,6 +135,13 @@ func (r *Rule) HasValidate() bool {
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
 	return !datautils.DeepEqual(r.Generation, kyvernov1.Generation{})
+}
+
+func (r *Rule) SkipBackgroundRequestsEnabled() bool {
+	if r.SkipBackgroundRequests == nil {
+		return true
+	}
+	return *r.SkipBackgroundRequests
 }
 
 func (r *Rule) GetGenerateTypeAndSync() (_ kyvernov1.GenerateType, sync bool, orphanDownstream bool) {

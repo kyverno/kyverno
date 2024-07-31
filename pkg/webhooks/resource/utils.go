@@ -105,7 +105,7 @@ func skipBackgroundRequests(policy kyvernov1.PolicyInterface, logger logr.Logger
 	policyNew := policy.CreateDeepCopy()
 	policyNew.GetSpec().Rules = nil
 	for _, rule := range policy.GetSpec().Rules {
-		if rule.SkipBackgroundRequests && (bgsaDesired == bgsaActual) {
+		if rule.SkipBackgroundRequestsEnabled() && (bgsaDesired == bgsaActual) {
 			continue
 		}
 		logger.V(4).Info("applying background rule", "rule", rule.Name, "skipBackgroundRequests", rule.SkipBackgroundRequests, "backgroundSaDesired", bgsaDesired, "backgroundSaActual", bgsaActual)
