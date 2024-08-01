@@ -27,7 +27,6 @@ import (
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	kyverno "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno"
 	policyreport "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport"
-	reports "github.com/kyverno/kyverno/pkg/client/informers/externalversions/reports"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -247,7 +246,6 @@ type SharedInformerFactory interface {
 
 	Kyverno() kyverno.Interface
 	Wgpolicyk8s() policyreport.Interface
-	Reports() reports.Interface
 }
 
 func (f *sharedInformerFactory) Kyverno() kyverno.Interface {
@@ -256,8 +254,4 @@ func (f *sharedInformerFactory) Kyverno() kyverno.Interface {
 
 func (f *sharedInformerFactory) Wgpolicyk8s() policyreport.Interface {
 	return policyreport.New(f, f.namespace, f.tweakListOptions)
-}
-
-func (f *sharedInformerFactory) Reports() reports.Interface {
-	return reports.New(f, f.namespace, f.tweakListOptions)
 }

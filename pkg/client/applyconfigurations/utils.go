@@ -20,19 +20,15 @@ package applyconfigurations
 
 import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/policyreport/v1alpha2"
-	applyconfigurationsreportsv1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/reports/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -148,20 +144,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	case v1.SchemeGroupVersion.WithKind("WebhookConfiguration"):
 		return &kyvernov1.WebhookConfigurationApplyConfiguration{}
 
-		// Group=kyverno.io, Version=v1beta1
-	case v1beta1.SchemeGroupVersion.WithKind("AdmissionRequestInfoObject"):
-		return &kyvernov1beta1.AdmissionRequestInfoObjectApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("RequestInfo"):
-		return &kyvernov1beta1.RequestInfoApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("UpdateRequest"):
-		return &kyvernov1beta1.UpdateRequestApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("UpdateRequestSpec"):
-		return &kyvernov1beta1.UpdateRequestSpecApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("UpdateRequestSpecContext"):
-		return &kyvernov1beta1.UpdateRequestSpecContextApplyConfiguration{}
-	case v1beta1.SchemeGroupVersion.WithKind("UpdateRequestStatus"):
-		return &kyvernov1beta1.UpdateRequestStatusApplyConfiguration{}
-
 		// Group=kyverno.io, Version=v2
 	case v2.SchemeGroupVersion.WithKind("AdmissionRequestInfoObject"):
 		return &kyvernov2.AdmissionRequestInfoObjectApplyConfiguration{}
@@ -241,14 +223,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.SpecApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
-
-		// Group=reports.kyverno.io, Version=v1
-	case reportsv1.SchemeGroupVersion.WithKind("ClusterEphemeralReport"):
-		return &applyconfigurationsreportsv1.ClusterEphemeralReportApplyConfiguration{}
-	case reportsv1.SchemeGroupVersion.WithKind("EphemeralReport"):
-		return &applyconfigurationsreportsv1.EphemeralReportApplyConfiguration{}
-	case reportsv1.SchemeGroupVersion.WithKind("EphemeralReportSpec"):
-		return &applyconfigurationsreportsv1.EphemeralReportSpecApplyConfiguration{}
 
 		// Group=wgpolicyk8s.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithKind("ClusterPolicyReport"):

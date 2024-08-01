@@ -95,7 +95,7 @@ type UpdateRequestSpec struct {
 	// ResourceSpec is the information to identify the trigger resource.
 	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
 
-	// Context ...
+	// Context represents admission request context.
 	Context UpdateRequestSpecContext `json:"context" yaml:"context"`
 }
 
