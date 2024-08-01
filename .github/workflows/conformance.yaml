@@ -513,10 +513,6 @@ jobs:
               - standard
               - custom-sigstore
         k8s-version:
-          - name: v1.25
-            version: v1.25.x
-          - name: v1.26
-            version: v1.26.x
           - name: v1.27
             version: v1.27.x
           - name: v1.28
@@ -534,11 +530,11 @@ jobs:
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@d120ad89e1f5c9d4a0bbd92959c6874be2a2131d
+        uses: sigstore/scaffolding/actions/setup@634364a897dff805b1a26ab18abaefe379616785
         with:
-          version: 'v0.6.8'
+          version: main
           k8s-version: ${{ matrix.k8s-version.version }}
-          knative-version: '1.10.0'
+          knative-version: "1.10.0"
       - name: Create TUF values config map
         run: |
           kubectl create namespace kyverno
