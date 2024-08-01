@@ -4,19 +4,92 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/jmespath-community/go-jmespath/pkg/binding"
+	"github.com/jmespath-community/go-jmespath/pkg/functions"
+	jpfunctions "github.com/jmespath-community/go-jmespath/pkg/functions"
+	"github.com/jmespath-community/go-jmespath/pkg/interpreter"
 	gojmespath "github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno-json/pkg/engine/assert"
+	"github.com/kyverno/kyverno-json/pkg/engine/template"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
 )
+
+func getArgAt(arguments []any, index int) (any, error) {
+	if index >= len(arguments) {
+		return nil, fmt.Errorf("index out of range (%d / %d)", index, len(arguments))
+	}
+	return arguments[index], nil
+}
+
+func getArg[T any](arguments []any, index int, out *T) error {
+	arg, err := getArgAt(arguments, index)
+	if err != nil {
+		return err
+	}
+	if value, ok := arg.(T); !ok {
+		return errors.New("invalid type")
+	} else {
+		*out = value
+		return nil
+	}
+}
+
+func jpContextQuery(arguments []any) (any, error) {
+	var ctx enginectx.EvalInterface
+	var query string
+	if err := getArg(arguments, 0, &ctx); err != nil {
+		return nil, err
+	}
+	if err := getArg(arguments, 1, &query); err != nil {
+		return nil, err
+	}
+	return ctx.Query(query)
+}
+
+func jpContextHasChanged(arguments []any) (any, error) {
+	var ctx enginectx.EvalInterface
+	var query string
+	if err := getArg(arguments, 0, &ctx); err != nil {
+		return nil, err
+	}
+	if err := getArg(arguments, 1, &query); err != nil {
+		return nil, err
+	}
+	return ctx.HasChanged(query)
+}
+
+var caller = sync.OnceValue(func() interpreter.FunctionCaller {
+	var funcs []jpfunctions.FunctionEntry
+	funcs = append(funcs, template.GetFunctions(context.Background())...)
+	funcs = append(funcs, jpfunctions.FunctionEntry{
+		Name: "context_query",
+		Arguments: []functions.ArgSpec{
+			{Types: []functions.JpType{functions.JpAny}},
+			{Types: []functions.JpType{functions.JpString}},
+		},
+		Handler: jpContextQuery,
+	})
+	funcs = append(funcs, jpfunctions.FunctionEntry{
+		Name: "context_has_changed",
+		Arguments: []functions.ArgSpec{
+			{Types: []functions.JpType{functions.JpAny}},
+			{Types: []functions.JpType{functions.JpString}},
+		},
+		Handler: jpContextHasChanged,
+	})
+	return interpreter.NewFunctionCaller(funcs...)
+})
 
 type validateAssertHandler struct{}
 
@@ -83,7 +156,14 @@ func (h validateAssertHandler) Process(
 			"subResource": subResource,
 		},
 	}))
-	errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, assertion.Value), resource.UnstructuredContent(), bindings)
+	errs, err := assert.Assert(
+		ctx,
+		nil,
+		assert.Parse(ctx, assertion.Value),
+		resource.UnstructuredContent(),
+		bindings,
+		template.WithFunctionCaller(caller()),
+	)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "failed to apply assertion", err)
 	}
