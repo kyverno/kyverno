@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/jmespath-community/go-jmespath/pkg/binding"
+	gojmespath "github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno-json/pkg/engine/assert"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -28,7 +30,7 @@ func (h validateAssertHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	_ engineapi.EngineContextLoader,
+	contextLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
@@ -48,11 +50,44 @@ func (h validateAssertHandler) Process(
 			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", ")).WithExceptions(matchedExceptions),
 		)
 	}
+	// load context
+	jsonContext := policyContext.JSONContext()
+	jsonContext.Checkpoint()
+	defer jsonContext.Restore()
+	if err := contextLoader(ctx, rule.Context, jsonContext); err != nil {
+		if _, ok := err.(gojmespath.NotFoundError); ok {
+			logger.V(3).Info("failed to load context", "reason", err.Error())
+		} else {
+			logger.Error(err, "failed to load context")
+		}
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.Validation, "failed to load context", err),
+		)
+	}
+	// execute assertion
 	assertion := rule.Validation.Assert
-	errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, assertion.Value), resource.UnstructuredContent(), nil)
+	gvk, subResource := policyContext.ResourceKind()
+	bindings := binding.NewBindings()
+	bindings = bindings.Register("$kyverno", binding.NewBinding(map[string]any{
+		"context":            jsonContext,
+		"oldObject":          policyContext.OldResource().Object,
+		"admissionInfo":      policyContext.AdmissionInfo(),
+		"operation":          policyContext.Operation(),
+		"namespaceLabels":    policyContext.NamespaceLabels(),
+		"admissionOperation": policyContext.AdmissionOperation(),
+		"requestResource":    policyContext.RequestResource(),
+		"resourceKind": map[string]any{
+			"group":       gvk.Group,
+			"version":     gvk.Version,
+			"kind":        gvk.Kind,
+			"subResource": subResource,
+		},
+	}))
+	errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, assertion.Value), resource.UnstructuredContent(), bindings)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "failed to apply assertion", err)
 	}
+	// compose a response
 	if len(errs) != 0 {
 		var responses []*engineapi.RuleResponse
 		for _, err := range errs {
