@@ -49,6 +49,7 @@ var (
 	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	regexVariables                     = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+	bindingIdentifier                  = regexp.MustCompile(`^\w+$`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
@@ -1220,6 +1221,13 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 	for _, entry := range rule.Context {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
+		}
+		// if it the rule uses kyverno-json we add some constraints on the name of context entries to make
+		// sure we can create the corresponding bindings
+		if rule.Validation.Assert.Value != nil {
+			if !bindingIdentifier.MatchString(entry.Name) {
+				return fmt.Errorf("context entry name %s is invalid, it must be a single word when the validation rule uses `assert`", entry.Name)
+			}
 		}
 		for _, v := range []string{"images", "request", "serviceAccountName", "serviceAccountNamespace", "element", "elementIndex"} {
 			if entry.Name == v || strings.HasPrefix(entry.Name, v+".") {
