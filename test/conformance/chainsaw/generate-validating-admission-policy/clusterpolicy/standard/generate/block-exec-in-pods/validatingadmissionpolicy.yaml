@@ -3,32 +3,30 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: check-label-app4
+  name: deny-exec-by-namespace-name
   ownerReferences:
   - apiVersion: kyverno.io/v1
     kind: ClusterPolicy
-    name: check-label-app4
+    name: deny-exec-by-namespace-name
 spec:
   failurePolicy: Fail
+  matchConditions:
+  - expression: request.operation == 'CONNECT'
+    name: operation-should-be-connect
   matchConstraints:
-    namespaceSelector:
-      matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: In
-        values:
-        - production
-        - staging
     resourceRules:
     - apiGroups:
-      - '*'
+      - ""
       apiVersions:
-      - '*'
+      - v1
       operations:
       - CREATE
       - UPDATE
       - CONNECT
       - DELETE
       resources:
-      - '*'
+      - pods/exec
+      scope: '*'
   validations:
-  - expression: '''app'' in object.metadata.labels'
+  - expression: request.namespace != 'pci'
+    message: Pods in this namespace may not be exec'd into.
