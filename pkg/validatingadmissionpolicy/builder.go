@@ -295,6 +295,8 @@ func translateOperations(operations []string) []admissionregistrationv1.Operatio
 	if len(vapOperations) == 0 {
 		vapOperations = append(vapOperations, admissionregistrationv1.Create)
 		vapOperations = append(vapOperations, admissionregistrationv1.Update)
+		vapOperations = append(vapOperations, admissionregistrationv1.Connect)
+		vapOperations = append(vapOperations, admissionregistrationv1.Delete)
 	}
 	return vapOperations
 }
