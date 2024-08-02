@@ -19,6 +19,7 @@ const (
 var (
 	PodControllers         = sets.New("DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController", "CronJob")
 	podControllersKindsSet = PodControllers.Union(sets.New("Pod"))
+	assertAutogenNodes     = []string{"object", "oldObject"}
 )
 
 func isKindOtherthanPod(kinds []string) bool {
@@ -274,4 +275,46 @@ func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	}
 	out = append(out, genRules...)
 	return out
+}
+
+func createAutogenAssertion(tree kyvernov1.AssertionTree, path []string) kyvernov1.AssertionTree {
+	v, ok := tree.Value.(map[string]any)
+	if !ok {
+		return tree
+	}
+
+	value := map[string]any{}
+	for k, v := range v {
+		value[k] = v
+	}
+
+	for _, n := range assertAutogenNodes {
+		object, ok := v[n].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		root := map[string]any{}
+		parent := root
+		var parentNode string
+
+		for _, node := range path[:2] {
+			if parentNode != "" {
+				parent = parent[parentNode].(map[string]any)
+			}
+
+			parent[node] = map[string]any{}
+			parentNode = node
+		}
+
+		for k, v := range object {
+			parent[parentNode].(map[string]any)[k] = v
+		}
+
+		value[n] = root
+	}
+
+	return kyvernov1.AssertionTree{
+		Value: value,
+	}
 }
