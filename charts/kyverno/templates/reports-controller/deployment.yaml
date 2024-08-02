@@ -40,7 +40,7 @@ spec:
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.reportsController.tolerations | default .Values.global.tolerations}}
+      {{- with .Values.reportsController.tolerations }}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -80,10 +80,10 @@ spec:
           image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.reportsController.image.pullPolicy }}
           ports:
-          - containerPort: {{ .Values.reportsController.server.port }}
+          - containerPort: 9443
             name: https
             protocol: TCP
-          - containerPort: {{ .Values.reportsController.metering.port }}
+          - containerPort: 8000
             name: metrics
             protocol: TCP
           {{ if .Values.reportsController.profiling.enabled }}
@@ -126,6 +126,7 @@ spec:
               "logging"
               "omitEvents"
               "policyExceptions"
+              "reports"
               "registryClient"
               "tuf"
             ) | nindent 12 }}

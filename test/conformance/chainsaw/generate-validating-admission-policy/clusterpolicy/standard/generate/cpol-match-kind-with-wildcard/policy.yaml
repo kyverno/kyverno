@@ -12,9 +12,6 @@ spec:
         - resources:
             kinds:
             - '*'
-            namespaces:
-            - production
-            - staging
       validate:
         cel:
           expressions:

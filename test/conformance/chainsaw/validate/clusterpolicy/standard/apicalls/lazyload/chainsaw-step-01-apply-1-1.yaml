@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: ingress-unique-host
 spec:
+  failurePolicy: Fail
   rules:
   - context:
     - name: requestIngressClass
@@ -26,7 +27,6 @@ spec:
         - CREATE
         - UPDATE
     validate:
-      validationFailureAction: Enforce
       deny:
         conditions:
           any:
@@ -37,5 +37,4 @@ spec:
               }}''].spec.rules[].host }}'
       message: |
         Ingress must have a unique hostname across different ingress classes
-  webhookConfiguration:
-    failurePolicy: Fail
+  validationFailureAction: Enforce

@@ -61,7 +61,7 @@ func createrLeaderControllers(
 		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V2().UpdateRequests(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		configuration,
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
@@ -80,7 +80,7 @@ func createrLeaderControllers(
 		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V2().UpdateRequests(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
 		configuration,
@@ -149,7 +149,6 @@ func main() {
 		}
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -195,7 +194,6 @@ func main() {
 			setup.KyvernoClient,
 			setup.RegistrySecretLister,
 			apicall.NewAPICallConfiguration(maxAPICallResponseLength),
-			polexCache,
 			gcstore,
 		)
 		// start informers and wait for cache sync
@@ -257,9 +255,6 @@ func main() {
 		// start non leader controllers
 		eventController.Run(signalCtx, setup.Logger, &wg)
 		gceController.Run(signalCtx, setup.Logger, &wg)
-		if polexController != nil {
-			polexController.Run(signalCtx, setup.Logger, &wg)
-		}
 		// start leader election
 		le.Run(signalCtx)
 	}()

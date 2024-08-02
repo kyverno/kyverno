@@ -11,13 +11,6 @@ metadata:
 spec:
   failurePolicy: Fail
   matchConstraints:
-    namespaceSelector:
-      matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: In
-        values:
-        - production
-        - staging
     resourceRules:
     - apiGroups:
       - '*'

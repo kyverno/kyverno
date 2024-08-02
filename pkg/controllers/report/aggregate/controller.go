@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -201,12 +202,12 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 	return results, nil
 }
 
-func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, name string) ([]reportsv1.ReportInterface, error) {
+func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, error) {
 	selector, err := reportutils.SelectorResourceUidEquals(types.UID(name))
 	if err != nil {
 		return nil, err
 	}
-	var results []reportsv1.ReportInterface
+	var results []kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		reports, err := c.client.ReportsV1().ClusterEphemeralReports().List(ctx, metav1.ListOptions{
 			LabelSelector: selector.String(),
@@ -243,7 +244,7 @@ func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, n
 	return results, nil
 }
 
-func (c *controller) getReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		report, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -281,7 +282,7 @@ func (c *controller) lookupEphemeralReportMeta(_ context.Context, namespace, nam
 	}
 }
 
-func (c *controller) getEphemeralReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
+func (c *controller) getEphemeralReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		obj, err := c.client.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -379,7 +380,7 @@ func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, 
 }
 
 func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) (err error) {
-	var reports []reportsv1.ReportInterface
+	var reports []kyvernov1alpha2.ReportInterface
 	// get the report
 	// if we don't have a report, we will eventually create one
 	report, err := c.getReport(ctx, namespace, name)

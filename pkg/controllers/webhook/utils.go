@@ -65,7 +65,7 @@ func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.Fa
 		Namespace: policy.GetNamespace(),
 		Name:      policy.GetName(),
 	}
-	if policy.GetSpec().CustomWebhookMatchConditions() {
+	if policy.GetSpec().CustomWebhookConfiguration() {
 		webhook.matchConditions = policy.GetSpec().GetMatchConditions()
 	}
 	return webhook

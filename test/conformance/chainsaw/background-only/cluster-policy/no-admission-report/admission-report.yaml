@@ -1,5 +1,5 @@
-apiVersion: reports.kyverno.io/v1
-kind: EphemeralReport
+apiVersion: kyverno.io/v1alpha2
+kind: AdmissionReport
 metadata:
   ownerReferences:
   - apiVersion: v1

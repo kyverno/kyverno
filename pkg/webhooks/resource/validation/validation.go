@@ -92,8 +92,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
 	if err != nil {
-		msg := fmt.Sprintf("failed to create policy context: %v", err)
-		return false, msg, nil
+		return false, "failed create policy context", nil
 	}
 
 	var engineResponses []engineapi.EngineResponse
@@ -118,7 +117,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 				engineResponses = append(engineResponses, engineResponse)
 				if !engineResponse.IsSuccessful() {
-					logger.V(2).Info("validation failed", "action", policy.GetSpec().GetValidationFailureAction(), "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
+					logger.V(2).Info("validation failed", "action", policy.GetSpec().ValidationFailureAction, "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 					return
 				}
 

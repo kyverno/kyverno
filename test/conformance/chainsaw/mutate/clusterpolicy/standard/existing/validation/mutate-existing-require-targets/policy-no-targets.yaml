@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: mutate-existing-require-targets-policy-no-targets
 spec:
+  mutateExistingOnPolicyUpdate: true
   rules:
     - name: mutate-secret-on-configmap-create
       match:
@@ -15,7 +16,6 @@ spec:
             namespaces:
             - staging
       mutate:
-        mutateExistingOnPolicyUpdate: true
         patchStrategicMerge:
           metadata:
             labels:

@@ -221,7 +221,7 @@ func createrLeaderControllers(
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
+			kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
@@ -374,7 +374,6 @@ func main() {
 			),
 			globalcontextcontroller.Workers,
 		)
-		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventController := internal.NewController(
 			event.ControllerName,
 			eventGenerator,
@@ -420,7 +419,6 @@ func main() {
 			setup.KyvernoClient,
 			setup.RegistrySecretLister,
 			apicall.NewAPICallConfiguration(maxAPICallResponseLength),
-			polexCache,
 			gcstore,
 		)
 		// create non leader controllers
@@ -509,7 +507,7 @@ func main() {
 		// create webhooks server
 		urgen := webhookgenerate.NewGenerator(
 			setup.KyvernoClient,
-			kyvernoInformer.Kyverno().V2().UpdateRequests(),
+			kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 			urGenerator,
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
@@ -537,7 +535,7 @@ func main() {
 			setup.MetricsManager,
 			policyCache,
 			kubeInformer.Core().V1().Namespaces().Lister(),
-			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+			kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			urgen,
@@ -595,9 +593,6 @@ func main() {
 		// start non leader controllers
 		eventController.Run(signalCtx, setup.Logger, &wg)
 		gceController.Run(signalCtx, setup.Logger, &wg)
-		if polexController != nil {
-			polexController.Run(signalCtx, setup.Logger, &wg)
-		}
 		for _, controller := range nonLeaderControllers {
 			controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
 		}

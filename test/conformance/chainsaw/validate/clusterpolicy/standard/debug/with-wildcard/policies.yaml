@@ -5,6 +5,7 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
     - name: deny-debug
@@ -14,5 +15,4 @@ spec:
               kinds:
                 - '*/ephemeralcontainers'
       validate:
-        validationFailureAction: Enforce
         deny: {}

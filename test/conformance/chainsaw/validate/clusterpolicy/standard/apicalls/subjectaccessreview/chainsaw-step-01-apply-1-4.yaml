@@ -30,7 +30,6 @@ spec:
           - ConfigMap
     name: check-sar
     validate:
-      validationFailureAction: Enforce
       deny:
         conditions:
           any:
@@ -38,3 +37,4 @@ spec:
             operator: NotEquals
             value: true
       message: User is not authorized.
+  validationFailureAction: Enforce

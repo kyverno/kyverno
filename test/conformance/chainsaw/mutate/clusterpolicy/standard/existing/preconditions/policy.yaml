@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: test
 spec:
+  mutateExistingOnPolicyUpdate: true
   rules:
     - name: test
       match:
@@ -13,7 +14,6 @@ spec:
               names:
                 - default
       mutate:
-        mutateExistingOnPolicyUpdate: true
         targets:
           - kind: Pod
             apiVersion: '*'

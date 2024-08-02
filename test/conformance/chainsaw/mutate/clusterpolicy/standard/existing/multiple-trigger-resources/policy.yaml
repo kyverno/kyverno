@@ -5,6 +5,7 @@ metadata:
   annotations:  
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
+  mutateExistingOnPolicyUpdate: true
   validationFailureAction: Enforce
   rules:
   - name: propagate org label from namespace
@@ -23,7 +24,6 @@ spec:
         urlPath: /api/v1/namespaces/{{ request.object.metadata.namespace }}
         jmesPath: metadata.labels.org
     mutate:
-      mutateExistingOnPolicyUpdate: true
       targets:
       - apiVersion: v1
         kind: Pod

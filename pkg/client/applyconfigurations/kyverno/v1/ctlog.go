@@ -21,9 +21,8 @@ package v1
 // CTLogApplyConfiguration represents an declarative configuration of the CTLog type for use
 // with apply.
 type CTLogApplyConfiguration struct {
-	IgnoreSCT    *bool   `json:"ignoreSCT,omitempty"`
-	CTLogPubKey  *string `json:"pubkey,omitempty"`
-	TSACertChain *string `json:"tsaCertChain,omitempty"`
+	IgnoreSCT   *bool   `json:"ignoreSCT,omitempty"`
+	CTLogPubKey *string `json:"pubkey,omitempty"`
 }
 
 // CTLogApplyConfiguration constructs an declarative configuration of the CTLog type for use with
@@ -45,13 +44,5 @@ func (b *CTLogApplyConfiguration) WithIgnoreSCT(value bool) *CTLogApplyConfigura
 // If called multiple times, the CTLogPubKey field is set to the value of the last call.
 func (b *CTLogApplyConfiguration) WithCTLogPubKey(value string) *CTLogApplyConfiguration {
 	b.CTLogPubKey = &value
-	return b
-}
-
-// WithTSACertChain sets the TSACertChain field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the TSACertChain field is set to the value of the last call.
-func (b *CTLogApplyConfiguration) WithTSACertChain(value string) *CTLogApplyConfiguration {
-	b.TSACertChain = &value
 	return b
 }

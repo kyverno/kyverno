@@ -1625,6 +1625,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 				            "name": "sync-cms"
 				        },
 				        "spec": {
+				            "mutateExistingOnPolicyUpdate": false,
 				            "rules": [
 				                {
 				                    "name": "concat-cm",
@@ -1646,7 +1647,6 @@ func Test_mutate_existing_resources(t *testing.T) {
 				                        ]
 				                    },
 				                    "mutate": {
-                                "mutateExistingOnPolicyUpdate": false,
 				                        "targets": [
 				                            {
 				                                "apiVersion": "v1",
@@ -1717,6 +1717,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 		            "name": "sync-cms"
 		        },
 		        "spec": {
+		            "mutateExistingOnPolicyUpdate": false,
 		            "rules": [
 		                {
 		                    "name": "concat-cm",
@@ -1738,7 +1739,6 @@ func Test_mutate_existing_resources(t *testing.T) {
 		                        ]
 		                    },
 		                    "mutate": {
-                            "mutateExistingOnPolicyUpdate": false,
 		                        "targets": [
 		                            {
 		                                "apiVersion": "v1",

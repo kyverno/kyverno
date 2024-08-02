@@ -2,7 +2,7 @@
 
 Kubernetes Pod Security Standards implemented as Kyverno policies
 
-![Version: v0.0.0](https://img.shields.io/badge/Version-v0.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
+![Version: 3.2.5](https://img.shields.io/badge/Version-3.2.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.12.5](https://img.shields.io/badge/AppVersion-v1.12.5-informational?style=flat-square)
 
 ## About
 
@@ -37,16 +37,6 @@ An additional policy "require-non-root-groups" is included in an `other` group a
 
 For the latest version of these PSS policies, always refer to the kyverno/policies repo at https://github.com/kyverno/policies/tree/main/pod-security.
 
-## Deploy custom policies
-If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
-````yaml
-customPolicies:
-  - apiVersion: kyverno.io/v1
-    kind: ClusterPolicy
-    metadata: # metadata
-    spec: # spec
-````
-
 ## Installing the Chart
 
 These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
@@ -79,7 +69,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
-| customPolicies | list | `[]` | Additional custom policies to include. |
 | failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/writing-policies/policy-settings/ |
 | validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |

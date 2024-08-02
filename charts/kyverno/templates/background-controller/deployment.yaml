@@ -40,7 +40,7 @@ spec:
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.backgroundController.tolerations | default .Values.global.tolerations}}
+      {{- with .Values.backgroundController.tolerations }}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -80,10 +80,10 @@ spec:
           image: {{ include "kyverno.background-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.backgroundController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.backgroundController.image.pullPolicy }}
           ports:
-          - containerPort: {{ .Values.backgroundController.server.port }}
+          - containerPort: 9443
             name: https
             protocol: TCP
-          - containerPort: {{ .Values.backgroundController.metering.port }}
+          - containerPort: 8000
             name: metrics
             protocol: TCP
           {{ if .Values.backgroundController.profiling.enabled }}

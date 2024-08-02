@@ -21,7 +21,6 @@ spec:
         operator: NotEquals
         value: DELETE
     validate:
-      validationFailureAction: Enforce
       deny:
         conditions:
           any:
@@ -30,3 +29,4 @@ spec:
             value: '{{ request.object.spec.containers[].livenessProbe.exec.command[].regex_match(''\bjcmd\b'',@)
               }}'
       message: Cannot use commands `jcmd`, `ps`, or `ls` in liveness probes.
+  validationFailureAction: Enforce

@@ -18,6 +18,7 @@ metadata:
   name: add-privileged-existing-namespaces
 spec:
   background: false
+  mutateExistingOnPolicyUpdate: true
   rules:
   - match:
       any:
@@ -27,7 +28,6 @@ spec:
           names:
           - background-false-ns
     mutate:
-      mutateExistingOnPolicyUpdate: true
       patchStrategicMerge:
         metadata:
           labels:

@@ -52,6 +52,8 @@ spec:
         - clusterpolicies/status
         - globalcontextentries
         - globalcontextentries/status
+        - clusteradmissionreports
+        - clusterbackgroundscanreports
       verbs:
         - create
         - delete
@@ -70,6 +72,8 @@ spec:
         - policies/status
         - updaterequests
         - updaterequests/status
+        - admissionreports
+        - backgroundscanreports
       verbs:
         - create
         - delete

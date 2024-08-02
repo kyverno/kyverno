@@ -5,11 +5,11 @@ import (
 	"io/fs"
 )
 
-const crdsFolder = "crds"
+const CrdsFolder = "crds"
 
 //go:embed crds
 var crdsFs embed.FS
 
-func Crds() (fs.FS, error) {
-	return fs.Sub(crdsFs, crdsFolder)
+func Crds() fs.FS {
+	return crdsFs
 }

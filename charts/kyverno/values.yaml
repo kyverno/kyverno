@@ -37,9 +37,6 @@ global:
   # -- Global node labels for pod assignment. Non-global values will override the global value.
   nodeSelector: {}
 
-  # -- Global List of node taints to tolerate. Non-global values will override the global value.
-  tolerations: []
-
 # -- (string) Override the name of the chart
 nameOverride: ~
 
@@ -69,7 +66,11 @@ crds:
 
     # -- Install CRDs in group `kyverno.io`
     kyverno:
+      admissionreports: true
+      backgroundscanreports: true
       cleanuppolicies: true
+      clusteradmissionreports: true
+      clusterbackgroundscanreports: true
       clustercleanuppolicies: true
       clusterpolicies: true
       globalcontextentries: true
@@ -102,7 +103,11 @@ crds:
 
     # -- Resources to migrate
     resources:
+      - admissionreports.kyverno.io
+      - backgroundscanreports.kyverno.io
       - cleanuppolicies.kyverno.io
+      - clusteradmissionreports.kyverno.io
+      - clusterbackgroundscanreports.kyverno.io
       - clustercleanuppolicies.kyverno.io
       - clusterpolicies.kyverno.io
       - globalcontextentries.kyverno.io
@@ -221,6 +226,14 @@ config:
     - '[Pod/binding,*,*]'
     - '[ReplicaSet,*,*]'
     - '[ReplicaSet/*,*,*]'
+    - '[AdmissionReport,*,*]'
+    - '[AdmissionReport/*,*,*]'
+    - '[ClusterAdmissionReport,*,*]'
+    - '[ClusterAdmissionReport/*,*,*]'
+    - '[BackgroundScanReport,*,*]'
+    - '[BackgroundScanReport/*,*,*]'
+    - '[ClusterBackgroundScanReport,*,*]'
+    - '[ClusterBackgroundScanReport/*,*,*]'
     # exclude resources from the chart
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}]'
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:core]'
@@ -465,7 +478,7 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.30.2'
+    tag: '1.28.5'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -522,7 +535,7 @@ policyReportsCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.30.2'
+    tag: '1.28.5'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -591,8 +604,6 @@ grafana:
   # according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
   grafanaDashboard:
     create: false
-    folder: kyverno
-    allowCrossNamespaceImport: true
     matchLabels:
       dashboards: "grafana"
 
@@ -670,6 +681,9 @@ features:
     - amazon
     - azure
     - github
+  reports:
+    # -- Reports chunk size
+    chunkSize: 0
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
@@ -683,6 +697,160 @@ features:
 
 # Cleanup cronjobs to prevent internal resources from stacking up in the cluster
 cleanupJobs:
+
+  admissionReports:
+
+    # -- Enable cleanup cronjob
+    enabled: true
+
+    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
+    backoffLimit: 3
+
+    image:
+      # -- (string) Image registry
+      registry: ~
+      # -- Image repository
+      repository: bitnami/kubectl
+      # -- Image tag
+      # Defaults to `latest` if omitted
+      tag: '1.28.5'
+      # -- (string) Image pull policy
+      # Defaults to image.pullPolicy if omitted
+      pullPolicy: ~
+
+    # -- Image pull secrets
+    imagePullSecrets: []
+      # - name: secretName
+
+    # -- Cronjob schedule
+    schedule: '*/10 * * * *'
+
+    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
+    threshold: 10000
+
+    # -- Cronjob history
+    history:
+      success: 1
+      failure: 1
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Security context for the containers
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    # -- Pod PriorityClassName
+    priorityClassName: ""
+
+    # -- Job resources
+    resources: {}
+
+    # -- List of node taints to tolerate
+    tolerations: []
+
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
+    # -- Pod Annotations
+    podAnnotations: {}
+
+    # -- Pod labels
+    podLabels: {}
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
+
+  clusterAdmissionReports:
+
+    # -- Enable cleanup cronjob
+    enabled: true
+
+    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
+    backoffLimit: 3
+
+    image:
+      # -- (string) Image registry
+      registry: ~
+      # -- Image repository
+      repository: bitnami/kubectl
+      # -- Image tag
+      # Defaults to `latest` if omitted
+      tag: '1.28.5'
+      # -- (string) Image pull policy
+      # Defaults to image.pullPolicy if omitted
+      pullPolicy: ~
+
+    # -- Image pull secrets
+    imagePullSecrets: []
+      # - name: secretName
+
+    # -- Cronjob schedule
+    schedule: '*/10 * * * *'
+
+    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
+    threshold: 10000
+
+    # -- Cronjob history
+    history:
+      success: 1
+      failure: 1
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Security context for the containers
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    # -- Pod PriorityClassName
+    priorityClassName: ""
+
+    # -- Job resources
+    resources: {}
+
+    # -- List of node taints to tolerate
+    tolerations: []
+
+    # -- Node labels for pod assignment
+    nodeSelector: {}
+
+    # -- Pod Annotations
+    podAnnotations: {}
+
+    # -- Pod Labels
+    podLabels: {}
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
 
   updateRequests:
 
@@ -702,7 +870,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.30.2'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -767,7 +935,7 @@ cleanupJobs:
   ephemeralReports:
 
     # -- Enable cleanup cronjob
-    enabled: false
+    enabled: true
 
     # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
     backoffLimit: 3
@@ -782,7 +950,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.30.2'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -847,7 +1015,7 @@ cleanupJobs:
   clusterEphemeralReports:
 
     # -- Enable cleanup cronjob
-    enabled: false
+    enabled: true
 
     # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
     backoffLimit: 3
@@ -862,7 +1030,7 @@ cleanupJobs:
       repository: bitnami/kubectl
       # -- Image tag
       # Defaults to `latest` if omitted
-      tag: '1.30.2'
+      tag: '1.28.5'
       # -- (string) Image pull policy
       # Defaults to image.pullPolicy if omitted
       pullPolicy: ~
@@ -1623,11 +1791,6 @@ backgroundController:
     # -- Otel collector credentials
     creds: ''
 
-  # -- backgroundController server port
-  # in case you are using hostNetwork: true, you might want to change the port the backgroundController is listening to
-  server:
-    port: 9443
-
   profiling:
     # -- Enable profiling
     enabled: false
@@ -2220,11 +2383,6 @@ reportsController:
     collector: ~
     # -- (string) Otel collector credentials
     creds: ~
-
-  # -- reportsController server port
-  # in case you are using hostNetwork: true, you might want to change the port the reportsController is listening to
-  server:
-    port: 9443
 
   profiling:
     # -- Enable profiling

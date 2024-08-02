@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: require-label
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
     - name: require-label
@@ -22,7 +23,6 @@ spec:
             operator: NotEquals
             value: DELETE
       validate:
-        validationFailureAction: Enforce
         message: 'Test'
         pattern:
           metadata:

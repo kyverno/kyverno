@@ -37,7 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
+	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	"k8s.io/apiserver/pkg/cel/openapi/resolver"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/restmapper"
@@ -116,10 +116,10 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 
 func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 	msg := "Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."
-	if spec.GetValidationFailureAction() == "enforce" || spec.GetValidationFailureAction() == "audit" {
+	if spec.ValidationFailureAction == "enforce" || spec.ValidationFailureAction == "audit" {
 		return []string{msg}
 	}
-	for _, override := range spec.GetValidationFailureActionOverrides() {
+	for _, override := range spec.ValidationFailureActionOverrides {
 		if override.Action == "enforce" || override.Action == "audit" {
 			return []string{msg}
 		}
@@ -133,7 +133,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
-	if policy.GetSpec().CustomWebhookMatchConditions() &&
+	if policy.GetSpec().CustomWebhookConfiguration() &&
 		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
 	}
@@ -326,7 +326,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			isAuditFailureAction := false
-			if spec.GetValidationFailureAction() == kyvernov1.Audit {
+			if spec.ValidationFailureAction == kyvernov1.Audit {
 				isAuditFailureAction = true
 			}
 
@@ -438,7 +438,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return nil, err
 		}
 		mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
-		checker := &validating.TypeChecker{
+		checker := &validatingadmissionpolicy.TypeChecker{
 			SchemaResolver: resolver,
 			RestMapper:     mapper,
 		}
@@ -453,10 +453,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		if err != nil {
 			return nil, err
 		}
-		v1vap := vaputils.ConvertValidatingAdmissionPolicy(*vap)
+		v1beta1vap := vaputils.ConvertValidatingAdmissionPolicy(*vap)
 
 		// check cel expression warnings
-		ctx := checker.CreateContext(&v1vap)
+		ctx := checker.CreateContext(&v1beta1vap)
 		fieldRef := field.NewPath("spec", "rules[0]", "validate", "cel", "expressions")
 		for i, e := range spec.Rules[0].Validation.CEL.Expressions {
 			results := checker.CheckExpression(ctx, e.Expression)
@@ -1002,9 +1002,12 @@ func validateValidationForEach(foreach []kyvernov1.ForEachValidation, schemaKey 
 				}
 			}
 		}
-		fev := fe.GetForEachValidation()
-		if len(fev) > 0 {
-			if path, err := validateValidationForEach(fev, schemaKey); err != nil {
+		if fe.ForEachValidation != nil {
+			nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachValidation](fe.ForEachValidation)
+			if err != nil {
+				return schemaKey, err
+			}
+			if path, err := validateValidationForEach(nestedForEach, schemaKey); err != nil {
 				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
@@ -1019,9 +1022,12 @@ func validateMutationForEach(foreach []kyvernov1.ForEachMutation, schemaKey stri
 				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
-		fem := fe.GetForEachMutation()
-		if len(fem) > 0 {
-			if path, err := validateMutationForEach(fem, schemaKey); err != nil {
+		if fe.ForEachMutation != nil {
+			nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
+			if err != nil {
+				return schemaKey, err
+			}
+			if path, err := validateMutationForEach(nestedForEach, schemaKey); err != nil {
 				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
@@ -1297,10 +1303,10 @@ func validateVariable(entry kyvernov1.ContextEntry) error {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.Variable.JMESPath, err)
 		}
 	}
-	if entry.Variable.GetValue() == nil && jmesPath == "" {
+	if entry.Variable.Value == nil && jmesPath == "" {
 		return fmt.Errorf("a variable must define a value or a jmesPath expression")
 	}
-	if entry.Variable.GetDefault() != nil && jmesPath == "" {
+	if entry.Variable.Default != nil && jmesPath == "" {
 		return fmt.Errorf("a variable must define a default value only when a jmesPath expression is defined")
 	}
 	return nil
@@ -1549,7 +1555,7 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 		"auditW":   sets.New[string](),
 	}
 
-	for i, vfa := range s.GetValidationFailureActionOverrides() {
+	for i, vfa := range s.ValidationFailureActionOverrides {
 		if !vfa.Action.IsValid() {
 			return fmt.Errorf("invalid action")
 		}

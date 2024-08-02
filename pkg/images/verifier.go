@@ -33,12 +33,10 @@ type Options struct {
 	AdditionalExtensions map[string]string
 	Annotations          map[string]string
 	Repository           string
-	CosignOCI11          bool
 	IgnoreTlog           bool
 	RekorURL             string
 	RekorPubKey          string
 	IgnoreSCT            bool
-	TSACertChain         string
 	CTLogsPubKey         string
 	SignatureAlgorithm   string
 	PredicateType        string

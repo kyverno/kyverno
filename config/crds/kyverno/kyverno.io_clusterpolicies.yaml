@@ -107,22 +107,28 @@ spec:
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
-                description: Deprecated, use failurePolicy under the webhookConfiguration
-                  instead.
+                description: |-
+                  FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+                  Rules within the same policy share the same failure behavior.
+                  This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
+                  Allowed values are Ignore or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail
                 type: string
               generateExisting:
-                description: Deprecated, use generateExisting under the generate rule
-                  instead
+                description: |-
+                  GenerateExisting controls whether to trigger generate rule in existing resources
+                  If is set to "true" generate rule will be triggered and applied to existing matched resources.
+                  Defaults to "false" if not specified.
                 type: boolean
               generateExistingOnPolicyUpdate:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: Deprecated, use mutateExistingOnPolicyUpdate under the
-                  mutate rule instead
+                description: |-
+                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+                  Default value is "false".
                 type: boolean
               rules:
                 description: |-
@@ -222,7 +228,7 @@ spec:
                               method:
                                 default: GET
                                 description: Method is the HTTP request type (GET
-                                  or POST). Defaults to GET.
+                                  or POST).
                                 enum:
                                 - GET
                                 - POST
@@ -443,13 +449,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -516,13 +520,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -653,13 +655,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -726,13 +726,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -858,13 +856,11 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
-                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -930,13 +926,11 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
-                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -1050,13 +1044,11 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
-                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -1074,11 +1066,6 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
-                        generateExisting:
-                          description: |-
-                            GenerateExisting controls whether to trigger the rule in existing resources
-                            If is set to "true" the rule will be triggered and applied to existing matched resources.
-                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -1231,13 +1218,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -1304,13 +1289,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -1441,13 +1424,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -1514,13 +1495,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -1646,13 +1625,11 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
-                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -1718,13 +1695,11 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
-                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -1833,7 +1808,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST). Defaults to GET.
+                                            type (GET or POST).
                                           enum:
                                           - GET
                                           - POST
@@ -2108,10 +2083,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExistingOnPolicyUpdate:
-                          description: MutateExistingOnPolicyUpdate controls if the
-                            mutateExisting rule will be applied on policy events.
-                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -2177,7 +2148,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST). Defaults to GET.
+                                            type (GET or POST).
                                           enum:
                                           - GET
                                           - POST
@@ -2634,13 +2605,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -2750,7 +2719,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST). Defaults to GET.
+                                            type (GET or POST).
                                           enum:
                                           - GET
                                           - POST
@@ -3095,12 +3064,6 @@ spec:
                                                     used to validate SCTs against
                                                     a custom source.
                                                   type: string
-                                                tsaCertChain:
-                                                  description: |-
-                                                    TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                    contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                    may contain the leaf TSA certificate if not present in the timestamurce.
-                                                  type: string
                                               type: object
                                             rekor:
                                               description: |-
@@ -3150,12 +3113,6 @@ spec:
                                                   description: PubKey, if set, is
                                                     used to validate SCTs against
                                                     a custom source.
-                                                  type: string
-                                                tsaCertChain:
-                                                  description: |-
-                                                    TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                    contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                    may contain the leaf TSA certificate if not present in the timestamurce.
                                                   type: string
                                               type: object
                                             issuer:
@@ -3212,12 +3169,6 @@ spec:
                                                   description: PubKey, if set, is
                                                     used to validate SCTs against
                                                     a custom source.
-                                                  type: string
-                                                tsaCertChain:
-                                                  description: |-
-                                                    TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                    contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                    may contain the leaf TSA certificate if not present in the timestamurce.
                                                   type: string
                                               type: object
                                             kms:
@@ -3423,89 +3374,6 @@ spec:
                               - latest
                               type: string
                           type: object
-                        validationFailureAction:
-                          description: |-
-                            ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
-                            and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
-                          enum:
-                          - audit
-                          - enforce
-                          - Audit
-                          - Enforce
-                          type: string
-                        validationFailureActionOverrides:
-                          description: |-
-                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-                          items:
-                            properties:
-                              action:
-                                description: ValidationFailureAction defines the policy
-                                  validation failure action
-                                enum:
-                                - audit
-                                - enforce
-                                - Audit
-                                - Enforce
-                                type: string
-                              namespaceSelector:
-                                description: |-
-                                  A label selector is a label query over a set of resources. The result of matchLabels and
-                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
-                                  label selector matches no objects.
-                                properties:
-                                  matchExpressions:
-                                    description: matchExpressions is a list of label
-                                      selector requirements. The requirements are
-                                      ANDed.
-                                    items:
-                                      description: |-
-                                        A label selector requirement is a selector that contains values, a key, and an operator that
-                                        relates the key and values.
-                                      properties:
-                                        key:
-                                          description: key is the label key that the
-                                            selector applies to.
-                                          type: string
-                                        operator:
-                                          description: |-
-                                            operator represents a key's relationship to a set of values.
-                                            Valid operators are In, NotIn, Exists and DoesNotExist.
-                                          type: string
-                                        values:
-                                          description: |-
-                                            values is an array of string values. If the operator is In or NotIn,
-                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                            the values array must be empty. This array is replaced during a strategic
-                                            merge patch.
-                                          items:
-                                            type: string
-                                          type: array
-                                          x-kubernetes-list-type: atomic
-                                      required:
-                                      - key
-                                      - operator
-                                      type: object
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                  matchLabels:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                    type: object
-                                type: object
-                                x-kubernetes-map-type: atomic
-                              namespaces:
-                                items:
-                                  type: string
-                                type: array
-                            type: object
-                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -3597,12 +3465,6 @@ spec:
                                                         is used to validate SCTs against
                                                         a custom source.
                                                       type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
-                                                      type: string
                                                   type: object
                                                 rekor:
                                                   description: |-
@@ -3652,12 +3514,6 @@ spec:
                                                       description: PubKey, if set,
                                                         is used to validate SCTs against
                                                         a custom source.
-                                                      type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
                                                       type: string
                                                   type: object
                                                 issuer:
@@ -3714,12 +3570,6 @@ spec:
                                                       description: PubKey, if set,
                                                         is used to validate SCTs against
                                                         a custom source.
-                                                      type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
                                                       type: string
                                                   type: object
                                                 kms:
@@ -3975,12 +3825,6 @@ spec:
                                                   to validate SCTs against a custom
                                                   source.
                                                 type: string
-                                              tsaCertChain:
-                                                description: |-
-                                                  TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                  contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                  may contain the leaf TSA certificate if not present in the timestamurce.
-                                                type: string
                                             type: object
                                           rekor:
                                             description: |-
@@ -4029,12 +3873,6 @@ spec:
                                                 description: PubKey, if set, is used
                                                   to validate SCTs against a custom
                                                   source.
-                                                type: string
-                                              tsaCertChain:
-                                                description: |-
-                                                  TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                  contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                  may contain the leaf TSA certificate if not present in the timestamurce.
                                                 type: string
                                             type: object
                                           issuer:
@@ -4090,12 +3928,6 @@ spec:
                                                 description: PubKey, if set, is used
                                                   to validate SCTs against a custom
                                                   source.
-                                                type: string
-                                              tsaCertChain:
-                                                description: |-
-                                                  TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                  contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                  may contain the leaf TSA certificate if not present in the timestamurce.
                                                 type: string
                                             type: object
                                           kms:
@@ -4167,11 +3999,6 @@ spec:
                                   type: array
                               type: object
                             type: array
-                          cosignOCI11:
-                            description: |-
-                              CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
-                              Defaults to false.
-                            type: boolean
                           image:
                             description: Deprecated. Use ImageReferences instead.
                             type: string
@@ -4289,8 +4116,11 @@ spec:
                 type: boolean
               validationFailureAction:
                 default: Audit
-                description: Deprecated, use validationFailureAction under the validate
-                  rule instead.
+                description: |-
+                  ValidationFailureAction defines if a validation policy rule violation should block
+                  the admission review request (enforce), or allow (audit) the admission review request
+                  and report an error in a policy report. Optional.
+                  Allowed values are audit or enforce. The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -4298,8 +4128,9 @@ spec:
                 - Enforce
                 type: string
               validationFailureActionOverrides:
-                description: Deprecated, use validationFailureActionOverrides under
-                  the validate rule instead.
+                description: |-
+                  ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                  namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
                 items:
                   properties:
                     action:
@@ -4343,13 +4174,11 @@ spec:
                                 items:
                                   type: string
                                 type: array
-                                x-kubernetes-list-type: atomic
                             required:
                             - key
                             - operator
                             type: object
                           type: array
-                          x-kubernetes-list-type: atomic
                         matchLabels:
                           additionalProperties:
                             type: string
@@ -4367,23 +4196,12 @@ spec:
                   type: object
                 type: array
               webhookConfiguration:
-                description: WebhookConfiguration specifies the custom configuration
-                  for Kubernetes admission webhookconfiguration.
+                description: |-
+                  WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+                  Requires Kubernetes 1.27 or later.
                 properties:
-                  failurePolicy:
-                    description: |-
-                      FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-                      Rules within the same policy share the same failure behavior.
-                      This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
-                      Allowed values are Ignore or Fail. Defaults to Fail.
-                    enum:
-                    - Ignore
-                    - Fail
-                    type: string
                   matchConditions:
-                    description: |-
-                      MatchCondition configures admission webhook matchConditions.
-                      Requires Kubernetes 1.27 or later.
+                    description: MatchCondition configures admission webhook matchConditions.
                     items:
                       description: MatchCondition represents a condition which must
                         by fulfilled for a request to be sent to a webhook.
@@ -4424,17 +4242,12 @@ spec:
                       - name
                       type: object
                     type: array
-                  timeoutSeconds:
-                    description: |-
-                      TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-                      After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-                      based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
-                    format: int32
-                    type: integer
                 type: object
               webhookTimeoutSeconds:
-                description: Deprecated, use webhookTimeoutSeconds under webhookConfiguration
-                  instead.
+                description: |-
+                  WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+                  After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+                  based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object
@@ -4541,7 +4354,7 @@ spec:
                                   method:
                                     default: GET
                                     description: Method is the HTTP request type (GET
-                                      or POST). Defaults to GET.
+                                      or POST).
                                     enum:
                                     - GET
                                     - POST
@@ -4763,13 +4576,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -4837,13 +4648,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -4974,13 +4783,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5048,13 +4855,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5181,13 +4986,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -5254,13 +5057,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -5377,13 +5178,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -5401,11 +5200,6 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
-                            generateExisting:
-                              description: |-
-                                GenerateExisting controls whether to trigger the rule in existing resources
-                                If is set to "true" the rule will be triggered and applied to existing matched resources.
-                              type: boolean
                             kind:
                               description: Kind specifies resource kind.
                               type: string
@@ -5558,13 +5352,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5632,13 +5424,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5769,13 +5559,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5843,13 +5631,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5976,13 +5762,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -6049,13 +5833,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -6166,7 +5948,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST). Defaults to GET.
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -6448,11 +6230,6 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
-                            mutateExistingOnPolicyUpdate:
-                              description: MutateExistingOnPolicyUpdate controls if
-                                the mutateExisting rule will be applied on policy
-                                events.
-                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -6519,7 +6296,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST). Defaults to GET.
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -6985,13 +6762,11 @@ spec:
                                                 items:
                                                   type: string
                                                 type: array
-                                                x-kubernetes-list-type: atomic
                                             required:
                                             - key
                                             - operator
                                             type: object
                                           type: array
-                                          x-kubernetes-list-type: atomic
                                         matchLabels:
                                           additionalProperties:
                                             type: string
@@ -7103,7 +6878,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST). Defaults to GET.
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -7456,12 +7231,6 @@ spec:
                                                         is used to validate SCTs against
                                                         a custom source.
                                                       type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
-                                                      type: string
                                                   type: object
                                                 rekor:
                                                   description: |-
@@ -7511,12 +7280,6 @@ spec:
                                                       description: PubKey, if set,
                                                         is used to validate SCTs against
                                                         a custom source.
-                                                      type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
                                                       type: string
                                                   type: object
                                                 issuer:
@@ -7573,12 +7336,6 @@ spec:
                                                       description: PubKey, if set,
                                                         is used to validate SCTs against
                                                         a custom source.
-                                                      type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
                                                       type: string
                                                   type: object
                                                 kms:
@@ -7786,89 +7543,6 @@ spec:
                                   - latest
                                   type: string
                               type: object
-                            validationFailureAction:
-                              description: |-
-                                ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
-                                and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
-                              enum:
-                              - audit
-                              - enforce
-                              - Audit
-                              - Enforce
-                              type: string
-                            validationFailureActionOverrides:
-                              description: |-
-                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-                              items:
-                                properties:
-                                  action:
-                                    description: ValidationFailureAction defines the
-                                      policy validation failure action
-                                    enum:
-                                    - audit
-                                    - enforce
-                                    - Audit
-                                    - Enforce
-                                    type: string
-                                  namespaceSelector:
-                                    description: |-
-                                      A label selector is a label query over a set of resources. The result of matchLabels and
-                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
-                                      label selector matches no objects.
-                                    properties:
-                                      matchExpressions:
-                                        description: matchExpressions is a list of
-                                          label selector requirements. The requirements
-                                          are ANDed.
-                                        items:
-                                          description: |-
-                                            A label selector requirement is a selector that contains values, a key, and an operator that
-                                            relates the key and values.
-                                          properties:
-                                            key:
-                                              description: key is the label key that
-                                                the selector applies to.
-                                              type: string
-                                            operator:
-                                              description: |-
-                                                operator represents a key's relationship to a set of values.
-                                                Valid operators are In, NotIn, Exists and DoesNotExist.
-                                              type: string
-                                            values:
-                                              description: |-
-                                                values is an array of string values. If the operator is In or NotIn,
-                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                the values array must be empty. This array is replaced during a strategic
-                                                merge patch.
-                                              items:
-                                                type: string
-                                              type: array
-                                              x-kubernetes-list-type: atomic
-                                          required:
-                                          - key
-                                          - operator
-                                          type: object
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      matchLabels:
-                                        additionalProperties:
-                                          type: string
-                                        description: |-
-                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                        type: object
-                                    type: object
-                                    x-kubernetes-map-type: atomic
-                                  namespaces:
-                                    items:
-                                      type: string
-                                    type: array
-                                type: object
-                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -7961,12 +7635,6 @@ spec:
                                                             SCTs against a custom
                                                             source.
                                                           type: string
-                                                        tsaCertChain:
-                                                          description: |-
-                                                            TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                            contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                            may contain the leaf TSA certificate if not present in the timestamurce.
-                                                          type: string
                                                       type: object
                                                     rekor:
                                                       description: |-
@@ -8018,12 +7686,6 @@ spec:
                                                             set, is used to validate
                                                             SCTs against a custom
                                                             source.
-                                                          type: string
-                                                        tsaCertChain:
-                                                          description: |-
-                                                            TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                            contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                            may contain the leaf TSA certificate if not present in the timestamurce.
                                                           type: string
                                                       type: object
                                                     issuer:
@@ -8083,12 +7745,6 @@ spec:
                                                             set, is used to validate
                                                             SCTs against a custom
                                                             source.
-                                                          type: string
-                                                        tsaCertChain:
-                                                          description: |-
-                                                            TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                            contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                            may contain the leaf TSA certificate if not present in the timestamurce.
                                                           type: string
                                                       type: object
                                                     kms:
@@ -8346,12 +8002,6 @@ spec:
                                                       used to validate SCTs against
                                                       a custom source.
                                                     type: string
-                                                  tsaCertChain:
-                                                    description: |-
-                                                      TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                      contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                      may contain the leaf TSA certificate if not present in the timestamurce.
-                                                    type: string
                                                 type: object
                                               rekor:
                                                 description: |-
@@ -8401,12 +8051,6 @@ spec:
                                                     description: PubKey, if set, is
                                                       used to validate SCTs against
                                                       a custom source.
-                                                    type: string
-                                                  tsaCertChain:
-                                                    description: |-
-                                                      TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                      contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                      may contain the leaf TSA certificate if not present in the timestamurce.
                                                     type: string
                                                 type: object
                                               issuer:
@@ -8463,12 +8107,6 @@ spec:
                                                     description: PubKey, if set, is
                                                       used to validate SCTs against
                                                       a custom source.
-                                                    type: string
-                                                  tsaCertChain:
-                                                    description: |-
-                                                      TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                      contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                      may contain the leaf TSA certificate if not present in the timestamurce.
                                                     type: string
                                                 type: object
                                               kms:
@@ -8542,11 +8180,6 @@ spec:
                                       type: array
                                   type: object
                                 type: array
-                              cosignOCI11:
-                                description: |-
-                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
-                                  Defaults to false.
-                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
@@ -8865,22 +8498,27 @@ spec:
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
-                description: Deprecated, use failurePolicy under the webhookConfiguration
-                  instead.
+                description: |-
+                  FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+                  Rules within the same policy share the same failure behavior.
+                  Allowed values are Ignore or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail
                 type: string
               generateExisting:
-                description: Deprecated, use generateExisting under the generate rule
-                  instead
+                description: |-
+                  GenerateExisting controls whether to trigger generate rule in existing resources
+                  If is set to "true" generate rule will be triggered and applied to existing matched resources.
+                  Defaults to "false" if not specified.
                 type: boolean
               generateExistingOnPolicyUpdate:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: Deprecated, use mutateExistingOnPolicyUpdate under the
-                  mutate rule instead
+                description: |-
+                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+                  Default value is "false".
                 type: boolean
               rules:
                 description: |-
@@ -8980,7 +8618,7 @@ spec:
                               method:
                                 default: GET
                                 description: Method is the HTTP request type (GET
-                                  or POST). Defaults to GET.
+                                  or POST).
                                 enum:
                                 - GET
                                 - POST
@@ -9201,13 +8839,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9274,13 +8910,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9411,13 +9045,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9484,13 +9116,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9606,13 +9236,11 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
-                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -9630,11 +9258,6 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
-                        generateExisting:
-                          description: |-
-                            GenerateExisting controls whether to trigger the rule in existing resources
-                            If is set to "true" the rule will be triggered and applied to existing matched resources.
-                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -9787,13 +9410,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9860,13 +9481,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9997,13 +9616,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -10070,13 +9687,11 @@ spec:
                                               items:
                                                 type: string
                                               type: array
-                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -10187,7 +9802,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST). Defaults to GET.
+                                            type (GET or POST).
                                           enum:
                                           - GET
                                           - POST
@@ -10462,10 +10077,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExistingOnPolicyUpdate:
-                          description: MutateExistingOnPolicyUpdate controls if the
-                            mutateExisting rule will be applied on policy events.
-                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -10531,7 +10142,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST). Defaults to GET.
+                                            type (GET or POST).
                                           enum:
                                           - GET
                                           - POST
@@ -11075,13 +10686,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -11280,7 +10889,7 @@ spec:
                                         method:
                                           default: GET
                                           description: Method is the HTTP request
-                                            type (GET or POST). Defaults to GET.
+                                            type (GET or POST).
                                           enum:
                                           - GET
                                           - POST
@@ -11625,12 +11234,6 @@ spec:
                                                     used to validate SCTs against
                                                     a custom source.
                                                   type: string
-                                                tsaCertChain:
-                                                  description: |-
-                                                    TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                    contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                    may contain the leaf TSA certificate if not present in the timestamurce.
-                                                  type: string
                                               type: object
                                             rekor:
                                               description: |-
@@ -11680,12 +11283,6 @@ spec:
                                                   description: PubKey, if set, is
                                                     used to validate SCTs against
                                                     a custom source.
-                                                  type: string
-                                                tsaCertChain:
-                                                  description: |-
-                                                    TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                    contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                    may contain the leaf TSA certificate if not present in the timestamurce.
                                                   type: string
                                               type: object
                                             issuer:
@@ -11742,12 +11339,6 @@ spec:
                                                   description: PubKey, if set, is
                                                     used to validate SCTs against
                                                     a custom source.
-                                                  type: string
-                                                tsaCertChain:
-                                                  description: |-
-                                                    TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                    contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                    may contain the leaf TSA certificate if not present in the timestamurce.
                                                   type: string
                                               type: object
                                             kms:
@@ -11953,89 +11544,6 @@ spec:
                               - latest
                               type: string
                           type: object
-                        validationFailureAction:
-                          description: |-
-                            ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
-                            and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
-                          enum:
-                          - audit
-                          - enforce
-                          - Audit
-                          - Enforce
-                          type: string
-                        validationFailureActionOverrides:
-                          description: |-
-                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-                          items:
-                            properties:
-                              action:
-                                description: ValidationFailureAction defines the policy
-                                  validation failure action
-                                enum:
-                                - audit
-                                - enforce
-                                - Audit
-                                - Enforce
-                                type: string
-                              namespaceSelector:
-                                description: |-
-                                  A label selector is a label query over a set of resources. The result of matchLabels and
-                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
-                                  label selector matches no objects.
-                                properties:
-                                  matchExpressions:
-                                    description: matchExpressions is a list of label
-                                      selector requirements. The requirements are
-                                      ANDed.
-                                    items:
-                                      description: |-
-                                        A label selector requirement is a selector that contains values, a key, and an operator that
-                                        relates the key and values.
-                                      properties:
-                                        key:
-                                          description: key is the label key that the
-                                            selector applies to.
-                                          type: string
-                                        operator:
-                                          description: |-
-                                            operator represents a key's relationship to a set of values.
-                                            Valid operators are In, NotIn, Exists and DoesNotExist.
-                                          type: string
-                                        values:
-                                          description: |-
-                                            values is an array of string values. If the operator is In or NotIn,
-                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                            the values array must be empty. This array is replaced during a strategic
-                                            merge patch.
-                                          items:
-                                            type: string
-                                          type: array
-                                          x-kubernetes-list-type: atomic
-                                      required:
-                                      - key
-                                      - operator
-                                      type: object
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                  matchLabels:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                    type: object
-                                type: object
-                                x-kubernetes-map-type: atomic
-                              namespaces:
-                                items:
-                                  type: string
-                                type: array
-                            type: object
-                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -12116,12 +11624,6 @@ spec:
                                                         is used to validate SCTs against
                                                         a custom source.
                                                       type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
-                                                      type: string
                                                   type: object
                                                 rekor:
                                                   description: |-
@@ -12171,12 +11673,6 @@ spec:
                                                       description: PubKey, if set,
                                                         is used to validate SCTs against
                                                         a custom source.
-                                                      type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
                                                       type: string
                                                   type: object
                                                 issuer:
@@ -12233,12 +11729,6 @@ spec:
                                                       description: PubKey, if set,
                                                         is used to validate SCTs against
                                                         a custom source.
-                                                      type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
                                                       type: string
                                                   type: object
                                                 kms:
@@ -12494,12 +11984,6 @@ spec:
                                                   to validate SCTs against a custom
                                                   source.
                                                 type: string
-                                              tsaCertChain:
-                                                description: |-
-                                                  TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                  contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                  may contain the leaf TSA certificate if not present in the timestamurce.
-                                                type: string
                                             type: object
                                           rekor:
                                             description: |-
@@ -12548,12 +12032,6 @@ spec:
                                                 description: PubKey, if set, is used
                                                   to validate SCTs against a custom
                                                   source.
-                                                type: string
-                                              tsaCertChain:
-                                                description: |-
-                                                  TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                  contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                  may contain the leaf TSA certificate if not present in the timestamurce.
                                                 type: string
                                             type: object
                                           issuer:
@@ -12609,12 +12087,6 @@ spec:
                                                 description: PubKey, if set, is used
                                                   to validate SCTs against a custom
                                                   source.
-                                                type: string
-                                              tsaCertChain:
-                                                description: |-
-                                                  TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                  contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                  may contain the leaf TSA certificate if not present in the timestamurce.
                                                 type: string
                                             type: object
                                           kms:
@@ -12788,8 +12260,11 @@ spec:
                 type: boolean
               validationFailureAction:
                 default: Audit
-                description: Deprecated, use validationFailureAction under the validate
-                  rule instead.
+                description: |-
+                  ValidationFailureAction defines if a validation policy rule violation should block
+                  the admission review request (enforce), or allow (audit) the admission review request
+                  and report an error in a policy report. Optional.
+                  Allowed values are audit or enforce. The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -12797,8 +12272,9 @@ spec:
                 - Enforce
                 type: string
               validationFailureActionOverrides:
-                description: Deprecated, use validationFailureActionOverrides under
-                  the validate rule instead.
+                description: |-
+                  ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                  namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
                 items:
                   properties:
                     action:
@@ -12842,13 +12318,11 @@ spec:
                                 items:
                                   type: string
                                 type: array
-                                x-kubernetes-list-type: atomic
                             required:
                             - key
                             - operator
                             type: object
                           type: array
-                          x-kubernetes-list-type: atomic
                         matchLabels:
                           additionalProperties:
                             type: string
@@ -12866,23 +12340,12 @@ spec:
                   type: object
                 type: array
               webhookConfiguration:
-                description: WebhookConfiguration specifies the custom configuration
-                  for Kubernetes admission webhookconfiguration.
+                description: |-
+                  WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+                  Requires Kubernetes 1.27 or later.
                 properties:
-                  failurePolicy:
-                    description: |-
-                      FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-                      Rules within the same policy share the same failure behavior.
-                      This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
-                      Allowed values are Ignore or Fail. Defaults to Fail.
-                    enum:
-                    - Ignore
-                    - Fail
-                    type: string
                   matchConditions:
-                    description: |-
-                      MatchCondition configures admission webhook matchConditions.
-                      Requires Kubernetes 1.27 or later.
+                    description: MatchCondition configures admission webhook matchConditions.
                     items:
                       description: MatchCondition represents a condition which must
                         by fulfilled for a request to be sent to a webhook.
@@ -12923,17 +12386,12 @@ spec:
                       - name
                       type: object
                     type: array
-                  timeoutSeconds:
-                    description: |-
-                      TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-                      After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-                      based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
-                    format: int32
-                    type: integer
                 type: object
               webhookTimeoutSeconds:
-                description: Deprecated, use webhookTimeoutSeconds under webhookConfiguration
-                  instead.
+                description: |-
+                  WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+                  After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+                  based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
                 format: int32
                 type: integer
             type: object
@@ -13040,7 +12498,7 @@ spec:
                                   method:
                                     default: GET
                                     description: Method is the HTTP request type (GET
-                                      or POST). Defaults to GET.
+                                      or POST).
                                     enum:
                                     - GET
                                     - POST
@@ -13262,13 +12720,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13336,13 +12792,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13473,13 +12927,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13547,13 +12999,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13680,13 +13130,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -13753,13 +13201,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -13876,13 +13322,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -13900,11 +13344,6 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
-                            generateExisting:
-                              description: |-
-                                GenerateExisting controls whether to trigger the rule in existing resources
-                                If is set to "true" the rule will be triggered and applied to existing matched resources.
-                              type: boolean
                             kind:
                               description: Kind specifies resource kind.
                               type: string
@@ -14057,13 +13496,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -14131,13 +13568,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -14268,13 +13703,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -14342,13 +13775,11 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
-                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -14475,13 +13906,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -14548,13 +13977,11 @@ spec:
                                             items:
                                               type: string
                                             type: array
-                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -14665,7 +14092,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST). Defaults to GET.
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -14947,11 +14374,6 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
-                            mutateExistingOnPolicyUpdate:
-                              description: MutateExistingOnPolicyUpdate controls if
-                                the mutateExisting rule will be applied on policy
-                                events.
-                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -15018,7 +14440,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST). Defaults to GET.
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -15484,13 +14906,11 @@ spec:
                                                 items:
                                                   type: string
                                                 type: array
-                                                x-kubernetes-list-type: atomic
                                             required:
                                             - key
                                             - operator
                                             type: object
                                           type: array
-                                          x-kubernetes-list-type: atomic
                                         matchLabels:
                                           additionalProperties:
                                             type: string
@@ -15602,7 +15022,7 @@ spec:
                                             method:
                                               default: GET
                                               description: Method is the HTTP request
-                                                type (GET or POST). Defaults to GET.
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -15955,12 +15375,6 @@ spec:
                                                         is used to validate SCTs against
                                                         a custom source.
                                                       type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
-                                                      type: string
                                                   type: object
                                                 rekor:
                                                   description: |-
@@ -16010,12 +15424,6 @@ spec:
                                                       description: PubKey, if set,
                                                         is used to validate SCTs against
                                                         a custom source.
-                                                      type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
                                                       type: string
                                                   type: object
                                                 issuer:
@@ -16072,12 +15480,6 @@ spec:
                                                       description: PubKey, if set,
                                                         is used to validate SCTs against
                                                         a custom source.
-                                                      type: string
-                                                    tsaCertChain:
-                                                      description: |-
-                                                        TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                        contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                        may contain the leaf TSA certificate if not present in the timestamurce.
                                                       type: string
                                                   type: object
                                                 kms:
@@ -16285,89 +15687,6 @@ spec:
                                   - latest
                                   type: string
                               type: object
-                            validationFailureAction:
-                              description: |-
-                                ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
-                                and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
-                              enum:
-                              - audit
-                              - enforce
-                              - Audit
-                              - Enforce
-                              type: string
-                            validationFailureActionOverrides:
-                              description: |-
-                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-                              items:
-                                properties:
-                                  action:
-                                    description: ValidationFailureAction defines the
-                                      policy validation failure action
-                                    enum:
-                                    - audit
-                                    - enforce
-                                    - Audit
-                                    - Enforce
-                                    type: string
-                                  namespaceSelector:
-                                    description: |-
-                                      A label selector is a label query over a set of resources. The result of matchLabels and
-                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
-                                      label selector matches no objects.
-                                    properties:
-                                      matchExpressions:
-                                        description: matchExpressions is a list of
-                                          label selector requirements. The requirements
-                                          are ANDed.
-                                        items:
-                                          description: |-
-                                            A label selector requirement is a selector that contains values, a key, and an operator that
-                                            relates the key and values.
-                                          properties:
-                                            key:
-                                              description: key is the label key that
-                                                the selector applies to.
-                                              type: string
-                                            operator:
-                                              description: |-
-                                                operator represents a key's relationship to a set of values.
-                                                Valid operators are In, NotIn, Exists and DoesNotExist.
-                                              type: string
-                                            values:
-                                              description: |-
-                                                values is an array of string values. If the operator is In or NotIn,
-                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                the values array must be empty. This array is replaced during a strategic
-                                                merge patch.
-                                              items:
-                                                type: string
-                                              type: array
-                                              x-kubernetes-list-type: atomic
-                                          required:
-                                          - key
-                                          - operator
-                                          type: object
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      matchLabels:
-                                        additionalProperties:
-                                          type: string
-                                        description: |-
-                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                        type: object
-                                    type: object
-                                    x-kubernetes-map-type: atomic
-                                  namespaces:
-                                    items:
-                                      type: string
-                                    type: array
-                                type: object
-                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -16460,12 +15779,6 @@ spec:
                                                             SCTs against a custom
                                                             source.
                                                           type: string
-                                                        tsaCertChain:
-                                                          description: |-
-                                                            TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                            contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                            may contain the leaf TSA certificate if not present in the timestamurce.
-                                                          type: string
                                                       type: object
                                                     rekor:
                                                       description: |-
@@ -16517,12 +15830,6 @@ spec:
                                                             set, is used to validate
                                                             SCTs against a custom
                                                             source.
-                                                          type: string
-                                                        tsaCertChain:
-                                                          description: |-
-                                                            TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                            contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                            may contain the leaf TSA certificate if not present in the timestamurce.
                                                           type: string
                                                       type: object
                                                     issuer:
@@ -16582,12 +15889,6 @@ spec:
                                                             set, is used to validate
                                                             SCTs against a custom
                                                             source.
-                                                          type: string
-                                                        tsaCertChain:
-                                                          description: |-
-                                                            TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                            contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                            may contain the leaf TSA certificate if not present in the timestamurce.
                                                           type: string
                                                       type: object
                                                     kms:
@@ -16845,12 +16146,6 @@ spec:
                                                       used to validate SCTs against
                                                       a custom source.
                                                     type: string
-                                                  tsaCertChain:
-                                                    description: |-
-                                                      TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                      contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                      may contain the leaf TSA certificate if not present in the timestamurce.
-                                                    type: string
                                                 type: object
                                               rekor:
                                                 description: |-
@@ -16900,12 +16195,6 @@ spec:
                                                     description: PubKey, if set, is
                                                       used to validate SCTs against
                                                       a custom source.
-                                                    type: string
-                                                  tsaCertChain:
-                                                    description: |-
-                                                      TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                      contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                      may contain the leaf TSA certificate if not present in the timestamurce.
                                                     type: string
                                                 type: object
                                               issuer:
@@ -16962,12 +16251,6 @@ spec:
                                                     description: PubKey, if set, is
                                                       used to validate SCTs against
                                                       a custom source.
-                                                    type: string
-                                                  tsaCertChain:
-                                                    description: |-
-                                                      TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-                                                      contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-                                                      may contain the leaf TSA certificate if not present in the timestamurce.
                                                     type: string
                                                 type: object
                                               kms:
@@ -17041,11 +16324,6 @@ spec:
                                       type: array
                                   type: object
                                 type: array
-                              cosignOCI11:
-                                description: |-
-                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
-                                  Defaults to false.
-                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string

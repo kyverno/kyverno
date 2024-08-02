@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -48,26 +49,25 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig       string
-	Context          string
-	Namespace        string
-	MutateLogPath    string
-	Variables        []string
-	ValuesFile       string
-	UserInfoPath     string
-	Cluster          bool
-	PolicyReport     bool
-	Stdin            bool
-	RegistryAccess   bool
-	AuditWarn        bool
-	ResourcePaths    []string
-	PolicyPaths      []string
-	GitBranch        string
-	warnExitCode     int
-	warnNoPassed     bool
-	Exception        []string
-	ContinueOnFail   bool
-	inlineExceptions bool
+	KubeConfig     string
+	Context        string
+	Namespace      string
+	MutateLogPath  string
+	Variables      []string
+	ValuesFile     string
+	UserInfoPath   string
+	Cluster        bool
+	PolicyReport   bool
+	Stdin          bool
+	RegistryAccess bool
+	AuditWarn      bool
+	ResourcePaths  []string
+	PolicyPaths    []string
+	GitBranch      string
+	warnExitCode   int
+	warnNoPassed   bool
+	Exception      []string
+	ContinueOnFail bool
 }
 
 func Command() *cobra.Command {
@@ -90,7 +90,7 @@ func Command() *cobra.Command {
 			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
-				printReports(out, responses, applyCommandConfig.AuditWarn)
+				printReport(out, responses, applyCommandConfig.AuditWarn)
 			} else if table {
 				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
@@ -123,7 +123,6 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
-	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
 	return cmd
 }
 
@@ -140,7 +139,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	var userInfo *kyvernov2.RequestInfo
+	var userInfo *v1beta1.RequestInfo
 	if c.UserInfoPath != "" {
 		info, err := userinfo.Load(nil, c.UserInfoPath, "")
 		if err != nil {
@@ -166,16 +165,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	var exceptions []*kyvernov2.PolicyException
-	if c.inlineExceptions {
-		exceptions = exception.SelectFrom(resources)
-	} else {
-		exceptions, err = exception.Load(c.Exception...)
-		if err != nil {
-			return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
-		}
+	exceptions, err := exception.Load(c.Exception...)
+	if err != nil {
+		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
-	if !c.Stdin && !c.PolicyReport {
+	if !c.Stdin {
 		var policyRulesCount int
 		for _, policy := range policies {
 			policyRulesCount += len(autogen.ComputeRules(policy, ""))
@@ -259,10 +253,10 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	vars *variables.Variables,
 	policies []kyvernov1.PolicyInterface,
 	resources []*unstructured.Unstructured,
-	exceptions []*kyvernov2.PolicyException,
+	exceptions []*kyvernov2beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
-	userInfo *kyvernov2.RequestInfo,
+	userInfo *v1beta1.RequestInfo,
 	mutateLogPathIsDir bool,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
 	if vars != nil {
@@ -463,17 +457,18 @@ func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedIn
 	}
 }
 
-func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool) {
+func printReport(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool) {
 	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
-	if len(clustered) > 0 {
+	if len(clustered) > 0 || len(namespaced) > 0 {
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "POLICY REPORT:")
+		fmt.Fprintln(out, divider)
 		report := report.MergeClusterReports(clustered)
 		yamlReport, _ := yaml.Marshal(report)
 		fmt.Fprintln(out, string(yamlReport))
-	}
-	for _, r := range namespaced {
-		fmt.Fprintln(out, string("---"))
-		yamlReport, _ := yaml.Marshal(r)
-		fmt.Fprintln(out, string(yamlReport))
+	} else {
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "POLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
 	}
 }
 

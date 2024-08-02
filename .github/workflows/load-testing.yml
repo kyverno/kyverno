@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -50,8 +50,8 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version:
-          - name: v1.30
-            version: v1.30.0
+          - name: v1.29
+            version: v1.29.1
         kyverno-config:
           - name: default
             values:
@@ -72,19 +72,19 @@ jobs:
     name: ${{ matrix.kyverno-config.name }} - ${{ matrix.test }} - ${{ matrix.k6-config.vus }} vus - ${{ matrix.k6-config.iterations }} iterations
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Checkout kyverno/load-testing
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: kyverno/load-testing
           path: load-testing
       - name: Install helm
         id: helm
-        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version.version }}
           cluster_name: kind

@@ -1,25 +1,21 @@
 package v2beta1
 
 import (
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
+
+// WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.
+type WebhookConfiguration struct {
+	// MatchCondition configures admission webhook matchConditions.
+	// +optional
+	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
+}
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
-	// ValidationFailureAction defines if a validation policy rule violation should block
-	// the admission review request (enforce), or allow (audit) the admission review request
-	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce.
-	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
-	ValidationFailureAction *kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
-
-	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-	// +optional
-	ValidationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
-
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
@@ -33,15 +29,13 @@ type Validation struct {
 	ForEachValidation []kyvernov1.ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 
 	// Pattern specifies an overlay-style pattern used to check resources.
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:pruning:PreserveUnknownFields
-	RawPattern *kyverno.Any `json:"pattern,omitempty" yaml:"pattern,omitempty"`
+	// +optional
+	RawPattern *apiextv1.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 
 	// AnyPattern specifies list of validation patterns. At least one of the patterns
 	// must be satisfied for the validation rule to succeed.
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:pruning:PreserveUnknownFields
-	RawAnyPattern *kyverno.Any `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
+	// +optional
+	RawAnyPattern *apiextv1.JSON `json:"anyPattern,omitempty" yaml:"anyPattern,omitempty"`
 
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
@@ -102,9 +96,7 @@ type Deny struct {
 
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:pruning:PreserveUnknownFields
-	RawKey *kyverno.Any `json:"key,omitempty" yaml:"key,omitempty"`
+	RawKey *apiextv1.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
 	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
@@ -114,28 +106,27 @@ type Condition struct {
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using JMESPath.
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:pruning:PreserveUnknownFields
-	RawValue *kyverno.Any `json:"value,omitempty" yaml:"value,omitempty"`
+	// +optional
+	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// Message is an optional display message
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
-func (c *Condition) GetKey() any {
-	return kyverno.FromAny(c.RawKey)
+func (c *Condition) GetKey() apiextensions.JSON {
+	return kyvernov1.FromJSON(c.RawKey)
 }
 
-func (c *Condition) SetKey(in any) {
-	c.RawKey = kyverno.ToAny(in)
+func (c *Condition) SetKey(in apiextensions.JSON) {
+	c.RawKey = kyvernov1.ToJSON(in)
 }
 
-func (c *Condition) GetValue() any {
-	return kyverno.FromAny(c.RawValue)
+func (c *Condition) GetValue() apiextensions.JSON {
+	return kyvernov1.FromJSON(c.RawValue)
 }
 
-func (c *Condition) SetValue(in any) {
-	c.RawValue = kyverno.ToAny(in)
+func (c *Condition) SetValue(in apiextensions.JSON) {
+	c.RawValue = kyvernov1.ToJSON(in)
 }
 
 type AnyAllConditions struct {
