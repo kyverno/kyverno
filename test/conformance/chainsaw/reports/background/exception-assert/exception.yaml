@@ -2,12 +2,12 @@ apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
   name: mynewpolex
+  namespace: kyverno
 spec:
   exceptions:
     - policyName: require-labels
       ruleNames:
         - require-team
-        - require-team-assert
   match:
     any:
       - resources:
