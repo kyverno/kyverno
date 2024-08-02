@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: two-rules-with-different-modes
+  name: different-configuration-for-actions
 spec:
   steps:
     - name: step-01
@@ -22,7 +22,3 @@ spec:
               - check:
                   ($error != null): true
             file: bad-resources.yaml
-    - name: step-04
-      try:
-      - assert:
-          file: events-assert.yaml

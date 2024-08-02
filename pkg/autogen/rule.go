@@ -131,7 +131,9 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	}
 	if target := rule.Validation.GetPattern(); target != nil {
 		newValidate := kyvernov1.Validation{
-			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+			ValidationFailureAction:          rule.Validation.ValidationFailureAction,
+			ValidationFailureActionOverrides: rule.Validation.ValidationFailureActionOverrides,
 		}
 		newValidate.SetPattern(
 			map[string]interface{}{
@@ -140,18 +142,16 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 				},
 			},
 		)
-		newValidate.ValidationFailureAction = rule.Validation.ValidationFailureAction
-		newValidate.ValidationFailureActionOverrides = rule.Validation.ValidationFailureActionOverrides
 		rule.Validation = newValidate
 		return rule
 	}
 	if rule.Validation.Deny != nil {
 		deny := kyvernov1.Validation{
-			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
-			Deny:    rule.Validation.Deny,
+			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
+			Deny:                             rule.Validation.Deny,
+			ValidationFailureAction:          rule.Validation.ValidationFailureAction,
+			ValidationFailureActionOverrides: rule.Validation.ValidationFailureActionOverrides,
 		}
-		deny.ValidationFailureAction = rule.Validation.ValidationFailureAction
-		deny.ValidationFailureActionOverrides = rule.Validation.ValidationFailureActionOverrides
 		rule.Validation = deny
 		return rule
 	}
@@ -165,9 +165,9 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 				Version: rule.Validation.PodSecurity.Version,
 				Exclude: newExclude,
 			},
+			ValidationFailureAction:          rule.Validation.ValidationFailureAction,
+			ValidationFailureActionOverrides: rule.Validation.ValidationFailureActionOverrides,
 		}
-		podSecurity.ValidationFailureAction = rule.Validation.ValidationFailureAction
-		podSecurity.ValidationFailureActionOverrides = rule.Validation.ValidationFailureActionOverrides
 		rule.Validation = podSecurity
 		return rule
 	}

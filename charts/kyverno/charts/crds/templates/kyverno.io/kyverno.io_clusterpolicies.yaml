@@ -3433,12 +3433,10 @@ spec:
                         validationFailureAction:
                           description: |-
                             ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
+                            the admission review request (Enforce), or allow (Audit) the admission review request
                             and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
+                            Allowed values are Audit or Enforce.
                           enum:
-                          - audit
-                          - enforce
                           - Audit
                           - Enforce
                           type: string
@@ -4275,7 +4273,10 @@ spec:
                               responses for this rule.
                             type: boolean
                           validationFailureAction:
-                            description: Allowed values are audit or enforce.
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
                             type: string
                           verifyDigest:
                             default: true
@@ -7804,12 +7805,10 @@ spec:
                             validationFailureAction:
                               description: |-
                                 ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
+                                the admission review request (Enforce), or allow (Audit) the admission review request
                                 and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
+                                Allowed values are Audit or Enforce.
                               enum:
-                              - audit
-                              - enforce
                               - Audit
                               - Enforce
                               type: string
@@ -8659,7 +8658,10 @@ spec:
                                   responses for this rule.
                                 type: boolean
                               validationFailureAction:
-                                description: Allowed values are audit or enforce.
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
                                 type: string
                               verifyDigest:
                                 default: true
@@ -11975,12 +11977,10 @@ spec:
                         validationFailureAction:
                           description: |-
                             ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
+                            the admission review request (Enforce), or allow (Audit) the admission review request
                             and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
+                            Allowed values are Audit or Enforce.
                           enum:
-                          - audit
-                          - enforce
                           - Audit
                           - Enforce
                           type: string
@@ -12786,7 +12786,10 @@ spec:
                               responses for this rule
                             type: boolean
                           validationFailureAction:
-                            description: Allowed values are audit or enforce.
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
                             type: string
                           verifyDigest:
                             default: true
@@ -16315,12 +16318,10 @@ spec:
                             validationFailureAction:
                               description: |-
                                 ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
+                                the admission review request (Enforce), or allow (Audit) the admission review request
                                 and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
+                                Allowed values are Audit or Enforce.
                               enum:
-                              - audit
-                              - enforce
                               - Audit
                               - Enforce
                               type: string
@@ -17170,7 +17171,10 @@ spec:
                                   responses for this rule.
                                 type: boolean
                               validationFailureAction:
-                                description: Allowed values are audit or enforce.
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
                                 type: string
                               verifyDigest:
                                 default: true
