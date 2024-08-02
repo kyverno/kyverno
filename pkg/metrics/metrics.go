@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -26,10 +27,24 @@ const (
 	MeterName = "kyverno"
 )
 
+func (m *MetricsConfig) NewKyvernoInfo() error {
+	v, err := strconv.Atoi(version.Version())
+	if err != nil{
+		m.Log.Error(err, "Failed to load current version")
+		return err
+	}
+	m.kyvernoInfoMetric.Add(
+		context.Background(),
+		int64(v),
+	)
+	return nil
+}
+
 type MetricsConfig struct {
 	// instruments
 	policyChangesMetric metric.Int64Counter
 	clientQueriesMetric metric.Int64Counter
+	kyvernoInfoMetric   metric.Int64UpDownCounter
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -59,6 +74,12 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries")
 		return err
 	}
+	m.kyvernoInfoMetric, err = meter.Int64UpDownCounter("kyverno_info", metric.WithDescription("Kyverno version as an integer"))
+	if err != nil {
+		m.Log.Error(err, "Failed to create instrument, kyverno_info")
+		return err
+	}
+	
 	return nil
 }
 
