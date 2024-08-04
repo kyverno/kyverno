@@ -340,6 +340,7 @@ func main() {
 		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+
 		certRenewer := tls.NewCertRenewer(
 			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 			tls.CertRenewalInterval,
@@ -581,6 +582,7 @@ func main() {
 			kubeInformer.Rbac().V1().RoleBindings().Lister(),
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
+			webhooks.PostWebhookCleanupHandler(setup.Logger.WithName("webhook-cleanup"), setup.KubeClient),
 			int32(webhookServerPort),
 		)
 		// start informers and wait for cache sync

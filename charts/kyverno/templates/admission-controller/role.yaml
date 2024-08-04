@@ -4,6 +4,10 @@ kind: Role
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}
   namespace: {{ template "kyverno.namespace" . }}
+{{- if .Values.webhooksCleanup.enabled }}
+  finalizers:
+  - kyverno.io/webhookDeletion
+{{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
@@ -11,10 +15,12 @@ rules:
       - ''
     resources:
       - secrets
+      - serviceaccounts
     verbs:
       - get
       - list
       - watch
+      - patch
       - create
       - update
       - delete
@@ -39,6 +45,23 @@ rules:
       - get
       - patch
       - update
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+    resourceNames:
+      - {{ template "kyverno.admission-controller.roleName" . }}
+      - {{ template "kyverno.admission-controller.roleName" . }}:temporary
+    verbs:
+      - patch
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+    verbs:
+      - create
   # Allow update of Kyverno deployment annotations
   - apiGroups:
       - apps
