@@ -13,8 +13,6 @@ kind: ServiceAccount
 metadata:
   name: kyverno-admission-controller
   namespace: kyverno
-  finalizers:
-  - kyverno.io/webhookDeletion
   labels:
     app.kubernetes.io/component: admission-controller
     app.kubernetes.io/instance: kyverno
@@ -43631,8 +43629,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kyverno:admission-controller
-  finalizers:
-  - kyverno.io/webhookDeletion
   labels:
     app.kubernetes.io/component: admission-controller
     app.kubernetes.io/instance: kyverno
@@ -43649,8 +43645,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kyverno:admission-controller:core
-  finalizers:
-  - kyverno.io/webhookDeletion
   labels:
     app.kubernetes.io/component: admission-controller
     app.kubernetes.io/instance: kyverno
@@ -43773,25 +43767,6 @@ rules:
       - get
       - list
       - watch
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resources:
-      - clusterroles
-      - clusterrolebindings
-    resourceNames:
-      - kyverno:admission-controller
-      - kyverno:admission-controller:core
-      - kyverno:admission-controller:temporary
-    verbs:
-      - get
-      - patch
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resources:
-      - clusterroles
-      - clusterrolebindings
-    verbs:
-      - create
   - apiGroups:
     - '*'
     resources:
@@ -44342,8 +44317,6 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kyverno:admission-controller
-  finalizers:
-  - kyverno.io/webhookDeletion
   labels:
     app.kubernetes.io/component: admission-controller
     app.kubernetes.io/instance: kyverno
@@ -44434,8 +44407,6 @@ kind: Role
 metadata:
   name: kyverno:admission-controller
   namespace: kyverno
-  finalizers:
-  - kyverno.io/webhookDeletion
   labels:
     app.kubernetes.io/component: admission-controller
     app.kubernetes.io/instance: kyverno
@@ -44476,23 +44447,6 @@ rules:
       - get
       - patch
       - update
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resources:
-      - roles
-      - rolebindings
-    resourceNames:
-      - kyverno:admission-controller
-      - kyverno:admission-controller:temporary
-    verbs:
-      - patch
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resources:
-      - roles
-      - rolebindings
-    verbs:
-      - create
   # Allow update of Kyverno deployment annotations
   - apiGroups:
       - apps
@@ -44655,8 +44609,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kyverno:admission-controller
   namespace: kyverno
-  finalizers:
-  - kyverno.io/webhookDeletion
   labels:
     app.kubernetes.io/component: admission-controller
     app.kubernetes.io/instance: kyverno

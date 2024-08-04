@@ -4,8 +4,10 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}
   {{- if .Values.webhooksCleanup.enabled }}
+  {{- if not .Values.templating.enabled }}
   finalizers:
   - kyverno.io/webhookDeletion
+  {{- end }}
   {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
@@ -19,8 +21,10 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}:core
   {{- if .Values.webhooksCleanup.enabled }}
+  {{- if not .Values.templating.enabled }}
   finalizers:
   - kyverno.io/webhookDeletion
+  {{- end }}
   {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
@@ -146,6 +150,7 @@ rules:
       - list
       - watch
   {{- if .Values.webhooksCleanup.enabled }}
+  {{- if not .Values.templating.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
@@ -165,6 +170,7 @@ rules:
       - clusterrolebindings
     verbs:
       - create
+  {{- end }}
   {{- end }}
 {{- with .Values.admissionController.rbac.coreClusterRole.extraResources }}
   {{- toYaml . | nindent 2 }}
