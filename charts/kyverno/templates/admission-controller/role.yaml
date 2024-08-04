@@ -45,6 +45,7 @@ rules:
       - get
       - patch
       - update
+  {{- if .Values.webhooksCleanup.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
@@ -62,6 +63,7 @@ rules:
       - rolebindings
     verbs:
       - create
+  {{- end }}
   # Allow update of Kyverno deployment annotations
   - apiGroups:
       - apps

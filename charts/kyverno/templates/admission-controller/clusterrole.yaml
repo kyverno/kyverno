@@ -145,6 +145,7 @@ rules:
       - get
       - list
       - watch
+  {{- if .Values.webhooksCleanup.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
@@ -164,6 +165,7 @@ rules:
       - clusterrolebindings
     verbs:
       - create
+  {{- end }}
 {{- with .Values.admissionController.rbac.coreClusterRole.extraResources }}
   {{- toYaml . | nindent 2 }}
 {{- end }}
