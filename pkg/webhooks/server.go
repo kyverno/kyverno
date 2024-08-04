@@ -252,7 +252,6 @@ func (s *server) cleanup(ctx context.Context) {
 			} else if err == nil {
 				logger.Info("successfully deleted leases", "label", kyverno.LabelWebhookManagedBy)
 			}
-
 		}
 		deleteVwc := func() {
 			if err := s.vwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
@@ -271,7 +270,6 @@ func (s *server) cleanup(ctx context.Context) {
 			} else if err == nil {
 				logger.Info("successfully deleted mutating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
 			}
-
 		}
 		deleteLease("kyvernopre-lock")
 		deleteLease("kyverno-health")
