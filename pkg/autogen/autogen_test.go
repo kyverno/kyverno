@@ -623,13 +623,11 @@ func Test_ValidateWithAssertion(t *testing.T) {
 				]
 			  },
 			  "validate": {
-				"assert": {
-				  "assert": {
-					"object": {
-					  "spec": {
-						"(serviceAccountName == 'default')": false
-					  }
-					}
+			    "assert": {
+				  "object": {
+					"spec": {
+					  "(serviceAccountName == 'default')": false
+				    }
 				  }
 				}
 			  }
@@ -642,6 +640,6 @@ func Test_ValidateWithAssertion(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
 
-	rules := computeRules(policies[0], "DaemonSet")
-	assert.Equal(t, 2, len(rules))
+	rules := computeRules(policies[0], "")
+	assert.Equal(t, 3, len(rules))
 }

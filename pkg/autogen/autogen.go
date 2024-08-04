@@ -277,16 +277,22 @@ func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	return out
 }
 
-func createAutogenAssertion(tree kyvernov1.AssertionTree, path []string) kyvernov1.AssertionTree {
+func copyMap(m map[string]any) map[string]any {
+	newMap := make(map[string]any, len(m))
+	for k, v := range m {
+		newMap[k] = v
+	}
+
+	return newMap
+}
+
+func createAutogenAssertion(tree kyvernov1.AssertionTree, tplKey string) kyvernov1.AssertionTree {
 	v, ok := tree.Value.(map[string]any)
 	if !ok {
 		return tree
 	}
 
-	value := map[string]any{}
-	for k, v := range v {
-		value[k] = v
-	}
+	value := copyMap(v)
 
 	for _, n := range assertAutogenNodes {
 		object, ok := v[n].(map[string]any)
@@ -294,24 +300,11 @@ func createAutogenAssertion(tree kyvernov1.AssertionTree, path []string) kyverno
 			continue
 		}
 
-		root := map[string]any{}
-		parent := root
-		var parentNode string
-
-		for _, node := range path[:2] {
-			if parentNode != "" {
-				parent = parent[parentNode].(map[string]any)
-			}
-
-			parent[node] = map[string]any{}
-			parentNode = node
+		value[n] = map[string]any{
+			"spec": map[string]any{
+				tplKey: copyMap(object),
+			},
 		}
-
-		for k, v := range object {
-			parent[parentNode].(map[string]any)[k] = v
-		}
-
-		value[n] = root
 	}
 
 	return kyvernov1.AssertionTree{
