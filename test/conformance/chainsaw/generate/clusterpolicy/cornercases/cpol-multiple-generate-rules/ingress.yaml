@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    example.com/patch-me: "1"
+  name: cpol-multiple-generate-rules
+spec:
+  ingressClassName: test
+  rules:
+  - host: test.ingress.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: test-service
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - test.ingress.local

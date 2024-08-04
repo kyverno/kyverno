@@ -1,0 +1,8 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-multiple-generate-rules
+spec:
+  admission: true
+  background: true
+  generateExisting: true
