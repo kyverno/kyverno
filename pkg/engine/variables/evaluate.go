@@ -30,6 +30,8 @@ func Evaluate(logger logr.Logger, ctx context.EvalInterface, condition kyvernov1
 // EvaluateConditions evaluates all the conditions present in a slice, in a backwards compatible way
 func EvaluateConditions(log logr.Logger, ctx context.EvalInterface, conditions interface{}) (bool, string, error) {
 	switch typedConditions := conditions.(type) {
+	case *kyvernov1.AnyAllConditions:
+		return evaluateAnyAllConditions(log, ctx, *typedConditions)
 	case kyvernov1.AnyAllConditions:
 		return evaluateAnyAllConditions(log, ctx, typedConditions)
 	case []kyvernov1.Condition: // backwards compatibility
