@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: cpol-match-all-exclude-one
+  name: namespaceselector
 spec:
   steps:
   - name: step-01
@@ -13,7 +13,13 @@ spec:
         file: policy-assert.yaml
   - name: step-02
     try:
+    - apply:
+        file: pods.yaml
     - assert:
-        file: validatingadmissionpolicy.yaml
+        file: pods.yaml
+  - name: step-03
+    try:
     - assert:
-        file: validatingadmissionpolicybinding.yaml
+        file: report-expected.yaml
+    - error:
+        file: report-unexpected.yaml
