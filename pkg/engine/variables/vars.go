@@ -242,6 +242,15 @@ func (n NotResolvedReferenceError) Error() string {
 	return fmt.Sprintf("NotResolvedReferenceErr,reference %s not resolved at path %s", n.reference, n.path)
 }
 
+type refSubState int
+
+const (
+	stateRefText refSubState = iota
+	stateRefName
+	stateRefStart
+	stateRefEscape
+)
+
 func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
@@ -249,54 +258,82 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			return data.Element, nil
 		}
 
-		for _, v := range regex.RegexReferences.FindAllString(value, -1) {
-			initial := v[:2] == `$(`
-			old := v
+		var newValue strings.Builder
+		var refNameBuilder strings.Builder
+		state := stateRefText
+		parStackIndex := 0
 
-			if !initial {
-				v = v[1:]
-			}
-
-			resolvedReference, err := resolveReference(log, data.Document, v, data.Path)
-			if err != nil {
-				switch err.(type) {
-				case context.InvalidVariableError:
-					return nil, err
-				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
+		for i, r := range value {
+			switch state {
+			case stateRefText:
+				if r == '\\' && i+2 < len(value) && value[i+1] == '$' && value[i+2] == '(' {
+					state = stateRefEscape
+				} else if r == '$' && i+1 < len(value) && value[i+1] == '(' {
+					state = stateRefStart
+				} else {
+					newValue.WriteRune(r)
 				}
-			}
+			case stateRefStart:
+				parStackIndex = 0
+				state = stateRefName
+			case stateRefEscape:
+				newValue.WriteRune(r)
+				state = stateRefText
+			case stateRefName:
+				if r == ')' {
+					if parStackIndex == 0 {
+						refName := refNameBuilder.String()
+						refNameBuilder.Reset()
 
-			if resolvedReference == nil {
-				return data.Element, fmt.Errorf("got nil resolved variable %v at path %s: %v", v, data.Path, err)
-			}
+						// ----------------- Reference Resolution -----------------
+						resolvedReference, err := resolveReference(log, data.Document, refName, data.Path)
+						if err != nil {
+							switch err.(type) {
+							case context.InvalidVariableError:
+								return nil, err
+							default:
+								return nil, fmt.Errorf("failed to resolve %v at path %s: %v", refName, data.Path, err)
+							}
+						}
 
-			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
+						if resolvedReference == nil {
+							return data.Element, fmt.Errorf("got nil resolved variable %v at path %s: %v", refName, data.Path, err)
+						}
 
-			if val, ok := resolvedReference.(string); ok {
-				replacement := ""
+						if val, ok := resolvedReference.(string); ok {
+							newValue.WriteString(val)
+						} else {
+							return data.Element, NotResolvedReferenceError{
+								reference: "$(" + refName + ")",
+								path:      data.Path,
+							}
+						}
+						// ----------------- Reference Resolution -----------------
 
-				if !initial {
-					replacement = string(old[0])
+						state = stateRefText
+					} else {
+						parStackIndex--
+						refNameBuilder.WriteRune(r)
+					}
+				} else if r == '(' {
+					parStackIndex++
+					refNameBuilder.WriteRune(r)
+				} else {
+					refNameBuilder.WriteRune(r)
 				}
-
-				replacement += val
-
-				value = strings.Replace(value, old, replacement, 1)
-				continue
-			}
-
-			return data.Element, NotResolvedReferenceError{
-				reference: v,
-				path:      data.Path,
 			}
 		}
 
-		for _, v := range regex.RegexEscpReferences.FindAllString(value, -1) {
-			value = strings.Replace(value, v, v[1:], -1)
+		// Handle any remaining characters
+		if state == stateRefName {
+			newValue.WriteString("$(" + refNameBuilder.String())
+		} else if state == stateRefStart {
+			newValue.WriteRune('$')
+		} else if state == stateRefEscape {
+			newValue.WriteRune('\\')
 		}
 
-		return value, nil
+		return newValue.String(), nil
 	})
 }
 
@@ -426,10 +463,8 @@ func replaceBracesAndTrimSpaces(v string) string {
 	return variable
 }
 
-func resolveReference(log logr.Logger, fullDocument interface{}, reference, absolutePath string) (interface{}, error) {
+func resolveReference(_ logr.Logger, fullDocument interface{}, path, absolutePath string) (interface{}, error) {
 	var foundValue interface{}
-
-	path := strings.Trim(reference, "$()")
 
 	operation := operator.GetOperatorFromStringPattern(path)
 	path = path[len(operation):]
