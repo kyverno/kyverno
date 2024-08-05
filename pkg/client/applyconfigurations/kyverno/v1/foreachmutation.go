@@ -21,7 +21,6 @@ package v1
 import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ForEachMutationApplyConfiguration represents an declarative configuration of the ForEachMutation type for use
