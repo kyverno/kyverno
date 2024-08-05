@@ -254,7 +254,7 @@ func (p *PolicyProcessor) makePolicyContext(
 			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
 		}
 	}
-	if p.Client != nil && len(namespaceLabels) == 0 && resource.GetKind() != "Namespace" {
+	if p.Client != nil && len(namespaceLabels) == 0 && resource.GetKind() != "Namespace" && resource.GetNamespace() != "" {
 		ns, err := p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resource.GetNamespace())
 		if err != nil {
 			log.Log.Error(err, "failed to get the resource's namespace")
