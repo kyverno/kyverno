@@ -17,62 +17,59 @@ import (
 
 // Generate provides implementation to validate 'generate' rule
 type Generate struct {
-	user string
-	// rule to hold 'generate' rule specifications
-	rule kyvernov1.Generation
-	// authCheck to check access for operations
-	authCheck auth.Operations
-	// logger
-	log logr.Logger
+	user        string
+	rule        kyvernov1.Generation
+	authChecker auth.AuthChecks
+	log         logr.Logger
 }
 
 // NewGenerateFactory returns a new instance of Generate validation checker
 func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, user string, log logr.Logger) *Generate {
 	g := Generate{
-		user:      user,
-		rule:      rule,
-		authCheck: auth.NewAuth(client, user, log),
-		log:       log,
+		user:        user,
+		rule:        rule,
+		authChecker: auth.NewAuth(client, user, log),
+		log:         log,
 	}
 
 	return &g
 }
 
 // Validate validates the 'generate' rule
-func (g *Generate) Validate(ctx context.Context) (string, error) {
+func (g *Generate) Validate(ctx context.Context) (warnings []string, path string, err error) {
 	rule := g.rule
 	if rule.GetData() != nil && rule.Clone != (kyvernov1.CloneFrom{}) {
-		return "", fmt.Errorf("only one of data or clone can be specified")
+		return nil, "", fmt.Errorf("only one of data or clone can be specified")
 	}
 
 	if rule.Clone != (kyvernov1.CloneFrom{}) && len(rule.CloneList.Kinds) != 0 {
-		return "", fmt.Errorf("only one of clone or cloneList can be specified")
+		return nil, "", fmt.Errorf("only one of clone or cloneList can be specified")
 	}
 
 	apiVersion, kind, name, namespace := rule.ResourceSpec.GetAPIVersion(), rule.ResourceSpec.GetKind(), rule.ResourceSpec.GetName(), rule.ResourceSpec.GetNamespace()
 
 	if len(rule.CloneList.Kinds) == 0 {
 		if name == "" {
-			return "name", fmt.Errorf("name cannot be empty")
+			return nil, "name", fmt.Errorf("name cannot be empty")
 		}
 		if kind == "" {
-			return "kind", fmt.Errorf("kind cannot be empty")
+			return nil, "kind", fmt.Errorf("kind cannot be empty")
 		}
 		if apiVersion == "" {
-			return "apiVersion", fmt.Errorf("apiVersion cannot be empty")
+			return nil, "apiVersion", fmt.Errorf("apiVersion cannot be empty")
 		}
 	} else {
 		if name != "" {
-			return "name", fmt.Errorf("with cloneList, generate.name. should not be specified")
+			return nil, "name", fmt.Errorf("with cloneList, generate.name. should not be specified")
 		}
 		if kind != "" {
-			return "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified")
+			return nil, "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified")
 		}
 	}
 
 	if rule.CloneList.Selector != nil {
 		if wildcard.ContainsWildcard(rule.CloneList.Selector.String()) {
-			return "selector", fmt.Errorf("wildcard characters `*/?` not supported")
+			return nil, "selector", fmt.Errorf("wildcard characters `*/?` not supported")
 		}
 	}
 
@@ -80,7 +77,7 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 		// TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
 		if path, err := common.ValidatePattern(target, "/", nil); err != nil {
-			return fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
+			return nil, fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
 		}
 	}
 
@@ -92,57 +89,34 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 	if len(rule.CloneList.Kinds) != 0 {
 		for _, kind = range rule.CloneList.Kinds {
 			gvk, sub := parseCloneKind(kind)
-			if err := g.canIGenerate(ctx, gvk, namespace, sub); err != nil {
-				return "", err
+			if err := g.validateAuth(ctx, gvk, namespace, sub); err != nil {
+				return nil, "", err
 			}
 		}
 	} else {
 		k, sub := kubeutils.SplitSubresource(kind)
-		if err := g.canIGenerate(ctx, strings.Join([]string{apiVersion, k}, "/"), namespace, sub); err != nil {
-			return "", err
+		if err := g.validateAuth(ctx, strings.Join([]string{apiVersion, k}, "/"), namespace, sub); err != nil {
+			return nil, "", err
 		}
 	}
-	return "", nil
+	return nil, "", nil
 }
 
 // canIGenerate returns a error if kyverno cannot perform operations
-func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource string) error {
-	// Skip if there is variable defined
-	authCheck := g.authCheck
-	if !regex.IsVariable(gvk) {
-		ok, err := authCheck.CanICreate(ctx, gvk, namespace, subresource)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return fmt.Errorf("%s does not have permissions to 'create' resource %s/%s/%s. Grant proper permissions to the background controller", g.user, gvk, subresource, namespace)
-		}
+func (g *Generate) validateAuth(ctx context.Context, gvk, namespace, subresource string) error {
+	if regex.IsVariable(gvk) {
+		g.log.V(2).Info("resource Kind uses variables; skipping authorization checks.")
+		return nil
+	}
 
-		ok, err = authCheck.CanIUpdate(ctx, gvk, namespace, subresource)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return fmt.Errorf("%s does not have permissions to 'update' resource %s/%s/%s. Grant proper permissions to the background controller", g.user, gvk, subresource, namespace)
-		}
+	verbs := []string{"get", "create", "update", "delete"}
+	ok, msg, err := g.authChecker.CanI(ctx, verbs, gvk, namespace, subresource)
+	if err != nil {
+		return err
+	}
 
-		ok, err = authCheck.CanIGet(ctx, gvk, namespace, subresource)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return fmt.Errorf("%s does not have permissions to 'get' resource %s/%s/%s. Grant proper permissions to the background controller", g.user, gvk, subresource, namespace)
-		}
-
-		ok, err = authCheck.CanIDelete(ctx, gvk, namespace, subresource)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return fmt.Errorf("%s does not have permissions to 'delete' resource %s/%s/%s. Grant proper permissions to the background controller", g.user, gvk, subresource, namespace)
-		}
-	} else {
-		g.log.V(2).Info("resource Kind uses variables, so cannot be resolved. Skipping Auth Checks.")
+	if !ok {
+		return fmt.Errorf(msg)
 	}
 
 	return nil

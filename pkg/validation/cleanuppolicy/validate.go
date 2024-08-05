@@ -78,7 +78,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 			return err
 		}
 		if !allowedDeletion {
-			return fmt.Errorf("cleanup controller has no permission to delete kind %s", kind)
+			return fmt.Errorf("cleanup controller requires permissions to delete kind %s", kind)
 		}
 
 		checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "list", "", config.KyvernoUserName(config.KyvernoServiceAccountName()))
