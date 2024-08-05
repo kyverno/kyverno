@@ -160,6 +160,11 @@ func (r *Rule) HasValidateCEL() bool {
 	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &CEL{})
 }
 
+// HasValidateAssert checks for validate.assert rule
+func (r *Rule) HasValidateAssert() bool {
+	return !datautils.DeepEqual(r.Validation.Assert, AssertionTree{})
+}
+
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
 	return !datautils.DeepEqual(r.Validation, Validation{})
