@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -36,6 +37,9 @@ func (e *engine) mutate(
 				return nil, nil
 			}
 			if !policyContext.AdmissionOperation() && rule.HasMutateExisting() {
+				if e.client == nil {
+					return nil, fmt.Errorf("Handler factory requires a client but a nil client was passed, likely due to a bug or unsupported operation.")
+				}
 				return mutation.NewMutateExistingHandler(e.client)
 			}
 			return mutation.NewMutateResourceHandler()
