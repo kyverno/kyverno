@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	types "k8s.io/apimachinery/pkg/types"
 )
 
@@ -28,7 +28,7 @@ import (
 type TargetResourceSpecApplyConfiguration struct {
 	*ResourceSpecApplyConfiguration `json:"ResourceSpec,omitempty"`
 	Context                         []ContextEntryApplyConfiguration `json:"context,omitempty"`
-	RawAnyAllConditions             *apiextensionsv1.JSON            `json:"preconditions,omitempty"`
+	RawAnyAllConditions             *kyvernov1.ConditionsWrapper     `json:"preconditions,omitempty"`
 }
 
 // TargetResourceSpecApplyConfiguration constructs an declarative configuration of the TargetResourceSpec type for use with
@@ -104,7 +104,7 @@ func (b *TargetResourceSpecApplyConfiguration) WithContext(values ...*ContextEnt
 // WithRawAnyAllConditions sets the RawAnyAllConditions field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawAnyAllConditions field is set to the value of the last call.
-func (b *TargetResourceSpecApplyConfiguration) WithRawAnyAllConditions(value apiextensionsv1.JSON) *TargetResourceSpecApplyConfiguration {
+func (b *TargetResourceSpecApplyConfiguration) WithRawAnyAllConditions(value kyvernov1.ConditionsWrapper) *TargetResourceSpecApplyConfiguration {
 	b.RawAnyAllConditions = &value
 	return b
 }
