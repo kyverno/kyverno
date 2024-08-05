@@ -506,8 +506,7 @@ func (in *Deny) DeepCopyInto(out *Deny) {
 	*out = *in
 	if in.RawAnyAllConditions != nil {
 		in, out := &in.RawAnyAllConditions, &out.RawAnyAllConditions
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	return
 }
@@ -1324,8 +1323,7 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 	if in.RawAnyAllConditions != nil {
 		in, out := &in.RawAnyAllConditions, &out.RawAnyAllConditions
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	if in.CELPreconditions != nil {
 		in, out := &in.CELPreconditions, &out.CELPreconditions
@@ -1517,8 +1515,7 @@ func (in *TargetResourceSpec) DeepCopyInto(out *TargetResourceSpec) {
 	}
 	if in.RawAnyAllConditions != nil {
 		in, out := &in.RawAnyAllConditions, &out.RawAnyAllConditions
-		*out = new(apiextensionsv1.JSON)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	return
 }
