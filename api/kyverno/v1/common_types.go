@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
@@ -17,6 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 )
+
+// AssertionTree defines a kyverno-json assertion tree.
+type AssertionTree = kjson.Any
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
 // +kubebuilder:validation:Enum=Ignore;Fail
@@ -119,7 +124,9 @@ type ContextEntry struct {
 type Variable struct {
 	// Value is any arbitrary JSON object representable in YAML or JSON form.
 	// +optional
-	Value *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Value *kyverno.Any `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// JMESPath is an optional JMESPath Expression that can be used to
 	// transform the variable.
@@ -129,7 +136,25 @@ type Variable struct {
 	// Default is an optional arbitrary JSON object that the variable may take if the JMESPath
 	// expression evaluates to nil
 	// +optional
-	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Default *kyverno.Any `json:"default,omitempty" yaml:"default,omitempty"`
+}
+
+func (v *Variable) GetValue() any {
+	return kyverno.FromAny(v.Value)
+}
+
+func (v *Variable) SetValue(in any) {
+	v.Value = kyverno.ToAny(in)
+}
+
+func (v *Variable) GetDefault() any {
+	return kyverno.FromAny(v.Default)
+}
+
+func (v *Variable) SetDefault(in any) {
+	v.Default = kyverno.ToAny(in)
 }
 
 // ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
@@ -406,7 +431,16 @@ type ForEachMutation struct {
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachMutation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ForEachMutation *ForEachMutationWrapper `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+func (m *ForEachMutation) GetForEachMutation() []ForEachMutation {
+	if m.ForEachMutation == nil {
+		return nil
+	}
+	return m.ForEachMutation.Items
 }
 
 func (m *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
@@ -465,6 +499,10 @@ type Validation struct {
 	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 	// +optional
 	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
+
+	// Assert defines a kyverno-json assertion tree.
+	// +optional
+	Assert AssertionTree `json:"assert"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -669,7 +707,16 @@ type ForEachValidation struct {
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachValidation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ForEachValidation *ForEachValidationWrapper `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+func (v *ForEachValidation) GetForEachValidation() []ForEachValidation {
+	if v.ForEachValidation == nil {
+		return nil
+	}
+	return v.ForEachValidation.Items
 }
 
 func (v *ForEachValidation) GetPattern() apiextensions.JSON {

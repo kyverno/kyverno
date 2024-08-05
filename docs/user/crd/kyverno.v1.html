@@ -3318,6 +3318,7 @@ Dryrun requires additional permissions. See config/dryrun/dryrun_rbac.yaml</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ForEachMutationWrapper">ForEachMutationWrapper</a>, 
         <a href="#kyverno-io-v1-Mutation">Mutation</a>)
     </p>
   
@@ -3529,7 +3530,9 @@ See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/r
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ForEachMutationWrapper">
+                <span style="font-family: monospace">ForEachMutationWrapper</span>
+              </a>
             
           
         </td>
@@ -3552,12 +3555,78 @@ See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/r
     </table>
   
 
+  <H3 id="kyverno-io-v1-ForEachMutationWrapper">ForEachMutationWrapper
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ForEachMutation">ForEachMutation</a>)
+    </p>
+  
+
+  <p><p>ForEachMutationWrapper contains a list of ForEach descriptors.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>-</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ForEachMutation">
+                <span style="font-family: monospace">[]ForEachMutation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Item is a descriptor on how to iterate over the list of items.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v1-ForEachValidation">ForEachValidation
     </H3>
 
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ForEachValidationWrapper">ForEachValidationWrapper</a>, 
         <a href="#kyverno-io-v1-Validation">Validation</a>)
     </p>
   
@@ -3795,7 +3864,9 @@ must be satisfied for the validation rule to succeed.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ForEachValidationWrapper">
+                <span style="font-family: monospace">ForEachValidationWrapper</span>
+              </a>
             
           
         </td>
@@ -3803,6 +3874,71 @@ must be satisfied for the validation rule to succeed.</p>
           
 
           <p>Foreach declares a nested foreach iterator</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1-ForEachValidationWrapper">ForEachValidationWrapper
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ForEachValidation">ForEachValidation</a>)
+    </p>
+  
+
+  <p><p>ForEachValidationWrapper contains a list of ForEach descriptors.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>-</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ForEachValidation">
+                <span style="font-family: monospace">[]ForEachValidation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Item is a descriptor on how to iterate over the list of items.</p>
 
 
           
@@ -9028,6 +9164,33 @@ by specifying exclusions for Pod Security Standards controls.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>assert</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Assert defines a kyverno-json assertion tree.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -9213,7 +9376,7 @@ by specifying exclusions for Pod Security Standards controls.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -9268,7 +9431,7 @@ transform the variable.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>

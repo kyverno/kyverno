@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 
@@ -312,34 +313,56 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 	)
 }
 
-func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
-	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.template.metadata"))
+var (
+	podReplacementRules [][2][]byte = [][2][]byte{
+		{[]byte("request.object.spec"), []byte("request.object.spec.template.spec")},
+		{[]byte("request.oldObject.spec"), []byte("request.oldObject.spec.template.spec")},
+		{[]byte("request.object.metadata"), []byte("request.object.spec.template.metadata")},
+		{[]byte("request.oldObject.metadata"), []byte("request.oldObject.spec.template.metadata")},
 	}
-	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.jobTemplate.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.jobTemplate.spec.template.metadata"))
+	podCELReplacementRules [][2][]byte = [][2][]byte{
+		{[]byte("object.spec"), []byte("object.spec.template.spec")},
+		{[]byte("oldObject.spec"), []byte("oldObject.spec.template.spec")},
+		{[]byte("object.metadata"), []byte("object.spec.template.metadata")},
+		{[]byte("oldObject.metadata"), []byte("oldObject.spec.template.metadata")},
 	}
-	return obj
-}
+	cronJobReplacementRules [][2][]byte = [][2][]byte{
+		{[]byte("request.object.spec"), []byte("request.object.spec.jobTemplate.spec.template.spec")},
+		{[]byte("request.oldObject.spec"), []byte("request.oldObject.spec.jobTemplate.spec.template.spec")},
+		{[]byte("request.object.metadata"), []byte("request.object.spec.jobTemplate.spec.template.metadata")},
+		{[]byte("request.oldObject.metadata"), []byte("request.oldObject.spec.jobTemplate.spec.template.metadata")},
+	}
+	cronJobCELReplacementRules [][2][]byte = [][2][]byte{
+		{[]byte("object.spec"), []byte("object.spec.jobTemplate.spec.template.spec")},
+		{[]byte("oldObject.spec"), []byte("oldObject.spec.jobTemplate.spec.template.spec")},
+		{[]byte("object.metadata"), []byte("object.spec.jobTemplate.spec.template.metadata")},
+		{[]byte("oldObject.metadata"), []byte("oldObject.spec.jobTemplate.spec.template.metadata")},
+	}
+)
 
-func updateCELFields(pbyte []byte, kind string) (obj []byte) {
-	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.template.metadata"))
+func updateFields(data []byte, kind string, cel bool) []byte {
+	switch kind {
+	case "Pod":
+		if cel {
+			for _, replacement := range podCELReplacementRules {
+				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
+			}
+		} else {
+			for _, replacement := range podReplacementRules {
+				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
+			}
+		}
+	case "Cronjob":
+		if cel {
+			for _, replacement := range cronJobCELReplacementRules {
+				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
+			}
+		} else {
+			for _, replacement := range cronJobReplacementRules {
+				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
+			}
+		}
 	}
-	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.jobTemplate.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.jobTemplate.spec.template.metadata"))
-	}
-	return obj
+
+	return data
 }

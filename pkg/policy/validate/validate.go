@@ -211,6 +211,10 @@ func validationElemCount(v *kyvernov1.Validation) int {
 		count++
 	}
 
+	if v.Assert.Value != nil {
+		count++
+	}
+
 	return count
 }
 
@@ -245,7 +249,7 @@ func foreachElemCount(foreach kyvernov1.ForEachValidation) int {
 		count++
 	}
 
-	if foreach.ForEachValidation != nil {
+	if foreach.GetForEachValidation() != nil && len(foreach.GetForEachValidation()) > 0 {
 		count++
 	}
 

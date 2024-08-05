@@ -8,22 +8,6 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 
-// Deserialize "apiextensions.JSON" to a typed array
-func DeserializeJSONArray[T any](in apiextensions.JSON) ([]T, error) {
-	if in == nil {
-		return nil, nil
-	}
-	data, err := json.Marshal(in)
-	if err != nil {
-		return nil, err
-	}
-	var res []T
-	if err := json.Unmarshal(data, &res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 // ApiextensionsJsonToKyvernoConditions takes in user-provided conditions in abstract apiextensions.JSON form
 // and converts it into []kyverno.Condition or kyverno.AnyAllConditions according to its content.
 // it also helps in validating the condtions as it returns an error when the conditions are provided wrongfully by the user.

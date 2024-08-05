@@ -1615,6 +1615,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachMutationWrapper">ForEachMutationWrapper</a>, 
 <a href="#kyverno.io/v1.Mutation">Mutation</a>)
 </p>
 <p>
@@ -1718,8 +1719,8 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <td>
 <code>foreach</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ForEachMutationWrapper">
+ForEachMutationWrapper
 </a>
 </em>
 </td>
@@ -1731,10 +1732,45 @@ Kubernetes apiextensions/v1.JSON
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ForEachMutationWrapper">ForEachMutationWrapper
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>)
+</p>
+<p>
+<p>ForEachMutationWrapper contains a list of ForEach descriptors.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>-</code><br/>
+<em>
+<a href="#kyverno.io/v1.ForEachMutation">
+[]ForEachMutation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Item is a descriptor on how to iterate over the list of items.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.ForEachValidation">ForEachValidation
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachValidationWrapper">ForEachValidationWrapper</a>, 
 <a href="#kyverno.io/v1.Validation">Validation</a>, 
 <a href="#kyverno.io/v2beta1.Validation">Validation</a>)
 </p>
@@ -1852,14 +1888,48 @@ Deny
 <td>
 <code>foreach</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ForEachValidationWrapper">
+ForEachValidationWrapper
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>Foreach declares a nested foreach iterator</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ForEachValidationWrapper">ForEachValidationWrapper
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
+</p>
+<p>
+<p>ForEachValidationWrapper contains a list of ForEach descriptors.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>-</code><br/>
+<em>
+<a href="#kyverno.io/v1.ForEachValidation">
+[]ForEachValidation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Item is a descriptor on how to iterate over the list of items.</p>
 </td>
 </tr>
 </tbody>
@@ -4500,6 +4570,18 @@ CEL
 <p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>assert</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Assert defines a kyverno-json assertion tree.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -4593,9 +4675,7 @@ Kubernetes meta/v1.LabelSelector
 <td>
 <code>value</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
-</a>
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
@@ -4620,9 +4700,7 @@ transform the variable.</p>
 <td>
 <code>default</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
-</a>
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
@@ -9260,6 +9338,18 @@ CEL
 <td>
 <em>(Optional)</em>
 <p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>assert</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Assert defines a kyverno-json assertion tree.</p>
 </td>
 </tr>
 </tbody>

@@ -49,6 +49,7 @@ var (
 	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	regexVariables                     = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+	bindingIdentifier                  = regexp.MustCompile(`^\w+$`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
@@ -1000,12 +1001,9 @@ func validateValidationForEach(foreach []kyvernov1.ForEachValidation, schemaKey 
 				}
 			}
 		}
-		if fe.ForEachValidation != nil {
-			nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachValidation](fe.ForEachValidation)
-			if err != nil {
-				return schemaKey, err
-			}
-			if path, err := validateValidationForEach(nestedForEach, schemaKey); err != nil {
+		fev := fe.GetForEachValidation()
+		if len(fev) > 0 {
+			if path, err := validateValidationForEach(fev, schemaKey); err != nil {
 				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
@@ -1020,12 +1018,9 @@ func validateMutationForEach(foreach []kyvernov1.ForEachMutation, schemaKey stri
 				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
-		if fe.ForEachMutation != nil {
-			nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
-			if err != nil {
-				return schemaKey, err
-			}
-			if path, err := validateMutationForEach(nestedForEach, schemaKey); err != nil {
+		fem := fe.GetForEachMutation()
+		if len(fem) > 0 {
+			if path, err := validateMutationForEach(fem, schemaKey); err != nil {
 				return fmt.Sprintf("%s.%s", schemaKey, path), err
 			}
 		}
@@ -1225,6 +1220,13 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
 		}
+		// if it the rule uses kyverno-json we add some constraints on the name of context entries to make
+		// sure we can create the corresponding bindings
+		if rule.Validation.Assert.Value != nil {
+			if !bindingIdentifier.MatchString(entry.Name) {
+				return fmt.Errorf("context entry name %s is invalid, it must be a single word when the validation rule uses `assert`", entry.Name)
+			}
+		}
 		for _, v := range []string{"images", "request", "serviceAccountName", "serviceAccountNamespace", "element", "elementIndex"} {
 			if entry.Name == v || strings.HasPrefix(entry.Name, v+".") {
 				return fmt.Errorf("entry name %s is invalid as it conflicts with a pre-defined variable %s", entry.Name, v)
@@ -1301,10 +1303,10 @@ func validateVariable(entry kyvernov1.ContextEntry) error {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.Variable.JMESPath, err)
 		}
 	}
-	if entry.Variable.Value == nil && jmesPath == "" {
+	if entry.Variable.GetValue() == nil && jmesPath == "" {
 		return fmt.Errorf("a variable must define a value or a jmesPath expression")
 	}
-	if entry.Variable.Default != nil && jmesPath == "" {
+	if entry.Variable.GetDefault() != nil && jmesPath == "" {
 		return fmt.Errorf("a variable must define a default value only when a jmesPath expression is defined")
 	}
 	return nil
