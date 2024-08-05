@@ -14,6 +14,9 @@ spec:
             - Deployment
             names: 
             - "staging"
+            operations:
+            - CREATE
+            - UPDATE
       validate:
         cel:
           expressions:

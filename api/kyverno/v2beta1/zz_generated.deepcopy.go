@@ -875,6 +875,7 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 		*out = new(v1.CEL)
 		(*in).DeepCopyInto(*out)
 	}
+	in.Assert.DeepCopyInto(&out.Assert)
 	return
 }
 
