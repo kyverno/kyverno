@@ -43871,7 +43871,6 @@ rules:
     - ""
     resources:
     - configmaps
-    - secrets
     - resourcequotas
     - limitranges
     verbs:
@@ -44236,7 +44235,6 @@ rules:
   - apiGroups:
       - ''
     resources:
-      - secrets
       - configmaps
       - namespaces
     verbs:
