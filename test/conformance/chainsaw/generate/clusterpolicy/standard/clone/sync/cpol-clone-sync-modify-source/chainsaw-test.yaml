@@ -9,6 +9,8 @@ spec:
     try:
     - apply:
         file: permissions.yaml
+    - assert:
+        file: permissions-ready.yaml
     - apply:
         file: policy.yaml
     - assert:
