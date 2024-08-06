@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: policy-exception
+spec:
+  exceptions:
+  - policyName: disallow-host-path
+    ruleNames:
+    - host-path
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        names:
+        - important-tool
+        operations:
+        - CREATE
+        - UPDATE
+  conditions:
+    any:
+    - key: "{{ request.object.metadata.labels.color || '' }}"
+      operator: Equals
+      value: red

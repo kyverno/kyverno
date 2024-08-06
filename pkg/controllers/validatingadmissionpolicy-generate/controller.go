@@ -266,18 +266,18 @@ func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*admissio
 	return vapbinding, nil
 }
 
-// hasExceptions checks if there is an exception that match both the policy and the rule.
-func (c *controller) hasExceptions(policyName, rule string) (bool, error) {
+// getException gets an exception that match both the policy and the rule if exists.
+func (c *controller) getException(policyName, rule string) (*kyvernov2.PolicyException, error) {
 	polexs, err := c.polexLister.List(labels.Everything())
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	for _, polex := range polexs {
 		if polex.Contains(policyName, rule) {
-			return true, nil
+			return polex, nil
 		}
 	}
-	return false, nil
+	return nil, nil
 }
 
 func constructVapBindingName(vapName string) string {
@@ -319,11 +319,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
 	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
 
-	hasExceptions, err := c.hasExceptions(name, spec.Rules[0].Name)
+	exception, err := c.getException(name, spec.Rules[0].Name)
 	if err != nil {
 		return err
 	}
-	if ok, msg := validatingadmissionpolicy.CanGenerateVAP(spec); !ok || hasExceptions {
+	var polexSpec *kyvernov2.PolicyExceptionSpec
+	if exception != nil {
+		polexSpec = &exception.Spec
+	}
+
+	if ok, msg := validatingadmissionpolicy.CanGenerateVAP(spec, polexSpec); !ok {
 		// delete the ValidatingAdmissionPolicy if exist
 		if vapErr == nil {
 			err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
@@ -371,7 +376,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	if observedVAP.ResourceVersion == "" {
-		err := validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy)
+		err := validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, polexSpec)
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
@@ -387,7 +392,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			observedVAP,
 			c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1alpha1.ValidatingAdmissionPolicy) error {
-				return validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy)
+				return validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, polexSpec)
 			})
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
