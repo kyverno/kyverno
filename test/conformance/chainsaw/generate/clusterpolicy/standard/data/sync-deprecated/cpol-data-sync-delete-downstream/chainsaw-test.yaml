@@ -1,0 +1,35 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-data-sync-delete-downstream
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: chainsaw-step-01-apply-1-1.yaml
+    - assert:
+        file: chainsaw-step-01-assert-1-1.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1-1.yaml
+    - assert:
+        file: chainsaw-step-02-assert-1-1.yaml
+  - name: step-03
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ConfigMap
+          name: zk-kafka-address
+          namespace: cpol-data-sync-delete-downstream-ns
+  - name: step-04
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-05
+    try:
+    - assert:
+        file: chainsaw-step-05-assert-1-1.yaml

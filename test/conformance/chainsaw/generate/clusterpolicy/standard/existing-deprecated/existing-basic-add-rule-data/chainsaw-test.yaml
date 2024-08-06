@@ -1,0 +1,47 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: existing-basic-add-rule-data
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: existing-resources.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-03
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-04
+    try:
+    - assert:
+        file: netpol-blue.yaml
+    - error:
+        file: netpol-yellow.yaml
+    - error:
+        file: netpol-summer.yaml
+  - name: step-05
+    try:
+    - apply:
+        file: add-rule.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-06
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-07
+    try:
+    - assert:
+        file: netpol-blue.yaml
+    - assert:
+        file: netpol-yellow.yaml
+    - error:
+        file: netpol-summer.yaml
