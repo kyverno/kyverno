@@ -24,11 +24,13 @@ import (
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/policyreport/v1alpha2"
+	applyconfigurationsreportsv1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/reports/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -167,6 +169,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.PolicyExceptionSpecApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("RequestInfo"):
 		return &kyvernov2.RequestInfoApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("RuleContext"):
+		return &kyvernov2.RuleContextApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("UpdateRequest"):
 		return &kyvernov2.UpdateRequestApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("UpdateRequestSpec"):
@@ -223,6 +227,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2beta1.SpecApplyConfiguration{}
 	case v2beta1.SchemeGroupVersion.WithKind("Validation"):
 		return &kyvernov2beta1.ValidationApplyConfiguration{}
+
+		// Group=reports.kyverno.io, Version=v1
+	case reportsv1.SchemeGroupVersion.WithKind("ClusterEphemeralReport"):
+		return &applyconfigurationsreportsv1.ClusterEphemeralReportApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("EphemeralReport"):
+		return &applyconfigurationsreportsv1.EphemeralReportApplyConfiguration{}
+	case reportsv1.SchemeGroupVersion.WithKind("EphemeralReportSpec"):
+		return &applyconfigurationsreportsv1.EphemeralReportSpecApplyConfiguration{}
 
 		// Group=wgpolicyk8s.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithKind("ClusterPolicyReport"):

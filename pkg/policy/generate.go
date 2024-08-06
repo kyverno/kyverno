@@ -92,14 +92,14 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 		if generate.GetData() == nil {
 			continue
 		}
-		if err := pc.syncDataRulechanges(policy, rule, deleteDownstream); err != nil {
+		if err := pc.syncDataRuleChanges(policy, rule, deleteDownstream); err != nil {
 			errorList = append(errorList, err)
 		}
 	}
 	return multierr.Combine(errorList...)
 }
 
-func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) error {
+func (pc *policyController) syncDataRuleChanges(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) error {
 	labels := map[string]string{
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
