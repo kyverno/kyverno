@@ -1,12 +1,13 @@
 package utils
 
 import (
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 )
 
 // GenerateEvents generates event info for the engine responses
-func GenerateEvents(engineResponses []engineapi.EngineResponse, blocked bool) []event.Info {
+func GenerateEvents(engineResponses []engineapi.EngineResponse, blocked bool, cfg config.Configuration) []event.Info {
 	var events []event.Info
 	//   - Some/All policies fail or error
 	//     - report failure events on policy
@@ -37,8 +38,10 @@ func GenerateEvents(engineResponses []engineapi.EngineResponse, blocked bool) []
 				}
 			}
 		} else if !er.IsSkipped() {
-			e := event.NewPolicyAppliedEvent(event.AdmissionController, er)
-			events = append(events, e)
+			if cfg.GetGenerateSuccessEvents() {
+				e := event.NewPolicyAppliedEvent(event.AdmissionController, er)
+				events = append(events, e)
+			}
 		}
 	}
 	return events

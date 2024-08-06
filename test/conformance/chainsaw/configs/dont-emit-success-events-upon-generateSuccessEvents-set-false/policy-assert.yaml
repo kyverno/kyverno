@@ -1,0 +1,5 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: require-labels
+  namespace: default

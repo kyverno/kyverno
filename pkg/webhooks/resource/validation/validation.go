@@ -130,7 +130,7 @@ func (v *validationHandler) HandleValidationEnforce(
 	}
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
-	events := webhookutils.GenerateEvents(engineResponses, blocked)
+	events := webhookutils.GenerateEvents(engineResponses, blocked, v.cfg)
 	v.eventGen.Add(events...)
 
 	if blocked {
@@ -176,7 +176,7 @@ func (v *validationHandler) HandleValidationAudit(
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}
-			events := webhookutils.GenerateEvents(responses, false)
+			events := webhookutils.GenerateEvents(responses, false, v.cfg)
 			v.eventGen.Add(events...)
 			if needsReport {
 				if err := v.createReports(ctx, policyContext.NewResource(), request, responses...); err != nil {
