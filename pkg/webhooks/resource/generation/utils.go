@@ -7,16 +7,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func buildURSpec(requestType kyvernov2.RequestType, policyKey, ruleName string, resource kyvernov1.ResourceSpec, deleteDownstream bool) kyvernov2.UpdateRequestSpec {
-	return kyvernov2.UpdateRequestSpec{
-		Type:             requestType,
-		Policy:           policyKey,
-		Rule:             ruleName,
-		Resource:         resource,
-		DeleteDownstream: deleteDownstream,
-	}
-}
-
 func buildURSpecNew(requestType kyvernov2.RequestType, policyKey string, rules []kyvernov1.Rule, trigger kyvernov1.ResourceSpec, deleteDownstream bool) kyvernov2.UpdateRequestSpec {
 	ruleCtx := make([]kyvernov2.RuleContext, 0)
 	for _, rule := range rules {
