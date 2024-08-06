@@ -7,10 +7,8 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // the kyvernoRule holds the temporary kyverno rule struct
@@ -27,7 +25,7 @@ type kyvernoRule struct {
 	MatchResources   *kyvernov1.MatchResources     `json:"match"`
 	ExcludeResources *kyvernov1.MatchResources     `json:"exclude,omitempty"`
 	Context          *[]kyvernov1.ContextEntry     `json:"context,omitempty"`
-	AnyAllConditions *apiextensions.JSON           `json:"preconditions,omitempty"`
+	AnyAllConditions *kyvernov1.ConditionsWrapper  `json:"preconditions,omitempty"`
 	Mutation         *kyvernov1.Mutation           `json:"mutate,omitempty"`
 	Validation       *kyvernov1.Validation         `json:"validate,omitempty"`
 	VerifyImages     []kyvernov1.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
@@ -53,7 +51,7 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 	}
-	kyvernoAnyAllConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
+	kyvernoAnyAllConditions := rule.GetAnyAllConditions()
 	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		if !datautils.DeepEqual(typedAnyAllConditions, kyvernov1.AnyAllConditions{}) {
@@ -219,6 +217,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	if rule.HasValidateCEL() {
 		cel := rule.Validation.CEL.DeepCopy()
 		rule.Validation.CEL = cel
+		return rule
+	}
+	if rule.HasValidateAssert() {
+		rule.Validation.Assert = createAutogenAssertion(*rule.Validation.Assert.DeepCopy(), tplKey)
+
 		return rule
 	}
 	return nil

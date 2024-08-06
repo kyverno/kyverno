@@ -658,15 +658,24 @@ type Deny struct {
 	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
 	// but will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
-	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *ConditionsWrapper `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(d.RawAnyAllConditions)
+func (d *Deny) GetAnyAllConditions() any {
+	if d.RawAnyAllConditions == nil {
+		return nil
+	}
+	return d.RawAnyAllConditions.Conditions
 }
 
-func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
-	d.RawAnyAllConditions = ToJSON(in)
+func (d *Deny) SetAnyAllConditions(in any) {
+	var new *ConditionsWrapper
+	if in != nil {
+		new = &ConditionsWrapper{in}
+	}
+	d.RawAnyAllConditions = new
 }
 
 // ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.

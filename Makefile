@@ -35,7 +35,6 @@ USE_CONFIG           ?= standard
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
 KIND_VERSION                       ?= v0.23.0
-CONTROLLER_GEN                     ?= $(TOOLS_DIR)/controller-gen
 CONTROLLER_GEN_VERSION             ?= v0.15.0
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
@@ -61,7 +60,7 @@ HELM_DOCS_VERSION                  ?= v1.11.0
 KO                                 ?= $(TOOLS_DIR)/ko
 KO_VERSION                         ?= v0.14.1
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(DEFAULTER_GEN) $(APPLYCONFIGURATION_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -72,10 +71,6 @@ COMMA                              := ,
 $(KIND):
 	@echo Install kind... >&2
 	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kind@$(KIND_VERSION)
-
-$(CONTROLLER_GEN):
-	@echo Install controller-gen... >&2
-	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
 
 $(CLIENT_GEN):
 	@echo Install client-gen... >&2
@@ -503,28 +498,28 @@ codegen-client-all: codegen-client-informers
 codegen-client-all: codegen-client-wrappers
 
 .PHONY: codegen-crds-kyverno
-codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
+codegen-crds-kyverno: ## Generate kyverno CRDs
 	@echo Generate kyverno crds... >&2
 	@rm -rf $(CRDS_PATH)/kyverno && mkdir -p $(CRDS_PATH)/kyverno
-	@$(CONTROLLER_GEN) paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/kyverno
+	@go run ./hack/controller-gen -- paths=./api/kyverno/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/kyverno
 
 .PHONY: codegen-crds-policyreport
-codegen-crds-policyreport: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+codegen-crds-policyreport: ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
 	@rm -rf $(CRDS_PATH)/policyreport && mkdir -p $(CRDS_PATH)/policyreport
-	@$(CONTROLLER_GEN) paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/policyreport
+	@go run ./hack/controller-gen -- paths=./api/policyreport/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/policyreport
 
 .PHONY: codegen-crds-reports
-codegen-crds-reports: $(CONTROLLER_GEN) ## Generate reports CRDs
+codegen-crds-reports: ## Generate reports CRDs
 	@echo Generate reports crds... >&2
 	@rm -rf $(CRDS_PATH)/reports && mkdir -p $(CRDS_PATH)/reports
-	@$(CONTROLLER_GEN) paths=./api/reports/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/reports
+	@go run ./hack/controller-gen -- paths=./api/reports/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/reports
 
 .PHONY: codegen-crds-cli
-codegen-crds-cli: $(CONTROLLER_GEN) ## Generate CLI CRDs
+codegen-crds-cli: ## Generate CLI CRDs
 	@echo Generate cli crds... >&2
 	@rm -rf ${PWD}/cmd/cli/kubectl-kyverno/config/crds && mkdir -p ${PWD}/cmd/cli/kubectl-kyverno/config/crds
-	@$(CONTROLLER_GEN) paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1 output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
+	@go run ./hack/controller-gen -- paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
 
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-policyreport codegen-crds-reports codegen-cli-crds ## Generate all CRDs
@@ -601,6 +596,7 @@ define generate_crd
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
  		| $(SED) -e '/^  annotations:/i \ \ labels:' \
 		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
+		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
  		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 endef

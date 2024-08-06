@@ -13,6 +13,9 @@ spec:
             - Deployment
             names: 
             - "staging"
+            operations:
+            - CREATE
+            - UPDATE
       validate:
         validationFailureAction: Audit
         cel:
