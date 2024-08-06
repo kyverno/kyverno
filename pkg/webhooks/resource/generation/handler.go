@@ -208,7 +208,7 @@ func (h *generationHandler) syncTriggerAction(
 	urSpec := kyvernov2.UpdateRequestSpec{
 		Type:        kyvernov2.Generate,
 		Policy:      pKey,
-		RuleContext: make([]kyvernov2.RuleContext, len(rules)),
+		RuleContext: make([]kyvernov2.RuleContext, 0),
 		Context:     buildURContext(request, policyContext),
 	}
 	for _, rule := range rules {
@@ -311,7 +311,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 		urSpec := kyvernov2.UpdateRequestSpec{
 			Type:        kyvernov2.Generate,
 			Policy:      pKey,
-			RuleContext: make([]kyvernov2.RuleContext, len(policy.GetSpec().Rules)),
+			RuleContext: make([]kyvernov2.RuleContext, 0),
 		}
 
 		for _, rule := range policy.GetSpec().Rules {
