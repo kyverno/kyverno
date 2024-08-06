@@ -18,3 +18,16 @@ spec:
           metadata:
             labels:
               team: '?*'
+    - name: require-team-assert
+      match:
+        any:
+          - resources:
+              kinds:
+                - ConfigMap
+      validate:
+        message: 'The label `team` is required.'
+        assert:
+          object:
+            metadata:
+              labels:
+                team: {}

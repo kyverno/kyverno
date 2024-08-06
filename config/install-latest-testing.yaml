@@ -44,16 +44,6 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kyverno-cleanup-jobs
-  namespace: kyverno
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: kyverno-reports-controller
   namespace: kyverno
   labels:
@@ -7575,6 +7565,10 @@ spec:
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -11921,6 +11915,11 @@ spec:
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
                                 Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -16015,6 +16014,10 @@ spec:
                           description: |-
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
+                          x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -20419,6 +20422,11 @@ spec:
                               description: |-
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
+                              x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
@@ -25114,6 +25122,10 @@ spec:
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -29461,6 +29473,11 @@ spec:
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
                                 Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -33556,6 +33573,10 @@ spec:
                           description: |-
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
+                          x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -37960,6 +37981,11 @@ spec:
                               description: |-
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
+                              x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
@@ -43575,33 +43601,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:cleanup-jobs
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - updaterequests
-    verbs:
-      - list
-      - deletecollection
-      - delete
-  - apiGroups:
-      - reports.kyverno.io
-    resources:
-      - ephemeralreports
-      - clusterephemeralreports
-    verbs:
-      - list
-      - deletecollection
-      - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: kyverno:rbac:admin:policies
   labels:
     app.kubernetes.io/component: rbac
@@ -43944,23 +43943,6 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-cleanup-controller
   namespace: kyverno
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:cleanup-jobs
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:cleanup-jobs
-subjects:
-  - kind: ServiceAccount
-    name: kyverno-cleanup-jobs
-    namespace: kyverno
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

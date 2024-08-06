@@ -27,7 +27,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
@@ -49,6 +48,7 @@ var (
 	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 	regexVariables                     = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+	bindingIdentifier                  = regexp.MustCompile(`^\w+$`)
 	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
 	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
 	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
@@ -1032,7 +1032,7 @@ func validateMutationForEach(foreach []kyvernov1.ForEachMutation, schemaKey stri
 // validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.
 // As of now, it is validating the 'value' field whether it contains the only allowed set of values or not when 'condition.key' is {{request.operation}}
 // this is backwards compatible i.e. conditions can be provided in the old manner as well i.e. without 'any' or 'all'
-func validateConditions(conditions apiextensions.JSON, schemaKey string) (string, error) {
+func validateConditions(conditions any, schemaKey string) (string, error) {
 	// Conditions can only exist under some specific keys of the policy schema
 	allowedSchemaKeys := map[string]bool{
 		"preconditions": true,
@@ -1042,12 +1042,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 		return schemaKey, fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
 	}
 
-	// conditions are currently in the form of []interface{}
-	kyvernoConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(conditions)
-	if err != nil {
-		return schemaKey, err
-	}
-	switch typedConditions := kyvernoConditions.(type) {
+	switch typedConditions := conditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		// validating the conditions under 'any', if there are any
 		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
@@ -1141,7 +1136,7 @@ func validateAnyAllConditionOperator(c kyvernov1.AnyAllConditions, schemaKey str
 	return "", nil
 }
 
-func validateRawJSONConditionOperator(c apiextensions.JSON, schemaKey string) (string, error) {
+func validateRawJSONConditionOperator(c any, schemaKey string) (string, error) {
 	allowedSchemaKeys := map[string]bool{
 		"preconditions": true,
 		"conditions":    true,
@@ -1150,11 +1145,7 @@ func validateRawJSONConditionOperator(c apiextensions.JSON, schemaKey string) (s
 		return schemaKey, fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
 	}
 
-	kyvernoConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(c)
-	if err != nil {
-		return schemaKey, err
-	}
-	switch typedConditions := kyvernoConditions.(type) {
+	switch typedConditions := c.(type) {
 	case kyvernov1.AnyAllConditions:
 		if path, err := validateAnyAllConditionOperator(typedConditions, schemaKey); err != nil {
 			return path, err
@@ -1220,6 +1211,13 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 	for _, entry := range rule.Context {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
+		}
+		// if it the rule uses kyverno-json we add some constraints on the name of context entries to make
+		// sure we can create the corresponding bindings
+		if rule.Validation.Assert.Value != nil {
+			if !bindingIdentifier.MatchString(entry.Name) {
+				return fmt.Errorf("context entry name %s is invalid, it must be a single word when the validation rule uses `assert`", entry.Name)
+			}
 		}
 		for _, v := range []string{"images", "request", "serviceAccountName", "serviceAccountNamespace", "element", "elementIndex"} {
 			if entry.Name == v || strings.HasPrefix(entry.Name, v+".") {
@@ -1471,8 +1469,7 @@ func validateWildcard(kinds []string, background bool, rule kyvernov1.Rule) erro
 			}
 
 			if rule.Validation.Deny != nil {
-				kyvernoConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.GetAnyAllConditions())
-				switch typedConditions := kyvernoConditions.(type) {
+				switch typedConditions := rule.Validation.Deny.GetAnyAllConditions().(type) {
 				case []kyvernov1.Condition: // backwards compatibility
 					for _, condition := range typedConditions {
 						key := condition.GetKey()
@@ -1653,11 +1650,7 @@ func checkDeprecatedAnyAllConditionOperator(c kyvernov1.AnyAllConditions, warnin
 }
 
 func checkDeprecatedRawJSONConditionOperator(c apiextensions.JSON, warnings *[]string) {
-	kyvernoConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(c)
-	if err != nil {
-		return
-	}
-	switch typedConditions := kyvernoConditions.(type) {
+	switch typedConditions := c.(type) {
 	case kyvernov1.AnyAllConditions:
 		checkDeprecatedAnyAllConditionOperator(typedConditions, warnings)
 	case []kyvernov1.Condition: // backwards compatibility

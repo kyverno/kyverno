@@ -21,6 +21,9 @@ spec:
             namespaces:
             - testing-ns
             - staging-ns
+            operations:
+            - CREATE
+            - UPDATE
       validate:
         cel:
           expressions:

@@ -94,6 +94,7 @@ jobs:
           - name: v1.30
             version: v1.30.0
         tests:
+          - ^assert$
           - ^autogen$
           - ^background-only$
           - ^cleanup$
