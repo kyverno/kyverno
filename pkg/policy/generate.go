@@ -9,8 +9,10 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,53 +39,9 @@ func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.Po
 	return nil
 }
 
-func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInterface) error {
-	var errors []error
-	var triggers []*unstructured.Unstructured
-	ruleType := kyvernov2.Generate
-	policyNew := policy.CreateDeepCopy()
-	policyNew.GetSpec().Rules = nil
-
-	for _, rule := range policy.GetSpec().Rules {
-		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
-		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
-		for _, trigger := range triggers {
-			ur := newUR(policyNew, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
-			skip, err := pc.handleUpdateRequest(ur, trigger, rule.Name, policyNew)
-			if err != nil {
-				pc.log.Error(err, "failed to create new UR on policy update", "policy", policyNew.GetName(), "rule", rule.Name, "rule type", ruleType,
-					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
-				errors = append(errors, err)
-				continue
-			}
-
-			if skip {
-				continue
-			}
-
-			pc.log.V(4).Info("successfully created UR on policy update", "policy", policyNew.GetName(), "rule", rule.Name, "rule type", ruleType,
-				"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
-		}
-	}
-	return multierr.Combine(errors...)
-}
-
-func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {
-	var errs []error
-	rules := autogen.ComputeRules(policy, "")
-	for _, r := range rules {
-		generateType, sync, orphanDownstreamOnPolicyDelete := r.GetTypeAndSyncAndOrphanDownstream()
-		if sync && (generateType == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-			if err := pc.syncDataPolicyChanges(policy, true); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
-	return multierr.Combine(errs...)
-}
-
 func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterface, deleteDownstream bool) error {
-	var errorList []error
+	var errs []error
+	ur := newGenerateUR(policy)
 	for _, rule := range policy.GetSpec().Rules {
 		generate := rule.Generation
 		if !generate.Synchronize {
@@ -92,14 +50,111 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 		if generate.GetData() == nil {
 			continue
 		}
-		if err := pc.syncDataRuleChanges(policy, rule, deleteDownstream); err != nil {
-			errorList = append(errorList, err)
+		var err error
+		if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule, deleteDownstream); err != nil {
+			errs = append(errs, err)
 		}
 	}
-	return multierr.Combine(errorList...)
+
+	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if created != nil {
+		updated := created.DeepCopy()
+		updated.Status.State = kyvernov2.Pending
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return multierr.Combine(errs...)
 }
 
-func (pc *policyController) syncDataRuleChanges(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) error {
+func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInterface) error {
+	var errors []error
+	var triggers []*unstructured.Unstructured
+	policyNew := policy.CreateDeepCopy()
+	policyNew.GetSpec().Rules = nil
+	ur := newGenerateUR(policy)
+	for _, rule := range policy.GetSpec().Rules {
+		if !rule.HasGenerate() {
+			continue
+		}
+		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
+		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
+		for _, trigger := range triggers {
+			namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), pc.nsLister, pc.log)
+			policyContext, err := backgroundcommon.NewBackgroundContext(pc.log, pc.client, ur, policy, trigger, pc.configuration, pc.jp, namespaceLabels)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err))
+			}
+
+			engineResponse := pc.engine.ApplyBackgroundChecks(context.TODO(), policyContext)
+			if len(engineResponse.PolicyResponse.Rules) == 0 {
+				continue
+			}
+
+			addRuleContext(ur, rule.Name, common.ResourceSpecFromUnstructured(*trigger), false)
+		}
+	}
+
+	pc.log.V(2).Info("creating new UR for generate")
+	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+	if err != nil {
+		errors = append(errors, err)
+		return multierr.Combine(errors...)
+	}
+	if created != nil {
+		updated := created.DeepCopy()
+		updated.Status.State = kyvernov2.Pending
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		if err != nil {
+			errors = append(errors, err)
+			return multierr.Combine(errors...)
+		}
+		pc.log.V(4).Info("successfully created UR on policy update", "policy", policyNew.GetName())
+	}
+	return multierr.Combine(errors...)
+}
+
+func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {
+	var errs []error
+	rules := autogen.ComputeRules(policy, "")
+	ur := newGenerateUR(policy)
+	for _, r := range rules {
+		generate := r.Generation
+		if !generate.Synchronize {
+			continue
+		}
+		if generate.GetData() == nil {
+			continue
+		}
+		generateType, sync, orphanDownstreamOnPolicyDelete := r.GetTypeAndSyncAndOrphanDownstream()
+		if sync && (generateType == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
+			var err error
+			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r, true); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+
+	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if created != nil {
+		updated := created.DeepCopy()
+		updated.Status.State = kyvernov2.Pending
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return multierr.Combine(errs...)
+}
+
+func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, rule kyvernov1.Rule, deleteDownstream bool) (*kyvernov2.UpdateRequest, error) {
 	labels := map[string]string{
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
@@ -109,29 +164,17 @@ func (pc *policyController) syncDataRuleChanges(policy kyvernov1.PolicyInterface
 
 	downstreams, err := common.FindDownstream(pc.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), labels)
 	if err != nil {
-		return err
+		return ur, err
 	}
 
 	pc.log.V(4).Info("sync data rule changes to downstream targets")
-	var errorList []error
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
-		ur := newUR(policy, trigger, rule.Name, kyvernov2.Generate, deleteDownstream)
-		created, err := pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
-		if err != nil {
-			errorList = append(errorList, err)
-			continue
-		}
-		updated := created.DeepCopy()
-		updated.Status = newURStatus(downstream)
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
-		if err != nil {
-			errorList = append(errorList, err)
-			continue
-		}
+		addRuleContext(ur, rule.Name, trigger, deleteDownstream)
 	}
-	return multierr.Combine(errorList...)
+
+	return ur, nil
 }
 
 // ruleDeletion returns true if any rule is deleted, along with deleted rules

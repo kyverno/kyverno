@@ -6,26 +6,38 @@ import (
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
-func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string, ruleType kyvernov2.RequestType, deleteDownstream bool) *kyvernov2.UpdateRequest {
-	var policyNameNamespaceKey string
-
-	if policy.IsNamespaced() {
-		policyNameNamespaceKey = policy.GetNamespace() + "/" + policy.GetName()
-	} else {
-		policyNameNamespaceKey = policy.GetName()
+func newMutateUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string, deleteDownstream bool) *kyvernov2.UpdateRequest {
+	ur := newUrMeta()
+	ur.Labels = common.MutateLabelsSet(policyKey(policy), trigger)
+	ur.Spec = kyvernov2.UpdateRequestSpec{
+		Type:   kyvernov2.Mutate,
+		Policy: policyKey(policy),
+		Rule:   ruleName,
+		Resource: kyvernov1.ResourceSpec{
+			Kind:       trigger.GetKind(),
+			Namespace:  trigger.GetNamespace(),
+			Name:       trigger.GetName(),
+			APIVersion: trigger.GetAPIVersion(),
+			UID:        trigger.GetUID(),
+		},
+		DeleteDownstream: deleteDownstream,
 	}
+	return ur
+}
 
-	var label labels.Set
-	if ruleType == kyvernov2.Mutate {
-		label = common.MutateLabelsSet(policyNameNamespaceKey, trigger)
-	} else {
-		label = common.GenerateLabelsSet(policyNameNamespaceKey, trigger)
+func newGenerateUR(policy kyvernov1.PolicyInterface) *kyvernov2.UpdateRequest {
+	ur := newUrMeta()
+	ur.Labels = common.GenerateLabelsSet(policyKey(policy))
+	ur.Spec = kyvernov2.UpdateRequestSpec{
+		Type:   kyvernov2.Generate,
+		Policy: policyKey(policy),
 	}
+	return ur
+}
 
+func newUrMeta() *kyvernov2.UpdateRequest {
 	return &kyvernov2.UpdateRequest{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: kyvernov2.SchemeGroupVersion.String(),
@@ -34,35 +46,20 @@ func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, rul
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "ur-",
 			Namespace:    config.KyvernoNamespace(),
-			Labels:       label,
-		},
-		Spec: kyvernov2.UpdateRequestSpec{
-			Type:   ruleType,
-			Policy: policyNameNamespaceKey,
-			Rule:   ruleName,
-			Resource: kyvernov1.ResourceSpec{
-				Kind:       trigger.GetKind(),
-				Namespace:  trigger.GetNamespace(),
-				Name:       trigger.GetName(),
-				APIVersion: trigger.GetAPIVersion(),
-				UID:        trigger.GetUID(),
-			},
-			DeleteDownstream: deleteDownstream,
 		},
 	}
 }
 
-func newURStatus(downstream unstructured.Unstructured) kyvernov2.UpdateRequestStatus {
-	return kyvernov2.UpdateRequestStatus{
-		State: kyvernov2.Pending,
-		GeneratedResources: []kyvernov1.ResourceSpec{
-			{
-				APIVersion: downstream.GetAPIVersion(),
-				Kind:       downstream.GetKind(),
-				Namespace:  downstream.GetNamespace(),
-				Name:       downstream.GetName(),
-				UID:        downstream.GetUID(),
-			},
+func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvernov1.ResourceSpec, deleteDownstream bool) {
+	ur.Spec.RuleContext = append(ur.Spec.RuleContext, kyvernov2.RuleContext{
+		Rule: ruleName,
+		Trigger: kyvernov1.ResourceSpec{
+			Kind:       trigger.GetKind(),
+			Namespace:  trigger.GetNamespace(),
+			Name:       trigger.GetName(),
+			APIVersion: trigger.GetAPIVersion(),
+			UID:        trigger.GetUID(),
 		},
-	}
+		DeleteDownstream: deleteDownstream,
+	})
 }
