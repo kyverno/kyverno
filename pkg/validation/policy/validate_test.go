@@ -2012,7 +2012,7 @@ func Test_ValidateNamespace(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.description, func(t *testing.T) {
-			err := validateNamespaces(tc.spec, field.NewPath("spec").Child("validationFailureActionOverrides"))
+			err := validateNamespaces(tc.spec.ValidationFailureActionOverrides, field.NewPath("spec").Child("validationFailureActionOverrides"))
 			if tc.expectedError != nil {
 				assert.Error(t, err, tc.expectedError.Error())
 			} else {
