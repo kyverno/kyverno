@@ -103,6 +103,7 @@ make dev-lab-metrics-server dev-lab-prometheus
 # Install Kyverno
 
 ```sh
+helm repo add kyverno https://kyverno.github.io/kyverno/
 helm repo update
 helm upgrade --install kyverno kyverno/kyverno -n kyverno \
   --create-namespace \

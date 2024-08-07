@@ -6,10 +6,13 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.config.labels" . | nindent 4 }}
-  {{- with .Values.config.annotations }}
   annotations:
+    {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    {{- if .Values.config.preserve }}
+    helm.sh/resource-policy: "keep"
+    {{- end }}
 data:
   enableDefaultRegistryMutation: {{ .Values.config.enableDefaultRegistryMutation | quote }}
   {{- with .Values.config.defaultRegistry }}

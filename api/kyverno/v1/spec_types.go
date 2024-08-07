@@ -60,25 +60,15 @@ type Spec struct {
 	// +optional
 	ApplyRules *ApplyRulesType `json:"applyRules,omitempty" yaml:"applyRules,omitempty"`
 
-	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-	// Rules within the same policy share the same failure behavior.
-	// This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
-	// Allowed values are Ignore or Fail. Defaults to Fail.
-	// +optional
+	// Deprecated, use failurePolicy under the webhookConfiguration instead.
 	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
 
-	// ValidationFailureAction defines if a validation policy rule violation should block
-	// the admission review request (enforce), or allow (audit) the admission review request
-	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce. The default value is "Audit".
-	// +optional
+	// Deprecated, use validationFailureAction under the validate rule instead.
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	// +kubebuilder:default=Audit
 	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
-	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-	// +optional
+	// Deprecated, use validationFailureActionOverrides under the validate rule instead.
 	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
 	// Admission controls if rules are applied during admission.
@@ -97,13 +87,10 @@ type Spec struct {
 	// Deprecated.
 	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
 
-	// WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+	// Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 
-	// MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-	// Default value is "false".
+	// Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead
 	// +optional
 	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
 
@@ -111,9 +98,7 @@ type Spec struct {
 	// +optional
 	GenerateExistingOnPolicyUpdate *bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
 
-	// GenerateExisting controls whether to trigger generate rule in existing resources
-	// If is set to "true" generate rule will be triggered and applied to existing matched resources.
-	// Defaults to "false" if not specified.
+	// Deprecated, use generateExisting under the generate rule instead
 	// +optional
 	GenerateExisting bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
 
@@ -124,13 +109,12 @@ type Spec struct {
 	UseServerSideApply bool `json:"useServerSideApply,omitempty" yaml:"useServerSideApply,omitempty"`
 
 	// WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-	// Requires Kubernetes 1.27 or later.
 	// +optional
 	WebhookConfiguration *WebhookConfiguration `json:"webhookConfiguration,omitempty" yaml:"webhookConfiguration,omitempty"`
 }
 
-func (s *Spec) CustomWebhookConfiguration() bool {
-	return s.WebhookConfiguration != nil
+func (s *Spec) CustomWebhookMatchConditions() bool {
+	return s.WebhookConfiguration != nil && len(s.WebhookConfiguration.MatchConditions) != 0
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -185,6 +169,19 @@ func (s *Spec) HasValidate() bool {
 		}
 	}
 	return false
+}
+
+// HasValidateEnforce checks if the policy has any validate rules with enforce action
+func (s *Spec) HasValidateEnforce() bool {
+	for _, rule := range s.Rules {
+		if rule.HasValidate() {
+			action := rule.Validation.ValidationFailureAction
+			if action != nil && action.Enforce() {
+				return true
+			}
+		}
+	}
+	return s.ValidationFailureAction.Enforce()
 }
 
 // HasGenerate checks for generate rule types
@@ -246,11 +243,27 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 
 // GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
 func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
+	for _, rule := range s.Rules {
+		if rule.HasMutate() {
+			isMutateExisting := rule.Mutation.IsMutateExistingOnPolicyUpdate()
+			if isMutateExisting != nil {
+				return *isMutateExisting
+			}
+		}
+	}
 	return s.MutateExistingOnPolicyUpdate
 }
 
 // IsGenerateExisting return GenerateExisting set value
 func (s *Spec) IsGenerateExisting() bool {
+	for _, rule := range s.Rules {
+		if rule.HasGenerate() {
+			isGenerateExisting := rule.Generation.IsGenerateExisting()
+			if isGenerateExisting != nil {
+				return *isGenerateExisting
+			}
+		}
+	}
 	if s.GenerateExistingOnPolicyUpdate != nil && *s.GenerateExistingOnPolicyUpdate {
 		return true
 	}
@@ -261,10 +274,22 @@ func (s *Spec) IsGenerateExisting() bool {
 func (s *Spec) GetFailurePolicy(ctx context.Context) FailurePolicyType {
 	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
 		return Ignore
-	} else if s.FailurePolicy == nil {
-		return Fail
+	} else if s.WebhookConfiguration != nil && s.WebhookConfiguration.FailurePolicy != nil {
+		return *s.WebhookConfiguration.FailurePolicy
+	} else if s.FailurePolicy != nil {
+		return *s.FailurePolicy
 	}
-	return *s.FailurePolicy
+	return Fail
+}
+
+func (s *Spec) GetWebhookTimeoutSeconds() *int32 {
+	if s.WebhookConfiguration != nil && s.WebhookConfiguration.TimeoutSeconds != nil {
+		return s.WebhookConfiguration.TimeoutSeconds
+	}
+	if s.WebhookTimeoutSeconds != nil {
+		return s.WebhookTimeoutSeconds
+	}
+	return nil
 }
 
 // GetMatchConditions returns matchConditions in webhookConfiguration
@@ -275,7 +300,7 @@ func (s *Spec) GetMatchConditions() []admissionregistrationv1.MatchCondition {
 	return nil
 }
 
-// GetFailurePolicy returns the failure policy to be applied
+// GetApplyRules returns the apply rules type
 func (s *Spec) GetApplyRules() ApplyRulesType {
 	if s.ApplyRules == nil {
 		return ApplyAll
@@ -307,8 +332,29 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace 
 }
 
 func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
-	if s.GenerateExistingOnPolicyUpdate != nil && s.GenerateExisting {
-		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use generateExisting instead"))
+	if s.WebhookTimeoutSeconds != nil && s.WebhookConfiguration != nil && s.WebhookConfiguration.TimeoutSeconds != nil {
+		errs = append(errs, field.Forbidden(path.Child("webhookTimeoutSeconds"), "remove the deprecated field and use spec.webhookConfiguration.timeoutSeconds instead"))
+	}
+
+	if s.FailurePolicy != nil && s.WebhookConfiguration != nil && s.WebhookConfiguration.FailurePolicy != nil {
+		errs = append(errs, field.Forbidden(path.Child("failurePolicy"), "remove the deprecated field and use spec.webhookConfiguration.failurePolicy instead"))
+	}
+
+	for _, rule := range s.Rules {
+		if rule.HasGenerate() && rule.Generation.IsGenerateExisting() != nil {
+			if s.GenerateExistingOnPolicyUpdate != nil {
+				errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
+			}
+			if s.GenerateExisting {
+				errs = append(errs, field.Forbidden(path.Child("generateExisting"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
+			}
+		}
+
+		if rule.HasMutate() && rule.Mutation.IsMutateExistingOnPolicyUpdate() != nil {
+			if s.MutateExistingOnPolicyUpdate {
+				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.mutate[*].mutateExistingOnPolicyUpdate instead"))
+			}
+		}
 	}
 	return errs
 }
@@ -337,6 +383,9 @@ func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	}
 	if s.WebhookTimeoutSeconds != nil && (*s.WebhookTimeoutSeconds < 1 || *s.WebhookTimeoutSeconds > 30) {
 		errs = append(errs, field.Invalid(path.Child("webhookTimeoutSeconds"), s.WebhookTimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
+	}
+	if s.WebhookConfiguration != nil && s.WebhookConfiguration.TimeoutSeconds != nil && (*s.WebhookConfiguration.TimeoutSeconds < 1 || *s.WebhookConfiguration.TimeoutSeconds > 30) {
+		errs = append(errs, field.Invalid(path.Child("webhookConfiguration.timeoutSeconds"), s.WebhookConfiguration.TimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
 	}
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {

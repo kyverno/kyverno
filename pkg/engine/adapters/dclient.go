@@ -30,7 +30,7 @@ func (a *dclientAdapter) GetResources(ctx context.Context, group, version, kind,
 	if err != nil {
 		return nil, err
 	}
-	var result []engineapi.Resource
+	result := make([]engineapi.Resource, 0, len(resources))
 	for _, resource := range resources {
 		result = append(result, engineapi.Resource{
 			Group:        resource.Group,

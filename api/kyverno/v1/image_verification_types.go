@@ -40,6 +40,11 @@ var signatureAlgorithmMap = map[string]bool{
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
+	// Allowed values are Audit or Enforce.
+	// +optional
+	// +kubebuilder:validation:Enum=Audit;Enforce
+	ValidationFailureAction *ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+
 	// Type specifies the method of signature validation. The allowed options
 	// are Cosign and Notary. By default Cosign is used if a type is not specified.
 	// +kubebuilder:validation:Optional
@@ -94,6 +99,11 @@ type ImageVerification struct {
 	// If specified Repository will override the default OCI image repository configured for the installation.
 	// The repository can also be overridden per Attestor or Attestation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+
+	// CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+	// Defaults to false.
+	// +optional
+	CosignOCI11 bool `json:"cosignOCI11,omitempty"`
 
 	// MutateDigest enables replacement of image tags with digests.
 	// Defaults to true.

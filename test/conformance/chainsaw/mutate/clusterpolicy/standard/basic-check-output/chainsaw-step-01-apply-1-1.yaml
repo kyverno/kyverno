@@ -20,4 +20,3 @@ spec:
           labels:
             foo: bar
     name: add-labels
-  validationFailureAction: Audit

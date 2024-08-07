@@ -19,16 +19,16 @@ limitations under the License.
 package v2
 
 import (
+	kyverno "github.com/kyverno/kyverno/api/kyverno"
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ConditionApplyConfiguration represents an declarative configuration of the Condition type for use
 // with apply.
 type ConditionApplyConfiguration struct {
-	RawKey   *v1.JSON              `json:"key,omitempty"`
+	RawKey   *kyverno.Any          `json:"key,omitempty"`
 	Operator *v2.ConditionOperator `json:"operator,omitempty"`
-	RawValue *v1.JSON              `json:"value,omitempty"`
+	RawValue *kyverno.Any          `json:"value,omitempty"`
 	Message  *string               `json:"message,omitempty"`
 }
 
@@ -41,7 +41,7 @@ func Condition() *ConditionApplyConfiguration {
 // WithRawKey sets the RawKey field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawKey field is set to the value of the last call.
-func (b *ConditionApplyConfiguration) WithRawKey(value v1.JSON) *ConditionApplyConfiguration {
+func (b *ConditionApplyConfiguration) WithRawKey(value kyverno.Any) *ConditionApplyConfiguration {
 	b.RawKey = &value
 	return b
 }
@@ -57,7 +57,7 @@ func (b *ConditionApplyConfiguration) WithOperator(value v2.ConditionOperator) *
 // WithRawValue sets the RawValue field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawValue field is set to the value of the last call.
-func (b *ConditionApplyConfiguration) WithRawValue(value v1.JSON) *ConditionApplyConfiguration {
+func (b *ConditionApplyConfiguration) WithRawValue(value kyverno.Any) *ConditionApplyConfiguration {
 	b.RawValue = &value
 	return b
 }

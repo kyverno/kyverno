@@ -62,7 +62,7 @@ func loadFile(cmd *cobra.Command, file string) (string, error) {
 }
 
 func loadExpressions(cmd *cobra.Command, args []string, files []string) ([]string, error) {
-	var expressions []string
+	expressions := make([]string, 0, len(args))
 	expressions = append(expressions, args...)
 	for _, file := range files {
 		expression, err := loadFile(cmd, file)

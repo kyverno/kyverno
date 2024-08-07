@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: zk-kafka-address
 spec:
-  generateExisting: true
   rules:
   - exclude:
       any:
@@ -14,6 +13,7 @@ spec:
           - kube-public
           - kyverno
     generate:
+      generateExisting: true
       apiVersion: v1
       data:
         data:
