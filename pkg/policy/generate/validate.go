@@ -109,7 +109,11 @@ func (g *Generate) validateAuth(ctx context.Context, gvk, namespace, subresource
 		return nil
 	}
 
-	verbs := []string{"get", "create", "update", "delete"}
+	verbs := []string{"get", "create"}
+	if g.rule.Synchronize {
+		verbs = []string{"get", "create", "update", "delete"}
+	}
+
 	ok, msg, err := g.authChecker.CanI(ctx, verbs, gvk, namespace, subresource)
 	if err != nil {
 		return err

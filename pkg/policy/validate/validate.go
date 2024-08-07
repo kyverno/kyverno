@@ -152,6 +152,10 @@ func (v *Validate) Validate(ctx context.Context) (warnings []string, path string
 func (v *Validate) validateAuth(ctx context.Context) (warnings []string, err error) {
 	kinds := v.rule.MatchResources.GetKinds()
 	for _, k := range kinds {
+		if k == "*" {
+			return nil, nil
+		}
+
 		verbs := []string{"get", "list", "watch"}
 		ok, msg, err := v.authChecker.CanI(ctx, verbs, k, "", "")
 		if err != nil {
