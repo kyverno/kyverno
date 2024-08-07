@@ -392,10 +392,6 @@ func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
 }
 
-func (m *Mutation) IsMutateExistingOnPolicyUpdate() *bool {
-	return m.MutateExistingOnPolicyUpdate
-}
-
 // ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements

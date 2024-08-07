@@ -132,7 +132,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if policy.GetSpec().CustomWebhookMatchConditions() &&
 		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
@@ -152,13 +151,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	err := ValidateVariables(policy, background)
 	if err != nil {
 		return warnings, err
-	}
-
-	if mutateExistingOnPolicyUpdate {
-		err := ValidateOnPolicyUpdate(policy, mutateExistingOnPolicyUpdate)
-		if err != nil {
-			return warnings, err
-		}
 	}
 
 	getClusteredResources := func(invalidate bool) (sets.Set[string], error) {
@@ -417,6 +409,19 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 			checkForScaleSubresource(mutationJson, allKinds, &warnings)
 			checkForStatusSubresource(mutationJson, allKinds, &warnings)
+
+			mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
+			if mutateExisting != nil {
+				if *mutateExisting {
+					if err := ValidateOnPolicyUpdate(policy, true); err != nil {
+						return warnings, err
+					}
+				}
+			} else if spec.MutateExistingOnPolicyUpdate {
+				if err := ValidateOnPolicyUpdate(policy, true); err != nil {
+					return warnings, err
+				}
+			}
 		}
 
 		if rule.HasVerifyImages() {

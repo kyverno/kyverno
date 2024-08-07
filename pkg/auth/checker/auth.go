@@ -16,7 +16,7 @@ type AuthResult struct {
 // AuthChecker provides utility to check authorization
 type AuthChecker interface {
 	// Check checks if the caller can perform an operation
-	Check(ctx context.Context, group, version, resource, subresource, namespace, verb string) (*AuthResult, error)
+	Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*AuthResult, error)
 }
 
 func NewSelfChecker(client authorizationv1client.SelfSubjectAccessReviewInterface) AuthChecker {

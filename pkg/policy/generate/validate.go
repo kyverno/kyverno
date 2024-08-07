@@ -110,7 +110,7 @@ func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource
 	// Skip if there is variable defined
 	authCheck := g.authCheck
 	if !regex.IsVariable(gvk) {
-		ok, err := authCheck.CanICreate(ctx, gvk, namespace, subresource)
+		ok, err := authCheck.CanICreate(ctx, gvk, namespace, "", subresource)
 		if err != nil {
 			return err
 		}
@@ -118,7 +118,7 @@ func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource
 			return fmt.Errorf("%s does not have permissions to 'create' resource %s/%s/%s. Grant proper permissions to the background controller", g.user, gvk, subresource, namespace)
 		}
 
-		ok, err = authCheck.CanIUpdate(ctx, gvk, namespace, subresource)
+		ok, err = authCheck.CanIUpdate(ctx, gvk, namespace, "", subresource)
 		if err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource
 			return fmt.Errorf("%s does not have permissions to 'update' resource %s/%s/%s. Grant proper permissions to the background controller", g.user, gvk, subresource, namespace)
 		}
 
-		ok, err = authCheck.CanIGet(ctx, gvk, namespace, subresource)
+		ok, err = authCheck.CanIGet(ctx, gvk, namespace, "", subresource)
 		if err != nil {
 			return err
 		}
@@ -134,7 +134,7 @@ func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource
 			return fmt.Errorf("%s does not have permissions to 'get' resource %s/%s/%s. Grant proper permissions to the background controller", g.user, gvk, subresource, namespace)
 		}
 
-		ok, err = authCheck.CanIDelete(ctx, gvk, namespace, subresource)
+		ok, err = authCheck.CanIDelete(ctx, gvk, namespace, "", subresource)
 		if err != nil {
 			return err
 		}
