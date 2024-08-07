@@ -2774,6 +2774,35 @@ mutated to include the SHA digest retrieved during the registration.</p>
     
     
       <tr>
+        <td><code>validationFailureAction</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidationFailureAction">
+                <span style="font-family: monospace">ValidationFailureAction</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Allowed values are Audit or Enforce.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>type</code>
           
           <span style="color:blue;"> *</span>
@@ -4536,9 +4565,9 @@ Defaults to &quot;false&quot; if not specified.</p>
           
 
           <p>ValidationFailureAction defines if a validation policy rule violation should block
-the admission review request (enforce), or allow (audit) the admission review request
+the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce.</p>
+Allowed values are Audit or Enforce.</p>
 
 
           
