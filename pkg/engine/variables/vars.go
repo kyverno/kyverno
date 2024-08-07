@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	jsoniter "github.com/json-iterator/go"
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/kyverno/go-community-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/context"

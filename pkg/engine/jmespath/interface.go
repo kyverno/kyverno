@@ -1,7 +1,7 @@
 package jmespath
 
 import (
-	gojmespath "github.com/kyverno/go-jmespath"
+	"github.com/kyverno/go-community-jmespath/pkg/interpreter"
 	"github.com/kyverno/kyverno/pkg/config"
 )
 
@@ -15,7 +15,7 @@ type Interface interface {
 }
 
 type implementation struct {
-	functionCaller *gojmespath.FunctionCaller
+	functionCaller interpreter.FunctionCaller
 }
 
 func New(configuration config.Configuration) Interface {

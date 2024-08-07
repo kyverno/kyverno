@@ -25,7 +25,8 @@ import (
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/kyverno/go-community-jmespath"
+	"github.com/kyverno/go-community-jmespath/pkg/functions"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
@@ -83,7 +84,7 @@ var (
 
 func GetFunctions(configuration config.Configuration) []FunctionEntry {
 	return []FunctionEntry{{
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: compare,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -91,10 +92,10 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 			},
 			Handler: jpfCompare,
 		},
-		ReturnType: []jpType{jpNumber},
+		ReturnType: []functions.JpType{jpNumber},
 		Note:       "compares two strings lexicographically",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: equalFold,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -105,7 +106,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpBool},
 		Note:       "allows comparing two strings for equivalency where the only differences are letter cases",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: replace,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -118,7 +119,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "replaces a specified number of instances of the source string with the replacement string in a parent ",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: replaceAll,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -130,7 +131,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "replace all instances of one string with another in an overall parent string",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: toUpper,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -140,7 +141,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "takes in a string and outputs the same string with all upper-case letters",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: toLower,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -150,7 +151,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "takes in a string and outputs the same string with all lower-case letters",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: trim,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -161,7 +162,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "trims both ends of the source string by characters appearing in the second string",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: trimPrefix,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -172,7 +173,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "trims the second string prefix from the first string if the first string starts with the prefix",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: split,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -183,7 +184,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpArrayString},
 		Note:       "splits the first string when the second string is found and converts it into an array ",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: regexReplaceAll,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -195,7 +196,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "converts all parameters to string",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: regexReplaceAllLiteral,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -207,7 +208,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "converts all parameters to string",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: regexMatch,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -218,7 +219,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpBool},
 		Note:       "first string is the regular exression which is compared with second input which can be a number or string",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: patternMatch,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -230,7 +231,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		Note:       "'*' matches zero or more alphanumeric characters, '?' matches a single alphanumeric character",
 	}, {
 		// Validates if label (param1) would match pod/host/etc labels (param2)
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: labelMatch,
 			Arguments: []argSpec{
 				{Types: []jpType{jpObject}},
@@ -241,7 +242,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpBool},
 		Note:       "object arguments must be enclosed in backticks; ex. `{{request.object.spec.template.metadata.labels}}`",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: toBoolean,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -251,7 +252,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpBool},
 		Note:       "It returns true or false for any string, such as 'True', 'TruE', 'False', 'FAlse', 'faLSE', etc.",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: add,
 			Arguments: []argSpec{
 				{Types: []jpType{jpAny}},
@@ -262,7 +263,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "does arithmetic addition of two specified values of numbers, quantities, and durations",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: sum,
 			Arguments: []argSpec{
 				{Types: []jpType{jpArray}},
@@ -272,7 +273,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "does arithmetic addition of specified array of values of numbers, quantities, and durations",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: subtract,
 			Arguments: []argSpec{
 				{Types: []jpType{jpAny}},
@@ -283,7 +284,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "does arithmetic subtraction of two specified values of numbers, quantities, and durations",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: multiply,
 			Arguments: []argSpec{
 				{Types: []jpType{jpAny}},
@@ -294,7 +295,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "does arithmetic multiplication of two specified values of numbers, quantities, and durations",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: divide,
 			Arguments: []argSpec{
 				{Types: []jpType{jpAny}},
@@ -305,7 +306,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "divisor must be non zero",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: modulo,
 			Arguments: []argSpec{
 				{Types: []jpType{jpAny}},
@@ -316,7 +317,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "divisor must be non-zero, arguments must be integers",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: round,
 			Arguments: []argSpec{
 				{Types: []jpType{jpNumber}},
@@ -327,7 +328,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpNumber},
 		Note:       "does roundoff to upto the given decimal places",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: base64Decode,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -337,7 +338,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "decodes a base 64 string",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: base64Encode,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -347,7 +348,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "encodes a regular, plaintext and unencoded string to base64",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeSince,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -359,21 +360,21 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "calculate the difference between a start and end period of time where the end may either be a static definition or the then-current time",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name:    timeNow,
 			Handler: jpTimeNow,
 		},
 		ReturnType: []jpType{jpString},
 		Note:       "returns current time in RFC 3339 format",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name:    timeNowUtc,
 			Handler: jpTimeNowUtc,
 		},
 		ReturnType: []jpType{jpString},
 		Note:       "returns current UTC time in RFC 3339 format",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: pathCanonicalize,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -383,7 +384,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "normalizes or canonicalizes a given path by removing excess slashes",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: truncate,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -394,7 +395,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "length argument must be enclosed in backticks; ex. \"{{request.object.metadata.name | truncate(@, `9`)}}\"",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: semverCompare,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -405,7 +406,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpBool},
 		Note:       "compares two strings which comply with the semantic versioning schema and outputs a boolean response as to the position of the second relative to the first",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: parseJson,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -415,7 +416,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "decodes a valid JSON encoded string to the appropriate type. Opposite of `to_string` function",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: parseYAML,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -425,7 +426,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "decodes a valid YAML encoded string to the appropriate type provided it can be represented as JSON",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: lookup,
 			Arguments: []argSpec{
 				{Types: []jpType{jpObject, jpArray}},
@@ -436,7 +437,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpAny},
 		Note:       "returns the value corresponding to the given key/index in the given object/array",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: items,
 			Arguments: []argSpec{
 				{Types: []jpType{jpObject, jpArray}},
@@ -448,7 +449,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpArray},
 		Note:       "converts a map or array to an array of objects where each key:value is an item in the array",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: objectFromLists,
 			Arguments: []argSpec{
 				{Types: []jpType{jpArray}},
@@ -459,7 +460,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpObject},
 		Note:       "converts a pair of lists containing keys and values to an object",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: random,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -469,7 +470,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "Generates a random sequence of characters",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: x509_decode,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -479,7 +480,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpObject},
 		Note:       "decodes an x.509 certificate to an object. you may also use this in conjunction with `base64_decode` jmespath function to decode a base64-encoded certificate",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeToCron,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -489,7 +490,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "converts a time (RFC 3339) to a cron expression (string).",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeAdd,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -500,7 +501,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "adds duration (second string) to a time value (first string)",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeParse,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -511,7 +512,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "changes a time value of a given layout to RFC 3339",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeUtc,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -521,7 +522,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "calcutes time in UTC from a given time in RFC 3339 format",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeDiff,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -532,7 +533,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "calculate the difference between a start and end date in RFC3339 format",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeBefore,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -543,7 +544,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpBool},
 		Note:       "checks if a time is before another time, both in RFC3339 format",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeAfter,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -554,7 +555,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpBool},
 		Note:       "checks if a time is after another time, both in RFC3339 format",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeBetween,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -566,7 +567,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpBool},
 		Note:       "checks if a time is between a start and end time, all in RFC3339 format",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: timeTruncate,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -577,7 +578,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "returns the result of rounding time down to a multiple of duration",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: imageNormalize,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -587,7 +588,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpString},
 		Note:       "normalizes an image reference",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: isExternalURL,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
@@ -597,7 +598,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 		ReturnType: []jpType{jpBool},
 		Note:       "determine if a URL points to an external network address",
 	}, {
-		FunctionEntry: gojmespath.FunctionEntry{
+		FunctionEntry: functions.FunctionEntry{
 			Name: SHA256,
 			Arguments: []argSpec{
 				{Types: []jpType{jpString}},
