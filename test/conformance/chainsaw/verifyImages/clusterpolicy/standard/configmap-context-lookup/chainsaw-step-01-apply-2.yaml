@@ -32,4 +32,4 @@ spec:
     verifyImages:
     - image: '*'
       key: '{{ keys.data.org }}'
-  validationFailureAction: Enforce
+      validationFailureAction: Enforce

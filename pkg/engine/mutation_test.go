@@ -655,7 +655,6 @@ func Test_foreach_element_mutation(t *testing.T) {
     "name": "mutate-privileged"
   },
   "spec": {
-	"validationFailureAction": "audit",
     "background": false,
 	"webhookTimeoutSeconds": 10,
 	"failurePolicy": "Fail",

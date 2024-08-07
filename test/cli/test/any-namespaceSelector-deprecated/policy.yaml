@@ -1,0 +1,27 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-pod-name
+spec:
+  validationFailureAction: Audit
+  admission: true
+  background: true
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaceSelector:
+            matchExpressions:
+            - key: foo.com/managed-state
+              operator: In
+              values:
+              - managed
+    name: validate-name
+    validate:
+      message: The Pod must end with -nginx
+      pattern:
+        metadata:
+          name: '*-nginx'

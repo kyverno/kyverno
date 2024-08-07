@@ -12,10 +12,10 @@ spec:
           - Pod
     name: restricted
     validate:
+      validationFailureAction: Audit
       podSecurity:
         level: restricted
         version: latest
-  validationFailureAction: Audit
 status:
   conditions:
   - reason: Succeeded

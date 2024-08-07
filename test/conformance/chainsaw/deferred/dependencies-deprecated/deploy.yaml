@@ -1,0 +1,28 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+  namespace: acme-fitness
+  labels:
+    app: kubecost-cost-analyzer
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kubecost-cost-analyzer
+  template:
+    metadata:
+      labels:
+        app: kubecost-cost-analyzer
+    spec:
+      containers:
+      - name: cost-model
+        image: nginx:1.14.2
+        resources:
+          requests:
+            cpu: 350m
+            memory: 500Mi
+          limits:
+            memory: 2Gi

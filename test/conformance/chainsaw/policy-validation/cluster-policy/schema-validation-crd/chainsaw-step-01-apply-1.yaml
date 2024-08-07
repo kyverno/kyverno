@@ -38,4 +38,3 @@ spec:
       - key: '{{ request.object.spec.scope }}'
         operator: Equals
         value: Namespaced
-  validationFailureAction: Audit

@@ -6,7 +6,6 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
-  validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
   background: false
   rules:
@@ -17,7 +16,8 @@ spec:
             kinds:
               - Pod
       verifyImages:
-      - imageReferences:
+      - validationFailureAction: Enforce
+        imageReferences:
         - "ghcr.io/chipzoller/zulu:*"
         attestors:
         - count: 1

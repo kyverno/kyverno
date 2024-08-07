@@ -15,7 +15,6 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ADMISSION",type=boolean,JSONPath=".spec.admission"
 // +kubebuilder:printcolumn:name="BACKGROUND",type=boolean,JSONPath=".spec.background"
-// +kubebuilder:printcolumn:name="VALIDATE ACTION",type=string,JSONPath=".spec.validationFailureAction"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="FAILURE POLICY",type=string,JSONPath=".spec.failurePolicy",priority=1

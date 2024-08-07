@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: validate-yaml
 spec:
-  validationFailureAction: Enforce
   background: false  
   rules:
     - name: validate-yaml
@@ -13,6 +12,7 @@ spec:
             kinds:
             - Service
       validate:
+        validationFailureAction: Enforce
         manifests:
           attestors:
           - entries:

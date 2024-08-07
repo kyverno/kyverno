@@ -3,6 +3,7 @@ package policycache
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -62,31 +63,56 @@ func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, su
 func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace string) []kyvernov1.PolicyInterface {
 	var policies []kyvernov1.PolicyInterface
 	for _, policy := range result {
+		var filteredPolicy kyvernov1.PolicyInterface
 		keepPolicy := true
 		switch pkey {
 		case ValidateAudit:
-			keepPolicy = checkValidationFailureActionOverrides(false, nspace, policy)
+			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, nspace, policy)
 		case ValidateEnforce:
-			keepPolicy = checkValidationFailureActionOverrides(true, nspace, policy)
+			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, nspace, policy)
 		}
 		// add policy to result
 		if keepPolicy {
-			policies = append(policies, policy)
+			policies = append(policies, filteredPolicy)
 		}
 	}
 	return policies
 }
 
-func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) bool {
-	validationFailureAction := policy.GetSpec().GetValidationFailureAction()
-	validationFailureActionOverrides := policy.GetSpec().GetValidationFailureActionOverrides()
-	if validationFailureAction.Enforce() != enforce && (ns == "" || len(validationFailureActionOverrides) == 0) {
-		return false
-	}
-	for _, action := range validationFailureActionOverrides {
-		if action.Action.Enforce() != enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
-			return false
+func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
+	var filteredRules []kyvernov1.Rule
+	for _, rule := range autogen.ComputeRules(policy, "") {
+		if !rule.HasValidate() {
+			continue
+		}
+
+		// if the field isn't set, use the higher level policy setting
+		validationFailureAction := rule.Validation.ValidationFailureAction
+		if validationFailureAction == nil {
+			validationFailureAction = &policy.GetSpec().ValidationFailureAction
+		}
+
+		validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
+		if len(validationFailureActionOverrides) == 0 {
+			validationFailureActionOverrides = policy.GetSpec().ValidationFailureActionOverrides
+		}
+
+		if (ns == "" || len(validationFailureActionOverrides) == 0) && validationFailureAction.Enforce() == enforce {
+			filteredRules = append(filteredRules, rule)
+			continue
+		}
+		for _, action := range validationFailureActionOverrides {
+			if action.Action.Enforce() == enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
+				filteredRules = append(filteredRules, rule)
+				continue
+			}
 		}
 	}
-	return true
+	if len(filteredRules) > 0 {
+		filteredPolicy := policy.CreateDeepCopy()
+		filteredPolicy.GetSpec().Rules = filteredRules
+		return true, filteredPolicy
+	}
+
+	return false, nil
 }

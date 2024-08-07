@@ -17,14 +17,11 @@ func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
 		return false, msg
 	}
 
-	validationFailureActionOverrides := spec.GetValidationFailureActionOverrides()
-	if len(validationFailureActionOverrides) > 1 {
-		msg = "skip generating ValidatingAdmissionPolicy: multiple validationFailureActionOverrides are not applicable."
+	if ok, msg := checkValidationFailureActionOverrides(spec.ValidationFailureActionOverrides); !ok {
 		return false, msg
 	}
 
-	if len(validationFailureActionOverrides) != 0 && len(validationFailureActionOverrides[0].Namespaces) != 0 {
-		msg = "skip generating ValidatingAdmissionPolicy: Namespaces in validationFailureActionOverrides is not applicable."
+	if ok, msg := checkValidationFailureActionOverrides(rule.Validation.ValidationFailureActionOverrides); !ok {
 		return false, msg
 	}
 
@@ -162,5 +159,19 @@ func checkResourceFilter(resFilters kyvernov1.ResourceFilters, isMatch bool) (bo
 		}
 	}
 
+	return true, msg
+}
+
+func checkValidationFailureActionOverrides(validationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride) (bool, string) {
+	var msg string
+	if len(validationFailureActionOverrides) > 1 {
+		msg = "skip generating ValidatingAdmissionPolicy: multiple validationFailureActionOverrides are not applicable."
+		return false, msg
+	}
+
+	if len(validationFailureActionOverrides) != 0 && len(validationFailureActionOverrides[0].Namespaces) != 0 {
+		msg = "skip generating ValidatingAdmissionPolicy: Namespaces in validationFailureActionOverrides is not applicable."
+		return false, msg
+	}
 	return true, msg
 }

@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: deny
 spec:
-  validationFailureAction: Audit
   rules:
     - name: deny
       match:
@@ -12,6 +11,7 @@ spec:
               kinds:
                 - Pod
       validate:
+        validationFailureAction: Audit
         deny: {}
   webhookConfiguration:
     timeoutSeconds: 31

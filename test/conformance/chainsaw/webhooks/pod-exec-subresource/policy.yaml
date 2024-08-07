@@ -18,4 +18,3 @@ spec:
           path: "/command/0"
           value: "bash" 
     name: std-shell-replace
-  validationFailureAction: Audit

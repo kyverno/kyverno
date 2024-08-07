@@ -24,4 +24,3 @@ spec:
                     +(sizeLimit): 20Mi
                   name: '{{ element.name }}'
     name: setDefault
-  validationFailureAction: Audit

@@ -3,14 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-label-app
 spec:
-  validationFailureAction: Audit
-  validationFailureActionOverrides:
-    - action: Enforce
-      namespaces: 
-        - default
-    - action: Audit
-      namespaces:
-        - test
   rules:
     - name: check-label-app
       match:
@@ -19,6 +11,14 @@ spec:
             kinds:
             - Pod
       validate:
+        validationFailureAction: Audit
+        validationFailureActionOverrides:
+          - action: Enforce
+            namespaces: 
+              - default
+          - action: Audit
+            namespaces:
+              - test
         cel:
           expressions:
             - expression: "'app' in object.metadata.labels"

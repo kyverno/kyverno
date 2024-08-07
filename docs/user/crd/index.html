@@ -2389,6 +2389,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>validationFailureAction</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Allowed values are Audit or Enforce.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>type</code><br/>
 <em>
 <a href="#kyverno.io/v1.ImageVerificationType">
@@ -4472,9 +4486,9 @@ ValidationFailureAction
 <td>
 <em>(Optional)</em>
 <p>ValidationFailureAction defines if a validation policy rule violation should block
-the admission review request (enforce), or allow (audit) the admission review request
+the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce.</p>
+Allowed values are Audit or Enforce.</p>
 </td>
 </tr>
 <tr>
@@ -4623,9 +4637,11 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v1.Spec">Spec</a>, 
 <a href="#kyverno.io/v1.Validation">Validation</a>, 
 <a href="#kyverno.io/v1.ValidationFailureActionOverride">ValidationFailureActionOverride</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v2beta1.Spec">Spec</a>, 
 <a href="#kyverno.io/v2beta1.Validation">Validation</a>)
 </p>
@@ -8369,6 +8385,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>validationFailureAction</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Allowed values are Audit or Enforce.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>type</code><br/>
 <em>
 <a href="#kyverno.io/v1.ImageVerificationType">
@@ -9248,9 +9278,9 @@ ValidationFailureAction
 <td>
 <em>(Optional)</em>
 <p>ValidationFailureAction defines if a validation policy rule violation should block
-the admission review request (enforce), or allow (audit) the admission review request
+the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce.</p>
+Allowed values are Audit or Enforce.</p>
 </td>
 </tr>
 <tr>

@@ -180,7 +180,6 @@ func Test_PolicyDeserilize(t *testing.T) {
     "name": "set-image-pull-policy"
   },
   "spec": {
-    "validationFailureAction": "enforce",
     "rules": [
       {
         "name": "set-image-pull-policy",

@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate
+spec:
+  validationFailureAction: Enforce
+  admission: false
+  background: true
+  rules:
+  - name: validate
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      deny: {}
