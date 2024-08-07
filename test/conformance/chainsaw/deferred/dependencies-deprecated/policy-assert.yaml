@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-company-budget
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
