@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/jmespath-community/go-jmespath/pkg/binding"
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/kyverno/go-community-jmespath"
 	"github.com/kyverno/kyverno-json/pkg/engine/assert"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -79,6 +79,7 @@ func (h validateAssertHandler) Process(
 		} else {
 			logger.Error(err, "failed to load context")
 		}
+
 		return resource, handlers.WithResponses(
 			engineapi.RuleError(rule.Name, engineapi.Validation, "failed to load context", err, rule.ReportProperties),
 		)

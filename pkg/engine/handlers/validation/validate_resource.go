@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/kyverno/go-community-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -276,7 +276,6 @@ func (v *validator) loadContext(ctx context.Context) error {
 		} else {
 			v.log.Error(err, "failed to load context")
 		}
-		return err
 	}
 	return nil
 }
