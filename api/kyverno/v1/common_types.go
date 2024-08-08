@@ -781,10 +781,6 @@ type Generation struct {
 	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
 }
 
-func (g *Generation) IsGenerateExisting() *bool {
-	return g.GenerateExisting
-}
-
 type CloneList struct {
 	// Namespace specifies source resource namespace.
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`

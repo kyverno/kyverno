@@ -96,12 +96,6 @@ func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyvernov1.Spec, error) {
 	}
 	spec.MutateExistingOnPolicyUpdate = mutateExistingOnPolicyUpdate
 
-	generateExistingOnPolicyUpdate, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	spec.GenerateExistingOnPolicyUpdate = &generateExistingOnPolicyUpdate
-
 	generateExisting, err := ff.GetBool()
 	if err != nil {
 		return *spec, err

@@ -223,18 +223,15 @@ func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	return s.MutateExistingOnPolicyUpdate
 }
 
-// IsGenerateExisting return GenerateExisting set value
+// IsGenerateExisting returns true if any of the generate rules has generateExisting set to true
 func (s *Spec) IsGenerateExisting() bool {
 	for _, rule := range s.Rules {
 		if rule.HasGenerate() {
-			isGenerateExisting := rule.Generation.IsGenerateExisting()
-			if isGenerateExisting != nil {
-				return *isGenerateExisting
+			isGenerateExisting := rule.Generation.GenerateExisting
+			if isGenerateExisting != nil && *isGenerateExisting {
+				return true
 			}
 		}
-	}
-	if s.GenerateExistingOnPolicyUpdate != nil && *s.GenerateExistingOnPolicyUpdate {
-		return true
 	}
 	return s.GenerateExisting
 }
@@ -300,15 +297,8 @@ func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 		errs = append(errs, field.Forbidden(path.Child("failurePolicy"), "remove the deprecated field and use spec.webhookConfiguration.failurePolicy instead"))
 	}
 
-	for _, rule := range s.Rules {
-		if rule.HasGenerate() && rule.Generation.IsGenerateExisting() != nil {
-			if s.GenerateExistingOnPolicyUpdate != nil {
-				errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
-			}
-			if s.GenerateExisting {
-				errs = append(errs, field.Forbidden(path.Child("generateExisting"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
-			}
-		}
+	if s.GenerateExistingOnPolicyUpdate != nil {
+		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
 	}
 	return errs
 }
