@@ -1,15 +1,14 @@
 package autogen
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // the kyvernoRule holds the temporary kyverno rule struct
@@ -26,7 +25,7 @@ type kyvernoRule struct {
 	MatchResources   *kyvernov1.MatchResources     `json:"match"`
 	ExcludeResources *kyvernov1.MatchResources     `json:"exclude,omitempty"`
 	Context          *[]kyvernov1.ContextEntry     `json:"context,omitempty"`
-	AnyAllConditions *apiextensions.JSON           `json:"preconditions,omitempty"`
+	AnyAllConditions *kyvernov1.ConditionsWrapper  `json:"preconditions,omitempty"`
 	Mutation         *kyvernov1.Mutation           `json:"mutate,omitempty"`
 	Validation       *kyvernov1.Validation         `json:"validate,omitempty"`
 	VerifyImages     []kyvernov1.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
@@ -52,7 +51,7 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 	}
-	kyvernoAnyAllConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
+	kyvernoAnyAllConditions := rule.GetAnyAllConditions()
 	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		if !datautils.DeepEqual(typedAnyAllConditions, kyvernov1.AnyAllConditions{}) {
@@ -130,7 +129,9 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	}
 	if target := rule.Validation.GetPattern(); target != nil {
 		newValidate := kyvernov1.Validation{
-			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+			ValidationFailureAction:          rule.Validation.ValidationFailureAction,
+			ValidationFailureActionOverrides: rule.Validation.ValidationFailureActionOverrides,
 		}
 		newValidate.SetPattern(
 			map[string]interface{}{
@@ -144,8 +145,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	}
 	if rule.Validation.Deny != nil {
 		deny := kyvernov1.Validation{
-			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
-			Deny:    rule.Validation.Deny,
+			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
+			Deny:                             rule.Validation.Deny,
+			ValidationFailureAction:          rule.Validation.ValidationFailureAction,
+			ValidationFailureActionOverrides: rule.Validation.ValidationFailureActionOverrides,
 		}
 		rule.Validation = deny
 		return rule
@@ -160,6 +163,8 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 				Version: rule.Validation.PodSecurity.Version,
 				Exclude: newExclude,
 			},
+			ValidationFailureAction:          rule.Validation.ValidationFailureAction,
+			ValidationFailureActionOverrides: rule.Validation.ValidationFailureActionOverrides,
 		}
 		rule.Validation = podSecurity
 		return rule
@@ -178,8 +183,12 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			}
 			patterns = append(patterns, newPattern)
 		}
+		validationFailureAction := rule.Validation.ValidationFailureAction
+		validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
 		rule.Validation = kyvernov1.Validation{
-			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
+			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
+			ValidationFailureAction:          validationFailureAction,
+			ValidationFailureActionOverrides: validationFailureActionOverrides,
 		}
 		rule.Validation.SetAnyPattern(patterns)
 		return rule
@@ -187,9 +196,13 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
 		newForeachValidate := make([]kyvernov1.ForEachValidation, len(rule.Validation.ForEachValidation))
 		copy(newForeachValidate, rule.Validation.ForEachValidation)
+		validationFailureAction := rule.Validation.ValidationFailureAction
+		validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
 		rule.Validation = kyvernov1.Validation{
-			Message:           variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
-			ForEachValidation: newForeachValidate,
+			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+			ForEachValidation:                newForeachValidate,
+			ValidationFailureAction:          validationFailureAction,
+			ValidationFailureActionOverrides: validationFailureActionOverrides,
 		}
 		return rule
 	}
@@ -204,6 +217,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	if rule.HasValidateCEL() {
 		cel := rule.Validation.CEL.DeepCopy()
 		rule.Validation.CEL = cel
+		return rule
+	}
+	if rule.HasValidateAssert() {
+		rule.Validation.Assert = createAutogenAssertion(*rule.Validation.Assert.DeepCopy(), tplKey)
+
 		return rule
 	}
 	return nil
@@ -312,34 +330,56 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 	)
 }
 
-func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
-	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.template.metadata"))
+var (
+	podReplacementRules [][2][]byte = [][2][]byte{
+		{[]byte("request.object.spec"), []byte("request.object.spec.template.spec")},
+		{[]byte("request.oldObject.spec"), []byte("request.oldObject.spec.template.spec")},
+		{[]byte("request.object.metadata"), []byte("request.object.spec.template.metadata")},
+		{[]byte("request.oldObject.metadata"), []byte("request.oldObject.spec.template.metadata")},
 	}
-	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.jobTemplate.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.metadata", "request.oldObject.spec.jobTemplate.spec.template.metadata"))
+	podCELReplacementRules [][2][]byte = [][2][]byte{
+		{[]byte("object.spec"), []byte("object.spec.template.spec")},
+		{[]byte("oldObject.spec"), []byte("oldObject.spec.template.spec")},
+		{[]byte("object.metadata"), []byte("object.spec.template.metadata")},
+		{[]byte("oldObject.metadata"), []byte("oldObject.spec.template.metadata")},
 	}
-	return obj
-}
+	cronJobReplacementRules [][2][]byte = [][2][]byte{
+		{[]byte("request.object.spec"), []byte("request.object.spec.jobTemplate.spec.template.spec")},
+		{[]byte("request.oldObject.spec"), []byte("request.oldObject.spec.jobTemplate.spec.template.spec")},
+		{[]byte("request.object.metadata"), []byte("request.object.spec.jobTemplate.spec.template.metadata")},
+		{[]byte("request.oldObject.metadata"), []byte("request.oldObject.spec.jobTemplate.spec.template.metadata")},
+	}
+	cronJobCELReplacementRules [][2][]byte = [][2][]byte{
+		{[]byte("object.spec"), []byte("object.spec.jobTemplate.spec.template.spec")},
+		{[]byte("oldObject.spec"), []byte("oldObject.spec.jobTemplate.spec.template.spec")},
+		{[]byte("object.metadata"), []byte("object.spec.jobTemplate.spec.template.metadata")},
+		{[]byte("oldObject.metadata"), []byte("oldObject.spec.jobTemplate.spec.template.metadata")},
+	}
+)
 
-func updateCELFields(pbyte []byte, kind string) (obj []byte) {
-	if kind == "Pod" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.template.metadata"))
+func updateFields(data []byte, kind string, cel bool) []byte {
+	switch kind {
+	case "Pod":
+		if cel {
+			for _, replacement := range podCELReplacementRules {
+				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
+			}
+		} else {
+			for _, replacement := range podReplacementRules {
+				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
+			}
+		}
+	case "Cronjob":
+		if cel {
+			for _, replacement := range cronJobCELReplacementRules {
+				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
+			}
+		} else {
+			for _, replacement := range cronJobReplacementRules {
+				data = bytes.ReplaceAll(data, replacement[0], replacement[1])
+			}
+		}
 	}
-	if kind == "Cronjob" {
-		obj = []byte(strings.ReplaceAll(string(pbyte), "object.spec", "object.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.spec", "oldObject.spec.jobTemplate.spec.template.spec"))
-		obj = []byte(strings.ReplaceAll(string(obj), "object.metadata", "object.spec.jobTemplate.spec.template.metadata"))
-		obj = []byte(strings.ReplaceAll(string(obj), "oldObject.metadata", "oldObject.spec.jobTemplate.spec.template.metadata"))
-	}
-	return obj
+
+	return data
 }

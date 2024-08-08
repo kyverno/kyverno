@@ -14,7 +14,7 @@ type subject struct {
 	groups []string
 }
 
-func (c subject) Check(ctx context.Context, group, version, resource, subresource, namespace, verb string) (*AuthResult, error) {
+func (c subject) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*AuthResult, error) {
 	review := &authorizationv1.SubjectAccessReview{
 		Spec: authorizationv1.SubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationv1.ResourceAttributes{
@@ -24,6 +24,7 @@ func (c subject) Check(ctx context.Context, group, version, resource, subresourc
 				Subresource: subresource,
 				Namespace:   namespace,
 				Verb:        verb,
+				Name:        name,
 			},
 			User:   c.user,
 			Groups: c.groups,

@@ -1,0 +1,21 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-clone-list-sync-create
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: manifests.yaml
+    - apply:
+        file: cluster-policy.yaml
+    - assert:
+        file: cluster-policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: ns.yaml
+    - assert:
+        file: resource-assert.yaml

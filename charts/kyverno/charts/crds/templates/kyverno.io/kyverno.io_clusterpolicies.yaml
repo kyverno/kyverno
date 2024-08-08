@@ -31,9 +31,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -2374,6 +2371,10 @@ spec:
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -3432,12 +3433,10 @@ spec:
                         validationFailureAction:
                           description: |-
                             ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
+                            the admission review request (Enforce), or allow (Audit) the admission review request
                             and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
+                            Allowed values are Audit or Enforce.
                           enum:
-                          - audit
-                          - enforce
                           - Audit
                           - Enforce
                           type: string
@@ -4273,6 +4272,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule.
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -6720,6 +6725,11 @@ spec:
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
                                 Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -7795,12 +7805,10 @@ spec:
                             validationFailureAction:
                               description: |-
                                 ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
+                                the admission review request (Enforce), or allow (Audit) the admission review request
                                 and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
+                                Allowed values are Audit or Enforce.
                               enum:
-                              - audit
-                              - enforce
                               - Audit
                               - Enforce
                               type: string
@@ -8649,6 +8657,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -8789,9 +8803,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -10815,6 +10826,10 @@ spec:
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -11962,12 +11977,10 @@ spec:
                         validationFailureAction:
                           description: |-
                             ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
+                            the admission review request (Enforce), or allow (Audit) the admission review request
                             and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
+                            Allowed values are Audit or Enforce.
                           enum:
-                          - audit
-                          - enforce
                           - Audit
                           - Enforce
                           type: string
@@ -12772,6 +12785,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -15219,6 +15238,11 @@ spec:
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
                                 Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -16294,12 +16318,10 @@ spec:
                             validationFailureAction:
                               description: |-
                                 ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
+                                the admission review request (Enforce), or allow (Audit) the admission review request
                                 and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
+                                Allowed values are Audit or Enforce.
                               enum:
-                              - audit
-                              - enforce
                               - Audit
                               - Enforce
                               type: string
@@ -17148,6 +17170,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
