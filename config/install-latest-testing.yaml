@@ -44623,6 +44623,14 @@ rules:
       - kyverno
       - kyverno-metrics
   - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - coordination.k8s.io
     resources:
       - leases
