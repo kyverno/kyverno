@@ -732,7 +732,9 @@ spec:
                 description: Rule is the associate rule name of the current UR.
                 type: string
               ruleContext:
-                description: RuleContext is the associate context to apply rules.
+                description: |-
+                  RuleContext is the associate context to apply rules.
+                  optional
                 items:
                   properties:
                     deleteDownstream:
@@ -785,7 +787,6 @@ spec:
             - policy
             - resource
             - rule
-            - ruleContext
             type: object
           status:
             description: Status contains statistics related to update request.

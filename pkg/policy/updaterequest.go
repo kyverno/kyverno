@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func newMutateUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string, deleteDownstream bool) *kyvernov2.UpdateRequest {
+func newMutateUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string) *kyvernov2.UpdateRequest {
 	ur := newUrMeta()
 	ur.Labels = common.MutateLabelsSet(policyKey(policy), trigger)
 	ur.Spec = kyvernov2.UpdateRequestSpec{
@@ -22,7 +22,6 @@ func newMutateUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpe
 			APIVersion: trigger.GetAPIVersion(),
 			UID:        trigger.GetUID(),
 		},
-		DeleteDownstream: deleteDownstream,
 	}
 	return ur
 }

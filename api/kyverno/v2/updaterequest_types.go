@@ -83,16 +83,19 @@ type UpdateRequestSpec struct {
 	Policy string `json:"policy" yaml:"policy"`
 
 	// RuleContext is the associate context to apply rules.
-	RuleContext []RuleContext `json:"ruleContext" yaml:"ruleContext"`
+	// optional
+	RuleContext []RuleContext `json:"ruleContext,omitempty" yaml:"ruleContext,omitempty"`
 
 	// Rule is the associate rule name of the current UR.
 	Rule string `json:"rule" yaml:"rule"`
 
 	// DeleteDownstream represents whether the downstream needs to be deleted.
+	// Deprecated
 	DeleteDownstream bool `json:"deleteDownstream" yaml:"deleteDownstream"`
 
 	// Synchronize represents the sync behavior of the corresponding rule
 	// Optional. Defaults to "false" if not specified.
+	// Deprecated
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
 	// ResourceSpec is the information to identify the trigger resource.

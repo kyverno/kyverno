@@ -122,7 +122,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				return err
 			}
 
-			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.Rule, event.GeneratePolicyController,
+			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
 				kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
 			c.eventGen.Add(events...)
 		}
@@ -210,7 +210,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 
 	ruleContext := ur.Spec.RuleContext[i]
 	if ruleContext.DeleteDownstream || apierrors.IsNotFound(err) {
-		err = c.deleteDownstream(policy, &ur)
+		err = c.deleteDownstream(policy, ruleContext, &ur)
 		return nil, err
 	}
 
@@ -247,7 +247,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 	genResources, err := c.ApplyGeneratePolicy(logger, policyContext, applicableRules)
 	if err == nil {
 		for _, res := range genResources {
-			e := event.NewResourceGenerationEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, res)
+			e := event.NewResourceGenerationEvent(ur.Spec.Policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController, res)
 			c.eventGen.Add(e)
 		}
 
