@@ -556,6 +556,10 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		Client:      iv.rclient,
 	}
 
+	if imageVerify.Type == kyvernov1.SigstoreBundle {
+		opts.SigstoreBundle = true
+	}
+
 	if imageVerify.Roots != "" {
 		opts.Roots = imageVerify.Roots
 	}
