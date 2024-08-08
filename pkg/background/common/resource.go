@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -15,7 +16,12 @@ import (
 )
 
 func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, urSpec kyvernov2.UpdateRequestSpec, log logr.Logger) (resource *unstructured.Unstructured, err error) {
-	if urSpec.GetResource().GetUID() != "" {
+	obj := resourceSpec
+	if reflect.DeepEqual(obj, kyvernov1.ResourceSpec{}) {
+		obj = urSpec.GetResource()
+	}
+
+	if obj.GetUID() != "" {
 		triggers, err := client.ListResource(context.TODO(), resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), resourceSpec.GetNamespace(), nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list trigger resources: %v", err)
@@ -26,7 +32,7 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 				return &trigger, nil
 			}
 		}
-	} else if urSpec.GetResource().GetName() != "" {
+	} else if obj.GetName() != "" {
 		if resourceSpec.Kind == "Namespace" {
 			resourceSpec.Namespace = ""
 		}
@@ -51,8 +57,12 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 		}
 
 		resource, err = kubeutils.BytesToUnstructured(raw)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert raw object to unstructured: %v", err)
+		} else {
+			return resource, nil
+		}
 	}
 
-	log.V(3).Info("fetched trigger resource", "resourceSpec", resourceSpec)
-	return resource, err
+	return nil, fmt.Errorf("resource not found")
 }

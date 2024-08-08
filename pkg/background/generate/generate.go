@@ -92,7 +92,7 @@ func NewGenerateController(
 }
 
 func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
-	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
+	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	var err error
 	var genResources []kyvernov1.ResourceSpec
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
@@ -137,6 +137,7 @@ const doesNotApply = "policy does not apply to resource"
 
 func (c *GenerateController) getTrigger(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
 	resourceSpec := spec.RuleContext[i].Trigger
+	c.log.V(4).Info("fetching trigger", "trigger", resourceSpec.String())
 	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	if admissionRequest == nil {
 		return common.GetResource(c.client, resourceSpec, spec, c.log)
