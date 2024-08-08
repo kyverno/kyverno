@@ -200,7 +200,7 @@ func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateR
 }
 
 func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, i int, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
-	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
+	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	logger.V(3).Info("applying generate policy rule")
 
 	policy, err := c.getPolicyObject(ur)

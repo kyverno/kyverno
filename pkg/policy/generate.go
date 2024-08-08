@@ -50,7 +50,7 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 			continue
 		}
 		var err error
-		if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule, deleteDownstream); err != nil {
+		if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule, deleteDownstream, false); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -132,7 +132,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		generateType, sync, orphanDownstreamOnPolicyDelete := r.GetTypeAndSyncAndOrphanDownstream()
 		if sync && (generateType == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
 			var err error
-			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r, true); err != nil {
+			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r, true, true); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -145,6 +145,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	if created != nil {
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov2.Pending
+		updated.Status.GeneratedResources = ur.Status.GeneratedResources
 		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			errs = append(errs, err)
@@ -153,7 +154,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	return multierr.Combine(errs...)
 }
 
-func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, rule kyvernov1.Rule, deleteDownstream bool) (*kyvernov2.UpdateRequest, error) {
+func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, rule kyvernov1.Rule, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
 	labels := map[string]string{
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
@@ -171,6 +172,9 @@ func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInt
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
 		addRuleContext(ur, rule.Name, trigger, deleteDownstream)
+		if policyDeletion {
+			addGeneratedResources(ur, downstream)
+		}
 	}
 
 	return ur, nil

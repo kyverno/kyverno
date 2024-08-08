@@ -6,6 +6,7 @@ import (
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func newMutateUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string) *kyvernov2.UpdateRequest {
@@ -47,6 +48,18 @@ func newUrMeta() *kyvernov2.UpdateRequest {
 			Namespace:    config.KyvernoNamespace(),
 		},
 	}
+}
+
+func addGeneratedResources(ur *kyvernov2.UpdateRequest, downstream unstructured.Unstructured) {
+	ur.Status.GeneratedResources = append(ur.Status.GeneratedResources,
+		kyvernov1.ResourceSpec{
+			APIVersion: downstream.GetAPIVersion(),
+			Kind:       downstream.GetKind(),
+			Namespace:  downstream.GetNamespace(),
+			Name:       downstream.GetName(),
+			UID:        downstream.GetUID(),
+		},
+	)
 }
 
 func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvernov1.ResourceSpec, deleteDownstream bool) {
