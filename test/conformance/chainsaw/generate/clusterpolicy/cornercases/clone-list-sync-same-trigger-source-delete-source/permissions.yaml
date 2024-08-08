@@ -5,7 +5,7 @@ metadata:
   labels:
     rbac.kyverno.io/aggregate-to-background-controller: "true"
     rbac.kyverno.io/aggregate-to-reports-controller: "true"
-    rbac.kyverno.io/aggregate-to-admissions-controller: "true"
+    rbac.kyverno.io/aggregate-to-admission-controller: "true"
 rules:
 - apiGroups:
   - ''
