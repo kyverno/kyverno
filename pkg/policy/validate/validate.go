@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -152,7 +153,7 @@ func (v *Validate) Validate(ctx context.Context) (warnings []string, path string
 func (v *Validate) validateAuth(ctx context.Context) (warnings []string, err error) {
 	kinds := v.rule.MatchResources.GetKinds()
 	for _, k := range kinds {
-		if k == "*" {
+		if wildcard.ContainsWildcard(k) {
 			return nil, nil
 		}
 
