@@ -20,7 +20,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -296,7 +295,6 @@ func updateStatus(statusControl common.StatusControlInterface, ur kyvernov2.Upda
 func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, applicableRules []string) (genResources []kyvernov1.ResourceSpec, err error) {
 	policy := policyContext.Policy()
 	resource := policyContext.NewResource()
-	jsonContext := policyContext.JSONContext()
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 	ruleNameToProcessingTime := make(map[string]time.Duration)
 	applyRules := policy.GetSpec().GetApplyRules()
@@ -345,7 +343,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			return nil, err
 		}
 
-		genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy)
+		genResource, err = applyRule(log, c.client, rule, resource, policy)
 		if err != nil {
 			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(), "rule", rule.Name, "resource", resource.GetName())
 			return nil, err
@@ -358,7 +356,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 	return genResources, nil
 }
 
-func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, trigger unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface) ([]kyvernov1.ResourceSpec, error) {
+func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, trigger unstructured.Unstructured, policy kyvernov1.PolicyInterface) ([]kyvernov1.ResourceSpec, error) {
 	responses := []generateResponse{}
 	var err error
 	var newGenResources []kyvernov1.ResourceSpec

@@ -43,7 +43,7 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 		return resource, nil
 	}
 
-	if resource == nil && urSpec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
+	if urSpec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
 		request := urSpec.Context.AdmissionRequestInfo.AdmissionRequest
 		raw := request.Object.Raw
 		if request.Operation == admissionv1.Delete {
