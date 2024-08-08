@@ -392,10 +392,6 @@ func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
 }
 
-func (m *Mutation) IsMutateExistingOnPolicyUpdate() *bool {
-	return m.MutateExistingOnPolicyUpdate
-}
-
 // ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
@@ -454,11 +450,11 @@ func (m *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
 	// ValidationFailureAction defines if a validation policy rule violation should block
-	// the admission review request (enforce), or allow (audit) the admission review request
+	// the admission review request (Enforce), or allow (Audit) the admission review request
 	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce.
+	// Allowed values are Audit or Enforce.
 	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	// +kubebuilder:validation:Enum=Audit;Enforce
 	ValidationFailureAction *ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction

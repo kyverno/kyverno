@@ -135,6 +135,19 @@ func (s *Spec) HasValidate() bool {
 	return false
 }
 
+// HasValidateEnforce checks if the policy has any validate rules with enforce action
+func (s *Spec) HasValidateEnforce() bool {
+	for _, rule := range s.Rules {
+		if rule.HasValidate() {
+			action := rule.Validation.ValidationFailureAction
+			if action != nil && action.Enforce() {
+				return true
+			}
+		}
+	}
+	return s.ValidationFailureAction.Enforce()
+}
+
 // HasGenerate checks for generate rule types
 func (s *Spec) HasGenerate() bool {
 	for _, rule := range s.Rules {
@@ -197,39 +210,13 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
-// GetValidationFailureAction returns the value of the validationFailureAction
-func (s *Spec) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
-	for _, rule := range s.Rules {
-		if rule.HasValidate() {
-			validationFailureAction := rule.Validation.ValidationFailureAction
-			if validationFailureAction != nil {
-				return *validationFailureAction
-			}
-		}
-	}
-	return s.ValidationFailureAction
-}
-
-// GetValidationFailureActionOverrides returns the value of the validationFailureActionOverrides
-func (s *Spec) GetValidationFailureActionOverrides() []kyvernov1.ValidationFailureActionOverride {
-	for _, rule := range s.Rules {
-		if rule.HasValidate() {
-			validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
-			if len(validationFailureActionOverrides) != 0 {
-				return validationFailureActionOverrides
-			}
-		}
-	}
-	return s.ValidationFailureActionOverrides
-}
-
-// GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
+// GetMutateExistingOnPolicyUpdate returns true if any of the rules have MutateExistingOnPolicyUpdate set to true
 func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	for _, rule := range s.Rules {
 		if rule.HasMutate() {
-			isMutateExisting := rule.Mutation.IsMutateExistingOnPolicyUpdate()
-			if isMutateExisting != nil {
-				return *isMutateExisting
+			isMutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
+			if isMutateExisting != nil && *isMutateExisting {
+				return true
 			}
 		}
 	}
@@ -322,10 +309,19 @@ func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 				errs = append(errs, field.Forbidden(path.Child("generateExisting"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
 			}
 		}
+	}
+	return errs
+}
 
-		if rule.HasMutate() && rule.Mutation.IsMutateExistingOnPolicyUpdate() != nil {
-			if s.MutateExistingOnPolicyUpdate {
-				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.mutate[*].mutateExistingOnPolicyUpdate instead"))
+func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
+	for i, rule := range s.Rules {
+		if !rule.HasMutate() {
+			continue
+		}
+		mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
+		if s.MutateExistingOnPolicyUpdate || (mutateExisting != nil && *mutateExisting) {
+			if len(rule.Mutation.Targets) == 0 {
+				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), fmt.Sprintf("rules[%v].mutate.targets has to be specified when mutateExistingOnPolicyUpdate is set", i)))
 			}
 		}
 	}
@@ -335,6 +331,9 @@ func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 // Validate implements programmatic validation
 func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if err := s.ValidateDeprecatedFields(path); err != nil {
+		errs = append(errs, err...)
+	}
+	if err := s.validateMutateTargets(path); err != nil {
 		errs = append(errs, err...)
 	}
 	if s.WebhookTimeoutSeconds != nil && (*s.WebhookTimeoutSeconds < 1 || *s.WebhookTimeoutSeconds > 30) {

@@ -108,7 +108,7 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 		_, _, k, sub := kubeutils.ParseKindSelector(target.Kind)
 		gvk := strings.Join([]string{target.APIVersion, k}, "/")
 		verbs := []string{"get", "update"}
-		ok, msg, err := m.authChecker.CanI(ctx, verbs, gvk, target.Namespace, sub)
+		ok, msg, err := m.authChecker.CanI(ctx, verbs, gvk, target.Namespace, target.Name, sub)
 		if err != nil {
 			return err
 		}

@@ -157,7 +157,7 @@ func (v *Validate) validateAuth(ctx context.Context) (warnings []string, err err
 		}
 
 		verbs := []string{"get", "list", "watch"}
-		ok, msg, err := v.authChecker.CanI(ctx, verbs, k, "", "")
+		ok, msg, err := v.authChecker.CanI(ctx, verbs, k, "", "", "")
 		if err != nil {
 			return nil, err
 		}

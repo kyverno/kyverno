@@ -114,12 +114,12 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	return nil
 }
 
-func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
+func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFailureAction, validationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride) []string {
 	msg := "Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."
-	if spec.GetValidationFailureAction() == "enforce" || spec.GetValidationFailureAction() == "audit" {
+	if validationFailureAction == "enforce" || validationFailureAction == "audit" {
 		return []string{msg}
 	}
-	for _, override := range spec.GetValidationFailureActionOverrides() {
+	for _, override := range validationFailureActionOverrides {
 		if override.Action == "enforce" || override.Action == "audit" {
 			return []string{msg}
 		}
@@ -132,26 +132,25 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if policy.GetSpec().CustomWebhookMatchConditions() &&
 		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
 	}
 
-	warnings = append(warnings, checkValidationFailureAction(spec)...)
+	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
+	for _, rule := range spec.Rules {
+		if rule.HasValidate() {
+			if rule.Validation.ValidationFailureAction != nil {
+				warnings = append(warnings, checkValidationFailureAction(*rule.Validation.ValidationFailureAction, rule.Validation.ValidationFailureActionOverrides)...)
+			}
+		}
+	}
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
 
 	err := ValidateVariables(policy, background)
 	if err != nil {
 		return warnings, err
-	}
-
-	if mutateExistingOnPolicyUpdate {
-		err := ValidateOnPolicyUpdate(policy, mutateExistingOnPolicyUpdate)
-		if err != nil {
-			return warnings, err
-		}
 	}
 
 	getClusteredResources := func(invalidate bool) (sets.Set[string], error) {
@@ -206,7 +205,15 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 
 	if !policy.IsNamespaced() {
-		err := validateNamespaces(spec, specPath.Child("validationFailureActionOverrides"))
+		for i, r := range spec.Rules {
+			if r.HasValidate() {
+				err := validateNamespaces(r.Validation.ValidationFailureActionOverrides, specPath.Child("rules").Index(i).Child("validate").Child("validationFailureActionOverrides"))
+				if err != nil {
+					return warnings, err
+				}
+			}
+		}
+		err := validateNamespaces(spec.ValidationFailureActionOverrides, specPath.Child("validationFailureActionOverrides"))
 		if err != nil {
 			return warnings, err
 		}
@@ -324,12 +331,20 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			isAuditFailureAction := false
-			if spec.GetValidationFailureAction() == kyvernov1.Audit {
+			if spec.ValidationFailureAction.Audit() {
 				isAuditFailureAction = true
 			}
 
 			verifyImagePath := rulePath.Child("verifyImages")
 			for index, i := range rule.VerifyImages {
+				action := i.ValidationFailureAction
+				if action != nil {
+					if action.Audit() {
+						isAuditFailureAction = true
+					} else {
+						isAuditFailureAction = false
+					}
+				}
 				errs = append(errs, i.Validate(isAuditFailureAction, verifyImagePath.Index(index))...)
 			}
 			if len(errs) != 0 {
@@ -392,6 +407,19 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 			checkForScaleSubresource(mutationJson, allKinds, &warnings)
 			checkForStatusSubresource(mutationJson, allKinds, &warnings)
+
+			mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
+			if mutateExisting != nil {
+				if *mutateExisting {
+					if err := ValidateOnPolicyUpdate(policy, true); err != nil {
+						return warnings, err
+					}
+				}
+			} else if spec.MutateExistingOnPolicyUpdate {
+				if err := ValidateOnPolicyUpdate(policy, true); err != nil {
+					return warnings, err
+				}
+			}
 		}
 
 		if rule.HasVerifyImages() {
@@ -1536,7 +1564,7 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) 
 	return nil
 }
 
-func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
+func validateNamespaces(validationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride, path *field.Path) error {
 	action := map[string]sets.Set[string]{
 		"enforce":  sets.New[string](),
 		"audit":    sets.New[string](),
@@ -1544,7 +1572,7 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 		"auditW":   sets.New[string](),
 	}
 
-	for i, vfa := range s.GetValidationFailureActionOverrides() {
+	for i, vfa := range validationFailureActionOverrides {
 		if !vfa.Action.IsValid() {
 			return fmt.Errorf("invalid action")
 		}

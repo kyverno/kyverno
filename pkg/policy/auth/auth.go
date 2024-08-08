@@ -16,7 +16,7 @@ type AuthChecks interface {
 	User() string
 	// CanI returns 'true' if user has permissions for all specified verbs.
 	// When the result is 'false' a message with details on missing verbs is returned.
-	CanI(ctx context.Context, verbs []string, gvk, namespace, subresource string) (bool, string, error)
+	CanI(ctx context.Context, verbs []string, gvk, namespace, name, subresource string) (bool, string, error)
 }
 
 // Auth provides implementation to check if caller/self/kyverno has access to perofrm operations
@@ -40,10 +40,10 @@ func (a *Auth) User() string {
 	return a.user
 }
 
-func (a *Auth) CanI(ctx context.Context, verbs []string, gvk, namespace, subresource string) (bool, string, error) {
+func (a *Auth) CanI(ctx context.Context, verbs []string, gvk, namespace, name, subresource string) (bool, string, error) {
 	var failedVerbs []string
 	for _, v := range verbs {
-		if ok, err := a.check(ctx, v, gvk, namespace, subresource); err != nil {
+		if ok, err := a.check(ctx, v, gvk, namespace, name, subresource); err != nil {
 			return false, "", err
 		} else if !ok {
 			failedVerbs = append(failedVerbs, v)
@@ -59,13 +59,13 @@ func (a *Auth) CanI(ctx context.Context, verbs []string, gvk, namespace, subreso
 }
 
 // CanICreate returns 'true' if self can 'create' resource
-func (a *Auth) CanICreate(ctx context.Context, gvk, namespace, subresource string) (bool, error) {
-	return a.check(ctx, "create", gvk, namespace, subresource)
+func (a *Auth) CanICreate(ctx context.Context, gvk, namespace, name, subresource string) (bool, error) {
+	return a.check(ctx, "create", gvk, namespace, name, subresource)
 }
 
-func (a *Auth) check(ctx context.Context, verb, gvk, namespace, subresource string) (bool, error) {
+func (a *Auth) check(ctx context.Context, verb, gvk, namespace, name, subresource string) (bool, error) {
 	subjectReview := a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews()
-	canI := auth.NewCanI(a.client.Discovery(), subjectReview, gvk, namespace, verb, subresource, a.user)
+	canI := auth.NewCanI(a.client.Discovery(), subjectReview, gvk, namespace, name, verb, subresource, a.user)
 	ok, _, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
