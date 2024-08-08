@@ -820,12 +820,14 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
 	var mapResourceToOpn map[string]map[string]bool
 	for _, r := range rules {
-		var resources []string
-		operationStatusMap := getOperationStatusMap()
-		operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
-		resources = computeResourcesOfRule(r)
-		for _, r := range resources {
-			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+		if r.HasMutate() || r.HasVerifyImages() {
+			var resources []string
+			operationStatusMap := getOperationStatusMap()
+			operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
+			resources = computeResourcesOfRule(r)
+			for _, r := range resources {
+				mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+			}
 		}
 	}
 	return mapResourceToOpnType

@@ -2,85 +2,50 @@ package main
 
 import (
 	"context"
-	"errors"
+	"sync"
 
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	watchtools "github.com/kyverno/kyverno/cmd/kyverno/watch"
 	"github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	metadataclient "k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
-	watchtools "k8s.io/client-go/tools/watch"
 )
 
+type resourceUIDGetter interface {
+	GetUID() types.UID
+}
+
 type Counter interface {
-	Count() int
-}
-
-type resourcesCount struct {
-	store cache.Store
-}
-
-func (c *resourcesCount) Count() int {
-	return len(c.store.List())
-}
-
-func StartAdmissionReportsWatcher(ctx context.Context, client metadataclient.Interface) (*resourcesCount, error) {
-	gvr := reportsv1.SchemeGroupVersion.WithResource("ephemeralreports")
-	todo := context.TODO()
-	tweakListOptions := func(lo *metav1.ListOptions) {
-		lo.LabelSelector = "audit.kyverno.io/source==admission"
-	}
-	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				tweakListOptions(&options)
-				return client.Resource(gvr).Namespace(metav1.NamespaceAll).List(todo, options)
-			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				tweakListOptions(&options)
-				return client.Resource(gvr).Namespace(metav1.NamespaceAll).Watch(todo, options)
-			},
-		},
-		&metav1.PartialObjectMetadata{},
-		resyncPeriod,
-		cache.Indexers{},
-	)
-	err := informer.SetTransform(func(in any) (any, error) {
-		{
-			in := in.(*metav1.PartialObjectMetadata)
-			return &metav1.PartialObjectMetadata{
-				TypeMeta: in.TypeMeta,
-				ObjectMeta: metav1.ObjectMeta{
-					Name:         in.Name,
-					GenerateName: in.GenerateName,
-					Namespace:    in.Namespace,
-				},
-			}, nil
-		}
-	})
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		informer.Run(todo.Done())
-	}()
-	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-		return nil, errors.New("failed to sync cache")
-	}
-	return &resourcesCount{
-		store: informer.GetStore(),
-	}, nil
+	Count() (int, bool)
 }
 
 type counter struct {
-	count int
+	lock         sync.RWMutex
+	entries      sets.Set[types.UID]
+	retryWatcher *watchtools.RetryWatcher
 }
 
-func (c *counter) Count() int {
-	return c.count
+func (c *counter) Record(uid types.UID) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.entries.Insert(uid)
+}
+
+func (c *counter) Forget(uid types.UID) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.entries.Delete(uid)
+}
+
+func (c *counter) Count() (int, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.entries.Len(), c.retryWatcher.IsRunning()
 }
 
 func StartResourceCounter(ctx context.Context, client metadataclient.Interface, gvr schema.GroupVersionResource, tweakListOptions internalinterfaces.TweakListOptionsFunc) (*counter, error) {
@@ -100,16 +65,26 @@ func StartResourceCounter(ctx context.Context, client metadataclient.Interface, 
 	if err != nil {
 		return nil, err
 	}
+	entries := sets.New[types.UID]()
+	for _, entry := range objs.Items {
+		entries.Insert(entry.GetUID())
+	}
 	w := &counter{
-		count: len(objs.Items),
+		entries:      entries,
+		retryWatcher: watchInterface,
 	}
 	go func() {
 		for event := range watchInterface.ResultChan() {
-			switch event.Type {
-			case watch.Added:
-				w.count = w.count + 1
-			case watch.Deleted:
-				w.count = w.count - 1
+			getter, ok := event.Object.(resourceUIDGetter)
+			if ok {
+				switch event.Type {
+				case watch.Added:
+					w.Record(getter.GetUID())
+				case watch.Modified:
+					w.Record(getter.GetUID())
+				case watch.Deleted:
+					w.Forget(getter.GetUID())
+				}
 			}
 		}
 	}()
@@ -137,10 +112,14 @@ type composite struct {
 	inner []Counter
 }
 
-func (c composite) Count() int {
+func (c composite) Count() (int, bool) {
 	sum := 0
 	for _, counter := range c.inner {
-		sum += counter.Count()
+		count, isRunning := counter.Count()
+		if !isRunning {
+			return 0, false
+		}
+		sum += count
 	}
-	return sum
+	return sum, true
 }

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-root-user-dockerhub
+  # namespace: default
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu:bionic

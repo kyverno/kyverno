@@ -44,16 +44,6 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kyverno-cleanup-jobs
-  namespace: kyverno
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: kyverno-reports-controller
   namespace: kyverno
   labels:
@@ -5252,9 +5242,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -7610,6 +7597,10 @@ spec:
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -8670,6 +8661,87 @@ spec:
                               - latest
                               type: string
                           type: object
+                        validationFailureAction:
+                          description: |-
+                            ValidationFailureAction defines if a validation policy rule violation should block
+                            the admission review request (Enforce), or allow (Audit) the admission review request
+                            and report an error in a policy report. Optional.
+                            Allowed values are Audit or Enforce.
+                          enum:
+                          - Audit
+                          - Enforce
+                          type: string
+                        validationFailureActionOverrides:
+                          description: |-
+                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                          items:
+                            properties:
+                              action:
+                                description: ValidationFailureAction defines the policy
+                                  validation failure action
+                                enum:
+                                - audit
+                                - enforce
+                                - Audit
+                                - Enforce
+                                type: string
+                              namespaceSelector:
+                                description: |-
+                                  A label selector is a label query over a set of resources. The result of matchLabels and
+                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                  label selector matches no objects.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -9431,6 +9503,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule.
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -9453,11 +9531,8 @@ spec:
                 type: boolean
               validationFailureAction:
                 default: Audit
-                description: |-
-                  ValidationFailureAction defines if a validation policy rule violation should block
-                  the admission review request (enforce), or allow (audit) the admission review request
-                  and report an error in a policy report. Optional.
-                  Allowed values are audit or enforce. The default value is "Audit".
+                description: Deprecated, use validationFailureAction under the validate
+                  rule instead.
                 enum:
                 - audit
                 - enforce
@@ -9465,9 +9540,8 @@ spec:
                 - Enforce
                 type: string
               validationFailureActionOverrides:
-                description: |-
-                  ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                  namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                description: Deprecated, use validationFailureActionOverrides under
+                  the validate rule instead.
                 items:
                   properties:
                     action:
@@ -11897,6 +11971,11 @@ spec:
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
                                 Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -12974,6 +13053,87 @@ spec:
                                   - latest
                                   type: string
                               type: object
+                            validationFailureAction:
+                              description: |-
+                                ValidationFailureAction defines if a validation policy rule violation should block
+                                the admission review request (Enforce), or allow (Audit) the admission review request
+                                and report an error in a policy report. Optional.
+                                Allowed values are Audit or Enforce.
+                              enum:
+                              - Audit
+                              - Enforce
+                              type: string
+                            validationFailureActionOverrides:
+                              description: |-
+                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                              items:
+                                properties:
+                                  action:
+                                    description: ValidationFailureAction defines the
+                                      policy validation failure action
+                                    enum:
+                                    - audit
+                                    - enforce
+                                    - Audit
+                                    - Enforce
+                                    type: string
+                                  namespaceSelector:
+                                    description: |-
+                                      A label selector is a label query over a set of resources. The result of matchLabels and
+                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                      label selector matches no objects.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -13748,6 +13908,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -13888,9 +14054,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -15929,6 +16092,10 @@ spec:
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -17078,6 +17245,87 @@ spec:
                               - latest
                               type: string
                           type: object
+                        validationFailureAction:
+                          description: |-
+                            ValidationFailureAction defines if a validation policy rule violation should block
+                            the admission review request (Enforce), or allow (Audit) the admission review request
+                            and report an error in a policy report. Optional.
+                            Allowed values are Audit or Enforce.
+                          enum:
+                          - Audit
+                          - Enforce
+                          type: string
+                        validationFailureActionOverrides:
+                          description: |-
+                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                          items:
+                            properties:
+                              action:
+                                description: ValidationFailureAction defines the policy
+                                  validation failure action
+                                enum:
+                                - audit
+                                - enforce
+                                - Audit
+                                - Enforce
+                                type: string
+                              namespaceSelector:
+                                description: |-
+                                  A label selector is a label query over a set of resources. The result of matchLabels and
+                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                  label selector matches no objects.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -17808,6 +18056,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -17830,11 +18084,8 @@ spec:
                 type: boolean
               validationFailureAction:
                 default: Audit
-                description: |-
-                  ValidationFailureAction defines if a validation policy rule violation should block
-                  the admission review request (enforce), or allow (audit) the admission review request
-                  and report an error in a policy report. Optional.
-                  Allowed values are audit or enforce. The default value is "Audit".
+                description: Deprecated, use validationFailureAction under the validate
+                  rule instead.
                 enum:
                 - audit
                 - enforce
@@ -17842,9 +18093,8 @@ spec:
                 - Enforce
                 type: string
               validationFailureActionOverrides:
-                description: |-
-                  ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                  namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                description: Deprecated, use validationFailureActionOverrides under
+                  the validate rule instead.
                 items:
                   properties:
                     action:
@@ -20274,6 +20524,11 @@ spec:
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
                                 Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -21351,6 +21606,87 @@ spec:
                                   - latest
                                   type: string
                               type: object
+                            validationFailureAction:
+                              description: |-
+                                ValidationFailureAction defines if a validation policy rule violation should block
+                                the admission review request (Enforce), or allow (Audit) the admission review request
+                                and report an error in a policy report. Optional.
+                                Allowed values are Audit or Enforce.
+                              enum:
+                              - Audit
+                              - Enforce
+                              type: string
+                            validationFailureActionOverrides:
+                              description: |-
+                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                              items:
+                                properties:
+                                  action:
+                                    description: ValidationFailureAction defines the
+                                      policy validation failure action
+                                    enum:
+                                    - audit
+                                    - enforce
+                                    - Audit
+                                    - Enforce
+                                    type: string
+                                  namespaceSelector:
+                                    description: |-
+                                      A label selector is a label query over a set of resources. The result of matchLabels and
+                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                      label selector matches no objects.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -22125,6 +22461,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -22546,9 +22888,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -24905,6 +25244,10 @@ spec:
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -25965,6 +26308,87 @@ spec:
                               - latest
                               type: string
                           type: object
+                        validationFailureAction:
+                          description: |-
+                            ValidationFailureAction defines if a validation policy rule violation should block
+                            the admission review request (Enforce), or allow (Audit) the admission review request
+                            and report an error in a policy report. Optional.
+                            Allowed values are Audit or Enforce.
+                          enum:
+                          - Audit
+                          - Enforce
+                          type: string
+                        validationFailureActionOverrides:
+                          description: |-
+                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                          items:
+                            properties:
+                              action:
+                                description: ValidationFailureAction defines the policy
+                                  validation failure action
+                                enum:
+                                - audit
+                                - enforce
+                                - Audit
+                                - Enforce
+                                type: string
+                              namespaceSelector:
+                                description: |-
+                                  A label selector is a label query over a set of resources. The result of matchLabels and
+                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                  label selector matches no objects.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -26726,6 +27150,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule.
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -26748,11 +27178,8 @@ spec:
                 type: boolean
               validationFailureAction:
                 default: Audit
-                description: |-
-                  ValidationFailureAction defines if a validation policy rule violation should block
-                  the admission review request (enforce), or allow (audit) the admission review request
-                  and report an error in a policy report. Optional.
-                  Allowed values are audit or enforce. The default value is "Audit".
+                description: Deprecated, use validationFailureAction under the validate
+                  rule instead.
                 enum:
                 - audit
                 - enforce
@@ -26760,9 +27187,8 @@ spec:
                 - Enforce
                 type: string
               validationFailureActionOverrides:
-                description: |-
-                  ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                  namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                description: Deprecated, use validationFailureActionOverrides under
+                  the validate rule instead.
                 items:
                   properties:
                     action:
@@ -29193,6 +29619,11 @@ spec:
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
                                 Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -30270,6 +30701,87 @@ spec:
                                   - latest
                                   type: string
                               type: object
+                            validationFailureAction:
+                              description: |-
+                                ValidationFailureAction defines if a validation policy rule violation should block
+                                the admission review request (Enforce), or allow (Audit) the admission review request
+                                and report an error in a policy report. Optional.
+                                Allowed values are Audit or Enforce.
+                              enum:
+                              - Audit
+                              - Enforce
+                              type: string
+                            validationFailureActionOverrides:
+                              description: |-
+                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                              items:
+                                properties:
+                                  action:
+                                    description: ValidationFailureAction defines the
+                                      policy validation failure action
+                                    enum:
+                                    - audit
+                                    - enforce
+                                    - Audit
+                                    - Enforce
+                                    type: string
+                                  namespaceSelector:
+                                    description: |-
+                                      A label selector is a label query over a set of resources. The result of matchLabels and
+                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                      label selector matches no objects.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -31044,6 +31556,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -31184,9 +31702,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -33226,6 +33741,10 @@ spec:
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -34375,6 +34894,87 @@ spec:
                               - latest
                               type: string
                           type: object
+                        validationFailureAction:
+                          description: |-
+                            ValidationFailureAction defines if a validation policy rule violation should block
+                            the admission review request (Enforce), or allow (Audit) the admission review request
+                            and report an error in a policy report. Optional.
+                            Allowed values are Audit or Enforce.
+                          enum:
+                          - Audit
+                          - Enforce
+                          type: string
+                        validationFailureActionOverrides:
+                          description: |-
+                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                          items:
+                            properties:
+                              action:
+                                description: ValidationFailureAction defines the policy
+                                  validation failure action
+                                enum:
+                                - audit
+                                - enforce
+                                - Audit
+                                - Enforce
+                                type: string
+                              namespaceSelector:
+                                description: |-
+                                  A label selector is a label query over a set of resources. The result of matchLabels and
+                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                  label selector matches no objects.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -35105,6 +35705,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -35127,11 +35733,8 @@ spec:
                 type: boolean
               validationFailureAction:
                 default: Audit
-                description: |-
-                  ValidationFailureAction defines if a validation policy rule violation should block
-                  the admission review request (enforce), or allow (audit) the admission review request
-                  and report an error in a policy report. Optional.
-                  Allowed values are audit or enforce. The default value is "Audit".
+                description: Deprecated, use validationFailureAction under the validate
+                  rule instead.
                 enum:
                 - audit
                 - enforce
@@ -35139,9 +35742,8 @@ spec:
                 - Enforce
                 type: string
               validationFailureActionOverrides:
-                description: |-
-                  ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                  namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                description: Deprecated, use validationFailureActionOverrides under
+                  the validate rule instead.
                 items:
                   properties:
                     action:
@@ -37571,6 +38173,11 @@ spec:
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
                                 Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -38648,6 +39255,87 @@ spec:
                                   - latest
                                   type: string
                               type: object
+                            validationFailureAction:
+                              description: |-
+                                ValidationFailureAction defines if a validation policy rule violation should block
+                                the admission review request (Enforce), or allow (Audit) the admission review request
+                                and report an error in a policy report. Optional.
+                                Allowed values are Audit or Enforce.
+                              enum:
+                              - Audit
+                              - Enforce
+                              type: string
+                            validationFailureActionOverrides:
+                              description: |-
+                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                              items:
+                                properties:
+                                  action:
+                                    description: ValidationFailureAction defines the
+                                      policy validation failure action
+                                    enum:
+                                    - audit
+                                    - enforce
+                                    - Audit
+                                    - Enforce
+                                    type: string
+                                  namespaceSelector:
+                                    description: |-
+                                      A label selector is a label query over a set of resources. The result of matchLabels and
+                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                      label selector matches no objects.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -39422,6 +40110,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -43493,33 +44187,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:cleanup-jobs
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - updaterequests
-    verbs:
-      - list
-      - deletecollection
-      - delete
-  - apiGroups:
-      - reports.kyverno.io
-    resources:
-      - ephemeralreports
-      - clusterephemeralreports
-    verbs:
-      - list
-      - deletecollection
-      - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: kyverno:rbac:admin:policies
   labels:
     app.kubernetes.io/component: rbac
@@ -43862,23 +44529,6 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-cleanup-controller
   namespace: kyverno
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:cleanup-jobs
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:cleanup-jobs
-subjects:
-  - kind: ServiceAccount
-    name: kyverno-cleanup-jobs
-    namespace: kyverno
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -44408,6 +45058,7 @@ spec:
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --admissionReports=true
+            - --maxAdmissionReports=1000
             - --autoUpdateWebhooks=true
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
@@ -44820,7 +45471,6 @@ spec:
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
-            - --reportsChunkSize=0
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             
@@ -44865,53 +45515,3 @@ spec:
       volumes:
       - name: sigstore
         emptyDir: {}
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: kyverno-cleanup-update-requests
-  namespace: kyverno
-  labels:
-    app.kubernetes.io/component: cleanup
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-spec:
-  schedule: "*/10 * * * *"
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 1
-  jobTemplate:
-    spec:
-      backoffLimit: 3
-      template:
-        metadata:
-        spec:
-          serviceAccountName: kyverno-cleanup-jobs
-          containers:
-          - name: cleanup
-            image: "bitnami/kubectl:1.30.2"
-            imagePullPolicy: 
-            command:
-            - /bin/bash
-            - -c
-            - |
-              set -euo pipefail
-              COUNT=$(kubectl get updaterequests.kyverno.io -A | wc -l)
-              if [ "$COUNT" -gt 10000 ]; then
-                echo "too many updaterequests found ($COUNT), cleaning up..."
-                kubectl delete updaterequests.kyverno.io --all -n kyverno
-              else
-                echo "($COUNT) reports found, no clean up needed"
-              fi
-            securityContext:
-              allowPrivilegeEscalation: false
-              capabilities:
-                drop:
-                - ALL
-              privileged: false
-              readOnlyRootFilesystem: true
-              runAsNonRoot: true
-              seccompProfile:
-                type: RuntimeDefault
-          restartPolicy: OnFailure

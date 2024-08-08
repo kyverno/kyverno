@@ -1,0 +1,27 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: test-pod
+results:
+- policy: psp-baseline
+  properties:
+    exceptions: init1-exception-baseline,init2-exception-baseline
+  result: skip
+  rule: baseline
+  scored: true
+  source: kyverno
+scope:
+  apiVersion: v1
+  kind: Pod
+  name: test-pod
+summary:
+  error: 0
+  fail: 0
+  pass: 0
+  skip: 1
+  warn: 0

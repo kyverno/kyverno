@@ -26,18 +26,12 @@ type Spec struct {
 	// Deprecated, use failurePolicy under the webhookConfiguration instead.
 	FailurePolicy *kyvernov1.FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
 
-	// ValidationFailureAction defines if a validation policy rule violation should block
-	// the admission review request (enforce), or allow (audit) the admission review request
-	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce. The default value is "Audit".
-	// +optional
+	// Deprecated, use validationFailureAction under the validate rule instead.
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	// +kubebuilder:default=Audit
 	ValidationFailureAction kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
-	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-	// +optional
+	// Deprecated, use validationFailureActionOverrides under the validate rule instead.
 	ValidationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
 	// Admission controls if rules are applied during admission.
@@ -141,6 +135,19 @@ func (s *Spec) HasValidate() bool {
 	return false
 }
 
+// HasValidateEnforce checks if the policy has any validate rules with enforce action
+func (s *Spec) HasValidateEnforce() bool {
+	for _, rule := range s.Rules {
+		if rule.HasValidate() {
+			action := rule.Validation.ValidationFailureAction
+			if action != nil && action.Enforce() {
+				return true
+			}
+		}
+	}
+	return s.ValidationFailureAction.Enforce()
+}
+
 // HasGenerate checks for generate rule types
 func (s *Spec) HasGenerate() bool {
 	for _, rule := range s.Rules {
@@ -203,13 +210,13 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
-// GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
+// GetMutateExistingOnPolicyUpdate returns true if any of the rules have MutateExistingOnPolicyUpdate set to true
 func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	for _, rule := range s.Rules {
 		if rule.HasMutate() {
-			isMutateExisting := rule.Mutation.IsMutateExistingOnPolicyUpdate()
-			if isMutateExisting != nil {
-				return *isMutateExisting
+			isMutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
+			if isMutateExisting != nil && *isMutateExisting {
+				return true
 			}
 		}
 	}
@@ -302,10 +309,19 @@ func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 				errs = append(errs, field.Forbidden(path.Child("generateExisting"), "remove the deprecated field and use spec.generate[*].generateExisting instead"))
 			}
 		}
+	}
+	return errs
+}
 
-		if rule.HasMutate() && rule.Mutation.IsMutateExistingOnPolicyUpdate() != nil {
-			if s.MutateExistingOnPolicyUpdate {
-				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), "remove the deprecated field and use spec.mutate[*].mutateExistingOnPolicyUpdate instead"))
+func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
+	for i, rule := range s.Rules {
+		if !rule.HasMutate() {
+			continue
+		}
+		mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
+		if s.MutateExistingOnPolicyUpdate || (mutateExisting != nil && *mutateExisting) {
+			if len(rule.Mutation.Targets) == 0 {
+				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), fmt.Sprintf("rules[%v].mutate.targets has to be specified when mutateExistingOnPolicyUpdate is set", i)))
 			}
 		}
 	}
@@ -315,6 +331,9 @@ func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList)
 // Validate implements programmatic validation
 func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if err := s.ValidateDeprecatedFields(path); err != nil {
+		errs = append(errs, err...)
+	}
+	if err := s.validateMutateTargets(path); err != nil {
 		errs = append(errs, err...)
 	}
 	if s.WebhookTimeoutSeconds != nil && (*s.WebhookTimeoutSeconds < 1 || *s.WebhookTimeoutSeconds > 30) {

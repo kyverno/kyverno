@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging-ns
+  labels:
+    environment: staging

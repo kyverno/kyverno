@@ -4,10 +4,12 @@ import (
 	"cmp"
 	"reflect"
 	"slices"
+	"sort"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 func TestAddOperationsForValidatingWebhookConfMultiplePolicies(t *testing.T) {
@@ -317,4 +319,88 @@ func TestAddOperationsForMutatingtingWebhookConf(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAddOperationsForMutatingtingWebhookConfMultiplePolicies(t *testing.T) {
+	testCases := []struct {
+		name           string
+		policies       []kyverno.ClusterPolicy
+		expectedResult map[string][]admissionregistrationv1.OperationType
+	}{
+		{
+			name: "test-1",
+			policies: []kyverno.ClusterPolicy{
+				{
+					Spec: kyverno.Spec{
+						Rules: []kyverno.Rule{
+							{
+								Mutation: kyverno.Mutation{
+									RawPatchStrategicMerge: &apiextensionsv1.JSON{Raw: []byte(`"nodeSelector": {<"public-ip-type": "elastic"}, +"priorityClassName": "elastic-ip-required"`)}},
+								MatchResources: kyverno.MatchResources{
+									ResourceDescription: kyverno.ResourceDescription{
+										Kinds: []string{"Pod"},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Spec: kyverno.Spec{
+						Rules: []kyverno.Rule{
+							{
+								Generation: kyverno.Generation{},
+								MatchResources: kyverno.MatchResources{
+									ResourceDescription: kyverno.ResourceDescription{
+										Kinds: []string{"Deployments", "StatefulSet", "DaemonSet", "Job"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResult: map[string][]admissionregistrationv1.OperationType{
+				"Pod": {"CREATE", "UPDATE"},
+			},
+		},
+	}
+
+	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			for _, p := range test.policies {
+				mapResourceToOpnType = addOpnForMutatingWebhookConf(p.GetSpec().Rules, mapResourceToOpnType)
+			}
+			if !compareMaps(mapResourceToOpnType, test.expectedResult) {
+				t.Errorf("Expected %v, but got %v", test.expectedResult, mapResourceToOpnType)
+			}
+		})
+	}
+}
+
+func compareMaps(a, b map[string][]admissionregistrationv1.OperationType) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for key, aValue := range a {
+		bValue, ok := b[key]
+		if !ok {
+			return false
+		}
+
+		sort.Slice(aValue, func(i, j int) bool {
+			return cmp.Compare(aValue[i], aValue[j]) < 0
+		})
+		sort.Slice(bValue, func(i, j int) bool {
+			return cmp.Compare(bValue[i], bValue[j]) < 0
+		})
+
+		if !reflect.DeepEqual(aValue, bValue) {
+			return false
+		}
+	}
+
+	return true
 }
