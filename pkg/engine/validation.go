@@ -37,6 +37,9 @@ func (e *engine) validate(
 				return nil, nil
 			}
 			if hasValidate {
+				if rule.Validation.Assert.Value != nil {
+					return validation.NewValidateAssertHandler()
+				}
 				hasVerifyManifest := rule.HasVerifyManifests()
 				hasValidatePss := rule.HasValidatePodSecurity()
 				hasValidateCEL := rule.HasValidateCEL()

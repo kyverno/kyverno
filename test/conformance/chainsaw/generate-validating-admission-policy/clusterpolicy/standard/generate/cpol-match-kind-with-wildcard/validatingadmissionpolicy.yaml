@@ -26,6 +26,8 @@ spec:
       operations:
       - CREATE
       - UPDATE
+      - CONNECT
+      - DELETE
       resources:
       - '*'
   validations:

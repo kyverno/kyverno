@@ -96,8 +96,7 @@ func checkResourceDescription(
 	subresource string,
 ) bool {
 	if len(conditionBlock.Kinds) > 0 {
-		// Matching on ephemeralcontainers even when they are not explicitly specified is only applicable to policies.
-		if !matched.CheckKind(conditionBlock.Kinds, gvk, subresource, false) {
+		if !matched.CheckKind(conditionBlock.Kinds, gvk, subresource, true) {
 			return false
 		}
 	}

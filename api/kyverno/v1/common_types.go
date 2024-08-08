@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
@@ -18,6 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 )
+
+// AssertionTree defines a kyverno-json assertion tree.
+type AssertionTree = kjson.Any
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
 // +kubebuilder:validation:Enum=Ignore;Fail
@@ -388,10 +392,6 @@ func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
 }
 
-func (m *Mutation) IsMutateExistingOnPolicyUpdate() *bool {
-	return m.MutateExistingOnPolicyUpdate
-}
-
 // ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
@@ -450,11 +450,11 @@ func (m *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
 	// ValidationFailureAction defines if a validation policy rule violation should block
-	// the admission review request (enforce), or allow (audit) the admission review request
+	// the admission review request (Enforce), or allow (Audit) the admission review request
 	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce.
+	// Allowed values are Audit or Enforce.
 	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	// +kubebuilder:validation:Enum=Audit;Enforce
 	ValidationFailureAction *ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
@@ -495,6 +495,10 @@ type Validation struct {
 	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 	// +optional
 	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
+
+	// Assert defines a kyverno-json assertion tree.
+	// +optional
+	Assert AssertionTree `json:"assert"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -650,15 +654,24 @@ type Deny struct {
 	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
 	// but will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
-	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *ConditionsWrapper `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(d.RawAnyAllConditions)
+func (d *Deny) GetAnyAllConditions() any {
+	if d.RawAnyAllConditions == nil {
+		return nil
+	}
+	return d.RawAnyAllConditions.Conditions
 }
 
-func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
-	d.RawAnyAllConditions = ToJSON(in)
+func (d *Deny) SetAnyAllConditions(in any) {
+	var new *ConditionsWrapper
+	if in != nil {
+		new = &ConditionsWrapper{in}
+	}
+	d.RawAnyAllConditions = new
 }
 
 // ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.

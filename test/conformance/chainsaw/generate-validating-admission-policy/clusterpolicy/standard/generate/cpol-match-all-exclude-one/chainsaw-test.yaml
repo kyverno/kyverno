@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: cpol-match-kind-with-wildcard
+  name: cpol-match-all-exclude-one
 spec:
   steps:
   - name: step-01
