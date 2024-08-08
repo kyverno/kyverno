@@ -35,7 +35,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -99,35 +98,36 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	var genResources []kyvernov1.ResourceSpec
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
-	trigger, err := c.getTrigger(ur.Spec)
-	if err != nil || trigger == nil {
-		logger.V(3).Info("the trigger resource does not exist or is pending creation")
-		if err := updateStatus(c.statusControl, *ur, err, nil); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-	genResources, err = c.applyGenerate(*trigger, *ur, namespaceLabels)
-	if err != nil {
-		if strings.Contains(err.Error(), doesNotApply) {
-			ur.Status.State = kyvernov2.Completed
-			logger.V(4).Info(fmt.Sprintf("%s, updating UR status to Completed", err.Error()))
-			_, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-			return err
+	for i := 0; i < len(ur.Spec.RuleContext); i++ {
+		trigger, err := c.getTrigger(ur.Spec, i)
+		if err != nil || trigger == nil {
+			logger.V(3).Info("the trigger resource does not exist or is pending creation")
+			if err := updateStatus(c.statusControl, *ur, err, nil); err != nil {
+				return err
+			}
+			return nil
 		}
 
-		policy, err := c.getPolicySpec(*ur)
+		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+		genResources, err = c.applyGenerate(*trigger, *ur, i, namespaceLabels)
 		if err != nil {
-			return err
+			if strings.Contains(err.Error(), doesNotApply) {
+				ur.Status.State = kyvernov2.Completed
+				logger.V(4).Info(fmt.Sprintf("%s, updating UR status to Completed", err.Error()))
+				_, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+				return err
+			}
+
+			policy, err := c.getPolicyObject(*ur)
+			if err != nil {
+				return err
+			}
+
+			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.Rule, event.GeneratePolicyController,
+				kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
+			c.eventGen.Add(events...)
 		}
-
-		events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.Rule, event.GeneratePolicyController,
-			kyvernov1.ResourceSpec{Kind: trigger.GetKind(), Namespace: trigger.GetNamespace(), Name: trigger.GetName()})
-		c.eventGen.Add(events...)
 	}
-
 	if err = updateStatus(c.statusControl, *ur, err, genResources); err != nil {
 		return err
 	}
@@ -136,16 +136,17 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *GenerateController) getTrigger(spec kyvernov2.UpdateRequestSpec) (*unstructured.Unstructured, error) {
+func (c *GenerateController) getTrigger(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
+	resourceSpec := spec.RuleContext[i].Trigger
 	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	if admissionRequest == nil {
-		return common.GetResource(c.client, spec, c.log)
+		return common.GetResource(c.client, resourceSpec, spec, c.log)
 	} else {
 		operation := spec.Context.AdmissionRequestInfo.Operation
 		if operation == admissionv1.Delete {
-			return c.getTriggerForDeleteOperation(spec)
+			return c.getTriggerForDeleteOperation(spec, i)
 		} else if operation == admissionv1.Create {
-			return c.getTriggerForCreateOperation(spec)
+			return c.getTriggerForCreateOperation(spec, i)
 		} else {
 			newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
 			if err != nil {
@@ -162,24 +163,26 @@ func (c *GenerateController) getTrigger(spec kyvernov2.UpdateRequestSpec) (*unst
 	}
 }
 
-func (c *GenerateController) getTriggerForDeleteOperation(spec kyvernov2.UpdateRequestSpec) (*unstructured.Unstructured, error) {
+func (c *GenerateController) getTriggerForDeleteOperation(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
 	request := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	_, oldResource, err := admissionutils.ExtractResources(nil, *request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load resource from context: %w", err)
 	}
 	labels := oldResource.GetLabels()
+	resourceSpec := spec.RuleContext[i].Trigger
 	if labels[common.GeneratePolicyLabel] != "" {
 		// non-trigger deletion, get trigger from ur spec
 		c.log.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
-		return common.GetResource(c.client, spec, c.log)
+		return common.GetResource(c.client, resourceSpec, spec, c.log)
 	}
 	return &oldResource, nil
 }
 
-func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateRequestSpec) (*unstructured.Unstructured, error) {
+func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateRequestSpec, i int) (*unstructured.Unstructured, error) {
 	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
-	trigger, err := common.GetResource(c.client, spec, c.log)
+	resourceSpec := spec.RuleContext[i].Trigger
+	trigger, err := common.GetResource(c.client, resourceSpec, spec, c.log)
 	if err != nil || trigger == nil {
 		if admissionRequest.SubResource == "" {
 			return nil, err
@@ -196,22 +199,23 @@ func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateR
 	return trigger, err
 }
 
-func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, ur kyvernov2.UpdateRequest, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
+func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, i int, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	logger.V(3).Info("applying generate policy rule")
 
-	policy, err := c.getPolicySpec(ur)
+	policy, err := c.getPolicyObject(ur)
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "error in fetching policy")
 		return nil, err
 	}
 
-	if ur.Spec.DeleteDownstream || apierrors.IsNotFound(err) {
+	ruleContext := ur.Spec.RuleContext[i]
+	if ruleContext.DeleteDownstream || apierrors.IsNotFound(err) {
 		err = c.deleteDownstream(policy, &ur)
 		return nil, err
 	}
 
-	policyContext, err := common.NewBackgroundContext(logger, c.client, &ur, policy, &resource, c.configuration, c.jp, namespaceLabels)
+	policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, policy, &trigger, c.configuration, c.jp, namespaceLabels)
 	if err != nil {
 		return nil, err
 	}
@@ -234,40 +238,14 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	}
 
 	var applicableRules []string
-	// Removing UR if rule is failed. Used when the generate condition failed but ur exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
-		if r.Status() != engineapi.RuleStatusPass {
-			logger.V(4).Info("querying all update requests")
-			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				kyvernov2.URGeneratePolicyLabel: engineResponse.Policy().GetName(),
-				// kyvernov2.URGenerateResourceKindLabel: engineResponse.Resource.GetKind(),
-				// kyvernov2.URGenerateResourceNSLabel:   engineResponse.Resource.GetNamespace(),
-			}))
-			// // get update requests that have the resource UID label
-			// requirement, err := labels.NewRequirement(kyvernov2.URGenerateResourceUIDLabel, selection.Equals, []string{string(engineResponse.Resource.GetUID())})
-			// if err != nil {
-			// 	logger.Error(err, "failed to add the resource UID label")
-			// }
-			// selectorWithResUID := selector.Add(*requirement)
-			urList, err := c.urLister.List(selector)
-			if err != nil {
-				logger.Error(err, "failed to get update request for the resource", "kind", engineResponse.Resource.GetKind(), "name", engineResponse.Resource.GetName(), "namespace", engineResponse.Resource.GetNamespace())
-				continue
-			}
-
-			for _, v := range urList {
-				err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
-				if err != nil {
-					logger.Error(err, "failed to delete update request")
-				}
-			}
-		} else {
+		if r.Status() == engineapi.RuleStatusPass {
 			applicableRules = append(applicableRules, r.Name())
 		}
 	}
 
 	// Apply the generate rule on resource
-	genResources, err := c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
+	genResources, err := c.ApplyGeneratePolicy(logger, policyContext, applicableRules)
 	if err == nil {
 		for _, res := range genResources {
 			e := event.NewResourceGenerationEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, res)
@@ -281,8 +259,8 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	return genResources, err
 }
 
-// getPolicySpec gets the policy spec from the ClusterPolicy/Policy
-func (c *GenerateController) getPolicySpec(ur kyvernov2.UpdateRequest) (kyvernov1.PolicyInterface, error) {
+// getPolicyObject gets the policy spec from the ClusterPolicy/Policy
+func (c *GenerateController) getPolicyObject(ur kyvernov2.UpdateRequest) (kyvernov1.PolicyInterface, error) {
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
 	if err != nil {
 		return nil, err
@@ -315,9 +293,7 @@ func updateStatus(statusControl common.StatusControlInterface, ur kyvernov2.Upda
 	return nil
 }
 
-func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, ur kyvernov2.UpdateRequest, applicableRules []string) (genResources []kyvernov1.ResourceSpec, err error) {
-	// Get the response as the actions to be performed on the resource
-	// - - substitute values
+func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, applicableRules []string) (genResources []kyvernov1.ResourceSpec, err error) {
 	policy := policyContext.Policy()
 	resource := policyContext.NewResource()
 	jsonContext := policyContext.JSONContext()
@@ -369,7 +345,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			return nil, err
 		}
 
-		genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
+		genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy)
 		if err != nil {
 			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(), "rule", rule.Name, "resource", resource.GetName())
 			return nil, err
@@ -382,7 +358,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 	return genResources, nil
 }
 
-func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, trigger unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov2.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, trigger unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface) ([]kyvernov1.ResourceSpec, error) {
 	responses := []generateResponse{}
 	var err error
 	var newGenResources []kyvernov1.ResourceSpec
@@ -391,12 +367,12 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 	logger := log.WithValues("target", target.String())
 
 	if rule.Generation.Clone.Name != "" {
-		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, policy, ur, rule, client)
+		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, policy, rule, client)
 		responses = append(responses, resp)
 	} else if len(rule.Generation.CloneList.Kinds) != 0 {
-		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), ur, policy, rule, client)
+		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), policy, rule, client)
 	} else {
-		resp := manageData(logger.WithValues("type", "data"), target, rule.Generation.RawData, rule.Generation.Synchronize, ur, client)
+		resp := manageData(logger.WithValues("type", "data"), target, rule.Generation.RawData, rule.Generation.Synchronize, client)
 		responses = append(responses, resp)
 	}
 

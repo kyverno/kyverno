@@ -6,14 +6,13 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func manageData(log logr.Logger, target kyvernov1.ResourceSpec, data interface{}, synchronize bool, ur kyvernov2.UpdateRequest, client dclient.Interface) generateResponse {
+func manageData(log logr.Logger, target kyvernov1.ResourceSpec, data interface{}, synchronize bool, client dclient.Interface) generateResponse {
 	if data == nil {
 		log.V(4).Info("data is nil - skipping update")
 		return newSkipGenerateResponse(nil, target, nil)
@@ -26,11 +25,7 @@ func manageData(log logr.Logger, target kyvernov1.ResourceSpec, data interface{}
 
 	targetObj, err := client.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
 	if err != nil {
-		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !synchronize {
-			log.V(4).Info("synchronize is disable - skip re-create")
-			return newSkipGenerateResponse(nil, target, nil)
-		}
-		if apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) && synchronize {
 			return newCreateGenerateResponse(resource, target, nil)
 		}
 
