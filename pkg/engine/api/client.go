@@ -47,6 +47,7 @@ type ImageData struct {
 	Registry      string
 	Repository    string
 	Identifier    string
+	ManifestList  []byte
 	Manifest      []byte
 	Config        []byte
 }
