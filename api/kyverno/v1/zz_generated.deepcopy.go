@@ -447,6 +447,11 @@ func (in *ConfigMapReference) DeepCopy() *ConfigMapReference {
 func (in *ContextAPICall) DeepCopyInto(out *ContextAPICall) {
 	*out = *in
 	in.APICall.DeepCopyInto(&out.APICall)
+	if in.Default != nil {
+		in, out := &in.Default, &out.Default
+		*out = new(apiextensionsv1.JSON)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
