@@ -2,7 +2,6 @@ package generate
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -24,12 +23,9 @@ func manageData(log logr.Logger, target kyvernov1.ResourceSpec, data interface{}
 	}
 
 	targetObj, err := client.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
-	if err != nil {
-		if apierrors.IsNotFound(err) && synchronize {
-			return newCreateGenerateResponse(resource, target, nil)
-		}
-
-		return newSkipGenerateResponse(nil, target, fmt.Errorf("failed to get the target source: %v", err))
+	if err != nil && apierrors.IsNotFound(err) {
+		// the target resource should always exist regardless of synchronize settings
+		return newCreateGenerateResponse(resource, target, nil)
 	}
 
 	log.V(4).Info("found target resource")

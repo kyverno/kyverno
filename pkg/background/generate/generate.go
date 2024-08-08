@@ -418,7 +418,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 		} else if response.GetAction() == Update {
 			generatedObj, err := client.GetResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName())
 			if err != nil {
-				logger.V(2).Info("target resource not found, creating new target")
+				logger.V(2).Info("creating new target due to the failure when fetching", "err", err.Error())
 				if policy.GetSpec().UseServerSideApply {
 					_, err = client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
 				} else {
