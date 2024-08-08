@@ -95,7 +95,7 @@ func NewGenerateController(
 }
 
 func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
-	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
+	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "rule", ur.Spec.GetRuleName(), "resource", ur.Spec.GetResource().String())
 	var err error
 	var genResources []kyvernov1.ResourceSpec
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
@@ -198,7 +198,7 @@ func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateR
 }
 
 func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, ur kyvernov2.UpdateRequest, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
-	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
+	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "rule", ur.Spec.GetRuleName(), "resource", ur.Spec.GetResource().String())
 	logger.V(3).Info("applying generate policy rule")
 
 	policy, err := c.getPolicySpec(ur)
@@ -237,6 +237,10 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	var applicableRules []string
 	// Removing UR if rule is failed. Used when the generate condition failed but ur exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
+		if r.Name() != ur.Spec.GetRuleName() {
+			continue
+		}
+
 		if r.Status() != engineapi.RuleStatusPass {
 			logger.V(4).Info("querying all update requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
