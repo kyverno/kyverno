@@ -9,7 +9,6 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
@@ -85,7 +84,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
 			namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), pc.nsLister, pc.log)
-			policyContext, err := backgroundcommon.NewBackgroundContext(pc.log, pc.client, ur.Spec.Context, policy, trigger, pc.configuration, pc.jp, namespaceLabels)
+			policyContext, err := common.NewBackgroundContext(pc.log, pc.client, ur.Spec.Context, policy, trigger, pc.configuration, pc.jp, namespaceLabels)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err))
 			}
