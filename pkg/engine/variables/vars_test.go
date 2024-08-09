@@ -1050,7 +1050,7 @@ func TestFormAbsolutePath_EmptyPath(t *testing.T) {
 
 func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
 	absolutePath := "/spec/containers/0/resources/requests/memory"
-	referencePath := "$(<=./../../limits/memory)"
+	referencePath := "<=./../../limits/memory"
 
 	rawPattern := []byte(`{
 		"spec":{
