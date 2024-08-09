@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: gctx
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: Deployment
+  policy: gctx
+  resources:
+  - test-gctx/new-deployment
+  result: pass
+  rule: main-deployment-exists
+variables: values.yaml
