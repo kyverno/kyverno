@@ -70,7 +70,7 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov2.Updat
 	if urSpec.GetRequestType() == kyvernov2.Mutate {
 		queryLabels = common.MutateLabelsSet(urSpec.Policy, urSpec.GetResource())
 	} else if urSpec.GetRequestType() == kyvernov2.Generate {
-		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.GetResource())
+		queryLabels = common.GenerateLabelsSet(urSpec.Policy)
 	}
 
 	l.V(4).Info("creating new UpdateRequest")

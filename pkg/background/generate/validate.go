@@ -43,7 +43,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
 			return path, fmt.Errorf("pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
-		return validateMap(log, typedResourceElement, typedPatternElement, originPattern, path)
+		return validateMap(typedResourceElement, typedPatternElement, originPattern, path)
 	// array
 	case []interface{}:
 		typedResourceElement, ok := resourceElement.([]interface{})
@@ -67,7 +67,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
-func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
+func validateMap(resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string) (string, error) {
 	patternMap = wildcards.ExpandInMetadata(patternMap, resourceMap)
 	sortedResourceKeys := list.New()
 	for k := range patternMap {

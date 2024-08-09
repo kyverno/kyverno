@@ -5,8 +5,6 @@ import (
 	"io"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -80,23 +78,10 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 		return nil, err
 	}
 
-	gr := kyvernov2.UpdateRequest{
-		Spec: kyvernov2.UpdateRequestSpec{
-			Type:   kyvernov2.Generate,
-			Policy: generateResponse.Policy().GetName(),
-			Resource: kyvernov1.ResourceSpec{
-				Kind:       generateResponse.Resource.GetKind(),
-				Namespace:  generateResponse.Resource.GetNamespace(),
-				Name:       generateResponse.Resource.GetName(),
-				APIVersion: generateResponse.Resource.GetAPIVersion(),
-			},
-		},
-	}
-
 	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		genResource, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, gr, []string{rule.Name()})
+		genResource, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, []string{rule.Name()})
 		if err != nil {
 			return nil, err
 		}

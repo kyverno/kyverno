@@ -28,6 +28,7 @@ import (
 type UpdateRequestSpecApplyConfiguration struct {
 	Type             *v2.RequestType                             `json:"requestType,omitempty"`
 	Policy           *string                                     `json:"policy,omitempty"`
+	RuleContext      []RuleContextApplyConfiguration             `json:"ruleContext,omitempty"`
 	Rule             *string                                     `json:"rule,omitempty"`
 	DeleteDownstream *bool                                       `json:"deleteDownstream,omitempty"`
 	Synchronize      *bool                                       `json:"synchronize,omitempty"`
@@ -54,6 +55,19 @@ func (b *UpdateRequestSpecApplyConfiguration) WithType(value v2.RequestType) *Up
 // If called multiple times, the Policy field is set to the value of the last call.
 func (b *UpdateRequestSpecApplyConfiguration) WithPolicy(value string) *UpdateRequestSpecApplyConfiguration {
 	b.Policy = &value
+	return b
+}
+
+// WithRuleContext adds the given value to the RuleContext field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the RuleContext field.
+func (b *UpdateRequestSpecApplyConfiguration) WithRuleContext(values ...*RuleContextApplyConfiguration) *UpdateRequestSpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithRuleContext")
+		}
+		b.RuleContext = append(b.RuleContext, *values[i])
+	}
 	return b
 }
 

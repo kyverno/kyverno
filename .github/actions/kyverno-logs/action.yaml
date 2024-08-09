@@ -16,13 +16,11 @@ runs:
         kubectl -n kyverno describe pod | grep -i events -A10
     - shell: bash
       run: |
-        kubectl -n kyverno logs deploy/kyverno-admission-controller --all-containers -p || true
-        kubectl -n kyverno logs deploy/kyverno-reports-controller --all-containers -p || true
-        kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
-        kubectl -n kyverno logs deploy/kyverno-background-controller --all-containers -p || true
+        kubectl -n kyverno get ur
+        kubectl -n kyverno get ur -o yaml
     - shell: bash
       run: |
         kubectl -n kyverno logs deploy/kyverno-admission-controller --all-containers
+        kubectl -n kyverno logs deploy/kyverno-background-controller --all-containers
         kubectl -n kyverno logs deploy/kyverno-reports-controller --all-containers
         kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers
-        kubectl -n kyverno logs deploy/kyverno-background-controller --all-containers

@@ -37,3 +37,14 @@ func castPolicy(p interface{}) kyvernov1.PolicyInterface {
 	}
 	return policy
 }
+
+func policyKey(policy kyvernov1.PolicyInterface) string {
+	var policyNameNamespaceKey string
+
+	if policy.IsNamespaced() {
+		policyNameNamespaceKey = policy.GetNamespace() + "/" + policy.GetName()
+	} else {
+		policyNameNamespaceKey = policy.GetName()
+	}
+	return policyNameNamespaceKey
+}
