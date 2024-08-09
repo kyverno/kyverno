@@ -26,10 +26,6 @@ func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.Po
 		return err
 	}
 
-	if !policy.GetSpec().IsGenerateExisting() {
-		return nil
-	}
-
 	logger.V(4).Info("reconcile policy with generateExisting enabled")
 	if err := pc.handleGenerateForExisting(policy); err != nil {
 		logger.Error(err, "failed to create UR for generateExisting")
@@ -80,6 +76,18 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		if !rule.HasGenerate() {
 			continue
 		}
+
+		// check if the rule sets the generateExisting field.
+		// if not, use the policy level setting
+		generateExisting := rule.Generation.GenerateExisting
+		if generateExisting != nil {
+			if !*generateExisting {
+				continue
+			}
+		} else if !policy.GetSpec().GenerateExisting {
+			continue
+		}
+
 		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
