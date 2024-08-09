@@ -1,6 +1,7 @@
 package policycontext
 
 import (
+	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -9,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -207,9 +209,23 @@ func NewPolicyContext(
 	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
-	if err := enginectx.AddImageInfos(&resource, configuration); err != nil {
-		return nil, err
+
+	// Create and add the ImageInfoLoader to the context
+	imageInfoLoader := &ImageInfoLoader{
+		resource:      &resource,
+		configuration: configuration,
+		eCtx:          enginectx,
 	}
+	if toggle.FromContext(context.Background()).EnableDeferredLoading() {
+		if err := enginectx.AddDeferredLoader(imageInfoLoader); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := imageInfoLoader.LoadData(); err != nil {
+			return nil, err
+		}
+	}
+
 	if admissionInfo != nil {
 		if err := enginectx.AddUserInfo(*admissionInfo); err != nil {
 			return nil, err
@@ -232,6 +248,33 @@ func NewPolicyContext(
 	}
 
 	return policyContext, nil
+}
+
+type ImageInfoLoader struct {
+	resource      *unstructured.Unstructured
+	configuration config.Configuration
+	hasLoaded     bool
+	eCtx          enginectx.Interface
+}
+
+func (l *ImageInfoLoader) Name() string {
+	return "ImageInfoLoader"
+}
+
+func (l *ImageInfoLoader) Matches(query string) bool {
+	return query == "imageinfo"
+}
+
+func (l *ImageInfoLoader) HasLoaded() bool {
+	return l.hasLoaded
+}
+
+func (l *ImageInfoLoader) LoadData() error {
+	if err := l.eCtx.AddImageInfos(l.resource, l.configuration); err != nil {
+		return err
+	}
+	l.hasLoaded = true
+	return nil
 }
 
 func NewPolicyContextFromAdmissionRequest(
