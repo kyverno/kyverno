@@ -197,7 +197,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -2697,7 +2696,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -5197,7 +5195,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -22509,7 +22506,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -22763,7 +22759,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -40078,7 +40073,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -41362,7 +41356,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -42154,7 +42147,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -42513,7 +42505,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -42872,7 +42863,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
@@ -43258,7 +43248,6 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
