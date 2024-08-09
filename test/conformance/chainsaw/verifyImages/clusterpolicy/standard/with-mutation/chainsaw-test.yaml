@@ -1,0 +1,27 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: with-mutation
+spec:
+  timeouts:
+    delete: 2m
+  steps:
+    - name: step-01
+      try:
+        - apply:
+            file: ns.yaml
+        - apply:
+            file: mut-cpol.yaml
+        - assert:
+            file: mut-cpol-assert.yaml
+        - apply:
+            file: img-cpol.yaml
+        - assert:
+            file: img-cpol-assert.yaml
+    - name: step-02
+      try:
+        - apply:
+            file: test-pod.yaml
+        - assert:
+            file: test-pod-assert.yaml
