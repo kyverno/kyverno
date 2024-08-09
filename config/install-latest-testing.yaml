@@ -44,16 +44,6 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kyverno-cleanup-jobs
-  namespace: kyverno
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: kyverno-reports-controller
   namespace: kyverno
   labels:
@@ -5232,9 +5222,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -8637,12 +8624,10 @@ spec:
                         validationFailureAction:
                           description: |-
                             ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
+                            the admission review request (Enforce), or allow (Audit) the admission review request
                             and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
+                            Allowed values are Audit or Enforce.
                           enum:
-                          - audit
-                          - enforce
                           - Audit
                           - Enforce
                           type: string
@@ -9478,6 +9463,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule.
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -13005,12 +12996,10 @@ spec:
                             validationFailureAction:
                               description: |-
                                 ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
+                                the admission review request (Enforce), or allow (Audit) the admission review request
                                 and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
+                                Allowed values are Audit or Enforce.
                               enum:
-                              - audit
-                              - enforce
                               - Audit
                               - Enforce
                               type: string
@@ -13859,6 +13848,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -13999,9 +13994,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -17176,12 +17168,10 @@ spec:
                         validationFailureAction:
                           description: |-
                             ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
+                            the admission review request (Enforce), or allow (Audit) the admission review request
                             and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
+                            Allowed values are Audit or Enforce.
                           enum:
-                          - audit
-                          - enforce
                           - Audit
                           - Enforce
                           type: string
@@ -17986,6 +17976,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -21513,12 +21509,10 @@ spec:
                             validationFailureAction:
                               description: |-
                                 ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
+                                the admission review request (Enforce), or allow (Audit) the admission review request
                                 and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
+                                Allowed values are Audit or Enforce.
                               enum:
-                              - audit
-                              - enforce
                               - Audit
                               - Enforce
                               type: string
@@ -22367,6 +22361,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -22788,9 +22788,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -26194,12 +26191,10 @@ spec:
                         validationFailureAction:
                           description: |-
                             ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
+                            the admission review request (Enforce), or allow (Audit) the admission review request
                             and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
+                            Allowed values are Audit or Enforce.
                           enum:
-                          - audit
-                          - enforce
                           - Audit
                           - Enforce
                           type: string
@@ -27035,6 +27030,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule.
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -30563,12 +30564,10 @@ spec:
                             validationFailureAction:
                               description: |-
                                 ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
+                                the admission review request (Enforce), or allow (Audit) the admission review request
                                 and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
+                                Allowed values are Audit or Enforce.
                               enum:
-                              - audit
-                              - enforce
                               - Audit
                               - Enforce
                               type: string
@@ -31417,6 +31416,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -31557,9 +31562,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -34735,12 +34737,10 @@ spec:
                         validationFailureAction:
                           description: |-
                             ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (enforce), or allow (audit) the admission review request
+                            the admission review request (Enforce), or allow (Audit) the admission review request
                             and report an error in a policy report. Optional.
-                            Allowed values are audit or enforce.
+                            Allowed values are Audit or Enforce.
                           enum:
-                          - audit
-                          - enforce
                           - Audit
                           - Enforce
                           type: string
@@ -35545,6 +35545,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -39072,12 +39078,10 @@ spec:
                             validationFailureAction:
                               description: |-
                                 ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (enforce), or allow (audit) the admission review request
+                                the admission review request (Enforce), or allow (Audit) the admission review request
                                 and report an error in a policy report. Optional.
-                                Allowed values are audit or enforce.
+                                Allowed values are Audit or Enforce.
                               enum:
-                              - audit
-                              - enforce
                               - Audit
                               - Enforce
                               type: string
@@ -39926,6 +39930,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -43997,33 +44007,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:cleanup-jobs
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - updaterequests
-    verbs:
-      - list
-      - deletecollection
-      - delete
-  - apiGroups:
-      - reports.kyverno.io
-    resources:
-      - ephemeralreports
-      - clusterephemeralreports
-    verbs:
-      - list
-      - deletecollection
-      - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: kyverno:rbac:admin:policies
   labels:
     app.kubernetes.io/component: rbac
@@ -44366,23 +44349,6 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-cleanup-controller
   namespace: kyverno
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:cleanup-jobs
-  labels:
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:cleanup-jobs
-subjects:
-  - kind: ServiceAccount
-    name: kyverno-cleanup-jobs
-    namespace: kyverno
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

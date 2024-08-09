@@ -8,8 +8,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -76,7 +74,9 @@ type Rule struct {
 	// will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
-	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *ConditionsWrapper `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
 	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of CEL conditions. It can only be used with the validate.cel subrule
@@ -160,6 +160,11 @@ func (r *Rule) HasValidateCEL() bool {
 	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &CEL{})
 }
 
+// HasValidateAssert checks for validate.assert rule
+func (r *Rule) HasValidateAssert() bool {
+	return !datautils.DeepEqual(r.Validation.Assert, AssertionTree{})
+}
+
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
 	return !datautils.DeepEqual(r.Validation, Validation{})
@@ -181,12 +186,19 @@ func (r *Rule) GetTypeAndSyncAndOrphanDownstream() (_ GenerateType, sync bool, o
 	return r.Generation.GetTypeAndSyncAndOrphanDownstream()
 }
 
-func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(r.RawAnyAllConditions)
+func (r *Rule) GetAnyAllConditions() any {
+	if r.RawAnyAllConditions == nil {
+		return nil
+	}
+	return r.RawAnyAllConditions.Conditions
 }
 
-func (r *Rule) SetAnyAllConditions(in apiextensions.JSON) {
-	r.RawAnyAllConditions = ToJSON(in)
+func (r *Rule) SetAnyAllConditions(in any) {
+	var new *ConditionsWrapper
+	if in != nil {
+		new = &ConditionsWrapper{in}
+	}
+	r.RawAnyAllConditions = new
 }
 
 // ValidateRuleType checks only one type of rule is defined per rule

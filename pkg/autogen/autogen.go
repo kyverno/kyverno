@@ -19,6 +19,7 @@ const (
 var (
 	PodControllers         = sets.New("DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController", "CronJob")
 	podControllersKindsSet = PodControllers.Union(sets.New("Pod"))
+	assertAutogenNodes     = []string{"object", "oldObject"}
 )
 
 func isKindOtherthanPod(kinds []string) bool {
@@ -215,7 +216,7 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		out.Context = *rule.Context
 	}
 	if rule.AnyAllConditions != nil {
-		out.SetAnyAllConditions(*rule.AnyAllConditions)
+		out.SetAnyAllConditions(rule.AnyAllConditions.Conditions)
 	}
 	if rule.Mutation != nil {
 		out.Mutation = *rule.Mutation
@@ -274,4 +275,39 @@ func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	}
 	out = append(out, genRules...)
 	return out
+}
+
+func copyMap(m map[string]any) map[string]any {
+	newMap := make(map[string]any, len(m))
+	for k, v := range m {
+		newMap[k] = v
+	}
+
+	return newMap
+}
+
+func createAutogenAssertion(tree kyvernov1.AssertionTree, tplKey string) kyvernov1.AssertionTree {
+	v, ok := tree.Value.(map[string]any)
+	if !ok {
+		return tree
+	}
+
+	value := copyMap(v)
+
+	for _, n := range assertAutogenNodes {
+		object, ok := v[n].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		value[n] = map[string]any{
+			"spec": map[string]any{
+				tplKey: copyMap(object),
+			},
+		}
+	}
+
+	return kyvernov1.AssertionTree{
+		Value: value,
+	}
 }
