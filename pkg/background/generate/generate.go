@@ -30,9 +30,9 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	validationpolicy "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -93,33 +93,30 @@ func NewGenerateController(
 
 func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
-	var err error
 	var genResources []kyvernov1.ResourceSpec
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
+	var failures []error
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
+		rule := ur.Spec.RuleContext[i]
 		trigger, err := c.getTrigger(ur.Spec, i)
 		if err != nil || trigger == nil {
-			logger.V(3).Info("the trigger resource does not exist or is pending creation")
-			if err := updateStatus(c.statusControl, *ur, err, nil); err != nil {
-				return err
-			}
-			return nil
+			logger.V(4).Info("the trigger resource does not exist or is pending creation")
+			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: %v", rule.Rule, err))
+			continue
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
 		genResources, err = c.applyGenerate(*trigger, *ur, i, namespaceLabels)
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
-				ur.Status.State = kyvernov2.Completed
-				logger.V(4).Info(fmt.Sprintf("%s, updating UR status to Completed", err.Error()))
-				_, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-				return err
+				logger.V(4).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
 			}
 
 			policy, err := c.getPolicyObject(*ur)
 			if err != nil {
-				return err
+				failures = append(failures, fmt.Errorf("rule %v failed: failed to get policy object: %s", rule.Rule, err))
+				continue
 			}
 
 			events := event.NewBackgroundFailedEvent(err, policy, ur.Spec.RuleContext[i].Rule, event.GeneratePolicyController,
@@ -127,10 +124,8 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			c.eventGen.Add(events...)
 		}
 	}
-	if err = updateStatus(c.statusControl, *ur, err, genResources); err != nil {
-		return err
-	}
-	return err
+
+	return updateStatus(c.statusControl, *ur, multierr.Combine(failures...), genResources)
 }
 
 const doesNotApply = "policy does not apply to resource"
