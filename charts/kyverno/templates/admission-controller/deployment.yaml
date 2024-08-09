@@ -101,6 +101,8 @@ spec:
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+          - name: KYVERNO_ROLE_NAME
+            value: {{ template "kyverno.admission-controller.roleName" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
@@ -215,6 +217,8 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+          - name: KYVERNO_ROLE_NAME
+            value: {{ template "kyverno.admission-controller.roleName" . }}
           - name: KYVERNO_SVC
             value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT

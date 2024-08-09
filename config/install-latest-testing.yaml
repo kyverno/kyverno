@@ -44383,10 +44383,12 @@ rules:
       - ''
     resources:
       - secrets
+      - serviceaccounts
     verbs:
       - get
       - list
       - watch
+      - patch
       - create
       - update
       - delete
@@ -44848,6 +44850,8 @@ spec:
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-admission-controller
+          - name: KYVERNO_ROLE_NAME
+            value: kyverno:admission-controller
           - name: INIT_CONFIG
             value: kyverno
           - name: METRICS_CONFIG
@@ -44933,6 +44937,8 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-admission-controller
+          - name: KYVERNO_ROLE_NAME
+            value: kyverno:admission-controller
           - name: KYVERNO_SVC
             value: kyverno-svc
           - name: TUF_ROOT
