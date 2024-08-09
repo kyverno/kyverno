@@ -91,8 +91,12 @@ func generateKey(policy kyvernov1.PolicyInterface, ruleName string, imageRef str
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }
 
-func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
+func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string, useCache bool) (bool, error) {
 	if !c.isCacheEnabled {
+		// If cache is globally disabled just return
+		return false, nil
+	} else if !useCache {
+		// Else If enabled globally then return if locally disabled
 		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
@@ -105,8 +109,12 @@ func (c *cache) Set(ctx context.Context, policy kyvernov1.PolicyInterface, ruleN
 	return false, nil
 }
 
-func (c *cache) Get(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string) (bool, error) {
+func (c *cache) Get(ctx context.Context, policy kyvernov1.PolicyInterface, ruleName string, imageRef string, useCache bool) (bool, error) {
 	if !c.isCacheEnabled {
+		// If cache is globally disabled just return
+		return false, nil
+	} else if !useCache {
+		// Else If enabled globally then return if locally disabled
 		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)

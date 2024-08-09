@@ -219,7 +219,7 @@ func TestImageVerificationMetadata_Merge(t *testing.T) {
 		Data map[string]ImageVerificationMetadataStatus
 	}
 	type args struct {
-		other ImageVerificationMetadata
+		other *ImageVerificationMetadata
 	}
 	tests := []struct {
 		name   string
@@ -227,15 +227,17 @@ func TestImageVerificationMetadata_Merge(t *testing.T) {
 		args   args
 		want   *ImageVerificationMetadata
 	}{{
+		name: "empty ivm",
 		want: &ImageVerificationMetadata{},
 	}, {
+		name: "replace entry in ivm",
 		fields: fields{
 			Data: map[string]ImageVerificationMetadataStatus{
 				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
-			other: ImageVerificationMetadata{
+			other: &ImageVerificationMetadata{
 				Data: map[string]ImageVerificationMetadataStatus{
 					"test": ImageVerificationFail,
 				},
@@ -247,13 +249,14 @@ func TestImageVerificationMetadata_Merge(t *testing.T) {
 			},
 		},
 	}, {
+		name: "concat maps",
 		fields: fields{
 			Data: map[string]ImageVerificationMetadataStatus{
 				"test": ImageVerificationPass,
 			},
 		},
 		args: args{
-			other: ImageVerificationMetadata{
+			other: &ImageVerificationMetadata{
 				Data: map[string]ImageVerificationMetadataStatus{
 					"test2": ImageVerificationFail,
 				},
