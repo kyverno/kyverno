@@ -11,6 +11,14 @@ func NewFakeAuth() *FakeAuth {
 	return &a
 }
 
+func (a *FakeAuth) User() string {
+	return "fake"
+}
+
+func (a *FakeAuth) CanI(ctx context.Context, verbs []string, gvk, namespace, name, subresource string) (bool, string, error) {
+	return true, "", nil
+}
+
 // CanICreate returns 'true'
 func (a *FakeAuth) CanICreate(_ context.Context, kind, namespace, name, sub string) (bool, error) {
 	return true, nil

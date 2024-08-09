@@ -106,7 +106,7 @@ func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logge
 		return
 	}
 
-	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig, h.backgroundServiceAccountName)
+	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig, h.backgroundServiceAccountName, h.reportsServiceAccountName)
 	var policies []kyvernov1.PolicyInterface
 	for _, p := range generatePolicies {
 		new := skipBackgroundRequests(p, logger, h.backgroundServiceAccountName, policyContext.AdmissionInfo().AdmissionUserInfo.Username)

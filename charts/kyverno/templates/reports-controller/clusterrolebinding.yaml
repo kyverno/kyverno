@@ -14,5 +14,22 @@ subjects:
 - kind: ServiceAccount
   name: {{ template "kyverno.reports-controller.serviceAccountName" . }}
   namespace: {{ template "kyverno.namespace" . }}
+{{- if .Values.reportsController.rbac.createViewRoleBinding }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.reports-controller.roleName" . }}:view
+  labels:
+    {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.reportsController.rbac.viewRoleName }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+{{- end -}}
 {{- end -}}
 {{- end -}}

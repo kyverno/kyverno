@@ -128,7 +128,7 @@ func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFa
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient versioned.Interface, mock bool, username string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient versioned.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -322,13 +322,11 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		msg, err := validateActions(i, &rules[i], client, mock, username)
+		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA)
 		if err != nil {
 			return warnings, err
-		} else {
-			if len(msg) != 0 {
-				warnings = append(warnings, msg)
-			}
+		} else if len(w) > 0 {
+			warnings = append(warnings, w...)
 		}
 
 		if rule.HasVerifyImages() {

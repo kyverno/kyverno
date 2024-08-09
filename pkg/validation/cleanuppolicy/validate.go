@@ -73,17 +73,14 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	resourceFilters := spec.MatchResources.GetResourceFilters()
 	for _, res := range resourceFilters {
 		for _, kind := range res.Kinds {
-			if len(res.Names) == 0 {
-				err := canI(ctx, client, kind, namespace, "", "")
+			names := res.Names
+			if len(names) == 0 {
+				names = append(names, "")
+			}
+			for _, name := range names {
+				err := canI(ctx, client, kind, namespace, name, "")
 				if err != nil {
 					return err
-				}
-			} else {
-				for _, name := range res.Names {
-					err := canI(ctx, client, kind, namespace, name, "")
-					if err != nil {
-						return err
-					}
 				}
 			}
 		}

@@ -43,6 +43,7 @@ func NewGenerationHandler(
 	eventGen event.Interface,
 	metrics metrics.MetricsConfigManager,
 	backgroundServiceAccountName string,
+	reportsServiceAccountName string,
 ) GenerationHandler {
 	return &generationHandler{
 		log:                          log,
@@ -57,6 +58,7 @@ func NewGenerationHandler(
 		eventGen:                     eventGen,
 		metrics:                      metrics,
 		backgroundServiceAccountName: backgroundServiceAccountName,
+		reportsServiceAccountName:    reportsServiceAccountName,
 	}
 }
 
@@ -73,6 +75,7 @@ type generationHandler struct {
 	eventGen                     event.Interface
 	metrics                      metrics.MetricsConfigManager
 	backgroundServiceAccountName string
+	reportsServiceAccountName    string
 }
 
 func (h *generationHandler) Handle(

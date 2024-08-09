@@ -8,6 +8,8 @@ spec:
   - name: step-01
     try:
     - apply:
+        file: permissions.yaml
+    - apply:
         file: manifests.yaml
     - assert:
         file: policy-ready.yaml
