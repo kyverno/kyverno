@@ -17,12 +17,101 @@ webhooks:
     - UPDATE
     resources:
     - pods/attach
+    scope: 'Namespaced'
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
     - pods/binding
+    scope: 'Namespaced'
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
     - pods/ephemeralcontainers
+    scope: 'Namespaced'
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
     - pods/eviction
+    scope: 'Namespaced'
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
     - pods/exec
+    scope: 'Namespaced'
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
     - pods/log
+    scope: 'Namespaced'
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
     - pods/portforward
+    scope: 'Namespaced'
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
     - pods/proxy
+    scope: 'Namespaced'
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CONNECT
+    - CREATE
+    - DELETE
+    - UPDATE
+    resources:
     - pods/status
     scope: 'Namespaced'
+ 
