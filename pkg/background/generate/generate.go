@@ -282,7 +282,10 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 				}
 			}
 		} else {
-			applicableRules = append(applicableRules, r.Name())
+			ruleName := r.Name()
+			if ruleName == ur.Spec.Rule {
+				applicableRules = append(applicableRules, ruleName)
+			}
 		}
 	}
 

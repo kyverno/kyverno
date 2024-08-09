@@ -1,0 +1,55 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-multiple-generate-rules
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/title: Automation for ingress
+    policies.kyverno.io/category: Automation
+    policies.kyverno.io/description: Policies to automate resource creation for ingress
+spec:
+  generateExisting: true
+  mutateExistingOnPolicyUpdate: true
+  rules:
+  # Generate a ConfigMap
+  - name: generate-configmap
+    match:
+      any:
+      - resources:
+          kinds:
+          - "Ingress"
+          selector:
+            matchLabels:
+              example.com/patch-me: "1"
+    generate:
+      orphanDownstreamOnPolicyDelete: true
+      synchronize: true
+      apiVersion: v1
+      kind: ConfigMap
+      name: "{{ request.object.metadata.name }}-{{ random('[0-9a-z]{5}') }}"
+      namespace: "default"
+      data:
+        data:
+          serviceName: "{{ request.object.spec.rules[0].http.paths[0].backend.service.name }}"
+          servicePort: "port-num-{{ request.object.spec.rules[0].http.paths[0].backend.service.port.number }}"
+  # Generate a Secret
+  - name: generate-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - "Ingress"
+          selector:
+            matchLabels:
+              example.com/patch-me: "1"
+    generate:
+      orphanDownstreamOnPolicyDelete: true
+      synchronize: true
+      apiVersion: v1
+      kind: Secret
+      name: "{{ request.object.metadata.name }}-{{ random('[0-9a-z]{5}') }}"
+      namespace: "default"
+      data:
+        stringData:
+          serviceName: "{{ request.object.spec.rules[0].http.paths[0].backend.service.name }}"
+          servicePort: "port-num-{{ request.object.spec.rules[0].http.paths[0].backend.service.port.number }}"

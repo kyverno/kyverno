@@ -1,0 +1,37 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-multiple-generate-rules
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: cluster-role-binding.yaml
+    - apply:
+        file: cluster-role.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: ingress.yaml
+    - assert:
+        file: ingress-ready.yaml
+  - name: step-03
+    try:
+    - sleep:
+        duration: 10s
+    - script:
+        content: if [ $(kubectl get secret -n default | grep "cpol-multiple-generate-rules-" | wc -l | tr -s ' ') -eq 1 ]; then exit; else (exit 1); fi
+  - name: step-04
+    try:
+    - sleep:
+        duration: 10s
+    - script:
+        content: if [ $(kubectl get configmap -n default | grep "cpol-multiple-generate-rules-" | wc -l | tr -s ' ') -eq 1 ]; then exit; else (exit 1); fi
