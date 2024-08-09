@@ -105,6 +105,12 @@ spec:
                       such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
                     format: duration
                     type: string
+                  retryLimit:
+                    default: 3
+                    description: RetryLimit defines the number of times the APICall
+                      should be retried in case of failure.
+                    minimum: 1
+                    type: integer
                   service:
                     description: |-
                       Service is an API call to a JSON web service.
