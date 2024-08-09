@@ -92,11 +92,7 @@ func NewGenerateController(
 }
 
 func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
-<<<<<<< HEAD
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
-=======
-	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "rule", ur.Spec.GetRuleName(), "resource", ur.Spec.GetResource().String())
->>>>>>> main
 	var err error
 	var genResources []kyvernov1.ResourceSpec
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
