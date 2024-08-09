@@ -24,6 +24,7 @@ spec:
     - sleep:
         duration: 2s
   - name: step-04
+    try:
     - assert:
         file: target.yaml
   - name: step-05
