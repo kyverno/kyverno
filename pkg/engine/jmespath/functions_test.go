@@ -214,7 +214,7 @@ func Test_Replace(t *testing.T) {
 	// Can't use integer literals due to
 	// https://github.com/jmespath/go-jmespath/issues/27
 	//
-	// TODO: fix this in https://github.com/kyverno/go-jmespath
+	// TODO: fix this in https://github.com/jmespath-community/go-jmespath
 	testCases := []struct {
 		jmesPath       string
 		expectedResult string

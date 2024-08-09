@@ -4,26 +4,26 @@ import (
 	"fmt"
 	"strings"
 
-	gojmespath "github.com/kyverno/go-jmespath"
+	"github.com/kyverno/go-community-jmespath/pkg/functions"
 )
 
 var (
-	jpObject      = gojmespath.JpObject
-	jpString      = gojmespath.JpString
-	jpNumber      = gojmespath.JpNumber
-	jpArray       = gojmespath.JpArray
-	jpArrayString = gojmespath.JpArrayString
-	jpAny         = gojmespath.JpAny
-	jpBool        = gojmespath.JpType("bool")
+	jpObject      = functions.JpObject
+	jpString      = functions.JpString
+	jpNumber      = functions.JpNumber
+	jpArray       = functions.JpArray
+	jpArrayString = functions.JpArrayString
+	jpAny         = functions.JpAny
+	jpBool        = functions.JpType("bool")
 )
 
 type (
-	jpType  = gojmespath.JpType
-	argSpec = gojmespath.ArgSpec
+	jpType  = functions.JpType
+	argSpec = functions.ArgSpec
 )
 
 type FunctionEntry struct {
-	gojmespath.FunctionEntry
+	functions.FunctionEntry
 	Note       string
 	ReturnType []jpType
 }
