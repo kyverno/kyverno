@@ -24,7 +24,9 @@ type KeylessAttestorApplyConfiguration struct {
 	Rekor                *RekorApplyConfiguration `json:"rekor,omitempty"`
 	CTLog                *CTLogApplyConfiguration `json:"ctlog,omitempty"`
 	Issuer               *string                  `json:"issuer,omitempty"`
+	IssuerRegExp         *string                  `json:"issuerRegExp,omitempty"`
 	Subject              *string                  `json:"subject,omitempty"`
+	SubjectRegExp        *string                  `json:"subjectRegExp,omitempty"`
 	Roots                *string                  `json:"roots,omitempty"`
 	AdditionalExtensions map[string]string        `json:"additionalExtensions,omitempty"`
 }
@@ -59,11 +61,27 @@ func (b *KeylessAttestorApplyConfiguration) WithIssuer(value string) *KeylessAtt
 	return b
 }
 
+// WithIssuerRegExp sets the IssuerRegExp field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IssuerRegExp field is set to the value of the last call.
+func (b *KeylessAttestorApplyConfiguration) WithIssuerRegExp(value string) *KeylessAttestorApplyConfiguration {
+	b.IssuerRegExp = &value
+	return b
+}
+
 // WithSubject sets the Subject field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Subject field is set to the value of the last call.
 func (b *KeylessAttestorApplyConfiguration) WithSubject(value string) *KeylessAttestorApplyConfiguration {
 	b.Subject = &value
+	return b
+}
+
+// WithSubjectRegExp sets the SubjectRegExp field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SubjectRegExp field is set to the value of the last call.
+func (b *KeylessAttestorApplyConfiguration) WithSubjectRegExp(value string) *KeylessAttestorApplyConfiguration {
+	b.SubjectRegExp = &value
 	return b
 }
 

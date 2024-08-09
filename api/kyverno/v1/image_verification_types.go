@@ -256,9 +256,17 @@ type KeylessAttestor struct {
 	// +kubebuilder:validation:Optional
 	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 
+	// IssuerRegExp is the regular expression to match certificate issuer used for keyless signing.
+	// +kubebuilder:validation:Optional
+	IssuerRegExp string `json:"issuerRegExp,omitempty" yaml:"issuerRegExp,omitempty"`
+
 	// Subject is the verified identity used for keyless signing, for example the email address.
 	// +kubebuilder:validation:Optional
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
+
+	// SubjectRegExp is the regular expression to match identity used for keyless signing, for example the email address.
+	// +kubebuilder:validation:Optional
+	SubjectRegExp string `json:"subjectRegExp,omitempty" yaml:"subjectRegExp,omitempty"`
 
 	// Roots is an optional set of PEM encoded trusted root certificates.
 	// If not provided, the system roots are used.
