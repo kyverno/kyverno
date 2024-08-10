@@ -69,7 +69,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 	reverse := false
 	// if it's a patch strategic merge, reverse by default
-	if foreach.RawPatchStrategicMerge != nil {
+	if foreach.GetPatchStrategicMerge() != nil {
 		reverse = true
 	}
 	if foreach.Order != nil {
