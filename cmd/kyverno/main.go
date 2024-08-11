@@ -51,6 +51,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
+	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -112,6 +113,7 @@ func createrLeaderControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	caInformer corev1informers.SecretInformer,
 	tlsInformer corev1informers.SecretInformer,
+	deploymentInformer appsv1informers.DeploymentInformer,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
@@ -141,6 +143,7 @@ func createrLeaderControllers(
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
@@ -154,6 +157,8 @@ func createrLeaderControllers(
 		runtime,
 		configuration,
 		caSecretName,
+		webhookcontroller.WebhookCleanupSetup(kubeClient),
+		webhookcontroller.WebhookCleanupHandler(kubeClient),
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
@@ -322,7 +327,8 @@ func main() {
 		}
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
-		if !informers.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, caSecret, tlsSecret) {
+		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), resyncPeriod)
+		if !informers.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, caSecret, tlsSecret, kyvernoDeployment) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
@@ -467,6 +473,7 @@ func main() {
 					kyvernoInformer,
 					caSecret,
 					tlsSecret,
+					kyvernoDeployment,
 					setup.KubeClient,
 					setup.KyvernoClient,
 					setup.KyvernoDynamicClient,
@@ -582,7 +589,6 @@ func main() {
 			kubeInformer.Rbac().V1().RoleBindings().Lister(),
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
-			webhooks.PostWebhookCleanupHandler(setup.Logger.WithName("webhook-cleanup"), setup.KubeClient),
 			int32(webhookServerPort),
 		)
 		// start informers and wait for cache sync

@@ -62,12 +62,11 @@ type ResourceHandlers interface {
 }
 
 type server struct {
-	server                    *http.Server
-	runtime                   runtimeutils.Runtime
-	mwcClient                 controllerutils.DeleteCollectionClient
-	vwcClient                 controllerutils.DeleteCollectionClient
-	leaseClient               controllerutils.DeleteClient
-	postWebhookCleanupHandler func(context.Context)
+	server      *http.Server
+	runtime     runtimeutils.Runtime
+	mwcClient   controllerutils.DeleteCollectionClient
+	vwcClient   controllerutils.DeleteCollectionClient
+	leaseClient controllerutils.DeleteClient
 }
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -90,7 +89,6 @@ func NewServer(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	discovery dclient.IDiscovery,
-	postWebhookCleanupHandler func(context.Context),
 	webhookServerPort int32,
 ) Server {
 	mux := httprouter.New()
@@ -213,11 +211,10 @@ func NewServer(
 			IdleTimeout:       5 * time.Minute,
 			ErrorLog:          logging.StdLogger(logger.WithName("server"), ""),
 		},
-		mwcClient:                 mwcClient,
-		vwcClient:                 vwcClient,
-		leaseClient:               leaseClient,
-		runtime:                   runtime,
-		postWebhookCleanupHandler: postWebhookCleanupHandler,
+		mwcClient:   mwcClient,
+		vwcClient:   vwcClient,
+		leaseClient: leaseClient,
+		runtime:     runtime,
 	}
 }
 
@@ -245,7 +242,6 @@ func (s *server) Stop() {
 
 func (s *server) cleanup(ctx context.Context) {
 	if s.runtime.IsGoingDown() {
-		defer s.postWebhookCleanupHandler(ctx)
 		deleteLease := func(name string) {
 			if err := s.leaseClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				logger.Error(err, "failed to clean up lease", "name", name)

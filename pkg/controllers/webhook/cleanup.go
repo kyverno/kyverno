@@ -1,4 +1,4 @@
-package webhooks
+package webhook
 
 import (
 	"context"
@@ -6,33 +6,20 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apimachinerytypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
 
-// PostWebhookCleanupHandler is run after webhook configuration cleanup is performed to delete roles and service account.
-// Admission controller cluster and namespaced roles and role bindings have finalizers to block their deletion until admission controller terminates.
-// This handler removes the finalizers on roles and service account after they are used to cleanup webhook cfg.
-// It does the following:
+// WebhookCleanupSetup creates temporary rbac owned by kyverno resources, these roles and cluster roles get automatically deleted when kyverno is uninstalled
+// It creates the following resources:
 //  1. Creates a temporary cluster role and cluster role binding with permission to delete kyverno's cluster role and set its owner ref to aggregated cluster role itself.
-//  2. Deletes the cluster scoped rbac in order:
-//     a. Removes finalizers from admission controller cluster role binding
-//     b. Removes finalizers from admission controller core cluster role
-//     c. Removes finalizers from admission controller aggregated cluster role
-//     d. Temporary cluster role and cluster role binding gets garbage collected after (c) automatically
-//  3. Creates a temporary role and role binding with permissions to delete a service account, roles and role bindings with owner ref set to the service account.
-//  4. Deletes the namespace scoped rbac in order:
-//     a. Removes finalizers from admission controller role binding.
-//     b. Removes finalizers from admission controller role.
-//     c. Removes finalizers from admission controller service account
-//     d. Temporary role and role binding gets garbage collected after (c) automatically
-func PostWebhookCleanupHandler(
-	logger logr.Logger,
+//  2. Creates a temporary role and role binding with permissions to delete a service account, roles and role bindings with owner ref set to the service account.
+func WebhookCleanupSetup(
 	kubeClient kubernetes.Interface,
-) func(context.Context) {
-	return func(ctx context.Context) {
-		finalizersRemovePatch := []byte(`[ { "op": "remove", "path": "/metadata/finalizers" } ]`)
+) func(context.Context, logr.Logger) error {
+	return func(ctx context.Context, logger logr.Logger) error {
 		name := config.KyvernoRoleName()
 		coreName := name + ":core"
 		tempRbacName := name + ":temporary"
@@ -41,7 +28,7 @@ func PostWebhookCleanupHandler(
 		cr, err := kubeClient.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			logger.Error(err, "failed to get cluster role binding")
-			return
+			return err
 		}
 
 		clusterRole := &rbacv1.ClusterRole{
@@ -68,7 +55,7 @@ func PostWebhookCleanupHandler(
 
 		if cr, err := kubeClient.RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{}); err != nil {
 			logger.Error(err, "failed to create temporary clusterrole", "name", cr.Name)
-			return
+			return err
 		} else {
 			logger.Info("temporary clusterrole created", "clusterrole", cr.Name)
 		}
@@ -102,38 +89,16 @@ func PostWebhookCleanupHandler(
 
 		if crb, err := kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{}); err != nil {
 			logger.Error(err, "failed to create temporary clusterrolebinding", "name", crb.Name)
-			return
+			return err
 		} else {
 			logger.Info("temporary clusterrolebinding created", "clusterrolebinding", crb.Name)
-		}
-
-		// cleanup cluster scoped rbac
-		if crb, err := kubeClient.RbacV1().ClusterRoleBindings().Patch(ctx, name, apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
-			logger.Error(err, "failed to patch clusterrolebindings")
-			return
-		} else {
-			logger.Info("finalizer removed from clusterrolebinding", "clusterrolebinding", crb.Name)
-		}
-
-		if cr, err := kubeClient.RbacV1().ClusterRoles().Patch(ctx, name, apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
-			logger.Error(err, "failed to patch clusterrole")
-			return
-		} else {
-			logger.Info("finalizer removed from clusterrole", "clusterrole", cr.Name)
-		}
-
-		if cr, err := kubeClient.RbacV1().ClusterRoles().Patch(ctx, coreName, apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
-			logger.Error(err, "failed to patch clusterrole")
-			return
-		} else {
-			logger.Info("finalizer removed from clusterrole", "clusterrole", cr.Name)
 		}
 
 		// create temporary rbac
 		sa, err := kubeClient.CoreV1().ServiceAccounts(config.KyvernoNamespace()).Get(ctx, config.KyvernoServiceAccountName(), metav1.GetOptions{})
 		if err != nil {
 			logger.Error(err, "failed to get service account")
-			return
+			return err
 		}
 
 		role := &rbacv1.Role{
@@ -167,7 +132,7 @@ func PostWebhookCleanupHandler(
 
 		if r, err := kubeClient.RbacV1().Roles(config.KyvernoNamespace()).Create(ctx, role, metav1.CreateOptions{}); err != nil {
 			logger.Error(err, "failed to create temporary role", "name", r.Name)
-			return
+			return err
 		} else {
 			logger.Info("temporary role created in kyverno namespace", "role", r.Name, "namespace", r.Namespace)
 		}
@@ -202,31 +167,107 @@ func PostWebhookCleanupHandler(
 
 		if rb, err := kubeClient.RbacV1().RoleBindings(config.KyvernoNamespace()).Create(ctx, roleBinding, metav1.CreateOptions{}); err != nil {
 			logger.Error(err, "failed to create temporary rolebinding", "name", rb.Name)
-			return
+			return err
 		} else {
 			logger.Info("temporary rolebinding created in kyverno namespace", "rolebinding", rb.Name, "namespace", rb.Namespace)
 		}
 
+		return nil
+	}
+}
+
+// WebhookCleanupHandler is run after webhook configuration cleanup is performed to delete roles and service account.
+// Admission controller cluster and namespaced roles and role bindings have finalizers to block their deletion until admission controller terminates.
+// This handler removes the finalizers on roles and service account after they are used to cleanup webhook cfg.
+// It does the following:
+//
+// Deletes the cluster scoped rbac in order:
+// a. Removes finalizers from admission controller cluster role binding
+// b. Removes finalizers from admission controller core cluster role
+// c. Removes finalizers from admission controller aggregated cluster role
+// d. Temporary cluster role and cluster role binding created by WebhookCleanupSetup gets garbage collected after (c) automatically
+//
+// Deletes the namespace scoped rbac in order:
+// a. Removes finalizers from admission controller role binding.
+// b. Removes finalizers from admission controller role.
+// c. Removes finalizers from admission controller service account
+// d. Temporary role and role binding created by WebhookCleanupSetup gets garbage collected after (c) automatically
+func WebhookCleanupHandler(
+	kubeClient kubernetes.Interface,
+) func(context.Context, logr.Logger) error {
+	return func(ctx context.Context, logger logr.Logger) error {
+		finalizersRemovePatch := []byte(`[ { "op": "remove", "path": "/metadata/finalizers" } ]`)
+		name := config.KyvernoRoleName()
+		coreName := name + ":core"
+
+		// cleanup cluster scoped rbac
+		if crb, err := kubeClient.RbacV1().ClusterRoleBindings().Patch(ctx, name, apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Error(err, "already queued for deletion")
+				return nil
+			}
+			logger.Error(err, "failed to patch clusterrolebindings")
+			return err
+		} else {
+			logger.Info("finalizer removed from clusterrolebinding", "clusterrolebinding", crb.Name)
+		}
+
+		if cr, err := kubeClient.RbacV1().ClusterRoles().Patch(ctx, name, apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Error(err, "already queued for deletion")
+				return nil
+			}
+			logger.Error(err, "failed to patch clusterrole")
+			return err
+		} else {
+			logger.Info("finalizer removed from clusterrole", "clusterrole", cr.Name)
+		}
+
+		if cr, err := kubeClient.RbacV1().ClusterRoles().Patch(ctx, coreName, apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Error(err, "already queued for deletion")
+				return nil
+			}
+			logger.Error(err, "failed to patch clusterrole")
+			return err
+		} else {
+			logger.Info("finalizer removed from clusterrole", "clusterrole", cr.Name)
+		}
+
 		// cleanup namespace scoped rbac
 		if rb, err := kubeClient.RbacV1().RoleBindings(config.KyvernoNamespace()).Patch(ctx, name, apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Error(err, "already queued for deletion")
+				return nil
+			}
 			logger.Error(err, "failed to patch rolebinding")
-			return
+			return err
 		} else {
 			logger.Info("finalizer removed from rolebinding", "rolebinding", rb.Name, "namespace", rb.Namespace)
 		}
 
 		if r, err := kubeClient.RbacV1().Roles(config.KyvernoNamespace()).Patch(ctx, name, apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Error(err, "already queued for deletion")
+				return nil
+			}
 			logger.Error(err, "failed to patch role")
-			return
+			return err
 		} else {
 			logger.Info("finalizer removed from role", "role", r.Name, "namespace", r.Namespace)
 		}
 
 		if sa, err := kubeClient.CoreV1().ServiceAccounts(config.KyvernoNamespace()).Patch(ctx, config.KyvernoServiceAccountName(), apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Error(err, "already queued for deletion")
+				return nil
+			}
 			logger.Error(err, "failed to patch serviceaccount")
-			return
+			return err
 		} else {
 			logger.Info("finalizer removed from serviceaccount", "serviceaccount", sa.Name, "namespace", sa.Namespace)
 		}
+
+		return nil
 	}
 }
