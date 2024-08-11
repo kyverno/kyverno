@@ -392,10 +392,6 @@ func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
 }
 
-func (m *Mutation) IsMutateExistingOnPolicyUpdate() *bool {
-	return m.MutateExistingOnPolicyUpdate
-}
-
 // ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
@@ -422,7 +418,9 @@ type ForEachMutation struct {
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
 	// +optional
-	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawPatchStrategicMerge *kyverno.Any `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
 
 	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
@@ -443,22 +441,22 @@ func (m *ForEachMutation) GetForEachMutation() []ForEachMutation {
 	return m.ForEachMutation.Items
 }
 
-func (m *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
-	return FromJSON(m.RawPatchStrategicMerge)
+func (m *ForEachMutation) GetPatchStrategicMerge() any {
+	return kyverno.FromAny(m.RawPatchStrategicMerge)
 }
 
-func (m *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
-	m.RawPatchStrategicMerge = ToJSON(in)
+func (m *ForEachMutation) SetPatchStrategicMerge(in any) {
+	m.RawPatchStrategicMerge = kyverno.ToAny(in)
 }
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
 	// ValidationFailureAction defines if a validation policy rule violation should block
-	// the admission review request (enforce), or allow (audit) the admission review request
+	// the admission review request (Enforce), or allow (Audit) the admission review request
 	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce.
+	// Allowed values are Audit or Enforce.
 	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	// +kubebuilder:validation:Enum=Audit;Enforce
 	ValidationFailureAction *ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
@@ -658,15 +656,24 @@ type Deny struct {
 	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
 	// but will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
-	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *ConditionsWrapper `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(d.RawAnyAllConditions)
+func (d *Deny) GetAnyAllConditions() any {
+	if d.RawAnyAllConditions == nil {
+		return nil
+	}
+	return d.RawAnyAllConditions.Conditions
 }
 
-func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
-	d.RawAnyAllConditions = ToJSON(in)
+func (d *Deny) SetAnyAllConditions(in any) {
+	var new *ConditionsWrapper
+	if in != nil {
+		new = &ConditionsWrapper{in}
+	}
+	d.RawAnyAllConditions = new
 }
 
 // ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
@@ -774,10 +781,6 @@ type Generation struct {
 	// CloneList specifies the list of source resource used to populate each generated resource.
 	// +optional
 	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
-}
-
-func (g *Generation) IsGenerateExisting() *bool {
-	return g.GenerateExisting
 }
 
 type CloneList struct {

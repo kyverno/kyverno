@@ -27,7 +27,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
@@ -115,12 +114,12 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	return nil
 }
 
-func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
+func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFailureAction, validationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride) []string {
 	msg := "Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."
-	if spec.GetValidationFailureAction() == "enforce" || spec.GetValidationFailureAction() == "audit" {
+	if validationFailureAction == "enforce" || validationFailureAction == "audit" {
 		return []string{msg}
 	}
-	for _, override := range spec.GetValidationFailureActionOverrides() {
+	for _, override := range validationFailureActionOverrides {
 		if override.Action == "enforce" || override.Action == "audit" {
 			return []string{msg}
 		}
@@ -133,26 +132,25 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if policy.GetSpec().CustomWebhookMatchConditions() &&
 		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
 	}
 
-	warnings = append(warnings, checkValidationFailureAction(spec)...)
+	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
+	for _, rule := range spec.Rules {
+		if rule.HasValidate() {
+			if rule.Validation.ValidationFailureAction != nil {
+				warnings = append(warnings, checkValidationFailureAction(*rule.Validation.ValidationFailureAction, rule.Validation.ValidationFailureActionOverrides)...)
+			}
+		}
+	}
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
 
 	err := ValidateVariables(policy, background)
 	if err != nil {
 		return warnings, err
-	}
-
-	if mutateExistingOnPolicyUpdate {
-		err := ValidateOnPolicyUpdate(policy, mutateExistingOnPolicyUpdate)
-		if err != nil {
-			return warnings, err
-		}
 	}
 
 	getClusteredResources := func(invalidate bool) (sets.Set[string], error) {
@@ -207,7 +205,15 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 
 	if !policy.IsNamespaced() {
-		err := validateNamespaces(spec, specPath.Child("validationFailureActionOverrides"))
+		for i, r := range spec.Rules {
+			if r.HasValidate() {
+				err := validateNamespaces(r.Validation.ValidationFailureActionOverrides, specPath.Child("rules").Index(i).Child("validate").Child("validationFailureActionOverrides"))
+				if err != nil {
+					return warnings, err
+				}
+			}
+		}
+		err := validateNamespaces(spec.ValidationFailureActionOverrides, specPath.Child("validationFailureActionOverrides"))
 		if err != nil {
 			return warnings, err
 		}
@@ -327,12 +333,20 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			isAuditFailureAction := false
-			if spec.GetValidationFailureAction() == kyvernov1.Audit {
+			if spec.ValidationFailureAction.Audit() {
 				isAuditFailureAction = true
 			}
 
 			verifyImagePath := rulePath.Child("verifyImages")
 			for index, i := range rule.VerifyImages {
+				action := i.ValidationFailureAction
+				if action != nil {
+					if action.Audit() {
+						isAuditFailureAction = true
+					} else {
+						isAuditFailureAction = false
+					}
+				}
 				errs = append(errs, i.Validate(isAuditFailureAction, verifyImagePath.Index(index))...)
 			}
 			if len(errs) != 0 {
@@ -395,6 +409,19 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 			checkForScaleSubresource(mutationJson, allKinds, &warnings)
 			checkForStatusSubresource(mutationJson, allKinds, &warnings)
+
+			mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
+			if mutateExisting != nil {
+				if *mutateExisting {
+					if err := ValidateOnPolicyUpdate(policy, true); err != nil {
+						return warnings, err
+					}
+				}
+			} else if spec.MutateExistingOnPolicyUpdate {
+				if err := ValidateOnPolicyUpdate(policy, true); err != nil {
+					return warnings, err
+				}
+			}
 		}
 
 		if rule.HasVerifyImages() {
@@ -1033,7 +1060,7 @@ func validateMutationForEach(foreach []kyvernov1.ForEachMutation, schemaKey stri
 // validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.
 // As of now, it is validating the 'value' field whether it contains the only allowed set of values or not when 'condition.key' is {{request.operation}}
 // this is backwards compatible i.e. conditions can be provided in the old manner as well i.e. without 'any' or 'all'
-func validateConditions(conditions apiextensions.JSON, schemaKey string) (string, error) {
+func validateConditions(conditions any, schemaKey string) (string, error) {
 	// Conditions can only exist under some specific keys of the policy schema
 	allowedSchemaKeys := map[string]bool{
 		"preconditions": true,
@@ -1043,12 +1070,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 		return schemaKey, fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
 	}
 
-	// conditions are currently in the form of []interface{}
-	kyvernoConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(conditions)
-	if err != nil {
-		return schemaKey, err
-	}
-	switch typedConditions := kyvernoConditions.(type) {
+	switch typedConditions := conditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		// validating the conditions under 'any', if there are any
 		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
@@ -1142,7 +1164,7 @@ func validateAnyAllConditionOperator(c kyvernov1.AnyAllConditions, schemaKey str
 	return "", nil
 }
 
-func validateRawJSONConditionOperator(c apiextensions.JSON, schemaKey string) (string, error) {
+func validateRawJSONConditionOperator(c any, schemaKey string) (string, error) {
 	allowedSchemaKeys := map[string]bool{
 		"preconditions": true,
 		"conditions":    true,
@@ -1151,11 +1173,7 @@ func validateRawJSONConditionOperator(c apiextensions.JSON, schemaKey string) (s
 		return schemaKey, fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
 	}
 
-	kyvernoConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(c)
-	if err != nil {
-		return schemaKey, err
-	}
-	switch typedConditions := kyvernoConditions.(type) {
+	switch typedConditions := c.(type) {
 	case kyvernov1.AnyAllConditions:
 		if path, err := validateAnyAllConditionOperator(typedConditions, schemaKey); err != nil {
 			return path, err
@@ -1479,8 +1497,7 @@ func validateWildcard(kinds []string, background bool, rule kyvernov1.Rule) erro
 			}
 
 			if rule.Validation.Deny != nil {
-				kyvernoConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.GetAnyAllConditions())
-				switch typedConditions := kyvernoConditions.(type) {
+				switch typedConditions := rule.Validation.Deny.GetAnyAllConditions().(type) {
 				case []kyvernov1.Condition: // backwards compatibility
 					for _, condition := range typedConditions {
 						key := condition.GetKey()
@@ -1549,7 +1566,7 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) 
 	return nil
 }
 
-func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
+func validateNamespaces(validationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride, path *field.Path) error {
 	action := map[string]sets.Set[string]{
 		"enforce":  sets.New[string](),
 		"audit":    sets.New[string](),
@@ -1557,7 +1574,7 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 		"auditW":   sets.New[string](),
 	}
 
-	for i, vfa := range s.GetValidationFailureActionOverrides() {
+	for i, vfa := range validationFailureActionOverrides {
 		if !vfa.Action.IsValid() {
 			return fmt.Errorf("invalid action")
 		}
@@ -1661,11 +1678,7 @@ func checkDeprecatedAnyAllConditionOperator(c kyvernov1.AnyAllConditions, warnin
 }
 
 func checkDeprecatedRawJSONConditionOperator(c apiextensions.JSON, warnings *[]string) {
-	kyvernoConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(c)
-	if err != nil {
-		return
-	}
-	switch typedConditions := kyvernoConditions.(type) {
+	switch typedConditions := c.(type) {
 	case kyvernov1.AnyAllConditions:
 		checkDeprecatedAnyAllConditionOperator(typedConditions, warnings)
 	case []kyvernov1.Condition: // backwards compatibility
