@@ -11,7 +11,7 @@ spec:
               #!/bin/bash
               set -eu
 
-              helm --repo https://kyverno.github.io/kyverno/ install kyverno-policies kyverno-policies --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Enforce
+              helm --repo https://kyverno.github.io/kyverno/ -n kyverno install kyverno-policies kyverno-policies  --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Enforce
         - assert:
             file: policy-asserts.yaml
     - name: apply-test-pods
@@ -33,4 +33,4 @@ spec:
               #!/bin/bash
               set -eu
 
-              helm uninstall kyverno-policies
+              helm uninstall kyverno-policies -n kyverno
