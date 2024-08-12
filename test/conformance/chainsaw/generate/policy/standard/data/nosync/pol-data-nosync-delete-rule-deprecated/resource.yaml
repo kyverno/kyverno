@@ -1,0 +1,26 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: test-secret
+  namespace: otter
+type: Opaque
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: engsvcclusip
+  name: engsvcclusip
+  namespace: otter
+spec:
+  ports:
+  - name: 80-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: engsvcclusip
+  sessionAffinity: None
+  type: ClusterIP

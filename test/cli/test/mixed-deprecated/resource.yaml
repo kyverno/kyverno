@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodeselector-with-labels-on-mutation
+  labels:
+    app.kubernetes.io/managed-by: open-ondemand
+  namespace: user-space
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodeselector-without-labels-on-mutation
+  labels:
+    app.kubernetes.io/managed-by: "open-xyz"
+  namespace: user-foo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest

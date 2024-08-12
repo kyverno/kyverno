@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: red-ns
+  labels:
+    color: red
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: green-ns
+  labels:
+    color: green
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: winter-ns
+  labels:
+    season: winter
