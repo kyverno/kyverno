@@ -1324,6 +1324,40 @@ string
 <p>
 <p>ConditionOperator is the operation performed on condition key and value.</p>
 </p>
+<h3 id="kyverno.io/v1.ConditionsWrapper">ConditionsWrapper
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Deny">Deny</a>, 
+<a href="#kyverno.io/v1.Rule">Rule</a>, 
+<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>)
+</p>
+<p>
+<p>ConditionsWrapper contains either the deprecated list of Conditions or the new AnyAll Conditions.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>-</code><br/>
+<em>
+any
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that must be satisfied for the rule to be applied.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.ConfigMapReference">ConfigMapReference
 </h3>
 <p>
@@ -1542,8 +1576,8 @@ GlobalContextEntryReference
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ConditionsWrapper">
+ConditionsWrapper
 </a>
 </em>
 </td>
@@ -1690,9 +1724,7 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>patchStrategicMerge</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
-</a>
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
@@ -2353,6 +2385,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>validationFailureAction</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Allowed values are Audit or Enforce.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>type</code><br/>
@@ -3686,8 +3732,8 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ConditionsWrapper">
+ConditionsWrapper
 </a>
 </em>
 </td>
@@ -4289,8 +4335,8 @@ ResourceSpec
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ConditionsWrapper">
+ConditionsWrapper
 </a>
 </em>
 </td>
@@ -4438,9 +4484,9 @@ ValidationFailureAction
 <td>
 <em>(Optional)</em>
 <p>ValidationFailureAction defines if a validation policy rule violation should block
-the admission review request (enforce), or allow (audit) the admission review request
+the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce.</p>
+Allowed values are Audit or Enforce.</p>
 </td>
 </tr>
 <tr>
@@ -4589,9 +4635,11 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v1.Spec">Spec</a>, 
 <a href="#kyverno.io/v1.Validation">Validation</a>, 
 <a href="#kyverno.io/v1.ValidationFailureActionOverride">ValidationFailureActionOverride</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v2beta1.Spec">Spec</a>, 
 <a href="#kyverno.io/v2beta1.Validation">Validation</a>)
 </p>
@@ -8335,6 +8383,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>validationFailureAction</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Allowed values are Audit or Enforce.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>type</code><br/>
 <em>
 <a href="#kyverno.io/v1.ImageVerificationType">
@@ -9214,9 +9276,9 @@ ValidationFailureAction
 <td>
 <em>(Optional)</em>
 <p>ValidationFailureAction defines if a validation policy rule violation should block
-the admission review request (enforce), or allow (audit) the admission review request
+the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce.</p>
+Allowed values are Audit or Enforce.</p>
 </td>
 </tr>
 <tr>

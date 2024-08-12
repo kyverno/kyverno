@@ -1,0 +1,29 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: different-configurations-for-mutate-existing
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: namespaces.yaml
+    - apply:
+        file: configmaps.yaml
+    - apply:
+        file: secrets.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-03
+    try:
+    - assert:
+        file: mutated-secret.yaml
+  - name: step-04
+    try:
+    - error:
+        file: mutated-secret-error.yaml
