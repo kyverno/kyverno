@@ -384,7 +384,6 @@ func TestBuildRulesWithOperations(t *testing.T) {
 				},
 			},
 			mapResourceToOpnType: map[string][]admissionregistrationv1.OperationType{
-				"Namespace":  {},
 				"Pod":        {webhookCreate, webhookUpdate},
 				"ConfigMaps": {webhookCreate},
 			},

@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"cmp"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -75,7 +76,10 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(wh.rules))
 
 	for gv, resources := range wh.rules {
+		ruleforset := make([]admissionregistrationv1.RuleWithOperations, 0, len(resources))
+		logger.V(2).Info("\n\n\n\nNew iterations\n\n\n\n")
 		for res := range resources {
+			logger.V(2).Info("\nres\n", "res", res)
 			resource := sets.New(res)
 			// if we have pods, we add pods/ephemeralcontainers by default
 			if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resource.Has("pods") || resource.Has("*")) {
@@ -90,17 +94,23 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 			slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
 				return cmp.Compare(a, b)
 			})
-
-			rules = append(rules, admissionregistrationv1.RuleWithOperations{
-				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{gv.Group},
-					APIVersions: []string{gv.Version},
-					Resources:   sets.List(resource),
-					Scope:       ptr.To(gv.scopeType),
-				},
-				Operations: operations,
-			})
+			var added bool
+			ruleforset, added = appendResourceInRule(resource, operations, ruleforset)
+			if !added {
+				ruleforset = append(ruleforset, admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{gv.Group},
+						APIVersions: []string{gv.Version},
+						Resources:   sets.List(resource),
+						Scope:       ptr.To(gv.scopeType),
+					},
+					Operations: operations,
+				})
+			}
+			logger.V(2).Info("\nRules for set\n", "rules for set", ruleforset)
 		}
+		logger.V(2).Info("\nRules for set\n", "rules for set", ruleforset)
+		rules = append(rules, ruleforset...)
 	}
 	less := func(a []string, b []string) (int, bool) {
 		if x := cmp.Compare(len(a), len(b)); x != 0 {
@@ -129,6 +139,16 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 		return 0
 	})
 	return rules
+}
+
+func appendResourceInRule(resource sets.Set[string], operations []admissionregistrationv1.OperationType, ruleforset []admissionregistrationv1.RuleWithOperations) ([]admissionregistrationv1.RuleWithOperations, bool) {
+	for i, rule := range ruleforset {
+		if reflect.DeepEqual(rule.Operations, operations) {
+			ruleforset[i].Rule.Resources = append(rule.Rule.Resources, resource.UnsortedList()...)
+			return ruleforset, true
+		}
+	}
+	return ruleforset, false
 }
 
 func scanResourceFilterForResources(resFilter kyvernov1.ResourceFilters) []string {
