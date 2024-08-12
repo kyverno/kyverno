@@ -118,7 +118,7 @@ type GlobalContextEntryList struct {
 // KubernetesResource stores infos about kubernetes resource that should be cached
 type KubernetesResource struct {
 	// Group defines the group of the resource.
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Group string `json:"group,omitempty"`
 	// Version defines the version of the resource.
 	// +kubebuilder:validation:Required
