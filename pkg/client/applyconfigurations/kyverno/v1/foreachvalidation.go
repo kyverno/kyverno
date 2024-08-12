@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -32,7 +33,7 @@ type ForEachValidationApplyConfiguration struct {
 	RawPattern        *apiextensionsv1.JSON               `json:"pattern,omitempty"`
 	RawAnyPattern     *apiextensionsv1.JSON               `json:"anyPattern,omitempty"`
 	Deny              *DenyApplyConfiguration             `json:"deny,omitempty"`
-	ForEachValidation *apiextensionsv1.JSON               `json:"foreach,omitempty"`
+	ForEachValidation *kyvernov1.ForEachValidationWrapper `json:"foreach,omitempty"`
 }
 
 // ForEachValidationApplyConfiguration constructs an declarative configuration of the ForEachValidation type for use with
@@ -105,7 +106,7 @@ func (b *ForEachValidationApplyConfiguration) WithDeny(value *DenyApplyConfigura
 // WithForEachValidation sets the ForEachValidation field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ForEachValidation field is set to the value of the last call.
-func (b *ForEachValidationApplyConfiguration) WithForEachValidation(value apiextensionsv1.JSON) *ForEachValidationApplyConfiguration {
+func (b *ForEachValidationApplyConfiguration) WithForEachValidation(value kyvernov1.ForEachValidationWrapper) *ForEachValidationApplyConfiguration {
 	b.ForEachValidation = &value
 	return b
 }

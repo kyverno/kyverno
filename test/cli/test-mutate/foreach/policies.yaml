@@ -27,7 +27,6 @@ spec:
       - key: '{{ request.operation }}'
         operator: Equals
         value: CREATE
-  validationFailureAction: Audit
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -53,4 +52,3 @@ spec:
             - image: registry.digitalocean.com/runlevl4/{{ images.containers."{{element.name}}".name}}:{{images.containers."{{element.name}}".tag}}
               name: '{{ element.name }}'
     name: test
-  validationFailureAction: Audit

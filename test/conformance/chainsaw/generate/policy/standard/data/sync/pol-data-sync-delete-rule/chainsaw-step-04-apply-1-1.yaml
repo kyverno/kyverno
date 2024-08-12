@@ -4,9 +4,9 @@ metadata:
   name: multiple-gens
   namespace: pol-data-sync-delete-rule
 spec:
-  generateExisting: false
   rules:
   - generate:
+      generateExisting: false
       apiVersion: v1
       data:
         data:

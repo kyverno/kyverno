@@ -16,8 +16,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/utils/api"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -67,7 +65,7 @@ type validator struct {
 	policyContext    engineapi.PolicyContext
 	rule             kyvernov1.Rule
 	contextEntries   []kyvernov1.ContextEntry
-	anyAllConditions apiextensions.JSON
+	anyAllConditions any
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
 	deny             *kyvernov1.Deny
@@ -77,7 +75,6 @@ type validator struct {
 }
 
 func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
-	anyAllConditions, _ := datautils.ToMap(rule.RawAnyAllConditions)
 	return &validator{
 		log:              log,
 		rule:             rule,
@@ -86,7 +83,7 @@ func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, 
 		pattern:          rule.Validation.GetPattern(),
 		anyPattern:       rule.Validation.GetAnyPattern(),
 		deny:             rule.Validation.Deny,
-		anyAllConditions: anyAllConditions,
+		anyAllConditions: rule.GetAnyAllConditions(),
 		forEach:          rule.Validation.ForEachValidation,
 	}
 }
@@ -99,13 +96,12 @@ func newForEachValidator(
 	ctx engineapi.PolicyContext,
 	log logr.Logger,
 ) (*validator, error) {
-	anyAllConditions, err := datautils.ToMap(foreach.AnyAllConditions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
-	}
-	nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
+	var loopItems []kyvernov1.ForEachValidation
+	fev := foreach.GetForEachValidation()
+	if len(fev) > 0 {
+		loopItems = fev
+	} else {
+		loopItems = make([]kyvernov1.ForEachValidation, 0)
 	}
 	return &validator{
 		log:              log,
@@ -113,11 +109,11 @@ func newForEachValidator(
 		rule:             rule,
 		contextLoader:    contextLoader,
 		contextEntries:   foreach.Context,
-		anyAllConditions: anyAllConditions,
+		anyAllConditions: foreach.AnyAllConditions,
 		pattern:          foreach.GetPattern(),
 		anyPattern:       foreach.GetAnyPattern(),
 		deny:             foreach.Deny,
-		forEach:          nestedForEach,
+		forEach:          loopItems,
 		nesting:          nesting,
 	}, nil
 }
