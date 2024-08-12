@@ -1,18 +1,22 @@
 package v2beta1
 
 import (
+	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
+// AssertionTree defines a kyverno-json assertion tree.
+type AssertionTree = kjson.Any
+
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
 	// ValidationFailureAction defines if a validation policy rule violation should block
-	// the admission review request (enforce), or allow (audit) the admission review request
+	// the admission review request (Enforce), or allow (Audit) the admission review request
 	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce.
+	// Allowed values are Audit or Enforce.
 	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	// +kubebuilder:validation:Enum=Audit;Enforce
 	ValidationFailureAction *kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
@@ -55,6 +59,10 @@ type Validation struct {
 	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 	// +optional
 	CEL *kyvernov1.CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
+
+	// Assert defines a kyverno-json assertion tree.
+	// +optional
+	Assert AssertionTree `json:"assert"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.

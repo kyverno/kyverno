@@ -41,10 +41,22 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 	var errors []error
 	var triggers []*unstructured.Unstructured
 	ruleType := kyvernov2.Generate
+	spec := policy.GetSpec()
 	policyNew := policy.CreateDeepCopy()
 	policyNew.GetSpec().Rules = nil
 
-	for _, rule := range policy.GetSpec().Rules {
+	for _, rule := range spec.Rules {
+		// check if the rule sets the generateExisting field.
+		// if not, use the policy level setting
+		generateExisting := rule.Generation.GenerateExisting
+		if generateExisting != nil {
+			if !*generateExisting {
+				continue
+			}
+		} else if !spec.GenerateExisting {
+			continue
+		}
+
 		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {

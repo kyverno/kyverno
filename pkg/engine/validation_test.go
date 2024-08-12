@@ -679,7 +679,6 @@ func TestValidate_foreach_zero_reported_asskip(t *testing.T) {
 			}
 		},
 		"spec": {
-			"validationFailureAction": "Enforce",
 			"background": true,
 			"rules": [
 				{
@@ -690,6 +689,7 @@ func TestValidate_foreach_zero_reported_asskip(t *testing.T) {
 						}
 					},
 					"validate": {
+					    "validationFailureAction": "Enforce",
 						"foreach": [
 							{
 								"list": "request.object.spec.volumes[].projected.sources[].serviceAccountToken.expirationSeconds",
@@ -1948,7 +1948,6 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 		  "name": "cm-array-example"
 		},
 		"spec": {
-		  "validationFailureAction": "enforce",
 		  "background": false,
 		  "rules": [
 			{
@@ -1961,6 +1960,7 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 				}
 			  },
 			  "validate": {
+			    "validationFailureAction": "enforce",
 				"message": "The animal {{ request.object.metadata.labels.animal }} is not in the allowed list of animals.",
 				"deny": {
 				  "conditions": [
@@ -2125,7 +2125,6 @@ func Test_BlockLabelRemove(t *testing.T) {
 					"name": "prevent-label-remove"
 				},
 				"spec": {
-					"validationFailureAction": "enforce",
 					"background": false,
 					"rules": [
 						{
@@ -2152,6 +2151,7 @@ func Test_BlockLabelRemove(t *testing.T) {
 								]
 							},
 							"validate": {
+							    "validationFailureAction": "enforce",
 								"message": "not allowed",
 								"deny": {
 									"conditions": {
@@ -2248,7 +2248,6 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 		  "name": "restrict-pod-count"
 		},
 		"spec": {
-		  "validationFailureAction": "enforce",
 		  "background": false,
 		  "rules": [
 			{
@@ -2270,6 +2269,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 				}
 			  ],
 			  "validate": {
+			    "validationFailureAction": "enforce",
 				"message": "restrict pod counts to be no more than 10 on node minikube",
 				"deny": {
 				  "conditions": [
@@ -2372,6 +2372,7 @@ func Test_EmptyStringInDenyCondition(t *testing.T) {
 			}
 		  ],
 		  "validate": {
+		    "validationFailureAction": "enforce",
 			"deny": {
 			  "conditions": [
 				{
@@ -2383,8 +2384,7 @@ func Test_EmptyStringInDenyCondition(t *testing.T) {
 			}
 		  }
 		}
-	  ],
-	  "validationFailureAction": "enforce"
+	  ]
 	}
   }`)
 
@@ -2457,6 +2457,7 @@ func Test_StringInDenyCondition(t *testing.T) {
 			}
 		  ],
 		  "validate": {
+		    "validationFailureAction": "enforce",
 			"deny": {
 			  "conditions": [
 				{
@@ -2468,8 +2469,7 @@ func Test_StringInDenyCondition(t *testing.T) {
 			}
 		  }
 		}
-	  ],
-	  "validationFailureAction": "enforce"
+	  ]
 	}
   }`)
 
@@ -3000,13 +3000,13 @@ func Test_outof_foreach_element_validation(t *testing.T) {
 		"kind": "ClusterPolicy",
 		"metadata": {"name": "check-container-names"},
 		"spec": {
-		  "validationFailureAction": "enforce",
 		  "background": false,
 		  "rules": [
 			{
 			  "name": "test",
 			  "match": {"resources": { "kinds": [ "Pod" ] } },
 			  "validate": {
+			    "validationFailureAction": "enforce",
 			  	"message": "Invalid name",
 				"pattern": {
 				  "name": "{{ element.name }}"
@@ -3033,7 +3033,6 @@ func Test_foreach_skip_initContainer_pass(t *testing.T) {
 		  "name": "check-images"
 		},
 		"spec": {
-		  "validationFailureAction": "enforce",
 		  "background": false,
 		  "rules": [
 			{
@@ -3046,6 +3045,7 @@ func Test_foreach_skip_initContainer_pass(t *testing.T) {
 				}
 			  },
 			  "validate": {
+			    "validationFailureAction": "enforce",
 				"message": "unknown registry",
 				"foreach": [
 				  {
@@ -3210,13 +3210,13 @@ func Test_delete_ignore_pattern(t *testing.T) {
 		"kind": "ClusterPolicy",
 		"metadata": {"name": "check-container-labels"},
 		"spec": {
-		  "validationFailureAction": "enforce",
 		  "background": false,
 		  "rules": [
 			{
 			  "name": "test",
 			  "match": {"resources": { "kinds": [ "Pod" ] } },
 			  "validate": {
+			    "validationFailureAction": "enforce",
 			  	"message": "Invalid label",
 				"pattern": {
 				  "metadata" : {

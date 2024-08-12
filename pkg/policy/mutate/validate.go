@@ -101,13 +101,13 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 				srcKey = srcKey + "/" + sub
 			}
 
-			if ok, err := m.authChecker.CanIUpdate(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, sub); err != nil {
+			if ok, err := m.authChecker.CanIUpdate(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, target.Name, sub); err != nil {
 				errs = append(errs, err)
 			} else if !ok {
 				errs = append(errs, fmt.Errorf("cannot %s/%s/%s in namespace %s", "update", target.APIVersion, srcKey, target.Namespace))
 			}
 
-			if ok, err := m.authChecker.CanIGet(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, sub); err != nil {
+			if ok, err := m.authChecker.CanIGet(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, target.Name, sub); err != nil {
 				errs = append(errs, err)
 			} else if !ok {
 				errs = append(errs, fmt.Errorf("cannot %s/%s/%s in namespace %s", "get", target.APIVersion, srcKey, target.Namespace))

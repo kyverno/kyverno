@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bad-ns-1
+  labels:
+    environment: production
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bad-ns-2

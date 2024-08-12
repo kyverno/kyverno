@@ -3,8 +3,6 @@ package v1
 import (
 	"strings"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -54,9 +52,14 @@ type TargetResourceSpec struct {
 	// will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
-	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *ConditionsWrapper `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 }
 
-func (r *TargetResourceSpec) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(r.RawAnyAllConditions)
+func (r *TargetResourceSpec) GetAnyAllConditions() any {
+	if r.RawAnyAllConditions == nil {
+		return nil
+	}
+	return r.RawAnyAllConditions.Conditions
 }

@@ -12,5 +12,5 @@ spec:
             check:
               ($error != null): false
               # This check ensures the contents of stderr are exactly as shown.
-              ($stderr): |-
+              (trim_space($stderr)): |-
                 Warning: Global context entry name is not provided
