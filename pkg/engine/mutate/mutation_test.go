@@ -7,10 +7,13 @@ import (
 
 	"github.com/go-logr/logr"
 	types "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -234,4 +237,35 @@ func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
 	require.NotEqual(t, patched.UnstructuredContent(), resource.UnstructuredContent())
 	unstructured.SetNestedField(resource.UnstructuredContent(), "label2Value", "metadata", "labels", "label2")
 	require.Equal(t, resource, patched)
+}
+
+type MockContext struct {
+	context.Interface
+	mock.Mock
+}
+
+func (m *MockContext) Query(query string) (interface{}, error) {
+	args := m.Called(query)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockContext) QueryOperation() string {
+	args := m.Called()
+	return args.Get(0).(string)
+}
+
+func TestSubstituteAllInForEach_InvalidTypeConversion(t *testing.T) {
+	ctx := &MockContext{}
+	// Simulate a scenario where the substitution returns an unexpected type
+	ctx.On("Query", mock.Anything).Return(true, nil)
+	ctx.On("QueryOperation").Return("CREATE")
+
+	foreach := v1.ForEachMutation{
+		PatchesJSON6902: "string",
+	}
+
+	fe, err := substituteAllInForEach(foreach, ctx, logr.Discard())
+
+	assert.NoError(t, err)
+	assert.IsType(t, "string", fe["patchesJson6902"])
 }
