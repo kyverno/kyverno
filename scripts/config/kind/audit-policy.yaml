@@ -1,0 +1,7 @@
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+- level: RequestResponse
+  resources:
+    - group: "kyverno.io"
+      resources: ["policies", "clusterpolicies"]
