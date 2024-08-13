@@ -1,7 +1,6 @@
 package policycontext
 
 import (
-	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -10,7 +9,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -210,20 +208,8 @@ func NewPolicyContext(
 		return nil, err
 	}
 
-	// Create and add the ImageInfoLoader to the context
-	imageInfoLoader := &ImageInfoLoader{
-		resource:      &resource,
-		configuration: configuration,
-		eCtx:          enginectx,
-	}
-	if toggle.FromContext(context.Background()).EnableDeferredLoading() {
-		if err := enginectx.AddDeferredLoader(imageInfoLoader); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := imageInfoLoader.LoadData(); err != nil {
-			return nil, err
-		}
+	if err := enginectx.AddImageInfos(&resource, configuration); err != nil {
+		return nil, err
 	}
 
 	if admissionInfo != nil {
