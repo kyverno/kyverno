@@ -2712,6 +2712,71 @@ or can be variables declared using JMESPath.</p>
 
   
 
+  <H3 id="kyverno-io-v1-ConditionsWrapper">ConditionsWrapper
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-Deny">Deny</a>, 
+        <a href="#kyverno-io-v1-Rule">Rule</a>, 
+        <a href="#kyverno-io-v1-TargetResourceSpec">TargetResourceSpec</a>)
+    </p>
+  
+
+  <p><p>ConditionsWrapper contains either the deprecated list of Conditions or the new AnyAll Conditions.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>-</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions is a list of conditions that must be satisfied for the rule to be applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v1-ConfigMapReference">ConfigMapReference
     </H3>
 
@@ -3175,7 +3240,9 @@ details.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ConditionsWrapper">
+                <span style="font-family: monospace">ConditionsWrapper</span>
+              </a>
             
           
         </td>
@@ -3473,7 +3540,7 @@ See: https://kyverno.io/docs/writing-policies/preconditions/</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -4624,6 +4691,35 @@ mutated to include the SHA digest retrieved during the registration.</p>
         
 
   
+  
+    
+    
+      <tr>
+        <td><code>validationFailureAction</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidationFailureAction">
+                <span style="font-family: monospace">ValidationFailureAction</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Allowed values are Audit or Enforce.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
   
     
     
@@ -7289,7 +7385,9 @@ This config is only valid for verifyImages rules.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ConditionsWrapper">
+                <span style="font-family: monospace">ConditionsWrapper</span>
+              </a>
             
           
         </td>
@@ -8605,7 +8703,9 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ConditionsWrapper">
+                <span style="font-family: monospace">ConditionsWrapper</span>
+              </a>
             
           
         </td>
@@ -8894,9 +8994,9 @@ It is an empty string when validating admission policy is successfully generated
           
 
           <p>ValidationFailureAction defines if a validation policy rule violation should block
-the admission review request (enforce), or allow (audit) the admission review request
+the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce.</p>
+Allowed values are Audit or Enforce.</p>
 
 
           
@@ -9203,6 +9303,7 @@ by specifying exclusions for Pod Security Standards controls.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ImageVerification">ImageVerification</a>, 
         <a href="#kyverno-io-v1-Spec">Spec</a>, 
         <a href="#kyverno-io-v1-Validation">Validation</a>, 
         <a href="#kyverno-io-v1-ValidationFailureActionOverride">ValidationFailureActionOverride</a>)

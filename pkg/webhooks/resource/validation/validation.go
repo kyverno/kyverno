@@ -31,8 +31,8 @@ type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleValidationEnforce(context.Context, handlers.AdmissionRequest, []kyvernov1.PolicyInterface, time.Time) (bool, string, []string)
-	HandleValidationAudit(context.Context, handlers.AdmissionRequest)
+	HandleValidationEnforce(context.Context, handlers.AdmissionRequest, []kyvernov1.PolicyInterface, time.Time) (bool, string, []string, []engineapi.EngineResponse)
+	HandleValidationAudit(context.Context, handlers.AdmissionRequest) []engineapi.EngineResponse
 }
 
 func NewValidationHandler(
@@ -82,18 +82,18 @@ func (v *validationHandler) HandleValidationEnforce(
 	request handlers.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	admissionRequestTimestamp time.Time,
-) (bool, string, []string) {
+) (bool, string, []string, []engineapi.EngineResponse) {
 	resourceName := admissionutils.GetResourceName(request.AdmissionRequest)
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
 	if len(policies) == 0 {
-		return true, "", nil
+		return true, "", nil, nil
 	}
 
 	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
 	if err != nil {
 		msg := fmt.Sprintf("failed to create policy context: %v", err)
-		return false, msg, nil
+		return false, msg, nil, nil
 	}
 
 	var engineResponses []engineapi.EngineResponse
@@ -118,7 +118,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 				engineResponses = append(engineResponses, engineResponse)
 				if !engineResponse.IsSuccessful() {
-					logger.V(2).Info("validation failed", "action", policy.GetSpec().GetValidationFailureAction(), "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
+					logger.V(2).Info("validation failed", "action", "Enforce", "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 					return
 				}
 
@@ -130,12 +130,10 @@ func (v *validationHandler) HandleValidationEnforce(
 	}
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
-	events := webhookutils.GenerateEvents(engineResponses, blocked)
-	v.eventGen.Add(events...)
 
 	if blocked {
 		logger.V(4).Info("admission request blocked")
-		return false, webhookutils.GetBlockedMessages(engineResponses), nil
+		return false, webhookutils.GetBlockedMessages(engineResponses), nil, engineResponses
 	}
 
 	go func() {
@@ -147,37 +145,36 @@ func (v *validationHandler) HandleValidationEnforce(
 	}()
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
-	return true, "", warnings
+	return true, "", warnings, engineResponses
 }
 
 func (v *validationHandler) HandleValidationAudit(
 	ctx context.Context,
 	request handlers.AdmissionRequest,
-) {
+) []engineapi.EngineResponse {
 	gvr := schema.GroupVersionResource(request.Resource)
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
 	if len(policies) == 0 {
-		return
+		return nil
 	}
 
 	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request)
 	if err != nil {
 		v.log.Error(err, "failed to build policy context")
-		return
+		return nil
 	}
 
+	var responses []engineapi.EngineResponse
 	needsReport := needsReports(request, policyContext.NewResource(), v.admissionReports)
 	tracing.Span(
 		context.Background(),
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
-			responses, err := v.buildAuditResponses(ctx, policyContext, policies)
+			responses, err = v.buildAuditResponses(ctx, policyContext, policies)
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}
-			events := webhookutils.GenerateEvents(responses, false)
-			v.eventGen.Add(events...)
 			if needsReport {
 				if err := v.createReports(ctx, policyContext.NewResource(), request, responses...); err != nil {
 					v.log.Error(err, "failed to create report")
@@ -186,6 +183,7 @@ func (v *validationHandler) HandleValidationAudit(
 		},
 		trace.WithLinks(trace.LinkFromContext(ctx)),
 	)
+	return responses
 }
 
 func (v *validationHandler) buildAuditResponses(
