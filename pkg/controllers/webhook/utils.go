@@ -77,9 +77,7 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 
 	for gv, resources := range wh.rules {
 		ruleforset := make([]admissionregistrationv1.RuleWithOperations, 0, len(resources))
-		logger.V(2).Info("\n\n\n\nNew iterations\n\n\n\n")
 		for res := range resources {
-			logger.V(2).Info("\nres\n", "res", res)
 			resource := sets.New(res)
 			// if we have pods, we add pods/ephemeralcontainers by default
 			if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resource.Has("pods") || resource.Has("*")) {
@@ -107,9 +105,7 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 					Operations: operations,
 				})
 			}
-			logger.V(2).Info("\nRules for set\n", "rules for set", ruleforset)
 		}
-		logger.V(2).Info("\nRules for set\n", "rules for set", ruleforset)
 		rules = append(rules, ruleforset...)
 	}
 	less := func(a []string, b []string) (int, bool) {
