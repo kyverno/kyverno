@@ -29,6 +29,7 @@ import (
 type ValidationApplyConfiguration struct {
 	ValidationFailureAction          *v1.ValidationFailureAction                         `json:"validationFailureAction,omitempty"`
 	ValidationFailureActionOverrides []ValidationFailureActionOverrideApplyConfiguration `json:"validationFailureActionOverrides,omitempty"`
+	AllowExistingViolations          *bool                                               `json:"allowExistingViolations,omitempty"`
 	Message                          *string                                             `json:"message,omitempty"`
 	Manifests                        *ManifestsApplyConfiguration                        `json:"manifests,omitempty"`
 	ForEachValidation                []ForEachValidationApplyConfiguration               `json:"foreach,omitempty"`
@@ -64,6 +65,14 @@ func (b *ValidationApplyConfiguration) WithValidationFailureActionOverrides(valu
 		}
 		b.ValidationFailureActionOverrides = append(b.ValidationFailureActionOverrides, *values[i])
 	}
+	return b
+}
+
+// WithAllowExistingViolations sets the AllowExistingViolations field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AllowExistingViolations field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithAllowExistingViolations(value bool) *ValidationApplyConfiguration {
+	b.AllowExistingViolations = &value
 	return b
 }
 
