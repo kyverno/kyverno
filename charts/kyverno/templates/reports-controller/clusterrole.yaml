@@ -39,10 +39,6 @@ rules:
     resources:
       - globalcontextentries
       - globalcontextentries/status
-      - admissionreports
-      - clusteradmissionreports
-      - backgroundscanreports
-      - clusterbackgroundscanreports
       - policyexceptions
       - policies
       - clusterpolicies

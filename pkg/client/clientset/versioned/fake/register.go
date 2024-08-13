@@ -20,11 +20,8 @@ package fake
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,10 +36,7 @@ var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
 	kyvernov1.AddToScheme,
-	kyvernov1alpha2.AddToScheme,
-	kyvernov1beta1.AddToScheme,
 	kyvernov2.AddToScheme,
-	kyvernov2beta1.AddToScheme,
 	kyvernov2alpha1.AddToScheme,
 	wgpolicyk8sv1alpha2.AddToScheme,
 	reportsv1.AddToScheme,

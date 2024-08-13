@@ -32,13 +32,15 @@ type canIOptions struct {
 	gvk         string
 	subresource string
 	user        string
+	name        string
 	discovery   Discovery
 	checker     checker.AuthChecker
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, gvk, namespace, verb, subresource string, user string) CanIOptions {
+func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, gvk, namespace, name, verb, subresource string, user string) CanIOptions {
 	return &canIOptions{
+		name:        name,
 		namespace:   namespace,
 		verb:        verb,
 		gvk:         gvk,
@@ -72,7 +74,7 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, string, error) 
 		return false, "", fmt.Errorf("failed to get the Group Version Resource for kind %s", o.gvk)
 	}
 	logger := logger.WithValues("kind", kind, "namespace", o.namespace, "gvr", gvr.String(), "verb", o.verb)
-	result, err := o.checker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, o.subresource, o.namespace, o.verb)
+	result, err := o.checker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, o.subresource, o.namespace, o.name, o.verb)
 	if err != nil {
 		logger.Error(err, "failed to check permissions")
 		return false, "", err

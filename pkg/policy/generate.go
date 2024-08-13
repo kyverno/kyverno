@@ -6,7 +6,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
@@ -40,11 +40,23 @@ func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.Po
 func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInterface) error {
 	var errors []error
 	var triggers []*unstructured.Unstructured
-	ruleType := kyvernov1beta1.Generate
+	ruleType := kyvernov2.Generate
+	spec := policy.GetSpec()
 	policyNew := policy.CreateDeepCopy()
 	policyNew.GetSpec().Rules = nil
 
-	for _, rule := range policy.GetSpec().Rules {
+	for _, rule := range spec.Rules {
+		// check if the rule sets the generateExisting field.
+		// if not, use the policy level setting
+		generateExisting := rule.Generation.GenerateExisting
+		if generateExisting != nil {
+			if !*generateExisting {
+				continue
+			}
+		} else if !spec.GenerateExisting {
+			continue
+		}
+
 		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
@@ -117,15 +129,15 @@ func (pc *policyController) syncDataRulechanges(policy kyvernov1.PolicyInterface
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
-		ur := newUR(policy, trigger, rule.Name, kyvernov1beta1.Generate, deleteDownstream)
-		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		ur := newUR(policy, trigger, rule.Name, kyvernov2.Generate, deleteDownstream)
+		created, err := pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			errorList = append(errorList, err)
 			continue
 		}
 		updated := created.DeepCopy()
 		updated.Status = newURStatus(downstream)
-		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			errorList = append(errorList, err)
 			continue

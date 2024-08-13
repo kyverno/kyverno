@@ -55,7 +55,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		}
 
 		// In case generateValidatingAdmissionPolicy flag is set to true, check the required permissions.
-		if toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
+		if rule.HasValidateCEL() && toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
 			authCheck := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
 			// check if the controller has the required permissions to generate validating admission policies.
 			if !validatingadmissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {

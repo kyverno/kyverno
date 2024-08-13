@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  labels:
+    app: test-app
+spec:
+  containers:
+    - name: main
+      image: test/bar:1.2.3
+      securityContext:
+        allowPrivilegeEscalation: false
+    - name: side
+      image: test/foo:1.2.3
+  initContainers:
+    - name: init
+      image: test/foo:1.2.3
+      securityContext:
+        allowPrivilegeEscalation: true

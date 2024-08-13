@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+spec:
+  exceptions:
+  - policyName: psp-restricted-limited
+    ruleNames:
+    - restricted
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+  podSecurity:
+  - controlName: Running as Non-root
+    images:
+    - '*/istio/proxyv2*'
+    restrictedField: spec.initContainers[*].securityContext.runAsNonRoot
+    values:
+    - "false"

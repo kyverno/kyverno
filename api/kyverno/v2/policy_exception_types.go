@@ -71,7 +71,7 @@ type PolicyExceptionSpec struct {
 	// Conditions are used to determine if a resource applies to the exception by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements.
 	// +optional
-	Conditions *kyvernov2beta1.AnyAllConditions `json:"conditions,omitempty"`
+	Conditions *AnyAllConditions `json:"conditions,omitempty"`
 
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions" yaml:"exceptions"`
@@ -100,6 +100,11 @@ func (p *PolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) 
 	exceptionsPath := path.Child("exceptions")
 	for i, e := range p.Exceptions {
 		errs = append(errs, e.Validate(exceptionsPath.Index(i))...)
+	}
+
+	podSecuityPath := path.Child("podSecurity")
+	for i, p := range p.PodSecurity {
+		errs = append(errs, p.Validate(podSecuityPath.Index(i))...)
 	}
 	return errs
 }

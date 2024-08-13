@@ -324,6 +324,29 @@ I2MLdq2qjZFDOCXsxBxJpbmLGBx9ow6ZerlUxzws2AWv2pk=
 	assert.NilError(t, err)
 }
 
+func TestCosignOCI11Experimental(t *testing.T) {
+	opts := images.Options{
+		ImageRef: "ghcr.io/kyverno/test-verify-image:cosign-oci11",
+		Key: `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoKYkkX32oSx61B4iwKXa6llAF2dB
+IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
+-----END PUBLIC KEY-----
+`,
+	}
+
+	rc, err := registryclient.New()
+	assert.NilError(t, err)
+	opts.Client = rc
+
+	verifier := &cosignVerifier{}
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	assert.ErrorContains(t, err, "no signatures found")
+
+	opts.CosignOCI11 = true
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	assert.NilError(t, err)
+}
+
 type testSignature struct {
 	cert *x509.Certificate
 }
