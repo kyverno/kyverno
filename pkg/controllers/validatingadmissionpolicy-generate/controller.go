@@ -266,18 +266,19 @@ func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*admissio
 	return vapbinding, nil
 }
 
-// hasExceptions checks if there is an exception that match both the policy and the rule.
-func (c *controller) hasExceptions(policyName, rule string) (bool, error) {
+// getExceptions get exceptions that match both the policy and the rule if exists.
+func (c *controller) getExceptions(policyName, rule string) ([]kyvernov2.PolicyException, error) {
+	var exceptions []kyvernov2.PolicyException
 	polexs, err := c.polexLister.List(labels.Everything())
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	for _, polex := range polexs {
 		if polex.Contains(policyName, rule) {
-			return true, nil
+			exceptions = append(exceptions, *polex)
 		}
 	}
-	return false, nil
+	return exceptions, nil
 }
 
 func constructVapBindingName(vapName string) string {
@@ -319,11 +320,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
 	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
 
-	hasExceptions, err := c.hasExceptions(name, spec.Rules[0].Name)
+	exceptions, err := c.getExceptions(name, spec.Rules[0].Name)
 	if err != nil {
 		return err
 	}
-	if ok, msg := validatingadmissionpolicy.CanGenerateVAP(spec); !ok || hasExceptions {
+
+	if ok, msg := validatingadmissionpolicy.CanGenerateVAP(spec, exceptions); !ok {
 		// delete the ValidatingAdmissionPolicy if exist
 		if vapErr == nil {
 			err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
@@ -371,7 +373,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	if observedVAP.ResourceVersion == "" {
-		err := validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy)
+		err := validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, exceptions)
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
@@ -387,7 +389,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			observedVAP,
 			c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1alpha1.ValidatingAdmissionPolicy) error {
-				return validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy)
+				return validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, exceptions)
 			})
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
