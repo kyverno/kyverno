@@ -143,21 +143,25 @@ func Test_Check_Resources(t *testing.T) {
 
 func Test_Check_Exception(t *testing.T) {
 	testCases := []struct {
-		name      string
-		exception kyvernov2.PolicyExceptionSpec
-		expected  bool
+		name       string
+		exceptions []kyvernov2.PolicyException
+		expected   bool
 	}{
 		{
 			name: "exception-with-multiple-policies",
-			exception: kyvernov2.PolicyExceptionSpec{
-				Exceptions: []kyvernov2.Exception{
-					{
-						PolicyName: "test-1",
-						RuleNames:  []string{"rule-1"},
-					},
-					{
-						PolicyName: "test-2",
-						RuleNames:  []string{"rule-2"},
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
+							},
+							{
+								PolicyName: "test-2",
+								RuleNames:  []string{"rule-2"},
+							},
+						},
 					},
 				},
 			},
@@ -165,11 +169,15 @@ func Test_Check_Exception(t *testing.T) {
 		},
 		{
 			name: "exception-with-multiple-rules",
-			exception: kyvernov2.PolicyExceptionSpec{
-				Exceptions: []kyvernov2.Exception{
-					{
-						PolicyName: "test-1",
-						RuleNames:  []string{"rule-1", "rule-2"},
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1", "rule-2"},
+							},
+						},
 					},
 				},
 			},
@@ -177,15 +185,19 @@ func Test_Check_Exception(t *testing.T) {
 		},
 		{
 			name: "exception-with-multiple-rules-in-different-exceptions",
-			exception: kyvernov2.PolicyExceptionSpec{
-				Exceptions: []kyvernov2.Exception{
-					{
-						PolicyName: "test-1",
-						RuleNames:  []string{"rule-1", "rule-2"},
-					},
-					{
-						PolicyName: "test-2",
-						RuleNames:  []string{"rule-1"},
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1", "rule-2"},
+							},
+							{
+								PolicyName: "test-2",
+								RuleNames:  []string{"rule-1"},
+							},
+						},
 					},
 				},
 			},
@@ -193,22 +205,26 @@ func Test_Check_Exception(t *testing.T) {
 		},
 		{
 			name: "exception-with-conditions",
-			exception: kyvernov2.PolicyExceptionSpec{
-				Exceptions: []kyvernov2.Exception{
-					{
-						PolicyName: "test-1",
-						RuleNames:  []string{"rule-1"},
-					},
-				},
-				Conditions: &kyvernov2.AnyAllConditions{
-					AllConditions: []kyvernov2.Condition{
-						{
-							RawKey: &kyverno.Any{
-								Value: "{{ request.object.name }}",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
 							},
-							Operator: kyvernov2.ConditionOperators["Equals"],
-							RawValue: &kyverno.Any{
-								Value: "dummy",
+						},
+						Conditions: &kyvernov2.AnyAllConditions{
+							AllConditions: []kyvernov2.Condition{
+								{
+									RawKey: &kyverno.Any{
+										Value: "{{ request.object.name }}",
+									},
+									Operator: kyvernov2.ConditionOperators["Equals"],
+									RawValue: &kyverno.Any{
+										Value: "dummy",
+									},
+								},
 							},
 						},
 					},
@@ -218,25 +234,29 @@ func Test_Check_Exception(t *testing.T) {
 		},
 		{
 			name: "exception-with-multiple-all",
-			exception: kyvernov2.PolicyExceptionSpec{
-				Exceptions: []kyvernov2.Exception{
-					{
-						PolicyName: "test-1",
-						RuleNames:  []string{"rule-1"},
-					},
-				},
-				Match: kyvernov2beta1.MatchResources{
-					All: kyvernov1.ResourceFilters{
-						kyvernov1.ResourceFilter{
-							ResourceDescription: kyvernov1.ResourceDescription{
-								Kinds:      []string{"Pod"},
-								Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
 							},
 						},
-						kyvernov1.ResourceFilter{
-							ResourceDescription: kyvernov1.ResourceDescription{
-								Kinds:      []string{"Pod"},
-								Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+						Match: kyvernov2beta1.MatchResources{
+							All: kyvernov1.ResourceFilters{
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+									},
+								},
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+									},
+								},
 							},
 						},
 					},
@@ -246,22 +266,26 @@ func Test_Check_Exception(t *testing.T) {
 		},
 		{
 			name: "exception-with-namespace-selector",
-			exception: kyvernov2.PolicyExceptionSpec{
-				Exceptions: []kyvernov2.Exception{
-					{
-						PolicyName: "test-1",
-						RuleNames:  []string{"rule-1"},
-					},
-				},
-				Match: kyvernov2beta1.MatchResources{
-					Any: kyvernov1.ResourceFilters{
-						kyvernov1.ResourceFilter{
-							ResourceDescription: kyvernov1.ResourceDescription{
-								Kinds:      []string{"Pod"},
-								Operations: []kyvernov1.AdmissionOperation{"CREATE"},
-								NamespaceSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{
-										"app": "critical",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
+							},
+						},
+						Match: kyvernov2beta1.MatchResources{
+							Any: kyvernov1.ResourceFilters{
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+										NamespaceSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app": "critical",
+											},
+										},
 									},
 								},
 							},
@@ -273,22 +297,26 @@ func Test_Check_Exception(t *testing.T) {
 		},
 		{
 			name: "exception-with-object-selector",
-			exception: kyvernov2.PolicyExceptionSpec{
-				Exceptions: []kyvernov2.Exception{
-					{
-						PolicyName: "test-1",
-						RuleNames:  []string{"rule-1"},
-					},
-				},
-				Match: kyvernov2beta1.MatchResources{
-					Any: kyvernov1.ResourceFilters{
-						kyvernov1.ResourceFilter{
-							ResourceDescription: kyvernov1.ResourceDescription{
-								Kinds:      []string{"Pod"},
-								Operations: []kyvernov1.AdmissionOperation{"CREATE"},
-								Selector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{
-										"app": "critical",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
+							},
+						},
+						Match: kyvernov2beta1.MatchResources{
+							Any: kyvernov1.ResourceFilters{
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+										Selector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app": "critical",
+											},
+										},
 									},
 								},
 							},
@@ -300,25 +328,29 @@ func Test_Check_Exception(t *testing.T) {
 		},
 		{
 			name: "exception-with-multiple-any",
-			exception: kyvernov2.PolicyExceptionSpec{
-				Exceptions: []kyvernov2.Exception{
-					{
-						PolicyName: "test-1",
-						RuleNames:  []string{"rule-1"},
-					},
-				},
-				Match: kyvernov2beta1.MatchResources{
-					Any: kyvernov1.ResourceFilters{
-						kyvernov1.ResourceFilter{
-							ResourceDescription: kyvernov1.ResourceDescription{
-								Kinds:      []string{"Pod"},
-								Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
 							},
 						},
-						kyvernov1.ResourceFilter{
-							ResourceDescription: kyvernov1.ResourceDescription{
-								Kinds:      []string{"Pod"},
-								Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+						Match: kyvernov2beta1.MatchResources{
+							Any: kyvernov1.ResourceFilters{
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+									},
+								},
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+									},
+								},
 							},
 						},
 					},
@@ -329,7 +361,7 @@ func Test_Check_Exception(t *testing.T) {
 	}
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			out, _ := checkExceptions(&test.exception)
+			out, _ := checkExceptions(test.exceptions)
 			assert.Equal(t, out, test.expected)
 		})
 	}

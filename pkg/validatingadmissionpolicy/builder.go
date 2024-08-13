@@ -19,7 +19,7 @@ func BuildValidatingAdmissionPolicy(
 	discoveryClient dclient.IDiscovery,
 	vap *admissionregistrationv1alpha1.ValidatingAdmissionPolicy,
 	cpol kyvernov1.PolicyInterface,
-	polexSpec *kyvernov2.PolicyExceptionSpec,
+	exceptions []kyvernov2.PolicyException,
 ) error {
 	// set owner reference
 	vap.OwnerReferences = []metav1.OwnerReference{
@@ -75,9 +75,9 @@ func BuildValidatingAdmissionPolicy(
 		}
 	}
 
-	// convert the exception if exists
-	if polexSpec != nil {
-		match := polexSpec.Match
+	// convert the exceptions if exist
+	for _, exception := range exceptions {
+		match := exception.Spec.Match
 		if match.Any != nil {
 			if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.Any, false); err != nil {
 				return err
