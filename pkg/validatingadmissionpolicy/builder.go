@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -18,6 +19,7 @@ func BuildValidatingAdmissionPolicy(
 	discoveryClient dclient.IDiscovery,
 	vap *admissionregistrationv1alpha1.ValidatingAdmissionPolicy,
 	cpol kyvernov1.PolicyInterface,
+	exceptions []kyvernov2.PolicyException,
 ) error {
 	// set owner reference
 	vap.OwnerReferences = []metav1.OwnerReference{
@@ -70,6 +72,22 @@ func BuildValidatingAdmissionPolicy(
 	if exclude.All != nil {
 		if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, exclude.All, false); err != nil {
 			return err
+		}
+	}
+
+	// convert the exceptions if exist
+	for _, exception := range exceptions {
+		match := exception.Spec.Match
+		if match.Any != nil {
+			if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.Any, false); err != nil {
+				return err
+			}
+		}
+
+		if match.All != nil {
+			if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.All, false); err != nil {
+				return err
+			}
 		}
 	}
 

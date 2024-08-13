@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: cpol-with-exceptions
+  name: cpol-with-an-exception-excluding-namespaces
 spec:
   steps:
   - name: step-01
@@ -17,11 +17,7 @@ spec:
         file: exception.yaml
   - name: step-03
     try:
-    - sleep:
-        duration: 15s
-  - name: step-04
-    try:
-    - error:
+    - assert:
         file: validatingadmissionpolicy.yaml
-    - error:
+    - assert:
         file: validatingadmissionpolicybinding.yaml
