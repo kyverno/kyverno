@@ -1,7 +1,7 @@
 package utils
 
 import (
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -29,7 +29,7 @@ func NewPolicyContextBuilder(
 }
 
 func (b *policyContextBuilder) Build(request admissionv1.AdmissionRequest, roles, clusterRoles []string, gvk schema.GroupVersionKind) (*engine.PolicyContext, error) {
-	userRequestInfo := kyvernov1beta1.RequestInfo{
+	userRequestInfo := kyvernov2.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,

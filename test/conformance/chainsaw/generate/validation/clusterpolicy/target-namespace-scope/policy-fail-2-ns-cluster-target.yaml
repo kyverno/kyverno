@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: target-namespace-scope-pass-1
 spec:
-  generateExistingOnPolicyUpdate: true
+  generateExisting: true
   rules:
     - generate:
         apiVersion: iam.aws.crossplane.io/v1beta1

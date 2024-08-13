@@ -1,0 +1,9 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-test
+  name: nginx-test
+  namespace: test-validate
+status:
+  replicas: 2

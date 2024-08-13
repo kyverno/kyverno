@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
+func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, ur kyvernov2.UpdateRequest, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
 	source := sourceSpec
 	clone := rule.Generation
 	if clone.Clone.Name != "" {
@@ -88,7 +88,7 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 	return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
 }
 
-func manageCloneList(log logr.Logger, targetNamespace string, ur kyvernov1beta1.UpdateRequest, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, client dclient.Interface) []generateResponse {
+func manageCloneList(log logr.Logger, targetNamespace string, ur kyvernov2.UpdateRequest, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, client dclient.Interface) []generateResponse {
 	var responses []generateResponse
 	cloneList := rule.Generation.CloneList
 	sourceNamespace := cloneList.Namespace

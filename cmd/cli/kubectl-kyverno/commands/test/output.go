@@ -16,7 +16,6 @@ import (
 )
 
 func printCheckResult(
-	out io.Writer,
 	checks []v1alpha1.CheckResult,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,
@@ -91,7 +90,7 @@ func printCheckResult(
 					// patchedTargetSubresourceName string
 					// podSecurityChecks contains pod security checks (only if this is a pod security rule)
 					"podSecurityChecks": rule.PodSecurityChecks(),
-					"exception ":        rule.Exception(),
+					"exceptions":        rule.Exceptions(),
 				}
 				if check.Assert.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
@@ -162,7 +161,6 @@ func printCheckResult(
 }
 
 func printTestResult(
-	out io.Writer,
 	tests []v1alpha1.TestResult,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,

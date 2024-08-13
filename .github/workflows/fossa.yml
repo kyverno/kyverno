@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Check secret
         id: checksecret
         uses: ./.github/actions/is-defined
@@ -36,6 +36,6 @@ jobs:
           free-disk-space: false
       - name: Run FOSSA analysis
         if: steps.checksecret.outputs.result == 'true'
-        uses: fossas/fossa-action@47ef11b1e1e3812e88dae436ccbd2d0cbd1adab0 # v1.3.3
+        uses: fossas/fossa-action@09bcf127dc0ccb4b5a023f6f906728878e8610ba # v1.4.0
         with:
           api-key: ${{ secrets.FOSSA_API_KEY }}

@@ -35,11 +35,11 @@ func (o options) validate(policy string) error {
 }
 
 func (o options) execute(ctx context.Context, dir string, keychain authn.Keychain) error {
-	policies, _, _, err := policy.Load(nil, "", dir)
+	results, err := policy.Load(nil, "", dir)
 	if err != nil {
 		return fmt.Errorf("unable to read policy file or directory %s (%w)", dir, err)
 	}
-	for _, policy := range policies {
+	for _, policy := range results.Policies {
 		if _, err := policyvalidation.Validate(policy, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName())); err != nil {
 			return fmt.Errorf("validating policy %s: %v", policy.GetName(), err)
 		}
@@ -50,7 +50,7 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	if err != nil {
 		return fmt.Errorf("parsing image reference: %v", err)
 	}
-	for _, policy := range policies {
+	for _, policy := range results.Policies {
 		if policy.IsNamespaced() {
 			fmt.Fprintf(os.Stderr, "Adding policy [%s]\n", policy.GetName())
 		} else {

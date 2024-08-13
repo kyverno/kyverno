@@ -1,0 +1,38 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-clone-delete-ownerreferences-across-namespaces
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - script:
+        content: |
+          kubectl -n cpol-clone-delete-ownerreferences-across-namespaces-source-ns get configmap owner -o json | jq '{
+            "metadata": {
+              "ownerReferences": [{
+                "apiVersion": "v1",
+                "kind": "ConfigMap",
+                "name": "owner",
+                "uid": .metadata.uid
+              }]
+            }
+          }' | kubectl patch -n cpol-clone-delete-ownerreferences-across-namespaces-source-ns secret cpol-clone-delete-ownerreferences-across-namespaces --patch-file=/dev/stdin
+  - name: step-03
+    try:
+    - apply:
+        file: trigger.yaml
+    - assert:
+        file: created-secret.yaml
+  - name: step-04
+    try:
+    - script:
+        content: |
+          kubectl --namespace cpol-clone-delete-ownerreferences-across-namespaces-target-ns get secret cpol-clone-delete-ownerreferences-across-namespaces -o json | jq -e '.metadata.ownerReferences == null'

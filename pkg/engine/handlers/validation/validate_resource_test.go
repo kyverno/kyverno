@@ -59,7 +59,6 @@ var (
 		  "name": "block-label-changes"
 		},
 		"spec": {
-		  "validationFailureAction": "Enforce",
 		  "background": false,
 		  "rules": [
 			{
@@ -80,6 +79,7 @@ var (
 				]
 			  },
 			  "validate": {
+			    "validationFailureAction": "Enforce",
 				"message": "The label size is required",
 				"pattern": {
 				  "metadata": {
@@ -107,6 +107,7 @@ var (
 				]
 			  },
 			  "validate": {
+			    "validationFailureAction": "Enforce",
 				"message": "The label size cannot be changed for a namespace",
 				"deny": {
 				  "conditions": {

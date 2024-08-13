@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -110,8 +110,13 @@ func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ru
 			*resource,
 		}
 	}
-	if ruleResult.Exception() != nil {
-		addProperty("exception", ruleResult.Exception().Name, &result)
+	exceptions := ruleResult.Exceptions()
+	if len(exceptions) > 0 {
+		var names []string
+		for _, exception := range exceptions {
+			names = append(names, exception.Name)
+		}
+		addProperty("exceptions", strings.Join(names, ","), &result)
 	}
 	pss := ruleResult.PodSecurityChecks()
 	if pss != nil && len(pss.Checks) > 0 {
@@ -176,7 +181,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 	policyType := pol.GetType()
 	annotations := pol.GetAnnotations()
 
-	var results []policyreportv1alpha2.PolicyReportResult
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
 		results = append(results, result)
@@ -209,13 +214,13 @@ func SplitResultsByPolicy(logger logr.Logger, results []policyreportv1alpha2.Pol
 	return resultsMap
 }
 
-func SetResults(report kyvernov1alpha2.ReportInterface, results ...policyreportv1alpha2.PolicyReportResult) {
+func SetResults(report reportsv1.ReportInterface, results ...policyreportv1alpha2.PolicyReportResult) {
 	SortReportResults(results)
 	report.SetResults(results)
 	report.SetSummary(CalculateSummary(results))
 }
 
-func SetResponses(report kyvernov1alpha2.ReportInterface, engineResponses ...engineapi.EngineResponse) {
+func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	var ruleResults []policyreportv1alpha2.PolicyReportResult
 	for _, result := range engineResponses {
 		pol := result.Policy()

@@ -14,6 +14,10 @@ spec:
   backoffLimit: 2
   template:
     metadata:
+      {{- with .Values.policyReportsCleanup.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.policyReportsCleanup.podLabels }}
       labels:
         {{- toYaml . | nindent 8 }}
@@ -64,7 +68,7 @@ spec:
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.policyReportsCleanup.tolerations }}
+      {{- with .Values.policyReportsCleanup.tolerations | default .Values.global.tolerations}}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

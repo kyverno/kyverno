@@ -1,4 +1,4 @@
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
   name: mynewpolex
@@ -7,6 +7,7 @@ spec:
     - policyName: require-labels
       ruleNames:
         - require-team
+        - require-team-assert
   match:
     any:
       - resources:

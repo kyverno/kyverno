@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-default-sa
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: Deployment,CronJob
+spec:
+  validationFailureAction: Audit
+  rules:
+  - match:
+      any:
+        - resources:
+            kinds:
+            - Pod
+    name: disallow-default-sa
+    validate:
+      message: default ServiceAccount should not be used
+      assert:
+        object:
+          spec:
+            (serviceAccountName == 'default'): false

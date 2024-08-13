@@ -1,0 +1,13 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterCleanupPolicy
+metadata:
+  name: test-secret-removal
+spec:
+  match:
+    any:
+    - resources:
+        kinds:
+        - Secret
+        names:
+        - test-secret
+  schedule: "*/10 * * * *"

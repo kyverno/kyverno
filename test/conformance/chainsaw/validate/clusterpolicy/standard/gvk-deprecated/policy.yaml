@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: rds-enforce-final-snapshot
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: rds-enforce-final-snapshot
+      match:
+        all:
+          - resources:
+              kinds:
+                - rds.aws.crossplane.io/v1alpha1/DBCluster
+      validate:
+        message: "Final snapshot must not be skipped"
+        pattern:
+          spec:
+            forProvider:
+              =(skipFinalSnapshot): "false"
