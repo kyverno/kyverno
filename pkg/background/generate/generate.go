@@ -196,7 +196,7 @@ func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateR
 
 func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, i int, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
-	logger.V(3).Info("applying generate policy rule")
+	logger.V(3).Info("applying generate policy")
 
 	policy, err := c.getPolicyObject(ur)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -210,7 +210,20 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		return nil, err
 	}
 
-	policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, policy, &trigger, c.configuration, c.jp, namespaceLabels)
+	var rule *kyvernov1.Rule
+	p := policy.CreateDeepCopy()
+	for j := range p.GetSpec().Rules {
+		if p.GetSpec().Rules[j].Name == ruleContext.Rule {
+			rule = &p.GetSpec().Rules[j]
+			break
+		}
+	}
+	if rule == nil {
+		logger.Info("skip rule application as the rule does not exist in the updaterequest", "rule", ruleContext.Rule)
+		return nil, nil
+	}
+	p.GetSpec().SetRules([]kyvernov1.Rule{*rule})
+	policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, p, &trigger, c.configuration, c.jp, namespaceLabels)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +318,6 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		if !slices.Contains(applicableRules, rule.Name) {
 			continue
 		}
-
 		if rule.Generation.Synchronize {
 			ruleRaw, err := json.Marshal(rule.DeepCopy())
 			if err != nil {
@@ -327,7 +339,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		if applyRules == kyvernov1.ApplyOne && applyCount > 0 {
 			break
 		}
-
+		logger := log.WithValues("rule", rule.Name)
 		// add configmap json data to context
 		if err := c.engine.ContextLoader(policyContext.Policy(), rule)(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
 			log.Error(err, "cannot add configmaps to context")
@@ -339,7 +351,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			return nil, err
 		}
 
-		genResource, err = applyRule(log, c.client, rule, resource, policy)
+		genResource, err = applyRule(logger, c.client, rule, resource, policy)
 		if err != nil {
 			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(), "rule", rule.Name, "resource", resource.GetName())
 			return nil, err
