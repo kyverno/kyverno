@@ -7,11 +7,15 @@ import (
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
-var jp = jmespath.New(config.NewDefaultConfiguration(false))
+var (
+	jp  = jmespath.New(config.NewDefaultConfiguration(false))
+	cfg = config.NewDefaultConfiguration(false)
+)
 
 func Test_addResourceAndUserContext(t *testing.T) {
 	var err error
@@ -226,4 +230,41 @@ func TestAddVariable(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_ImageInfoLoader(t *testing.T) {
+	resource1, err := kubeutils.BytesToUnstructured([]byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "test-pod",
+		  "namespace": "default"
+		},
+		"spec": {
+		  "containers": [{
+			"name": "test-container",
+			"image": "nginx:latest"
+		  }]
+		}
+	}`))
+	assert.Nil(t, err)
+	err = newContext().AddImageInfos(resource1, cfg)
+	assert.Nil(t, err)
+	resource2, err := kubeutils.BytesToUnstructured([]byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "test-pod",
+		  "namespace": "default"
+		},
+		"spec": {
+		  "containers": [{
+			"name": "test-container",
+			"image": "@incorrect-image"
+		  }]
+		}
+	}`))
+	assert.Nil(t, err)
+	err = newContext().AddImageInfos(resource2, cfg)
+	assert.Nil(t, err)
 }
