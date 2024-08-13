@@ -150,6 +150,7 @@ var (
         },
         "name": "check-image",
         "validate": {
+					"allowExistingViolations": true,
           "foreach": [
             {
               "deny": {
