@@ -236,33 +236,6 @@ func NewPolicyContext(
 	return policyContext, nil
 }
 
-type ImageInfoLoader struct {
-	resource      *unstructured.Unstructured
-	configuration config.Configuration
-	hasLoaded     bool
-	eCtx          enginectx.Interface
-}
-
-func (l *ImageInfoLoader) Name() string {
-	return "ImageInfoLoader"
-}
-
-func (l *ImageInfoLoader) Matches(query string) bool {
-	return query == "imageinfo"
-}
-
-func (l *ImageInfoLoader) HasLoaded() bool {
-	return l.hasLoaded
-}
-
-func (l *ImageInfoLoader) LoadData() error {
-	if err := l.eCtx.AddImageInfos(l.resource, l.configuration); err != nil {
-		return err
-	}
-	l.hasLoaded = true
-	return nil
-}
-
 func NewPolicyContextFromAdmissionRequest(
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,

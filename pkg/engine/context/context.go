@@ -315,10 +315,6 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg confi
 	if err != nil {
 		return err
 	}
-	err = ctx.AddDeferredLoader(dl)
-	if err != nil {
-		return err
-	}
 	if toggle.FromContext(cont.Background()).EnableDeferredLoading() {
 		if err := ctx.AddDeferredLoader(dl); err != nil {
 			return err
