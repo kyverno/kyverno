@@ -261,34 +261,8 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 		return nil
 	}
 	// Support backwards compatibility
-	skipAutoGeneration := false
-	var controllersValidated []string
 	if controllers == "all" {
-		skipAutoGeneration = true
-	} else if controllers != "none" && controllers != "all" {
-		controllersList := map[string]int{
-			"DaemonSet":             1,
-			"Deployment":            1,
-			"Job":                   1,
-			"StatefulSet":           1,
-			"ReplicaSet":            1,
-			"ReplicationController": 1,
-		}
-		for _, value := range splitKinds(controllers, ",") {
-			if _, ok := controllersList[value]; ok {
-				controllersValidated = append(controllersValidated, value)
-			}
-		}
-		if len(controllersValidated) > 0 {
-			skipAutoGeneration = true
-		}
-	}
-	if skipAutoGeneration {
-		if controllers == "all" {
-			controllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController"
-		} else {
-			controllers = strings.Join(controllersValidated, ",")
-		}
+		controllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController"
 	}
 	return generateRule(
 		getAutogenRuleName("autogen", rule.Name),
