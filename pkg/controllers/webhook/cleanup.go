@@ -127,6 +127,12 @@ func WebhookCleanupSetup(
 					ResourceNames: []string{name},
 					Verbs:         []string{"patch"},
 				},
+				{
+					APIGroups:     []string{"apps"},
+					Resources:     []string{"deployments"},
+					ResourceNames: []string{config.KyvernoDeploymentName()},
+					Verbs:         []string{"patch"},
+				},
 			},
 		}
 
@@ -257,7 +263,18 @@ func WebhookCleanupHandler(
 			logger.Info("finalizer removed from role", "role", r.Name, "namespace", r.Namespace)
 		}
 
-		if sa, err := kubeClient.CoreV1().ServiceAccounts(config.KyvernoNamespace()).Patch(ctx, config.KyvernoServiceAccountName(), apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
+		if d, err := kubeClient.AppsV1().Deployments(config.KyvernoNamespace()).Patch(ctx, config.KyvernoDeploymentName(), apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Error(err, "already queued for deletion")
+				return nil
+			}
+			logger.Error(err, "failed to patch role")
+			return err
+		} else {
+			logger.Info("finalizer removed from kyverno deployment", "deployment", d.Name, "namespace", d.Namespace)
+		}
+
+		if sa, err := kubeClient.CoreV1().ServiceAccounts(config.KyvernoNamespace()).Patch(context.TODO(), config.KyvernoServiceAccountName(), apimachinerytypes.JSONPatchType, finalizersRemovePatch, metav1.PatchOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				logger.Error(err, "already queued for deletion")
 				return nil
