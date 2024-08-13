@@ -95,7 +95,7 @@ type UpdateRequestSpec struct {
 
 	// Synchronize represents the sync behavior of the corresponding rule
 	// Optional. Defaults to "false" if not specified.
-	// Deprecated
+	// Deprecated, will be removed in 1.14.
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
 	// ResourceSpec is the information to identify the trigger resource.

@@ -395,7 +395,7 @@ spec:
                 description: |-
                   Synchronize represents the sync behavior of the corresponding rule
                   Optional. Defaults to "false" if not specified.
-                  Deprecated
+                  Deprecated, will be removed in 1.14.
                 type: boolean
             required:
             - context
