@@ -199,7 +199,41 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 		return ""
 	}
 	spec := pol.AsKyvernoPolicy().GetSpec()
-	for _, v := range spec.GetValidationFailureActionOverrides() {
+	for _, r := range spec.Rules {
+		if r.HasValidate() {
+			for _, v := range r.Validation.ValidationFailureActionOverrides {
+				if !v.Action.IsValid() {
+					continue
+				}
+				if v.Namespaces == nil {
+					hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
+					if err == nil && hasPass {
+						return v.Action
+					}
+				}
+				for _, ns := range v.Namespaces {
+					if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
+						if v.NamespaceSelector == nil {
+							return v.Action
+						}
+						hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
+						if err == nil && hasPass {
+							return v.Action
+						}
+					}
+				}
+			}
+
+			if r.Validation.ValidationFailureAction != nil {
+				return *r.Validation.ValidationFailureAction
+			}
+		} else if r.HasVerifyImages() {
+			if r.VerifyImages[0].ValidationFailureAction != nil {
+				return *r.VerifyImages[0].ValidationFailureAction
+			}
+		}
+	}
+	for _, v := range spec.ValidationFailureActionOverrides {
 		if !v.Action.IsValid() {
 			continue
 		}
@@ -221,5 +255,5 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 			}
 		}
 	}
-	return spec.GetValidationFailureAction()
+	return spec.ValidationFailureAction
 }

@@ -49,5 +49,5 @@ spec:
         content: kubectl get updaterequests -n kyverno
         check:
           # This check ensures the contents of stderr are exactly as shown.
-          ($stderr): |-
+          (trim_space($stderr)): |-
             No resources found in kyverno namespace.

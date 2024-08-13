@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-exec-by-namespace-name
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: deny-exec-ns-pci
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod/exec
+    celPreconditions:
+      - name: "operation-should-be-connect"
+        expression: "request.operation == 'CONNECT'"
+    validate:
+      cel:
+        expressions:
+          - expression: "request.namespace != 'pci'"
+            message: Pods in this namespace may not be exec'd into.

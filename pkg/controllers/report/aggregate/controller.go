@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
@@ -92,12 +93,16 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	enqueueAll := func() {
-		if list, err := polrInformer.Lister().List(labels.Everything()); err == nil {
+		selector := labels.SelectorFromSet(labels.Set{
+			kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+		})
+
+		if list, err := polrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
 				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
 			}
 		}
-		if list, err := cpolrInformer.Lister().List(labels.Everything()); err == nil {
+		if list, err := cpolrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
 				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
 			}

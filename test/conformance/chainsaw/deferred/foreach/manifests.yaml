@@ -41,4 +41,3 @@ spec:
         - CREATE
         - UPDATE
   schemaValidation: false
-  validationFailureAction: Enforce

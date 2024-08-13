@@ -27,5 +27,5 @@ spec:
       imageReferences:
       - ghcr.io/kyverno/test-verify-image:*
       cosignOCI11: true
-  validationFailureAction: Enforce
+      validationFailureAction: Enforce
   webhookTimeoutSeconds: 30

@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  doeshavesvclb: "true"
+kind: ConfigMap
+metadata:
+  name: mylb-cm
+  namespace: venus
