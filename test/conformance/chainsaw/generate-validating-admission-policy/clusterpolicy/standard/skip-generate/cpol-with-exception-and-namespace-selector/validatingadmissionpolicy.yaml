@@ -3,5 +3,5 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
-  name: disallow-host-path-t11
+  name: disallow-host-path
 spec: {}
