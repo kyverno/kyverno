@@ -59,12 +59,6 @@ func GenerateLabelsSet(policyKey string) pkglabels.Set {
 	set := pkglabels.Set{
 		kyvernov2.URGeneratePolicyLabel: policyName,
 	}
-	// isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
-	// if !isNil {
-	// set[kyvernov2.URGenerateResourceUIDLabel] = string(trigger.GetUID())
-	// set[kyvernov2.URGenerateResourceNSLabel] = trigger.GetNamespace()
-	// set[kyvernov2.URGenerateResourceKindLabel] = trigger.GetKind()
-	// }
 	return set
 }
 
