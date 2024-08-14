@@ -27,6 +27,7 @@ REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
 REPO_REPORTS         := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE)
 REPO_BACKGROUND      := $(REGISTRY)/$(REPO)/$(BACKGROUND_IMAGE)
 USE_CONFIG           ?= standard
+UPGRADE_FROM		 ?= 3.2.6
 
 #########
 # TOOLS #
@@ -998,6 +999,14 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
 		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
 		--set crds.migration.image.tag=$(GIT_SHA) \
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
+
+.PHONY: kind-install-kyverno-from-repo
+kind-install-kyverno-from-repo: $(HELM) ## Install Kyverno Helm Chart from the Kyverno repo
+	@echo Install kyverno chart... >&2
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait \
+		--repo https://kyverno.github.io/kyverno/ kyverno \
+		--version $(UPGRADE_FROM) \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
 
 .PHONY: kind-install-goldilocks

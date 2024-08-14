@@ -9,6 +9,12 @@ on:
     branches:
       - "main"
       - "release*"
+  workflow_dispatch:
+    inputs:
+      upgrade-from:
+        description: "Kyverno Chart version to install and upgrade from (e.g., 3.2.6)"
+        required: true
+        default: "3.2.6"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -117,7 +123,7 @@ jobs:
           - ^verifyImages$
           - ^webhooks$
     needs:
-    - prepare-images
+      - prepare-images
     name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
@@ -153,6 +159,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -222,6 +235,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -296,6 +316,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -365,6 +392,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -438,6 +472,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -514,6 +555,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -589,6 +637,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -674,6 +729,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -758,6 +820,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -877,6 +946,13 @@ jobs:
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            UPGRADE_FROM=${{ inputs.upgrade-from }}
+            echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
+            make kind-install-kyverno-from-repo
+          fi
+
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -957,7 +1033,7 @@ jobs:
         tests:
           - ^cli$
     needs:
-    - prepare-cli
+      - prepare-cli
     name: ${{ matrix.tests }} - chainsaw
     steps:
       - name: Checkout
