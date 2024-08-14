@@ -1179,23 +1179,23 @@ func Test_Get_Policies(t *testing.T) {
 	finder := TestResourceFinder{}
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
 	cache.Set(key, policy, finder)
-	validateAudit := cache.GetPolicies(ValidateAudit, namespacesGVRS.GroupVersionResource(), "", "")
+	validateAudit := cache.GetPolicies(ValidateAudit, namespacesGVRS.GroupVersionResource(), "", "", map[string]string{})
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "test")
+	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "test", map[string]string{})
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce := cache.GetPolicies(ValidateEnforce, namespacesGVRS.GroupVersionResource(), "", "")
+	validateEnforce := cache.GetPolicies(ValidateEnforce, namespacesGVRS.GroupVersionResource(), "", "", map[string]string{})
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", "")
+	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", "", map[string]string{})
 	if len(mutate) != 1 {
 		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 	}
-	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", "")
+	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", "", map[string]string{})
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
@@ -1208,19 +1208,19 @@ func Test_Get_Policies_Ns(t *testing.T) {
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
 	cache.Set(key, policy, finder)
 	nspace := policy.GetNamespace()
-	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", nspace)
+	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", nspace, map[string]string{})
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", nspace)
+	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", nspace, map[string]string{})
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", nspace)
+	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", nspace, map[string]string{})
 	if len(mutate) != 1 {
 		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 	}
-	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", nspace)
+	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", nspace, map[string]string{})
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
@@ -1235,27 +1235,27 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 	cache.Set(key1, policy1, finder)
 	key2, _ := kubecache.MetaNamespaceKeyFunc(policy2)
 	cache.Set(key2, policy2, finder)
-	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "")
+	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "", map[string]string{})
 	if len(validateAudit) != 1 {
 		t.Errorf("expected 1 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
+	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "", map[string]string{})
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "test")
+	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "test", map[string]string{})
 	if len(validateAudit) != 2 {
 		t.Errorf("expected 2 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "test")
+	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "test", map[string]string{})
 	if len(validateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(validateEnforce))
 	}
-	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "default")
+	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "default", map[string]string{})
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "default")
+	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "default", map[string]string{})
 	if len(validateEnforce) != 2 {
 		t.Errorf("expected 2 validate enforce policy, found %v", len(validateEnforce))
 	}

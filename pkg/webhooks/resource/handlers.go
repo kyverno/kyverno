@@ -116,7 +116,12 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in validating webhook")
 
-	policies, mutatePolicies, generatePolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, false)
+	namespaceLabels := make(map[string]string)
+	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+	}
+
+	policies, mutatePolicies, generatePolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, namespaceLabels, failurePolicy, false)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
 	}
@@ -137,7 +142,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.admissionReports,
 		h.metricsConfig,
 		h.configuration,
-		h.nsLister,
+		namespaceLabels,
 		h.reportsBreaker,
 	)
 	var wg sync.WaitGroup
@@ -186,7 +191,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in mutating webhook")
 
-	_, mutatePolicies, _, verifyImagesPolicies, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, true)
+	_, mutatePolicies, _, verifyImagesPolicies, err := h.retrieveAndCategorizePolicies(ctx, logger, request, map[string]string{}, failurePolicy, true)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
 	}
@@ -236,19 +241,19 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 }
 
 func (h *resourceHandlers) retrieveAndCategorizePolicies(
-	ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, mutation bool) (
+	ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, namespaceLabels map[string]string, failurePolicy string, mutation bool) (
 	[]kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, error,
 ) {
 	var policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies []kyvernov1.PolicyInterface
 	if request.URLParams == "" {
 		gvr := schema.GroupVersionResource(request.Resource)
-		policies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, request.Namespace)...)
-		mutatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
-		generatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, request.Namespace)...)
+		policies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, request.Namespace, namespaceLabels)...)
+		mutatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace, namespaceLabels)...)
+		generatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, request.Namespace, namespaceLabels)...)
 		if mutation {
-			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace)...)
+			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace, namespaceLabels)...)
 		} else {
-			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, request.Namespace)...)
+			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvr, request.SubResource, request.Namespace, namespaceLabels)...)
 			policies = append(policies, imageVerifyValidatePolicies...)
 		}
 	} else {

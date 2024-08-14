@@ -5,6 +5,7 @@ import (
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -21,7 +22,7 @@ type Cache interface {
 	Unset(string)
 	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
 	// If the namespace is empty, only cluster-wide policies are returned
-	GetPolicies(PolicyType, schema.GroupVersionResource, string, string) []kyvernov1.PolicyInterface
+	GetPolicies(PolicyType, schema.GroupVersionResource, string, string, map[string]string) []kyvernov1.PolicyInterface
 }
 
 type cache struct {
@@ -43,33 +44,33 @@ func (c *cache) Unset(key string) {
 	c.store.unset(key)
 }
 
-func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, subresource string, nspace string) []kyvernov1.PolicyInterface {
+func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, subresource string, ns string, nsLabels map[string]string) []kyvernov1.PolicyInterface {
 	var result []kyvernov1.PolicyInterface
 	result = append(result, c.store.get(pkey, gvr, subresource, "")...)
-	if nspace != "" {
-		result = append(result, c.store.get(pkey, gvr, subresource, nspace)...)
+	if ns != "" {
+		result = append(result, c.store.get(pkey, gvr, subresource, ns)...)
 	}
 	// also get policies with ValidateEnforce
 	if pkey == ValidateAudit {
 		result = append(result, c.store.get(ValidateEnforce, gvr, subresource, "")...)
 	}
 	if pkey == ValidateAudit || pkey == ValidateEnforce {
-		result = filterPolicies(pkey, result, nspace)
+		result = filterPolicies(pkey, result, ns, nsLabels)
 	}
 	return result
 }
 
 // Filter cluster policies using validationFailureAction override
-func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace string) []kyvernov1.PolicyInterface {
+func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, ns string, nsLabels map[string]string) []kyvernov1.PolicyInterface {
 	var policies []kyvernov1.PolicyInterface
 	for _, policy := range result {
 		var filteredPolicy kyvernov1.PolicyInterface
 		keepPolicy := true
 		switch pkey {
 		case ValidateAudit:
-			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, nspace, policy)
+			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, ns, nsLabels, policy)
 		case ValidateEnforce:
-			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, nspace, policy)
+			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, ns, nsLabels, policy)
 		}
 		// add policy to result
 		if keepPolicy {
@@ -79,7 +80,7 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace 
 	return policies
 }
 
-func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
+func checkValidationFailureActionOverrides(enforce bool, ns string, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
 	var filteredRules []kyvernov1.Rule
 	for _, rule := range autogen.ComputeRules(policy, "") {
 		if !rule.HasValidate() {
@@ -102,9 +103,25 @@ func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyver
 			continue
 		}
 		for _, action := range validationFailureActionOverrides {
-			if action.Action.Enforce() == enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
-				filteredRules = append(filteredRules, rule)
-				continue
+			if action.Action.Enforce() == enforce {
+				if action.Namespaces == nil {
+					hasPass, err := matchutils.CheckSelector(action.NamespaceSelector, nsLabels)
+					if err == nil && hasPass {
+						filteredRules = append(filteredRules, rule)
+						continue
+					}
+				}
+				if wildcard.CheckPatterns(action.Namespaces, ns) {
+					if action.NamespaceSelector == nil {
+						filteredRules = append(filteredRules, rule)
+						continue
+					}
+					hasPass, err := matchutils.CheckSelector(action.NamespaceSelector, nsLabels)
+					if err == nil && hasPass {
+						filteredRules = append(filteredRules, rule)
+						continue
+					}
+				}
 			}
 		}
 	}

@@ -17,14 +17,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type ValidationHandler interface {
@@ -45,7 +43,7 @@ func NewValidationHandler(
 	admissionReports bool,
 	metrics metrics.MetricsConfigManager,
 	cfg config.Configuration,
-	nsLister corev1listers.NamespaceLister,
+	nsLabels map[string]string,
 	reportsBreaker breaker.Breaker,
 ) ValidationHandler {
 	return &validationHandler{
@@ -58,7 +56,7 @@ func NewValidationHandler(
 		admissionReports: admissionReports,
 		metrics:          metrics,
 		cfg:              cfg,
-		nsLister:         nsLister,
+		nsLabels:         nsLabels,
 		reportsBreaker:   reportsBreaker,
 	}
 }
@@ -73,7 +71,7 @@ type validationHandler struct {
 	admissionReports bool
 	metrics          metrics.MetricsConfigManager
 	cfg              config.Configuration
-	nsLister         corev1listers.NamespaceLister
+	nsLabels         map[string]string
 	reportsBreaker   breaker.Breaker
 }
 
@@ -90,7 +88,7 @@ func (v *validationHandler) HandleValidationEnforce(
 		return true, "", nil, nil
 	}
 
-	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
+	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request, v.nsLabels)
 	if err != nil {
 		msg := fmt.Sprintf("failed to create policy context: %v", err)
 		return false, msg, nil, nil
@@ -153,12 +151,12 @@ func (v *validationHandler) HandleValidationAudit(
 	request handlers.AdmissionRequest,
 ) []engineapi.EngineResponse {
 	gvr := schema.GroupVersionResource(request.Resource)
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace, v.nsLabels)
 	if len(policies) == 0 {
 		return nil
 	}
 
-	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request)
+	policyContext, err := v.buildPolicyContextFromAdmissionRequest(v.log, request, v.nsLabels)
 	if err != nil {
 		v.log.Error(err, "failed to build policy context")
 		return nil
@@ -207,14 +205,10 @@ func (v *validationHandler) buildAuditResponses(
 	return responses, nil
 }
 
-func (v *validationHandler) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest) (*policycontext.PolicyContext, error) {
+func (v *validationHandler) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest, namespaceLabels map[string]string) (*policycontext.PolicyContext, error) {
 	policyContext, err := v.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 	if err != nil {
 		return nil, err
-	}
-	namespaceLabels := make(map[string]string)
-	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, v.nsLister, logger)
 	}
 	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	return policyContext, nil

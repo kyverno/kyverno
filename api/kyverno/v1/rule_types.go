@@ -135,6 +135,17 @@ func (r *Rule) HasVerifyImages() bool {
 	return false
 }
 
+// HasVeirfyImageEnforce checks for enforce action in verifyImages rule
+func (r *Rule) HasVerifyImageEnforce() bool {
+	for _, verifyImage := range r.VerifyImages {
+		action := verifyImage.ValidationFailureAction
+		if action != nil && action.Enforce() {
+			return true
+		}
+	}
+	return false
+}
+
 // HasVerifyImageChecks checks whether the verifyImages rule has validation checks
 func (r *Rule) HasVerifyImageChecks() bool {
 	for _, verifyImage := range r.VerifyImages {

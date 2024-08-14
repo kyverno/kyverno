@@ -3,10 +3,7 @@ package api
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/ext/wildcard"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -190,70 +187,4 @@ func (er EngineResponse) getRulesWithErrors(predicate func(RuleResponse) bool) [
 		}
 	}
 	return rules
-}
-
-// If the policy is of type ValidatingAdmissionPolicy, an empty string is returned.
-func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
-	pol := er.Policy()
-	if polType := pol.GetType(); polType == ValidatingAdmissionPolicyType {
-		return ""
-	}
-	spec := pol.AsKyvernoPolicy().GetSpec()
-	for _, r := range spec.Rules {
-		if r.HasValidate() {
-			for _, v := range r.Validation.ValidationFailureActionOverrides {
-				if !v.Action.IsValid() {
-					continue
-				}
-				if v.Namespaces == nil {
-					hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-					if err == nil && hasPass {
-						return v.Action
-					}
-				}
-				for _, ns := range v.Namespaces {
-					if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
-						if v.NamespaceSelector == nil {
-							return v.Action
-						}
-						hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-						if err == nil && hasPass {
-							return v.Action
-						}
-					}
-				}
-			}
-
-			if r.Validation.ValidationFailureAction != nil {
-				return *r.Validation.ValidationFailureAction
-			}
-		} else if r.HasVerifyImages() {
-			if r.VerifyImages[0].ValidationFailureAction != nil {
-				return *r.VerifyImages[0].ValidationFailureAction
-			}
-		}
-	}
-	for _, v := range spec.ValidationFailureActionOverrides {
-		if !v.Action.IsValid() {
-			continue
-		}
-		if v.Namespaces == nil {
-			hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-			if err == nil && hasPass {
-				return v.Action
-			}
-		}
-		for _, ns := range v.Namespaces {
-			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
-				if v.NamespaceSelector == nil {
-					return v.Action
-				}
-				hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-				if err == nil && hasPass {
-					return v.Action
-				}
-			}
-		}
-	}
-	return spec.ValidationFailureAction
 }

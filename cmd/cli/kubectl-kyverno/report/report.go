@@ -1,7 +1,10 @@
 package report
 
 import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
@@ -25,9 +28,32 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 
 	result := reportutils.ToPolicyReportResult(policyType, policyName, ruleResponse, policy.GetAnnotations(), resorceRef)
 	if result.Result == policyreportv1alpha2.StatusFail {
-		audit := engineResponse.GetValidationFailureAction().Audit()
-		if audit && auditWarn {
-			result.Result = policyreportv1alpha2.StatusWarn
+		if auditWarn {
+			if policyType == engineapi.KyvernoPolicyType {
+				if ruleResponse.RuleType() == engineapi.Validation {
+					var rule kyvernov1.Rule
+					for _, r := range autogen.ComputeRules(policy.AsKyvernoPolicy(), "") {
+						if r.Name == ruleResponse.Name() {
+							rule = r
+							break
+						}
+					}
+					if common.GetValidateRuleAction(policy.AsKyvernoPolicy().GetSpec(), rule, resource.GetNamespace(), engineResponse.NamespaceLabels()).Audit() {
+						result.Result = policyreportv1alpha2.StatusWarn
+					}
+				} else if ruleResponse.RuleType() == engineapi.ImageVerify {
+					var rule kyvernov1.Rule
+					for _, r := range autogen.ComputeRules(policy.AsKyvernoPolicy(), "") {
+						if r.Name == ruleResponse.Name() {
+							rule = r
+							break
+						}
+					}
+					if common.GetVerifyImageRuleAction(policy.AsKyvernoPolicy().GetSpec(), rule).Audit() {
+						result.Result = policyreportv1alpha2.StatusWarn
+					}
+				}
+			}
 		}
 	}
 

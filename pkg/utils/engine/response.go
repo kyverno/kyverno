@@ -19,8 +19,19 @@ func IsResponseSuccessful(engineReponses []engineapi.EngineResponse) bool {
 // 1. a policy fails (i.e. creates a violation) and validationFailureAction is set to 'enforce'
 // 2. a policy has a processing error and failurePolicy is set to 'Fail`
 func BlockRequest(er engineapi.EngineResponse, failurePolicy kyvernov1.FailurePolicyType) bool {
-	if er.IsFailed() && er.GetValidationFailureAction().Enforce() {
-		return true
+	if er.IsFailed() {
+		pol := er.Policy()
+		if polType := pol.GetType(); polType == engineapi.KyvernoPolicyType {
+			spec := pol.AsKyvernoPolicy().GetSpec()
+			// we don't need to check if the validate rule has the Enforce action
+			// since this function is called by HandleValidationEnforce() which already filters out the rules that have the Enforce action
+			if spec.HasValidate() {
+				return true
+			}
+			if spec.HasVeirfyImageEnforce() {
+				return true
+			}
+		}
 	}
 	if er.IsError() && failurePolicy == kyvernov1.Fail {
 		return true

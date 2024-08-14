@@ -13,9 +13,11 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -171,4 +173,59 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string)
 		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
 	}
 	return gitBranch, gitPathToYamls
+}
+
+func GetValidateRuleAction(spec *kyvernov1.Spec, rule kyvernov1.Rule, namespace string, nsLabels map[string]string) kyvernov1.ValidationFailureAction {
+	overrides := rule.Validation.ValidationFailureActionOverrides
+	// if the rule doesn't set the overrides, get them from the policy level setting if exist
+	if len(overrides) == 0 {
+		overrides = spec.ValidationFailureActionOverrides
+	}
+
+	for _, v := range overrides {
+		if !v.Action.IsValid() {
+			continue
+		}
+		if v.Namespaces == nil {
+			hasPass, err := utils.CheckSelector(v.NamespaceSelector, nsLabels)
+			if err == nil && hasPass {
+				return v.Action
+			}
+		}
+		for _, ns := range v.Namespaces {
+			if wildcard.Match(ns, namespace) {
+				if v.NamespaceSelector == nil {
+					return v.Action
+				}
+				hasPass, err := utils.CheckSelector(v.NamespaceSelector, nsLabels)
+				if err == nil && hasPass {
+					return v.Action
+				}
+			}
+		}
+	}
+
+	action := rule.Validation.ValidationFailureAction
+	if action != nil {
+		return *action
+	}
+	return spec.ValidationFailureAction
+}
+
+// GetVerifyImageAction returns the action to be taken on failure of image verification
+func GetVerifyImageRuleAction(spec *kyvernov1.Spec, rule kyvernov1.Rule) kyvernov1.ValidationFailureAction {
+	for _, verifyImage := range rule.VerifyImages {
+		verifyImageAction := verifyImage.ValidationFailureAction
+		if verifyImageAction != nil {
+			if verifyImageAction.Enforce() {
+				return *verifyImageAction
+			}
+		} else {
+			action := spec.ValidationFailureAction
+			if action.Enforce() {
+				return action
+			}
+		}
+	}
+	return spec.ValidationFailureAction
 }

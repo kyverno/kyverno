@@ -177,8 +177,19 @@ func (s *Spec) HasVerifyImages() bool {
 			return true
 		}
 	}
-
 	return false
+}
+
+// HasVeirfyImageEnforce checks if the policy has any verify image rules with enforce action
+func (s *Spec) HasVerifyImageEnforce() bool {
+	for _, rule := range s.Rules {
+		if rule.HasVerifyImages() {
+			if rule.HasVerifyImageEnforce() {
+				return true
+			}
+		}
+	}
+	return s.ValidationFailureAction.Enforce()
 }
 
 // HasVerifyManifests checks for image verification rules invoked during resource mutation

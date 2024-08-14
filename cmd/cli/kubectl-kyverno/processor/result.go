@@ -2,6 +2,7 @@ package processor
 
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
@@ -35,6 +36,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 		for _, rule := range autogen.ComputeRules(policy, "") {
 			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 				for _, valResponseRule := range response.PolicyResponse.Rules {
+					ruleType := valResponseRule.RuleType()
 					if rule.Name == valResponseRule.Name() {
 						switch valResponseRule.Status() {
 						case engineapi.RuleStatusPass:
@@ -43,8 +45,20 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 							if !scored {
 								rc.Warn++
 								break
-							} else if auditWarn && response.GetValidationFailureAction().Audit() {
-								rc.Warn++
+							} else if auditWarn {
+								if ruleType == engineapi.Validation {
+									if common.GetValidateRuleAction(policy.GetSpec(), rule, response.Resource.GetNamespace(), response.NamespaceLabels()).Enforce() {
+										rc.Fail++
+									} else {
+										rc.Warn++
+									}
+								} else {
+									if common.GetVerifyImageRuleAction(policy.GetSpec(), rule).Enforce() {
+										rc.Fail++
+									} else {
+										rc.Warn++
+									}
+								}
 							} else {
 								rc.Fail++
 							}
