@@ -12,6 +12,7 @@ rules:
       - ''
     resources:
       - secrets
+      - serviceaccounts
     verbs:
       - create
   - apiGroups:
@@ -78,5 +79,24 @@ rules:
       - create
   {{- end }}
   {{- end }}
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      {{- if .Values.webhooksCleanup.enabled }}
+      {{- if not .Values.templating.enabled }}
+      - deployments/scale
+      {{- end }}
+      {{- end }}
+    verbs:
+      - get
+      - list
+      - watch
+      {{- if .Values.webhooksCleanup.enabled }}
+      {{- if not .Values.templating.enabled }}
+      - patch
+      - update
+      {{- end }}
+      {{- end }}
 {{- end -}}
 {{- end -}}

@@ -21,6 +21,7 @@ import (
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
+	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
@@ -29,6 +30,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -38,10 +40,12 @@ import (
 )
 
 const (
-	resyncPeriod                = 15 * time.Minute
-	webhookWorkers              = 2
-	policyWebhookControllerName = "policy-webhook-controller"
-	ttlWebhookControllerName    = "ttl-webhook-controller"
+	resyncPeriod                         = 15 * time.Minute
+	webhookWorkers                       = 2
+	policyWebhookControllerName          = "policy-webhook-controller"
+	ttlWebhookControllerName             = "ttl-webhook-controller"
+	policyWebhookControllerFinalizerName = "kyverno.io/policywebhooks"
+	ttlWebhookControllerFinalizerName    = "kyverno.io/ttlwebhooks"
 )
 
 var (
@@ -129,7 +133,8 @@ func main() {
 		// certificates informers
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
-		if !informers.StartInformersAndWaitForCacheSync(ctx, setup.Logger, caSecret, tlsSecret) {
+		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), resyncPeriod)
+		if !informers.StartInformersAndWaitForCacheSync(ctx, setup.Logger, caSecret, tlsSecret, kyvernoDeployment) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
@@ -137,6 +142,7 @@ func main() {
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		// listers
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 		// log policy changes
@@ -177,9 +183,15 @@ func main() {
 			globalcontextcontroller.Workers,
 		)
 		// start informers and wait for cache sync
-		if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
+		if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer, kubeKyvernoInformer) {
 			os.Exit(1)
 		}
+		runtime := runtimeutils.NewRuntime(
+			setup.Logger.WithName("runtime-checks"),
+			serverIP,
+			kubeKyvernoInformer.Apps().V1().Deployments(),
+			nil,
+		)
 		// setup leader election
 		le, err := leaderelection.New(
 			setup.Logger.WithName("leader-election"),
@@ -229,6 +241,7 @@ func main() {
 						setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 						kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 						caSecret,
+						kyvernoDeployment,
 						config.CleanupValidatingWebhookConfigurationName,
 						config.CleanupValidatingWebhookServicePath,
 						serverIP,
@@ -255,6 +268,9 @@ func main() {
 						genericwebhookcontroller.None,
 						setup.Configuration,
 						caSecretName,
+						runtime,
+						webhookcontroller.WebhookCleanupSetup(setup.KubeClient, policyWebhookControllerFinalizerName),
+						webhookcontroller.WebhookCleanupHandler(setup.KubeClient, policyWebhookControllerFinalizerName),
 					),
 					webhookWorkers,
 				)
@@ -265,6 +281,7 @@ func main() {
 						setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 						kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 						caSecret,
+						kyvernoDeployment,
 						config.TtlValidatingWebhookConfigurationName,
 						config.TtlValidatingWebhookServicePath,
 						serverIP,
@@ -295,6 +312,9 @@ func main() {
 						genericwebhookcontroller.None,
 						setup.Configuration,
 						caSecretName,
+						runtime,
+						webhookcontroller.WebhookCleanupSetup(setup.KubeClient, ttlWebhookControllerFinalizerName),
+						webhookcontroller.WebhookCleanupHandler(setup.KubeClient, ttlWebhookControllerFinalizerName),
 					),
 					webhookWorkers,
 				)
