@@ -82,6 +82,31 @@ type UpdateRequestSpec struct {
 	// Specifies the name of the policy.
 	Policy string `json:"policy" yaml:"policy"`
 
+	// RuleContext is the associate context to apply rules.
+	// optional
+	RuleContext []RuleContext `json:"ruleContext,omitempty" yaml:"ruleContext,omitempty"`
+
+	// Rule is the associate rule name of the current UR.
+	Rule string `json:"rule" yaml:"rule"`
+
+	// DeleteDownstream represents whether the downstream needs to be deleted.
+	// Deprecated
+	DeleteDownstream bool `json:"deleteDownstream" yaml:"deleteDownstream"`
+
+	// Synchronize represents the sync behavior of the corresponding rule
+	// Optional. Defaults to "false" if not specified.
+	// Deprecated, will be removed in 1.14.
+	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
+
+	// ResourceSpec is the information to identify the trigger resource.
+	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
+
+	// Context represents admission request context.
+	// It is used upon admission review only and is shared across rules within the same UR.
+	Context UpdateRequestSpecContext `json:"context" yaml:"context"`
+}
+
+type RuleContext struct {
 	// Rule is the associate rule name of the current UR.
 	Rule string `json:"rule" yaml:"rule"`
 
@@ -93,10 +118,7 @@ type UpdateRequestSpec struct {
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
 	// ResourceSpec is the information to identify the trigger resource.
-	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
-
-	// Context ...
-	Context UpdateRequestSpecContext `json:"context" yaml:"context"`
+	Trigger kyvernov1.ResourceSpec `json:"trigger" yaml:"resource"`
 }
 
 // UpdateRequestSpecContext stores the context to be shared.
