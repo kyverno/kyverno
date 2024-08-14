@@ -15,10 +15,10 @@ spec:
     try:
     - apply:
         file: crd.yaml
-    - apply:
-        file: permissions.yaml
     - assert:
         file: crd-assert.yaml
+    - apply:
+        file: permissions.yaml
   - name: step-03
     try:
     - apply:
