@@ -15,7 +15,7 @@ import (
 
 // WebhookCleanupSetup creates temporary rbac owned by kyverno resources, these roles and cluster roles get automatically deleted when kyverno is uninstalled
 // It creates the following resources:
-//  1. Creates a temporary cluster role and cluster role binding with permission to delete kyverno's cluster role and set its owner ref to aggregated cluster role itself.
+//  1. Creates a temporary cluster role binding to give permission to delete kyverno's cluster role and set its owner ref to aggregated cluster role itself.
 //  2. Creates a temporary role and role binding with permissions to delete a service account, roles and role bindings with owner ref set to the service account.
 func WebhookCleanupSetup(
 	kubeClient kubernetes.Interface,
@@ -31,69 +31,6 @@ func WebhookCleanupSetup(
 		if err != nil {
 			logger.Error(err, "failed to get cluster role binding")
 			return err
-		}
-
-		clusterRole := &rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: tempRbacName,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: "rbac.authorization.k8s.io/v1",
-						Kind:       "ClusterRole",
-						Name:       cr.Name,
-						UID:        cr.UID,
-					},
-				},
-			},
-			Rules: []rbacv1.PolicyRule{
-				{
-					APIGroups:     []string{"rbac.authorization.k8s.io"},
-					Resources:     []string{"clusterrolebindings", "clusterroles"},
-					ResourceNames: []string{name, coreName},
-					Verbs:         []string{"get", "update"},
-				},
-			},
-		}
-
-		if cr, err := kubeClient.RbacV1().ClusterRoles().Create(ctx, clusterRole, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-			logger.Error(err, "failed to create temporary clusterrole", "name", cr.Name)
-			return err
-		} else if !apierrors.IsAlreadyExists(err) {
-			logger.V(4).Info("temporary clusterrole created", "clusterrole", cr.Name)
-		}
-
-		clusterRoleBinding := &rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: tempRbacName,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: "rbac.authorization.k8s.io/v1",
-						Kind:       "ClusterRole",
-						Name:       cr.Name,
-						UID:        cr.UID,
-					},
-				},
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      "ServiceAccount",
-					Name:      config.KyvernoServiceAccountName(),
-					Namespace: config.KyvernoNamespace(),
-					APIGroup:  "",
-				},
-			},
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "ClusterRole",
-				Name:     tempRbacName,
-			},
-		}
-
-		if crb, err := kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, clusterRoleBinding, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-			logger.Error(err, "failed to create temporary clusterrolebinding", "name", crb.Name)
-			return err
-		} else if !apierrors.IsAlreadyExists(err) {
-			logger.V(4).Info("temporary clusterrolebinding created", "clusterrolebinding", crb.Name)
 		}
 
 		coreClusterRoleBinding := &rbacv1.ClusterRoleBinding{
