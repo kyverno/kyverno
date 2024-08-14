@@ -97,6 +97,13 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	var failures []error
+
+	policy, err := c.getPolicyObject(*ur)
+	if err != nil && !apierrors.IsNotFound(err) {
+		fmt.Errorf("error in fetching policy: %v", err)
+		return err
+	}
+
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		rule := ur.Spec.RuleContext[i]
 		trigger, err := c.getTrigger(ur.Spec, i)
@@ -107,7 +114,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-		genResources, err = c.applyGenerate(*trigger, *ur, i, namespaceLabels)
+		genResources, err = c.applyGenerate(*trigger, *ur, policy, i, namespaceLabels)
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
 				logger.V(4).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
@@ -194,20 +201,13 @@ func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateR
 	return trigger, err
 }
 
-func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, i int, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
+func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, policy kyvernov1.PolicyInterface, i int, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	logger.V(3).Info("applying generate policy")
 
-	policy, err := c.getPolicyObject(ur)
-	if err != nil && !apierrors.IsNotFound(err) {
-		logger.Error(err, "error in fetching policy")
-		return nil, err
-	}
-
 	ruleContext := ur.Spec.RuleContext[i]
-	if ruleContext.DeleteDownstream || apierrors.IsNotFound(err) {
-		err = c.deleteDownstream(policy, ruleContext, &ur)
-		return nil, err
+	if ruleContext.DeleteDownstream || policy == nil {
+		return nil, c.deleteDownstream(policy, ruleContext, &ur)
 	}
 
 	var rule *kyvernov1.Rule
