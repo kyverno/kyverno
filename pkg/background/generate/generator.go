@@ -39,10 +39,10 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 	logger := g.logger.WithValues("target", target.String())
 
 	if g.rule.Generation.Clone.Name != "" {
-		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, g.policy, g.rule, g.client)
+		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, g.policy.GetSpec().UseServerSideApply, g.rule, g.client)
 		responses = append(responses, resp)
 	} else if len(g.rule.Generation.CloneList.Kinds) != 0 {
-		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), g.policy, g.rule, g.client)
+		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), g.policy.GetSpec().UseServerSideApply, g.rule, g.client)
 	} else {
 		resp := manageData(logger.WithValues("type", "data"), target, g.rule.Generation.RawData, g.rule.Generation.Synchronize, g.client)
 		responses = append(responses, resp)
