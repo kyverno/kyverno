@@ -249,7 +249,7 @@ func DeleteFinalizers[T metav1.Object](ctx context.Context, client controlleruti
 		}
 
 		obj.SetFinalizers(finalizers)
-		obj, err = client.Update(ctx, obj, metav1.UpdateOptions{})
+		_, err = client.Update(ctx, obj, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -273,7 +273,7 @@ func AddFinalizers[T metav1.Object](ctx context.Context, client controllerutils.
 		finalizers = append(finalizers, finalizer)
 		obj.SetFinalizers(finalizers)
 
-		obj, err = client.Update(ctx, obj, metav1.UpdateOptions{})
+		_, err = client.Update(ctx, obj, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}

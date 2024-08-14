@@ -44504,18 +44504,6 @@ rules:
   - apiGroups:
       - ''
     resources:
-      - serviceaccounts
-    verbs:
-      - delete
-      - get
-      - list
-      - update
-      - watch
-    resourceNames:
-      - kyverno-cleanup-controller
-  - apiGroups:
-      - ''
-    resources:
       - configmaps
     verbs:
       - get
