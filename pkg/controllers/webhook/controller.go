@@ -108,6 +108,7 @@ type controller struct {
 	defaultTimeout      int32
 	servicePort         int32
 	autoUpdateWebhooks  bool
+	autoDeleteWebhooks  bool
 	admissionReports    bool
 	runtime             runtimeutils.Runtime
 	configuration       config.Configuration
@@ -141,6 +142,7 @@ func NewController(
 	servicePort int32,
 	webhookServerPort int32,
 	autoUpdateWebhooks bool,
+	autoDeleteWebhooks bool,
 	admissionReports bool,
 	runtime runtimeutils.Runtime,
 	configuration config.Configuration,
@@ -169,6 +171,7 @@ func NewController(
 		defaultTimeout:      defaultTimeout,
 		servicePort:         servicePort,
 		autoUpdateWebhooks:  autoUpdateWebhooks,
+		autoDeleteWebhooks:  autoDeleteWebhooks,
 		admissionReports:    admissionReports,
 		runtime:             runtime,
 		configuration:       configuration,
@@ -206,22 +209,24 @@ func NewController(
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	if _, err := controllerutils.AddEventHandlersT(
-		deploymentInformer.Informer(),
-		func(obj *appsv1.Deployment) {
-		},
-		func(_, obj *appsv1.Deployment) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
-				c.enqueueCleanup()
-			}
-		},
-		func(obj *appsv1.Deployment) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
-				c.enqueueCleanup()
-			}
-		},
-	); err != nil {
-		logger.Error(err, "failed to register event handlers")
+	if autoDeleteWebhooks {
+		if _, err := controllerutils.AddEventHandlersT(
+			deploymentInformer.Informer(),
+			func(obj *appsv1.Deployment) {
+			},
+			func(_, obj *appsv1.Deployment) {
+				if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
+					c.enqueueCleanup()
+				}
+			},
+			func(obj *appsv1.Deployment) {
+				if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
+					c.enqueueCleanup()
+				}
+			},
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
 	}
 	if _, err := controllerutils.AddEventHandlers(
 		cpolInformer.Informer(),
@@ -401,7 +406,7 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 }
 
 func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
-	if c.runtime.IsGoingDown() {
+	if c.autoDeleteWebhooks && c.runtime.IsGoingDown() {
 		if c.webhooksDeleted {
 			return nil
 		}
@@ -596,7 +601,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
-	if c.runtime.IsGoingDown() {
+	if c.autoDeleteWebhooks && c.runtime.IsGoingDown() {
 		return c.reconcileWebhookDeletion(ctx)
 	}
 

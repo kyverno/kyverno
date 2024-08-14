@@ -135,6 +135,9 @@ spec:
             - --backgroundServiceAccountName=system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.background-controller.serviceAccountName" . }}
             - --servicePort={{ .Values.admissionController.service.port }}
             - --webhookServerPort={{ .Values.admissionController.webhookServer.port }}
+            {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
+            - --autoDeleteWebhooks
+            {{- end }}
             {{- if .Values.admissionController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.admissionController.tracing.address }}

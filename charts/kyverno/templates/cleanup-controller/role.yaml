@@ -27,6 +27,8 @@ rules:
     resourceNames:
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
+  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
+  {{- if not .Values.templating.enabled }}
   - apiGroups:
       - ''
     resources:
@@ -39,6 +41,8 @@ rules:
       - watch
     resourceNames:
       - {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
+  {{- end }}
+  {{- end }}
   - apiGroups:
       - ''
     resources:
@@ -67,7 +71,7 @@ rules:
       - update
     resourceNames:
       - kyverno-cleanup-controller
-  {{- if .Values.webhooksCleanup.enabled }}
+  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
   {{- if not .Values.templating.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io
@@ -94,16 +98,11 @@ rules:
       - apps
     resources:
       - deployments
-      {{- if .Values.webhooksCleanup.enabled }}
-      {{- if not .Values.templating.enabled }}
-      - deployments/scale
-      {{- end }}
-      {{- end }}
     verbs:
       - get
       - list
       - watch
-      {{- if .Values.webhooksCleanup.enabled }}
+      {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
       {{- if not .Values.templating.enabled }}
       - patch
       - update

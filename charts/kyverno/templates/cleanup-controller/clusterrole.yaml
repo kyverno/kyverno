@@ -95,7 +95,7 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
-  {{- if .Values.webhooksCleanup.enabled }}
+  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
   {{- if not .Values.templating.enabled }}
   - apiGroups:
       - rbac.authorization.k8s.io

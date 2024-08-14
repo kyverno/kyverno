@@ -68,6 +68,7 @@ type controller struct {
 	labelSelector       *metav1.LabelSelector
 	caSecretName        string
 	webhooksDeleted     bool
+	autoDeleteWebhooks  bool
 	webhookCleanupSetup func(context.Context, logr.Logger) error
 	postWebhookCleanup  func(context.Context, logr.Logger) error
 }
@@ -90,6 +91,7 @@ func NewController(
 	configuration config.Configuration,
 	caSecretName string,
 	runtime runtimeutils.Runtime,
+	autoDeleteWebhooks bool,
 	webhookCleanupSetup func(context.Context, logr.Logger) error,
 	postWebhookCleanup func(context.Context, logr.Logger) error,
 ) controllers.Controller {
@@ -113,6 +115,7 @@ func NewController(
 		labelSelector:       labelSelector,
 		caSecretName:        caSecretName,
 		runtime:             runtime,
+		autoDeleteWebhooks:  autoDeleteWebhooks,
 		webhookCleanupSetup: webhookCleanupSetup,
 		postWebhookCleanup:  postWebhookCleanup,
 	}
@@ -139,22 +142,24 @@ func NewController(
 	); err != nil {
 		c.logger.Error(err, "failed to register event handlers")
 	}
-	if _, err := controllerutils.AddEventHandlersT(
-		deploymentInformer.Informer(),
-		func(obj *appsv1.Deployment) {
-		},
-		func(_, obj *appsv1.Deployment) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
-				c.enqueueCleanup()
-			}
-		},
-		func(obj *appsv1.Deployment) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
-				c.enqueueCleanup()
-			}
-		},
-	); err != nil {
-		c.logger.Error(err, "failed to register event handlers")
+	if autoDeleteWebhooks {
+		if _, err := controllerutils.AddEventHandlersT(
+			deploymentInformer.Informer(),
+			func(obj *appsv1.Deployment) {
+			},
+			func(_, obj *appsv1.Deployment) {
+				if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
+					c.enqueueCleanup()
+				}
+			},
+			func(obj *appsv1.Deployment) {
+				if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
+					c.enqueueCleanup()
+				}
+			},
+		); err != nil {
+			c.logger.Error(err, "failed to register event handlers")
+		}
 	}
 
 	configuration.OnChanged(c.enqueue)
@@ -178,11 +183,11 @@ func (c *controller) enqueueCleanup() {
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
-	if c.runtime.IsGoingDown() {
+	if c.autoDeleteWebhooks && c.runtime.IsGoingDown() {
 		return c.reconcileWebhookDeletion(ctx)
 	}
 
-	if key == config.KyvernoDeploymentName() {
+	if c.autoDeleteWebhooks && key == config.KyvernoDeploymentName() {
 		return c.reconcileWebhookDeletion(ctx)
 	}
 	if key != c.webhookName {
@@ -215,7 +220,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 }
 
 func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
-	if c.runtime.IsGoingDown() {
+	if c.autoDeleteWebhooks && c.runtime.IsGoingDown() {
 		if c.webhooksDeleted {
 			return nil
 		}
