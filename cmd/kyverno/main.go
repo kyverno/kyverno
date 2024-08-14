@@ -58,9 +58,12 @@ import (
 )
 
 const (
-	resyncPeriod                   = 15 * time.Minute
-	exceptionWebhookControllerName = "exception-webhook-controller"
-	gctxWebhookControllerName      = "global-context-webhook-controller"
+	resyncPeriod                     = 15 * time.Minute
+	exceptionWebhookControllerName   = "exception-webhook-controller"
+	gctxWebhookControllerName        = "global-context-webhook-controller"
+	webhookControllerFinalizerName   = "kyverno.io/webhooks"
+	exceptionControllerFinalizerName = "kyverno.io/exceptionwebhooks"
+	gctxControllerFinalizerName      = "kyverno.io/globalcontextwebhooks"
 )
 
 var (
@@ -157,8 +160,8 @@ func createrLeaderControllers(
 		runtime,
 		configuration,
 		caSecretName,
-		webhookcontroller.WebhookCleanupSetup(kubeClient),
-		webhookcontroller.WebhookCleanupHandler(kubeClient),
+		webhookcontroller.WebhookCleanupSetup(kubeClient, webhookControllerFinalizerName),
+		webhookcontroller.WebhookCleanupHandler(kubeClient, webhookControllerFinalizerName),
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,

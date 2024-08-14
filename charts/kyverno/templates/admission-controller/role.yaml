@@ -4,12 +4,6 @@ kind: Role
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}
   namespace: {{ template "kyverno.namespace" . }}
-  {{- if .Values.webhooksCleanup.enabled }}
-  {{- if not .Values.templating.enabled }}
-  finalizers:
-  - kyverno.io/webhookDeletion
-  {{- end }}
-  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
@@ -58,7 +52,9 @@ rules:
       - {{ template "kyverno.admission-controller.roleName" . }}
       - {{ template "kyverno.admission-controller.roleName" . }}:temporary
     verbs:
+      - get
       - patch
+      - update
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:

@@ -3,12 +3,6 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}
-  {{- if .Values.webhooksCleanup.enabled }}
-  {{- if not .Values.templating.enabled }}
-  finalizers:
-  - kyverno.io/webhookDeletion
-  {{- end }}
-  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 roleRef:

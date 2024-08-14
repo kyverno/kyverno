@@ -3,12 +3,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}
-  {{- if .Values.webhooksCleanup.enabled }}
-  {{- if not .Values.templating.enabled }}
-  finalizers:
-  - kyverno.io/webhookDeletion
-  {{- end }}
-  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 aggregationRule:
@@ -20,12 +14,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}:core
-  {{- if .Values.webhooksCleanup.enabled }}
-  {{- if not .Values.templating.enabled }}
-  finalizers:
-  - kyverno.io/webhookDeletion
-  {{- end }}
-  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
@@ -163,6 +151,7 @@ rules:
     verbs:
       - get
       - patch
+      - update
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
