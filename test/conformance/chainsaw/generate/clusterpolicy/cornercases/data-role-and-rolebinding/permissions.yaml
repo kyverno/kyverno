@@ -1,16 +1,15 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:secrets-kai191
+  name: kyverno:rbac
   labels:
     rbac.kyverno.io/aggregate-to-background-controller: "true"
-    rbac.kyverno.io/aggregate-to-reports-controller: "true"
-    rbac.kyverno.io/aggregate-to-admission-controller: "true"
 rules:
 - apiGroups:
-  - ''
+  - rbac.authorization.k8s.io
   resources:
-  - secrets
+  - roles
+  - rolebindings
   verbs:
   - get
   - list
