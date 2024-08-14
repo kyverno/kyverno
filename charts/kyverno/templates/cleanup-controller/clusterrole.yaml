@@ -95,6 +95,30 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
+  {{- if .Values.webhooksCleanup.enabled }}
+  {{- if not .Values.templating.enabled }}
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterroles
+      - clusterrolebindings
+    resourceNames:
+      - {{ template "kyverno.cleanup-controller.roleName" . }}
+      - {{ template "kyverno.cleanup-controller.roleName" . }}:core
+      - {{ template "kyverno.cleanup-controller.roleName" . }}:temporary
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterroles
+      - clusterrolebindings
+    verbs:
+      - create
+  {{- end }}
+  {{- end }}
 {{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

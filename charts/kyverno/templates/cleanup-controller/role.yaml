@@ -55,5 +55,28 @@ rules:
       - update
     resourceNames:
       - kyverno-cleanup-controller
+  {{- if .Values.webhooksCleanup.enabled }}
+  {{- if not .Values.templating.enabled }}
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+    resourceNames:
+      - {{ template "kyverno.cleanup-controller.roleName" . }}
+      - {{ template "kyverno.cleanup-controller.roleName" . }}:temporary
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+    verbs:
+      - create
+  {{- end }}
+  {{- end }}
 {{- end -}}
 {{- end -}}

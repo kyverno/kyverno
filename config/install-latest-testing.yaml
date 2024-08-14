@@ -45170,6 +45170,8 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-cleanup-controller
+          - name: KYVERNO_ROLE_NAME
+            value: kyverno:cleanup-controller
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
