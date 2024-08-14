@@ -14,14 +14,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest) (err error) {
-	if !ur.Spec.DeleteDownstream {
-		return nil
-	}
-
+func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, ruleContext kyvernov2.RuleContext, ur *kyvernov2.UpdateRequest) (err error) {
 	// handle data policy/rule deletion
 	if ur.Status.GeneratedResources != nil {
-		c.log.V(4).Info("policy/rule no longer exists, deleting the downstream resource based on synchronize", "ur", ur.Name, "policy", ur.Spec.Policy, "rule", ur.Spec.Rule)
+		c.log.V(4).Info("policy/rule no longer exists, deleting the downstream resource based on synchronize", "ur", ur.Name, "policy", ur.Spec.Policy)
 		var errs []error
 		failedDownstreams := []kyvernov1.ResourceSpec{}
 		for _, e := range ur.Status.GeneratedResources {
@@ -46,18 +42,17 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 		return nil
 	}
 
-	return c.handleNonPolicyChanges(policy, ur)
+	return c.handleNonPolicyChanges(policy, ruleContext, ur)
 }
 
-func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest) error {
-	if !ur.Spec.DeleteDownstream {
-		return nil
-	}
-
+func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInterface, ruleContext kyvernov2.RuleContext, ur *kyvernov2.UpdateRequest) error {
+	logger := c.log.V(4).WithValues("ur", ur.Name, "policy", ur.Spec.Policy, "rule", ruleContext.Rule)
+	logger.Info("synchronize for none-policy changes")
 	for _, rule := range policy.GetSpec().Rules {
-		if ur.Spec.Rule != rule.Name {
+		if ruleContext.Rule != rule.Name {
 			continue
 		}
+		logger.Info("deleting the downstream resource based on synchronize")
 		labels := map[string]string{
 			common.GeneratePolicyLabel:          policy.GetName(),
 			common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
@@ -65,7 +60,7 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 			kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
 		}
 
-		downstreams, err := c.getDownstreams(rule, labels, ur)
+		downstreams, err := c.getDownstreams(rule, labels, &ruleContext)
 		if err != nil {
 			return fmt.Errorf("failed to fetch downstream resources: %v", err)
 		}
@@ -77,7 +72,7 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 				failedDownstreams = append(failedDownstreams, spec)
 				errs = append(errs, err)
 			} else {
-				c.log.V(4).Info("downstream resource deleted", "spec", spec.String())
+				logger.Info("downstream resource deleted", "spec", spec.String())
 			}
 		}
 		if len(errs) != 0 {
@@ -88,22 +83,22 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 			_, err = c.statusControl.Success(ur.GetName(), nil)
 		}
 		if err != nil {
-			c.log.Error(err, "failed to update ur status")
+			logger.Error(err, "failed to update ur status")
 		}
 	}
 
 	return nil
 }
 
-func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[string]string, ur *kyvernov2.UpdateRequest) (*unstructured.UnstructuredList, error) {
-	gv, err := ur.Spec.GetResource().GetGroupVersion()
+func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[string]string, ruleContext *kyvernov2.RuleContext) (*unstructured.UnstructuredList, error) {
+	gv, err := ruleContext.Trigger.GetGroupVersion()
 	if err != nil {
 		return nil, err
 	}
 
-	selector[common.GenerateTriggerUIDLabel] = string(ur.Spec.GetResource().GetUID())
-	selector[common.GenerateTriggerNSLabel] = ur.Spec.GetResource().GetNamespace()
-	selector[common.GenerateTriggerKindLabel] = ur.Spec.GetResource().GetKind()
+	selector[common.GenerateTriggerUIDLabel] = string(ruleContext.Trigger.GetUID())
+	selector[common.GenerateTriggerNSLabel] = ruleContext.Trigger.GetNamespace()
+	selector[common.GenerateTriggerKindLabel] = ruleContext.Trigger.GetKind()
 	selector[common.GenerateTriggerGroupLabel] = gv.Group
 	selector[common.GenerateTriggerVersionLabel] = gv.Version
 	if rule.Generation.GetKind() != "" {
@@ -117,7 +112,7 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 		if len(downstreamList.Items) == 0 {
 			// Fetch downstream resources using the trigger name label
 			delete(selector, common.GenerateTriggerUIDLabel)
-			selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
+			selector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
 			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", rule.Generation.GetAPIVersion(), "kind", rule.Generation.GetKind(), "selector", selector)
 			dsList, err := common.FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
 			if err != nil {
@@ -140,7 +135,7 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 
 		if len(dsList.Items) == 0 {
 			delete(selector, common.GenerateTriggerUIDLabel)
-			selector[common.GenerateTriggerNameLabel] = ur.Spec.GetResource().GetName()
+			selector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
 			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", rule.Generation.GetAPIVersion(), "kind", rule.Generation.GetKind(), "selector", selector)
 			dsList, err = common.FindDownstream(c.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), selector)
 			if err != nil {
