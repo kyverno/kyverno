@@ -216,7 +216,7 @@ func NewController(
 			},
 			func(_, obj *appsv1.Deployment) {
 				if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
-					c.enqueueCleanup()
+					c.enqueueCleanupAfter(1 * time.Second)
 				}
 			},
 			func(obj *appsv1.Deployment) {
@@ -328,6 +328,10 @@ func (c *controller) enqueueCleanup() {
 	c.queue.Add(config.KyvernoDeploymentName())
 }
 
+func (c *controller) enqueueCleanupAfter(duration time.Duration) {
+	c.queue.AddAfter(config.KyvernoDeploymentName(), duration)
+}
+
 func (c *controller) enqueuePolicyWebhooks() {
 	c.queue.Add(config.PolicyValidatingWebhookConfigurationName)
 	c.queue.Add(config.PolicyMutatingWebhookConfigurationName)
@@ -406,33 +410,41 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 }
 
 func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
-	if c.autoDeleteWebhooks && c.runtime.IsGoingDown() {
-		if c.webhooksDeleted {
-			return nil
-		}
-		c.webhooksDeleted = true
-		if err := c.vwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-			LabelSelector: kyverno.LabelWebhookManagedBy,
-		}); err != nil && !apierrors.IsNotFound(err) {
-			logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
-			return err
-		} else if err == nil {
-			logger.Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
-		}
-		if err := c.mwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-			LabelSelector: kyverno.LabelWebhookManagedBy,
-		}); err != nil && !apierrors.IsNotFound(err) {
-			logger.Error(err, "failed to clean up mutating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
-			return err
-		} else if err == nil {
-			logger.Info("successfully deleted mutating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
-		}
+	if c.autoUpdateWebhooks {
+		if c.runtime.IsGoingDown() {
+			if c.webhooksDeleted {
+				return nil
+			}
+			c.webhooksDeleted = true
+			if err := c.vwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+				LabelSelector: kyverno.LabelWebhookManagedBy,
+			}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
+				return err
+			} else if err == nil {
+				logger.Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
+			}
+			if err := c.mwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+				LabelSelector: kyverno.LabelWebhookManagedBy,
+			}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up mutating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
+				return err
+			} else if err == nil {
+				logger.Info("successfully deleted mutating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
+			}
 
-		if err := c.postWebhookCleanup(ctx, logger); err != nil {
-			logger.Error(err, "failed to clean up temporary rbac")
-			return err
+			if err := c.postWebhookCleanup(ctx, logger); err != nil {
+				logger.Error(err, "failed to clean up temporary rbac")
+				return err
+			} else {
+				logger.Info("successfully deleted temporary rbac")
+			}
 		} else {
-			logger.Info("successfully deleted temporary rbac")
+			if err := c.webhookCleanupSetup(ctx, logger); err != nil {
+				logger.Error(err, "failed to reconcile webhook cleanup setup")
+				return err
+			}
+			logger.Info("reconciled webhook cleanup setup")
 		}
 	}
 	return nil

@@ -265,6 +265,11 @@ func AddFinalizers[T metav1.Object](ctx context.Context, client controllerutils.
 		}
 
 		finalizers := obj.GetFinalizers()
+		for _, f := range finalizers {
+			if f == finalizer {
+				return nil
+			}
+		}
 		finalizers = append(finalizers, finalizer)
 		obj.SetFinalizers(finalizers)
 
