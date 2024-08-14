@@ -9,12 +9,8 @@ on:
     branches:
       - "main"
       - "release*"
-  workflow_dispatch:
-    inputs:
-      upgrade-from:
-        description: "Kyverno Chart version to install and upgrade from (e.g., 3.2.6)"
-        required: true
-        default: "3.2.6"
+  schedule:
+    - cron: "43 0 * * 0"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -99,6 +95,8 @@ jobs:
             version: v1.29.4
           - name: v1.30
             version: v1.30.0
+        upgrade-from:
+          - "3.2.6"
         tests:
           - ^assert$
           - ^autogen$
@@ -160,8 +158,8 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            UPGRADE_FROM=${{ inputs.upgrade-from }}
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            UPGRADE_FROM=${{ matrix.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
           fi
@@ -236,7 +234,7 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
             UPGRADE_FROM=${{ inputs.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
@@ -317,7 +315,7 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
             UPGRADE_FROM=${{ inputs.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
@@ -393,7 +391,7 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
             UPGRADE_FROM=${{ inputs.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
@@ -473,7 +471,7 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
             UPGRADE_FROM=${{ inputs.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
@@ -556,7 +554,7 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
             UPGRADE_FROM=${{ inputs.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
@@ -638,7 +636,7 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
             UPGRADE_FROM=${{ inputs.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
@@ -730,7 +728,7 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
             UPGRADE_FROM=${{ inputs.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
@@ -821,7 +819,7 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
             UPGRADE_FROM=${{ inputs.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
@@ -947,7 +945,7 @@ jobs:
           export HELM=${{ steps.helm.outputs.helm-path }}
           export USE_CONFIG=${{ join(matrix.config.values, ',') }}
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
             UPGRADE_FROM=${{ inputs.upgrade-from }}
             echo "Installing Kyverno using Helm with Chart version $UPGRADE_FROM"
             make kind-install-kyverno-from-repo
