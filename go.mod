@@ -84,7 +84,7 @@ require (
 	k8s.io/kube-aggregator v0.30.1
 	k8s.io/pod-security-admission v0.30.1
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
-	sigs.k8s.io/controller-runtime v0.18.4
+	sigs.k8s.io/controller-runtime v0.18.5
 	sigs.k8s.io/controller-tools v0.15.0
 	sigs.k8s.io/kubectl-validate v0.0.4
 	sigs.k8s.io/kustomize/api v0.17.3
@@ -92,6 +92,11 @@ require (
 	sigs.k8s.io/release-utils v0.8.4
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
+)
+
+require (
+	github.com/go-logr/zerologr v1.2.3 // indirect
+	github.com/rs/zerolog v1.33.0 // indirect
 )
 
 require (
