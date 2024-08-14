@@ -159,6 +159,7 @@ rules:
       - clusterrolebindings
     verbs:
       - create
+      - list
   {{- end }}
   {{- end }}
 {{- with .Values.admissionController.rbac.coreClusterRole.extraResources }}

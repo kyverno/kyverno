@@ -12,7 +12,6 @@ rules:
       - ''
     resources:
       - secrets
-      - serviceaccounts
     verbs:
       - create
   - apiGroups:
@@ -28,6 +27,18 @@ rules:
     resourceNames:
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
       - {{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
+  - apiGroups:
+      - ''
+    resources:
+      - serviceaccounts
+    verbs:
+      - delete
+      - get
+      - list
+      - update
+      - watch
+    resourceNames:
+      - {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
   - apiGroups:
       - ''
     resources:

@@ -10,6 +10,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 )
 
 // WebhookCleanupSetup creates temporary rbac owned by kyverno resources, these roles and cluster roles get automatically deleted when kyverno is uninstalled
@@ -26,7 +27,7 @@ func WebhookCleanupSetup(
 		tempRbacName := name + ":temporary"
 
 		// create temporary rbac
-		cr, err := kubeClient.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
+		cr, err := kubeClient.RbacV1().ClusterRoles().Get(ctx, coreName, metav1.GetOptions{})
 		if err != nil {
 			logger.Error(err, "failed to get cluster role binding")
 			return err
@@ -49,7 +50,7 @@ func WebhookCleanupSetup(
 					APIGroups:     []string{"rbac.authorization.k8s.io"},
 					Resources:     []string{"clusterrolebindings", "clusterroles"},
 					ResourceNames: []string{name, coreName},
-					Verbs:         []string{"get", "patch", "update"},
+					Verbs:         []string{"get", "update"},
 				},
 			},
 		}
@@ -95,6 +96,40 @@ func WebhookCleanupSetup(
 			logger.V(4).Info("temporary clusterrolebinding created", "clusterrolebinding", crb.Name)
 		}
 
+		coreClusterRoleBinding := &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: coreName,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "rbac.authorization.k8s.io/v1",
+						Kind:       "ClusterRole",
+						Name:       cr.Name,
+						UID:        cr.UID,
+					},
+				},
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      "ServiceAccount",
+					Name:      config.KyvernoServiceAccountName(),
+					Namespace: config.KyvernoNamespace(),
+					APIGroup:  "",
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "ClusterRole",
+				Name:     coreName,
+			},
+		}
+
+		if crb, err := kubeClient.RbacV1().ClusterRoleBindings().Create(ctx, coreClusterRoleBinding, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+			logger.Error(err, "failed to create temporary clusterrolebinding", "name", crb.Name)
+			return err
+		} else if !apierrors.IsAlreadyExists(err) {
+			logger.V(4).Info("temporary clusterrolebinding created", "clusterrolebinding", crb.Name)
+		}
+
 		// create temporary rbac
 		sa, err := kubeClient.CoreV1().ServiceAccounts(config.KyvernoNamespace()).Get(ctx, config.KyvernoServiceAccountName(), metav1.GetOptions{})
 		if err != nil {
@@ -120,19 +155,19 @@ func WebhookCleanupSetup(
 					APIGroups:     []string{""},
 					Resources:     []string{"serviceaccounts"},
 					ResourceNames: []string{config.KyvernoServiceAccountName()},
-					Verbs:         []string{"get", "create", "patch", "update", "delete"},
+					Verbs:         []string{"get", "update", "delete"},
 				},
 				{
 					APIGroups:     []string{"rbac.authorization.k8s.io"},
 					Resources:     []string{"rolebindings", "roles"},
 					ResourceNames: []string{name},
-					Verbs:         []string{"get", "patch", "update"},
+					Verbs:         []string{"get", "update"},
 				},
 				{
 					APIGroups:     []string{"apps"},
 					Resources:     []string{"deployments"},
 					ResourceNames: []string{config.KyvernoDeploymentName()},
-					Verbs:         []string{"get", "patch", "update"},
+					Verbs:         []string{"get", "update"},
 				},
 			},
 		}
@@ -180,38 +215,28 @@ func WebhookCleanupSetup(
 		}
 
 		// Add finalizers
-		if obj, err := AddFinalizers(ctx, kubeClient.RbacV1().ClusterRoleBindings(), name, finalizer); err != nil {
-			logger.Error(err, "failed to add finalizer to clusterrolebinding", "name", obj.GetName())
+		if err := AddFinalizers(ctx, kubeClient.RbacV1().ClusterRoles(), coreName, finalizer); err != nil && !apierrors.IsNotFound(err) {
+			logger.Error(err, "failed to add finalizer to clusterrole", "name", coreName)
 			return err
 		}
 
-		if obj, err := AddFinalizers(ctx, kubeClient.RbacV1().ClusterRoles(), name, finalizer); err != nil {
-			logger.Error(err, "failed to add finalizer to clusterrole", "name", obj.GetName())
+		if err := AddFinalizers(ctx, kubeClient.RbacV1().RoleBindings(config.KyvernoNamespace()), name, finalizer); err != nil {
+			logger.Error(err, "failed to add finalizer to rolebindings", "name", name, "namespace", config.KyvernoNamespace())
 			return err
 		}
 
-		if obj, err := AddFinalizers(ctx, kubeClient.RbacV1().ClusterRoles(), coreName, finalizer); err != nil && !apierrors.IsNotFound(err) {
-			logger.Error(err, "failed to add finalizer to clusterrole", "name", obj.GetName())
+		if err := AddFinalizers(ctx, kubeClient.RbacV1().Roles(config.KyvernoNamespace()), name, finalizer); err != nil {
+			logger.Error(err, "failed to add finalizer to role", "name", name, "namespace", config.KyvernoNamespace())
 			return err
 		}
 
-		if obj, err := AddFinalizers(ctx, kubeClient.RbacV1().RoleBindings(config.KyvernoNamespace()), name, finalizer); err != nil {
-			logger.Error(err, "failed to add finalizer to rolebindings", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		if err := AddFinalizers(ctx, kubeClient.AppsV1().Deployments(config.KyvernoNamespace()), config.KyvernoDeploymentName(), finalizer); err != nil {
+			logger.Error(err, "failed to add finalizer to deployment", "name", config.KyvernoDeploymentName(), "namespace", config.KyvernoNamespace())
 			return err
 		}
 
-		if obj, err := AddFinalizers(ctx, kubeClient.RbacV1().Roles(config.KyvernoNamespace()), name, finalizer); err != nil {
-			logger.Error(err, "failed to add finalizer to role", "name", obj.GetName(), "namespace", obj.GetNamespace())
-			return err
-		}
-
-		if obj, err := AddFinalizers(ctx, kubeClient.AppsV1().Deployments(config.KyvernoNamespace()), config.KyvernoDeploymentName(), finalizer); err != nil {
-			logger.Error(err, "failed to add finalizer to deployment", "name", obj.GetName(), "namespace", obj.GetNamespace())
-			return err
-		}
-
-		if obj, err := AddFinalizers(ctx, kubeClient.CoreV1().ServiceAccounts(config.KyvernoNamespace()), config.KyvernoServiceAccountName(), finalizer); err != nil {
-			logger.Error(err, "failed to add finalizer to serviceaccount", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		if err := AddFinalizers(ctx, kubeClient.CoreV1().ServiceAccounts(config.KyvernoNamespace()), config.KyvernoServiceAccountName(), finalizer); err != nil {
+			logger.Error(err, "failed to add finalizer to serviceaccount", "name", config.KyvernoServiceAccountName(), "namespace", config.KyvernoNamespace())
 			return err
 		}
 		return nil
@@ -243,39 +268,29 @@ func WebhookCleanupHandler(
 		coreName := name + ":core"
 
 		// cleanup cluster scoped rbac
-		if obj, err := DeleteFinalizers(ctx, kubeClient.RbacV1().ClusterRoleBindings(), name, finalizer); err != nil {
-			logger.Error(err, "failed to delete finalizer from clusterrolebinding", "name", obj.GetName())
-			return err
-		}
-
-		if obj, err := DeleteFinalizers(ctx, kubeClient.RbacV1().ClusterRoles(), name, finalizer); err != nil {
-			logger.Error(err, "failed to delete finalizer from clusterrole", "name", obj.GetName())
-			return err
-		}
-
-		if obj, err := DeleteFinalizers(ctx, kubeClient.RbacV1().ClusterRoles(), coreName, finalizer); err != nil {
-			logger.Error(err, "failed to delete finalizer from clusterrole", "name", obj.GetName())
+		if err := DeleteFinalizers(ctx, kubeClient.RbacV1().ClusterRoles(), coreName, finalizer); err != nil {
+			logger.Error(err, "failed to delete finalizer from clusterrole", "name", coreName)
 			return err
 		}
 
 		// cleanup namespace scoped rbac
-		if obj, err := DeleteFinalizers(ctx, kubeClient.RbacV1().RoleBindings(config.KyvernoNamespace()), name, finalizer); err != nil {
-			logger.Error(err, "failed to delete finalizer from rolebindings", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		if err := DeleteFinalizers(ctx, kubeClient.RbacV1().RoleBindings(config.KyvernoNamespace()), name, finalizer); err != nil {
+			logger.Error(err, "failed to delete finalizer from rolebindings", "name", name, "namespace", config.KyvernoNamespace())
 			return err
 		}
 
-		if obj, err := DeleteFinalizers(ctx, kubeClient.RbacV1().Roles(config.KyvernoNamespace()), name, finalizer); err != nil {
-			logger.Error(err, "failed to delete finalizer from role", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		if err := DeleteFinalizers(ctx, kubeClient.RbacV1().Roles(config.KyvernoNamespace()), name, finalizer); err != nil {
+			logger.Error(err, "failed to delete finalizer from role", "name", name, "namespace", config.KyvernoNamespace())
 			return err
 		}
 
-		if obj, err := DeleteFinalizers(ctx, kubeClient.AppsV1().Deployments(config.KyvernoNamespace()), config.KyvernoDeploymentName(), finalizer); err != nil {
-			logger.Error(err, "failed to delete finalizer from deployment", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		if err := DeleteFinalizers(ctx, kubeClient.AppsV1().Deployments(config.KyvernoNamespace()), config.KyvernoDeploymentName(), finalizer); err != nil {
+			logger.Error(err, "failed to delete finalizer from deployment", "name", config.KyvernoDeploymentName(), "namespace", config.KyvernoNamespace())
 			return err
 		}
 
-		if obj, err := DeleteFinalizers(ctx, kubeClient.CoreV1().ServiceAccounts(config.KyvernoNamespace()), config.KyvernoDeploymentName(), finalizer); err != nil {
-			logger.Error(err, "failed to delete finalizer from serviceaccount", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		if err := DeleteFinalizers(ctx, kubeClient.CoreV1().ServiceAccounts(config.KyvernoNamespace()), config.KyvernoServiceAccountName(), finalizer); err != nil {
+			logger.Error(err, "failed to delete finalizer from serviceaccount", "name", config.KyvernoServiceAccountName(), "namespace", config.KyvernoNamespace())
 			return err
 		}
 
@@ -283,39 +298,43 @@ func WebhookCleanupHandler(
 	}
 }
 
-func DeleteFinalizers[T metav1.Object](ctx context.Context, client controllerutils.ObjectClient[T], name, finalizer string) (T, error) {
-	obj, err := client.Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return obj, err
-	}
-	finalizers := make([]string, 0)
-	for _, f := range obj.GetFinalizers() {
-		if f != finalizer {
-			finalizers = append(finalizers, f)
+func DeleteFinalizers[T metav1.Object](ctx context.Context, client controllerutils.ObjectClient[T], name, finalizer string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		obj, err := client.Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
 		}
-	}
+		finalizers := make([]string, 0)
+		for _, f := range obj.GetFinalizers() {
+			if f != finalizer {
+				finalizers = append(finalizers, f)
+			}
+		}
 
-	obj.SetFinalizers(finalizers)
-	obj, err = client.Update(ctx, obj, metav1.UpdateOptions{})
-	if err != nil {
-		return obj, err
-	}
-	return obj, nil
+		obj.SetFinalizers(finalizers)
+		obj, err = client.Update(ctx, obj, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
-func AddFinalizers[T metav1.Object](ctx context.Context, client controllerutils.ObjectClient[T], name, finalizer string) (T, error) {
-	obj, err := client.Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return obj, err
-	}
+func AddFinalizers[T metav1.Object](ctx context.Context, client controllerutils.ObjectClient[T], name, finalizer string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		obj, err := client.Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
 
-	finalizers := obj.GetFinalizers()
-	finalizers = append(finalizers, finalizer)
-	obj.SetFinalizers(finalizers)
+		finalizers := obj.GetFinalizers()
+		finalizers = append(finalizers, finalizer)
+		obj.SetFinalizers(finalizers)
 
-	obj, err = client.Update(ctx, obj, metav1.UpdateOptions{})
-	if err != nil {
-		return obj, err
-	}
-	return obj, nil
+		obj, err = client.Update(ctx, obj, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }

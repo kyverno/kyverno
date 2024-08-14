@@ -112,6 +112,7 @@ type controller struct {
 	runtime             runtimeutils.Runtime
 	configuration       config.Configuration
 	caSecretName        string
+	webhooksDeleted     bool
 	webhookCleanupSetup func(context.Context, logr.Logger) error
 	postWebhookCleanup  func(context.Context, logr.Logger) error
 
@@ -208,9 +209,6 @@ func NewController(
 	if _, err := controllerutils.AddEventHandlersT(
 		deploymentInformer.Informer(),
 		func(obj *appsv1.Deployment) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
-				c.enqueueCleanup()
-			}
 		},
 		func(_, obj *appsv1.Deployment) {
 			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
@@ -404,6 +402,10 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 
 func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
 	if c.runtime.IsGoingDown() {
+		if c.webhooksDeleted {
+			return nil
+		}
+		c.webhooksDeleted = true
 		if err := c.vwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
 			LabelSelector: kyverno.LabelWebhookManagedBy,
 		}); err != nil && !apierrors.IsNotFound(err) {

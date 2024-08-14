@@ -67,6 +67,7 @@ type controller struct {
 	configuration       config.Configuration
 	labelSelector       *metav1.LabelSelector
 	caSecretName        string
+	webhooksDeleted     bool
 	webhookCleanupSetup func(context.Context, logr.Logger) error
 	postWebhookCleanup  func(context.Context, logr.Logger) error
 }
@@ -141,9 +142,6 @@ func NewController(
 	if _, err := controllerutils.AddEventHandlersT(
 		deploymentInformer.Informer(),
 		func(obj *appsv1.Deployment) {
-			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
-				c.enqueueCleanup()
-			}
 		},
 		func(_, obj *appsv1.Deployment) {
 			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoDeploymentName() {
@@ -180,7 +178,11 @@ func (c *controller) enqueueCleanup() {
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
-	if key == config.KyvernoDeploymentName() || c.runtime.IsGoingDown() {
+	if c.runtime.IsGoingDown() {
+		return c.reconcileWebhookDeletion(ctx)
+	}
+
+	if key == config.KyvernoDeploymentName() {
 		return c.reconcileWebhookDeletion(ctx)
 	}
 	if key != c.webhookName {
@@ -214,6 +216,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 
 func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
 	if c.runtime.IsGoingDown() {
+		if c.webhooksDeleted {
+			return nil
+		}
+		c.webhooksDeleted = true
 		if err := c.vwcClient.Delete(ctx, c.webhookName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			c.logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 			return err

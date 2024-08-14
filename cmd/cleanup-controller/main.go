@@ -142,7 +142,6 @@ func main() {
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		// listers
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 		// log policy changes
@@ -183,13 +182,13 @@ func main() {
 			globalcontextcontroller.Workers,
 		)
 		// start informers and wait for cache sync
-		if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer, kubeKyvernoInformer) {
+		if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kubeInformer, kyvernoInformer) {
 			os.Exit(1)
 		}
 		runtime := runtimeutils.NewRuntime(
 			setup.Logger.WithName("runtime-checks"),
 			serverIP,
-			kubeKyvernoInformer.Apps().V1().Deployments(),
+			kyvernoDeployment,
 			nil,
 		)
 		// setup leader election
