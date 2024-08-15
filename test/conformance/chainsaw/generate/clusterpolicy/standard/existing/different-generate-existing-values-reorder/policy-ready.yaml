@@ -1,10 +1,9 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: disallow-host-path-t11
+  name: different-generate-existing-values-reorder
 status:
   conditions:
   - reason: Succeeded
     status: "True"
     type: Ready
-  
