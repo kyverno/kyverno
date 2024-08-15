@@ -74,7 +74,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 	var newGenResources []kyvernov1.ResourceSpec
 
 	if err := g.loadContext(context.TODO()); err != nil {
-		return newGenResources, fmt.Errorf("failed to load context", err)
+		return newGenResources, fmt.Errorf("failed to load context: %v", err)
 	}
 
 	rule, err := variables.SubstituteAllInRule(g.logger, g.policyContext.JSONContext(), g.rule)
