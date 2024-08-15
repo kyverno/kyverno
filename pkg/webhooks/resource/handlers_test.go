@@ -34,6 +34,7 @@ var policyCheckLabel = `{
 	   "name": "check-label-app"
 	},
 	"spec": {
+	   "validationFailureAction": "audit",
 	   "rules": [
 		  {
 			 "name": "check-label-app",
@@ -45,7 +46,6 @@ var policyCheckLabel = `{
 				}
 			 },
 			 "validate": {
-	   		"validationFailureAction": "audit",
 				"message": "The label 'app' is required.",
 				"pattern": {
 					"metadata": {
