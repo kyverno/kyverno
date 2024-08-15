@@ -308,6 +308,82 @@ func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interf
 	return ctx.Query(variable)
 }
 
+func rep(value string, isDeleteRequest bool, log logr.Logger, ctx context.EvalInterface, vr VariableResolver, data *jsonUtils.ActionData) (interface{}, error) {
+	// find the first variable
+	// var prefix string
+	loc := regex.RegexVariables.FindStringIndex(value)
+	if len(loc) == 0 {
+		// We're inside the bottom most {{}}, so just 'unescape' (remove \) from escaped {{}} strings and evaluate the JMESPath expression
+		//   \{{ }} -> {{ }}
+		for _, v := range regex.RegexEscpVariables.FindAllString(value, -1) {
+			value = strings.Replace(value, v, v[1:], -1)
+		}
+		variable := value
+		if variable == "@" {
+			pathPrefix := "target"
+			if _, err := ctx.Query("target"); err != nil {
+				pathPrefix = "request.object"
+			}
+
+			// Convert path to JMESPath for current identifier.
+			// Skip 2 elements (e.g. mutate.overlay | validate.pattern) plus "foreach" if it is part of the pointer.
+			// Prefix the pointer with pathPrefix.
+			val := jsonpointer.ParsePath(data.Path).SkipPast("foreach").SkipN(2).Prepend(strings.Split(pathPrefix, ".")...).JMESPath()
+
+			variable = strings.Replace(variable, "@", val, -1)
+		}
+
+		if isDeleteRequest {
+			variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
+		}
+		return variable, nil
+	} else { // if we found one check what kind of variable we found
+		var offset int
+		shallow := false
+		//   {{ var }} -> rep(value)
+		//   {{\ var }} -> value
+		// return prefix + result
+		initial := value[0] == '{' // This whole thing with 'initial' is needed because go regexp does not support negavite look behind assertion
+		if !initial {
+			offset = 1
+		} else {
+			offset = 0
+		}
+		prefix := value[:(loc[0] + offset)]
+		v := value[(loc[0] + offset):loc[1]]
+		suffix := value[loc[1]:]
+		variable := replaceBracesAndTrimSpaces(v)
+		if variable[0] == '\\' { // Shallow (only one level) variable interpolation
+			variable = replaceBracesAndTrimSpaces(variable[1:])
+			shallow = true
+		}
+		// We do {{}} templating for the remaining part of the current context
+		templated_variable, err := rep(variable, isDeleteRequest, log, ctx, vr, data)
+		processed_suffix, err := rep(suffix, isDeleteRequest, log, ctx, vr, data)
+
+		substitutedVar, err := vr(ctx, templated_variable.(string))
+
+		if err != nil {
+			switch err.(type) {
+			case context.InvalidVariableError, gojmespath.NotFoundError:
+				return nil, err
+			default:
+				return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
+			}
+		}
+
+		log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
+
+		if shallow {
+			return prefix + substitutedVar.(string) + processed_suffix.(string), nil
+		} else {
+			processed_variable, err := rep(substitutedVar.(string), isDeleteRequest, log, ctx, vr, data)
+			return prefix + processed_variable.(string) + processed_suffix.(string), err
+		}
+
+	}
+}
+
 func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr VariableResolver) jsonUtils.Action {
 	isDeleteRequest := isDeleteRequest(ctx)
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
@@ -315,76 +391,8 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 		if !ok {
 			return data.Element, nil
 		}
-
-		vars := regex.RegexVariables.FindAllString(value, -1)
-		for len(vars) > 0 {
-			originalPattern := value
-			for _, v := range vars {
-				initial := len(regex.RegexVariableInit.FindAllString(v, -1)) > 0
-				old := v
-
-				if !initial {
-					v = v[1:]
-				}
-
-				variable := replaceBracesAndTrimSpaces(v)
-
-				if variable == "@" {
-					pathPrefix := "target"
-					if _, err := ctx.Query("target"); err != nil {
-						pathPrefix = "request.object"
-					}
-
-					// Convert path to JMESPath for current identifier.
-					// Skip 2 elements (e.g. mutate.overlay | validate.pattern) plus "foreach" if it is part of the pointer.
-					// Prefix the pointer with pathPrefix.
-					val := jsonpointer.ParsePath(data.Path).SkipPast("foreach").SkipN(2).Prepend(strings.Split(pathPrefix, ".")...).JMESPath()
-
-					variable = strings.Replace(variable, "@", val, -1)
-				}
-
-				if isDeleteRequest {
-					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
-				}
-
-				substitutedVar, err := vr(ctx, variable)
-				if err != nil {
-					switch err.(type) {
-					case context.InvalidVariableError, gojmespath.NotFoundError:
-						return nil, err
-					default:
-						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
-					}
-				}
-
-				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
-
-				if originalPattern == v {
-					return substitutedVar, nil
-				}
-
-				prefix := ""
-
-				if !initial {
-					prefix = string(old[0])
-				}
-
-				if value, err = substituteVarInPattern(prefix, originalPattern, v, substitutedVar); err != nil {
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
-				}
-
-				continue
-			}
-
-			// check for nested variables in strings
-			vars = regex.RegexVariables.FindAllString(value, -1)
-		}
-
-		for _, v := range regex.RegexEscpVariables.FindAllString(value, -1) {
-			value = strings.Replace(value, v, v[1:], -1)
-		}
-
-		return value, nil
+		v, e := rep(value, isDeleteRequest, log, ctx, vr, data)
+		return v, e
 	})
 }
 
