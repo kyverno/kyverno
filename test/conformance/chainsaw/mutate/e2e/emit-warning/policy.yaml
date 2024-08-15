@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: add-labels
 spec:
-  auditWarning: true
+  emitWarning: true
   rules:
   - match:
       any:
@@ -16,4 +16,3 @@ spec:
           labels:
             foo: bar
     name: add-labels
-  validationFailureAction: Audit

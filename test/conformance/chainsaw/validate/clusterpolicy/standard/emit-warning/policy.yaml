@@ -3,8 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: check-label-app
 spec:
-  validationFailureAction: Audit
-  auditWarning: true
+  emitWarning: true
   rules:
   - name: check-label-app
     match:
@@ -13,6 +12,7 @@ spec:
         - Pod
     validate:
       message: The label 'app' is required.
+      validationFailureAction: Audit
       pattern:
         metadata:
           labels:
