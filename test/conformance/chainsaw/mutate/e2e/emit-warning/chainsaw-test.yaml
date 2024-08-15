@@ -15,3 +15,7 @@ spec:
     try:
     - script:
         content: "kubectl apply -f pod.yaml 2>&1 | grep -q 'Warning: policy add-labels.add-labels: mutated Pod/test-pod'"
+  - name: cleanup
+    try:
+    - script:
+        content: "kubectl delete -f pod.yaml"

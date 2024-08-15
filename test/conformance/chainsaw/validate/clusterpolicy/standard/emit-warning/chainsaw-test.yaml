@@ -16,3 +16,7 @@ spec:
     - script:
         content: > 
           kubectl apply -f pod.yaml 2>&1 | grep -q "Warning: policy check-label-app.check-label-app: validation error: The label 'app' is required. rule check-label-app failed at path /metadata/labels/"
+  - name: cleanup
+    try:
+    - script:
+        content: "kubectl delete -f pod.yaml"
