@@ -452,7 +452,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		if c.autoUpdateWebhooks {
 			for _, set := range c.policyState {
 				if !set.Has(policyKey) {
-					ready, message = false, "Not ready yet"
+					ready, message = false, "Not Ready"
 					break
 				}
 			}
