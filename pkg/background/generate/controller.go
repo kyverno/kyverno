@@ -21,7 +21,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	regex "github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -310,18 +309,10 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			break
 		}
 		logger := log.WithValues("rule", rule.Name)
-		// add configmap json data to context
-		if err := c.engine.ContextLoader(policy, rule)(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
-			log.Error(err, "cannot add configmaps to context")
-			return nil, err
-		}
 
-		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
-			log.Error(err, "variable substitution failed for rule", "rule", rule.Name)
-			return nil, err
-		}
+		contextLoader := c.engine.ContextLoader(policy, rule)
 
-		g := newGenerator(c.client, logger, policy, rule, resource)
+		g := newGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), contextLoader)
 		genResource, err = g.generate()
 		if err != nil {
 			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(), "rule", rule.Name, "resource", resource.GetName())

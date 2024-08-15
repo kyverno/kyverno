@@ -2,32 +2,70 @@ package generate
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type generator struct {
-	client  dclient.Interface
-	logger  logr.Logger
-	policy  kyvernov1.PolicyInterface
-	rule    kyvernov1.Rule
-	trigger unstructured.Unstructured
+	client           dclient.Interface
+	logger           logr.Logger
+	policyContext    engineapi.PolicyContext
+	policy           kyvernov1.PolicyInterface
+	rule             kyvernov1.Rule
+	contextEntries   []kyvernov1.ContextEntry
+	anyAllConditions any
+	trigger          unstructured.Unstructured
+	forEach          []kyvernov1.ForEachValidation
+	contextLoader    engineapi.EngineContextLoader
 }
 
-func newGenerator(client dclient.Interface, logger logr.Logger, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, trigger unstructured.Unstructured) *generator {
+func newGenerator(client dclient.Interface,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	policy kyvernov1.PolicyInterface,
+	rule kyvernov1.Rule,
+	contextEntries []kyvernov1.ContextEntry,
+	anyAllConditions any,
+	trigger unstructured.Unstructured,
+	contextLoader engineapi.EngineContextLoader) *generator {
 	return &generator{
-		client:  client,
-		logger:  logger,
-		policy:  policy,
-		rule:    rule,
-		trigger: trigger,
+		client:           client,
+		logger:           logger,
+		policyContext:    policyContext,
+		policy:           policy,
+		rule:             rule,
+		contextEntries:   contextEntries,
+		anyAllConditions: anyAllConditions,
+		trigger:          trigger,
+		contextLoader:    contextLoader,
 	}
+}
+
+func newForeachGenerator(client dclient.Interface,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	policy kyvernov1.PolicyInterface,
+	rule kyvernov1.Rule,
+	contextEntries []kyvernov1.ContextEntry,
+	anyAllConditions any,
+	trigger unstructured.Unstructured,
+	forEach []kyvernov1.ForEachValidation,
+	contextLoader engineapi.EngineContextLoader) *generator {
+
+	g := newGenerator(client, logger, policyContext, policy, rule, contextEntries, anyAllConditions, trigger, contextLoader)
+
+	g.forEach = forEach
+	return g
 }
 
 func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
@@ -35,16 +73,26 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 	var err error
 	var newGenResources []kyvernov1.ResourceSpec
 
-	target := g.rule.Generation.ResourceSpec
+	if err := g.loadContext(context.TODO()); err != nil {
+		return newGenResources, fmt.Errorf("failed to load context", err)
+	}
+
+	rule, err := variables.SubstituteAllInRule(g.logger, g.policyContext.JSONContext(), g.rule)
+	if err != nil {
+		g.logger.Error(err, "variable substitution failed for rule", "rule", rule.Name)
+		return nil, err
+	}
+
+	target := rule.Generation.ResourceSpec
 	logger := g.logger.WithValues("target", target.String())
 
-	if g.rule.Generation.Clone.Name != "" {
-		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, g.policy.GetSpec().UseServerSideApply, g.rule, g.client)
+	if rule.Generation.Clone.Name != "" {
+		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, g.policy.GetSpec().UseServerSideApply, rule, g.client)
 		responses = append(responses, resp)
-	} else if len(g.rule.Generation.CloneList.Kinds) != 0 {
-		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), g.policy.GetSpec().UseServerSideApply, g.rule, g.client)
+	} else if len(rule.Generation.CloneList.Kinds) != 0 {
+		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), g.policy.GetSpec().UseServerSideApply, rule, g.client)
 	} else {
-		resp := manageData(logger.WithValues("type", "data"), target, g.rule.Generation.RawData, g.rule.Generation.Synchronize, g.client)
+		resp := manageData(logger.WithValues("type", "data"), target, rule.Generation.RawData, rule.Generation.Synchronize, g.client)
 		responses = append(responses, resp)
 	}
 
@@ -74,7 +122,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		}
 
 		newResource.SetAPIVersion(targetMeta.GetAPIVersion())
-		common.ManageLabels(newResource, g.trigger, g.policy, g.rule.Name)
+		common.ManageLabels(newResource, g.trigger, g.policy, rule.Name)
 		if response.GetAction() == Create {
 			newResource.SetResourceVersion("")
 			if g.policy.GetSpec().UseServerSideApply {
@@ -103,7 +151,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 				}
 				newGenResources = append(newGenResources, targetMeta)
 			} else {
-				if !g.rule.Generation.Synchronize {
+				if !rule.Generation.Synchronize {
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
 					continue
 				}
@@ -137,4 +185,16 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		}
 	}
 	return newGenResources, nil
+}
+
+func (g *generator) loadContext(ctx context.Context) error {
+	if err := g.contextLoader(ctx, g.contextEntries, g.policyContext.JSONContext()); err != nil {
+		if _, ok := err.(gojmespath.NotFoundError); ok {
+			g.logger.V(3).Info("failed to load context", "reason", err.Error())
+		} else {
+			g.logger.Error(err, "failed to load context")
+		}
+		return err
+	}
+	return nil
 }
