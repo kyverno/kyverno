@@ -11,6 +11,7 @@ rules:
   - rules.example.com
   resources:
   - statefulsetreplicalimits
+  - deploymentreplicalimits
   verbs:
   - get
   - list
