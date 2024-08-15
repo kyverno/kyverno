@@ -1816,6 +1816,35 @@ If specified Repository will override other OCI image repository locations for t
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>signatureAlgorithm</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -8462,7 +8491,7 @@ When multiple keys are specified each key is processed as a separate staticKey e
         <td>
           
 
-          <p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
+          <p>Deprecated. Use attestor.signatureAlgorithm instead.</p>
 
 
           

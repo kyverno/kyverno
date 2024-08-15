@@ -3278,15 +3278,20 @@ spec:
                                               type: object
                                             signatureAlgorithm:
                                               default: sha256
-                                              description: Specify signature algorithm
-                                                for public keys. Supported values
-                                                are sha224, sha256, sha384 and sha512.
+                                              description: Deprecated. Use attestor.signatureAlgorithm
+                                                instead.
                                               type: string
                                           type: object
                                         repository:
                                           description: |-
                                             Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                             If specified Repository will override other OCI image repository locations for this Attestor.
+                                          type: string
+                                        signatureAlgorithm:
+                                          default: sha256
+                                          description: Specify signature algorithm
+                                            for public keys. Supported values are
+                                            sha224, sha256, sha384 and sha512.
                                           type: string
                                       type: object
                                     type: array
@@ -3779,16 +3784,20 @@ spec:
                                                   type: object
                                                 signatureAlgorithm:
                                                   default: sha256
-                                                  description: Specify signature algorithm
-                                                    for public keys. Supported values
-                                                    are sha224, sha256, sha384 and
-                                                    sha512.
+                                                  description: Deprecated. Use attestor.signatureAlgorithm
+                                                    instead.
                                                   type: string
                                               type: object
                                             repository:
                                               description: |-
                                                 Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                 If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         type: array
@@ -4153,15 +4162,20 @@ spec:
                                             type: object
                                           signatureAlgorithm:
                                             default: sha256
-                                            description: Specify signature algorithm
-                                              for public keys. Supported values are
-                                              sha224, sha256, sha384 and sha512.
+                                            description: Deprecated. Use attestor.signatureAlgorithm
+                                              instead.
                                             type: string
                                         type: object
                                       repository:
                                         description: |-
                                           Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                           If specified Repository will override other OCI image repository locations for this Attestor.
+                                        type: string
+                                      signatureAlgorithm:
+                                        default: sha256
+                                        description: Specify signature algorithm for
+                                          public keys. Supported values are sha224,
+                                          sha256, sha384 and sha512.
                                         type: string
                                     type: object
                                   type: array
@@ -7650,16 +7664,20 @@ spec:
                                                   type: object
                                                 signatureAlgorithm:
                                                   default: sha256
-                                                  description: Specify signature algorithm
-                                                    for public keys. Supported values
-                                                    are sha224, sha256, sha384 and
-                                                    sha512.
+                                                  description: Deprecated. Use attestor.signatureAlgorithm
+                                                    instead.
                                                   type: string
                                               type: object
                                             repository:
                                               description: |-
                                                 Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                 If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         type: array
@@ -8160,16 +8178,22 @@ spec:
                                                       type: object
                                                     signatureAlgorithm:
                                                       default: sha256
-                                                      description: Specify signature
-                                                        algorithm for public keys.
-                                                        Supported values are sha224,
-                                                        sha256, sha384 and sha512.
+                                                      description: Deprecated. Use
+                                                        attestor.signatureAlgorithm
+                                                        instead.
                                                       type: string
                                                   type: object
                                                 repository:
                                                   description: |-
                                                     Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                     If specified Repository will override other OCI image repository locations for this Attestor.
+                                                  type: string
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             type: array
@@ -8538,15 +8562,20 @@ spec:
                                                 type: object
                                               signatureAlgorithm:
                                                 default: sha256
-                                                description: Specify signature algorithm
-                                                  for public keys. Supported values
-                                                  are sha224, sha256, sha384 and sha512.
+                                                description: Deprecated. Use attestor.signatureAlgorithm
+                                                  instead.
                                                 type: string
                                             type: object
                                           repository:
                                             description: |-
                                               Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                               If specified Repository will override other OCI image repository locations for this Attestor.
+                                            type: string
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       type: array
@@ -11824,15 +11853,20 @@ spec:
                                               type: object
                                             signatureAlgorithm:
                                               default: sha256
-                                              description: Specify signature algorithm
-                                                for public keys. Supported values
-                                                are sha224, sha256, sha384 and sha512.
+                                              description: Deprecated. Use attestor.signatureAlgorithm
+                                                instead.
                                               type: string
                                           type: object
                                         repository:
                                           description: |-
                                             Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                             If specified Repository will override other OCI image repository locations for this Attestor.
+                                          type: string
+                                        signatureAlgorithm:
+                                          default: sha256
+                                          description: Specify signature algorithm
+                                            for public keys. Supported values are
+                                            sha224, sha256, sha384 and sha512.
                                           type: string
                                       type: object
                                     type: array
@@ -12314,16 +12348,20 @@ spec:
                                                   type: object
                                                 signatureAlgorithm:
                                                   default: sha256
-                                                  description: Specify signature algorithm
-                                                    for public keys. Supported values
-                                                    are sha224, sha256, sha384 and
-                                                    sha512.
+                                                  description: Deprecated. Use attestor.signatureAlgorithm
+                                                    instead.
                                                   type: string
                                               type: object
                                             repository:
                                               description: |-
                                                 Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                 If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         type: array
@@ -12688,15 +12726,20 @@ spec:
                                             type: object
                                           signatureAlgorithm:
                                             default: sha256
-                                            description: Specify signature algorithm
-                                              for public keys. Supported values are
-                                              sha224, sha256, sha384 and sha512.
+                                            description: Deprecated. Use attestor.signatureAlgorithm
+                                              instead.
                                             type: string
                                         type: object
                                       repository:
                                         description: |-
                                           Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                           If specified Repository will override other OCI image repository locations for this Attestor.
+                                        type: string
+                                      signatureAlgorithm:
+                                        default: sha256
+                                        description: Specify signature algorithm for
+                                          public keys. Supported values are sha224,
+                                          sha256, sha384 and sha512.
                                         type: string
                                     type: object
                                   type: array
@@ -16164,16 +16207,20 @@ spec:
                                                   type: object
                                                 signatureAlgorithm:
                                                   default: sha256
-                                                  description: Specify signature algorithm
-                                                    for public keys. Supported values
-                                                    are sha224, sha256, sha384 and
-                                                    sha512.
+                                                  description: Deprecated. Use attestor.signatureAlgorithm
+                                                    instead.
                                                   type: string
                                               type: object
                                             repository:
                                               description: |-
                                                 Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                 If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         type: array
@@ -16674,16 +16721,22 @@ spec:
                                                       type: object
                                                     signatureAlgorithm:
                                                       default: sha256
-                                                      description: Specify signature
-                                                        algorithm for public keys.
-                                                        Supported values are sha224,
-                                                        sha256, sha384 and sha512.
+                                                      description: Deprecated. Use
+                                                        attestor.signatureAlgorithm
+                                                        instead.
                                                       type: string
                                                   type: object
                                                 repository:
                                                   description: |-
                                                     Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                     If specified Repository will override other OCI image repository locations for this Attestor.
+                                                  type: string
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             type: array
@@ -17052,15 +17105,20 @@ spec:
                                                 type: object
                                               signatureAlgorithm:
                                                 default: sha256
-                                                description: Specify signature algorithm
-                                                  for public keys. Supported values
-                                                  are sha224, sha256, sha384 and sha512.
+                                                description: Deprecated. Use attestor.signatureAlgorithm
+                                                  instead.
                                                 type: string
                                             type: object
                                           repository:
                                             description: |-
                                               Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                               If specified Repository will override other OCI image repository locations for this Attestor.
+                                            type: string
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       type: array

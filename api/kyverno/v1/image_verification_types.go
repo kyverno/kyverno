@@ -178,6 +178,10 @@ type Attestor struct {
 	// Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
 	// If specified Repository will override other OCI image repository locations for this Attestor.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+
+	// Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.
+	// +kubebuilder:default=sha256
+	SignatureAlgorithm string `json:"signatureAlgorithm,omitempty" yaml:"signatureAlgorithm,omitempty"`
 }
 
 type StaticKeyAttestor struct {
@@ -191,7 +195,7 @@ type StaticKeyAttestor struct {
 	// (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
-	// Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.
+	// Deprecated. Use attestor.signatureAlgorithm instead.
 	// +kubebuilder:default=sha256
 	SignatureAlgorithm string `json:"signatureAlgorithm,omitempty" yaml:"signatureAlgorithm,omitempty"`
 
