@@ -11,13 +11,13 @@ import (
 	"github.com/alitto/pond"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/d4f"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
@@ -64,7 +64,7 @@ type resourceHandlers struct {
 	admissionReports             bool
 	backgroundServiceAccountName string
 	auditPool                    *pond.WorkerPool
-	reportsBreaker               d4f.Breaker
+	reportsBreaker               breaker.Breaker
 }
 
 func NewHandlers(
@@ -85,7 +85,7 @@ func NewHandlers(
 	jp jmespath.Interface,
 	maxAuditWorkers int,
 	maxAuditCapacity int,
-	reportsBreaker d4f.Breaker,
+	reportsBreaker breaker.Breaker,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
@@ -198,38 +198,38 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err)
 	}
 	mh := mutation.NewMutationHandler(logger, h.engine, h.eventGen, h.nsLister, h.metricsConfig)
-	mutatePatches, mutateWarnings, err := mh.HandleMutation(ctx, request.AdmissionRequest, mutatePolicies, policyContext, startTime)
+	patches, warnings, err := mh.HandleMutation(ctx, request.AdmissionRequest, mutatePolicies, policyContext, startTime)
 	if err != nil {
 		logger.Error(err, "mutation failed")
 		return admissionutils.Response(request.UID, err)
 	}
-	newRequest := patchRequest(mutatePatches, request.AdmissionRequest, logger)
-	// rebuild context to process images updated via mutate policies
-	policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
-	if err != nil {
-		logger.Error(err, "failed to build policy context")
-		return admissionutils.Response(request.UID, err)
+	if len(verifyImagesPolicies) != 0 {
+		newRequest := patchRequest(patches, request.AdmissionRequest, logger)
+		// rebuild context to process images updated via mutate policies
+		policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+		if err != nil {
+			logger.Error(err, "failed to build policy context")
+			return admissionutils.Response(request.UID, err)
+		}
+		ivh := imageverification.NewImageVerificationHandler(
+			logger,
+			h.kyvernoClient,
+			h.engine,
+			h.eventGen,
+			h.admissionReports,
+			h.configuration,
+			h.nsLister,
+			h.reportsBreaker,
+		)
+		imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
+		if err != nil {
+			logger.Error(err, "image verification failed")
+			return admissionutils.Response(request.UID, err)
+		}
+		patches = jsonutils.JoinPatches(patches, imagePatches)
+		warnings = append(warnings, imageVerifyWarnings...)
 	}
-	ivh := imageverification.NewImageVerificationHandler(
-		logger,
-		h.kyvernoClient,
-		h.engine,
-		h.eventGen,
-		h.admissionReports,
-		h.configuration,
-		h.nsLister,
-		h.reportsBreaker,
-	)
-	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
-	if err != nil {
-		logger.Error(err, "image verification failed")
-		return admissionutils.Response(request.UID, err)
-	}
-	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
-	var warnings []string
-	warnings = append(warnings, mutateWarnings...)
-	warnings = append(warnings, imageVerifyWarnings...)
-	return admissionutils.MutationResponse(request.UID, patch, warnings...)
+	return admissionutils.MutationResponse(request.UID, patches, warnings...)
 }
 
 func (h *resourceHandlers) retrieveAndCategorizePolicies(

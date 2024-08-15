@@ -10,7 +10,7 @@ metadata:
       Sync Secret and Configmap from kube-system namespace
 spec:
   failurePolicy: Ignore
-  generateExistingOnPolicyUpdate: true
+  generateExisting: true
   rules:
   - name: sync-controller-secret
     match:
