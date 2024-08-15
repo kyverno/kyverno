@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
@@ -17,6 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 )
+
+// AssertionTree defines a kyverno-json assertion tree.
+type AssertionTree = kjson.Any
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
 // +kubebuilder:validation:Enum=Ignore;Fail
@@ -53,7 +58,20 @@ const (
 
 // WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.
 type WebhookConfiguration struct {
+	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+	// Rules within the same policy share the same failure behavior.
+	// This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
+	// Allowed values are Ignore or Fail. Defaults to Fail.
+	// +optional
+	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
+
+	// TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty" yaml:"timeoutSeconds,omitempty"`
+
 	// MatchCondition configures admission webhook matchConditions.
+	// Requires Kubernetes 1.27 or later.
 	// +optional
 	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty" yaml:"matchConditions,omitempty"`
 }
@@ -106,7 +124,9 @@ type ContextEntry struct {
 type Variable struct {
 	// Value is any arbitrary JSON object representable in YAML or JSON form.
 	// +optional
-	Value *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Value *kyverno.Any `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// JMESPath is an optional JMESPath Expression that can be used to
 	// transform the variable.
@@ -116,7 +136,25 @@ type Variable struct {
 	// Default is an optional arbitrary JSON object that the variable may take if the JMESPath
 	// expression evaluates to nil
 	// +optional
-	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Default *kyverno.Any `json:"default,omitempty" yaml:"default,omitempty"`
+}
+
+func (v *Variable) GetValue() any {
+	return kyverno.FromAny(v.Value)
+}
+
+func (v *Variable) SetValue(in any) {
+	v.Value = kyverno.ToAny(in)
+}
+
+func (v *Variable) GetDefault() any {
+	return kyverno.FromAny(v.Default)
+}
+
+func (v *Variable) SetDefault(in any) {
+	v.Default = kyverno.ToAny(in)
 }
 
 // ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
@@ -322,6 +360,10 @@ func (r ResourceFilter) IsEmpty() bool {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
+	// MutateExistingOnPolicyUpdate controls if the mutateExisting rule will be applied on policy events.
+	// +optional
+	MutateExistingOnPolicyUpdate *bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
+
 	// Targets defines the target resources to be mutated.
 	// +optional
 	Targets []TargetResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
@@ -376,7 +418,9 @@ type ForEachMutation struct {
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
 	// +optional
-	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawPatchStrategicMerge *kyverno.Any `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
 
 	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
@@ -385,19 +429,41 @@ type ForEachMutation struct {
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachMutation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ForEachMutation *ForEachMutationWrapper `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
-func (m *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
-	return FromJSON(m.RawPatchStrategicMerge)
+func (m *ForEachMutation) GetForEachMutation() []ForEachMutation {
+	if m.ForEachMutation == nil {
+		return nil
+	}
+	return m.ForEachMutation.Items
 }
 
-func (m *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
-	m.RawPatchStrategicMerge = ToJSON(in)
+func (m *ForEachMutation) GetPatchStrategicMerge() any {
+	return kyverno.FromAny(m.RawPatchStrategicMerge)
+}
+
+func (m *ForEachMutation) SetPatchStrategicMerge(in any) {
+	m.RawPatchStrategicMerge = kyverno.ToAny(in)
 }
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
+	// ValidationFailureAction defines if a validation policy rule violation should block
+	// the admission review request (Enforce), or allow (Audit) the admission review request
+	// and report an error in a policy report. Optional.
+	// Allowed values are Audit or Enforce.
+	// +optional
+	// +kubebuilder:validation:Enum=Audit;Enforce
+	ValidationFailureAction *ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+
+	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+	// +optional
+	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
+
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
@@ -431,6 +497,10 @@ type Validation struct {
 	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 	// +optional
 	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
+
+	// Assert defines a kyverno-json assertion tree.
+	// +optional
+	Assert AssertionTree `json:"assert"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -586,15 +656,24 @@ type Deny struct {
 	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
 	// but will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
-	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *ConditionsWrapper `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(d.RawAnyAllConditions)
+func (d *Deny) GetAnyAllConditions() any {
+	if d.RawAnyAllConditions == nil {
+		return nil
+	}
+	return d.RawAnyAllConditions.Conditions
 }
 
-func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
-	d.RawAnyAllConditions = ToJSON(in)
+func (d *Deny) SetAnyAllConditions(in any) {
+	var new *ConditionsWrapper
+	if in != nil {
+		new = &ConditionsWrapper{in}
+	}
+	d.RawAnyAllConditions = new
 }
 
 // ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
@@ -635,7 +714,16 @@ type ForEachValidation struct {
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachValidation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ForEachValidation *ForEachValidationWrapper `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+func (v *ForEachValidation) GetForEachValidation() []ForEachValidation {
+	if v.ForEachValidation == nil {
+		return nil
+	}
+	return v.ForEachValidation.Items
 }
 
 func (v *ForEachValidation) GetPattern() apiextensions.JSON {
@@ -656,6 +744,11 @@ func (v *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
 
 // Generation defines how new resources should be created and managed.
 type Generation struct {
+	// GenerateExisting controls whether to trigger the rule in existing resources
+	// If is set to "true" the rule will be triggered and applied to existing matched resources.
+	// +optional
+	GenerateExisting *bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
+
 	// ResourceSpec contains information to select the resource.
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 

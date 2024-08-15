@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: uid-groups-fsgroup-validate
+spec:
+  validationFailureAction: enforce
+  background: true
+  rules:
+    - name: check-runasuser
+      context:
+      - name: allowedUIDs
+        variable:
+          value: "9999 | 4000"
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: >-
+          Running with specific user IDs {{ allowedUIDs }}. The fields
+          spec.securityContext.runAsGroup, spec.containers[*].securityContext.runAsGroup,
+          spec.initContainers[*].securityContext.runAsGroup, and
+          spec.ephemeralContainers[*].securityContext.runAsGroup must be
+          set to one of the {{ allowedUIDs }} values.
+        anyPattern:
+        - spec:
+            securityContext:
+              runAsUser: "{{ allowedUIDs }}"
+            =(ephemeralContainers):
+              - =(securityContext):
+                  =(runAsUser): "{{ allowedUIDs }}"
+            =(initContainers):
+              - =(securityContext):
+                  =(runAsUser):  "{{ allowedUIDs }}"
+            containers:
+              - =(securityContext):
+                  =(runAsUser): "{{ allowedUIDs }}"
+        - spec:
+            =(ephemeralContainers):
+              - securityContext:
+                  runAsUser: "{{ allowedUIDs }}"
+            =(initContainers):
+              - securityContext:
+                  runAsUser: "{{ allowedUIDs }}"
+            containers:
+              - securityContext:
+                  runAsUser: "{{ allowedUIDs }}"

@@ -702,7 +702,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
 				if spec.HasMutateStandard() || spec.HasVerifyImages() {
-					if spec.CustomWebhookConfiguration() {
+					if spec.CustomWebhookMatchConditions() {
 						fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
 						fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
@@ -820,12 +820,14 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
 	var mapResourceToOpn map[string]map[string]bool
 	for _, r := range rules {
-		var resources []string
-		operationStatusMap := getOperationStatusMap()
-		operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
-		resources = computeResourcesOfRule(r)
-		for _, r := range resources {
-			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+		if r.HasMutate() || r.HasVerifyImages() {
+			var resources []string
+			operationStatusMap := getOperationStatusMap()
+			operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
+			resources = computeResourcesOfRule(r)
+			for _, r := range resources {
+				mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+			}
 		}
 	}
 	return mapResourceToOpnType
@@ -871,7 +873,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
 				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutateExisting() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
-					if spec.CustomWebhookConfiguration() {
+					if spec.CustomWebhookMatchConditions() {
 						fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
 						fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
@@ -1030,9 +1032,10 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 	}
 
 	spec := policy.GetSpec()
-	if spec.WebhookTimeoutSeconds != nil {
-		if dst.maxWebhookTimeout < *spec.WebhookTimeoutSeconds {
-			dst.maxWebhookTimeout = *spec.WebhookTimeoutSeconds
+	webhookTimeoutSeconds := spec.GetWebhookTimeoutSeconds()
+	if webhookTimeoutSeconds != nil {
+		if dst.maxWebhookTimeout < *webhookTimeoutSeconds {
+			dst.maxWebhookTimeout = *webhookTimeoutSeconds
 		}
 	}
 }

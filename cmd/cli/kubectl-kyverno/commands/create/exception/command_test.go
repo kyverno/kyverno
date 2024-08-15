@@ -40,7 +40,7 @@ func TestCommandWithAny(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	expected := `
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
   name: test
@@ -72,7 +72,7 @@ func TestCommandWithAll(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	expected := `
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
   name: test

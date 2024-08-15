@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-fail-01
+  namespace: production-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+      - name: container2
+        image: staging.example.com/nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-fail-02
+  namespace: staging-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+      - name: container2
+        image: example.com/nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-fail-03
+  namespace: staging-ns
+  labels:
+    exempt: "false"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+      - name: container2
+        image: example.com/nginx

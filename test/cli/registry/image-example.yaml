@@ -19,6 +19,7 @@ spec:
         operator: NotEquals
         value: DELETE
     validate:
+      validationFailureAction: Enforce
       foreach:
       - context:
         - imageRegistry:
@@ -35,7 +36,6 @@ spec:
               value: ghcr.io
         list: request.object.spec.containers
       message: images with root user are not allowed
-  validationFailureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -57,6 +57,7 @@ spec:
         operator: NotEquals
         value: DELETE
     validate:
+      validationFailureAction: Enforce
       foreach:
       - context:
         - imageRegistry:
@@ -76,4 +77,3 @@ spec:
         list: request.object.spec.containers
       message: Images must specify a source/base image from which they are built to
         be valid.
-  validationFailureAction: Enforce

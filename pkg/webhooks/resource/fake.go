@@ -39,8 +39,8 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 
 	dclient := dclient.NewEmptyFakeClient()
 	configuration := config.NewDefaultConfiguration(false)
-	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
-	peLister := kyvernoInformers.Kyverno().V2beta1().PolicyExceptions().Lister()
+	urLister := kyvernoInformers.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
+	peLister := kyvernoInformers.Kyverno().V2().PolicyExceptions().Lister()
 	jp := jmespath.New(configuration)
 	rclient := registryclient.NewOrDie()
 

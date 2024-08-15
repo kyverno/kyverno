@@ -1,0 +1,39 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-data-sync-delete-rule
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1-1.yaml
+  - name: step-03
+    try:
+    - assert:
+        file: secret.yaml
+    - assert:
+        file: configmap.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: delete-rule.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-05
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-06
+    try:
+    - assert:
+        file: secret.yaml
+    - error:
+        file: configmap.yaml

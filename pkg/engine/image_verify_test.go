@@ -711,7 +711,7 @@ func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
 func Test_RuleSelectorImageVerify(t *testing.T) {
 
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
-	rule := newStaticKeyRule("match-all", "*", testOtherKey)
+	rule := newStaticKeyRule("match-all", testOtherKey)
 	spec := policyContext.Policy().GetSpec()
 	spec.Rules = append(spec.Rules, *rule)
 
@@ -730,7 +730,7 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Message())
 }
 
-func newStaticKeyRule(name, imageReference, key string) *kyvernov1.Rule {
+func newStaticKeyRule(name, key string) *kyvernov1.Rule {
 	return &kyvernov1.Rule{
 		Name: name,
 		MatchResources: kyvernov1.MatchResources{

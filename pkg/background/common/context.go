@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -17,7 +17,7 @@ import (
 func NewBackgroundContext(
 	logger logr.Logger,
 	dclient dclient.Interface,
-	ur *kyvernov1beta1.UpdateRequest,
+	urContext kyvernov2.UpdateRequestSpecContext,
 	policy kyvernov1.PolicyInterface,
 	trigger *unstructured.Unstructured,
 	cfg config.Configuration,
@@ -27,15 +27,15 @@ func NewBackgroundContext(
 	var new, old unstructured.Unstructured
 	var err error
 
-	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
-		new, old, err = admissionutils.ExtractResources(nil, *ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
+	if urContext.AdmissionRequestInfo.AdmissionRequest != nil {
+		new, old, err = admissionutils.ExtractResources(nil, *urContext.AdmissionRequestInfo.AdmissionRequest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load request in context: %w", err)
 		}
 		if new.Object != nil {
 			if !check(&new, trigger) {
-				err := fmt.Errorf("resources don't match")
-				return nil, fmt.Errorf("resource %v: %w", ur.Spec.GetResource().String(), err)
+				return nil, fmt.Errorf("resources don't match, want: %v/%v, got: %v/%v",
+					trigger.GetNamespace(), trigger.GetName(), new.GetNamespace(), new.GetName())
 			}
 		}
 	}
@@ -47,19 +47,19 @@ func NewBackgroundContext(
 	}
 
 	var policyContext *engine.PolicyContext
-	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest == nil {
+	if urContext.AdmissionRequestInfo.AdmissionRequest == nil {
 		policyContext, err = engine.NewPolicyContext(
 			jp,
 			*trigger,
-			kyvernov1.AdmissionOperation(ur.Spec.Context.AdmissionRequestInfo.Operation),
-			&ur.Spec.Context.UserRequestInfo,
+			kyvernov1.AdmissionOperation(urContext.AdmissionRequestInfo.Operation),
+			&urContext.UserRequestInfo,
 			cfg,
 		)
 	} else {
 		policyContext, err = engine.NewPolicyContextFromAdmissionRequest(
 			jp,
-			*ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest,
-			ur.Spec.Context.UserRequestInfo,
+			*urContext.AdmissionRequestInfo.AdmissionRequest,
+			urContext.UserRequestInfo,
 			trigger.GroupVersionKind(),
 			cfg,
 		)

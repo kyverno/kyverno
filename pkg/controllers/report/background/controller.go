@@ -2,19 +2,19 @@ package background
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
+	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -58,7 +58,7 @@ type controller struct {
 	// listers
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
-	polexLister      kyvernov2beta1listers.PolicyExceptionLister
+	polexLister      kyvernov2listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyBindingLister
 	bgscanrLister    cache.GenericLister
@@ -86,7 +86,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	polexInformer kyvernov2beta1informers.PolicyExceptionInformer,
+	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	vapBindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer,
 	nsInformer corev1informers.NamespaceInformer,
@@ -172,17 +172,17 @@ func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
 	c.enqueueResources()
 }
 
-func (c *controller) addException(obj *kyvernov2beta1.PolicyException) {
+func (c *controller) addException(obj *kyvernov2.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateException(old, obj *kyvernov2beta1.PolicyException) {
+func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteException(obj *kyvernov2beta1.PolicyException) {
+func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
 	c.enqueueResources()
 }
 
@@ -220,7 +220,7 @@ func (c *controller) enqueueResources() {
 	}
 }
 
-func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
 	if namespace == "" {
 		return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
@@ -244,7 +244,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2beta1.PolicyException, bindings []admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) (bool, bool, error) {
+func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2.PolicyException, bindings []admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) (bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
 	reportMetadata, err := c.getMeta(namespace, name)
 	if err != nil {
@@ -303,7 +303,7 @@ func (c *controller) reconcileReport(
 	uid types.UID,
 	gvk schema.GroupVersionKind,
 	resource resource.Resource,
-	exceptions []kyvernov2beta1.PolicyException,
+	exceptions []kyvernov2.PolicyException,
 	bindings []admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) error {
@@ -362,8 +362,8 @@ func (c *controller) reconcileReport(
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
-		for _, exception := range exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(exception)
+		for i, exception := range exceptions {
+			key, err := cache.MetaNamespaceKeyFunc(&exceptions[i])
 			if err != nil {
 				return err
 			}
@@ -377,13 +377,24 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.ValidatingAdmissionPolicyBindingLabel(binding)
 		}
 		for _, result := range observed.GetResults() {
-			// if the policy did not change, keep the result
+			// The result is kept as it is if:
+			// 1. The Kyverno policy and its matched exceptions are unchanged
+			// 2. The ValidatingAdmissionPolicy and its matched binding are unchanged
+			keepResult := true
+			exception := result.Properties["exceptions"]
+			exceptions := strings.Split(exception, ",")
+			for _, exception := range exceptions {
+				exceptionLabel := policyNameToLabel[exception]
+				if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
+					keepResult = false
+					break
+				}
+			}
+
 			label := policyNameToLabel[result.Policy]
-			exceptionLabel := policyNameToLabel[result.Properties["exception"]]
 			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
 			if (label != "" && expected[label] == actual[label]) ||
-				(exceptionLabel != "" && expected[exceptionLabel] == actual[exceptionLabel]) ||
-				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) {
+				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) || keepResult {
 				ruleResults = append(ruleResults, result)
 			}
 		}
@@ -444,7 +455,7 @@ func (c *controller) reconcileReport(
 	return nil
 }
 
-func (c *controller) storeReport(ctx context.Context, observed, desired kyvernov1alpha2.ReportInterface) error {
+func (c *controller) storeReport(ctx context.Context, observed, desired reportsv1.ReportInterface) error {
 	var err error
 	hasReport := observed.GetResourceVersion() != ""
 	wantsReport := desired != nil && len(desired.GetResults()) != 0

@@ -257,13 +257,13 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
-| crds.groups.kyverno | object | `{"admissionreports":true,"backgroundscanreports":true,"cleanuppolicies":true,"clusteradmissionreports":true,"clusterbackgroundscanreports":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io` |
+| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io` |
 | crds.groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | Install CRDs in group `reports.kyverno.io` |
 | crds.groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | Install CRDs in group `wgpolicyk8s.io` |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
 | crds.customLabels | object | `{}` | Additional CRDs labels |
 | crds.migration.enabled | bool | `true` | Enable CRDs migration using helm post upgrade hook |
-| crds.migration.resources | list | `["admissionreports.kyverno.io","backgroundscanreports.kyverno.io","cleanuppolicies.kyverno.io","clusteradmissionreports.kyverno.io","clusterbackgroundscanreports.kyverno.io","clustercleanuppolicies.kyverno.io","clusterpolicies.kyverno.io","globalcontextentries.kyverno.io","policies.kyverno.io","policyexceptions.kyverno.io","updaterequests.kyverno.io"]` | Resources to migrate |
+| crds.migration.resources | list | `["cleanuppolicies.kyverno.io","clustercleanuppolicies.kyverno.io","clusterpolicies.kyverno.io","globalcontextentries.kyverno.io","policies.kyverno.io","policyexceptions.kyverno.io","updaterequests.kyverno.io"]` | Resources to migrate |
 | crds.migration.image.registry | string | `"ghcr.io"` | Image registry |
 | crds.migration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
 | crds.migration.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
@@ -284,6 +284,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | config.create | bool | `true` | Create the configmap. |
+| config.preserve | bool | `true` | Preserve the configmap settings during upgrade. |
 | config.name | string | `nil` | The configmap name (required if `create` is `false`). |
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
@@ -344,7 +345,6 @@ The chart values are organised per component.
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
-| features.reports.chunkSize | int | `0` | Reports chunk size |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.enabled | bool | `false` | Enables the feature |
 | features.tuf.root | string | `nil` | Tuf root |
@@ -354,7 +354,8 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| admissionController.featuresOverride | object | `{}` | Overrides features defined at the root level |
+| admissionController.featuresOverride | object | `{"admissionReports":{"backPressureThreshold":1000}}` | Overrides features defined at the root level |
+| admissionController.featuresOverride.admissionReports.backPressureThreshold | int | `1000` | Max number of admission reports allowed in flight until the admission controller stops creating new ones |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -692,7 +693,7 @@ The chart values are organised per component.
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image.registry | string | `nil` | Image registry |
 | webhooksCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| webhooksCleanup.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
+| webhooksCleanup.image.tag | string | `"1.30.2"` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
@@ -727,50 +728,6 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| cleanupJobs.admissionReports.enabled | bool | `true` | Enable cleanup cronjob |
-| cleanupJobs.admissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
-| cleanupJobs.admissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
-| cleanupJobs.admissionReports.image.registry | string | `nil` | Image registry |
-| cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.admissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
-| cleanupJobs.admissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| cleanupJobs.admissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
-| cleanupJobs.admissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
-| cleanupJobs.admissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
-| cleanupJobs.admissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
-| cleanupJobs.admissionReports.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupJobs.admissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| cleanupJobs.admissionReports.priorityClassName | string | `""` | Pod PriorityClassName |
-| cleanupJobs.admissionReports.resources | object | `{}` | Job resources |
-| cleanupJobs.admissionReports.tolerations | list | `[]` | List of node taints to tolerate |
-| cleanupJobs.admissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
-| cleanupJobs.admissionReports.podAnnotations | object | `{}` | Pod Annotations |
-| cleanupJobs.admissionReports.podLabels | object | `{}` | Pod labels |
-| cleanupJobs.admissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| cleanupJobs.admissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
-| cleanupJobs.admissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
-| cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
-| cleanupJobs.clusterAdmissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
-| cleanupJobs.clusterAdmissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
-| cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
-| cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
-| cleanupJobs.clusterAdmissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| cleanupJobs.clusterAdmissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
-| cleanupJobs.clusterAdmissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
-| cleanupJobs.clusterAdmissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
-| cleanupJobs.clusterAdmissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
-| cleanupJobs.clusterAdmissionReports.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupJobs.clusterAdmissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| cleanupJobs.clusterAdmissionReports.priorityClassName | string | `""` | Pod PriorityClassName |
-| cleanupJobs.clusterAdmissionReports.resources | object | `{}` | Job resources |
-| cleanupJobs.clusterAdmissionReports.tolerations | list | `[]` | List of node taints to tolerate |
-| cleanupJobs.clusterAdmissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
-| cleanupJobs.clusterAdmissionReports.podAnnotations | object | `{}` | Pod Annotations |
-| cleanupJobs.clusterAdmissionReports.podLabels | object | `{}` | Pod Labels |
-| cleanupJobs.clusterAdmissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| cleanupJobs.clusterAdmissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
-| cleanupJobs.clusterAdmissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
 
 ### Other
 
@@ -781,6 +738,7 @@ The chart values are organised per component.
 | global.caCertificates.volume | object | `{}` | Global value to set single volume to be mounted for CA certificates for all deployments. Not used when `.Values.global.caCertificates.data` is defined Individual  controller values will override this global value |
 | global.extraEnvVars | list | `[]` | Additional container environment variables to apply to all containers and init containers |
 | global.nodeSelector | object | `{}` | Global node labels for pod assignment. Non-global values will override the global value. |
+| global.tolerations | list | `[]` | Global List of node taints to tolerate. Non-global values will override the global value. |
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
@@ -791,7 +749,7 @@ The chart values are organised per component.
 | policyReportsCleanup.enabled | bool | `true` | Create a helm post-upgrade hook to cleanup the old policy reports. |
 | policyReportsCleanup.image.registry | string | `nil` | Image registry |
 | policyReportsCleanup.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| policyReportsCleanup.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
+| policyReportsCleanup.image.tag | string | `"1.30.2"` | Image tag Defaults to `latest` if omitted |
 | policyReportsCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | policyReportsCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | policyReportsCleanup.podSecurityContext | object | `{}` | Security context for the pod |

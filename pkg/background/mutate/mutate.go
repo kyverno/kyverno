@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -76,7 +76,7 @@ func NewMutateExistingController(
 	return &c
 }
 
-func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
+func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
@@ -94,7 +94,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		var trigger *unstructured.Unstructured
 		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 		if admissionRequest == nil {
-			trigger, err = common.GetResource(c.client, ur.Spec, c.log)
+			trigger, err = common.GetResource(c.client, ur.Spec.Resource, ur.Spec, c.log)
 			if err != nil || trigger == nil {
 				logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 				if err := updateURStatus(c.statusControl, *ur, err); err != nil {
@@ -104,7 +104,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			}
 		} else {
 			if admissionRequest.Operation == admissionv1.Create {
-				trigger, err = common.GetResource(c.client, ur.Spec, c.log)
+				trigger, err = common.GetResource(c.client, ur.Spec.Resource, ur.Spec, c.log)
 				if err != nil || trigger == nil {
 					if admissionRequest.SubResource == "" {
 						logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
@@ -139,7 +139,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-		policyContext, err := common.NewBackgroundContext(logger, c.client, ur, policy, trigger, c.configuration, c.jp, namespaceLabels)
+		policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, policy, trigger, c.configuration, c.jp, namespaceLabels)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
@@ -168,7 +168,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 			case engineapi.RuleStatusSkip:
 				err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
-				logger.Info(err.Error())
+				logger.V(4).Info(err.Error())
 
 			case engineapi.RuleStatusPass:
 				patchedNew := patched
@@ -211,7 +211,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	return updateURStatus(c.statusControl, *ur, err)
 }
 
-func (c *mutateExistingController) getPolicy(ur *kyvernov1beta1.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {
+func (c *mutateExistingController) getPolicy(ur *kyvernov2.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
 	if err != nil {
 		return nil, err
@@ -243,7 +243,7 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 	c.eventGen.Add(events...)
 }
 
-func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error) error {
+func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error) error {
 	if err != nil {
 		if _, err := statusControl.Failed(ur.GetName(), err.Error(), nil); err != nil {
 			return err

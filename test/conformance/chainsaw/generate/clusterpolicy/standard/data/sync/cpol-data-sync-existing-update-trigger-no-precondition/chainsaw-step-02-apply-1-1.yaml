@@ -3,9 +3,9 @@ kind: ClusterPolicy
 metadata:
   name: cpol-data-sync-existing-update-trigger-no-precondition
 spec:
-  generateExisting: true
   rules:
   - generate:
+      generateExisting: true
       apiVersion: policy/v1
       data:
         spec:

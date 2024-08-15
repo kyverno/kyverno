@@ -70,7 +70,7 @@ func New(
 					Name:       gce.Name,
 					Namespace:  gce.Namespace,
 					UID:        gce.UID,
-				}, entryevent.ReasonAPICallFailure, err))
+				}, err))
 
 				if shouldUpdateStatus {
 					if updateErr := updateStatus(ctx, gce.Name, kyvernoClient, false, entryevent.ReasonAPICallFailure); updateErr != nil {
@@ -123,6 +123,7 @@ func (e *entry) setData(data any, err error) {
 		e.err = err
 	} else {
 		e.data = data
+		e.err = nil
 	}
 }
 
