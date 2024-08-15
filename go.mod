@@ -95,11 +95,6 @@ require (
 )
 
 require (
-	github.com/go-logr/zerologr v1.2.3 // indirect
-	github.com/rs/zerolog v1.33.0 // indirect
-)
-
-require (
 	cloud.google.com/go v0.114.0 // indirect
 	cloud.google.com/go/auth v0.5.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
