@@ -4,7 +4,6 @@ metadata:
   labels:
     run: test-pod
   name: test-pod
-  namespace: default
 spec:
   containers:
   - image: nginx

@@ -712,7 +712,7 @@ func Test_ValidateAuditWarn(t *testing.T) {
 	assert.Equal(t, len(response.Warnings), 0, "should not emit warning when audit warn is set to false")
 
 	auditWarn := true
-	validPolicy.Spec.AuditWarning = &auditWarn
+	validPolicy.Spec.EmitWarning = &auditWarn
 	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
@@ -735,7 +735,7 @@ func Test_ValidateAuditWarnGood(t *testing.T) {
 	err := json.Unmarshal([]byte(policyCheckLabel), &validPolicy)
 	assert.NilError(t, err)
 	auditWarn := true
-	validPolicy.Spec.AuditWarning = &auditWarn
+	validPolicy.Spec.EmitWarning = &auditWarn
 	key := makeKey(&validPolicy)
 	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
 
@@ -791,7 +791,7 @@ func Test_MutateWarn(t *testing.T) {
 	assert.Equal(t, len(response.Warnings), 0)
 
 	auditWarn := true
-	policy.Spec.AuditWarning = &auditWarn
+	policy.Spec.EmitWarning = &auditWarn
 	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Mutate(ctx, logger, request, "", time.Now())

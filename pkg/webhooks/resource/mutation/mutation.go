@@ -116,8 +116,8 @@ func (v *mutationHandler) applyMutations(
 
 				if engineResponse != nil {
 					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
-					auditWarn := policy.GetSpec().AuditWarning
-					if auditWarn != nil && *auditWarn {
+					emitWarning := policy.GetSpec().EmitWarning
+					if emitWarning != nil && *emitWarning {
 						resp := engineResponse.WithWarning()
 						engineResponse = &resp
 					}

@@ -71,11 +71,11 @@ type Spec struct {
 	// Deprecated, use validationFailureActionOverrides under the validate rule instead.
 	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
-	// AuditWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+	// EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
 	// Enabling this option will extend admission request processing times. The default value is "false".
 	// +optional
 	// +kubebuilder:default=false
-	AuditWarning *bool `json:"auditWarning,omitempty" yaml:"auditWarning,omitempty"`
+	EmitWarning *bool `json:"emitWarning,omitempty" yaml:"emitWarning,omitempty"`
 
 	// Admission controls if rules are applied during admission.
 	// Optional. Default value is "true".

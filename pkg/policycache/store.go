@@ -103,7 +103,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 	var errs []error
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	auditWarning := false
-	if policy.GetSpec().AuditWarning != nil && *policy.GetSpec().AuditWarning {
+	if policy.GetSpec().EmitWarning != nil && *policy.GetSpec().EmitWarning {
 		auditWarning = true
 	}
 	m.policies[key] = policy
