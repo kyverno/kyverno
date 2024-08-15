@@ -10,6 +10,8 @@ spec:
       - resources:
           kinds:
           - Namespace
+          names:
+          - green-ns
     generate:
       generateExisting: true
       kind: NetworkPolicy
@@ -32,6 +34,8 @@ spec:
       - resources:
           kinds:
           - Namespace
+          names:
+          - red-ns
     generate:
       generateExisting: false
       synchronize: true
