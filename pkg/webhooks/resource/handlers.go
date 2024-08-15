@@ -11,7 +11,7 @@ import (
 	"github.com/alitto/pond"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	d4f "github.com/kyverno/kyverno/pkg/breaker"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -64,7 +64,7 @@ type resourceHandlers struct {
 	admissionReports             bool
 	backgroundServiceAccountName string
 	auditPool                    *pond.WorkerPool
-	reportsBreaker               d4f.Breaker
+	reportsBreaker               breaker.Breaker
 }
 
 func NewHandlers(
@@ -85,7 +85,7 @@ func NewHandlers(
 	jp jmespath.Interface,
 	maxAuditWorkers int,
 	maxAuditCapacity int,
-	reportsBreaker d4f.Breaker,
+	reportsBreaker breaker.Breaker,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,

@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	d4f "github.com/kyverno/kyverno/pkg/breaker"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -46,7 +46,7 @@ func NewValidationHandler(
 	metrics metrics.MetricsConfigManager,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
-	reportsBreaker d4f.Breaker,
+	reportsBreaker breaker.Breaker,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -74,7 +74,7 @@ type validationHandler struct {
 	metrics          metrics.MetricsConfigManager
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
-	reportsBreaker   d4f.Breaker
+	reportsBreaker   breaker.Breaker
 }
 
 func (v *validationHandler) HandleValidationEnforce(
