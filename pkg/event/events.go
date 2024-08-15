@@ -167,6 +167,12 @@ func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule 
 		Namespace:  policy.GetNamespace(),
 		UID:        policy.GetUID(),
 	}
+	var msg string
+	if rule == "" {
+		msg = fmt.Sprintf("policy %s error: %v", policy.GetName(), err)
+	} else {
+		msg = fmt.Sprintf("policy %s/%s error: %v", policy.GetName(), rule, err)
+	}
 	events = append(events, Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
@@ -178,7 +184,7 @@ func NewBackgroundFailedEvent(err error, policy kyvernov1.PolicyInterface, rule 
 		},
 		Source:  source,
 		Reason:  PolicyError,
-		Message: fmt.Sprintf("policy %s/%s error: %v", policy.GetName(), rule, err),
+		Message: msg,
 		Action:  None,
 	})
 
@@ -366,6 +372,12 @@ func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName
 }
 
 func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
+	var msg string
+	if rule == "" {
+		msg = fmt.Sprintf("policy %s error: %v", policy, err)
+	} else {
+		msg = fmt.Sprintf("policy %s/%s error: %v", policy, rule, err)
+	}
 	return Info{
 		Regarding: corev1.ObjectReference{
 			APIVersion: resource.APIVersion,
@@ -376,7 +388,7 @@ func NewFailedEvent(err error, policy, rule string, source Source, resource kyve
 		},
 		Source:  source,
 		Reason:  PolicyError,
-		Message: fmt.Sprintf("policy %s/%s error: %v", policy, rule, err),
+		Message: msg,
 		Action:  None,
 	}
 }

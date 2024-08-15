@@ -185,6 +185,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.PolicyExceptionSpecApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("RequestInfo"):
 		return &kyvernov2.RequestInfoApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("RuleContext"):
+		return &kyvernov2.RuleContextApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("UpdateRequest"):
 		return &kyvernov2.UpdateRequestApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("UpdateRequestSpec"):
