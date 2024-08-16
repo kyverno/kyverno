@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -87,7 +88,7 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 		return nil, err
 	}
 
-	if err := matchSignatures(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+	if err := matchSignatures(signatures, opts.Subject, opts.SubjectRegExp, opts.Issuer, opts.IssuerRegExp, opts.AdditionalExtensions); err != nil {
 		return nil, err
 	}
 
@@ -337,7 +338,7 @@ func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 			continue
 		}
 
-		if err := matchSignatures([]oci.Signature{signature}, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+		if err := matchSignatures([]oci.Signature{signature}, opts.Subject, opts.SubjectRegExp, opts.Issuer, opts.IssuerRegExp, opts.AdditionalExtensions); err != nil {
 			return nil, err
 		}
 	}
@@ -529,7 +530,7 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 	return "", fmt.Errorf("digest not found for %s", imgRef)
 }
 
-func matchSignatures(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
+func matchSignatures(signatures []oci.Signature, subject, subjectRegExp, issuer, issuerRegExp string, extensions map[string]string) error {
 	if subject == "" && issuer == "" && len(extensions) == 0 {
 		return nil
 	}
@@ -545,7 +546,7 @@ func matchSignatures(signatures []oci.Signature, subject, issuer string, extensi
 			return fmt.Errorf("certificate not found")
 		}
 
-		if err := matchCertificateData(cert, subject, issuer, extensions); err != nil {
+		if err := matchCertificateData(cert, subject, subjectRegExp, issuer, issuerRegExp, extensions); err != nil {
 			errs = append(errs, err)
 		} else {
 			// only one signature certificate needs to match the required subject, issuer, and extensions
@@ -561,31 +562,66 @@ func matchSignatures(signatures []oci.Signature, subject, issuer string, extensi
 	return fmt.Errorf("invalid signature")
 }
 
-func matchCertificateData(cert *x509.Certificate, subject, issuer string, extensions map[string]string) error {
-	if subject != "" {
-		s := ""
+func matchCertificateData(cert *x509.Certificate, subject, subjectRegExp, issuer, issuerRegExp string, extensions map[string]string) error {
+	if subject != "" || subjectRegExp != "" {
 		if sans := cryptoutils.GetSubjectAlternateNames(cert); len(sans) > 0 {
-			s = sans[0]
-		}
-		if !wildcard.Match(subject, s) {
-			return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
+			subjectMatched := false
+			if subject != "" {
+				for _, s := range sans {
+					if wildcard.Match(subject, s) {
+						subjectMatched = true
+						break
+					}
+				}
+			}
+			if subjectRegExp != "" {
+				regex, err := regexp.Compile(subjectRegExp)
+				if err != nil {
+					return fmt.Errorf("invalid regexp for subject: %s : %w", subjectRegExp, err)
+				}
+				for _, s := range sans {
+					if regex.MatchString(s) {
+						subjectMatched = true
+						break
+					}
+				}
+			}
+
+			if !subjectMatched {
+				sub := ""
+				if subject != "" {
+					sub = subject
+				} else if subjectRegExp != "" {
+					sub = subjectRegExp
+				}
+				return fmt.Errorf("subject mismatch: expected %s, received %s", sub, strings.Join(sans, ", "))
+			}
 		}
 	}
 
-	if err := matchExtensions(cert, issuer, extensions); err != nil {
+	if err := matchExtensions(cert, issuer, issuerRegExp, extensions); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func matchExtensions(cert *x509.Certificate, issuer string, extensions map[string]string) error {
+func matchExtensions(cert *x509.Certificate, issuer, issuerRegExp string, extensions map[string]string) error {
 	ce := cosign.CertExtensions{Cert: cert}
 
-	if issuer != "" {
+	if issuer != "" || issuerRegExp != "" {
 		val := ce.GetIssuer()
-		if !wildcard.Match(issuer, val) {
-			return fmt.Errorf("issuer mismatch: expected %s, received %s", issuer, val)
+		if issuer != "" {
+			if !wildcard.Match(issuer, val) {
+				return fmt.Errorf("issuer mismatch: expected %s, received %s", issuer, val)
+			}
+		}
+		if issuerRegExp != "" {
+			if regex, err := regexp.Compile(issuerRegExp); err != nil {
+				return fmt.Errorf("invalid regexp for issuer: %s : %w", issuerRegExp, err)
+			} else if !regex.MatchString(val) {
+				return fmt.Errorf("issuer mismatch: expected %s, received %s", issuerRegExp, val)
+			}
 		}
 	}
 

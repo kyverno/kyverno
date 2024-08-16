@@ -643,7 +643,9 @@ func (iv *ImageVerifier) buildCosignVerifier(
 
 		opts.Roots = attestor.Keyless.Roots
 		opts.Issuer = attestor.Keyless.Issuer
+		opts.IssuerRegExp = attestor.Keyless.IssuerRegExp
 		opts.Subject = attestor.Keyless.Subject
+		opts.SubjectRegExp = attestor.Keyless.SubjectRegExp
 		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions
 	}
 

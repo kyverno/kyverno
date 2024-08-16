@@ -30,7 +30,9 @@ type Options struct {
 	CertChain            string
 	Roots                string
 	Subject              string
+	SubjectRegExp        string
 	Issuer               string
+	IssuerRegExp         string
 	AdditionalExtensions map[string]string
 	Annotations          map[string]string
 	Repository           string
