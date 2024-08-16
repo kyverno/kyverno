@@ -39,7 +39,8 @@ func newGenerator(client dclient.Interface,
 	contextEntries []kyvernov1.ContextEntry,
 	anyAllConditions any,
 	trigger unstructured.Unstructured,
-	contextLoader engineapi.EngineContextLoader) *generator {
+	contextLoader engineapi.EngineContextLoader,
+) *generator {
 	return &generator{
 		client:           client,
 		logger:           logger,
@@ -62,7 +63,8 @@ func newForeachGenerator(client dclient.Interface,
 	anyAllConditions any,
 	trigger unstructured.Unstructured,
 	forEach []kyvernov1.ForEachGeneration,
-	contextLoader engineapi.EngineContextLoader) *generator {
+	contextLoader engineapi.EngineContextLoader,
+) *generator {
 
 	g := newGenerator(client, logger, policyContext, policy, rule, contextEntries, anyAllConditions, trigger, contextLoader)
 	g.forEach = forEach

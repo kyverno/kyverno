@@ -763,6 +763,7 @@ type Generation struct {
 	// +optional
 	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty" yaml:"orphanDownstreamOnPolicyDelete,omitempty"`
 
+	// +optional
 	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
 
 	// ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
@@ -772,6 +773,7 @@ type Generation struct {
 
 type GeneratePatterns struct {
 	// ResourceSpec contains information to select the resource.
+	// +kubebuilder:validation:Optional
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
 	// Data provides the resource declaration used to populate each generated resource.
@@ -835,6 +837,24 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 		return errs
 	}
 
+	count := 0
+	if g.GetData() != nil {
+		count++
+	}
+	if g.Clone != (CloneFrom{}) {
+		count++
+	}
+	if g.CloneList.Kinds != nil {
+		count++
+	}
+	if g.ForEachGeneration != nil {
+		count++
+	}
+	if count > 1 {
+		errs = append(errs, field.Forbidden(path, "only one of data or clone can be specified"))
+		return errs
+	}
+
 	if g.ForEachGeneration != nil {
 		for i, foreach := range g.ForEachGeneration {
 			err := foreach.GeneratePatterns.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
@@ -878,6 +898,9 @@ func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNam
 		}
 		if g.Name == "" {
 			errs = append(errs, field.Forbidden(path.Child("name"), "name can not be empty"))
+		}
+		if g.APIVersion == "" {
+			errs = append(errs, field.Forbidden(path.Child("apiVersion"), "apiVersion can not be empty"))
 		}
 	}
 
