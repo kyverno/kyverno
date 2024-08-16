@@ -28,6 +28,7 @@ type generator struct {
 	anyAllConditions any
 	trigger          unstructured.Unstructured
 	forEach          []kyvernov1.ForEachGeneration
+	pattern          kyvernov1.GeneratePatterns
 	contextLoader    engineapi.EngineContextLoader
 }
 
@@ -39,6 +40,7 @@ func newGenerator(client dclient.Interface,
 	contextEntries []kyvernov1.ContextEntry,
 	anyAllConditions any,
 	trigger unstructured.Unstructured,
+	pattern kyvernov1.GeneratePatterns,
 	contextLoader engineapi.EngineContextLoader,
 ) *generator {
 	return &generator{
@@ -50,6 +52,7 @@ func newGenerator(client dclient.Interface,
 		contextEntries:   contextEntries,
 		anyAllConditions: anyAllConditions,
 		trigger:          trigger,
+		pattern:          pattern,
 		contextLoader:    contextLoader,
 	}
 }
@@ -65,10 +68,18 @@ func newForeachGenerator(client dclient.Interface,
 	forEach []kyvernov1.ForEachGeneration,
 	contextLoader engineapi.EngineContextLoader,
 ) *generator {
-
-	g := newGenerator(client, logger, policyContext, policy, rule, contextEntries, anyAllConditions, trigger, contextLoader)
-	g.forEach = forEach
-	return g
+	return &generator{
+		client:           client,
+		logger:           logger,
+		policyContext:    policyContext,
+		policy:           policy,
+		rule:             rule,
+		contextEntries:   contextEntries,
+		anyAllConditions: anyAllConditions,
+		trigger:          trigger,
+		forEach:          forEach,
+		contextLoader:    contextLoader,
+	}
 }
 
 func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
@@ -95,22 +106,22 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		return newGenResources, nil
 	}
 
-	rule, err := variables.SubstituteAllInRule(g.logger, g.policyContext.JSONContext(), g.rule)
+	pattern, err := variables.SubstituteAllInType(g.logger, g.policyContext.JSONContext(), &g.pattern)
 	if err != nil {
-		g.logger.Error(err, "variable substitution failed for rule", "rule", rule.Name)
+		g.logger.Error(err, "variable substitution failed for rule", "rule", g.rule.Name)
 		return nil, err
 	}
 
-	target := rule.Generation.ResourceSpec
+	target := pattern.ResourceSpec
 	logger := g.logger.WithValues("target", target.String())
 
-	if rule.Generation.Clone.Name != "" {
-		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, g.policy.GetSpec().UseServerSideApply, rule, g.client)
+	if pattern.Clone.Name != "" {
+		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, g.policy.GetSpec().UseServerSideApply, *pattern, g.client)
 		responses = append(responses, resp)
-	} else if len(rule.Generation.CloneList.Kinds) != 0 {
-		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), g.policy.GetSpec().UseServerSideApply, rule, g.client)
+	} else if len(pattern.CloneList.Kinds) != 0 {
+		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), g.policy.GetSpec().UseServerSideApply, *pattern, g.client)
 	} else {
-		resp := manageData(logger.WithValues("type", "data"), target, rule.Generation.RawData, rule.Generation.Synchronize, g.client)
+		resp := manageData(logger.WithValues("type", "data"), target, pattern.RawData, g.rule.Generation.Synchronize, g.client)
 		responses = append(responses, resp)
 	}
 
@@ -140,7 +151,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		}
 
 		newResource.SetAPIVersion(targetMeta.GetAPIVersion())
-		common.ManageLabels(newResource, g.trigger, g.policy, rule.Name)
+		common.ManageLabels(newResource, g.trigger, g.policy, g.rule.Name)
 		if response.GetAction() == Create {
 			newResource.SetResourceVersion("")
 			if g.policy.GetSpec().UseServerSideApply {
@@ -169,7 +180,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 				}
 				newGenResources = append(newGenResources, targetMeta)
 			} else {
-				if !rule.Generation.Synchronize {
+				if !g.rule.Generation.Synchronize {
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
 					continue
 				}
@@ -253,6 +264,7 @@ func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elemen
 			foreach.Context,
 			foreach.AnyAllConditions,
 			g.trigger,
+			foreach.GeneratePatterns,
 			g.contextLoader).
 			generate()
 		if err != nil {
