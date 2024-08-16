@@ -177,8 +177,7 @@ var policyAddLabels = `{
         },
         "name": "add-labels"
       }
-    ],
-    "validationFailureAction": "Audit"
+    ]
   }
 }`
 
