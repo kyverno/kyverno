@@ -397,6 +397,12 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 }
 
 func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
+	// force load of image info from deferred loader
+	if len(ctx.images) == 0 {
+		if err := ctx.loadDeferred("images"); err != nil {
+			return map[string]map[string]apiutils.ImageInfo{}
+		}
+	}
 	return ctx.images
 }
 
