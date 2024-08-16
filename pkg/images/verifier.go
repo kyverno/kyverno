@@ -21,6 +21,7 @@ type Client interface {
 }
 
 type Options struct {
+	SigstoreBundle       bool
 	ImageRef             string
 	Client               Client
 	FetchAttestations    bool
