@@ -2410,7 +2410,7 @@ ImageVerificationType
 </td>
 <td>
 <p>Type specifies the method of signature validation. The allowed options
-are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
+are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.</p>
 </td>
 </tr>
 <tr>
@@ -2700,6 +2700,17 @@ string
 </tr>
 <tr>
 <td>
+<code>issuerRegExp</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>IssuerRegExp is the regular expression to match certificate issuer used for keyless signing.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>subject</code><br/>
 <em>
 string
@@ -2707,6 +2718,17 @@ string
 </td>
 <td>
 <p>Subject is the verified identity used for keyless signing, for example the email address.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>subjectRegExp</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SubjectRegExp is the regular expression to match identity used for keyless signing, for example the email address.</p>
 </td>
 </tr>
 <tr>
@@ -3559,6 +3581,7 @@ ResourceDescription
 <a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>, 
+<a href="#kyverno.io/v2.RuleContext">RuleContext</a>, 
 <a href="#kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v2.UpdateRequestStatus">UpdateRequestStatus</a>)
 </p>
@@ -5877,6 +5900,20 @@ string
 </tr>
 <tr>
 <td>
+<code>ruleContext</code><br/>
+<em>
+<a href="#kyverno.io/v2.RuleContext">
+[]RuleContext
+</a>
+</em>
+</td>
+<td>
+<p>RuleContext is the associate context to apply rules.
+optional</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>rule</code><br/>
 <em>
 string
@@ -5894,7 +5931,8 @@ bool
 </em>
 </td>
 <td>
-<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.
+Deprecated</p>
 </td>
 </tr>
 <tr>
@@ -5906,7 +5944,8 @@ bool
 </td>
 <td>
 <p>Synchronize represents the sync behavior of the corresponding rule
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+Optional. Defaults to &ldquo;false&rdquo; if not specified.
+Deprecated, will be removed in 1.14.</p>
 </td>
 </tr>
 <tr>
@@ -5932,7 +5971,8 @@ UpdateRequestSpecContext
 </em>
 </td>
 <td>
-<p>Context &hellip;</p>
+<p>Context represents admission request context.
+It is used upon admission review only and is shared across rules within the same UR.</p>
 </td>
 </tr>
 </table>
@@ -6475,6 +6515,72 @@ Kubernetes authentication/v1.UserInfo
 </p>
 <p>
 </p>
+<h3 id="kyverno.io/v2.RuleContext">RuleContext
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>trigger</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec
 </h3>
 <p>
@@ -6518,6 +6624,20 @@ string
 </tr>
 <tr>
 <td>
+<code>ruleContext</code><br/>
+<em>
+<a href="#kyverno.io/v2.RuleContext">
+[]RuleContext
+</a>
+</em>
+</td>
+<td>
+<p>RuleContext is the associate context to apply rules.
+optional</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>rule</code><br/>
 <em>
 string
@@ -6535,7 +6655,8 @@ bool
 </em>
 </td>
 <td>
-<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.
+Deprecated</p>
 </td>
 </tr>
 <tr>
@@ -6547,7 +6668,8 @@ bool
 </td>
 <td>
 <p>Synchronize represents the sync behavior of the corresponding rule
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+Optional. Defaults to &ldquo;false&rdquo; if not specified.
+Deprecated, will be removed in 1.14.</p>
 </td>
 </tr>
 <tr>
@@ -6573,7 +6695,8 @@ UpdateRequestSpecContext
 </em>
 </td>
 <td>
-<p>Context &hellip;</p>
+<p>Context represents admission request context.
+It is used upon admission review only and is shared across rules within the same UR.</p>
 </td>
 </tr>
 </tbody>

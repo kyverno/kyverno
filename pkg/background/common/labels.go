@@ -53,17 +53,11 @@ func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	return set
 }
 
-func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
+func GenerateLabelsSet(policyKey string) pkglabels.Set {
 	_, policyName, _ := cache.SplitMetaNamespaceKey(policyKey)
 
 	set := pkglabels.Set{
 		kyvernov2.URGeneratePolicyLabel: policyName,
-	}
-	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
-	if !isNil {
-		set[kyvernov2.URGenerateResourceUIDLabel] = string(trigger.GetUID())
-		set[kyvernov2.URGenerateResourceNSLabel] = trigger.GetNamespace()
-		set[kyvernov2.URGenerateResourceKindLabel] = trigger.GetKind()
 	}
 	return set
 }

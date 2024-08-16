@@ -2,11 +2,57 @@ package validatingadmissionpolicy
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/ext/wildcard"
 )
 
-// CanGenerateVAP check if Kyverno policy can be translated to a Kubernetes ValidatingAdmissionPolicy
-func CanGenerateVAP(spec *kyvernov1.Spec) (bool, string) {
+// CanGenerateVAP check if Kyverno policy and a PolicyException can be translated to a Kubernetes ValidatingAdmissionPolicy
+func CanGenerateVAP(spec *kyvernov1.Spec, exceptions []kyvernov2.PolicyException) (bool, string) {
+	var msg string
+	if ok, msg := checkPolicy(spec); !ok {
+		return false, msg
+	}
+
+	if ok, msg := checkExceptions(exceptions); !ok {
+		return false, msg
+	}
+
+	return true, msg
+}
+
+func checkExceptions(exceptions []kyvernov2.PolicyException) (bool, string) {
+	var msg string
+	for _, exception := range exceptions {
+		spec := exception.Spec
+		for _, exception := range spec.Exceptions {
+			if len(exception.RuleNames) > 1 {
+				msg = "skip generating ValidatingAdmissionPolicy: multiple ruleNames in PolicyException is not applicable."
+				return false, msg
+			}
+		}
+
+		if spec.Conditions != nil {
+			msg = "skip generating ValidatingAdmissionPolicy: Conditions in PolicyException is not applicable."
+			return false, msg
+		}
+
+		exclude := spec.Match
+		if ok, msg := checkResourceFilter(exclude.Any, false); !ok {
+			return false, msg
+		}
+
+		if len(exclude.All) > 1 {
+			msg = "skip generating ValidatingAdmissionPolicy: multiple 'all' in the PolicyException's match block is not applicable."
+			return false, msg
+		}
+		if ok, msg := checkResourceFilter(exclude.All, false); !ok {
+			return false, msg
+		}
+	}
+	return true, msg
+}
+
+func checkPolicy(spec *kyvernov1.Spec) (bool, string) {
 	var msg string
 	if ok, msg := checkRuleCount(spec); !ok {
 		return false, msg
