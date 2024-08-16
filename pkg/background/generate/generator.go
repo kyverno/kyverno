@@ -10,8 +10,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -25,7 +27,7 @@ type generator struct {
 	contextEntries   []kyvernov1.ContextEntry
 	anyAllConditions any
 	trigger          unstructured.Unstructured
-	forEach          []kyvernov1.ForEachValidation
+	forEach          []kyvernov1.ForEachGeneration
 	contextLoader    engineapi.EngineContextLoader
 }
 
@@ -59,11 +61,10 @@ func newForeachGenerator(client dclient.Interface,
 	contextEntries []kyvernov1.ContextEntry,
 	anyAllConditions any,
 	trigger unstructured.Unstructured,
-	forEach []kyvernov1.ForEachValidation,
+	forEach []kyvernov1.ForEachGeneration,
 	contextLoader engineapi.EngineContextLoader) *generator {
 
 	g := newGenerator(client, logger, policyContext, policy, rule, contextEntries, anyAllConditions, trigger, contextLoader)
-
 	g.forEach = forEach
 	return g
 }
@@ -75,6 +76,21 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 
 	if err := g.loadContext(context.TODO()); err != nil {
 		return newGenResources, fmt.Errorf("failed to load context: %v", err)
+	}
+
+	typeConditions, err := engineutils.TransformConditions(g.anyAllConditions)
+	if err != nil {
+		return newGenResources, fmt.Errorf("failed to parse preconditions: %v", err)
+	}
+
+	preconditionsPassed, msg, err := variables.EvaluateConditions(g.logger, g.policyContext.JSONContext(), typeConditions)
+	if err != nil {
+		return newGenResources, fmt.Errorf("failed to evaluate preconditions: %v", err)
+	}
+
+	if !preconditionsPassed {
+		g.logger.V(2).Info("preconditions not met", "msg", msg)
+		return newGenResources, nil
 	}
 
 	rule, err := variables.SubstituteAllInRule(g.logger, g.policyContext.JSONContext(), g.rule)
@@ -185,6 +201,66 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		}
 	}
 	return newGenResources, nil
+}
+
+func (g *generator) generateForeach() ([]kyvernov1.ResourceSpec, error) {
+	var errors []error
+	var genResources []kyvernov1.ResourceSpec
+
+	for i, foreach := range g.forEach {
+		elements, err := engineutils.EvaluateList(foreach.List, g.policyContext.JSONContext())
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed to evaluate %v foreach list: %v", i, err))
+			continue
+		}
+		gen, err := g.generateElements(foreach, elements, nil)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed to process %v foreach in rule %s: %v", i, g.rule.Name, err))
+		}
+		if gen != nil {
+			genResources = append(genResources, gen...)
+		}
+	}
+	return genResources, multierr.Combine(errors...)
+}
+
+func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elements []interface{}, elementScope *bool) ([]kyvernov1.ResourceSpec, error) {
+	var errors []error
+	var genResources []kyvernov1.ResourceSpec
+	g.policyContext.JSONContext().Checkpoint()
+	defer g.policyContext.JSONContext().Restore()
+
+	for index, element := range elements {
+		if element == nil {
+			continue
+		}
+
+		g.policyContext.JSONContext().Reset()
+		policyContext := g.policyContext.Copy()
+		if err := engineutils.AddElementToContext(policyContext, element, index, 0, elementScope); err != nil {
+			g.logger.Error(err, "")
+			errors = append(errors, fmt.Errorf("failed to add %v element to context: %v", index, err))
+			continue
+		}
+
+		gen, err := newGenerator(g.client,
+			g.logger,
+			policyContext,
+			g.policy,
+			g.rule,
+			foreach.Context,
+			foreach.AnyAllConditions,
+			g.trigger,
+			g.contextLoader).
+			generate()
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed to process %v element: %v", index, err))
+		}
+		if gen != nil {
+			genResources = append(genResources, gen...)
+		}
+	}
+	return genResources, multierr.Combine(errors...)
 }
 
 func (g *generator) loadContext(ctx context.Context) error {

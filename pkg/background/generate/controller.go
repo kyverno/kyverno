@@ -277,6 +277,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 	ruleNameToProcessingTime := make(map[string]time.Duration)
 	applyRules := policy.GetSpec().GetApplyRules()
 	applyCount := 0
+	log = log.WithValues("policy", policy.GetName(), "trigger", resource.GetNamespace()+"/"+resource.GetName())
 
 	for _, rule := range policy.GetSpec().Rules {
 		var err error
@@ -309,13 +310,22 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			break
 		}
 		logger := log.WithValues("rule", rule.Name)
-
 		contextLoader := c.engine.ContextLoader(policy, rule)
+		// if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
+		// 	log.Error(err, "variable substitution failed for rule", "rule", rule.Name)
+		// 	return nil, err
+		// }
 
-		g := newGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), contextLoader)
-		genResource, err = g.generate()
+		if rule.Generation.ForEachGeneration != nil {
+			g := newForeachGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.ForEachGeneration, contextLoader)
+			genResource, err = g.generateForeach()
+		} else {
+			g := newGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), contextLoader)
+			genResource, err = g.generate()
+		}
+
 		if err != nil {
-			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(), "rule", rule.Name, "resource", resource.GetName())
+			log.Error(err, "failed to apply generate rule")
 			return nil, err
 		}
 		ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
