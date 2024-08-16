@@ -62,7 +62,7 @@ func Setup(logFormat string, loggingTimestampFormat string, level int) error {
 	case TextFormat:
 		output := zerolog.ConsoleWriter{Out: os.Stderr}
 		output.TimeFormat = resolveTimestampFormat(loggingTimestampFormat)
-		logger = zerolog.New(output).With().Timestamp().Logger()
+		logger = zerolog.New(output).With().Timestamp().Caller().Logger()
 	case JSONFormat:
 		logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	default:
