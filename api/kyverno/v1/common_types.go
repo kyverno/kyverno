@@ -763,6 +763,14 @@ type Generation struct {
 	// +optional
 	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty" yaml:"orphanDownstreamOnPolicyDelete,omitempty"`
 
+	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
+
+	// ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+	// +optional
+	ForEachGeneration []ForEachGeneration `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+type GeneratePatterns struct {
 	// ResourceSpec contains information to select the resource.
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
@@ -781,10 +789,6 @@ type Generation struct {
 	// CloneList specifies the list of source resource used to populate each generated resource.
 	// +optional
 	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
-
-	// ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
-	// +optional
-	ForEachGeneration []ForEachGeneration `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
 type ForEachGeneration struct {
@@ -803,14 +807,7 @@ type ForEachGeneration struct {
 	// +optional
 	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
-	// ResourceSpec contains information to select the resource.
-	ResourceSpec `json:",omitempty" yaml:",omitempty"`
-
-	// Data provides the resource declaration used to populate each generated resource.
-	// At most one of Data or Clone must be specified. If neither are provided, the generated
-	// resource will be created with default data only.
-	// +optional
-	RawData *apiextv1.JSON `json:"data,omitempty" yaml:"data,omitempty"`
+	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
 }
 
 type CloneList struct {
@@ -829,19 +826,7 @@ type CloneList struct {
 func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if namespaced {
 		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
-			errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
-		}
-	}
-
-	if g.GetKind() != "" {
-		if !clusterResources.Has(g.GetAPIVersion() + "/" + g.GetKind()) {
-			if g.GetNamespace() == "" {
-				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must be set for a namespaced resource"))
-			}
-		} else {
-			if g.GetNamespace() != "" {
-				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
-			}
+			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
 		}
 	}
 
@@ -850,7 +835,31 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 		return errs
 	}
 
-	newGeneration := Generation{
+	if g.ForEachGeneration != nil {
+		for i, foreach := range g.ForEachGeneration {
+			err := foreach.GeneratePatterns.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			errs = append(errs, err...)
+		}
+		return errs
+	} else {
+		return g.GeneratePatterns.Validate(path, namespaced, policyNamespace, clusterResources)
+	}
+}
+
+func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if g.GetKind() != "" {
+		if !clusterResources.Has(g.GetAPIVersion() + "/" + g.GetKind()) {
+			if g.GetNamespace() == "" {
+				errs = append(errs, field.Forbidden(path.Child("namespace"), "target namespace must be set for a namespaced resource"))
+			}
+		} else {
+			if g.GetNamespace() != "" {
+				errs = append(errs, field.Forbidden(path.Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
+			}
+		}
+	}
+
+	newGeneration := GeneratePatterns{
 		ResourceSpec: ResourceSpec{
 			Kind:       g.ResourceSpec.GetKind(),
 			APIVersion: g.ResourceSpec.GetAPIVersion(),
@@ -860,23 +869,22 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 	}
 
 	if err := regex.ObjectHasVariables(newGeneration); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+		errs = append(errs, field.Forbidden(path.Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
 	}
 
 	if len(g.CloneList.Kinds) == 0 {
 		if g.Kind == "" {
-			errs = append(errs, field.Forbidden(path.Child("generate").Child("kind"), "kind can not be empty"))
+			errs = append(errs, field.Forbidden(path.Child("kind"), "kind can not be empty"))
 		}
 		if g.Name == "" {
-			errs = append(errs, field.Forbidden(path.Child("generate").Child("name"), "name can not be empty"))
+			errs = append(errs, field.Forbidden(path.Child("name"), "name can not be empty"))
 		}
 	}
 
-	errs = append(errs, g.ValidateCloneList(path.Child("generate"), namespaced, policyNamespace, clusterResources)...)
-	return errs
+	return append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
 }
 
-func (g *Generation) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *GeneratePatterns) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if len(g.CloneList.Kinds) == 0 {
 		return nil
 	}

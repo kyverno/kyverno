@@ -427,7 +427,7 @@ func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespa
 		return nil
 	}
 
-	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
+	return r.Generation.Validate(path.Child("generate"), namespaced, policyNamespace, clusterResources)
 }
 
 // Validate implements programmatic validation
