@@ -9,7 +9,7 @@ import (
 )
 
 // ImageVerificationType selects the type of verification algorithm
-// +kubebuilder:validation:Enum=Cosign;Notary
+// +kubebuilder:validation:Enum=Cosign;SigstoreBundle;Notary
 // +kubebuilder:default=Cosign
 type ImageVerificationType string
 
@@ -18,8 +18,9 @@ type ImageVerificationType string
 type ImageRegistryCredentialsProvidersType string
 
 const (
-	Cosign ImageVerificationType = "Cosign"
-	Notary ImageVerificationType = "Notary"
+	Cosign         ImageVerificationType = "Cosign"
+	SigstoreBundle ImageVerificationType = "SigstoreBundle"
+	Notary         ImageVerificationType = "Notary"
 
 	DEFAULT ImageRegistryCredentialsProvidersType = "default"
 	AWS     ImageRegistryCredentialsProvidersType = "amazon"
@@ -46,7 +47,7 @@ type ImageVerification struct {
 	ValidationFailureAction *ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// Type specifies the method of signature validation. The allowed options
-	// are Cosign and Notary. By default Cosign is used if a type is not specified.
+	// are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
 	// +kubebuilder:validation:Optional
 	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
 
