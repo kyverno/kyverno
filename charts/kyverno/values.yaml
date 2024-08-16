@@ -399,13 +399,13 @@ metricsConfig:
       # enabled: false
       disabledLabelDimensions: ["resource_namespace"]
     kyverno_policy_rule_info_total:
-      disabledLabelDimensions: ["resource_namespace","policy_namespace"]
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
     kyverno_policy_results_total:
-      disabledLabelDimensions: ["resource_namespace","policy_namespace"]
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
     kyverno_admission_requests_total:
       disabledLabelDimensions: ["resource_namespace"]
     kyverno_cleanup_controller_deletedobjects_total:
-      disabledLabelDimensions: ["resource_namespace","policy_namespace"]
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
 
 # -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
 imagePullSecrets: {}
