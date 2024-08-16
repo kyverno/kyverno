@@ -84,7 +84,7 @@ func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte,
 func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 	if jsonData == nil {
 		if a.entry.APICall.Default.Raw == nil {
-			return nil, fmt.Errorf("default is missing: failed to add resource data to context entry %s", a.entry.Name)
+			return jsonData, nil
 		}
 		jsonData = a.entry.APICall.Default.Raw
 		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
