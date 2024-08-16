@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: zk-kafka-address-foreach
+  name: foreach-cpol-data-sync-delete-policy
 spec:
   rules:
   - match:

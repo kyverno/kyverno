@@ -179,11 +179,11 @@ func (r *Rule) IsPodSecurity() bool {
 	return r.Validation.PodSecurity != nil
 }
 
-func (r *Rule) GetTypeAndSyncAndOrphanDownstream() (_ GenerateType, sync bool, orphanDownstream bool) {
+func (r *Rule) GetSyncAndOrphanDownstream() (sync bool, orphanDownstream bool) {
 	if !r.HasGenerate() {
 		return
 	}
-	return r.Generation.GetTypeAndSyncAndOrphanDownstream()
+	return r.Generation.Synchronize, r.Generation.OrphanDownstreamOnPolicyDelete
 }
 
 func (r *Rule) GetAnyAllConditions() any {
@@ -427,7 +427,7 @@ func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespa
 		return nil
 	}
 
-	return r.Generation.Validate(path.Child("generate"), namespaced, policyNamespace, clusterResources)
+	return r.Generation.Validate(path, namespaced, policyNamespace, clusterResources)
 }
 
 // Validate implements programmatic validation

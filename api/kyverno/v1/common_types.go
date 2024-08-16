@@ -832,8 +832,7 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 		}
 	}
 
-	generateType, _, _ := g.GetTypeAndSyncAndOrphanDownstream()
-	if generateType == Data {
+	if g.GeneratePatterns.GetType() == Data {
 		return errs
 	}
 
@@ -944,11 +943,19 @@ func (g *GeneratePatterns) ValidateCloneList(path *field.Path, namespaced bool, 
 	return errs
 }
 
-func (g *Generation) GetData() apiextensions.JSON {
+func (g *GeneratePatterns) GetType() GenerateType {
+	if g.RawData != nil {
+		return Data
+	}
+
+	return Clone
+}
+
+func (g *GeneratePatterns) GetData() apiextensions.JSON {
 	return FromJSON(g.RawData)
 }
 
-func (g *Generation) SetData(in apiextensions.JSON) {
+func (g *GeneratePatterns) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
@@ -976,13 +983,6 @@ const (
 	Data  GenerateType = "Data"
 	Clone GenerateType = "Clone"
 )
-
-func (g *Generation) GetTypeAndSyncAndOrphanDownstream() (GenerateType, bool, bool) {
-	if g.RawData != nil {
-		return Data, g.Synchronize, g.OrphanDownstreamOnPolicyDelete
-	}
-	return Clone, g.Synchronize, g.OrphanDownstreamOnPolicyDelete
-}
 
 // CloneFrom provides the location of the source resource used to generate target resources.
 // The resource kind is derived from the match criteria.

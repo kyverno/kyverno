@@ -13,6 +13,7 @@ func Test_Validate_Generate(t *testing.T) {
 	rawGenerate := []byte(`
 	{
 		"kind": "NetworkPolicy",
+		"apiVersion": "networking.k8s.io/v1",
 		"name": "defaultnetworkpolicy",
 		"data": {
 		   "spec": {
