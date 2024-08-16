@@ -55,32 +55,14 @@ func InitFlags(flags *flag.FlagSet) {
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string, loggingTimestampFormat string, level int) error {
-	var zerologLevel zerolog.Level
-	switch level {
-	case 6:
-		zerologLevel = zerolog.TraceLevel
-	case 5:
-		zerologLevel = zerolog.TraceLevel
-	case 4:
-		zerologLevel = zerolog.TraceLevel
-	case 3:
-		zerologLevel = zerolog.DebugLevel
-	case 2:
-		zerologLevel = zerolog.InfoLevel
-	case 1:
-		zerologLevel = zerolog.WarnLevel
-	default:
-		zerologLevel = zerolog.WarnLevel
-	}
+	zerologr.SetMaxV(level)
 
-	zerolog.SetGlobalLevel(zerologLevel)
 	var logger zerolog.Logger
-
 	switch logFormat {
 	case TextFormat:
 		output := zerolog.ConsoleWriter{Out: os.Stderr}
 		output.TimeFormat = resolveTimestampFormat(loggingTimestampFormat)
-		logger = zerolog.New(output).With().Timestamp().Logger()
+		logger = zerolog.New(output).With().Timestamp().Caller().Logger()
 	case JSONFormat:
 		logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	default:

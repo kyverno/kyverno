@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -25,7 +26,6 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
-	"github.com/kyverno/kyverno/pkg/d4f"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -522,7 +522,7 @@ func main() {
 			setup.Logger.Error(errors.New("failed to start admission reports watcher"), "failed to start admission reports watcher")
 			os.Exit(1)
 		}
-		reportsBreaker := d4f.NewBreaker("admission reports", func(context.Context) bool {
+		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
 			count, isRunning := ephrs.Count()
 			if !isRunning {
 				return true
