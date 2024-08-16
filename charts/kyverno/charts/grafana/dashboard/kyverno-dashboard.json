@@ -133,7 +133,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "sum(increase(kyverno_policy_results_total{rule_result=\"fail\", cluster=~\"$cluster\"}[24h]) or vector(0))*100/sum(increase(kyverno_policy_results_total{cluster=~\"$cluster\"}[24h]))",
+                    "expr": "sum(increase(kyverno_policy_results{rule_result=\"fail\", cluster=~\"$cluster\"}[24h]) or vector(0))*100/sum(increase(kyverno_policy_results{cluster=~\"$cluster\"}[24h]))",
                     "interval": "",
                     "legendFormat": "",
                     "refId": "A"
@@ -321,7 +321,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "sum(increase(kyverno_policy_results_total{rule_result=\"fail\", policy_background_mode=\"true\", cluster=~\"$cluster\"}[24h]) or vector(0))*100/sum(increase(kyverno_policy_results_total{policy_background_mode=\"true\", cluster=~\"$cluster\"}[24h]))",
+                    "expr": "sum(increase(kyverno_policy_results{rule_result=\"fail\", policy_background_mode=\"true\", cluster=~\"$cluster\"}[24h]) or vector(0))*100/sum(increase(kyverno_policy_results{policy_background_mode=\"true\", cluster=~\"$cluster\"}[24h]))",
                     "interval": "",
                     "legendFormat": "",
                     "refId": "A"
@@ -580,7 +580,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "sum(increase(kyverno_policy_results_total{rule_execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (rule_result)",
+                    "expr": "sum(increase(kyverno_policy_results{rule_execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (rule_result)",
                     "interval": "",
                     "legendFormat": "Admission Review Result: {{rule_result}}",
                     "refId": "A"
@@ -686,7 +686,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "sum(increase(kyverno_policy_results_total{rule_execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (rule_result)",
+                    "expr": "sum(increase(kyverno_policy_results{rule_execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (rule_result)",
                     "interval": "",
                     "legendFormat": "Background Scan Result: {{rule_result}}",
                     "refId": "A"
@@ -793,7 +793,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "sum(sum(increase(kyverno_policy_results_total{rule_result=\"fail\", cluster=~\"$cluster\"}[5m])) by (policy_name, policy_type)) by (policy_type)",
+                    "expr": "sum(sum(increase(kyverno_policy_results{rule_result=\"fail\", cluster=~\"$cluster\"}[5m])) by (policy_name, policy_type)) by (policy_type)",
                     "interval": "",
                     "legendFormat": "Policy Type: {{policy_type}}",
                     "refId": "A"
@@ -899,7 +899,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "sum(sum(increase(kyverno_policy_results_total{rule_execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (policy_name, rule_result)) by (rule_result)",
+                    "expr": "sum(sum(increase(kyverno_policy_results{rule_execution_cause=\"admission_request\", cluster=~\"$cluster\"}[5m])) by (policy_name, rule_result)) by (rule_result)",
                     "interval": "",
                     "legendFormat": "Admission Review Result: {{rule_result}}",
                     "refId": "A"
@@ -1005,7 +1005,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "sum(sum(increase(kyverno_policy_results_total{rule_execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (policy_name, rule_result)) by (rule_result)",
+                    "expr": "sum(sum(increase(kyverno_policy_results{rule_execution_cause=\"background_scan\", cluster=~\"$cluster\"}[5m])) by (policy_name, rule_result)) by (rule_result)",
                     "interval": "",
                     "legendFormat": "Background Scan Result: {{rule_result}}",
                     "refId": "A"
@@ -2850,14 +2850,14 @@
             ,{
                 "allValue": ".*",
                 "datasource": "${DS_PROMETHEUS_KYVERNO}",
-                "definition": "label_values(kyverno_policy_results_total, cluster)",
+                "definition": "label_values(kyverno_policy_results, cluster)",
                 "hide": 0,
                 "includeAll": true,
                 "label": "Cluster",
                 "multi": true,
                 "name": "cluster",
                 "options": [],
-                "query": "label_values(kyverno_policy_results_total, cluster)",
+                "query": "label_values(kyverno_policy_results, cluster)",
                 "refresh": 2,
                 "type": "query"
             }
