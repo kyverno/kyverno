@@ -3169,6 +3169,11 @@ spec:
                                               description: Issuer is the certificate
                                                 issuer used for keyless signing.
                                               type: string
+                                            issuerRegExp:
+                                              description: IssuerRegExp is the regular
+                                                expression to match certificate issuer
+                                                used for keyless signing.
+                                              type: string
                                             rekor:
                                               description: |-
                                                 Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -3199,6 +3204,12 @@ spec:
                                               description: Subject is the verified
                                                 identity used for keyless signing,
                                                 for example the email address.
+                                              type: string
+                                            subjectRegExp:
+                                              description: SubjectRegExp is the regular
+                                                expression to match identity used
+                                                for keyless signing, for example the
+                                                email address.
                                               type: string
                                           type: object
                                         keys:
@@ -3669,6 +3680,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -3699,6 +3715,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -4046,6 +4068,11 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          issuerRegExp:
+                                            description: IssuerRegExp is the regular
+                                              expression to match certificate issuer
+                                              used for keyless signing.
+                                            type: string
                                           rekor:
                                             description: |-
                                               Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -4075,6 +4102,12 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address.
+                                            type: string
+                                          subjectRegExp:
+                                            description: SubjectRegExp is the regular
+                                              expression to match identity used for
+                                              keyless signing, for example the email
+                                              address.
                                             type: string
                                         type: object
                                       keys:
@@ -4262,9 +4295,10 @@ spec:
                           type:
                             description: |-
                               Type specifies the method of signature validation. The allowed options
-                              are Cosign and Notary. By default Cosign is used if a type is not specified.
+                              are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                             enum:
                             - Cosign
+                            - SigstoreBundle
                             - Notary
                             type: string
                           useCache:
@@ -7539,6 +7573,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -7569,6 +7608,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -8044,6 +8089,12 @@ spec:
                                                       description: Issuer is the certificate
                                                         issuer used for keyless signing.
                                                       type: string
+                                                    issuerRegExp:
+                                                      description: IssuerRegExp is
+                                                        the regular expression to
+                                                        match certificate issuer used
+                                                        for keyless signing.
+                                                      type: string
                                                     rekor:
                                                       description: |-
                                                         Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -8076,6 +8127,13 @@ spec:
                                                         verified identity used for
                                                         keyless signing, for example
                                                         the email address.
+                                                      type: string
+                                                    subjectRegExp:
+                                                      description: SubjectRegExp is
+                                                        the regular expression to
+                                                        match identity used for keyless
+                                                        signing, for example the email
+                                                        address.
                                                       type: string
                                                   type: object
                                                 keys:
@@ -8427,6 +8485,11 @@ spec:
                                                 description: Issuer is the certificate
                                                   issuer used for keyless signing.
                                                 type: string
+                                              issuerRegExp:
+                                                description: IssuerRegExp is the regular
+                                                  expression to match certificate
+                                                  issuer used for keyless signing.
+                                                type: string
                                               rekor:
                                                 description: |-
                                                   Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -8457,6 +8520,12 @@ spec:
                                                 description: Subject is the verified
                                                   identity used for keyless signing,
                                                   for example the email address.
+                                                type: string
+                                              subjectRegExp:
+                                                description: SubjectRegExp is the
+                                                  regular expression to match identity
+                                                  used for keyless signing, for example
+                                                  the email address.
                                                 type: string
                                             type: object
                                           keys:
@@ -8647,9 +8716,10 @@ spec:
                               type:
                                 description: |-
                                   Type specifies the method of signature validation. The allowed options
-                                  are Cosign and Notary. By default Cosign is used if a type is not specified.
+                                  are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
+                                - SigstoreBundle
                                 - Notary
                                 type: string
                               useCache:
@@ -11713,6 +11783,11 @@ spec:
                                               description: Issuer is the certificate
                                                 issuer used for keyless signing.
                                               type: string
+                                            issuerRegExp:
+                                              description: IssuerRegExp is the regular
+                                                expression to match certificate issuer
+                                                used for keyless signing.
+                                              type: string
                                             rekor:
                                               description: |-
                                                 Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -11743,6 +11818,12 @@ spec:
                                               description: Subject is the verified
                                                 identity used for keyless signing,
                                                 for example the email address.
+                                              type: string
+                                            subjectRegExp:
+                                              description: SubjectRegExp is the regular
+                                                expression to match identity used
+                                                for keyless signing, for example the
+                                                email address.
                                               type: string
                                           type: object
                                         keys:
@@ -12202,6 +12283,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -12232,6 +12318,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -12579,6 +12671,11 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          issuerRegExp:
+                                            description: IssuerRegExp is the regular
+                                              expression to match certificate issuer
+                                              used for keyless signing.
+                                            type: string
                                           rekor:
                                             description: |-
                                               Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -12608,6 +12705,12 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address.
+                                            type: string
+                                          subjectRegExp:
+                                            description: SubjectRegExp is the regular
+                                              expression to match identity used for
+                                              keyless signing, for example the email
+                                              address.
                                             type: string
                                         type: object
                                       keys:
@@ -12778,6 +12881,7 @@ spec:
                               are Cosign and Notary. By default Cosign is used if a type is not specified.
                             enum:
                             - Cosign
+                            - SigstoreBundle
                             - Notary
                             type: string
                           useCache:
@@ -16052,6 +16156,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -16082,6 +16191,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -16557,6 +16672,12 @@ spec:
                                                       description: Issuer is the certificate
                                                         issuer used for keyless signing.
                                                       type: string
+                                                    issuerRegExp:
+                                                      description: IssuerRegExp is
+                                                        the regular expression to
+                                                        match certificate issuer used
+                                                        for keyless signing.
+                                                      type: string
                                                     rekor:
                                                       description: |-
                                                         Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -16589,6 +16710,13 @@ spec:
                                                         verified identity used for
                                                         keyless signing, for example
                                                         the email address.
+                                                      type: string
+                                                    subjectRegExp:
+                                                      description: SubjectRegExp is
+                                                        the regular expression to
+                                                        match identity used for keyless
+                                                        signing, for example the email
+                                                        address.
                                                       type: string
                                                   type: object
                                                 keys:
@@ -16940,6 +17068,11 @@ spec:
                                                 description: Issuer is the certificate
                                                   issuer used for keyless signing.
                                                 type: string
+                                              issuerRegExp:
+                                                description: IssuerRegExp is the regular
+                                                  expression to match certificate
+                                                  issuer used for keyless signing.
+                                                type: string
                                               rekor:
                                                 description: |-
                                                   Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -16970,6 +17103,12 @@ spec:
                                                 description: Subject is the verified
                                                   identity used for keyless signing,
                                                   for example the email address.
+                                                type: string
+                                              subjectRegExp:
+                                                description: SubjectRegExp is the
+                                                  regular expression to match identity
+                                                  used for keyless signing, for example
+                                                  the email address.
                                                 type: string
                                             type: object
                                           keys:
@@ -17160,9 +17299,10 @@ spec:
                               type:
                                 description: |-
                                   Type specifies the method of signature validation. The allowed options
-                                  are Cosign and Notary. By default Cosign is used if a type is not specified.
+                                  are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
+                                - SigstoreBundle
                                 - Notary
                                 type: string
                               useCache:
