@@ -4743,7 +4743,7 @@ mutated to include the SHA digest retrieved during the registration.</p>
           
 
           <p>Type specifies the method of signature validation. The allowed options
-are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
+are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.</p>
 
 
           
@@ -5437,6 +5437,35 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
     
     
       <tr>
+        <td><code>issuerRegExp</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IssuerRegExp is the regular expression to match certificate issuer used for keyless signing.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>subject</code>
           
           <span style="color:blue;"> *</span>
@@ -5454,6 +5483,35 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
           
 
           <p>Subject is the verified identity used for keyless signing, for example the email address.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subjectRegExp</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SubjectRegExp is the regular expression to match identity used for keyless signing, for example the email address.</p>
 
 
           

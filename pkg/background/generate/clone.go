@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
+func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, severSideApply bool, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
 	source := sourceSpec
 	clone := rule.Generation
 	if clone.Clone.Name != "" {
@@ -29,8 +29,7 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 		log.V(4).Info("namespace is optional in case of cluster scope resource", "source namespace", source.GetNamespace())
 	}
 
-	if source.GetNamespace() == target.GetNamespace() && source.GetName() == target.GetName() ||
-		(rule.Generation.CloneList.Kinds != nil) && (source.GetNamespace() == target.GetNamespace()) {
+	if source.GetNamespace() == target.GetNamespace() && source.GetName() == target.GetName() {
 		log.V(4).Info("skip resource self-clone")
 		return newSkipGenerateResponse(nil, target, nil)
 	}
@@ -65,7 +64,7 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 	}
 
 	if targetObj != nil {
-		if !policy.GetSpec().UseServerSideApply {
+		if !severSideApply {
 			sourceObjCopy.SetUID(targetObj.GetUID())
 			sourceObjCopy.SetSelfLink(targetObj.GetSelfLink())
 			sourceObjCopy.SetCreationTimestamp(targetObj.GetCreationTimestamp())
@@ -81,7 +80,7 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, pol
 	return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
 }
 
-func manageCloneList(log logr.Logger, targetNamespace string, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, client dclient.Interface) []generateResponse {
+func manageCloneList(log logr.Logger, targetNamespace string, severSideApply bool, rule kyvernov1.Rule, client dclient.Interface) []generateResponse {
 	var responses []generateResponse
 	cloneList := rule.Generation.CloneList
 	sourceNamespace := cloneList.Namespace
@@ -101,8 +100,14 @@ func manageCloneList(log logr.Logger, targetNamespace string, policy kyvernov1.P
 
 		for _, source := range sources.Items {
 			target := newResourceSpec(source.GetAPIVersion(), source.GetKind(), targetNamespace, source.GetName())
+
+			if (cloneList.Kinds != nil) && (source.GetNamespace() == target.GetNamespace()) {
+				log.V(4).Info("skip resource self-clone")
+				responses = append(responses, newSkipGenerateResponse(nil, target, nil))
+				continue
+			}
 			responses = append(responses,
-				manageClone(log, target, newResourceSpec(source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source.GetName()), policy, rule, client))
+				manageClone(log, target, newResourceSpec(source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source.GetName()), severSideApply, rule, client))
 		}
 	}
 	return responses
