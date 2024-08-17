@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -31,9 +31,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -113,28 +110,22 @@ spec:
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
-                description: |-
-                  FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-                  Rules within the same policy share the same failure behavior.
-                  This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
-                  Allowed values are Ignore or Fail. Defaults to Fail.
+                description: Deprecated, use failurePolicy under the webhookConfiguration
+                  instead.
                 enum:
                 - Ignore
                 - Fail
                 type: string
               generateExisting:
-                description: |-
-                  GenerateExisting controls whether to trigger generate rule in existing resources
-                  If is set to "true" generate rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+                description: Deprecated, use generateExisting under the generate rule
+                  instead
                 type: boolean
               generateExistingOnPolicyUpdate:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -455,11 +446,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -526,11 +519,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -661,11 +656,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -732,11 +729,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -862,11 +861,13 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -932,11 +933,13 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -1050,11 +1053,13 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -1072,6 +1077,11 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
+                        generateExisting:
+                          description: |-
+                            GenerateExisting controls whether to trigger the rule in existing resources
+                            If is set to "true" the rule will be triggered and applied to existing matched resources.
+                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -1224,11 +1234,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -1295,11 +1307,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -1430,11 +1444,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -1501,11 +1517,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -1631,11 +1649,13 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -1701,11 +1721,13 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -2089,6 +2111,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -2344,6 +2370,10 @@ spec:
                           description: |-
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
+                          x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -2611,11 +2641,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -3137,6 +3169,11 @@ spec:
                                               description: Issuer is the certificate
                                                 issuer used for keyless signing.
                                               type: string
+                                            issuerRegExp:
+                                              description: IssuerRegExp is the regular
+                                                expression to match certificate issuer
+                                                used for keyless signing.
+                                              type: string
                                             rekor:
                                               description: |-
                                                 Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -3167,6 +3204,12 @@ spec:
                                               description: Subject is the verified
                                                 identity used for keyless signing,
                                                 for example the email address.
+                                              type: string
+                                            subjectRegExp:
+                                              description: SubjectRegExp is the regular
+                                                expression to match identity used
+                                                for keyless signing, for example the
+                                                email address.
                                               type: string
                                           type: object
                                         keys:
@@ -3398,6 +3441,87 @@ spec:
                               - latest
                               type: string
                           type: object
+                        validationFailureAction:
+                          description: |-
+                            ValidationFailureAction defines if a validation policy rule violation should block
+                            the admission review request (Enforce), or allow (Audit) the admission review request
+                            and report an error in a policy report. Optional.
+                            Allowed values are Audit or Enforce.
+                          enum:
+                          - Audit
+                          - Enforce
+                          type: string
+                        validationFailureActionOverrides:
+                          description: |-
+                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                          items:
+                            properties:
+                              action:
+                                description: ValidationFailureAction defines the policy
+                                  validation failure action
+                                enum:
+                                - audit
+                                - enforce
+                                - Audit
+                                - Enforce
+                                type: string
+                              namespaceSelector:
+                                description: |-
+                                  A label selector is a label query over a set of resources. The result of matchLabels and
+                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                  label selector matches no objects.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -3556,6 +3680,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -3586,6 +3715,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -3933,6 +4068,11 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          issuerRegExp:
+                                            description: IssuerRegExp is the regular
+                                              expression to match certificate issuer
+                                              used for keyless signing.
+                                            type: string
                                           rekor:
                                             description: |-
                                               Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -3962,6 +4102,12 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address.
+                                            type: string
+                                          subjectRegExp:
+                                            description: SubjectRegExp is the regular
+                                              expression to match identity used for
+                                              keyless signing, for example the email
+                                              address.
                                             type: string
                                         type: object
                                       keys:
@@ -4059,6 +4205,11 @@ spec:
                                   type: array
                               type: object
                             type: array
+                          cosignOCI11:
+                            description: |-
+                              CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                              Defaults to false.
+                            type: boolean
                           image:
                             description: Deprecated. Use ImageReferences instead.
                             type: string
@@ -4144,9 +4295,10 @@ spec:
                           type:
                             description: |-
                               Type specifies the method of signature validation. The allowed options
-                              are Cosign and Notary. By default Cosign is used if a type is not specified.
+                              are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                             enum:
                             - Cosign
+                            - SigstoreBundle
                             - Notary
                             type: string
                           useCache:
@@ -4154,6 +4306,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule.
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -4176,11 +4334,8 @@ spec:
                 type: boolean
               validationFailureAction:
                 default: Audit
-                description: |-
-                  ValidationFailureAction defines if a validation policy rule violation should block
-                  the admission review request (enforce), or allow (audit) the admission review request
-                  and report an error in a policy report. Optional.
-                  Allowed values are audit or enforce. The default value is "Audit".
+                description: Deprecated, use validationFailureAction under the validate
+                  rule instead.
                 enum:
                 - audit
                 - enforce
@@ -4188,9 +4343,8 @@ spec:
                 - Enforce
                 type: string
               validationFailureActionOverrides:
-                description: |-
-                  ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                  namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                description: Deprecated, use validationFailureActionOverrides under
+                  the validate rule instead.
                 items:
                   properties:
                     action:
@@ -4234,11 +4388,13 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                             required:
                             - key
                             - operator
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         matchLabels:
                           additionalProperties:
                             type: string
@@ -4256,12 +4412,23 @@ spec:
                   type: object
                 type: array
               webhookConfiguration:
-                description: |-
-                  WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-                  Requires Kubernetes 1.27 or later.
+                description: WebhookConfiguration specifies the custom configuration
+                  for Kubernetes admission webhookconfiguration.
                 properties:
+                  failurePolicy:
+                    description: |-
+                      FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+                      Rules within the same policy share the same failure behavior.
+                      This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
+                      Allowed values are Ignore or Fail. Defaults to Fail.
+                    enum:
+                    - Ignore
+                    - Fail
+                    type: string
                   matchConditions:
-                    description: MatchCondition configures admission webhook matchConditions.
+                    description: |-
+                      MatchCondition configures admission webhook matchConditions.
+                      Requires Kubernetes 1.27 or later.
                     items:
                       description: MatchCondition represents a condition which must
                         by fulfilled for a request to be sent to a webhook.
@@ -4302,12 +4469,17 @@ spec:
                       - name
                       type: object
                     type: array
+                  timeoutSeconds:
+                    description: |-
+                      TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+                      After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+                      based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                    format: int32
+                    type: integer
                 type: object
               webhookTimeoutSeconds:
-                description: |-
-                  WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-                  After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-                  based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                description: Deprecated, use webhookTimeoutSeconds under webhookConfiguration
+                  instead.
                 format: int32
                 type: integer
             type: object
@@ -4636,11 +4808,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -4708,11 +4882,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -4843,11 +5019,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -4915,11 +5093,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5046,11 +5226,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -5117,11 +5299,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -5238,11 +5422,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -5260,6 +5446,11 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
+                            generateExisting:
+                              description: |-
+                                GenerateExisting controls whether to trigger the rule in existing resources
+                                If is set to "true" the rule will be triggered and applied to existing matched resources.
+                              type: boolean
                             kind:
                               description: Kind specifies resource kind.
                               type: string
@@ -5412,11 +5603,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5484,11 +5677,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5619,11 +5814,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5691,11 +5888,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -5822,11 +6021,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -5893,11 +6094,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -6290,6 +6493,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -6550,6 +6758,11 @@ spec:
                               description: |-
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
+                              x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
@@ -6822,11 +7035,13 @@ spec:
                                                 items:
                                                   type: string
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                             required:
                                             - key
                                             - operator
                                             type: object
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                         matchLabels:
                                           additionalProperties:
                                             type: string
@@ -7358,6 +7573,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -7388,6 +7608,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -7621,6 +7847,87 @@ spec:
                                   - latest
                                   type: string
                               type: object
+                            validationFailureAction:
+                              description: |-
+                                ValidationFailureAction defines if a validation policy rule violation should block
+                                the admission review request (Enforce), or allow (Audit) the admission review request
+                                and report an error in a policy report. Optional.
+                                Allowed values are Audit or Enforce.
+                              enum:
+                              - Audit
+                              - Enforce
+                              type: string
+                            validationFailureActionOverrides:
+                              description: |-
+                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                              items:
+                                properties:
+                                  action:
+                                    description: ValidationFailureAction defines the
+                                      policy validation failure action
+                                    enum:
+                                    - audit
+                                    - enforce
+                                    - Audit
+                                    - Enforce
+                                    type: string
+                                  namespaceSelector:
+                                    description: |-
+                                      A label selector is a label query over a set of resources. The result of matchLabels and
+                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                      label selector matches no objects.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -7782,6 +8089,12 @@ spec:
                                                       description: Issuer is the certificate
                                                         issuer used for keyless signing.
                                                       type: string
+                                                    issuerRegExp:
+                                                      description: IssuerRegExp is
+                                                        the regular expression to
+                                                        match certificate issuer used
+                                                        for keyless signing.
+                                                      type: string
                                                     rekor:
                                                       description: |-
                                                         Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -7814,6 +8127,13 @@ spec:
                                                         verified identity used for
                                                         keyless signing, for example
                                                         the email address.
+                                                      type: string
+                                                    subjectRegExp:
+                                                      description: SubjectRegExp is
+                                                        the regular expression to
+                                                        match identity used for keyless
+                                                        signing, for example the email
+                                                        address.
                                                       type: string
                                                   type: object
                                                 keys:
@@ -8165,6 +8485,11 @@ spec:
                                                 description: Issuer is the certificate
                                                   issuer used for keyless signing.
                                                 type: string
+                                              issuerRegExp:
+                                                description: IssuerRegExp is the regular
+                                                  expression to match certificate
+                                                  issuer used for keyless signing.
+                                                type: string
                                               rekor:
                                                 description: |-
                                                   Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -8195,6 +8520,12 @@ spec:
                                                 description: Subject is the verified
                                                   identity used for keyless signing,
                                                   for example the email address.
+                                                type: string
+                                              subjectRegExp:
+                                                description: SubjectRegExp is the
+                                                  regular expression to match identity
+                                                  used for keyless signing, for example
+                                                  the email address.
                                                 type: string
                                             type: object
                                           keys:
@@ -8294,6 +8625,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignOCI11:
+                                description: |-
+                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                                  Defaults to false.
+                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
@@ -8380,9 +8716,10 @@ spec:
                               type:
                                 description: |-
                                   Type specifies the method of signature validation. The allowed options
-                                  are Cosign and Notary. By default Cosign is used if a type is not specified.
+                                  are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
+                                - SigstoreBundle
                                 - Notary
                                 type: string
                               useCache:
@@ -8390,6 +8727,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -8530,9 +8873,6 @@ spec:
     - jsonPath: .spec.background
       name: BACKGROUND
       type: boolean
-    - jsonPath: .spec.validationFailureAction
-      name: VALIDATE ACTION
-      type: string
     - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: READY
       type: string
@@ -8612,27 +8952,22 @@ spec:
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
-                description: |-
-                  FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-                  Rules within the same policy share the same failure behavior.
-                  Allowed values are Ignore or Fail. Defaults to Fail.
+                description: Deprecated, use failurePolicy under the webhookConfiguration
+                  instead.
                 enum:
                 - Ignore
                 - Fail
                 type: string
               generateExisting:
-                description: |-
-                  GenerateExisting controls whether to trigger generate rule in existing resources
-                  If is set to "true" generate rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+                description: Deprecated, use generateExisting under the generate rule
+                  instead
                 type: boolean
               generateExistingOnPolicyUpdate:
                 description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
-                description: |-
-                  MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
-                  Default value is "false".
+                description: Deprecated, use mutateExistingOnPolicyUpdate under the
+                  mutate rule instead
                 type: boolean
               rules:
                 description: |-
@@ -8953,11 +9288,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9024,11 +9361,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9159,11 +9498,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9230,11 +9571,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9350,11 +9693,13 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -9372,6 +9717,11 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
+                        generateExisting:
+                          description: |-
+                            GenerateExisting controls whether to trigger the rule in existing resources
+                            If is set to "true" the rule will be triggered and applied to existing matched resources.
+                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -9524,11 +9874,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9595,11 +9947,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9730,11 +10084,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -9801,11 +10157,13 @@ spec:
                                               items:
                                                 type: string
                                               type: array
+                                              x-kubernetes-list-type: atomic
                                           required:
                                           - key
                                           - operator
                                           type: object
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                       matchLabels:
                                         additionalProperties:
                                           type: string
@@ -10191,6 +10549,10 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExistingOnPolicyUpdate:
+                          description: MutateExistingOnPolicyUpdate controls if the
+                            mutateExisting rule will be applied on policy events.
+                          type: boolean
                         patchStrategicMerge:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -10534,6 +10896,10 @@ spec:
                             AnyPattern specifies list of validation patterns. At least one of the patterns
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
+                        assert:
+                          description: Assert defines a kyverno-json assertion tree.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
                             Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
@@ -10800,11 +11166,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -11415,6 +11783,11 @@ spec:
                                               description: Issuer is the certificate
                                                 issuer used for keyless signing.
                                               type: string
+                                            issuerRegExp:
+                                              description: IssuerRegExp is the regular
+                                                expression to match certificate issuer
+                                                used for keyless signing.
+                                              type: string
                                             rekor:
                                               description: |-
                                                 Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -11445,6 +11818,12 @@ spec:
                                               description: Subject is the verified
                                                 identity used for keyless signing,
                                                 for example the email address.
+                                              type: string
+                                            subjectRegExp:
+                                              description: SubjectRegExp is the regular
+                                                expression to match identity used
+                                                for keyless signing, for example the
+                                                email address.
                                               type: string
                                           type: object
                                         keys:
@@ -11676,6 +12055,87 @@ spec:
                               - latest
                               type: string
                           type: object
+                        validationFailureAction:
+                          description: |-
+                            ValidationFailureAction defines if a validation policy rule violation should block
+                            the admission review request (Enforce), or allow (Audit) the admission review request
+                            and report an error in a policy report. Optional.
+                            Allowed values are Audit or Enforce.
+                          enum:
+                          - Audit
+                          - Enforce
+                          type: string
+                        validationFailureActionOverrides:
+                          description: |-
+                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                          items:
+                            properties:
+                              action:
+                                description: ValidationFailureAction defines the policy
+                                  validation failure action
+                                enum:
+                                - audit
+                                - enforce
+                                - Audit
+                                - Enforce
+                                type: string
+                              namespaceSelector:
+                                description: |-
+                                  A label selector is a label query over a set of resources. The result of matchLabels and
+                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                  label selector matches no objects.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -11823,6 +12283,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -11853,6 +12318,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -12200,6 +12671,11 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          issuerRegExp:
+                                            description: IssuerRegExp is the regular
+                                              expression to match certificate issuer
+                                              used for keyless signing.
+                                            type: string
                                           rekor:
                                             description: |-
                                               Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -12229,6 +12705,12 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address.
+                                            type: string
+                                          subjectRegExp:
+                                            description: SubjectRegExp is the regular
+                                              expression to match identity used for
+                                              keyless signing, for example the email
+                                              address.
                                             type: string
                                         type: object
                                       keys:
@@ -12399,6 +12881,7 @@ spec:
                               are Cosign and Notary. By default Cosign is used if a type is not specified.
                             enum:
                             - Cosign
+                            - SigstoreBundle
                             - Notary
                             type: string
                           useCache:
@@ -12406,6 +12889,12 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule
                             type: boolean
+                          validationFailureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -12428,11 +12917,8 @@ spec:
                 type: boolean
               validationFailureAction:
                 default: Audit
-                description: |-
-                  ValidationFailureAction defines if a validation policy rule violation should block
-                  the admission review request (enforce), or allow (audit) the admission review request
-                  and report an error in a policy report. Optional.
-                  Allowed values are audit or enforce. The default value is "Audit".
+                description: Deprecated, use validationFailureAction under the validate
+                  rule instead.
                 enum:
                 - audit
                 - enforce
@@ -12440,9 +12926,8 @@ spec:
                 - Enforce
                 type: string
               validationFailureActionOverrides:
-                description: |-
-                  ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                  namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                description: Deprecated, use validationFailureActionOverrides under
+                  the validate rule instead.
                 items:
                   properties:
                     action:
@@ -12486,11 +12971,13 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                             required:
                             - key
                             - operator
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         matchLabels:
                           additionalProperties:
                             type: string
@@ -12508,12 +12995,23 @@ spec:
                   type: object
                 type: array
               webhookConfiguration:
-                description: |-
-                  WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
-                  Requires Kubernetes 1.27 or later.
+                description: WebhookConfiguration specifies the custom configuration
+                  for Kubernetes admission webhookconfiguration.
                 properties:
+                  failurePolicy:
+                    description: |-
+                      FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+                      Rules within the same policy share the same failure behavior.
+                      This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
+                      Allowed values are Ignore or Fail. Defaults to Fail.
+                    enum:
+                    - Ignore
+                    - Fail
+                    type: string
                   matchConditions:
-                    description: MatchCondition configures admission webhook matchConditions.
+                    description: |-
+                      MatchCondition configures admission webhook matchConditions.
+                      Requires Kubernetes 1.27 or later.
                     items:
                       description: MatchCondition represents a condition which must
                         by fulfilled for a request to be sent to a webhook.
@@ -12554,12 +13052,17 @@ spec:
                       - name
                       type: object
                     type: array
+                  timeoutSeconds:
+                    description: |-
+                      TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+                      After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+                      based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                    format: int32
+                    type: integer
                 type: object
               webhookTimeoutSeconds:
-                description: |-
-                  WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-                  After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-                  based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
+                description: Deprecated, use webhookTimeoutSeconds under webhookConfiguration
+                  instead.
                 format: int32
                 type: integer
             type: object
@@ -12888,11 +13391,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -12960,11 +13465,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13095,11 +13602,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13167,11 +13676,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13298,11 +13809,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -13369,11 +13882,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -13490,11 +14005,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -13512,6 +14029,11 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
+                            generateExisting:
+                              description: |-
+                                GenerateExisting controls whether to trigger the rule in existing resources
+                                If is set to "true" the rule will be triggered and applied to existing matched resources.
+                              type: boolean
                             kind:
                               description: Kind specifies resource kind.
                               type: string
@@ -13664,11 +14186,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13736,11 +14260,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13871,11 +14397,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -13943,11 +14471,13 @@ spec:
                                                   items:
                                                     type: string
                                                   type: array
+                                                  x-kubernetes-list-type: atomic
                                               required:
                                               - key
                                               - operator
                                               type: object
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                           matchLabels:
                                             additionalProperties:
                                               type: string
@@ -14074,11 +14604,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -14145,11 +14677,13 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                            x-kubernetes-list-type: atomic
                                         required:
                                         - key
                                         - operator
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     matchLabels:
                                       additionalProperties:
                                         type: string
@@ -14542,6 +15076,11 @@ spec:
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
                               type: array
+                            mutateExistingOnPolicyUpdate:
+                              description: MutateExistingOnPolicyUpdate controls if
+                                the mutateExisting rule will be applied on policy
+                                events.
+                              type: boolean
                             patchStrategicMerge:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
@@ -14802,6 +15341,11 @@ spec:
                               description: |-
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
                                 must be satisfied for the validation rule to succeed.
+                              x-kubernetes-preserve-unknown-fields: true
+                            assert:
+                              description: Assert defines a kyverno-json assertion
+                                tree.
+                              type: object
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
@@ -15074,11 +15618,13 @@ spec:
                                                 items:
                                                   type: string
                                                 type: array
+                                                x-kubernetes-list-type: atomic
                                             required:
                                             - key
                                             - operator
                                             type: object
                                           type: array
+                                          x-kubernetes-list-type: atomic
                                         matchLabels:
                                           additionalProperties:
                                             type: string
@@ -15610,6 +16156,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -15640,6 +16191,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -15873,6 +16430,87 @@ spec:
                                   - latest
                                   type: string
                               type: object
+                            validationFailureAction:
+                              description: |-
+                                ValidationFailureAction defines if a validation policy rule violation should block
+                                the admission review request (Enforce), or allow (Audit) the admission review request
+                                and report an error in a policy report. Optional.
+                                Allowed values are Audit or Enforce.
+                              enum:
+                              - Audit
+                              - Enforce
+                              type: string
+                            validationFailureActionOverrides:
+                              description: |-
+                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+                              items:
+                                properties:
+                                  action:
+                                    description: ValidationFailureAction defines the
+                                      policy validation failure action
+                                    enum:
+                                    - audit
+                                    - enforce
+                                    - Audit
+                                    - Enforce
+                                    type: string
+                                  namespaceSelector:
+                                    description: |-
+                                      A label selector is a label query over a set of resources. The result of matchLabels and
+                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                      label selector matches no objects.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -16034,6 +16672,12 @@ spec:
                                                       description: Issuer is the certificate
                                                         issuer used for keyless signing.
                                                       type: string
+                                                    issuerRegExp:
+                                                      description: IssuerRegExp is
+                                                        the regular expression to
+                                                        match certificate issuer used
+                                                        for keyless signing.
+                                                      type: string
                                                     rekor:
                                                       description: |-
                                                         Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -16066,6 +16710,13 @@ spec:
                                                         verified identity used for
                                                         keyless signing, for example
                                                         the email address.
+                                                      type: string
+                                                    subjectRegExp:
+                                                      description: SubjectRegExp is
+                                                        the regular expression to
+                                                        match identity used for keyless
+                                                        signing, for example the email
+                                                        address.
                                                       type: string
                                                   type: object
                                                 keys:
@@ -16417,6 +17068,11 @@ spec:
                                                 description: Issuer is the certificate
                                                   issuer used for keyless signing.
                                                 type: string
+                                              issuerRegExp:
+                                                description: IssuerRegExp is the regular
+                                                  expression to match certificate
+                                                  issuer used for keyless signing.
+                                                type: string
                                               rekor:
                                                 description: |-
                                                   Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -16447,6 +17103,12 @@ spec:
                                                 description: Subject is the verified
                                                   identity used for keyless signing,
                                                   for example the email address.
+                                                type: string
+                                              subjectRegExp:
+                                                description: SubjectRegExp is the
+                                                  regular expression to match identity
+                                                  used for keyless signing, for example
+                                                  the email address.
                                                 type: string
                                             type: object
                                           keys:
@@ -16546,6 +17208,11 @@ spec:
                                       type: array
                                   type: object
                                 type: array
+                              cosignOCI11:
+                                description: |-
+                                  CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
+                                  Defaults to false.
+                                type: boolean
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
@@ -16632,9 +17299,10 @@ spec:
                               type:
                                 description: |-
                                   Type specifies the method of signature validation. The allowed options
-                                  are Cosign and Notary. By default Cosign is used if a type is not specified.
+                                  are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
+                                - SigstoreBundle
                                 - Notary
                                 type: string
                               useCache:
@@ -16642,6 +17310,12 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
+                              validationFailureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have

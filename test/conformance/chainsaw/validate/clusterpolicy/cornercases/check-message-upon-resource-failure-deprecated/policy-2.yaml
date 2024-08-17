@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: preconditions-check
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: check-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    preconditions:
+      all:
+      - key: "{{ request.object.metadata.annotations.foo || '' }}"
+        operator: Equals
+        value: foo
+    validate:
+      message: >-
+        The label `uw.systems/owner` is required. Check policy at
+        https://github.com/utilitywarehouse/system-manifests/tree/master/kyverno/policies/namespaces/require-ns-owner-label.yaml
+        for allowed label values.
+      pattern:
+        metadata:
+          labels:
+            uw.systems/foo: bar

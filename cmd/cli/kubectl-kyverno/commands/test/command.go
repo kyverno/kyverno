@@ -116,16 +116,16 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, test, registryAccess, false)
+			responses, err := runTest(out, test, registryAccess)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
 			fmt.Fprintln(out, "  Checking results ...")
 			var resultsTable table.Table
-			if err := printTestResult(out, filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
+			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
-			if err := printCheckResult(out, test.Test.Checks, responses, rc, &resultsTable); err != nil {
+			if err := printCheckResult(test.Test.Checks, responses, rc, &resultsTable); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)
@@ -183,7 +183,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 }
 
 func lookupEngineResponses(test v1alpha1.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
-	var matches []engineapi.EngineResponse
+	matches := make([]engineapi.EngineResponse, 0, len(responses))
 	for _, response := range responses {
 		policy := response.Policy()
 		resource := response.Resource

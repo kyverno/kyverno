@@ -60,11 +60,11 @@ func loadTest(path string, fileName string, gitBranch string) (test.TestCases, e
 				}
 			}
 			if _, err := gitutils.Clone(repoURL, fs, gitBranch); err != nil {
-				return nil, fmt.Errorf("Error: failed to clone repository \nCause: %s\n", err)
+				return nil, fmt.Errorf("error: failed to clone repository \nCause: %s", err)
 			}
 			yamlFiles, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, fmt.Errorf("error: failed to list YAMLs in repository (%w)", err)
 			}
 			sort.Strings(yamlFiles)
 			for _, yamlFilePath := range yamlFiles {

@@ -1,4 +1,4 @@
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
   name: policy-exception-allow-latest

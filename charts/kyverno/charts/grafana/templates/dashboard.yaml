@@ -19,6 +19,8 @@ metadata:
   name: {{ tpl $.Values.configMapName $ }}-{{ $name }}
   namespace: {{ default (include "kyverno.namespace" $ ) $.Values.namespace }}
 spec:
+  allowCrossNamespaceImport: {{ $.Values.grafanaDashboard.allowCrossNamespaceImport }}
+  folder: {{ $.Values.grafanaDashboard.folder }}
   instanceSelector:
     matchLabels:
       {{- toYaml $.Values.grafanaDashboard.matchLabels | nindent 6 }}

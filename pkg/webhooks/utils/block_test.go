@@ -62,6 +62,38 @@ func TestBlockRequest(t *testing.T) {
 			ValidationFailureAction: kyvernov1.Enforce,
 		},
 	})
+	audit := kyvernov1.Audit
+	auditRule := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "rule-audit",
+					Validation: kyvernov1.Validation{
+						ValidationFailureAction: &audit,
+					},
+				},
+			},
+		},
+	})
+	enforce := kyvernov1.Enforce
+	enforceRule := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "rule-enforce",
+					Validation: kyvernov1.Validation{
+						ValidationFailureAction: &enforce,
+					},
+				},
+			},
+		},
+	})
 	resource := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind": "foo",
@@ -155,6 +187,90 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(resource, auditPolicy, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.NewRuleResponse("rule-warning", engineapi.Validation, "message warning", engineapi.RuleStatusWarn),
+					},
+				}),
+			},
+			failurePolicy: kyvernov1.Fail,
+			log:           logr.Discard(),
+		},
+		want: false,
+	}, {
+		name: "failure - enforce",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, enforceRule, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail"),
+					},
+				}),
+			},
+			failurePolicy: kyvernov1.Fail,
+			log:           logr.Discard(),
+		},
+		want: true,
+	}, {
+		name: "failure - audit",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, auditRule, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail"),
+					},
+				}),
+			},
+			failurePolicy: kyvernov1.Fail,
+			log:           logr.Discard(),
+		},
+		want: false,
+	}, {
+		name: "error - fail",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, auditRule, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil),
+					},
+				}),
+			},
+			failurePolicy: kyvernov1.Fail,
+			log:           logr.Discard(),
+		},
+		want: true,
+	}, {
+		name: "error - ignore",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, auditRule, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleError("rule-error", engineapi.Validation, "message error", nil),
+					},
+				}),
+			},
+			failurePolicy: kyvernov1.Ignore,
+			log:           logr.Discard(),
+		},
+		want: false,
+	}, {
+		name: "warning - ignore",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, auditRule, nil).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.NewRuleResponse("rule-warning", engineapi.Validation, "message warning", engineapi.RuleStatusWarn),
+					},
+				}),
+			},
+			failurePolicy: kyvernov1.Ignore,
+			log:           logr.Discard(),
+		},
+		want: false,
+	}, {
+		name: "warning - fail",
+		args: args{
+			engineResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(resource, auditRule, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.NewRuleResponse("rule-warning", engineapi.Validation, "message warning", engineapi.RuleStatusWarn),
 					},

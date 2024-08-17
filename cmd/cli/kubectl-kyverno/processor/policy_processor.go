@@ -10,8 +10,7 @@ import (
 
 	json_patch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -40,11 +39,11 @@ type PolicyProcessor struct {
 	Store                     *store.Store
 	Policies                  []kyvernov1.PolicyInterface
 	Resource                  unstructured.Unstructured
-	PolicyExceptions          []*kyvernov2beta1.PolicyException
+	PolicyExceptions          []*kyvernov2.PolicyException
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 *variables.Variables
-	UserInfo                  *kyvernov1beta1.RequestInfo
+	UserInfo                  *kyvernov2.RequestInfo
 	PolicyReport              bool
 	NamespaceSelectorMap      map[string]map[string]string
 	Stdin                     bool
@@ -84,6 +83,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		exceptions.New(policyExceptionLister),
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
+	resourceKind := resource.GetKind()
+	resourceName := resource.GetName()
+	resourceNamespace := resource.GetNamespace()
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
 	if p.Client == nil {
 		for _, s := range p.Subresources {
@@ -102,9 +104,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				subresource = parts[1]
 			}
 		}
+	} else {
+		if len(namespaceLabels) == 0 && resourceKind != "Namespace" && resourceNamespace != "" {
+			ns, err := p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resourceNamespace)
+			if err != nil {
+				log.Log.Error(err, "failed to get the resource's namespace")
+				return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
+			}
+			namespaceLabels = ns.GetLabels()
+		}
 	}
-	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	var responses []engineapi.EngineResponse
+	resPath := fmt.Sprintf("%s/%s/%s", resourceNamespace, resourceKind, resourceName)
+	responses := make([]engineapi.EngineResponse, 0, len(p.Policies))
 	// mutate
 	for _, policy := range p.Policies {
 		if !policy.GetSpec().HasMutate() {
@@ -194,7 +205,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				responses = append(responses, generateResponse)
 			}
-			p.Rc.addGenerateResponse(p.AuditWarn, resPath, generateResponse)
+			p.Rc.addGenerateResponse(generateResponse)
 		}
 	}
 	p.Rc.addEngineResponses(p.AuditWarn, responses...)
@@ -332,7 +343,7 @@ func (p *PolicyProcessor) makePolicyContext(
 }
 
 func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-	printMutatedRes := p.Rc.addMutateResponse(resourcePath, response)
+	printMutatedRes := p.Rc.addMutateResponse(response)
 	if printMutatedRes && p.PrintPatchResource {
 		yamlEncodedResource, err := yamlv2.Marshal(response.PatchedResource.Object)
 		if err != nil {

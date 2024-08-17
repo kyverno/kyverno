@@ -148,5 +148,5 @@ func wildcardTagOrDigest(images []string) []string {
 }
 
 func printViolations(out io.Writer, rc *processor.ResultCounts) {
-	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass(), rc.Fail(), rc.Warn(), rc.Error(), rc.Skip())
+	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
 }

@@ -1,15 +1,12 @@
 package engine
 
 import (
-	"fmt"
-
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -51,7 +48,7 @@ func ForceMutate(
 			}
 		} else {
 			m := r.Mutation
-			patchedResource, err = applyPatches(r.Name, m.GetPatchStrategicMerge(), m.PatchesJSON6902, patchedResource, logger)
+			patchedResource, err = applyPatches(m.GetPatchStrategicMerge(), m.PatchesJSON6902, patchedResource, logger)
 			if err != nil {
 				return patchedResource, err
 			}
@@ -64,16 +61,12 @@ func ForceMutate(
 func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resource unstructured.Unstructured, logger logr.Logger) (patchedResource unstructured.Unstructured, err error) {
 	patchedResource = resource
 	for _, fe := range foreach {
-		if fe.ForEachMutation != nil {
-			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
-			if err != nil {
-				return patchedResource, fmt.Errorf("failed to deserialize foreach: %w", err)
-			}
-
-			return applyForEachMutate(name, nestedForEach, patchedResource, logger)
+		fem := fe.GetForEachMutation()
+		if len(fem) > 0 {
+			return applyForEachMutate(name, fem, patchedResource, logger)
 		}
 
-		patchedResource, err = applyPatches(name, fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, patchedResource, logger)
+		patchedResource, err = applyPatches(fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, patchedResource, logger)
 		if err != nil {
 			return resource, err
 		}
@@ -82,7 +75,7 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 	return patchedResource, nil
 }
 
-func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, logger logr.Logger) (unstructured.Unstructured, error) {
+func applyPatches(mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, logger logr.Logger) (unstructured.Unstructured, error) {
 	patcher := mutate.NewPatcher(mergePatch, jsonPatch)
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {

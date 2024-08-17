@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-example-port-22
+spec:
+  selector:
+    app: example
+  ports:
+    - port: 22
+      targetPort: 22
+  type: LoadBalancer

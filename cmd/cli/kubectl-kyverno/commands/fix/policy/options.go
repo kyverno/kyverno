@@ -61,15 +61,15 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 }
 
 func (o options) processFile(out io.Writer, path string) {
-	policies, vaps, vapBindings, err := policy.LoadWithLoader(policy.KubectlValidateLoader, nil, "", path)
+	results, err := policy.LoadWithLoader(policy.KubectlValidateLoader, nil, "", path)
 	if err != nil {
 		return
 	}
-	if len(policies) == 0 {
+	if results == nil || len(results.Policies) == 0 {
 		return
 	}
-	var fixed []kyvernov1.PolicyInterface
-	for _, policy := range policies {
+	fixed := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
+	for _, policy := range results.Policies {
 		copy := policy.CreateDeepCopy()
 		fmt.Fprintf(out, "Processing file (%s)...\n", path)
 		messages, err := fix.FixPolicy(copy)
@@ -82,7 +82,7 @@ func (o options) processFile(out io.Writer, path string) {
 		}
 		fixed = append(fixed, copy)
 	}
-	needsSave := !reflect.DeepEqual(policies, fixed)
+	needsSave := !reflect.DeepEqual(results.Policies, fixed)
 	if o.save && needsSave {
 		fmt.Fprintf(out, "  Saving file (%s)...", path)
 		fmt.Fprintln(out)
@@ -159,7 +159,7 @@ func (o options) processFile(out io.Writer, path string) {
 			yamlBytes = append(yamlBytes, []byte("---\n")...)
 			yamlBytes = append(yamlBytes, finalBytes...)
 		}
-		for _, vap := range vaps {
+		for _, vap := range results.VAPs {
 			finalBytes, err := yaml.Marshal(vap)
 			if err != nil {
 				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)
@@ -169,7 +169,7 @@ func (o options) processFile(out io.Writer, path string) {
 			yamlBytes = append(yamlBytes, []byte("---\n")...)
 			yamlBytes = append(yamlBytes, finalBytes...)
 		}
-		for _, vapBinding := range vapBindings {
+		for _, vapBinding := range results.VAPBindings {
 			finalBytes, err := yaml.Marshal(vapBinding)
 			if err != nil {
 				fmt.Fprintf(out, "    ERROR: converting to yaml: %s", err)

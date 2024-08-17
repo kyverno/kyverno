@@ -18,15 +18,7 @@ limitations under the License.
 
 package v2
 
-type AdmissionReportExpansion interface{}
-
-type BackgroundScanReportExpansion interface{}
-
 type CleanupPolicyExpansion interface{}
-
-type ClusterAdmissionReportExpansion interface{}
-
-type ClusterBackgroundScanReportExpansion interface{}
 
 type ClusterCleanupPolicyExpansion interface{}
 

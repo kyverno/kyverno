@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -27,6 +27,9 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .spec.policy
       name: Policy
+      type: string
+    - jsonPath: .spec.rule
+      name: Rule
       type: string
     - jsonPath: .spec.requestType
       name: RuleType
@@ -46,6 +49,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
     name: v1beta1
     schema:
       openAPIV3Schema:
@@ -239,6 +243,7 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -298,6 +303,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
@@ -401,7 +407,7 @@ spec:
             type: object
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -453,7 +459,9 @@ spec:
             description: ResourceSpec is the information to identify the trigger resource.
             properties:
               context:
-                description: Context ...
+                description: |-
+                  Context represents admission request context.
+                  It is used upon admission review only and is shared across rules within the same UR.
                 properties:
                   admissionRequestInfo:
                     description: AdmissionRequestInfoObject stores the admission request
@@ -619,6 +627,7 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -678,6 +687,7 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
@@ -692,8 +702,9 @@ spec:
                     type: object
                 type: object
               deleteDownstream:
-                description: DeleteDownstream represents whether the downstream needs
-                  to be deleted.
+                description: |-
+                  DeleteDownstream represents whether the downstream needs to be deleted.
+                  Deprecated
                 type: boolean
               policy:
                 description: Specifies the name of the policy.
@@ -727,10 +738,56 @@ spec:
               rule:
                 description: Rule is the associate rule name of the current UR.
                 type: string
+              ruleContext:
+                description: |-
+                  RuleContext is the associate context to apply rules.
+                  optional
+                items:
+                  properties:
+                    deleteDownstream:
+                      description: DeleteDownstream represents whether the downstream
+                        needs to be deleted.
+                      type: boolean
+                    rule:
+                      description: Rule is the associate rule name of the current
+                        UR.
+                      type: string
+                    synchronize:
+                      description: |-
+                        Synchronize represents the sync behavior of the corresponding rule
+                        Optional. Defaults to "false" if not specified.
+                      type: boolean
+                    trigger:
+                      description: ResourceSpec is the information to identify the
+                        trigger resource.
+                      properties:
+                        apiVersion:
+                          description: APIVersion specifies resource apiVersion.
+                          type: string
+                        kind:
+                          description: Kind specifies resource kind.
+                          type: string
+                        name:
+                          description: Name specifies the resource name.
+                          type: string
+                        namespace:
+                          description: Namespace specifies resource namespace.
+                          type: string
+                        uid:
+                          description: UID specifies the resource uid.
+                          type: string
+                      type: object
+                  required:
+                  - deleteDownstream
+                  - rule
+                  - trigger
+                  type: object
+                type: array
               synchronize:
                 description: |-
                   Synchronize represents the sync behavior of the corresponding rule
                   Optional. Defaults to "false" if not specified.
+                  Deprecated, will be removed in 1.14.
                 type: boolean
             required:
             - context
@@ -778,7 +835,7 @@ spec:
             type: object
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
 {{- end }}

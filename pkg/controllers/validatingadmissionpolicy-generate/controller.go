@@ -7,13 +7,13 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
+	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -48,7 +48,7 @@ type controller struct {
 
 	// listers
 	cpolLister       kyvernov1listers.ClusterPolicyLister
-	polexLister      kyvernov2beta1listers.PolicyExceptionLister
+	polexLister      kyvernov2listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyBindingLister
 
@@ -64,7 +64,7 @@ func NewController(
 	kyvernoClient versioned.Interface,
 	discoveryClient dclient.IDiscovery,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	polexInformer kyvernov2beta1informers.PolicyExceptionInformer,
+	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
@@ -148,12 +148,12 @@ func (c *controller) enqueuePolicy(obj kyvernov1.PolicyInterface) {
 	c.queue.Add(key)
 }
 
-func (c *controller) addException(obj *kyvernov2beta1.PolicyException) {
+func (c *controller) addException(obj *kyvernov2.PolicyException) {
 	logger.Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueException(obj)
 }
 
-func (c *controller) updateException(old, obj *kyvernov2beta1.PolicyException) {
+func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
@@ -161,14 +161,14 @@ func (c *controller) updateException(old, obj *kyvernov2beta1.PolicyException) {
 	c.enqueueException(obj)
 }
 
-func (c *controller) deleteException(obj *kyvernov2beta1.PolicyException) {
-	polex := kubeutils.GetObjectWithTombstone(obj).(*kyvernov2beta1.PolicyException)
+func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
+	polex := kubeutils.GetObjectWithTombstone(obj).(*kyvernov2.PolicyException)
 
 	logger.Info("policy exception deleted", "uid", polex.GetUID(), "kind", polex.GetKind(), "name", polex.GetName())
 	c.enqueueException(obj)
 }
 
-func (c *controller) enqueueException(obj *kyvernov2beta1.PolicyException) {
+func (c *controller) enqueueException(obj *kyvernov2.PolicyException) {
 	for _, exception := range obj.Spec.Exceptions {
 		// skip adding namespaced policies in the queue.
 		// skip adding policies with multiple rules in the queue.
@@ -266,18 +266,19 @@ func (c *controller) getValidatingAdmissionPolicyBinding(name string) (*admissio
 	return vapbinding, nil
 }
 
-// hasExceptions checks if there is an exception that match both the policy and the rule.
-func (c *controller) hasExceptions(policyName, rule string) (bool, error) {
+// getExceptions get exceptions that match both the policy and the rule if exists.
+func (c *controller) getExceptions(policyName, rule string) ([]kyvernov2.PolicyException, error) {
+	var exceptions []kyvernov2.PolicyException
 	polexs, err := c.polexLister.List(labels.Everything())
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	for _, polex := range polexs {
 		if polex.Contains(policyName, rule) {
-			return true, nil
+			exceptions = append(exceptions, *polex)
 		}
 	}
-	return false, nil
+	return exceptions, nil
 }
 
 func constructVapBindingName(vapName string) string {
@@ -319,11 +320,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
 	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
 
-	hasExceptions, err := c.hasExceptions(name, spec.Rules[0].Name)
+	exceptions, err := c.getExceptions(name, spec.Rules[0].Name)
 	if err != nil {
 		return err
 	}
-	if ok, msg := validatingadmissionpolicy.CanGenerateVAP(spec); !ok || hasExceptions {
+
+	if ok, msg := validatingadmissionpolicy.CanGenerateVAP(spec, exceptions); !ok {
 		// delete the ValidatingAdmissionPolicy if exist
 		if vapErr == nil {
 			err = c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
@@ -371,7 +373,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	if observedVAP.ResourceVersion == "" {
-		err := validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy)
+		err := validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, exceptions)
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
@@ -387,7 +389,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			observedVAP,
 			c.client.AdmissionregistrationV1alpha1().ValidatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1alpha1.ValidatingAdmissionPolicy) error {
-				return validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy)
+				return validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, exceptions)
 			})
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())

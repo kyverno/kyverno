@@ -37,6 +37,9 @@ global:
   # -- Global node labels for pod assignment. Non-global values will override the global value.
   nodeSelector: {}
 
+  # -- Global List of node taints to tolerate. Non-global values will override the global value.
+  tolerations: []
+
 # -- (string) Override the name of the chart
 nameOverride: ~
 
@@ -66,11 +69,7 @@ crds:
 
     # -- Install CRDs in group `kyverno.io`
     kyverno:
-      admissionreports: true
-      backgroundscanreports: true
       cleanuppolicies: true
-      clusteradmissionreports: true
-      clusterbackgroundscanreports: true
       clustercleanuppolicies: true
       clusterpolicies: true
       globalcontextentries: true
@@ -103,11 +102,7 @@ crds:
 
     # -- Resources to migrate
     resources:
-      - admissionreports.kyverno.io
-      - backgroundscanreports.kyverno.io
       - cleanuppolicies.kyverno.io
-      - clusteradmissionreports.kyverno.io
-      - clusterbackgroundscanreports.kyverno.io
       - clustercleanuppolicies.kyverno.io
       - clusterpolicies.kyverno.io
       - globalcontextentries.kyverno.io
@@ -148,6 +143,9 @@ crds:
     # -- Pod labels.
     podLabels: {}
 
+    # -- Pod annotations.
+    podAnnotations: {}
+
     # -- Node affinity constraints.
     nodeAffinity: {}
 
@@ -170,6 +168,9 @@ config:
 
   # -- Create the configmap.
   create: true
+
+  # -- Preserve the configmap settings during upgrade.
+  preserve: true
 
   # -- (string) The configmap name (required if `create` is `false`).
   name: ~
@@ -220,14 +221,6 @@ config:
     - '[Pod/binding,*,*]'
     - '[ReplicaSet,*,*]'
     - '[ReplicaSet/*,*,*]'
-    - '[AdmissionReport,*,*]'
-    - '[AdmissionReport/*,*,*]'
-    - '[ClusterAdmissionReport,*,*]'
-    - '[ClusterAdmissionReport/*,*,*]'
-    - '[BackgroundScanReport,*,*]'
-    - '[BackgroundScanReport/*,*,*]'
-    - '[ClusterBackgroundScanReport,*,*]'
-    - '[ClusterBackgroundScanReport/*,*,*]'
     # exclude resources from the chart
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}]'
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:core]'
@@ -315,6 +308,9 @@ config:
     - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.reports-controller.name" . }}]'
     - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
     - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
+
+  # -- Sets the threshold for the total number of UpdateRequests generated for mutateExisitng and generate policies.
+  updateRequestThreshold: 1000
 
   # -- Defines the `namespaceSelector` in the webhook configurations.
   # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
@@ -472,7 +468,7 @@ webhooksCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.28.5'
+    tag: '1.30.2'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -497,6 +493,9 @@ webhooksCleanup:
 
   # -- Pod labels.
   podLabels: {}
+
+  # -- Pod annotations.
+  podAnnotations: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
@@ -526,7 +525,7 @@ policyReportsCleanup:
     repository: bitnami/kubectl
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: '1.28.5'
+    tag: '1.30.2'
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
@@ -552,6 +551,9 @@ policyReportsCleanup:
 
   # -- Pod labels.
   podLabels: {}
+
+  # -- Pod annotations.
+  podAnnotations: {}
 
   # -- Node affinity constraints.
   nodeAffinity: {}
@@ -592,6 +594,8 @@ grafana:
   # according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
   grafanaDashboard:
     create: false
+    folder: kyverno
+    allowCrossNamespaceImport: true
     matchLabels:
       dashboards: "grafana"
 
@@ -669,9 +673,6 @@ features:
     - amazon
     - azure
     - github
-  reports:
-    # -- Reports chunk size
-    chunkSize: 0
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
@@ -683,168 +684,14 @@ features:
     # -- (string) Tuf mirror
     mirror: ~
 
-# Cleanup cronjobs to prevent internal resources from stacking up in the cluster
-cleanupJobs:
-
-  admissionReports:
-
-    # -- Enable cleanup cronjob
-    enabled: true
-
-    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
-    backoffLimit: 3
-
-    image:
-      # -- (string) Image registry
-      registry: ~
-      # -- Image repository
-      repository: bitnami/kubectl
-      # -- Image tag
-      # Defaults to `latest` if omitted
-      tag: '1.28.5'
-      # -- (string) Image pull policy
-      # Defaults to image.pullPolicy if omitted
-      pullPolicy: ~
-
-    # -- Image pull secrets
-    imagePullSecrets: []
-      # - name: secretName
-
-    # -- Cronjob schedule
-    schedule: '*/10 * * * *'
-
-    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
-    threshold: 10000
-
-    # -- Cronjob history
-    history:
-      success: 1
-      failure: 1
-
-    # -- Security context for the pod
-    podSecurityContext: {}
-
-    # -- Security context for the containers
-    securityContext:
-      runAsNonRoot: true
-      privileged: false
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-      seccompProfile:
-        type: RuntimeDefault
-
-    # -- Pod PriorityClassName
-    priorityClassName: ""
-
-    # -- Job resources
-    resources: {}
-
-    # -- List of node taints to tolerate
-    tolerations: []
-
-    # -- Node labels for pod assignment
-    nodeSelector: {}
-
-    # -- Pod Annotations
-    podAnnotations: {}
-
-    # -- Pod labels
-    podLabels: {}
-
-    # -- Pod anti affinity constraints.
-    podAntiAffinity: {}
-
-    # -- Pod affinity constraints.
-    podAffinity: {}
-
-    # -- Node affinity constraints.
-    nodeAffinity: {}
-
-  clusterAdmissionReports:
-
-    # -- Enable cleanup cronjob
-    enabled: true
-
-    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
-    backoffLimit: 3
-
-    image:
-      # -- (string) Image registry
-      registry: ~
-      # -- Image repository
-      repository: bitnami/kubectl
-      # -- Image tag
-      # Defaults to `latest` if omitted
-      tag: '1.28.5'
-      # -- (string) Image pull policy
-      # Defaults to image.pullPolicy if omitted
-      pullPolicy: ~
-
-    # -- Image pull secrets
-    imagePullSecrets: []
-      # - name: secretName
-
-    # -- Cronjob schedule
-    schedule: '*/10 * * * *'
-
-    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
-    threshold: 10000
-
-    # -- Cronjob history
-    history:
-      success: 1
-      failure: 1
-
-    # -- Security context for the pod
-    podSecurityContext: {}
-
-    # -- Security context for the containers
-    securityContext:
-      runAsNonRoot: true
-      privileged: false
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-      seccompProfile:
-        type: RuntimeDefault
-
-    # -- Pod PriorityClassName
-    priorityClassName: ""
-
-    # -- Job resources
-    resources: {}
-
-    # -- List of node taints to tolerate
-    tolerations: []
-
-    # -- Node labels for pod assignment
-    nodeSelector: {}
-
-    # -- Pod Annotations
-    podAnnotations: {}
-
-    # -- Pod Labels
-    podLabels: {}
-
-    # -- Pod anti affinity constraints.
-    podAntiAffinity: {}
-
-    # -- Pod affinity constraints.
-    podAffinity: {}
-
-    # -- Node affinity constraints.
-    nodeAffinity: {}
-
 # Admission controller configuration
 admissionController:
 
   # -- Overrides features defined at the root level
-  featuresOverride: {}
+  featuresOverride:
+    admissionReports:
+      # -- Max number of admission reports allowed in flight until the admission controller stops creating new ones
+      backPressureThreshold: 1000
 
   rbac:
     # -- Create RBAC resources

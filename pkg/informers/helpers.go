@@ -20,7 +20,7 @@ func StartInformers(ctx context.Context, informers ...informer) {
 }
 
 func WaitForCacheSync(ctx context.Context, logger logr.Logger, informers ...informer) bool {
-	var cacheSyncs []cache.InformerSynced
+	cacheSyncs := make([]cache.InformerSynced, 0, len(informers))
 	for i := range informers {
 		cacheSyncs = append(cacheSyncs, informers[i].Informer().HasSynced)
 	}

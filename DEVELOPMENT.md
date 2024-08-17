@@ -27,6 +27,15 @@ It contains instructions to build, run, and test Kyverno.
   - [Generating helm charts CRDs](#generating-helm-charts-crds)
   - [Generating helm charts docs](#generating-helm-charts-docs)
 - [Debugging local code](#debugging-local-code)
+- [Profiling](#profiling)
+- [API Design](#api-design)
+- [Controllers Design](#controllers-design)
+- [Logging](#logging)
+- [Feature Flags](#feature-flags)
+- [Reports Design](#reports-design)
+- [Troubleshooting](#troubleshooting)
+- [Selecting Issues](#selecting-issues)
+
 
 ## Open project in devcontainer (recommended)
 - Clone the project to your local machine.
@@ -427,3 +436,115 @@ go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443 --b
 ```
 
 You will need to adapt those steps to run debug sessions in your IDE of choice, but the general idea remains the same.
+
+
+## Profiling
+
+### Enable profiling
+To profile Kyverno application running inside a Kubernetes pod, set `--profile` flag to `true` in [install.yaml](https://github.com/kyverno/kyverno/blob/main/definitions/install.yaml). The default profiling port is 6060, and it can be configured via `profile-port`.
+
+```
+  --profile
+        Set this flag to 'true', to enable profiling.
+  --profile-port string
+        Enable profiling at given port, defaults to 6060. (default "6060")
+```
+
+### Expose the endpoint on a local port
+You can get at the application in the pod by port forwarding with kubectl, for example:
+
+````shell
+$ kubectl -n kyverno get pod
+NAME                                             READY   STATUS      RESTARTS       AGE
+kyverno-admission-controller-57df6c565f-pxpnh    1/1     Running     0              20s
+kyverno-background-controller-766589695-dhj9m    1/1     Running     0              20s
+kyverno-cleanup-controller-54466dfbc6-5mlrc      1/1     Running     0              19s
+kyverno-cleanup-update-requests-28695530-ft975   1/1     Running     0              19s
+kyverno-reports-controller-76c49549f4-tljwm      1/1     Running     0              20s
+````
+
+Check the port of the pod you'd like to forward using the command below.
+
+````bash
+$ kubectl get pod kyverno-admission-controller-57df6c565f-pxpnh -n kyverno  --template='{{(index (index .spec.containers 0).ports 0).containerPort}}{{"\n"}}'
+9443
+````
+
+Use the exposed port from above to run port-forward with the below command.
+
+````bash
+$ kubectl -n kyverno port-forward kyverno-admission-controller-57df6c565f-pxpnh 6060:9443
+Forwarding from 127.0.0.1:6060 -> 9443
+Forwarding from [::1]:6060 -> 9443
+````
+
+The HTTP endpoint will now be available as a local port.
+
+Alternatively, use a Service of the type `LoadBalancer` to expose Kyverno. An example Service manifest is given below:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: pproc-service
+  namespace: kyverno
+spec:
+  selector:
+    app: kyverno
+  ports:
+    - protocol: TCP
+      port: 6060
+      targetPort: 6060
+  type: LoadBalancer
+```
+
+
+### Generate the data
+You can then generate the file for the **memory** profile with curl and pipe the data to a file:
+````shell
+$ curl http://localhost:6060/debug/pprof/heap  > heap.pprof
+````
+
+Generate the file for the **CPU** profile with curl and pipe the data to a file:
+```shell
+curl "http://localhost:6060/debug/pprof/profile?seconds=60" > cpu.pprof
+```
+
+### Analyze the data
+To analyze the data:
+````shell
+go tool pprof heap.pprof
+````
+
+### Read more about profiling
+
+- [Profiling Golang Programs on Kubernetes](https://danlimerick.wordpress.com/2017/01/24/profiling-golang-programs-on-kubernetes/)
+- [Official GO blog](https://blog.golang.org/pprof)
+
+## API Design
+
+See [docs/dev/api](./docs/dev/api/README.md)
+
+## Controllers Design
+
+See [docs/dev/controllers](./docs/dev/controllers/README.md)
+
+## Logging
+
+See [docs/dev/logging/logging.md](./docs/dev/logging/logging.md)
+
+## Feature Flags
+
+See [docs/dev/feature-flags](./docs/dev/feature-flags/README.md)
+
+## Reports Design
+
+See [docs/dev/reports](./docs/dev/reports/README.md)
+
+## Troubleshooting
+
+See [docs/dev/troubleshooting](./docs/dev/troubleshooting/)
+
+## Selecting Issues
+
+When you are ready to contribute, you can select issue at [Good First Issues](https://github.com/orgs/kyverno/projects/10). 

@@ -33,18 +33,14 @@ func TestNew(t *testing.T) {
 		wantErr: true,
 	}, {
 		name:   "builtin",
-		client: openapiclient.NewHardcodedBuiltins("1.27"),
+		client: openapiclient.NewHardcodedBuiltins("1.30"),
 		want: func() Loader {
-			validator, err := validator.New(openapiclient.NewHardcodedBuiltins("1.27"))
+			validator, err := validator.New(openapiclient.NewHardcodedBuiltins("1.30"))
 			require.NoError(t, err)
 			return &loader{
 				validator: validator,
 			}
 		}(),
-	}, {
-		name:    "invalid local",
-		client:  openapiclient.NewLocalCRDFiles(data.Crds(), "blam"),
-		wantErr: true,
 	}, {
 		name:   "composite - no clients",
 		client: openapiclient.NewComposite(),
@@ -61,22 +57,18 @@ func TestNew(t *testing.T) {
 		wantErr: true,
 	}, {
 		name:    "composite - with err client",
-		client:  openapiclient.NewComposite(openapiclient.NewHardcodedBuiltins("1.27"), errClient{}),
-		wantErr: true,
-	}, {
-		name:    "composite - invalid local",
-		client:  openapiclient.NewComposite(openapiclient.NewLocalCRDFiles(data.Crds(), "blam")),
+		client:  openapiclient.NewComposite(openapiclient.NewHardcodedBuiltins("1.30"), errClient{}),
 		wantErr: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := New(tt.client)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("%v failed, New() error = %v, wantErr %v", tt.name, err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("New() = %v, want %v", got, tt.want)
+				t.Errorf("%v failed, New() = %v, want %v", tt.name, got, tt.want)
 			}
 		})
 	}
@@ -110,30 +102,48 @@ func Test_loader_Load(t *testing.T) {
 		want     unstructured.Unstructured
 		wantErr  bool
 	}{{
-		name:    "nil",
-		loader:  newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
+		name: "nil",
+		loader: newLoader(func() openapi.Client {
+			file, _ := data.Crds()
+			return openapiclient.NewLocalCRDFiles(file)
+		}(),
+		),
 		wantErr: true,
 	}, {
-		name:     "empty GVK",
-		loader:   newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
+		name: "empty GVK",
+		loader: newLoader(func() openapi.Client {
+			file, _ := data.Crds()
+			return openapiclient.NewLocalCRDFiles(file)
+		}(),
+		),
 		document: []byte(`foo: bar`),
 		wantErr:  true,
 	}, {
-		name:   "not yaml",
-		loader: newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
+		name: "not yaml",
+		loader: newLoader(
+			func() openapi.Client {
+				file, _ := data.Crds()
+				return openapiclient.NewLocalCRDFiles(file)
+			}(),
+		),
 		document: []byte(`
 		foo
 		  bar
 		  - baz`),
 		wantErr: true,
 	}, {
-		name:     "unknown GVK",
-		loader:   newLoader(openapiclient.NewLocalCRDFiles(data.Crds(), "crds")),
+		name: "unknown GVK",
+		loader: newLoader(
+			func() openapi.Client {
+				file, _ := data.Crds()
+				return openapiclient.NewLocalCRDFiles(file)
+			}(),
+		),
 		document: loadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml"),
 		wantErr:  true,
 	}, {
 		name:   "bad schema",
-		loader: newLoader(openapiclient.NewHardcodedBuiltins("1.27")),
+		loader: newLoader(openapiclient.NewHardcodedBuiltins("1.30")),
 		document: []byte(`
 		apiVersion: v1
 		kind: Namespace
@@ -145,7 +155,7 @@ func Test_loader_Load(t *testing.T) {
 		wantErr: true,
 	}, {
 		name:     "ok",
-		loader:   newLoader(openapiclient.NewHardcodedBuiltins("1.27")),
+		loader:   newLoader(openapiclient.NewHardcodedBuiltins("1.30")),
 		document: loadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml"),
 		want:     toUnstructured(loadFile("../../../cmd/cli/kubectl-kyverno/_testdata/resources/namespace.yaml")),
 	}}

@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: test-policy-exceptions
+spec:
+  background: true
+  exceptions:
+  - policyName: require-run-as-nonroot
+    ruleNames:
+    - run-as-non-root
+    - autogen-run-as-non-root
+  match:
+    all:
+    - resources:
+        kinds:
+        - Pod

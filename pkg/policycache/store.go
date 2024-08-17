@@ -108,6 +108,17 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 	}
 	kindStates := map[policyKey]state{}
 	for _, rule := range autogen.ComputeRules(policy, "") {
+		if rule.HasValidate() {
+			action := rule.Validation.ValidationFailureAction
+			if action != nil && action.Enforce() {
+				enforcePolicy = true
+			}
+			for _, k := range rule.Validation.ValidationFailureActionOverrides {
+				if k.Action.Enforce() {
+					enforcePolicy = true
+				}
+			}
+		}
 		entries := sets.New[policyKey]()
 		for _, gvk := range rule.MatchResources.GetKinds() {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
