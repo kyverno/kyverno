@@ -1,7 +1,7 @@
 # Areas of code where @marcelmue always wants to be a reviewer/notified.
 /api                    @eddycharly @realshuting
 /api/kyverno/v1         @eddycharly
-/charts                 @treydock @eddycharly
+/charts                 @eddycharly
 /docs                   
 /pkg/autogen            @eddycharly
 /pkg/background         @realshuting
