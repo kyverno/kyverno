@@ -826,16 +826,6 @@ type CloneList struct {
 }
 
 func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
-	if namespaced {
-		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
-			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
-		}
-	}
-
-	if g.GeneratePatterns.GetType() == Data {
-		return errs
-	}
-
 	count := 0
 	if g.GetData() != nil {
 		count++
@@ -850,7 +840,7 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 		count++
 	}
 	if count > 1 {
-		errs = append(errs, field.Forbidden(path, "only one of data or clone can be specified"))
+		errs = append(errs, field.Forbidden(path, "only one of generate patterns(data, clone, cloneList and foreach) can be specified"))
 		return errs
 	}
 
@@ -866,6 +856,12 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 }
 
 func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if namespaced {
+		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
+			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+		}
+	}
+
 	if g.GetKind() != "" {
 		if !clusterResources.Has(g.GetAPIVersion() + "/" + g.GetKind()) {
 			if g.GetNamespace() == "" {
@@ -959,7 +955,7 @@ func (g *GeneratePatterns) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
-func (g *Generation) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
+func (g *GeneratePatterns) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
 	target := g.ResourceSpec
 	if clusterResources.Has(target.GetAPIVersion() + "/" + target.GetKind()) {
 		return fmt.Errorf("the target must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
