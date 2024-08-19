@@ -56,13 +56,18 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 		labels := map[string]string{
 			common.GeneratePolicyLabel:          policy.GetName(),
 			common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
-			common.GenerateRuleLabel:            rule.Name,
-			kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+			// common.GenerateRuleLabel:            rule.Name,
+			kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
 		}
 
 		downstreams, err := c.getDownstreams(rule, labels, &ruleContext)
 		if err != nil {
 			return fmt.Errorf("failed to fetch downstream resources: %v", err)
+		}
+
+		if downstreams.Items == nil {
+			logger.V(4).Info("no downstream resources found by label selectors", "labels", labels)
+			return nil
 		}
 		var errs []error
 		failedDownstreams := []kyvernov1.ResourceSpec{}
