@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-secret-pod
+  namespace: test-verify-images
+spec:
+  containers:
+  - image: ghcr.io/kyverno/test-verify-image:1
+    name: test-secret1
+  - image: ghcr.io/kyverno/test-verify-image:2
+    name: test-secret2
+  - image: ghcr.io/kyverno/test-verify-image:3
+    name: test-secret3
+  - image: ghcr.io/kyverno/test-verify-image:4
+    name: test-secret4
+  - image: ghcr.io/kyverno/test-verify-image:5
+    name: test-secret5
+  - image: ghcr.io/kyverno/test-verify-image:6
+    name: test-secret6
+  - image: ghcr.io/kyverno/test-verify-image:7
+    name: test-secret7
+  - image: ghcr.io/kyverno/test-verify-image:8
+    name: test-secret8
+  - image: ghcr.io/kyverno/test-verify-image:9
+    name: test-secret9
+  - image: ghcr.io/kyverno/test-verify-image:10
+    name: test-secret10
