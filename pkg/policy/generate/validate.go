@@ -52,12 +52,6 @@ func (g *Generate) Validate(ctx context.Context) (warnings []string, path string
 		}
 	}
 
-	if rule.CloneList.Selector != nil {
-		if wildcard.ContainsWildcard(rule.CloneList.Selector.String()) {
-			return nil, "selector", fmt.Errorf("wildcard characters `*/?` not supported")
-		}
-	}
-
 	if target := rule.GetData(); target != nil {
 		// TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
