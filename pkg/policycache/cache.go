@@ -54,13 +54,15 @@ func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, su
 	if pkey == ValidateAudit {
 		result = append(result, c.store.get(ValidateEnforce, gvr, subresource, "")...)
 	}
-	if pkey == ValidateAudit || pkey == ValidateEnforce {
+	if pkey == ValidateAudit || pkey == ValidateEnforce || pkey == VerifyImagesValidate {
 		result = filterPolicies(pkey, result, ns, nsLabels)
 	}
 	return result
 }
 
-// Filter cluster policies using validationFailureAction override
+// filterPolicies does the following:
+// 1. For validate policies, it filters out rules based on validationFailureActionOverrides.
+// 2. For verify image policies, it gets the rules that of type verifyImages.
 func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, ns string, nsLabels map[string]string) []kyvernov1.PolicyInterface {
 	var policies []kyvernov1.PolicyInterface
 	for _, policy := range result {
@@ -71,6 +73,8 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, ns stri
 			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, ns, nsLabels, policy)
 		case ValidateEnforce:
 			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, ns, nsLabels, policy)
+		case VerifyImagesValidate:
+			keepPolicy, filteredPolicy = getVerifyImageRules(policy)
 		}
 		// add policy to result
 		if keepPolicy {
@@ -131,5 +135,23 @@ func checkValidationFailureActionOverrides(enforce bool, ns string, nsLabels map
 		return true, filteredPolicy
 	}
 
+	return false, nil
+}
+
+func getVerifyImageRules(policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
+	rules := autogen.ComputeRules(policy, "")
+	filteredRules := make([]kyvernov1.Rule, 0, len(rules))
+	for _, rule := range rules {
+		if !rule.HasVerifyImages() {
+			continue
+		}
+		filteredRules = append(filteredRules, rule)
+	}
+
+	if len(filteredRules) > 0 {
+		filteredPolicy := policy.CreateDeepCopy()
+		filteredPolicy.GetSpec().Rules = filteredRules
+		return true, filteredPolicy
+	}
 	return false, nil
 }

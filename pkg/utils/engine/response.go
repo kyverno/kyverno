@@ -28,7 +28,7 @@ func BlockRequest(er engineapi.EngineResponse, failurePolicy kyvernov1.FailurePo
 			if spec.HasValidate() {
 				return true
 			}
-			if spec.HasVeirfyImageEnforce() {
+			if spec.HasVerifyImageEnforce() {
 				return true
 			}
 		}

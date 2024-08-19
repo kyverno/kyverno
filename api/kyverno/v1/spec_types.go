@@ -214,8 +214,8 @@ func (s *Spec) HasVerifyImages() bool {
 	return false
 }
 
-// HasVeirfyImageEnforce checks if the policy has any verify image rules with enforce action
-func (s *Spec) HasVeirfyImageEnforce() bool {
+// HasVerifyImageEnforce checks if the policy has any verify image rules with enforce action
+func (s *Spec) HasVerifyImageEnforce() bool {
 	for _, rule := range s.Rules {
 		if rule.HasVerifyImages() {
 			if rule.HasVerifyImageEnforce() {
