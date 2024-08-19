@@ -38,32 +38,17 @@ func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, use
 // Validate validates the 'generate' rule
 func (g *Generate) Validate(ctx context.Context) (warnings []string, path string, err error) {
 	rule := g.rule
-	if rule.GetData() != nil && rule.Clone != (kyvernov1.CloneFrom{}) {
-		return nil, "", fmt.Errorf("only one of data or clone can be specified")
+	if rule.CloneList.Selector != nil {
+		if wildcard.ContainsWildcard(rule.CloneList.Selector.String()) {
+			return nil, "selector", fmt.Errorf("wildcard characters `*/?` not supported")
+		}
 	}
 
-	if rule.Clone != (kyvernov1.CloneFrom{}) && len(rule.CloneList.Kinds) != 0 {
-		return nil, "", fmt.Errorf("only one of clone or cloneList can be specified")
-	}
-
-	apiVersion, kind, name, namespace := rule.ResourceSpec.GetAPIVersion(), rule.ResourceSpec.GetKind(), rule.ResourceSpec.GetName(), rule.ResourceSpec.GetNamespace()
-
-	if len(rule.CloneList.Kinds) == 0 {
-		if name == "" {
-			return nil, "name", fmt.Errorf("name cannot be empty")
-		}
-		if kind == "" {
-			return nil, "kind", fmt.Errorf("kind cannot be empty")
-		}
-		if apiVersion == "" {
-			return nil, "apiVersion", fmt.Errorf("apiVersion cannot be empty")
-		}
-	} else {
-		if name != "" {
-			return nil, "name", fmt.Errorf("with cloneList, generate.name. should not be specified")
-		}
-		if kind != "" {
-			return nil, "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified")
+	if target := rule.GetData(); target != nil {
+		// TODO: is this required ?? as anchors can only be on pattern and not resource
+		// we can add this check by not sure if its needed here
+		if path, err := common.ValidatePattern(target, "/", nil); err != nil {
+			return nil, fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
 		}
 	}
 
@@ -86,24 +71,35 @@ func (g *Generate) Validate(ctx context.Context) (warnings []string, path string
 	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
-	if len(rule.CloneList.Kinds) != 0 {
-		for _, kind = range rule.CloneList.Kinds {
-			gvk, sub := parseCloneKind(kind)
-			if err := g.validateAuth(ctx, gvk, namespace, sub); err != nil {
-				return nil, "", err
+	if rule.ForEachGeneration != nil {
+		for _, forEach := range rule.ForEachGeneration {
+			if err := g.validateAuth(ctx, forEach.GeneratePatterns); err != nil {
+				return nil, "foreach", err
 			}
 		}
 	} else {
-		k, sub := kubeutils.SplitSubresource(kind)
-		if err := g.validateAuth(ctx, strings.Join([]string{apiVersion, k}, "/"), namespace, sub); err != nil {
+		if err := g.validateAuth(ctx, rule.GeneratePatterns); err != nil {
 			return nil, "", err
 		}
 	}
 	return nil, "", nil
 }
 
-// canIGenerate returns a error if kyverno cannot perform operations
-func (g *Generate) validateAuth(ctx context.Context, gvk, namespace, subresource string) error {
+// validateAuth returns a error if kyverno cannot perform operations
+func (g *Generate) validateAuth(ctx context.Context, generate kyvernov1.GeneratePatterns) error {
+	if len(generate.CloneList.Kinds) != 0 {
+		for _, kind := range generate.CloneList.Kinds {
+			gvk, sub := parseCloneKind(kind)
+			return g.canIGenerate(ctx, gvk, generate.Namespace, sub)
+		}
+	} else {
+		k, sub := kubeutils.SplitSubresource(generate.Kind)
+		return g.canIGenerate(ctx, strings.Join([]string{generate.APIVersion, k}, "/"), generate.Namespace, sub)
+	}
+	return nil
+}
+
+func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource string) error {
 	if regex.IsVariable(gvk) {
 		g.log.V(2).Info("resource Kind uses variables; skipping authorization checks.")
 		return nil

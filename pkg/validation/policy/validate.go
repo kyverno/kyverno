@@ -724,6 +724,9 @@ func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecon
 	for _, fe := range rule.Mutation.Targets {
 		addContextVariables(fe.Context, ctx)
 	}
+	for _, fe := range rule.Generation.ForEachGeneration {
+		addContextVariables(fe.Context, ctx)
+	}
 	return ctx
 }
 
