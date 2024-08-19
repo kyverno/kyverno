@@ -52,14 +52,6 @@ func (g *Generate) Validate(ctx context.Context) (warnings []string, path string
 		}
 	}
 
-	if target := rule.GetData(); target != nil {
-		// TODO: is this required ?? as anchors can only be on pattern and not resource
-		// we can add this check by not sure if its needed here
-		if path, err := common.ValidatePattern(target, "/", nil); err != nil {
-			return nil, fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
-		}
-	}
-
 	// Kyverno generate-controller create/update/deletes the resources specified in generate rule of policy
 	// kyverno uses SA 'kyverno' and has default ClusterRoles and ClusterRoleBindings
 	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
