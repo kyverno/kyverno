@@ -41,35 +41,6 @@ func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, use
 // Validate validates the 'generate' rule
 func (g *Generate) Validate(ctx context.Context) (string, error) {
 	rule := g.rule
-	if rule.GetData() != nil && rule.Clone != (kyvernov1.CloneFrom{}) {
-		return "", fmt.Errorf("only one of data or clone can be specified")
-	}
-
-	if rule.Clone != (kyvernov1.CloneFrom{}) && len(rule.CloneList.Kinds) != 0 {
-		return "", fmt.Errorf("only one of clone or cloneList can be specified")
-	}
-
-	apiVersion, kind, name, namespace := rule.ResourceSpec.GetAPIVersion(), rule.ResourceSpec.GetKind(), rule.ResourceSpec.GetName(), rule.ResourceSpec.GetNamespace()
-
-	if len(rule.CloneList.Kinds) == 0 {
-		if name == "" {
-			return "name", fmt.Errorf("name cannot be empty")
-		}
-		if kind == "" {
-			return "kind", fmt.Errorf("kind cannot be empty")
-		}
-		if apiVersion == "" {
-			return "apiVersion", fmt.Errorf("apiVersion cannot be empty")
-		}
-	} else {
-		if name != "" {
-			return "name", fmt.Errorf("with cloneList, generate.name. should not be specified")
-		}
-		if kind != "" {
-			return "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified")
-		}
-	}
-
 	if rule.CloneList.Selector != nil {
 		if wildcard.ContainsWildcard(rule.CloneList.Selector.String()) {
 			return "selector", fmt.Errorf("wildcard characters `*/?` not supported")
@@ -89,20 +60,31 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
-	if len(rule.CloneList.Kinds) != 0 {
-		for _, kind = range rule.CloneList.Kinds {
-			gvk, sub := parseCloneKind(kind)
-			if err := g.canIGenerate(ctx, gvk, namespace, sub); err != nil {
-				return "", err
+	if rule.ForEachGeneration != nil {
+		for _, forEach := range rule.ForEachGeneration {
+			if err := g.canIGeneratePatterns(ctx, forEach.GeneratePatterns); err != nil {
+				return "foreach", err
 			}
 		}
 	} else {
-		k, sub := kubeutils.SplitSubresource(kind)
-		if err := g.canIGenerate(ctx, strings.Join([]string{apiVersion, k}, "/"), namespace, sub); err != nil {
+		if err := g.canIGeneratePatterns(ctx, rule.GeneratePatterns); err != nil {
 			return "", err
 		}
 	}
 	return "", nil
+}
+
+func (g *Generate) canIGeneratePatterns(ctx context.Context, generate kyvernov1.GeneratePatterns) error {
+	if len(generate.CloneList.Kinds) != 0 {
+		for _, kind := range generate.CloneList.Kinds {
+			gvk, sub := parseCloneKind(kind)
+			return g.canIGenerate(ctx, gvk, generate.Namespace, sub)
+		}
+	} else {
+		k, sub := kubeutils.SplitSubresource(generate.Kind)
+		return g.canIGenerate(ctx, strings.Join([]string{generate.APIVersion, k}, "/"), generate.Namespace, sub)
+	}
+	return nil
 }
 
 // canIGenerate returns a error if kyverno cannot perform operations

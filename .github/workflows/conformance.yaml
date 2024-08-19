@@ -105,6 +105,7 @@ jobs:
           - ^generate$/^clusterpolicy$
           - ^generate$/^policy$
           - ^generate$/^validation$
+          - ^generate$/^foreach$
           - ^globalcontext$
           - ^lease$
           - ^mutate$

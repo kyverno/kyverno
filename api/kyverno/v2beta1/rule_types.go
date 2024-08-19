@@ -137,13 +137,6 @@ func (r *Rule) HasGenerate() bool {
 	return !datautils.DeepEqual(r.Generation, kyvernov1.Generation{})
 }
 
-func (r *Rule) GetGenerateTypeAndSync() (_ kyvernov1.GenerateType, sync bool, orphanDownstream bool) {
-	if !r.HasGenerate() {
-		return
-	}
-	return r.Generation.GetTypeAndSyncAndOrphanDownstream()
-}
-
 // ValidateRuleType checks only one type of rule is defined per rule
 func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasVerifyImages()}
