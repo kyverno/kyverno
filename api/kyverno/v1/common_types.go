@@ -764,14 +764,14 @@ type Generation struct {
 	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty" yaml:"orphanDownstreamOnPolicyDelete,omitempty"`
 
 	// +optional
-	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
+	GeneratePattern `json:",omitempty" yaml:",omitempty"`
 
 	// ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachGeneration []ForEachGeneration `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
-type GeneratePatterns struct {
+type GeneratePattern struct {
 	// ResourceSpec contains information to select the resource.
 	// +kubebuilder:validation:Optional
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
@@ -809,7 +809,7 @@ type ForEachGeneration struct {
 	// +optional
 	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
-	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
+	GeneratePattern `json:",omitempty" yaml:",omitempty"`
 }
 
 type CloneList struct {
@@ -846,16 +846,16 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 
 	if g.ForEachGeneration != nil {
 		for i, foreach := range g.ForEachGeneration {
-			err := foreach.GeneratePatterns.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			err := foreach.GeneratePattern.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
 			errs = append(errs, err...)
 		}
 		return errs
 	} else {
-		return g.GeneratePatterns.Validate(path, namespaced, policyNamespace, clusterResources)
+		return g.GeneratePattern.Validate(path, namespaced, policyNamespace, clusterResources)
 	}
 }
 
-func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if namespaced {
 		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
 			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
@@ -874,7 +874,7 @@ func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNam
 		}
 	}
 
-	newGeneration := GeneratePatterns{
+	newGeneration := GeneratePattern{
 		ResourceSpec: ResourceSpec{
 			Kind:       g.ResourceSpec.GetKind(),
 			APIVersion: g.ResourceSpec.GetAPIVersion(),
@@ -902,7 +902,7 @@ func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNam
 	return append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
 }
 
-func (g *GeneratePatterns) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *GeneratePattern) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if len(g.CloneList.Kinds) == 0 {
 		return nil
 	}
@@ -939,7 +939,7 @@ func (g *GeneratePatterns) ValidateCloneList(path *field.Path, namespaced bool, 
 	return errs
 }
 
-func (g *GeneratePatterns) GetType() GenerateType {
+func (g *GeneratePattern) GetType() GenerateType {
 	if g.RawData != nil {
 		return Data
 	}
@@ -947,15 +947,15 @@ func (g *GeneratePatterns) GetType() GenerateType {
 	return Clone
 }
 
-func (g *GeneratePatterns) GetData() apiextensions.JSON {
+func (g *GeneratePattern) GetData() apiextensions.JSON {
 	return FromJSON(g.RawData)
 }
 
-func (g *GeneratePatterns) SetData(in apiextensions.JSON) {
+func (g *GeneratePattern) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
-func (g *GeneratePatterns) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
+func (g *GeneratePattern) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
 	target := g.ResourceSpec
 	if clusterResources.Has(target.GetAPIVersion() + "/" + target.GetKind()) {
 		return fmt.Errorf("the target must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
