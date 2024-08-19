@@ -242,15 +242,25 @@ func Test_ImageInfoLoader(t *testing.T) {
 		},
 		"spec": {
 		  "containers": [{
-			"name": "test-container",
+			"name": "test_container",
 			"image": "nginx:latest"
 		  }]
 		}
 	}`))
 	assert.Nil(t, err)
-	err = newContext().AddImageInfos(resource1, cfg)
+	newctx := newContext()
+	err = newctx.AddImageInfos(resource1, cfg)
 	assert.Nil(t, err)
-	resource2, err := kubeutils.BytesToUnstructured([]byte(`{
+	// images not loaded
+	assert.Nil(t, newctx.images)
+	// images loaded on Query
+	name, err := newctx.Query("images.containers.test_container.name")
+	assert.Nil(t, err)
+	assert.Equal(t, name, "nginx")
+}
+
+func Test_ImageInfoLoader_OnDirectCall(t *testing.T) {
+	resource1, err := kubeutils.BytesToUnstructured([]byte(`{
 		"apiVersion": "v1",
 		"kind": "Pod",
 		"metadata": {
@@ -259,12 +269,18 @@ func Test_ImageInfoLoader(t *testing.T) {
 		},
 		"spec": {
 		  "containers": [{
-			"name": "test-container",
-			"image": "@incorrect-image"
+			"name": "test_container",
+			"image": "nginx:latest"
 		  }]
 		}
 	}`))
 	assert.Nil(t, err)
-	err = newContext().AddImageInfos(resource2, cfg)
+	newctx := newContext()
+	err = newctx.AddImageInfos(resource1, cfg)
 	assert.Nil(t, err)
+	// images not loaded
+	assert.Nil(t, newctx.images)
+	// images loaded on explicit call to ImageInfo
+	imageinfos := newctx.ImageInfo()
+	assert.Equal(t, imageinfos["containers"]["test_container"].Name, "nginx")
 }
