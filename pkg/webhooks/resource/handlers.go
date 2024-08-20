@@ -63,6 +63,7 @@ type resourceHandlers struct {
 
 	admissionReports             bool
 	backgroundServiceAccountName string
+	reportsServiceAccountName    string
 	auditPool                    *pond.WorkerPool
 	reportsBreaker               breaker.Breaker
 }
@@ -82,6 +83,7 @@ func NewHandlers(
 	eventGen event.Interface,
 	admissionReports bool,
 	backgroundServiceAccountName string,
+	reportsServiceAccountName string,
 	jp jmespath.Interface,
 	maxAuditWorkers int,
 	maxAuditCapacity int,
@@ -103,6 +105,7 @@ func NewHandlers(
 		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
 		admissionReports:             admissionReports,
 		backgroundServiceAccountName: backgroundServiceAccountName,
+		reportsServiceAccountName:    reportsServiceAccountName,
 		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
 		reportsBreaker:               reportsBreaker,
 	}

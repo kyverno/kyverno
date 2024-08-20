@@ -47332,6 +47332,8 @@ metadata:
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
+        rbac.kyverno.io/aggregate-to-admission-controller: "true"
+    - matchLabels:
         app.kubernetes.io/component: admission-controller
         app.kubernetes.io/instance: kyverno
         app.kubernetes.io/part-of: kyverno
@@ -47462,14 +47464,6 @@ rules:
       - get
       - list
       - watch
-  - apiGroups:
-    - '*'
-    resources:
-    - '*'
-    verbs:
-    - get
-    - list
-    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -47482,6 +47476,8 @@ metadata:
     app.kubernetes.io/version: latest
 aggregationRule:
   clusterRoleSelectors:
+    - matchLabels:
+        rbac.kyverno.io/aggregate-to-background-controller: "true"
     - matchLabels:
         app.kubernetes.io/component: background-controller
         app.kubernetes.io/instance: kyverno
@@ -47507,7 +47503,9 @@ rules:
       - kyverno.io
     resources:
       - policies
+      - policies/status
       - clusterpolicies
+      - clusterpolicies/status
       - policyexceptions
       - updaterequests
       - updaterequests/status
@@ -47544,14 +47542,6 @@ rules:
       - update
       - watch
   - apiGroups:
-    - '*'
-    resources:
-    - '*'
-    verbs:
-    - get
-    - list
-    - watch
-  - apiGroups:
     - networking.k8s.io
     resources:
     - ingresses
@@ -47576,7 +47566,6 @@ rules:
     - ""
     resources:
     - configmaps
-    - secrets
     - resourcequotas
     - limitranges
     verbs:
@@ -47596,6 +47585,8 @@ metadata:
     app.kubernetes.io/version: latest
 aggregationRule:
   clusterRoleSelectors:
+    - matchLabels:
+        rbac.kyverno.io/aggregate-to-cleanup-controller: "true"
     - matchLabels:
         app.kubernetes.io/component: cleanup-controller
         app.kubernetes.io/instance: kyverno
@@ -47887,6 +47878,8 @@ metadata:
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
+        rbac.kyverno.io/aggregate-to-reports-controller: "true"
+    - matchLabels:
         app.kubernetes.io/component: reports-controller
         app.kubernetes.io/instance: kyverno
         app.kubernetes.io/part-of: kyverno
@@ -47910,7 +47903,6 @@ rules:
   - apiGroups:
       - ''
     resources:
-      - secrets
       - configmaps
       - namespaces
     verbs:
@@ -47972,14 +47964,6 @@ rules:
     verbs:
       - create
       - patch
-  - apiGroups:
-    - '*'
-    resources:
-    - '*'
-    verbs:
-    - get
-    - list
-    - watch
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -48002,6 +47986,24 @@ subjects:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+  name: kyverno:admission-controller:view
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-admission-controller
+    namespace: kyverno
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
   name: kyverno:background-controller
   labels:
     app.kubernetes.io/component: background-controller
@@ -48012,6 +48014,24 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: kyverno:background-controller
+subjects:
+- kind: ServiceAccount
+  name: kyverno-background-controller
+  namespace: kyverno
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:background-controller:view
+  labels:
+    app.kubernetes.io/component: background-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
 subjects:
 - kind: ServiceAccount
   name: kyverno-background-controller
@@ -48048,6 +48068,24 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: kyverno:reports-controller
+subjects:
+- kind: ServiceAccount
+  name: kyverno-reports-controller
+  namespace: kyverno
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:reports-controller:view
+  labels:
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
 subjects:
 - kind: ServiceAccount
   name: kyverno-reports-controller
@@ -48235,6 +48273,14 @@ rules:
     resourceNames:
       - kyverno
       - kyverno-metrics
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -48557,6 +48603,7 @@ spec:
             - --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca
             - --tlsSecretName=kyverno-svc.kyverno.svc.kyverno-tls-pair
             - --backgroundServiceAccountName=system:serviceaccount:kyverno:kyverno-background-controller
+            - --reportsServiceAccountName=system:serviceaccount:kyverno:kyverno-reports-controller
             - --servicePort=443
             - --webhookServerPort=9443
             - --disableMetrics=false
