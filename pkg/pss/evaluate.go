@@ -55,7 +55,7 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 			} else if level.Version != api.LatestVersion() && level.Version.Older(versionCheck.MinimumVersion) {
 				continue
 			}
-			checkResult := versionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec, policy.WithFieldErrors())
+			checkResult := versionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec)
 			// Append only if the checkResult is not already in pssCheckResult
 			if !checkResult.Allowed {
 				results = append(results, pssutils.PSSCheckResult{
