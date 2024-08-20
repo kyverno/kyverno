@@ -13,4 +13,21 @@ subjects:
   - kind: ServiceAccount
     name: {{ template "kyverno.admission-controller.serviceAccountName" . }}
     namespace: {{ template "kyverno.namespace" . }}
+{{- if .Values.admissionController.rbac.createViewRoleBinding }}
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.admission-controller.roleName" . }}:view
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.admissionController.rbac.viewRoleName }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+    namespace: {{ template "kyverno.namespace" . }}
+{{- end -}}
 {{- end -}}

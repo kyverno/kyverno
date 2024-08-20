@@ -358,6 +358,8 @@ The chart values are organised per component.
 | admissionController.featuresOverride | object | `{"admissionReports":{"backPressureThreshold":1000}}` | Overrides features defined at the root level |
 | admissionController.featuresOverride.admissionReports.backPressureThreshold | int | `1000` | Max number of admission reports allowed in flight until the admission controller stops creating new ones |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
+| admissionController.rbac.createViewRoleBinding | bool | `true` | Create rolebinding to view role |
+| admissionController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | admissionController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
@@ -454,6 +456,8 @@ The chart values are organised per component.
 | backgroundController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | backgroundController.enabled | bool | `true` | Enable background controller. |
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
+| backgroundController.rbac.createViewRoleBinding | bool | `true` | Create rolebinding to view role |
+| backgroundController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | backgroundController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
@@ -606,6 +610,8 @@ The chart values are organised per component.
 | reportsController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | reportsController.enabled | bool | `true` | Enable reports controller. |
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
+| reportsController.rbac.createViewRoleBinding | bool | `true` | Create rolebinding to view role |
+| reportsController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | reportsController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | reportsController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
