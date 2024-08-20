@@ -11,7 +11,7 @@ spec:
               kinds:
                 - rds.aws.crossplane.io/v1alpha1/DBCluster
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: "Final snapshot must not be skipped"
         pattern:
           spec:

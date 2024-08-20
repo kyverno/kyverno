@@ -23,7 +23,7 @@ spec:
           - Pod
     name: validate-image-tag
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: An image tag is required (:latest is not allowed)
       pattern:
         spec:
