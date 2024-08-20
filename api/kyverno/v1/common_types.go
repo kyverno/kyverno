@@ -749,9 +749,6 @@ type Generation struct {
 	// +optional
 	GenerateExisting *bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
 
-	// ResourceSpec contains information to select the resource.
-	ResourceSpec `json:",omitempty" yaml:",omitempty"`
-
 	// Synchronize controls if generated resources should be kept in-sync with their source resource.
 	// If Synchronize is set to "true" changes to generated resources will be overwritten with resource
 	// data from Data or the resource specified in the Clone declaration.
@@ -765,6 +762,19 @@ type Generation struct {
 	// Defaults to "false" if not specified.
 	// +optional
 	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty" yaml:"orphanDownstreamOnPolicyDelete,omitempty"`
+
+	// +optional
+	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
+
+	// ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+	// +optional
+	ForEachGeneration []ForEachGeneration `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+type GeneratePatterns struct {
+	// ResourceSpec contains information to select the resource.
+	// +kubebuilder:validation:Optional
+	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
 	// Data provides the resource declaration used to populate each generated resource.
 	// At most one of Data or Clone must be specified. If neither are provided, the generated
@@ -783,6 +793,25 @@ type Generation struct {
 	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
 }
 
+type ForEachGeneration struct {
+	// List specifies a JMESPath expression that results in one or more elements
+	// to which the validation logic is applied.
+	List string `json:"list,omitempty" yaml:"list,omitempty"`
+
+	// Context defines variables and data sources that can be used during rule execution.
+	// +optional
+	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
+	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
+	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
+}
+
 type CloneList struct {
 	// Namespace specifies source resource namespace.
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
@@ -797,30 +826,55 @@ type CloneList struct {
 }
 
 func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	count := 0
+	if g.GetData() != nil {
+		count++
+	}
+	if g.Clone != (CloneFrom{}) {
+		count++
+	}
+	if g.CloneList.Kinds != nil {
+		count++
+	}
+	if g.ForEachGeneration != nil {
+		count++
+	}
+	if count > 1 {
+		errs = append(errs, field.Forbidden(path, "only one of generate patterns(data, clone, cloneList and foreach) can be specified"))
+		return errs
+	}
+
+	if g.ForEachGeneration != nil {
+		for i, foreach := range g.ForEachGeneration {
+			err := foreach.GeneratePatterns.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			errs = append(errs, err...)
+		}
+		return errs
+	} else {
+		return g.GeneratePatterns.Validate(path, namespaced, policyNamespace, clusterResources)
+	}
+}
+
+func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if namespaced {
 		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
-			errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
 		}
 	}
 
 	if g.GetKind() != "" {
 		if !clusterResources.Has(g.GetAPIVersion() + "/" + g.GetKind()) {
 			if g.GetNamespace() == "" {
-				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must be set for a namespaced resource"))
+				errs = append(errs, field.Forbidden(path.Child("namespace"), "target namespace must be set for a namespaced resource"))
 			}
 		} else {
 			if g.GetNamespace() != "" {
-				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
+				errs = append(errs, field.Forbidden(path.Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
 			}
 		}
 	}
 
-	generateType, _, _ := g.GetTypeAndSyncAndOrphanDownstream()
-	if generateType == Data {
-		return errs
-	}
-
-	newGeneration := Generation{
+	newGeneration := GeneratePatterns{
 		ResourceSpec: ResourceSpec{
 			Kind:       g.ResourceSpec.GetKind(),
 			APIVersion: g.ResourceSpec.GetAPIVersion(),
@@ -830,23 +884,25 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 	}
 
 	if err := regex.ObjectHasVariables(newGeneration); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+		errs = append(errs, field.Forbidden(path.Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
 	}
 
 	if len(g.CloneList.Kinds) == 0 {
 		if g.Kind == "" {
-			errs = append(errs, field.Forbidden(path.Child("generate").Child("kind"), "kind can not be empty"))
+			errs = append(errs, field.Forbidden(path.Child("kind"), "kind can not be empty"))
 		}
 		if g.Name == "" {
-			errs = append(errs, field.Forbidden(path.Child("generate").Child("name"), "name can not be empty"))
+			errs = append(errs, field.Forbidden(path.Child("name"), "name can not be empty"))
+		}
+		if g.APIVersion == "" {
+			errs = append(errs, field.Forbidden(path.Child("apiVersion"), "apiVersion can not be empty"))
 		}
 	}
 
-	errs = append(errs, g.ValidateCloneList(path.Child("generate"), namespaced, policyNamespace, clusterResources)...)
-	return errs
+	return append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
 }
 
-func (g *Generation) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *GeneratePatterns) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if len(g.CloneList.Kinds) == 0 {
 		return nil
 	}
@@ -883,15 +939,23 @@ func (g *Generation) ValidateCloneList(path *field.Path, namespaced bool, policy
 	return errs
 }
 
-func (g *Generation) GetData() apiextensions.JSON {
+func (g *GeneratePatterns) GetType() GenerateType {
+	if g.RawData != nil {
+		return Data
+	}
+
+	return Clone
+}
+
+func (g *GeneratePatterns) GetData() apiextensions.JSON {
 	return FromJSON(g.RawData)
 }
 
-func (g *Generation) SetData(in apiextensions.JSON) {
+func (g *GeneratePatterns) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
-func (g *Generation) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
+func (g *GeneratePatterns) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
 	target := g.ResourceSpec
 	if clusterResources.Has(target.GetAPIVersion() + "/" + target.GetKind()) {
 		return fmt.Errorf("the target must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
@@ -915,13 +979,6 @@ const (
 	Data  GenerateType = "Data"
 	Clone GenerateType = "Clone"
 )
-
-func (g *Generation) GetTypeAndSyncAndOrphanDownstream() (GenerateType, bool, bool) {
-	if g.RawData != nil {
-		return Data, g.Synchronize, g.OrphanDownstreamOnPolicyDelete
-	}
-	return Clone, g.Synchronize, g.OrphanDownstreamOnPolicyDelete
-}
 
 // CloneFrom provides the location of the source resource used to generate target resources.
 // The resource kind is derived from the match criteria.
