@@ -261,7 +261,7 @@ func (iv *ImageVerifier) Verify(
 		start := time.Now()
 		isInCache := false
 		if iv.ivCache != nil {
-			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
+			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
 			if err != nil {
 				iv.logger.Error(err, "error occurred during cache get")
 			} else {
@@ -280,7 +280,7 @@ func (iv *ImageVerifier) Verify(
 			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
 			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
 				if iv.ivCache != nil {
-					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
+					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
 					if err != nil {
 						iv.logger.Error(err, "error occurred during cache set")
 					} else {
@@ -556,6 +556,10 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		Client:      iv.rclient,
 	}
 
+	if imageVerify.Type == kyvernov1.SigstoreBundle {
+		opts.SigstoreBundle = true
+	}
+
 	if imageVerify.Roots != "" {
 		opts.Roots = imageVerify.Roots
 	}
@@ -639,7 +643,9 @@ func (iv *ImageVerifier) buildCosignVerifier(
 
 		opts.Roots = attestor.Keyless.Roots
 		opts.Issuer = attestor.Keyless.Issuer
+		opts.IssuerRegExp = attestor.Keyless.IssuerRegExp
 		opts.Subject = attestor.Keyless.Subject
+		opts.SubjectRegExp = attestor.Keyless.SubjectRegExp
 		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions
 	}
 

@@ -40,7 +40,8 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 		return fmt.Errorf("unable to read policy file or directory %s (%w)", dir, err)
 	}
 	for _, policy := range results.Policies {
-		if _, err := policyvalidation.Validate(policy, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName())); err != nil {
+		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
+		if _, err := policyvalidation.Validate(policy, nil, nil, nil, true, sa, sa); err != nil {
 			return fmt.Errorf("validating policy %s: %v", policy.GetName(), err)
 		}
 	}

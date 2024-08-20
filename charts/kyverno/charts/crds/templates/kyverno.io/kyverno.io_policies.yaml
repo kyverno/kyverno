@@ -1078,6 +1078,407 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
+                        foreach:
+                          description: ForEach applies generate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
+                          items:
+                            properties:
+                              apiVersion:
+                                description: APIVersion specifies resource apiVersion.
+                                type: string
+                              clone:
+                                description: |-
+                                  Clone specifies the source resource used to populate each generated resource.
+                                  At most one of Data or Clone can be specified. If neither are provided, the generated
+                                  resource will be created with default data only.
+                                properties:
+                                  name:
+                                    description: Name specifies name of the resource.
+                                    type: string
+                                  namespace:
+                                    description: Namespace specifies source resource
+                                      namespace.
+                                    type: string
+                                type: object
+                              cloneList:
+                                description: CloneList specifies the list of source
+                                  resource used to populate each generated resource.
+                                properties:
+                                  kinds:
+                                    description: Kinds is a list of resource kinds.
+                                    items:
+                                      type: string
+                                    type: array
+                                  namespace:
+                                    description: Namespace specifies source resource
+                                      namespace.
+                                    type: string
+                                  selector:
+                                    description: |-
+                                      Selector is a label selector. Label keys and values in `matchLabels`.
+                                      wildcard characters are not supported.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                type: object
+                              context:
+                                description: Context defines variables and data sources
+                                  that can be used during rule execution.
+                                items:
+                                  description: |-
+                                    ContextEntry adds variables and data sources to a rule Context. Either a
+                                    ConfigMap reference or a APILookup must be provided.
+                                  properties:
+                                    apiCall:
+                                      description: |-
+                                        APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context with the name for the context entry.
+                                      properties:
+                                        data:
+                                          description: |-
+                                            The data object specifies the POST data sent to the server.
+                                            Only applicable when the method field is set to POST.
+                                          items:
+                                            description: RequestData contains the
+                                              HTTP POST data
+                                            properties:
+                                              key:
+                                                description: Key is a unique identifier
+                                                  for the data value
+                                                type: string
+                                              value:
+                                                description: Value is the data value
+                                                x-kubernetes-preserve-unknown-fields: true
+                                            required:
+                                            - key
+                                            - value
+                                            type: object
+                                          type: array
+                                        jmesPath:
+                                          description: |-
+                                            JMESPath is an optional JSON Match Expression that can be used to
+                                            transform the JSON response returned from the server. For example
+                                            a JMESPath of "items | length(@)" applied to the API server response
+                                            for the URLPath "/apis/apps/v1/deployments" will return the total count
+                                            of deployments across all namespaces.
+                                          type: string
+                                        method:
+                                          default: GET
+                                          description: Method is the HTTP request
+                                            type (GET or POST). Defaults to GET.
+                                          enum:
+                                          - GET
+                                          - POST
+                                          type: string
+                                        service:
+                                          description: |-
+                                            Service is an API call to a JSON web service.
+                                            This is used for non-Kubernetes API server calls.
+                                            It's mutually exclusive with the URLPath field.
+                                          properties:
+                                            caBundle:
+                                              description: |-
+                                                CABundle is a PEM encoded CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            url:
+                                              description: |-
+                                                URL is the JSON web service URL. A typical form is
+                                                `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - url
+                                          type: object
+                                        urlPath:
+                                          description: |-
+                                            URLPath is the URL path to be used in the HTTP GET or POST request to the
+                                            Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
+                                            The format required is the same format used by the `kubectl get --raw` command.
+                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            for details.
+                                            It's mutually exclusive with the Service field.
+                                          type: string
+                                      type: object
+                                    configMap:
+                                      description: ConfigMap is the ConfigMap reference.
+                                      properties:
+                                        name:
+                                          description: Name is the ConfigMap name.
+                                          type: string
+                                        namespace:
+                                          description: Namespace is the ConfigMap
+                                            namespace.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: |-
+                                            JMESPath is an optional JSON Match Expression that can be used to
+                                            transform the JSON response returned from the server. For example
+                                            a JMESPath of "items | length(@)" applied to the API server response
+                                            for the URLPath "/apis/apps/v1/deployments" will return the total count
+                                            of deployments across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
+                                      type: object
+                                    imageRegistry:
+                                      description: |-
+                                        ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry.
+                                              type: boolean
+                                            providers:
+                                              description: |-
+                                                Providers specifies a list of OCI Registry names, whose authentication providers are provided.
+                                                It can be of one of these values: default,google,azure,amazon,github.
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: |-
+                                                Secrets specifies a list of secrets that are provided for credentials.
+                                                Secrets must live in the Kyverno namespace.
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
+                                        jmesPath:
+                                          description: |-
+                                            JMESPath is an optional JSON Match Expression that can be used to
+                                            transform the ImageData struct returned as a result of processing
+                                            the image reference.
+                                          type: string
+                                        reference:
+                                          description: |-
+                                            Reference is image reference to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the variable may take if the JMESPath
+                                            expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: |-
+                                            JMESPath is an optional JMESPath Expression that can be used to
+                                            transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                  type: object
+                                type: array
+                              data:
+                                description: |-
+                                  Data provides the resource declaration used to populate each generated resource.
+                                  At most one of Data or Clone must be specified. If neither are provided, the generated
+                                  resource will be created with default data only.
+                                x-kubernetes-preserve-unknown-fields: true
+                              kind:
+                                description: Kind specifies resource kind.
+                                type: string
+                              list:
+                                description: |-
+                                  List specifies a JMESPath expression that results in one or more elements
+                                  to which the validation logic is applied.
+                                type: string
+                              name:
+                                description: Name specifies the resource name.
+                                type: string
+                              namespace:
+                                description: Namespace specifies resource namespace.
+                                type: string
+                              preconditions:
+                                description: |-
+                                  AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+                                  set of conditions. The declaration can contain nested `any` or `all` statements.
+                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                properties:
+                                  all:
+                                    description: |-
+                                      AllConditions enable variable-based conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A condition can reference object data
+                                      using JMESPath notation.
+                                      Here, all of the conditions need to pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            Operator is the conditional operation to perform. Valid operators are:
+                                            Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - AnyIn
+                                          - AllIn
+                                          - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: |-
+                                            Value is the conditional value, or set of values. The values can be fixed set
+                                            or can be variables declared using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                  any:
+                                    description: |-
+                                      AnyConditions enable variable-based conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A condition can reference object data
+                                      using JMESPath notation.
+                                      Here, at least one of the conditions need to pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            Operator is the conditional operation to perform. Valid operators are:
+                                            Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - AnyIn
+                                          - AllIn
+                                          - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: |-
+                                            Value is the conditional value, or set of values. The values can be fixed set
+                                            or can be variables declared using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              uid:
+                                description: UID specifies the resource uid.
+                                type: string
+                            type: object
+                          type: array
                         generateExisting:
                           description: |-
                             GenerateExisting controls whether to trigger the rule in existing resources
@@ -3170,6 +3571,11 @@ spec:
                                               description: Issuer is the certificate
                                                 issuer used for keyless signing.
                                               type: string
+                                            issuerRegExp:
+                                              description: IssuerRegExp is the regular
+                                                expression to match certificate issuer
+                                                used for keyless signing.
+                                              type: string
                                             rekor:
                                               description: |-
                                                 Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -3200,6 +3606,12 @@ spec:
                                               description: Subject is the verified
                                                 identity used for keyless signing,
                                                 for example the email address.
+                                              type: string
+                                            subjectRegExp:
+                                              description: SubjectRegExp is the regular
+                                                expression to match identity used
+                                                for keyless signing, for example the
+                                                email address.
                                               type: string
                                           type: object
                                         keys:
@@ -3670,6 +4082,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -3700,6 +4117,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -4047,6 +4470,11 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          issuerRegExp:
+                                            description: IssuerRegExp is the regular
+                                              expression to match certificate issuer
+                                              used for keyless signing.
+                                            type: string
                                           rekor:
                                             description: |-
                                               Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -4076,6 +4504,12 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address.
+                                            type: string
+                                          subjectRegExp:
+                                            description: SubjectRegExp is the regular
+                                              expression to match identity used for
+                                              keyless signing, for example the email
+                                              address.
                                             type: string
                                         type: object
                                       keys:
@@ -4263,9 +4697,10 @@ spec:
                           type:
                             description: |-
                               Type specifies the method of signature validation. The allowed options
-                              are Cosign and Notary. By default Cosign is used if a type is not specified.
+                              are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                             enum:
                             - Cosign
+                            - SigstoreBundle
                             - Notary
                             type: string
                           useCache:
@@ -5414,6 +5849,415 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
+                            foreach:
+                              description: ForEach applies generate rules to a list
+                                of sub-elements by creating a context for each entry
+                                in the list and looping over it to apply the specified
+                                logic.
+                              items:
+                                properties:
+                                  apiVersion:
+                                    description: APIVersion specifies resource apiVersion.
+                                    type: string
+                                  clone:
+                                    description: |-
+                                      Clone specifies the source resource used to populate each generated resource.
+                                      At most one of Data or Clone can be specified. If neither are provided, the generated
+                                      resource will be created with default data only.
+                                    properties:
+                                      name:
+                                        description: Name specifies name of the resource.
+                                        type: string
+                                      namespace:
+                                        description: Namespace specifies source resource
+                                          namespace.
+                                        type: string
+                                    type: object
+                                  cloneList:
+                                    description: CloneList specifies the list of source
+                                      resource used to populate each generated resource.
+                                    properties:
+                                      kinds:
+                                        description: Kinds is a list of resource kinds.
+                                        items:
+                                          type: string
+                                        type: array
+                                      namespace:
+                                        description: Namespace specifies source resource
+                                          namespace.
+                                        type: string
+                                      selector:
+                                        description: |-
+                                          Selector is a label selector. Label keys and values in `matchLabels`.
+                                          wildcard characters are not supported.
+                                        properties:
+                                          matchExpressions:
+                                            description: matchExpressions is a list
+                                              of label selector requirements. The
+                                              requirements are ANDed.
+                                            items:
+                                              description: |-
+                                                A label selector requirement is a selector that contains values, a key, and an operator that
+                                                relates the key and values.
+                                              properties:
+                                                key:
+                                                  description: key is the label key
+                                                    that the selector applies to.
+                                                  type: string
+                                                operator:
+                                                  description: |-
+                                                    operator represents a key's relationship to a set of values.
+                                                    Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                  type: string
+                                                values:
+                                                  description: |-
+                                                    values is an array of string values. If the operator is In or NotIn,
+                                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                    the values array must be empty. This array is replaced during a strategic
+                                                    merge patch.
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                  x-kubernetes-list-type: atomic
+                                              required:
+                                              - key
+                                              - operator
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          matchLabels:
+                                            additionalProperties:
+                                              type: string
+                                            description: |-
+                                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                              map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                              operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                            type: object
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                    type: object
+                                  context:
+                                    description: Context defines variables and data
+                                      sources that can be used during rule execution.
+                                    items:
+                                      description: |-
+                                        ContextEntry adds variables and data sources to a rule Context. Either a
+                                        ConfigMap reference or a APILookup must be provided.
+                                      properties:
+                                        apiCall:
+                                          description: |-
+                                            APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
+                                            The data returned is stored in the context with the name for the context entry.
+                                          properties:
+                                            data:
+                                              description: |-
+                                                The data object specifies the POST data sent to the server.
+                                                Only applicable when the method field is set to POST.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            jmesPath:
+                                              description: |-
+                                                JMESPath is an optional JSON Match Expression that can be used to
+                                                transform the JSON response returned from the server. For example
+                                                a JMESPath of "items | length(@)" applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments" will return the total count
+                                                of deployments across all namespaces.
+                                              type: string
+                                            method:
+                                              default: GET
+                                              description: Method is the HTTP request
+                                                type (GET or POST). Defaults to GET.
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            service:
+                                              description: |-
+                                                Service is an API call to a JSON web service.
+                                                This is used for non-Kubernetes API server calls.
+                                                It's mutually exclusive with the URLPath field.
+                                              properties:
+                                                caBundle:
+                                                  description: |-
+                                                    CABundle is a PEM encoded CA bundle which will be used to validate
+                                                    the server certificate.
+                                                  type: string
+                                                url:
+                                                  description: |-
+                                                    URL is the JSON web service URL. A typical form is
+                                                    `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - url
+                                              type: object
+                                            urlPath:
+                                              description: |-
+                                                URLPath is the URL path to be used in the HTTP GET or POST request to the
+                                                Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
+                                                The format required is the same format used by the `kubectl get --raw` command.
+                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                for details.
+                                                It's mutually exclusive with the Service field.
+                                              type: string
+                                          type: object
+                                        configMap:
+                                          description: ConfigMap is the ConfigMap
+                                            reference.
+                                          properties:
+                                            name:
+                                              description: Name is the ConfigMap name.
+                                              type: string
+                                            namespace:
+                                              description: Namespace is the ConfigMap
+                                                namespace.
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: |-
+                                                JMESPath is an optional JSON Match Expression that can be used to
+                                                transform the JSON response returned from the server. For example
+                                                a JMESPath of "items | length(@)" applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments" will return the total count
+                                                of deployments across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
+                                          type: object
+                                        imageRegistry:
+                                          description: |-
+                                            ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+                                            details.
+                                          properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry.
+                                                  type: boolean
+                                                providers:
+                                                  description: |-
+                                                    Providers specifies a list of OCI Registry names, whose authentication providers are provided.
+                                                    It can be of one of these values: default,google,azure,amazon,github.
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: |-
+                                                    Secrets specifies a list of secrets that are provided for credentials.
+                                                    Secrets must live in the Kyverno namespace.
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
+                                            jmesPath:
+                                              description: |-
+                                                JMESPath is an optional JSON Match Expression that can be used to
+                                                transform the ImageData struct returned as a result of processing
+                                                the image reference.
+                                              type: string
+                                            reference:
+                                              description: |-
+                                                Reference is image reference to a container image in the registry.
+                                                Example: ghcr.io/kyverno/kyverno:latest
+                                              type: string
+                                          required:
+                                          - reference
+                                          type: object
+                                        name:
+                                          description: Name is the variable name.
+                                          type: string
+                                        variable:
+                                          description: Variable defines an arbitrary
+                                            JMESPath context variable that can be
+                                            defined inline.
+                                          properties:
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the variable may take if the JMESPath
+                                                expression evaluates to nil
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            jmesPath:
+                                              description: |-
+                                                JMESPath is an optional JMESPath Expression that can be used to
+                                                transform the variable.
+                                              type: string
+                                            value:
+                                              description: Value is any arbitrary
+                                                JSON object representable in YAML
+                                                or JSON form.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          type: object
+                                      type: object
+                                    type: array
+                                  data:
+                                    description: |-
+                                      Data provides the resource declaration used to populate each generated resource.
+                                      At most one of Data or Clone must be specified. If neither are provided, the generated
+                                      resource will be created with default data only.
+                                    x-kubernetes-preserve-unknown-fields: true
+                                  kind:
+                                    description: Kind specifies resource kind.
+                                    type: string
+                                  list:
+                                    description: |-
+                                      List specifies a JMESPath expression that results in one or more elements
+                                      to which the validation logic is applied.
+                                    type: string
+                                  name:
+                                    description: Name specifies the resource name.
+                                    type: string
+                                  namespace:
+                                    description: Namespace specifies resource namespace.
+                                    type: string
+                                  preconditions:
+                                    description: |-
+                                      AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+                                      set of conditions. The declaration can contain nested `any` or `all` statements.
+                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                    properties:
+                                      all:
+                                        description: |-
+                                          AllConditions enable variable-based conditional rule execution. This is useful for
+                                          finer control of when an rule is applied. A condition can reference object data
+                                          using JMESPath notation.
+                                          Here, all of the conditions need to pass
+                                        items:
+                                          description: Condition defines variable-based
+                                            conditional criteria for rule execution.
+                                          properties:
+                                            key:
+                                              description: Key is the context entry
+                                                (using JMESPath) for conditional rule
+                                                evaluation.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                Operator is the conditional operation to perform. Valid operators are:
+                                                Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                                GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+                                                DurationLessThanOrEquals, DurationLessThan
+                                              enum:
+                                              - Equals
+                                              - NotEquals
+                                              - In
+                                              - AnyIn
+                                              - AllIn
+                                              - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
+                                              type: string
+                                            value:
+                                              description: |-
+                                                Value is the conditional value, or set of values. The values can be fixed set
+                                                or can be variables declared using JMESPath.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          type: object
+                                        type: array
+                                      any:
+                                        description: |-
+                                          AnyConditions enable variable-based conditional rule execution. This is useful for
+                                          finer control of when an rule is applied. A condition can reference object data
+                                          using JMESPath notation.
+                                          Here, at least one of the conditions need to pass
+                                        items:
+                                          description: Condition defines variable-based
+                                            conditional criteria for rule execution.
+                                          properties:
+                                            key:
+                                              description: Key is the context entry
+                                                (using JMESPath) for conditional rule
+                                                evaluation.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                Operator is the conditional operation to perform. Valid operators are:
+                                                Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                                GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+                                                DurationLessThanOrEquals, DurationLessThan
+                                              enum:
+                                              - Equals
+                                              - NotEquals
+                                              - In
+                                              - AnyIn
+                                              - AllIn
+                                              - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
+                                              type: string
+                                            value:
+                                              description: |-
+                                                Value is the conditional value, or set of values. The values can be fixed set
+                                                or can be variables declared using JMESPath.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          type: object
+                                        type: array
+                                    type: object
+                                    x-kubernetes-preserve-unknown-fields: true
+                                  uid:
+                                    description: UID specifies the resource uid.
+                                    type: string
+                                type: object
+                              type: array
                             generateExisting:
                               description: |-
                                 GenerateExisting controls whether to trigger the rule in existing resources
@@ -7541,6 +8385,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -7571,6 +8420,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -8046,6 +8901,12 @@ spec:
                                                       description: Issuer is the certificate
                                                         issuer used for keyless signing.
                                                       type: string
+                                                    issuerRegExp:
+                                                      description: IssuerRegExp is
+                                                        the regular expression to
+                                                        match certificate issuer used
+                                                        for keyless signing.
+                                                      type: string
                                                     rekor:
                                                       description: |-
                                                         Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -8078,6 +8939,13 @@ spec:
                                                         verified identity used for
                                                         keyless signing, for example
                                                         the email address.
+                                                      type: string
+                                                    subjectRegExp:
+                                                      description: SubjectRegExp is
+                                                        the regular expression to
+                                                        match identity used for keyless
+                                                        signing, for example the email
+                                                        address.
                                                       type: string
                                                   type: object
                                                 keys:
@@ -8429,6 +9297,11 @@ spec:
                                                 description: Issuer is the certificate
                                                   issuer used for keyless signing.
                                                 type: string
+                                              issuerRegExp:
+                                                description: IssuerRegExp is the regular
+                                                  expression to match certificate
+                                                  issuer used for keyless signing.
+                                                type: string
                                               rekor:
                                                 description: |-
                                                   Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -8459,6 +9332,12 @@ spec:
                                                 description: Subject is the verified
                                                   identity used for keyless signing,
                                                   for example the email address.
+                                                type: string
+                                              subjectRegExp:
+                                                description: SubjectRegExp is the
+                                                  regular expression to match identity
+                                                  used for keyless signing, for example
+                                                  the email address.
                                                 type: string
                                             type: object
                                           keys:
@@ -8649,9 +9528,10 @@ spec:
                               type:
                                 description: |-
                                   Type specifies the method of signature validation. The allowed options
-                                  are Cosign and Notary. By default Cosign is used if a type is not specified.
+                                  are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
+                                - SigstoreBundle
                                 - Notary
                                 type: string
                               useCache:
@@ -9650,6 +10530,407 @@ spec:
                             At most one of Data or Clone must be specified. If neither are provided, the generated
                             resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
+                        foreach:
+                          description: ForEach applies generate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
+                          items:
+                            properties:
+                              apiVersion:
+                                description: APIVersion specifies resource apiVersion.
+                                type: string
+                              clone:
+                                description: |-
+                                  Clone specifies the source resource used to populate each generated resource.
+                                  At most one of Data or Clone can be specified. If neither are provided, the generated
+                                  resource will be created with default data only.
+                                properties:
+                                  name:
+                                    description: Name specifies name of the resource.
+                                    type: string
+                                  namespace:
+                                    description: Namespace specifies source resource
+                                      namespace.
+                                    type: string
+                                type: object
+                              cloneList:
+                                description: CloneList specifies the list of source
+                                  resource used to populate each generated resource.
+                                properties:
+                                  kinds:
+                                    description: Kinds is a list of resource kinds.
+                                    items:
+                                      type: string
+                                    type: array
+                                  namespace:
+                                    description: Namespace specifies source resource
+                                      namespace.
+                                    type: string
+                                  selector:
+                                    description: |-
+                                      Selector is a label selector. Label keys and values in `matchLabels`.
+                                      wildcard characters are not supported.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                type: object
+                              context:
+                                description: Context defines variables and data sources
+                                  that can be used during rule execution.
+                                items:
+                                  description: |-
+                                    ContextEntry adds variables and data sources to a rule Context. Either a
+                                    ConfigMap reference or a APILookup must be provided.
+                                  properties:
+                                    apiCall:
+                                      description: |-
+                                        APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context with the name for the context entry.
+                                      properties:
+                                        data:
+                                          description: |-
+                                            The data object specifies the POST data sent to the server.
+                                            Only applicable when the method field is set to POST.
+                                          items:
+                                            description: RequestData contains the
+                                              HTTP POST data
+                                            properties:
+                                              key:
+                                                description: Key is a unique identifier
+                                                  for the data value
+                                                type: string
+                                              value:
+                                                description: Value is the data value
+                                                x-kubernetes-preserve-unknown-fields: true
+                                            required:
+                                            - key
+                                            - value
+                                            type: object
+                                          type: array
+                                        jmesPath:
+                                          description: |-
+                                            JMESPath is an optional JSON Match Expression that can be used to
+                                            transform the JSON response returned from the server. For example
+                                            a JMESPath of "items | length(@)" applied to the API server response
+                                            for the URLPath "/apis/apps/v1/deployments" will return the total count
+                                            of deployments across all namespaces.
+                                          type: string
+                                        method:
+                                          default: GET
+                                          description: Method is the HTTP request
+                                            type (GET or POST). Defaults to GET.
+                                          enum:
+                                          - GET
+                                          - POST
+                                          type: string
+                                        service:
+                                          description: |-
+                                            Service is an API call to a JSON web service.
+                                            This is used for non-Kubernetes API server calls.
+                                            It's mutually exclusive with the URLPath field.
+                                          properties:
+                                            caBundle:
+                                              description: |-
+                                                CABundle is a PEM encoded CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            url:
+                                              description: |-
+                                                URL is the JSON web service URL. A typical form is
+                                                `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - url
+                                          type: object
+                                        urlPath:
+                                          description: |-
+                                            URLPath is the URL path to be used in the HTTP GET or POST request to the
+                                            Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
+                                            The format required is the same format used by the `kubectl get --raw` command.
+                                            See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                            for details.
+                                            It's mutually exclusive with the Service field.
+                                          type: string
+                                      type: object
+                                    configMap:
+                                      description: ConfigMap is the ConfigMap reference.
+                                      properties:
+                                        name:
+                                          description: Name is the ConfigMap name.
+                                          type: string
+                                        namespace:
+                                          description: Namespace is the ConfigMap
+                                            namespace.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    globalReference:
+                                      description: GlobalContextEntryReference is
+                                        a reference to a cached global context entry.
+                                      properties:
+                                        jmesPath:
+                                          description: |-
+                                            JMESPath is an optional JSON Match Expression that can be used to
+                                            transform the JSON response returned from the server. For example
+                                            a JMESPath of "items | length(@)" applied to the API server response
+                                            for the URLPath "/apis/apps/v1/deployments" will return the total count
+                                            of deployments across all namespaces.
+                                          type: string
+                                        name:
+                                          description: Name of the global context
+                                            entry
+                                          type: string
+                                      type: object
+                                    imageRegistry:
+                                      description: |-
+                                        ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+                                        details.
+                                      properties:
+                                        imageRegistryCredentials:
+                                          description: ImageRegistryCredentials provides
+                                            credentials that will be used for authentication
+                                            with registry
+                                          properties:
+                                            allowInsecureRegistry:
+                                              description: AllowInsecureRegistry allows
+                                                insecure access to a registry.
+                                              type: boolean
+                                            providers:
+                                              description: |-
+                                                Providers specifies a list of OCI Registry names, whose authentication providers are provided.
+                                                It can be of one of these values: default,google,azure,amazon,github.
+                                              items:
+                                                description: ImageRegistryCredentialsProvidersType
+                                                  provides the list of credential
+                                                  providers required.
+                                                enum:
+                                                - default
+                                                - amazon
+                                                - azure
+                                                - google
+                                                - github
+                                                type: string
+                                              type: array
+                                            secrets:
+                                              description: |-
+                                                Secrets specifies a list of secrets that are provided for credentials.
+                                                Secrets must live in the Kyverno namespace.
+                                              items:
+                                                type: string
+                                              type: array
+                                          type: object
+                                        jmesPath:
+                                          description: |-
+                                            JMESPath is an optional JSON Match Expression that can be used to
+                                            transform the ImageData struct returned as a result of processing
+                                            the image reference.
+                                          type: string
+                                        reference:
+                                          description: |-
+                                            Reference is image reference to a container image in the registry.
+                                            Example: ghcr.io/kyverno/kyverno:latest
+                                          type: string
+                                      required:
+                                      - reference
+                                      type: object
+                                    name:
+                                      description: Name is the variable name.
+                                      type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the variable may take if the JMESPath
+                                            expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: |-
+                                            JMESPath is an optional JMESPath Expression that can be used to
+                                            transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                  type: object
+                                type: array
+                              data:
+                                description: |-
+                                  Data provides the resource declaration used to populate each generated resource.
+                                  At most one of Data or Clone must be specified. If neither are provided, the generated
+                                  resource will be created with default data only.
+                                x-kubernetes-preserve-unknown-fields: true
+                              kind:
+                                description: Kind specifies resource kind.
+                                type: string
+                              list:
+                                description: |-
+                                  List specifies a JMESPath expression that results in one or more elements
+                                  to which the validation logic is applied.
+                                type: string
+                              name:
+                                description: Name specifies the resource name.
+                                type: string
+                              namespace:
+                                description: Namespace specifies resource namespace.
+                                type: string
+                              preconditions:
+                                description: |-
+                                  AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+                                  set of conditions. The declaration can contain nested `any` or `all` statements.
+                                  See: https://kyverno.io/docs/writing-policies/preconditions/
+                                properties:
+                                  all:
+                                    description: |-
+                                      AllConditions enable variable-based conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A condition can reference object data
+                                      using JMESPath notation.
+                                      Here, all of the conditions need to pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            Operator is the conditional operation to perform. Valid operators are:
+                                            Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - AnyIn
+                                          - AllIn
+                                          - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: |-
+                                            Value is the conditional value, or set of values. The values can be fixed set
+                                            or can be variables declared using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                  any:
+                                    description: |-
+                                      AnyConditions enable variable-based conditional rule execution. This is useful for
+                                      finer control of when an rule is applied. A condition can reference object data
+                                      using JMESPath notation.
+                                      Here, at least one of the conditions need to pass
+                                    items:
+                                      description: Condition defines variable-based
+                                        conditional criteria for rule execution.
+                                      properties:
+                                        key:
+                                          description: Key is the context entry (using
+                                            JMESPath) for conditional rule evaluation.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        message:
+                                          description: Message is an optional display
+                                            message
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            Operator is the conditional operation to perform. Valid operators are:
+                                            Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                            GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+                                            DurationLessThanOrEquals, DurationLessThan
+                                          enum:
+                                          - Equals
+                                          - NotEquals
+                                          - In
+                                          - AnyIn
+                                          - AllIn
+                                          - NotIn
+                                          - AnyNotIn
+                                          - AllNotIn
+                                          - GreaterThanOrEquals
+                                          - GreaterThan
+                                          - LessThanOrEquals
+                                          - LessThan
+                                          - DurationGreaterThanOrEquals
+                                          - DurationGreaterThan
+                                          - DurationLessThanOrEquals
+                                          - DurationLessThan
+                                          type: string
+                                        value:
+                                          description: |-
+                                            Value is the conditional value, or set of values. The values can be fixed set
+                                            or can be variables declared using JMESPath.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
+                                    type: array
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              uid:
+                                description: UID specifies the resource uid.
+                                type: string
+                            type: object
+                          type: array
                         generateExisting:
                           description: |-
                             GenerateExisting controls whether to trigger the rule in existing resources
@@ -11716,6 +12997,11 @@ spec:
                                               description: Issuer is the certificate
                                                 issuer used for keyless signing.
                                               type: string
+                                            issuerRegExp:
+                                              description: IssuerRegExp is the regular
+                                                expression to match certificate issuer
+                                                used for keyless signing.
+                                              type: string
                                             rekor:
                                               description: |-
                                                 Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -11746,6 +13032,12 @@ spec:
                                               description: Subject is the verified
                                                 identity used for keyless signing,
                                                 for example the email address.
+                                              type: string
+                                            subjectRegExp:
+                                              description: SubjectRegExp is the regular
+                                                expression to match identity used
+                                                for keyless signing, for example the
+                                                email address.
                                               type: string
                                           type: object
                                         keys:
@@ -12205,6 +13497,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -12235,6 +13532,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -12582,6 +13885,11 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          issuerRegExp:
+                                            description: IssuerRegExp is the regular
+                                              expression to match certificate issuer
+                                              used for keyless signing.
+                                            type: string
                                           rekor:
                                             description: |-
                                               Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -12611,6 +13919,12 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address.
+                                            type: string
+                                          subjectRegExp:
+                                            description: SubjectRegExp is the regular
+                                              expression to match identity used for
+                                              keyless signing, for example the email
+                                              address.
                                             type: string
                                         type: object
                                       keys:
@@ -12781,6 +14095,7 @@ spec:
                               are Cosign and Notary. By default Cosign is used if a type is not specified.
                             enum:
                             - Cosign
+                            - SigstoreBundle
                             - Notary
                             type: string
                           useCache:
@@ -13928,6 +15243,415 @@ spec:
                                 At most one of Data or Clone must be specified. If neither are provided, the generated
                                 resource will be created with default data only.
                               x-kubernetes-preserve-unknown-fields: true
+                            foreach:
+                              description: ForEach applies generate rules to a list
+                                of sub-elements by creating a context for each entry
+                                in the list and looping over it to apply the specified
+                                logic.
+                              items:
+                                properties:
+                                  apiVersion:
+                                    description: APIVersion specifies resource apiVersion.
+                                    type: string
+                                  clone:
+                                    description: |-
+                                      Clone specifies the source resource used to populate each generated resource.
+                                      At most one of Data or Clone can be specified. If neither are provided, the generated
+                                      resource will be created with default data only.
+                                    properties:
+                                      name:
+                                        description: Name specifies name of the resource.
+                                        type: string
+                                      namespace:
+                                        description: Namespace specifies source resource
+                                          namespace.
+                                        type: string
+                                    type: object
+                                  cloneList:
+                                    description: CloneList specifies the list of source
+                                      resource used to populate each generated resource.
+                                    properties:
+                                      kinds:
+                                        description: Kinds is a list of resource kinds.
+                                        items:
+                                          type: string
+                                        type: array
+                                      namespace:
+                                        description: Namespace specifies source resource
+                                          namespace.
+                                        type: string
+                                      selector:
+                                        description: |-
+                                          Selector is a label selector. Label keys and values in `matchLabels`.
+                                          wildcard characters are not supported.
+                                        properties:
+                                          matchExpressions:
+                                            description: matchExpressions is a list
+                                              of label selector requirements. The
+                                              requirements are ANDed.
+                                            items:
+                                              description: |-
+                                                A label selector requirement is a selector that contains values, a key, and an operator that
+                                                relates the key and values.
+                                              properties:
+                                                key:
+                                                  description: key is the label key
+                                                    that the selector applies to.
+                                                  type: string
+                                                operator:
+                                                  description: |-
+                                                    operator represents a key's relationship to a set of values.
+                                                    Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                  type: string
+                                                values:
+                                                  description: |-
+                                                    values is an array of string values. If the operator is In or NotIn,
+                                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                    the values array must be empty. This array is replaced during a strategic
+                                                    merge patch.
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                  x-kubernetes-list-type: atomic
+                                              required:
+                                              - key
+                                              - operator
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          matchLabels:
+                                            additionalProperties:
+                                              type: string
+                                            description: |-
+                                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                              map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                              operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                            type: object
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                    type: object
+                                  context:
+                                    description: Context defines variables and data
+                                      sources that can be used during rule execution.
+                                    items:
+                                      description: |-
+                                        ContextEntry adds variables and data sources to a rule Context. Either a
+                                        ConfigMap reference or a APILookup must be provided.
+                                      properties:
+                                        apiCall:
+                                          description: |-
+                                            APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
+                                            The data returned is stored in the context with the name for the context entry.
+                                          properties:
+                                            data:
+                                              description: |-
+                                                The data object specifies the POST data sent to the server.
+                                                Only applicable when the method field is set to POST.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            jmesPath:
+                                              description: |-
+                                                JMESPath is an optional JSON Match Expression that can be used to
+                                                transform the JSON response returned from the server. For example
+                                                a JMESPath of "items | length(@)" applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments" will return the total count
+                                                of deployments across all namespaces.
+                                              type: string
+                                            method:
+                                              default: GET
+                                              description: Method is the HTTP request
+                                                type (GET or POST). Defaults to GET.
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            service:
+                                              description: |-
+                                                Service is an API call to a JSON web service.
+                                                This is used for non-Kubernetes API server calls.
+                                                It's mutually exclusive with the URLPath field.
+                                              properties:
+                                                caBundle:
+                                                  description: |-
+                                                    CABundle is a PEM encoded CA bundle which will be used to validate
+                                                    the server certificate.
+                                                  type: string
+                                                url:
+                                                  description: |-
+                                                    URL is the JSON web service URL. A typical form is
+                                                    `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - url
+                                              type: object
+                                            urlPath:
+                                              description: |-
+                                                URLPath is the URL path to be used in the HTTP GET or POST request to the
+                                                Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
+                                                The format required is the same format used by the `kubectl get --raw` command.
+                                                See https://kyverno.io/docs/writing-policies/external-data-sources/#variables-from-kubernetes-api-server-calls
+                                                for details.
+                                                It's mutually exclusive with the Service field.
+                                              type: string
+                                          type: object
+                                        configMap:
+                                          description: ConfigMap is the ConfigMap
+                                            reference.
+                                          properties:
+                                            name:
+                                              description: Name is the ConfigMap name.
+                                              type: string
+                                            namespace:
+                                              description: Namespace is the ConfigMap
+                                                namespace.
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                        globalReference:
+                                          description: GlobalContextEntryReference
+                                            is a reference to a cached global context
+                                            entry.
+                                          properties:
+                                            jmesPath:
+                                              description: |-
+                                                JMESPath is an optional JSON Match Expression that can be used to
+                                                transform the JSON response returned from the server. For example
+                                                a JMESPath of "items | length(@)" applied to the API server response
+                                                for the URLPath "/apis/apps/v1/deployments" will return the total count
+                                                of deployments across all namespaces.
+                                              type: string
+                                            name:
+                                              description: Name of the global context
+                                                entry
+                                              type: string
+                                          type: object
+                                        imageRegistry:
+                                          description: |-
+                                            ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
+                                            details.
+                                          properties:
+                                            imageRegistryCredentials:
+                                              description: ImageRegistryCredentials
+                                                provides credentials that will be
+                                                used for authentication with registry
+                                              properties:
+                                                allowInsecureRegistry:
+                                                  description: AllowInsecureRegistry
+                                                    allows insecure access to a registry.
+                                                  type: boolean
+                                                providers:
+                                                  description: |-
+                                                    Providers specifies a list of OCI Registry names, whose authentication providers are provided.
+                                                    It can be of one of these values: default,google,azure,amazon,github.
+                                                  items:
+                                                    description: ImageRegistryCredentialsProvidersType
+                                                      provides the list of credential
+                                                      providers required.
+                                                    enum:
+                                                    - default
+                                                    - amazon
+                                                    - azure
+                                                    - google
+                                                    - github
+                                                    type: string
+                                                  type: array
+                                                secrets:
+                                                  description: |-
+                                                    Secrets specifies a list of secrets that are provided for credentials.
+                                                    Secrets must live in the Kyverno namespace.
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
+                                            jmesPath:
+                                              description: |-
+                                                JMESPath is an optional JSON Match Expression that can be used to
+                                                transform the ImageData struct returned as a result of processing
+                                                the image reference.
+                                              type: string
+                                            reference:
+                                              description: |-
+                                                Reference is image reference to a container image in the registry.
+                                                Example: ghcr.io/kyverno/kyverno:latest
+                                              type: string
+                                          required:
+                                          - reference
+                                          type: object
+                                        name:
+                                          description: Name is the variable name.
+                                          type: string
+                                        variable:
+                                          description: Variable defines an arbitrary
+                                            JMESPath context variable that can be
+                                            defined inline.
+                                          properties:
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the variable may take if the JMESPath
+                                                expression evaluates to nil
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            jmesPath:
+                                              description: |-
+                                                JMESPath is an optional JMESPath Expression that can be used to
+                                                transform the variable.
+                                              type: string
+                                            value:
+                                              description: Value is any arbitrary
+                                                JSON object representable in YAML
+                                                or JSON form.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          type: object
+                                      type: object
+                                    type: array
+                                  data:
+                                    description: |-
+                                      Data provides the resource declaration used to populate each generated resource.
+                                      At most one of Data or Clone must be specified. If neither are provided, the generated
+                                      resource will be created with default data only.
+                                    x-kubernetes-preserve-unknown-fields: true
+                                  kind:
+                                    description: Kind specifies resource kind.
+                                    type: string
+                                  list:
+                                    description: |-
+                                      List specifies a JMESPath expression that results in one or more elements
+                                      to which the validation logic is applied.
+                                    type: string
+                                  name:
+                                    description: Name specifies the resource name.
+                                    type: string
+                                  namespace:
+                                    description: Namespace specifies resource namespace.
+                                    type: string
+                                  preconditions:
+                                    description: |-
+                                      AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+                                      set of conditions. The declaration can contain nested `any` or `all` statements.
+                                      See: https://kyverno.io/docs/writing-policies/preconditions/
+                                    properties:
+                                      all:
+                                        description: |-
+                                          AllConditions enable variable-based conditional rule execution. This is useful for
+                                          finer control of when an rule is applied. A condition can reference object data
+                                          using JMESPath notation.
+                                          Here, all of the conditions need to pass
+                                        items:
+                                          description: Condition defines variable-based
+                                            conditional criteria for rule execution.
+                                          properties:
+                                            key:
+                                              description: Key is the context entry
+                                                (using JMESPath) for conditional rule
+                                                evaluation.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                Operator is the conditional operation to perform. Valid operators are:
+                                                Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                                GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+                                                DurationLessThanOrEquals, DurationLessThan
+                                              enum:
+                                              - Equals
+                                              - NotEquals
+                                              - In
+                                              - AnyIn
+                                              - AllIn
+                                              - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
+                                              type: string
+                                            value:
+                                              description: |-
+                                                Value is the conditional value, or set of values. The values can be fixed set
+                                                or can be variables declared using JMESPath.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          type: object
+                                        type: array
+                                      any:
+                                        description: |-
+                                          AnyConditions enable variable-based conditional rule execution. This is useful for
+                                          finer control of when an rule is applied. A condition can reference object data
+                                          using JMESPath notation.
+                                          Here, at least one of the conditions need to pass
+                                        items:
+                                          description: Condition defines variable-based
+                                            conditional criteria for rule execution.
+                                          properties:
+                                            key:
+                                              description: Key is the context entry
+                                                (using JMESPath) for conditional rule
+                                                evaluation.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            message:
+                                              description: Message is an optional
+                                                display message
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                Operator is the conditional operation to perform. Valid operators are:
+                                                Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                                GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+                                                DurationLessThanOrEquals, DurationLessThan
+                                              enum:
+                                              - Equals
+                                              - NotEquals
+                                              - In
+                                              - AnyIn
+                                              - AllIn
+                                              - NotIn
+                                              - AnyNotIn
+                                              - AllNotIn
+                                              - GreaterThanOrEquals
+                                              - GreaterThan
+                                              - LessThanOrEquals
+                                              - LessThan
+                                              - DurationGreaterThanOrEquals
+                                              - DurationGreaterThan
+                                              - DurationLessThanOrEquals
+                                              - DurationLessThan
+                                              type: string
+                                            value:
+                                              description: |-
+                                                Value is the conditional value, or set of values. The values can be fixed set
+                                                or can be variables declared using JMESPath.
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          type: object
+                                        type: array
+                                    type: object
+                                    x-kubernetes-preserve-unknown-fields: true
+                                  uid:
+                                    description: UID specifies the resource uid.
+                                    type: string
+                                type: object
+                              type: array
                             generateExisting:
                               description: |-
                                 GenerateExisting controls whether to trigger the rule in existing resources
@@ -16055,6 +17779,11 @@ spec:
                                                   description: Issuer is the certificate
                                                     issuer used for keyless signing.
                                                   type: string
+                                                issuerRegExp:
+                                                  description: IssuerRegExp is the
+                                                    regular expression to match certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
                                                 rekor:
                                                   description: |-
                                                     Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -16085,6 +17814,12 @@ spec:
                                                   description: Subject is the verified
                                                     identity used for keyless signing,
                                                     for example the email address.
+                                                  type: string
+                                                subjectRegExp:
+                                                  description: SubjectRegExp is the
+                                                    regular expression to match identity
+                                                    used for keyless signing, for
+                                                    example the email address.
                                                   type: string
                                               type: object
                                             keys:
@@ -16560,6 +18295,12 @@ spec:
                                                       description: Issuer is the certificate
                                                         issuer used for keyless signing.
                                                       type: string
+                                                    issuerRegExp:
+                                                      description: IssuerRegExp is
+                                                        the regular expression to
+                                                        match certificate issuer used
+                                                        for keyless signing.
+                                                      type: string
                                                     rekor:
                                                       description: |-
                                                         Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -16592,6 +18333,13 @@ spec:
                                                         verified identity used for
                                                         keyless signing, for example
                                                         the email address.
+                                                      type: string
+                                                    subjectRegExp:
+                                                      description: SubjectRegExp is
+                                                        the regular expression to
+                                                        match identity used for keyless
+                                                        signing, for example the email
+                                                        address.
                                                       type: string
                                                   type: object
                                                 keys:
@@ -16943,6 +18691,11 @@ spec:
                                                 description: Issuer is the certificate
                                                   issuer used for keyless signing.
                                                 type: string
+                                              issuerRegExp:
+                                                description: IssuerRegExp is the regular
+                                                  expression to match certificate
+                                                  issuer used for keyless signing.
+                                                type: string
                                               rekor:
                                                 description: |-
                                                   Rekor provides configuration for the Rekor transparency log service. If an empty object
@@ -16973,6 +18726,12 @@ spec:
                                                 description: Subject is the verified
                                                   identity used for keyless signing,
                                                   for example the email address.
+                                                type: string
+                                              subjectRegExp:
+                                                description: SubjectRegExp is the
+                                                  regular expression to match identity
+                                                  used for keyless signing, for example
+                                                  the email address.
                                                 type: string
                                             type: object
                                           keys:
@@ -17163,9 +18922,10 @@ spec:
                               type:
                                 description: |-
                                   Type specifies the method of signature validation. The allowed options
-                                  are Cosign and Notary. By default Cosign is used if a type is not specified.
+                                  are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.
                                 enum:
                                 - Cosign
+                                - SigstoreBundle
                                 - Notary
                                 type: string
                               useCache:
