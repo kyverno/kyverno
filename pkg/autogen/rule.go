@@ -105,7 +105,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.Mutation = newMutation
 		return rule
 	}
-	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
+	if len(rule.Mutation.ForEachMutation) > 0 {
 		var newForEachMutation []kyvernov1.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			temp := kyvernov1.ForEachMutation{
@@ -193,7 +193,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.Validation.SetAnyPattern(patterns)
 		return rule
 	}
-	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
+	if len(rule.Validation.ForEachValidation) > 0 {
 		newForeachValidate := make([]kyvernov1.ForEachValidation, len(rule.Validation.ForEachValidation))
 		copy(newForeachValidate, rule.Validation.ForEachValidation)
 		validationFailureAction := rule.Validation.ValidationFailureAction
@@ -242,7 +242,9 @@ func isAutogenRuleName(name string) bool {
 func getAnyAllAutogenRule(v kyvernov1.ResourceFilters, match string, kinds []string) kyvernov1.ResourceFilters {
 	anyKind := v.DeepCopy()
 	for i, value := range v {
-		if kubeutils.ContainsKind(value.Kinds, match) {
+		if match == "" {
+			anyKind[i].Kinds = kinds
+		} else if kubeutils.ContainsKind(value.Kinds, match) {
 			anyKind[i].Kinds = kinds
 		}
 	}
@@ -295,11 +297,7 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 		"spec/jobTemplate/spec/template",
 		[]string{PodControllerCronJob},
 		func(r kyvernov1.ResourceFilters, kinds []string) kyvernov1.ResourceFilters {
-			anyKind := r.DeepCopy()
-			for i := range anyKind {
-				anyKind[i].Kinds = kinds
-			}
-			return anyKind
+			return getAnyAllAutogenRule(r, "", kinds)
 		},
 	)
 }

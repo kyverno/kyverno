@@ -2,7 +2,9 @@ package autogen
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -50,9 +52,6 @@ func stripCronJob(controllers string) string {
 			continue
 		}
 		newControllers = append(newControllers, c)
-	}
-	if len(newControllers) == 0 {
-		return ""
 	}
 	return strings.Join(newControllers, ",")
 }
@@ -168,26 +167,55 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []
 
 // generateRules generates rule for podControllers based on scenario A and C
 func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
-	var rules []kyvernov1.Rule
+	var wg sync.WaitGroup
+	rules := make([]kyvernov1.Rule, 0, len(spec.Rules)*2)
+	resultChan := make(chan kyvernov1.Rule)
+	controllersStripCronJob := stripCronJob(controllers)
+
 	for i := range spec.Rules {
+		wg.Add(2)
+
 		// handle all other controllers other than CronJob
-		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers))); genRule != nil {
-			if convRule, err := convertRule(*genRule, "Pod"); err == nil {
-				rules = append(rules, *convRule)
-			} else {
-				logger.Error(err, "failed to create rule")
-			}
-		}
+		go func(index int) {
+			defer wg.Done()
+			processRule(spec, index, controllersStripCronJob, "Pod", resultChan)
+		}(i)
+
 		// handle CronJob, it appends an additional rule
-		if genRule := createRule(generateCronJobRule(&spec.Rules[i], controllers)); genRule != nil {
-			if convRule, err := convertRule(*genRule, "Cronjob"); err == nil {
-				rules = append(rules, *convRule)
-			} else {
-				logger.Error(err, "failed to create Cronjob rule")
-			}
-		}
+		go func(index int) {
+			defer wg.Done()
+			processRule(spec, index, controllers, "Cronjob", resultChan)
+		}(i)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	for rule := range resultChan {
+		rules = append(rules, rule)
 	}
 	return rules
+}
+
+func processRule(spec *kyvernov1.Spec, index int, controllers, kind string, result chan<- kyvernov1.Rule) {
+	var genRule *kyvernoRule
+
+	if kind == "Pod" {
+		genRule = createRule(generateRuleForControllers(&spec.Rules[index], controllers))
+	} else if kind == "Cronjob" {
+		genRule = createRule(generateCronJobRule(&spec.Rules[index], controllers))
+	}
+
+	if genRule != nil {
+		convRule, err := convertRule(*genRule, kind)
+		if err == nil {
+			result <- *convRule
+		} else {
+			logger.Error(err, fmt.Sprintf("failed to create %s rule", kind))
+		}
+	}
 }
 
 func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
@@ -233,18 +261,14 @@ func ComputeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 
 func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	spec := p.GetSpec()
-	applyAutoGen, desiredControllers := CanAutoGen(spec)
-	if !applyAutoGen {
-		desiredControllers = sets.New("none")
-	}
 
 	var actualControllers sets.Set[string]
-	ann := p.GetAnnotations()
-	actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
-	if !ok || !applyAutoGen {
-		actualControllers = desiredControllers
+	if applyAutoGen, desiredControllers := CanAutoGen(spec); !applyAutoGen {
+		actualControllers = sets.New("none")
 	} else {
-		if !applyAutoGen {
+		ann := p.GetAnnotations()
+		actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
+		if !ok {
 			actualControllers = desiredControllers
 		} else {
 			actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
