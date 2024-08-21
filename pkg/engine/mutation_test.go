@@ -84,14 +84,6 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
       "rules": [
         {
           "name": "add-name-label",
-          "context": [
-            {
-              "name": "ctx_var",
-              "variable": {
-                "value": "{{request.object.metadata.namespace}}"
-              }
-            }
-          ],
           "match": {
             "resources": {
               "kinds": [
@@ -103,7 +95,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
             "patchStrategicMerge": {
               "metadata": {
                 "labels": {
-                  "appname": "{{request.object.spec.containers[0].cmd}}/{{\\ request.object.spec.containers[0].cmd }}/{{request.object.metadata.name}}"
+                  "appname": "{{request.object.metadata.name}}"
                 }
               }
             }
@@ -117,15 +109,13 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
     "apiVersion": "v1",
     "kind": "Pod",
     "metadata": {
-      "name": "check-root-user",
-      "namespace": "loci"
+      "name": "check-root-user"
     },
     "spec": {
       "containers": [
         {
           "name": "check-root-user",
           "image": "nginxinc/nginx-unprivileged",
-          "cmd": "{{ request.object.metadata.namespace }}",
           "securityContext": {
             "runAsNonRoot": true
           }

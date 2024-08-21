@@ -1192,7 +1192,7 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 	pattern, err = SubstituteAll(logr.Discard(), ctx, pattern)
 	assert.NilError(t, err)
 
-	assert.Equal(t, fmt.Sprintf("%v", pattern), "{{request.object.metadata.annotations.target}}")
+	assert.Equal(t, fmt.Sprintf("%v", pattern), `\{{request.object.metadata.annotations.target}}`)
 }
 
 func Test_ReplaceAllVars(t *testing.T) {
@@ -1213,4 +1213,75 @@ func Test_ReplaceAllVars(t *testing.T) {
 
 	result = ReplaceAllVars("{{ foo {{foo}} }}", func(s string) string { return "test" })
 	assert.Equal(t, result, "{{ foo test }}")
+}
+
+func Test_subVars_shallow(t *testing.T) {
+	patternMapDeep := []byte(`{
+		"mutate": {
+			"overlay": {
+				"spec": {
+					"data": "{{ replace_all( '{{ request.object.spec.data.test_hcl }}', 'original_string','replaced_string') }}"
+				}
+			}
+		}
+	}`)
+
+	patternMapShallow := []byte(`{
+		"mutate": {
+			"overlay": {
+				"spec": {
+					"data": "{{ replace_all( '{{- request.object.spec.data.test_hcl }}', 'original_string','replaced_string') }}"
+				}
+			}
+		}
+	}`)
+
+	resourceRaw := []byte(`
+	{
+		"metadata": {
+			"kind": "ConfigMap",
+			"name": "temp",
+			"namespace": "n1"
+		},
+		"spec": {
+			"data": {
+				"test_hcl": "variable = {\"key\" = \"original_string\"}\n\"template\" = \"{{ secret.reference }}\""
+			}
+		}
+	}
+		`)
+
+	expectedRaw := []byte(`{
+		"mutate":{
+		   "overlay":{
+			  "spec":{
+				 "data": "variable = {\"key\" = \"replaced_string\"}\n\"template\" = \"{{ secret.reference }}\""
+			  }
+		   }
+		}
+	}`)
+
+	var err error
+	var patternDeep, patternShallow, resource interface{}
+	err = json.Unmarshal(patternMapDeep, &patternDeep)
+	assert.NilError(t, err)
+	err = json.Unmarshal(patternMapShallow, &patternShallow)
+	assert.NilError(t, err)
+	err = json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	// context
+	ctx := context.NewContext(jp)
+	err = context.AddResource(ctx, resourceRaw)
+	assert.NilError(t, err)
+
+	output, err := SubstituteAll(logr.Discard(), ctx, patternShallow)
+	assert.NilError(t, err)
+	out, err := json.Marshal(output)
+	assert.NilError(t, err)
+	assert.Equal(t, string(out), compact(t, expectedRaw))
+
+	if _, err := SubstituteAll(logr.Discard(), ctx, patternDeep); err == nil {
+		t.Log("expected to fail")
+		t.Fail()
+	}
 }

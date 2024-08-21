@@ -18,4 +18,5 @@ var (
 	RegexElementIndex = regexp.MustCompile(`{{\s*elementIndex\d*\s*}}`)
 
 	RegexVariableKey = regexp.MustCompile(`\{{(.*?)\}}`)
+	RegexMustache    = regexp.MustCompile(`{{|}}`)
 )

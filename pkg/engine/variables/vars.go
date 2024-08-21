@@ -308,16 +308,49 @@ func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interf
 	return ctx.Query(variable)
 }
 
+func find_next_variable(s string) []int {
+	var res []int
+
+	all := regex.RegexMustache.FindAllStringIndex(s, -1)
+
+	// No templates in current string or only a single {{ or }}
+	if len(all) < 2 {
+		return nil
+	}
+	var stack [][]int
+
+	for _, i := range all {
+		// Any opening brackets we push to the stack unless it's the first one
+		if s[i[0]] == '{' {
+			stack = append(stack, i)
+			if len(stack) == 1 {
+				res = append(res, i[0])
+			}
+		} else { // Must be a closing bracket
+			if len(stack) == 0 { // If there's nothing on the stack we skip through as this must be some garbage (a closing bracket without an opening one)
+				continue
+			} else if len(stack) == 1 { // If there's only one element on the stack we found the match for our left most opening bracket
+				res = append(res, i[1])
+				break
+			} else { // If there's something on the stack, the top most must belong to the current closing bracket, so we remove it
+				stack = stack[:len(stack)-1]
+			}
+		}
+	}
+	return res
+}
+
 func rep(value string, isDeleteRequest bool, log logr.Logger, ctx context.EvalInterface, vr VariableResolver, data *jsonUtils.ActionData) (interface{}, error) {
 	// find the first variable
 	// var prefix string
-	loc := regex.RegexVariables.FindStringIndex(value)
-	if len(loc) == 0 {
+	isEscaped := false
+	loc := find_next_variable(value)
+	if loc == nil {
 		// We're inside the bottom most {{}}, so just 'unescape' (remove \) from escaped {{}} strings and evaluate the JMESPath expression
 		//   \{{ }} -> {{ }}
-		for _, v := range regex.RegexEscpVariables.FindAllString(value, -1) {
-			value = strings.Replace(value, v, v[1:], -1)
-		}
+		// for _, v := range regex.RegexEscpVariables.FindAllString(value, -1) {
+		// 	value = strings.Replace(value, v, v[1:], -1)
+		// }
 		variable := value
 		if variable == "@" {
 			pathPrefix := "target"
@@ -333,35 +366,47 @@ func rep(value string, isDeleteRequest bool, log logr.Logger, ctx context.EvalIn
 			variable = strings.Replace(variable, "@", val, -1)
 		}
 
-		if isDeleteRequest {
-			variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
-		}
 		return variable, nil
 	} else { // if we found one check what kind of variable we found
-		var offset int
 		shallow := false
 		//   {{ var }} -> rep(value)
 		//   {{\ var }} -> value
+		//   \{{ }} -> {{ }}
 		// return prefix + result
-		initial := value[0] == '{' // This whole thing with 'initial' is needed because go regexp does not support negavite look behind assertion
-		if !initial {
-			offset = 1
-		} else {
-			offset = 0
+
+		if loc[0] > 0 && value[loc[0]-1] == '\\' { // \{{ }} -> {{ }}
+			isEscaped = true
+			// return value[loc[0]:], nil             // Uncomment this if disabling variable interpolation withing \{{}} is desired
 		}
-		prefix := value[:(loc[0] + offset)]
-		v := value[(loc[0] + offset):loc[1]]
+
+		prefix := value[:loc[0]]
+		variable := value[loc[0]+2 : loc[1]-2]
 		suffix := value[loc[1]:]
-		variable := replaceBracesAndTrimSpaces(v)
-		if variable[0] == '\\' { // Shallow (only one level) variable interpolation
-			variable = replaceBracesAndTrimSpaces(variable[1:])
+
+		variable = strings.TrimSpace(variable)
+		if variable[0] == '-' { // Shallow (only one level) variable interpolation
+			variable = strings.TrimSpace(variable[1:])
 			shallow = true
 		}
 		// We do {{}} templating for the remaining part of the current context
 		templated_variable, err := rep(variable, isDeleteRequest, log, ctx, vr, data)
+		if err != nil {
+			return nil, err
+		}
 		processed_suffix, err := rep(suffix, isDeleteRequest, log, ctx, vr, data)
+		if err != nil {
+			return nil, err
+		}
 
-		substitutedVar, err := vr(ctx, templated_variable.(string))
+		tv := templated_variable.(string)
+
+		if isEscaped {
+			return prefix + "{{" + tv + "}}" + processed_suffix.(string), nil
+		}
+		if isDeleteRequest {
+			tv = strings.ReplaceAll(tv, "request.object", "request.oldObject")
+		}
+		substitutedVar, err := vr(ctx, tv)
 
 		if err != nil {
 			switch err.(type) {
@@ -372,12 +417,25 @@ func rep(value string, isDeleteRequest bool, log logr.Logger, ctx context.EvalIn
 			}
 		}
 
-		log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
+		log.V(3).Info("variable substituted", "variable", tv, "value", substitutedVar, "path", data.Path)
+
+		if prefix == "" && suffix == "" {
+			return substitutedVar, nil
+		}
+
+		var marshalled_value string
+		// The below is obsolete as instead of string.replace() we could just do json.Marshal() within substituteVarInPattern (if needed)
+		if marshalled_value, err = substituteVarInPattern("", variable, variable, substitutedVar); err != nil {
+			return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
+		}
 
 		if shallow {
-			return prefix + substitutedVar.(string) + processed_suffix.(string), nil
+			return prefix + marshalled_value + processed_suffix.(string), nil
 		} else {
-			processed_variable, err := rep(substitutedVar.(string), isDeleteRequest, log, ctx, vr, data)
+			processed_variable, err := rep(marshalled_value, isDeleteRequest, log, ctx, vr, data)
+			if err != nil {
+				return nil, err
+			}
 			return prefix + processed_variable.(string) + processed_suffix.(string), err
 		}
 
