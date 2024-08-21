@@ -399,5 +399,5 @@ replace (
 	github.com/google/cel-go v0.20.1 => github.com/google/cel-go v0.17.8
 	github.com/prometheus/client_golang v1.19.0 => github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/common v0.48.0 => github.com/prometheus/common v0.44.0
-	k8s.io/pod-security-admission v0.30.1 => github.com/kyverno/pod-security-admission v0.0.0-20240715131510-7fb54a8d376d
+	k8s.io/pod-security-admission v0.31.0 => github.com/kyverno/pod-security-admission v0.0.0-20240715131510-7fb54a8d376d
 )
