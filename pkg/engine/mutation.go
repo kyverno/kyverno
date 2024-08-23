@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -14,6 +15,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+func isNil(i interface{}) bool {
+	return i == nil || reflect.ValueOf(i).IsNil()
+}
 
 // mutate performs mutation. Overlay first and then mutation patches
 func (e *engine) mutate(
@@ -37,7 +42,8 @@ func (e *engine) mutate(
 				return nil, nil
 			}
 			if !policyContext.AdmissionOperation() && rule.HasMutateExisting() {
-				if e.client == nil {
+				// the object behind the interface can be nil as well.
+				if isNil(e.client) {
 					return nil, fmt.Errorf("Handler factory requires a client but a nil client was passed, likely due to a bug or unsupported operation.")
 				}
 				return mutation.NewMutateExistingHandler(e.client)

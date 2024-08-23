@@ -1,8 +1,10 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"strings"
 	"testing"
 
@@ -2392,6 +2394,45 @@ func Test_SpecialCharacters(t *testing.T) {
 			assert.Equal(t, len(patches), len(tt.want))
 			for i := range patches {
 				assert.Equal(t, patches[i].Json(), tt.want[i])
+			}
+		})
+	}
+}
+
+func Test_isNil(t *testing.T) {
+	var nilInterface io.Reader
+
+	var noneNilInterface io.Reader = bytes.NewBuffer([]byte{1})
+
+	var nilValue *bytes.Buffer = nil
+	var nilValueInterface = nilValue
+
+	tests := []struct {
+		name string
+		arg  interface{}
+		want bool
+	}{
+		{
+			"v true on nil interfaces",
+			nilInterface,
+			true,
+		},
+		{
+			"returns true on nil value interfaces",
+			nilValueInterface,
+			true,
+		},
+		{
+			"returns false on non-nil interfaces",
+			noneNilInterface,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := isNil(tt.arg); got != tt.want {
+				t.Errorf("isNil() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: update-image-tag
+spec:
+  mutateExistingOnPolicyUpdate: true
+  rules:
+    - name: update-image-tag-rule
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              annotations:
+                vault.hashicorp.com/agent-inject: "true"
+      mutate:
+        targets:
+          - apiVersion: apps/v1
+            kind: Deployment
+            name: "{{ request.object.metadata.name }}"
+        patchStrategicMerge:
+          spec:
+            template:
+              spec:
+                containers:
+                  - (name): vault-agent
+                    image: vault:1.6.0
