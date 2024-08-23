@@ -185,17 +185,7 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 	}
 	artifactDigestVerificationOption := verify.WithArtifactDigest(desc.Digest.Algorithm, digest)
 
-	// TODO: Add full regexp support to sigstore and cosign
-	// Verify images only has subject field, and no subject regexp, subject cannot be passed to subject regexp
-	// because then string containing the subjects will also work. We should just add an issuer regexp
-	// Solve this in a separate PR,
-	// See: https://github.com/sigstore/cosign/blob/7c20052077a81d667526af879ec40168899dde1f/pkg/cosign/verify.go#L339-L356
-	subjectRegexp := ""
-	if strings.Contains(opts.Subject, "*") {
-		subjectRegexp = opts.Subject
-		opts.Subject = ""
-	}
-	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.Subject, "", subjectRegexp)
+	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.Subject, "", opts.SubjectRegExp)
 	if err != nil {
 		return verify.PolicyBuilder{}, err
 	}

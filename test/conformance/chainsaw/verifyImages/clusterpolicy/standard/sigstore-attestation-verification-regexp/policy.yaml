@@ -24,7 +24,7 @@ spec:
         - entries:
           - keyless:
               issuer: https://token.actions.githubusercontent.com
-              subject: https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/*
+              subjectRegExp: https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/.+
               rekor:
                   url: https://rekor.sigstore.dev
         conditions:

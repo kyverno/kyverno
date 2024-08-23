@@ -14,9 +14,11 @@ spec:
     - apply:
         file: gctxentry.yaml
     - sleep:
-        duration: 15s
+        duration: 3s
     - apply:
         file: clusterpolicy.yaml
+    - sleep:
+        duration: 3s
     - assert:
         file: clusterpolicy-ready.yaml
     - delete:
@@ -25,7 +27,7 @@ spec:
           kind: GlobalContextEntry
           name: gctx-not-ready
     - sleep:
-        duration: 5s
+        duration: 3s
     - assert:
         file: clusterpolicy-failed.yaml
     - apply:
