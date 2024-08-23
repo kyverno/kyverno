@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -25,7 +26,6 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
-	"github.com/kyverno/kyverno/pkg/d4f"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -247,6 +247,7 @@ func main() {
 		servicePort                  int
 		webhookServerPort            int
 		backgroundServiceAccountName string
+		reportsServiceAccountName    string
 		maxAPICallResponseLength     int64
 		renewBefore                  time.Duration
 		maxAuditWorkers              int
@@ -267,7 +268,8 @@ func main() {
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
-	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
+	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background controller service account name.")
+	flagset.StringVar(&reportsServiceAccountName, "reportsServiceAccountName", "", "Reports controller service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
@@ -516,13 +518,14 @@ func main() {
 			setup.KyvernoDynamicClient,
 			setup.KyvernoClient,
 			backgroundServiceAccountName,
+			reportsServiceAccountName,
 		)
 		ephrs, err := StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
 			setup.Logger.Error(errors.New("failed to start admission reports watcher"), "failed to start admission reports watcher")
 			os.Exit(1)
 		}
-		reportsBreaker := d4f.NewBreaker("admission reports", func(context.Context) bool {
+		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
 			count, isRunning := ephrs.Count()
 			if !isRunning {
 				return true
@@ -544,6 +547,7 @@ func main() {
 			eventGenerator,
 			admissionReports,
 			backgroundServiceAccountName,
+			reportsServiceAccountName,
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,

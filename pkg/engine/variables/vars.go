@@ -205,10 +205,10 @@ func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error
 }
 
 func ValidateElementInForEach(log logr.Logger, rule interface{}) (interface{}, error) {
-	return jsonUtils.NewTraversal(rule, validateElementInForEach(log)).TraverseJSON()
+	return jsonUtils.NewTraversal(rule, validateElementInForEach()).TraverseJSON()
 }
 
-func validateElementInForEach(log logr.Logger) jsonUtils.Action {
+func validateElementInForEach() jsonUtils.Action {
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
@@ -257,7 +257,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 				v = v[1:]
 			}
 
-			resolvedReference, err := resolveReference(log, data.Document, v, data.Path)
+			resolvedReference, err := resolveReference(data.Document, v, data.Path)
 			if err != nil {
 				switch err.(type) {
 				case context.InvalidVariableError:
@@ -492,7 +492,7 @@ func replaceBracesAndTrimSpaces(v string) string {
 	return variable
 }
 
-func resolveReference(log logr.Logger, fullDocument interface{}, reference, absolutePath string) (interface{}, error) {
+func resolveReference(fullDocument interface{}, reference, absolutePath string) (interface{}, error) {
 	var foundValue interface{}
 
 	path := strings.Trim(reference, "$()")

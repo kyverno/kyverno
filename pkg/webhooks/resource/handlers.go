@@ -11,13 +11,13 @@ import (
 	"github.com/alitto/pond"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/d4f"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
@@ -63,8 +63,9 @@ type resourceHandlers struct {
 
 	admissionReports             bool
 	backgroundServiceAccountName string
+	reportsServiceAccountName    string
 	auditPool                    *pond.WorkerPool
-	reportsBreaker               d4f.Breaker
+	reportsBreaker               breaker.Breaker
 }
 
 func NewHandlers(
@@ -82,10 +83,11 @@ func NewHandlers(
 	eventGen event.Interface,
 	admissionReports bool,
 	backgroundServiceAccountName string,
+	reportsServiceAccountName string,
 	jp jmespath.Interface,
 	maxAuditWorkers int,
 	maxAuditCapacity int,
-	reportsBreaker d4f.Breaker,
+	reportsBreaker breaker.Breaker,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
@@ -103,6 +105,7 @@ func NewHandlers(
 		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
 		admissionReports:             admissionReports,
 		backgroundServiceAccountName: backgroundServiceAccountName,
+		reportsServiceAccountName:    reportsServiceAccountName,
 		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
 		reportsBreaker:               reportsBreaker,
 	}

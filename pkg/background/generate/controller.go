@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -21,7 +22,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	regex "github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -278,6 +278,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 	ruleNameToProcessingTime := make(map[string]time.Duration)
 	applyRules := policy.GetSpec().GetApplyRules()
 	applyCount := 0
+	log = log.WithValues("policy", policy.GetName(), "trigger", resource.GetNamespace()+"/"+resource.GetName())
 
 	for _, rule := range policy.GetSpec().Rules {
 		var err error
@@ -310,21 +311,26 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			break
 		}
 		logger := log.WithValues("rule", rule.Name)
-		// add configmap json data to context
-		if err := c.engine.ContextLoader(policy, rule)(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
-			log.Error(err, "cannot add configmaps to context")
-			return nil, err
+		contextLoader := c.engine.ContextLoader(policy, rule)
+		if err := contextLoader(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
+			if _, ok := err.(gojmespath.NotFoundError); ok {
+				logger.V(3).Info("failed to load rule level context", "reason", err.Error())
+			} else {
+				logger.Error(err, "failed to load rule level context")
+			}
+			return nil, fmt.Errorf("failed to load rule level context: %v", err)
 		}
 
-		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
-			log.Error(err, "variable substitution failed for rule", "rule", rule.Name)
-			return nil, err
+		if rule.Generation.ForEachGeneration != nil {
+			g := newForeachGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.ForEachGeneration, contextLoader)
+			genResource, err = g.generateForeach()
+		} else {
+			g := newGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.GeneratePatterns, contextLoader)
+			genResource, err = g.generate()
 		}
 
-		g := newGenerator(c.client, logger, policy, rule, resource)
-		genResource, err = g.generate()
 		if err != nil {
-			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(), "rule", rule.Name, "resource", resource.GetName())
+			log.Error(err, "failed to apply generate rule")
 			return nil, err
 		}
 		ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
