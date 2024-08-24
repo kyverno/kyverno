@@ -10,10 +10,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"go.uber.org/multierr"
-	"gomodules.xyz/jsonpatch/v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
@@ -27,6 +23,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/notary"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
+	"go.uber.org/multierr"
+	"gomodules.xyz/jsonpatch/v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type ImageVerifier struct {
@@ -83,7 +82,7 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 		if found {
 			result := newValueObj[img] != oldValueObj[img]
 			if result {
-				log.V(2).Info("annotation mismatch", "image", img,"oldValue", oldValue, "newValue", newValue, "key", kyverno.AnnotationImageVerify)
+				log.V(2).Info("annotation mismatch", "image", img, "oldValue", oldValue, "newValue", newValue, "key", kyverno.AnnotationImageVerify)
 				return result
 			}
 		}
@@ -283,7 +282,7 @@ func (iv *ImageVerifier) Verify(
 				if iv.ivCache != nil {
 					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image)
 					if err != nil {
-						iv.logger.Error(err, "error occurred during cache set" ,"image", image)
+						iv.logger.Error(err, "error occurred during cache set", "image", image)
 					} else {
 						if setted {
 							iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
@@ -377,7 +376,7 @@ func (iv *ImageVerifier) verifyAttestors(
 		iv.logger.V(4).Info("verifying attestors", "path", path)
 		cosignResponse, err = iv.verifyAttestorSet(ctx, attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
-			iv.logger.Error(err, "failed to verify image" ,"image", image)
+			iv.logger.Error(err, "failed to verify image", "image", image)
 			return iv.handleRegistryErrors(image, err), nil
 		}
 	}
@@ -448,7 +447,7 @@ func (iv *ImageVerifier) verifyAttestations(
 				if attestationError == nil {
 					verifiedCount++
 					if verifiedCount >= requiredCount {
-						iv.logger.V(2).Info("image attestations verification succeeded",  "image", image,"verifiedCount", verifiedCount, "requiredCount", requiredCount)
+						iv.logger.V(2).Info("image attestations verification succeeded", "image", image, "verifiedCount", verifiedCount, "requiredCount", requiredCount)
 						break
 					}
 				} else {
@@ -515,7 +514,7 @@ func (iv *ImageVerifier) verifyAttestorSet(
 		if entryError == nil {
 			verifiedCount++
 			if verifiedCount >= requiredCount {
-				iv.logger.V(2).Info("image attestors verification succeeded",  "image", image,"verifiedCount", verifiedCount, "requiredCount", requiredCount)
+				iv.logger.V(2).Info("image attestors verification succeeded", "image", image, "verifiedCount", verifiedCount, "requiredCount", requiredCount)
 				return cosignResp, nil
 			}
 		} else {
