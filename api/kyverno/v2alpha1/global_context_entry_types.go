@@ -157,6 +157,12 @@ type ExternalAPICall struct {
 	// +kubebuilder:validation:Format=duration
 	// +kubebuilder:default=`10m`
 	RefreshInterval *metav1.Duration `json:"refreshInterval,omitempty"`
+	// RetryLimit defines the number of times the APICall should be retried in case of failure.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=3
+	// +kubebuilder:validation:Optional
+	// +optional
+	RetryLimit int `json:"retryLimit,omitempty"`
 }
 
 // Validate implements programmatic validation
