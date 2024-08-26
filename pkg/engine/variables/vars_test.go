@@ -1245,7 +1245,7 @@ func Test_subVars_shallow(t *testing.T) {
 		},
 		"spec": {
 			"data": {
-				"test_hcl": "variable = {\"key\" = \"original_string\"}\n\"template\" = \"{{ secret.reference }}\""
+				"test_hcl": "variable = {\"key\" = \"original_string\"}\n\"template\" = \"{{ secret.reference }}\"\n'just_some_single_quoted_string'"
 			}
 		}
 	}
@@ -1255,7 +1255,7 @@ func Test_subVars_shallow(t *testing.T) {
 		"mutate":{
 		   "overlay":{
 			  "spec":{
-				 "data": "variable = {\"key\" = \"replaced_string\"}\n\"template\" = \"{{ secret.reference }}\""
+				 "data": "variable = {\"key\" = \"replaced_string\"}\n\"template\" = \"{{ secret.reference }}\"\n'just_some_single_quoted_string'"
 			  }
 		   }
 		}

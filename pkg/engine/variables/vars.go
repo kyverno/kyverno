@@ -430,6 +430,7 @@ func rep(value string, isDeleteRequest bool, log logr.Logger, ctx context.EvalIn
 		}
 
 		if shallow {
+			marshalled_value = strings.Replace(marshalled_value, "'", "\\'", -1)
 			return prefix + marshalled_value + processed_suffix.(string), nil
 		} else {
 			processed_variable, err := rep(marshalled_value, isDeleteRequest, log, ctx, vr, data)
