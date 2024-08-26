@@ -77,10 +77,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.DenyApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("DryRunOption"):
 		return &kyvernov1.DryRunOptionApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ForEachGeneration"):
+		return &kyvernov1.ForEachGenerationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ForEachMutation"):
 		return &kyvernov1.ForEachMutationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ForEachValidation"):
 		return &kyvernov1.ForEachValidationApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("GeneratePatterns"):
+		return &kyvernov1.GeneratePatternsApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Generation"):
 		return &kyvernov1.GenerationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("GlobalContextEntryReference"):
@@ -185,6 +189,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.PolicyExceptionSpecApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("RequestInfo"):
 		return &kyvernov2.RequestInfoApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("RuleContext"):
+		return &kyvernov2.RuleContextApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("UpdateRequest"):
 		return &kyvernov2.UpdateRequestApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("UpdateRequestSpec"):

@@ -664,6 +664,7 @@ It&rsquo;s mutually exclusive with the URLPath field.</p>
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Attestation">Attestation</a>, 
+<a href="#kyverno.io/v1.ForEachGeneration">ForEachGeneration</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
 </p>
@@ -1200,7 +1201,7 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Generation">Generation</a>)
+<a href="#kyverno.io/v1.GeneratePatterns">GeneratePatterns</a>)
 </p>
 <p>
 <p>CloneFrom provides the location of the source resource used to generate target resources.
@@ -1324,6 +1325,40 @@ string
 <p>
 <p>ConditionOperator is the operation performed on condition key and value.</p>
 </p>
+<h3 id="kyverno.io/v1.ConditionsWrapper">ConditionsWrapper
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Deny">Deny</a>, 
+<a href="#kyverno.io/v1.Rule">Rule</a>, 
+<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>)
+</p>
+<p>
+<p>ConditionsWrapper contains either the deprecated list of Conditions or the new AnyAll Conditions.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>-</code><br/>
+<em>
+any
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that must be satisfied for the rule to be applied.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.ConfigMapReference">ConfigMapReference
 </h3>
 <p>
@@ -1419,6 +1454,7 @@ of deployments across all namespaces.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachGeneration">ForEachGeneration</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
 <a href="#kyverno.io/v1.Rule">Rule</a>, 
@@ -1542,8 +1578,8 @@ GlobalContextEntryReference
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ConditionsWrapper">
+ConditionsWrapper
 </a>
 </em>
 </td>
@@ -1611,10 +1647,84 @@ string
 <p>
 <p>FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.</p>
 </p>
+<h3 id="kyverno.io/v1.ForEachGeneration">ForEachGeneration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Generation">Generation</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>list</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>List specifies a JMESPath expression that results in one or more elements
+to which the validation logic is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>preconditions</code><br/>
+<em>
+<a href="#kyverno.io/v1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
+See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>GeneratePatterns</code><br/>
+<em>
+<a href="#kyverno.io/v1.GeneratePatterns">
+GeneratePatterns
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.ForEachMutation">ForEachMutation
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachMutationWrapper">ForEachMutationWrapper</a>, 
 <a href="#kyverno.io/v1.Mutation">Mutation</a>)
 </p>
 <p>
@@ -1689,9 +1799,7 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>patchStrategicMerge</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
-</a>
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
@@ -1718,8 +1826,8 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <td>
 <code>foreach</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ForEachMutationWrapper">
+ForEachMutationWrapper
 </a>
 </em>
 </td>
@@ -1731,10 +1839,45 @@ Kubernetes apiextensions/v1.JSON
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ForEachMutationWrapper">ForEachMutationWrapper
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>)
+</p>
+<p>
+<p>ForEachMutationWrapper contains a list of ForEach descriptors.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>-</code><br/>
+<em>
+<a href="#kyverno.io/v1.ForEachMutation">
+[]ForEachMutation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Item is a descriptor on how to iterate over the list of items.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.ForEachValidation">ForEachValidation
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachValidationWrapper">ForEachValidationWrapper</a>, 
 <a href="#kyverno.io/v1.Validation">Validation</a>, 
 <a href="#kyverno.io/v2beta1.Validation">Validation</a>)
 </p>
@@ -1852,14 +1995,48 @@ Deny
 <td>
 <code>foreach</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ForEachValidationWrapper">
+ForEachValidationWrapper
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>Foreach declares a nested foreach iterator</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ForEachValidationWrapper">ForEachValidationWrapper
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
+</p>
+<p>
+<p>ForEachValidationWrapper contains a list of ForEach descriptors.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>-</code><br/>
+<em>
+<a href="#kyverno.io/v1.ForEachValidation">
+[]ForEachValidation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Item is a descriptor on how to iterate over the list of items.</p>
 </td>
 </tr>
 </tbody>
@@ -1874,19 +2051,14 @@ Kubernetes apiextensions/v1.JSON
 <p>
 <p>ForeachOrder specifies the iteration order in foreach statements.</p>
 </p>
-<h3 id="kyverno.io/v1.GenerateType">GenerateType
-(<code>string</code> alias)</p></h3>
-<p>
-</p>
-<h3 id="kyverno.io/v1.Generation">Generation
+<h3 id="kyverno.io/v1.GeneratePatterns">GeneratePatterns
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Rule">Rule</a>, 
-<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
+<a href="#kyverno.io/v1.ForEachGeneration">ForEachGeneration</a>, 
+<a href="#kyverno.io/v1.Generation">Generation</a>)
 </p>
 <p>
-<p>Generation defines how new resources should be created and managed.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -1898,19 +2070,6 @@ Kubernetes apiextensions/v1.JSON
 <tbody>
 <tr>
 <td>
-<code>generateExisting</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>GenerateExisting controls whether to trigger the rule in existing resources
-If is set to &ldquo;true&rdquo; the rule will be triggered and applied to existing matched resources.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>ResourceSpec</code><br/>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
@@ -1920,36 +2079,6 @@ ResourceSpec
 </td>
 <td>
 <p>ResourceSpec contains information to select the resource.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>synchronize</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Synchronize controls if generated resources should be kept in-sync with their source resource.
-If Synchronize is set to &ldquo;true&rdquo; changes to generated resources will be overwritten with resource
-data from Data or the resource specified in the Clone declaration.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>orphanDownstreamOnPolicyDelete</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-See <a href="https://kyverno.io/docs/writing-policies/generate/#data-examples">https://kyverno.io/docs/writing-policies/generate/#data-examples</a>.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -1996,6 +2125,101 @@ CloneList
 <td>
 <em>(Optional)</em>
 <p>CloneList specifies the list of source resource used to populate each generated resource.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.GenerateType">GenerateType
+(<code>string</code> alias)</p></h3>
+<p>
+</p>
+<h3 id="kyverno.io/v1.Generation">Generation
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Rule">Rule</a>, 
+<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
+</p>
+<p>
+<p>Generation defines how new resources should be created and managed.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger the rule in existing resources
+If is set to &ldquo;true&rdquo; the rule will be triggered and applied to existing matched resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Synchronize controls if generated resources should be kept in-sync with their source resource.
+If Synchronize is set to &ldquo;true&rdquo; changes to generated resources will be overwritten with resource
+data from Data or the resource specified in the Clone declaration.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>orphanDownstreamOnPolicyDelete</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
+them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+See <a href="https://kyverno.io/docs/writing-policies/generate/#data-examples">https://kyverno.io/docs/writing-policies/generate/#data-examples</a>.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>GeneratePatterns</code><br/>
+<em>
+<a href="#kyverno.io/v1.GeneratePatterns">
+GeneratePatterns
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>foreach</code><br/>
+<em>
+<a href="#kyverno.io/v1.ForEachGeneration">
+[]ForEachGeneration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </td>
 </tr>
 </tbody>
@@ -2285,6 +2509,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>validationFailureAction</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Allowed values are Audit or Enforce.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>type</code><br/>
 <em>
 <a href="#kyverno.io/v1.ImageVerificationType">
@@ -2294,7 +2532,7 @@ ImageVerificationType
 </td>
 <td>
 <p>Type specifies the method of signature validation. The allowed options
-are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
+are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.</p>
 </td>
 </tr>
 <tr>
@@ -2584,6 +2822,17 @@ string
 </tr>
 <tr>
 <td>
+<code>issuerRegExp</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>IssuerRegExp is the regular expression to match certificate issuer used for keyless signing.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>subject</code><br/>
 <em>
 string
@@ -2591,6 +2840,17 @@ string
 </td>
 <td>
 <p>Subject is the verified identity used for keyless signing, for example the email address.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>subjectRegExp</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SubjectRegExp is the regular expression to match identity used for keyless signing, for example the email address.</p>
 </td>
 </tr>
 <tr>
@@ -3439,10 +3699,11 @@ ResourceDescription
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Generation">Generation</a>, 
+<a href="#kyverno.io/v1.GeneratePatterns">GeneratePatterns</a>, 
 <a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>, 
+<a href="#kyverno.io/v2.RuleContext">RuleContext</a>, 
 <a href="#kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v2.UpdateRequestStatus">UpdateRequestStatus</a>)
 </p>
@@ -3616,8 +3877,8 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ConditionsWrapper">
+ConditionsWrapper
 </a>
 </em>
 </td>
@@ -4219,8 +4480,8 @@ ResourceSpec
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
+<a href="#kyverno.io/v1.ConditionsWrapper">
+ConditionsWrapper
 </a>
 </em>
 </td>
@@ -4368,9 +4629,9 @@ ValidationFailureAction
 <td>
 <em>(Optional)</em>
 <p>ValidationFailureAction defines if a validation policy rule violation should block
-the admission review request (enforce), or allow (audit) the admission review request
+the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce.</p>
+Allowed values are Audit or Enforce.</p>
 </td>
 </tr>
 <tr>
@@ -4500,6 +4761,18 @@ CEL
 <p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>assert</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Assert defines a kyverno-json assertion tree.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -4507,9 +4780,11 @@ CEL
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v1.Spec">Spec</a>, 
 <a href="#kyverno.io/v1.Validation">Validation</a>, 
 <a href="#kyverno.io/v1.ValidationFailureActionOverride">ValidationFailureActionOverride</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v2beta1.Spec">Spec</a>, 
 <a href="#kyverno.io/v2beta1.Validation">Validation</a>)
 </p>
@@ -4593,9 +4868,7 @@ Kubernetes meta/v1.LabelSelector
 <td>
 <code>value</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
-</a>
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
@@ -4620,9 +4893,7 @@ transform the variable.</p>
 <td>
 <code>default</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
-</a>
+github.com/kyverno/kyverno/api/kyverno.Any
 </em>
 </td>
 <td>
@@ -5751,6 +6022,20 @@ string
 </tr>
 <tr>
 <td>
+<code>ruleContext</code><br/>
+<em>
+<a href="#kyverno.io/v2.RuleContext">
+[]RuleContext
+</a>
+</em>
+</td>
+<td>
+<p>RuleContext is the associate context to apply rules.
+optional</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>rule</code><br/>
 <em>
 string
@@ -5768,7 +6053,8 @@ bool
 </em>
 </td>
 <td>
-<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.
+Deprecated</p>
 </td>
 </tr>
 <tr>
@@ -5780,7 +6066,8 @@ bool
 </td>
 <td>
 <p>Synchronize represents the sync behavior of the corresponding rule
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+Optional. Defaults to &ldquo;false&rdquo; if not specified.
+Deprecated, will be removed in 1.14.</p>
 </td>
 </tr>
 <tr>
@@ -5806,7 +6093,8 @@ UpdateRequestSpecContext
 </em>
 </td>
 <td>
-<p>Context &hellip;</p>
+<p>Context represents admission request context.
+It is used upon admission review only and is shared across rules within the same UR.</p>
 </td>
 </tr>
 </table>
@@ -6349,6 +6637,72 @@ Kubernetes authentication/v1.UserInfo
 </p>
 <p>
 </p>
+<h3 id="kyverno.io/v2.RuleContext">RuleContext
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>trigger</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec
 </h3>
 <p>
@@ -6392,6 +6746,20 @@ string
 </tr>
 <tr>
 <td>
+<code>ruleContext</code><br/>
+<em>
+<a href="#kyverno.io/v2.RuleContext">
+[]RuleContext
+</a>
+</em>
+</td>
+<td>
+<p>RuleContext is the associate context to apply rules.
+optional</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>rule</code><br/>
 <em>
 string
@@ -6409,7 +6777,8 @@ bool
 </em>
 </td>
 <td>
-<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.
+Deprecated</p>
 </td>
 </tr>
 <tr>
@@ -6421,7 +6790,8 @@ bool
 </td>
 <td>
 <p>Synchronize represents the sync behavior of the corresponding rule
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+Optional. Defaults to &ldquo;false&rdquo; if not specified.
+Deprecated, will be removed in 1.14.</p>
 </td>
 </tr>
 <tr>
@@ -6447,7 +6817,8 @@ UpdateRequestSpecContext
 </em>
 </td>
 <td>
-<p>Context &hellip;</p>
+<p>Context represents admission request context.
+It is used upon admission review only and is shared across rules within the same UR.</p>
 </td>
 </tr>
 </tbody>
@@ -6739,6 +7110,18 @@ Kubernetes meta/v1.Duration
 <p>RefreshInterval defines the interval in duration at which to poll the APICall.
 The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
 such as &ldquo;300ms&rdquo;, &ldquo;1.5h&rdquo; or &ldquo;2h45m&rdquo;. Valid time units are &ldquo;ns&rdquo;, &ldquo;us&rdquo; (or &ldquo;µs&rdquo;), &ldquo;ms&rdquo;, &ldquo;s&rdquo;, &ldquo;m&rdquo;, &ldquo;h&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>retryLimit</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RetryLimit defines the number of times the APICall should be retried in case of failure.</p>
 </td>
 </tr>
 </tbody>
@@ -8257,6 +8640,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>validationFailureAction</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Allowed values are Audit or Enforce.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>type</code><br/>
 <em>
 <a href="#kyverno.io/v1.ImageVerificationType">
@@ -9136,9 +9533,9 @@ ValidationFailureAction
 <td>
 <em>(Optional)</em>
 <p>ValidationFailureAction defines if a validation policy rule violation should block
-the admission review request (enforce), or allow (audit) the admission review request
+the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce.</p>
+Allowed values are Audit or Enforce.</p>
 </td>
 </tr>
 <tr>
@@ -9260,6 +9657,18 @@ CEL
 <td>
 <em>(Optional)</em>
 <p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>assert</code><br/>
+<em>
+github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Assert defines a kyverno-json assertion tree.</p>
 </td>
 </tr>
 </tbody>

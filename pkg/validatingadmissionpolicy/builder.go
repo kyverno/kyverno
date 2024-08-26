@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -18,6 +19,7 @@ func BuildValidatingAdmissionPolicy(
 	discoveryClient dclient.IDiscovery,
 	vap *admissionregistrationv1alpha1.ValidatingAdmissionPolicy,
 	cpol kyvernov1.PolicyInterface,
+	exceptions []kyvernov2.PolicyException,
 ) error {
 	// set owner reference
 	vap.OwnerReferences = []metav1.OwnerReference{
@@ -73,6 +75,22 @@ func BuildValidatingAdmissionPolicy(
 		}
 	}
 
+	// convert the exceptions if exist
+	for _, exception := range exceptions {
+		match := exception.Spec.Match
+		if match.Any != nil {
+			if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.Any, false); err != nil {
+				return err
+			}
+		}
+
+		if match.All != nil {
+			if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.All, false); err != nil {
+				return err
+			}
+		}
+	}
+
 	// set policy spec
 	vap.Spec = admissionregistrationv1alpha1.ValidatingAdmissionPolicySpec{
 		MatchConstraints: &matchResources,
@@ -105,12 +123,22 @@ func BuildValidatingAdmissionPolicyBinding(
 
 	// set validation action for vap binding
 	var validationActions []admissionregistrationv1alpha1.ValidationAction
-	action := cpol.GetSpec().GetValidationFailureAction()
-	if action.Enforce() {
-		validationActions = append(validationActions, admissionregistrationv1alpha1.Deny)
-	} else if action.Audit() {
-		validationActions = append(validationActions, admissionregistrationv1alpha1.Audit)
-		validationActions = append(validationActions, admissionregistrationv1alpha1.Warn)
+	validateAction := cpol.GetSpec().Rules[0].Validation.ValidationFailureAction
+	if validateAction != nil {
+		if validateAction.Enforce() {
+			validationActions = append(validationActions, admissionregistrationv1alpha1.Deny)
+		} else if validateAction.Audit() {
+			validationActions = append(validationActions, admissionregistrationv1alpha1.Audit)
+			validationActions = append(validationActions, admissionregistrationv1alpha1.Warn)
+		}
+	} else {
+		validateAction := cpol.GetSpec().ValidationFailureAction
+		if validateAction.Enforce() {
+			validationActions = append(validationActions, admissionregistrationv1alpha1.Deny)
+		} else if validateAction.Audit() {
+			validationActions = append(validationActions, admissionregistrationv1alpha1.Audit)
+			validationActions = append(validationActions, admissionregistrationv1alpha1.Warn)
+		}
 	}
 
 	// set validating admission policy binding spec
@@ -295,6 +323,8 @@ func translateOperations(operations []string) []admissionregistrationv1.Operatio
 	if len(vapOperations) == 0 {
 		vapOperations = append(vapOperations, admissionregistrationv1.Create)
 		vapOperations = append(vapOperations, admissionregistrationv1.Update)
+		vapOperations = append(vapOperations, admissionregistrationv1.Connect)
+		vapOperations = append(vapOperations, admissionregistrationv1.Delete)
 	}
 	return vapOperations
 }

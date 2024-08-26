@@ -1332,6 +1332,7 @@ It's mutually exclusive with the URLPath field.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#kyverno-io-v1-Attestation">Attestation</a>, 
+        <a href="#kyverno-io-v1-ForEachGeneration">ForEachGeneration</a>, 
         <a href="#kyverno-io-v1-ForEachMutation">ForEachMutation</a>, 
         <a href="#kyverno-io-v1-ForEachValidation">ForEachValidation</a>)
     </p>
@@ -2454,7 +2455,7 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
   
     <p>
       (<em>Appears in:</em>
-        <a href="#kyverno-io-v1-Generation">Generation</a>)
+        <a href="#kyverno-io-v1-GeneratePatterns">GeneratePatterns</a>)
     </p>
   
 
@@ -2712,6 +2713,71 @@ or can be variables declared using JMESPath.</p>
 
   
 
+  <H3 id="kyverno-io-v1-ConditionsWrapper">ConditionsWrapper
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-Deny">Deny</a>, 
+        <a href="#kyverno-io-v1-Rule">Rule</a>, 
+        <a href="#kyverno-io-v1-TargetResourceSpec">TargetResourceSpec</a>)
+    </p>
+  
+
+  <p><p>ConditionsWrapper contains either the deprecated list of Conditions or the new AnyAll Conditions.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>-</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Conditions is a list of conditions that must be satisfied for the rule to be applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v1-ConfigMapReference">ConfigMapReference
     </H3>
 
@@ -2912,6 +2978,7 @@ of deployments across all namespaces.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ForEachGeneration">ForEachGeneration</a>, 
         <a href="#kyverno-io-v1-ForEachMutation">ForEachMutation</a>, 
         <a href="#kyverno-io-v1-ForEachValidation">ForEachValidation</a>, 
         <a href="#kyverno-io-v1-Rule">Rule</a>, 
@@ -3175,7 +3242,9 @@ details.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ConditionsWrapper">
+                <span style="font-family: monospace">ConditionsWrapper</span>
+              </a>
             
           
         </td>
@@ -3312,12 +3381,168 @@ Dryrun requires additional permissions. See config/dryrun/dryrun_rbac.yaml</p>
 
   
 
+  <H3 id="kyverno-io-v1-ForEachGeneration">ForEachGeneration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-Generation">Generation</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>list</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>List specifies a JMESPath expression that results in one or more elements
+to which the validation logic is applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>context</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ContextEntry">
+                <span style="font-family: monospace">[]ContextEntry</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Context defines variables and data sources that can be used during rule execution.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>preconditions</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-AnyAllConditions">
+                <span style="font-family: monospace">AnyAllConditions</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
+See: https://kyverno.io/docs/writing-policies/preconditions/</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>GeneratePatterns</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-GeneratePatterns">
+                <span style="font-family: monospace">GeneratePatterns</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v1-ForEachMutation">ForEachMutation
     </H3>
 
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ForEachMutationWrapper">ForEachMutationWrapper</a>, 
         <a href="#kyverno-io-v1-Mutation">Mutation</a>)
     </p>
   
@@ -3472,7 +3697,7 @@ See: https://kyverno.io/docs/writing-policies/preconditions/</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -3529,7 +3754,9 @@ See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/r
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ForEachMutationWrapper">
+                <span style="font-family: monospace">ForEachMutationWrapper</span>
+              </a>
             
           
         </td>
@@ -3552,12 +3779,78 @@ See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/r
     </table>
   
 
+  <H3 id="kyverno-io-v1-ForEachMutationWrapper">ForEachMutationWrapper
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ForEachMutation">ForEachMutation</a>)
+    </p>
+  
+
+  <p><p>ForEachMutationWrapper contains a list of ForEach descriptors.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>-</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ForEachMutation">
+                <span style="font-family: monospace">[]ForEachMutation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Item is a descriptor on how to iterate over the list of items.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v1-ForEachValidation">ForEachValidation
     </H3>
 
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ForEachValidationWrapper">ForEachValidationWrapper</a>, 
         <a href="#kyverno-io-v1-Validation">Validation</a>)
     </p>
   
@@ -3795,7 +4088,9 @@ must be satisfied for the validation rule to succeed.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ForEachValidationWrapper">
+                <span style="font-family: monospace">ForEachValidationWrapper</span>
+              </a>
             
           
         </td>
@@ -3803,6 +4098,71 @@ must be satisfied for the validation rule to succeed.</p>
           
 
           <p>Foreach declares a nested foreach iterator</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1-ForEachValidationWrapper">ForEachValidationWrapper
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ForEachValidation">ForEachValidation</a>)
+    </p>
+  
+
+  <p><p>ForEachValidationWrapper contains a list of ForEach descriptors.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>-</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ForEachValidation">
+                <span style="font-family: monospace">[]ForEachValidation</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Item is a descriptor on how to iterate over the list of items.</p>
 
 
           
@@ -3833,18 +4193,18 @@ must be satisfied for the validation rule to succeed.</p>
 
   
 
-  <H3 id="kyverno-io-v1-Generation">Generation
+  <H3 id="kyverno-io-v1-GeneratePatterns">GeneratePatterns
     </H3>
 
   
     <p>
       (<em>Appears in:</em>
-        <a href="#kyverno-io-v1-Rule">Rule</a>)
+        <a href="#kyverno-io-v1-ForEachGeneration">ForEachGeneration</a>, 
+        <a href="#kyverno-io-v1-Generation">Generation</a>)
     </p>
   
 
-  <p><p>Generation defines how new resources should be created and managed.</p>
-</p>
+  <p></p>
 
   
     <table class="table table-striped">
@@ -3862,34 +4222,6 @@ must be satisfied for the validation rule to succeed.</p>
         
 
   
-  
-    
-    
-      <tr>
-        <td><code>generateExisting</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">bool</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>GenerateExisting controls whether to trigger the rule in existing resources
-If is set to &quot;true&quot; the rule will be triggered and applied to existing matched resources.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
   
     
     
@@ -3913,66 +4245,6 @@ If is set to &quot;true&quot; the rule will be triggered and applied to existing
           
 
           <p>ResourceSpec contains information to select the resource.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>synchronize</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">bool</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Synchronize controls if generated resources should be kept in-sync with their source resource.
-If Synchronize is set to &quot;true&quot; changes to generated resources will be overwritten with resource
-data from Data or the resource specified in the Clone declaration.
-Optional. Defaults to &quot;false&quot; if not specified.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>orphanDownstreamOnPolicyDelete</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">bool</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-See https://kyverno.io/docs/writing-policies/generate/#data-examples.
-Defaults to &quot;false&quot; if not specified.</p>
 
 
           
@@ -4062,6 +4334,187 @@ resource will be created with default data only.</p>
           
 
           <p>CloneList specifies the list of source resource used to populate each generated resource.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1-Generation">Generation
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-Rule">Rule</a>)
+    </p>
+  
+
+  <p><p>Generation defines how new resources should be created and managed.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>generateExisting</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>GenerateExisting controls whether to trigger the rule in existing resources
+If is set to &quot;true&quot; the rule will be triggered and applied to existing matched resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>synchronize</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Synchronize controls if generated resources should be kept in-sync with their source resource.
+If Synchronize is set to &quot;true&quot; changes to generated resources will be overwritten with resource
+data from Data or the resource specified in the Clone declaration.
+Optional. Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>orphanDownstreamOnPolicyDelete</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
+them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+Defaults to &quot;false&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>GeneratePatterns</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-GeneratePatterns">
+                <span style="font-family: monospace">GeneratePatterns</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>foreach</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ForEachGeneration">
+                <span style="font-family: monospace">[]ForEachGeneration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 
 
           
@@ -4492,6 +4945,35 @@ mutated to include the SHA digest retrieved during the registration.</p>
     
     
       <tr>
+        <td><code>validationFailureAction</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidationFailureAction">
+                <span style="font-family: monospace">ValidationFailureAction</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Allowed values are Audit or Enforce.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>type</code>
           
           <span style="color:blue;"> *</span>
@@ -4511,7 +4993,7 @@ mutated to include the SHA digest retrieved during the registration.</p>
           
 
           <p>Type specifies the method of signature validation. The allowed options
-are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
+are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.</p>
 
 
           
@@ -5205,6 +5687,35 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
     
     
       <tr>
+        <td><code>issuerRegExp</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IssuerRegExp is the regular expression to match certificate issuer used for keyless signing.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>subject</code>
           
           <span style="color:blue;"> *</span>
@@ -5222,6 +5733,35 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
           
 
           <p>Subject is the verified identity used for keyless signing, for example the email address.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subjectRegExp</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SubjectRegExp is the regular expression to match identity used for keyless signing, for example the email address.</p>
 
 
           
@@ -6790,7 +7330,7 @@ does not match an empty label set.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#kyverno-io-v1-Generation">Generation</a>, 
+        <a href="#kyverno-io-v1-GeneratePatterns">GeneratePatterns</a>, 
         <a href="#kyverno-io-v1-TargetResourceSpec">TargetResourceSpec</a>)
     </p>
   
@@ -7153,7 +7693,9 @@ This config is only valid for verifyImages rules.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ConditionsWrapper">
+                <span style="font-family: monospace">ConditionsWrapper</span>
+              </a>
             
           
         </td>
@@ -8469,7 +9011,9 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <a href="#kyverno-io-v1-ConditionsWrapper">
+                <span style="font-family: monospace">ConditionsWrapper</span>
+              </a>
             
           
         </td>
@@ -8758,9 +9302,9 @@ It is an empty string when validating admission policy is successfully generated
           
 
           <p>ValidationFailureAction defines if a validation policy rule violation should block
-the admission review request (enforce), or allow (audit) the admission review request
+the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce.</p>
+Allowed values are Audit or Enforce.</p>
 
 
           
@@ -9028,6 +9572,33 @@ by specifying exclusions for Pod Security Standards controls.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>assert</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Assert defines a kyverno-json assertion tree.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -9040,6 +9611,7 @@ by specifying exclusions for Pod Security Standards controls.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ImageVerification">ImageVerification</a>, 
         <a href="#kyverno-io-v1-Spec">Spec</a>, 
         <a href="#kyverno-io-v1-Validation">Validation</a>, 
         <a href="#kyverno-io-v1-ValidationFailureActionOverride">ValidationFailureActionOverride</a>)
@@ -9213,7 +9785,7 @@ by specifying exclusions for Pod Security Standards controls.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -9268,7 +9840,7 @@ transform the variable.</p>
           
           
             
-              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>

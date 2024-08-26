@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
@@ -17,6 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 )
+
+// AssertionTree defines a kyverno-json assertion tree.
+type AssertionTree = kjson.Any
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
 // +kubebuilder:validation:Enum=Ignore;Fail
@@ -119,7 +124,9 @@ type ContextEntry struct {
 type Variable struct {
 	// Value is any arbitrary JSON object representable in YAML or JSON form.
 	// +optional
-	Value *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Value *kyverno.Any `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// JMESPath is an optional JMESPath Expression that can be used to
 	// transform the variable.
@@ -129,7 +136,25 @@ type Variable struct {
 	// Default is an optional arbitrary JSON object that the variable may take if the JMESPath
 	// expression evaluates to nil
 	// +optional
-	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Default *kyverno.Any `json:"default,omitempty" yaml:"default,omitempty"`
+}
+
+func (v *Variable) GetValue() any {
+	return kyverno.FromAny(v.Value)
+}
+
+func (v *Variable) SetValue(in any) {
+	v.Value = kyverno.ToAny(in)
+}
+
+func (v *Variable) GetDefault() any {
+	return kyverno.FromAny(v.Default)
+}
+
+func (v *Variable) SetDefault(in any) {
+	v.Default = kyverno.ToAny(in)
 }
 
 // ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
@@ -367,10 +392,6 @@ func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
 }
 
-func (m *Mutation) IsMutateExistingOnPolicyUpdate() *bool {
-	return m.MutateExistingOnPolicyUpdate
-}
-
 // ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
@@ -397,7 +418,9 @@ type ForEachMutation struct {
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
 	// +optional
-	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawPatchStrategicMerge *kyverno.Any `json:"patchStrategicMerge,omitempty" yaml:"patchStrategicMerge,omitempty"`
 
 	// PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
@@ -406,25 +429,34 @@ type ForEachMutation struct {
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachMutation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ForEachMutation *ForEachMutationWrapper `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
-func (m *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
-	return FromJSON(m.RawPatchStrategicMerge)
+func (m *ForEachMutation) GetForEachMutation() []ForEachMutation {
+	if m.ForEachMutation == nil {
+		return nil
+	}
+	return m.ForEachMutation.Items
 }
 
-func (m *ForEachMutation) SetPatchStrategicMerge(in apiextensions.JSON) {
-	m.RawPatchStrategicMerge = ToJSON(in)
+func (m *ForEachMutation) GetPatchStrategicMerge() any {
+	return kyverno.FromAny(m.RawPatchStrategicMerge)
+}
+
+func (m *ForEachMutation) SetPatchStrategicMerge(in any) {
+	m.RawPatchStrategicMerge = kyverno.ToAny(in)
 }
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
 	// ValidationFailureAction defines if a validation policy rule violation should block
-	// the admission review request (enforce), or allow (audit) the admission review request
+	// the admission review request (Enforce), or allow (Audit) the admission review request
 	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce.
+	// Allowed values are Audit or Enforce.
 	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	// +kubebuilder:validation:Enum=Audit;Enforce
 	ValidationFailureAction *ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
@@ -465,6 +497,10 @@ type Validation struct {
 	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 	// +optional
 	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
+
+	// Assert defines a kyverno-json assertion tree.
+	// +optional
+	Assert AssertionTree `json:"assert"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -620,15 +656,24 @@ type Deny struct {
 	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
 	// but will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
-	RawAnyAllConditions *apiextv1.JSON `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *ConditionsWrapper `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
-func (d *Deny) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(d.RawAnyAllConditions)
+func (d *Deny) GetAnyAllConditions() any {
+	if d.RawAnyAllConditions == nil {
+		return nil
+	}
+	return d.RawAnyAllConditions.Conditions
 }
 
-func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
-	d.RawAnyAllConditions = ToJSON(in)
+func (d *Deny) SetAnyAllConditions(in any) {
+	var new *ConditionsWrapper
+	if in != nil {
+		new = &ConditionsWrapper{in}
+	}
+	d.RawAnyAllConditions = new
 }
 
 // ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
@@ -669,7 +714,16 @@ type ForEachValidation struct {
 
 	// Foreach declares a nested foreach iterator
 	// +optional
-	ForEachValidation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ForEachValidation *ForEachValidationWrapper `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+func (v *ForEachValidation) GetForEachValidation() []ForEachValidation {
+	if v.ForEachValidation == nil {
+		return nil
+	}
+	return v.ForEachValidation.Items
 }
 
 func (v *ForEachValidation) GetPattern() apiextensions.JSON {
@@ -695,9 +749,6 @@ type Generation struct {
 	// +optional
 	GenerateExisting *bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
 
-	// ResourceSpec contains information to select the resource.
-	ResourceSpec `json:",omitempty" yaml:",omitempty"`
-
 	// Synchronize controls if generated resources should be kept in-sync with their source resource.
 	// If Synchronize is set to "true" changes to generated resources will be overwritten with resource
 	// data from Data or the resource specified in the Clone declaration.
@@ -711,6 +762,19 @@ type Generation struct {
 	// Defaults to "false" if not specified.
 	// +optional
 	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty" yaml:"orphanDownstreamOnPolicyDelete,omitempty"`
+
+	// +optional
+	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
+
+	// ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+	// +optional
+	ForEachGeneration []ForEachGeneration `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+type GeneratePatterns struct {
+	// ResourceSpec contains information to select the resource.
+	// +kubebuilder:validation:Optional
+	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
 	// Data provides the resource declaration used to populate each generated resource.
 	// At most one of Data or Clone must be specified. If neither are provided, the generated
@@ -729,8 +793,23 @@ type Generation struct {
 	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
 }
 
-func (g *Generation) IsGenerateExisting() *bool {
-	return g.GenerateExisting
+type ForEachGeneration struct {
+	// List specifies a JMESPath expression that results in one or more elements
+	// to which the validation logic is applied.
+	List string `json:"list,omitempty" yaml:"list,omitempty"`
+
+	// Context defines variables and data sources that can be used during rule execution.
+	// +optional
+	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
+	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
+	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
 }
 
 type CloneList struct {
@@ -747,30 +826,55 @@ type CloneList struct {
 }
 
 func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	count := 0
+	if g.GetData() != nil {
+		count++
+	}
+	if g.Clone != (CloneFrom{}) {
+		count++
+	}
+	if g.CloneList.Kinds != nil {
+		count++
+	}
+	if g.ForEachGeneration != nil {
+		count++
+	}
+	if count > 1 {
+		errs = append(errs, field.Forbidden(path, "only one of generate patterns(data, clone, cloneList and foreach) can be specified"))
+		return errs
+	}
+
+	if g.ForEachGeneration != nil {
+		for i, foreach := range g.ForEachGeneration {
+			err := foreach.GeneratePatterns.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			errs = append(errs, err...)
+		}
+		return errs
+	} else {
+		return g.GeneratePatterns.Validate(path, namespaced, policyNamespace, clusterResources)
+	}
+}
+
+func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if namespaced {
 		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
-			errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
+			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
 		}
 	}
 
 	if g.GetKind() != "" {
 		if !clusterResources.Has(g.GetAPIVersion() + "/" + g.GetKind()) {
 			if g.GetNamespace() == "" {
-				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must be set for a namespaced resource"))
+				errs = append(errs, field.Forbidden(path.Child("namespace"), "target namespace must be set for a namespaced resource"))
 			}
 		} else {
 			if g.GetNamespace() != "" {
-				errs = append(errs, field.Forbidden(path.Child("generate").Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
+				errs = append(errs, field.Forbidden(path.Child("namespace"), "target namespace must not be set for a cluster-wide resource"))
 			}
 		}
 	}
 
-	generateType, _, _ := g.GetTypeAndSyncAndOrphanDownstream()
-	if generateType == Data {
-		return errs
-	}
-
-	newGeneration := Generation{
+	newGeneration := GeneratePatterns{
 		ResourceSpec: ResourceSpec{
 			Kind:       g.ResourceSpec.GetKind(),
 			APIVersion: g.ResourceSpec.GetAPIVersion(),
@@ -780,23 +884,25 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 	}
 
 	if err := regex.ObjectHasVariables(newGeneration); err != nil {
-		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
+		errs = append(errs, field.Forbidden(path.Child("clone/cloneList"), "Generation Rule Clone/CloneList should not have variables"))
 	}
 
 	if len(g.CloneList.Kinds) == 0 {
 		if g.Kind == "" {
-			errs = append(errs, field.Forbidden(path.Child("generate").Child("kind"), "kind can not be empty"))
+			errs = append(errs, field.Forbidden(path.Child("kind"), "kind can not be empty"))
 		}
 		if g.Name == "" {
-			errs = append(errs, field.Forbidden(path.Child("generate").Child("name"), "name can not be empty"))
+			errs = append(errs, field.Forbidden(path.Child("name"), "name can not be empty"))
+		}
+		if g.APIVersion == "" {
+			errs = append(errs, field.Forbidden(path.Child("apiVersion"), "apiVersion can not be empty"))
 		}
 	}
 
-	errs = append(errs, g.ValidateCloneList(path.Child("generate"), namespaced, policyNamespace, clusterResources)...)
-	return errs
+	return append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
 }
 
-func (g *Generation) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *GeneratePatterns) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if len(g.CloneList.Kinds) == 0 {
 		return nil
 	}
@@ -833,15 +939,23 @@ func (g *Generation) ValidateCloneList(path *field.Path, namespaced bool, policy
 	return errs
 }
 
-func (g *Generation) GetData() apiextensions.JSON {
+func (g *GeneratePatterns) GetType() GenerateType {
+	if g.RawData != nil {
+		return Data
+	}
+
+	return Clone
+}
+
+func (g *GeneratePatterns) GetData() apiextensions.JSON {
 	return FromJSON(g.RawData)
 }
 
-func (g *Generation) SetData(in apiextensions.JSON) {
+func (g *GeneratePatterns) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
-func (g *Generation) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
+func (g *GeneratePatterns) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
 	target := g.ResourceSpec
 	if clusterResources.Has(target.GetAPIVersion() + "/" + target.GetKind()) {
 		return fmt.Errorf("the target must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
@@ -865,13 +979,6 @@ const (
 	Data  GenerateType = "Data"
 	Clone GenerateType = "Clone"
 )
-
-func (g *Generation) GetTypeAndSyncAndOrphanDownstream() (GenerateType, bool, bool) {
-	if g.RawData != nil {
-		return Data, g.Synchronize, g.OrphanDownstreamOnPolicyDelete
-	}
-	return Clone, g.Synchronize, g.OrphanDownstreamOnPolicyDelete
-}
 
 // CloneFrom provides the location of the source resource used to generate target resources.
 // The resource kind is derived from the match criteria.

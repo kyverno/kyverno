@@ -19,8 +19,8 @@ limitations under the License.
 package v1
 
 import (
+	kyverno "github.com/kyverno/kyverno/api/kyverno"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ForEachMutationApplyConfiguration represents an declarative configuration of the ForEachMutation type for use
@@ -30,9 +30,9 @@ type ForEachMutationApplyConfiguration struct {
 	Order                  *v1.ForeachOrder                    `json:"order,omitempty"`
 	Context                []ContextEntryApplyConfiguration    `json:"context,omitempty"`
 	AnyAllConditions       *AnyAllConditionsApplyConfiguration `json:"preconditions,omitempty"`
-	RawPatchStrategicMerge *apiextensionsv1.JSON               `json:"patchStrategicMerge,omitempty"`
+	RawPatchStrategicMerge *kyverno.Any                        `json:"patchStrategicMerge,omitempty"`
 	PatchesJSON6902        *string                             `json:"patchesJson6902,omitempty"`
-	ForEachMutation        *apiextensionsv1.JSON               `json:"foreach,omitempty"`
+	ForEachMutation        *v1.ForEachMutationWrapper          `json:"foreach,omitempty"`
 }
 
 // ForEachMutationApplyConfiguration constructs an declarative configuration of the ForEachMutation type for use with
@@ -81,7 +81,7 @@ func (b *ForEachMutationApplyConfiguration) WithAnyAllConditions(value *AnyAllCo
 // WithRawPatchStrategicMerge sets the RawPatchStrategicMerge field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawPatchStrategicMerge field is set to the value of the last call.
-func (b *ForEachMutationApplyConfiguration) WithRawPatchStrategicMerge(value apiextensionsv1.JSON) *ForEachMutationApplyConfiguration {
+func (b *ForEachMutationApplyConfiguration) WithRawPatchStrategicMerge(value kyverno.Any) *ForEachMutationApplyConfiguration {
 	b.RawPatchStrategicMerge = &value
 	return b
 }
@@ -97,7 +97,7 @@ func (b *ForEachMutationApplyConfiguration) WithPatchesJSON6902(value string) *F
 // WithForEachMutation sets the ForEachMutation field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ForEachMutation field is set to the value of the last call.
-func (b *ForEachMutationApplyConfiguration) WithForEachMutation(value apiextensionsv1.JSON) *ForEachMutationApplyConfiguration {
+func (b *ForEachMutationApplyConfiguration) WithForEachMutation(value v1.ForEachMutationWrapper) *ForEachMutationApplyConfiguration {
 	b.ForEachMutation = &value
 	return b
 }

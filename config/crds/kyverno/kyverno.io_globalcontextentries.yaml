@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: (devel)
   name: globalcontextentries.kyverno.io
 spec:
   group: kyverno.io
@@ -99,6 +99,12 @@ spec:
                       such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
                     format: duration
                     type: string
+                  retryLimit:
+                    default: 3
+                    description: RetryLimit defines the number of times the APICall
+                      should be retried in case of failure.
+                    minimum: 1
+                    type: integer
                   service:
                     description: |-
                       Service is an API call to a JSON web service.
@@ -150,7 +156,6 @@ spec:
                     description: Version defines the version of the resource.
                     type: string
                 required:
-                - group
                 - resource
                 - version
                 type: object

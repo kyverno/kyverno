@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: badpod
+spec:
+  containers:
+  - name: container01
+    image: busybox:1.35
+    securityContext:
+      runAsNonRoot: false

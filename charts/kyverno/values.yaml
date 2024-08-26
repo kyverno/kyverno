@@ -309,6 +309,9 @@ config:
     - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
     - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
 
+  # -- Sets the threshold for the total number of UpdateRequests generated for mutateExisitng and generate policies.
+  updateRequestThreshold: 1000
+
   # -- Defines the `namespaceSelector` in the webhook configurations.
   # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
   # will be forwarded to the webhook configurations.
@@ -681,249 +684,6 @@ features:
     # -- (string) Tuf mirror
     mirror: ~
 
-# Cleanup cronjobs to prevent internal resources from stacking up in the cluster
-cleanupJobs:
-
-  updateRequests:
-
-    # -- Enable cleanup cronjob
-    enabled: false
-
-    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
-    backoffLimit: 3
-
-    # -- Time until the pod from the cronjob is deleted
-    ttlSecondsAfterFinished: ""
-
-    image:
-      # -- (string) Image registry
-      registry: ~
-      # -- Image repository
-      repository: bitnami/kubectl
-      # -- Image tag
-      # Defaults to `latest` if omitted
-      tag: '1.30.2'
-      # -- (string) Image pull policy
-      # Defaults to image.pullPolicy if omitted
-      pullPolicy: ~
-
-    # -- Image pull secrets
-    imagePullSecrets: []
-      # - name: secretName
-
-    # -- Cronjob schedule
-    schedule: '*/10 * * * *'
-
-    # -- Reports threshold, if number of updateRequests are above this value the cronjob will start deleting them
-    threshold: 10000
-
-    # -- Cronjob history
-    history:
-      success: 1
-      failure: 1
-
-    # -- Security context for the pod
-    podSecurityContext: {}
-
-    # -- Security context for the containers
-    securityContext:
-      runAsNonRoot: true
-      privileged: false
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-      seccompProfile:
-        type: RuntimeDefault
-
-    # -- Pod PriorityClassName
-    priorityClassName: ""
-
-    # -- Job resources
-    resources: {}
-
-    # -- List of node taints to tolerate
-    tolerations: []
-
-    # -- Node labels for pod assignment
-    nodeSelector: {}
-
-    # -- Pod Annotations
-    podAnnotations: {}
-
-    # -- Pod labels
-    podLabels: {}
-
-    # -- Pod anti affinity constraints.
-    podAntiAffinity: {}
-
-    # -- Pod affinity constraints.
-    podAffinity: {}
-
-    # -- Node affinity constraints.
-    nodeAffinity: {}
-
-  ephemeralReports:
-
-    # -- Enable cleanup cronjob
-    enabled: false
-
-    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
-    backoffLimit: 3
-
-    # -- Time until the pod from the cronjob is deleted
-    ttlSecondsAfterFinished: ""
-
-    image:
-      # -- (string) Image registry
-      registry: ~
-      # -- Image repository
-      repository: bitnami/kubectl
-      # -- Image tag
-      # Defaults to `latest` if omitted
-      tag: '1.30.2'
-      # -- (string) Image pull policy
-      # Defaults to image.pullPolicy if omitted
-      pullPolicy: ~
-
-    # -- Image pull secrets
-    imagePullSecrets: []
-      # - name: secretName
-
-    # -- Cronjob schedule
-    schedule: '*/10 * * * *'
-
-    # -- Reports threshold, if number of updateRequests are above this value the cronjob will start deleting them
-    threshold: 10000
-
-    # -- Cronjob history
-    history:
-      success: 1
-      failure: 1
-
-    # -- Security context for the pod
-    podSecurityContext: {}
-
-    # -- Security context for the containers
-    securityContext:
-      runAsNonRoot: true
-      privileged: false
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-      seccompProfile:
-        type: RuntimeDefault
-
-    # -- Pod PriorityClassName
-    priorityClassName: ""
-
-    # -- Job resources
-    resources: {}
-
-    # -- List of node taints to tolerate
-    tolerations: []
-
-    # -- Node labels for pod assignment
-    nodeSelector: {}
-
-    # -- Pod Annotations
-    podAnnotations: {}
-
-    # -- Pod labels
-    podLabels: {}
-
-    # -- Pod anti affinity constraints.
-    podAntiAffinity: {}
-
-    # -- Pod affinity constraints.
-    podAffinity: {}
-
-    # -- Node affinity constraints.
-    nodeAffinity: {}
-
-  clusterEphemeralReports:
-
-    # -- Enable cleanup cronjob
-    enabled: false
-
-    # -- Maximum number of retries before considering a Job as failed. Defaults to 3.
-    backoffLimit: 3
-
-    # -- Time until the pod from the cronjob is deleted
-    ttlSecondsAfterFinished: ""
-
-    image:
-      # -- (string) Image registry
-      registry: ~
-      # -- Image repository
-      repository: bitnami/kubectl
-      # -- Image tag
-      # Defaults to `latest` if omitted
-      tag: '1.30.2'
-      # -- (string) Image pull policy
-      # Defaults to image.pullPolicy if omitted
-      pullPolicy: ~
-
-    # -- Image pull secrets
-    imagePullSecrets: []
-      # - name: secretName
-
-    # -- Cronjob schedule
-    schedule: '*/10 * * * *'
-
-    # -- Reports threshold, if number of reports are above this value the cronjob will start deleting them
-    threshold: 10000
-
-    # -- Cronjob history
-    history:
-      success: 1
-      failure: 1
-
-    # -- Security context for the pod
-    podSecurityContext: {}
-
-    # -- Security context for the containers
-    securityContext:
-      runAsNonRoot: true
-      privileged: false
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-      seccompProfile:
-        type: RuntimeDefault
-
-    # -- Pod PriorityClassName
-    priorityClassName: ""
-
-    # -- Job resources
-    resources: {}
-
-    # -- List of node taints to tolerate
-    tolerations: []
-
-    # -- Node labels for pod assignment
-    nodeSelector: {}
-
-    # -- Pod Annotations
-    podAnnotations: {}
-
-    # -- Pod Labels
-    podLabels: {}
-
-    # -- Pod anti affinity constraints.
-    podAntiAffinity: {}
-
-    # -- Pod affinity constraints.
-    podAffinity: {}
-
-    # -- Node affinity constraints.
-    nodeAffinity: {}
-
 # Admission controller configuration
 admissionController:
 
@@ -937,6 +697,12 @@ admissionController:
     # -- Create RBAC resources
     create: true
 
+    # -- Create rolebinding to view role
+    createViewRoleBinding: true
+
+    # -- The view role to use in the rolebinding
+    viewRoleName: view
+
     serviceAccount:
       # -- The ServiceAccount name
       name:
@@ -949,15 +715,7 @@ admissionController:
       # -- Extra resource permissions to add in the core cluster role.
       # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
       # @default -- See [values.yaml](values.yaml)
-      extraResources:
-        - apiGroups:
-            - '*'
-          resources:
-            - '*'
-          verbs:
-            - get
-            - list
-            - watch
+      extraResources: []
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1348,6 +1106,12 @@ backgroundController:
     # -- Create RBAC resources
     create: true
 
+    # -- Create rolebinding to view role
+    createViewRoleBinding: true
+
+    # -- The view role to use in the rolebinding
+    viewRoleName: view
+
     serviceAccount:
       # -- Service account name
       name:
@@ -1361,14 +1125,6 @@ backgroundController:
       # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
       # @default -- See [values.yaml](values.yaml)
       extraResources:
-        - apiGroups:
-            - '*'
-          resources:
-            - '*'
-          verbs:
-            - get
-            - list
-            - watch
         - apiGroups:
             - networking.k8s.io
           resources:
@@ -1394,7 +1150,6 @@ backgroundController:
             - ''
           resources:
             - configmaps
-            - secrets
             - resourcequotas
             - limitranges
           verbs:
@@ -1958,6 +1713,12 @@ reportsController:
     # -- Create RBAC resources
     create: true
 
+    # -- Create rolebinding to view role
+    createViewRoleBinding: true
+
+    # -- The view role to use in the rolebinding
+    viewRoleName: view
+
     serviceAccount:
       # -- Service account name
       name:
@@ -1970,15 +1731,7 @@ reportsController:
       # -- Extra resource permissions to add in the core cluster role.
       # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
       # @default -- See [values.yaml](values.yaml)
-      extraResources:
-        - apiGroups:
-            - '*'
-          resources:
-            - '*'
-          verbs:
-            - get
-            - list
-            - watch
+      extraResources: []
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
