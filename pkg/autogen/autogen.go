@@ -156,6 +156,23 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []
 	return requested.UnsortedList(), supported.UnsortedList(), activated
 }
 
+func getActualControllers(p kyvernov1.PolicyInterface) *sets.Set[string] {
+	spec := p.GetSpec()
+	var actualControllers sets.Set[string]
+	if applyAutoGen, desiredControllers := CanAutoGen(spec); !applyAutoGen {
+		actualControllers = sets.New("none")
+	} else {
+		ann := p.GetAnnotations()
+		actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
+		if !ok {
+			actualControllers = desiredControllers
+		} else {
+			actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
+		}
+	}
+	return &actualControllers
+}
+
 // podControllersKey annotation could be:
 // scenario A: not exist, set default to "all", which generates on all pod controllers
 //               - if name / selector exist in resource description -> skip
@@ -262,18 +279,7 @@ func ComputeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	spec := p.GetSpec()
 
-	var actualControllers sets.Set[string]
-	if applyAutoGen, desiredControllers := CanAutoGen(spec); !applyAutoGen {
-		actualControllers = sets.New("none")
-	} else {
-		ann := p.GetAnnotations()
-		actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
-		if !ok {
-			actualControllers = desiredControllers
-		} else {
-			actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
-		}
-	}
+	actualControllers := getActualControllers(p)
 
 	if kind != "" {
 		if !actualControllers.Has(kind) {
