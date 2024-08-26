@@ -153,7 +153,8 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
 	for _, pol := range results.Policies {
 		// TODO we should return this info to the caller
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
+		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue

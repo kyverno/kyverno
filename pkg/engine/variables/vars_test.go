@@ -1077,7 +1077,7 @@ func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
 
 	// pattern, err := actualizePattern(log.Log, pattern, referencePath, absolutePath)
 
-	pattern, err := resolveReference(logr.Discard(), pattern, referencePath, absolutePath)
+	pattern, err := resolveReference(pattern, referencePath, absolutePath)
 
 	assert.NilError(t, err)
 	assert.DeepEqual(t, resolvedReference, pattern)

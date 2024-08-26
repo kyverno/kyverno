@@ -17,13 +17,15 @@ type policyHandlers struct {
 	client                       dclient.Interface
 	kyvernoClient                versioned.Interface
 	backgroundServiceAccountName string
+	reportsServiceAccountName    string
 }
 
-func NewHandlers(client dclient.Interface, kyvernoClient versioned.Interface, serviceaccount string) webhooks.PolicyHandlers {
+func NewHandlers(client dclient.Interface, kyvernoClient versioned.Interface, backgroundSA, reportsSA string) webhooks.PolicyHandlers {
 	return &policyHandlers{
 		client:                       client,
 		kyvernoClient:                kyvernoClient,
-		backgroundServiceAccountName: serviceaccount,
+		backgroundServiceAccountName: backgroundSA,
+		reportsServiceAccountName:    reportsSA,
 	}
 }
 
@@ -33,7 +35,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, h.kyvernoClient, false, h.backgroundServiceAccountName)
+	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, h.kyvernoClient, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 	}
