@@ -1,0 +1,52 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: CloneSet,Deployment
+  name: require-labels
+spec:
+  validationFailureAction: Enforce
+  rules:
+  - name: check-team
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "label 'team' is required"
+      pattern:
+        metadata:
+          labels:
+            team: "?*"
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
+  autogen:
+    rules:
+    - exclude:
+        resources: {}
+      generate:
+        clone: {}
+        cloneList: {}
+      match:
+        any:
+        - resources:
+            kinds:
+            - CloneSet
+            - Deployment
+        resources: {}
+      mutate: {}
+      name: autogen-check-team
+      skipBackgroundRequests: true
+      validate:
+        message: label 'team' is required
+        pattern:
+          spec:
+            template:
+              metadata:
+                labels:
+                  team: ?*
+
