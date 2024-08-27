@@ -1,15 +1,13 @@
 ## Description
 
-This test mainly verifies that an enforce validate policy does not block changes in old objects that were present before policy was created
+This test mainly verifies that an enforce validate policy blocks changes in old objects that were present before policy was created when `allowExistingViolations` is set to `false`
 
 ## Expected Behavior
 
-1. A pod is created that violates the policy.
+1. A bad pod is created that violates the policy.
 2. The policy is applied.
-3. A pod is created that follows the policy.
-4. Violating changes on bad pad does not cause error.
-5. Violating changes in good pod causes error.
-6. The bad pod once passed the policy, will be tracked by the policy and return error on bad changes.
+3. Violating changes in bad pod causes error becuase `allowExistingViolations` is set to `false`
+
 ## Reference Issue(s)
 
-8837
+10084
