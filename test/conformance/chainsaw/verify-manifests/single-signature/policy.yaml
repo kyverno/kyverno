@@ -12,7 +12,7 @@ spec:
             kinds:
             - Service
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         manifests:
           attestors:
           - count: 1

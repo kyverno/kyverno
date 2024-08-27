@@ -28,5 +28,5 @@ spec:
         secrets:
         - regcred
       type: Notary
-      validationFailureAction: Enforce
+      failureAction: Enforce
   webhookTimeoutSeconds: 30

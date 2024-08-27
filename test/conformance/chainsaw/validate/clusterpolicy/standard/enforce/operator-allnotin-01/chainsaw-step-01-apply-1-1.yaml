@@ -19,7 +19,7 @@ spec:
         - kyverno
         - def*
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: label 'app.kubernetes.io/name' is required
       pattern:
         metadata:
