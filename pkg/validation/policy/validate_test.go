@@ -1,20 +1,52 @@
 package policy
 
-// import (
-// 	"encoding/json"
-// 	"errors"
-// 	"fmt"
-// 	"testing"
+import (
+	"testing"
 
-// 	"github.com/go-logr/logr"
-// 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-// 	"github.com/kyverno/kyverno/pkg/openapi"
-// 	"gotest.tools/assert"
-// 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-// 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-// 	"k8s.io/apimachinery/pkg/util/validation/field"
-// )
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+func Test_PolicyValidationWithInvalidVariable(t *testing.T) {
+    policy := &kyvernov1.ClusterPolicy{
+        TypeMeta: metav1.TypeMeta{
+            Kind:       "ClusterPolicy",
+            APIVersion: "kyverno.io/v1",
+        },
+        ObjectMeta: metav1.ObjectMeta{
+            Name: "policy-with-invalid-variable",
+        },
+        Spec: kyvernov1.Spec{
+            Rules: []kyvernov1.Rule{
+                {
+                    Name: "test-rule-invalid-variable",
+                    MatchResources: kyvernov1.MatchResources{
+                        Any: []kyvernov1.ResourceFilter{
+                            {
+                                ResourceDescription: kyvernov1.ResourceDescription{
+                                    Kinds: []string{"Pod"},
+                                },
+                            },
+                        },
+                    },
+                    Validation: kyvernov1.Validation{
+                        Message: "{{ bar }} world!",
+                        Deny:    &kyvernov1.Deny{},
+                    },
+                },
+            },
+        },
+    }
+
+    err := ValidateVariables(policy, false)
+
+    assert.NotNil(t, err)
+
+    assert.Contains(t, err.Error(), "variable substitution failed")
+    assert.Contains(t, err.Error(), "test-rule-invalid-variable")
+    assert.Contains(t, err.Error(), "variable bar must match regex")
+}
 
 // func Test_Validate_ResourceDescription_Empty(t *testing.T) {
 // 	var err error
