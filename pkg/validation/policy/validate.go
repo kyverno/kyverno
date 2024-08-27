@@ -560,7 +560,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 
 		ctx := buildContext(ruleCopy, background, mutateTarget)
 		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
+			return fmt.Errorf("variable substitution failed for rule %s in policy %s: %s", ruleCopy.Name, policy.GetName(),err.Error())
 		}
 	}
 
