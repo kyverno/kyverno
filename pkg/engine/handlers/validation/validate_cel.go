@@ -63,7 +63,7 @@ func (h validateCELHandler) Process(
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", ")).WithExceptions(matchedExceptions),
+			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
 		)
 	}
 
@@ -144,7 +144,7 @@ func (h validateCELHandler) Process(
 			namespace, err = h.client.GetNamespace(ctx, ns, metav1.GetOptions{})
 			if err != nil {
 				return resource, handlers.WithResponses(
-					engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err),
+					engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err, rule.ReportProperties),
 				)
 			}
 		} else {
@@ -174,7 +174,7 @@ func (h validateCELHandler) Process(
 		params, err := collectParams(ctx, h.client, paramKind, paramRef, ns)
 		if err != nil {
 			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.Validation, "error in parameterized resource", err),
+				engineapi.RuleError(rule.Name, engineapi.Validation, "error in parameterized resource", err, rule.ReportProperties),
 			)
 		}
 
@@ -189,7 +189,7 @@ func (h validateCELHandler) Process(
 		// no validations are returned if preconditions aren't met
 		if datautils.DeepEqual(validationResult, validating.ValidateResult{}) {
 			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "cel preconditions not met"),
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "cel preconditions not met", rule.ReportProperties),
 			)
 		}
 
@@ -198,12 +198,12 @@ func (h validateCELHandler) Process(
 			case validating.ActionAdmit:
 				if decision.Evaluation == validating.EvalError {
 					return resource, handlers.WithResponses(
-						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil),
+						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil, rule.ReportProperties),
 					)
 				}
 			case validating.ActionDeny:
 				return resource, handlers.WithResponses(
-					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message),
+					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message, rule.ReportProperties),
 				)
 			}
 		}
@@ -211,7 +211,7 @@ func (h validateCELHandler) Process(
 
 	msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
 	return resource, handlers.WithResponses(
-		engineapi.RulePass(rule.Name, engineapi.Validation, msg),
+		engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties),
 	)
 }
 

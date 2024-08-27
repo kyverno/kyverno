@@ -1361,6 +1361,13 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ReportProperties != nil {
+		in, out := &in.ReportProperties, &out.ReportProperties
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	in.MatchResources.DeepCopyInto(&out.MatchResources)
 	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
 	if in.ImageExtractors != nil {

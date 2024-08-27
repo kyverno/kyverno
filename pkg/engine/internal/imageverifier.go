@@ -240,7 +240,7 @@ func (iv *ImageVerifier) Verify(
 		if HasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
 			msg := kyverno.AnnotationImageVerify + " annotation cannot be changed"
 			iv.logger.Info("image verification error", "reason", msg)
-			responses = append(responses, engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg))
+			responses = append(responses, engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties))
 			continue
 		}
 
@@ -273,7 +273,7 @@ func (iv *ImageVerifier) Verify(
 		var digest string
 		if isInCache {
 			iv.logger.V(2).Info("cache entry found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
-			ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache")
+			ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache", iv.rule.ReportProperties)
 			digest = imageInfo.Digest
 		} else {
 			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
@@ -296,10 +296,10 @@ func (iv *ImageVerifier) Verify(
 		if imageVerify.MutateDigest {
 			patch, retrievedDigest, err := iv.handleMutateDigest(ctx, digest, imageInfo)
 			if err != nil {
-				responses = append(responses, engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "failed to update digest", err))
+				responses = append(responses, engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "failed to update digest", err, iv.rule.ReportProperties))
 			} else if patch != nil {
 				if ruleResp == nil {
-					ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "mutated image digest")
+					ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "mutated image digest", iv.rule.ReportProperties)
 				}
 				patches = append(patches, *patch)
 				imageInfo.Digest = retrievedDigest
@@ -335,17 +335,17 @@ func (iv *ImageVerifier) verifyImage(
 	iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 	if err := iv.policyContext.JSONContext().AddImageInfo(imageInfo, cfg); err != nil {
 		iv.logger.Error(err, "failed to add image to context")
-		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err), ""
+		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err, iv.rule.ReportProperties), ""
 	}
 	if len(imageVerify.Attestors) > 0 {
 		if !matchReferences(imageVerify.ImageReferences, image) {
-			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name)), ""
+			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties), ""
 		}
 
 		if matchReferences(imageVerify.SkipImageReferences, image) {
 			iv.logger.Info("skipping image reference", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name)
 			iv.ivm.Add(image, engineapi.ImageVerificationSkip)
-			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name)).WithEmitWarning(true), ""
+			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties).WithEmitWarning(true), ""
 		}
 		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo)
 		if ruleResp.Status() != engineapi.RuleStatusPass {
@@ -381,10 +381,10 @@ func (iv *ImageVerifier) verifyAttestors(
 		}
 	}
 	if cosignResponse == nil {
-		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "invalid response", fmt.Errorf("nil")), nil
+		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "invalid response", fmt.Errorf("nil"), iv.rule.ReportProperties), nil
 	}
 	msg := fmt.Sprintf("verified image signatures for %s", image)
-	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), cosignResponse
+	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), cosignResponse
 }
 
 // handle registry network errors as a rule error (instead of a policy failure)
@@ -392,9 +392,9 @@ func (iv *ImageVerifier) handleRegistryErrors(image string, err error) *engineap
 	msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
 	var netErr *net.OpError
 	if errors.As(err, &netErr) {
-		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to verify image %s", image), err)
+		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to verify image %s", image), err, iv.rule.ReportProperties)
 	}
-	return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg)
+	return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties)
 }
 
 func (iv *ImageVerifier) verifyAttestations(
@@ -409,7 +409,7 @@ func (iv *ImageVerifier) verifyAttestations(
 
 		iv.logger.V(2).Info(fmt.Sprintf("attestation %+v", attestation))
 		if attestation.Type == "" && attestation.PredicateType == "" {
-			return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, path+": missing type"), ""
+			return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, path+": missing type", iv.rule.ReportProperties), ""
 		}
 
 		if attestation.Type == "" && attestation.PredicateType != "" {
@@ -464,7 +464,7 @@ func (iv *ImageVerifier) verifyAttestations(
 			}
 			if verifiedCount < requiredCount {
 				msg := fmt.Sprintf("image attestations verification failed, verifiedCount: %v, requiredCount: %v, error: %s", verifiedCount, requiredCount, errMsg)
-				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), ""
+				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), ""
 			}
 		}
 
@@ -473,7 +473,7 @@ func (iv *ImageVerifier) verifyAttestations(
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
-	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
+	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), imageInfo.Digest
 }
 
 func (iv *ImageVerifier) verifyAttestorSet(

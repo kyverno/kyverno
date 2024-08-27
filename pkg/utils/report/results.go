@@ -90,12 +90,13 @@ func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 
 func ToPolicyReportResult(policyType engineapi.PolicyType, policyName string, ruleResult engineapi.RuleResponse, annotations map[string]string, resource *corev1.ObjectReference) policyreportv1alpha2.PolicyReportResult {
 	result := policyreportv1alpha2.PolicyReportResult{
-		Source:  kyverno.ValueKyvernoApp,
-		Policy:  policyName,
-		Rule:    ruleResult.Name(),
-		Message: ruleResult.Message(),
-		Result:  toPolicyResult(ruleResult.Status()),
-		Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
+		Source:     kyverno.ValueKyvernoApp,
+		Policy:     policyName,
+		Rule:       ruleResult.Name(),
+		Message:    ruleResult.Message(),
+		Properties: ruleResult.Properties(),
+		Result:     toPolicyResult(ruleResult.Status()),
+		Scored:     annotations[kyverno.AnnotationPolicyScored] != "false",
 		Timestamp: metav1.Timestamp{
 			Seconds: time.Now().Unix(),
 		},

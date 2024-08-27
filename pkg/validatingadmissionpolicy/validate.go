@@ -228,23 +228,23 @@ func validateResource(
 
 	// no validations are returned if match conditions aren't met
 	if datautils.DeepEqual(validateResult, validating.ValidateResult{}) {
-		ruleResp = engineapi.RuleSkip(policy.GetName(), engineapi.Validation, "match conditions aren't met")
+		ruleResp = engineapi.RuleSkip(policy.GetName(), engineapi.Validation, "match conditions aren't met", nil)
 	} else {
 		isPass := true
 		for _, policyDecision := range validateResult.Decisions {
 			if policyDecision.Evaluation == validating.EvalError {
 				isPass = false
-				ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
+				ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil, nil)
 				break
 			} else if policyDecision.Action == validating.ActionDeny {
 				isPass = false
-				ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message)
+				ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
 				break
 			}
 		}
 
 		if isPass {
-			ruleResp = engineapi.RulePass(policy.GetName(), engineapi.Validation, "")
+			ruleResp = engineapi.RulePass(policy.GetName(), engineapi.Validation, "", nil)
 		}
 	}
 
