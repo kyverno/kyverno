@@ -14,7 +14,7 @@ spec:
           - Pod
     name: validate-volumes-whitelist
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       anyPattern:
       - spec:
           volumes:

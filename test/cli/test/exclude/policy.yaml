@@ -36,7 +36,7 @@ spec:
                 matchLabels:
                   require-requests-limits.kyverno.io/exclude: "true"
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: "CPU and memory resource requests and limits are required."
         pattern:
           spec:

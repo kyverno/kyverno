@@ -14,7 +14,7 @@ spec:
           - Service
     name: check-loadbalancer-public
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       anyPattern:
       - metadata:
           annotations:

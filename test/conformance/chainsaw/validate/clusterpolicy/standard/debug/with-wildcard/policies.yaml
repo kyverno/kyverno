@@ -14,5 +14,5 @@ spec:
               kinds:
                 - '*/ephemeralcontainers'
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         deny: {}

@@ -15,7 +15,7 @@ spec:
               - CREATE
               - UPDATE
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         cel:
           paramKind: 
             apiVersion: rules.example.com/v1

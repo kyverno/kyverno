@@ -28,4 +28,4 @@ spec:
           labels:
             my-environment-name: '{{dictionary.data.env || anotherdictionary.data.env
               }}'
-      validationFailureAction: Audit
+      failureAction: Audit

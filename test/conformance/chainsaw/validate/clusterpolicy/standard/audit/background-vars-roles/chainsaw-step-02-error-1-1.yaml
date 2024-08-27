@@ -12,7 +12,7 @@ spec:
           - Pod
     name: ns-vars-roles
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       message: The `owner` label is required for all Namespaces.
       pattern:
         metadata:
