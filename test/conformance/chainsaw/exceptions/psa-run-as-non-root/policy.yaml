@@ -16,7 +16,7 @@ spec:
           namespaces:
           - default
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       podSecurity:
         level: restricted
         version: v1.29

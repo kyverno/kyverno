@@ -16,7 +16,7 @@ spec:
           name: test*
     name: validate-yaml
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       manifests:
         attestors:
         - count: 1
@@ -43,7 +43,7 @@ spec:
           name: test*
     name: validate-yaml-multi-sig
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       manifests:
         attestors:
         - entries:

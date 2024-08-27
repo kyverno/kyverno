@@ -689,7 +689,7 @@ func TestValidate_foreach_zero_reported_asskip(t *testing.T) {
 						}
 					},
 					"validate": {
-					    "validationFailureAction": "Enforce",
+					    "failureAction": "Enforce",
 						"foreach": [
 							{
 								"list": "request.object.spec.volumes[].projected.sources[].serviceAccountToken.expirationSeconds",
@@ -1960,7 +1960,7 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 				}
 			  },
 			  "validate": {
-			    "validationFailureAction": "enforce",
+			    "failureAction": "enforce",
 				"message": "The animal {{ request.object.metadata.labels.animal }} is not in the allowed list of animals.",
 				"deny": {
 				  "conditions": [
@@ -2151,7 +2151,7 @@ func Test_BlockLabelRemove(t *testing.T) {
 								]
 							},
 							"validate": {
-							    "validationFailureAction": "enforce",
+							    "failureAction": "enforce",
 								"message": "not allowed",
 								"deny": {
 									"conditions": {
@@ -2269,7 +2269,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 				}
 			  ],
 			  "validate": {
-			    "validationFailureAction": "enforce",
+			    "failureAction": "enforce",
 				"message": "restrict pod counts to be no more than 10 on node minikube",
 				"deny": {
 				  "conditions": [
@@ -2372,7 +2372,7 @@ func Test_EmptyStringInDenyCondition(t *testing.T) {
 			}
 		  ],
 		  "validate": {
-		    "validationFailureAction": "enforce",
+		    "failureAction": "enforce",
 			"deny": {
 			  "conditions": [
 				{
@@ -2457,7 +2457,7 @@ func Test_StringInDenyCondition(t *testing.T) {
 			}
 		  ],
 		  "validate": {
-		    "validationFailureAction": "enforce",
+		    "failureAction": "enforce",
 			"deny": {
 			  "conditions": [
 				{
@@ -3006,7 +3006,7 @@ func Test_outof_foreach_element_validation(t *testing.T) {
 			  "name": "test",
 			  "match": {"resources": { "kinds": [ "Pod" ] } },
 			  "validate": {
-			    "validationFailureAction": "enforce",
+			    "failureAction": "enforce",
 			  	"message": "Invalid name",
 				"pattern": {
 				  "name": "{{ element.name }}"
@@ -3045,7 +3045,7 @@ func Test_foreach_skip_initContainer_pass(t *testing.T) {
 				}
 			  },
 			  "validate": {
-			    "validationFailureAction": "enforce",
+			    "failureAction": "enforce",
 				"message": "unknown registry",
 				"foreach": [
 				  {
@@ -3216,7 +3216,7 @@ func Test_delete_ignore_pattern(t *testing.T) {
 			  "name": "test",
 			  "match": {"resources": { "kinds": [ "Pod" ] } },
 			  "validate": {
-			    "validationFailureAction": "enforce",
+			    "failureAction": "enforce",
 			  	"message": "Invalid label",
 				"pattern": {
 				  "metadata" : {

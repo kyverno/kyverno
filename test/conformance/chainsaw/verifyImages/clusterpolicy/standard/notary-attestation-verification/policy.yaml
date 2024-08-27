@@ -51,7 +51,7 @@ spec:
           name: keys
           namespace: notary-verify-attestation
       verifyImages:
-      - validationFailureAction: Enforce
+      - failureAction: Enforce
         type: Notary
         imageReferences:
           - "ghcr.io/kyverno/test-verify-image*"

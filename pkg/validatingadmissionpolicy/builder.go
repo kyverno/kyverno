@@ -123,7 +123,7 @@ func BuildValidatingAdmissionPolicyBinding(
 
 	// set validation action for vap binding
 	var validationActions []admissionregistrationv1alpha1.ValidationAction
-	validateAction := cpol.GetSpec().Rules[0].Validation.ValidationFailureAction
+	validateAction := cpol.GetSpec().Rules[0].Validation.FailureAction
 	if validateAction != nil {
 		if validateAction.Enforce() {
 			validationActions = append(validationActions, admissionregistrationv1alpha1.Deny)

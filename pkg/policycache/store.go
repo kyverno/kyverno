@@ -109,11 +109,11 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 	kindStates := map[policyKey]state{}
 	for _, rule := range autogen.ComputeRules(policy, "") {
 		if rule.HasValidate() {
-			action := rule.Validation.ValidationFailureAction
+			action := rule.Validation.FailureAction
 			if action != nil && action.Enforce() {
 				enforcePolicy = true
 			}
-			for _, k := range rule.Validation.ValidationFailureActionOverrides {
+			for _, k := range rule.Validation.FailureActionOverrides {
 				if k.Action.Enforce() {
 					enforcePolicy = true
 				}
