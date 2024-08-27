@@ -33,5 +33,5 @@ spec:
                       ignoreTlog: true
                     ctlog:
                       ignoreSCT: true
-          validationFailureAction: Audit
+          failureAction: Audit
   webhookTimeoutSeconds: 30

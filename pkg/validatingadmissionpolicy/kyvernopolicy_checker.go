@@ -67,7 +67,7 @@ func checkPolicy(spec *kyvernov1.Spec) (bool, string) {
 		return false, msg
 	}
 
-	if ok, msg := checkValidationFailureActionOverrides(rule.Validation.ValidationFailureActionOverrides); !ok {
+	if ok, msg := checkValidationFailureActionOverrides(rule.Validation.FailureActionOverrides); !ok {
 		return false, msg
 	}
 

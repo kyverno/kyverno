@@ -201,7 +201,7 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 	spec := pol.AsKyvernoPolicy().GetSpec()
 	for _, r := range spec.Rules {
 		if r.HasValidate() {
-			for _, v := range r.Validation.ValidationFailureActionOverrides {
+			for _, v := range r.Validation.FailureActionOverrides {
 				if !v.Action.IsValid() {
 					continue
 				}
@@ -224,12 +224,12 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 				}
 			}
 
-			if r.Validation.ValidationFailureAction != nil {
-				return *r.Validation.ValidationFailureAction
+			if r.Validation.FailureAction != nil {
+				return *r.Validation.FailureAction
 			}
 		} else if r.HasVerifyImages() {
-			if r.VerifyImages[0].ValidationFailureAction != nil {
-				return *r.VerifyImages[0].ValidationFailureAction
+			if r.VerifyImages[0].FailureAction != nil {
+				return *r.VerifyImages[0].FailureAction
 			}
 		}
 	}

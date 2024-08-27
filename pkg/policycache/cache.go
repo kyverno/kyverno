@@ -87,12 +87,12 @@ func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyver
 		}
 
 		// if the field isn't set, use the higher level policy setting
-		validationFailureAction := rule.Validation.ValidationFailureAction
+		validationFailureAction := rule.Validation.FailureAction
 		if validationFailureAction == nil {
 			validationFailureAction = &policy.GetSpec().ValidationFailureAction
 		}
 
-		validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
+		validationFailureActionOverrides := rule.Validation.FailureActionOverrides
 		if len(validationFailureActionOverrides) == 0 {
 			validationFailureActionOverrides = policy.GetSpec().ValidationFailureActionOverrides
 		}
