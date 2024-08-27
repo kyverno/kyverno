@@ -34,7 +34,7 @@ require (
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-json v0.0.4-0.20240730143747-aade3d42fc0e
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
-	github.com/notaryproject/notation-core-go v1.1.0-rc.1
+	github.com/notaryproject/notation-core-go v1.1.0
 	github.com/notaryproject/notation-go v1.2.0-rc.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.34.1
@@ -89,7 +89,6 @@ require (
 	k8s.io/pod-security-admission v0.30.1
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 	sigs.k8s.io/controller-runtime v0.18.5
-	sigs.k8s.io/controller-tools v0.15.0
 	sigs.k8s.io/kubectl-validate v0.0.4
 	sigs.k8s.io/kustomize/api v0.17.3
 	sigs.k8s.io/kustomize/kyaml v0.17.2
@@ -220,7 +219,6 @@ require (
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/go-piv/piv-go v1.11.0 // indirect
-	github.com/gobuffalo/flect v1.0.2 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
@@ -372,7 +370,6 @@ require (
 	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/term v0.23.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.23.0 // indirect
 	google.golang.org/api v0.183.0 // indirect
 	google.golang.org/genproto v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117 // indirect
