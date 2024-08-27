@@ -12,7 +12,7 @@ spec:
           kinds:
           - Service
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: "Services of type NodePort are not allowed."
       pattern:
         spec:

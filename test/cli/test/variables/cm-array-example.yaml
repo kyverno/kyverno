@@ -26,4 +26,4 @@ spec:
           value: '{{ "roles-dictionary".data."allowed-roles" }}'
       message: 'The role {{ request.object.metadata.annotations.role }} is not in
         the allowed list of roles: {{ "roles-dictionary".data."allowed-roles" }}.'
-      validationFailureAction: Enforce
+      failureAction: Enforce

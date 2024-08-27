@@ -15,7 +15,7 @@ spec:
             - CREATE
             - UPDATE
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         cel:
           expressions:
             - expression: "!has(object.spec.template.spec.volumes) || object.spec.template.spec.volumes.all(volume, !has(volume.hostPath))"
