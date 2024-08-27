@@ -136,3 +136,96 @@ func buildTestNamespaceLabelsContext(t *testing.T) api.PolicyContext {
 
 	return buildContext(t, kyvernov1.Update, policy, resource, oldResource)
 }
+
+func Test_validateResourceWithVariableSubstitution(t *testing.T) {
+	mockCL := func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+		if err := jsonContext.AddVariable("bar", "hello"); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	policyContext := buildTestPodContext(t)
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+
+	ctx := context.TODO()
+	resp := v.validate(ctx)
+	assert.NotNil(t, resp)
+	if resp.Status() == api.RuleStatusError {
+		assert.Fail(t, "Policy validation failed with error: "+resp.Message())
+	} else {
+		assert.Equal(t, api.RuleStatusFail, resp.Status())
+		assert.Contains(t, resp.Message(), "hello world!")
+	}
+}
+
+func buildTestPodContext(t *testing.T) api.PolicyContext {
+	policy := `{
+        "apiVersion": "kyverno.io/v1",
+        "kind": "ClusterPolicy",
+        "metadata": {
+            "name": "var-in-message"
+        },
+        "spec": {
+            "rules": [
+                {
+                    "name": "display",
+                    "match": {
+                        "any": [
+                            {
+                                "resources": {
+                                    "kinds": [
+                                        "Pod"
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "context": [
+                        {
+                            "name": "foo",
+                            "variable": {
+                                "value": "hello"
+                            }
+                        }
+                    ],
+                    "validate": {
+                        "message": "{{ bar }} world!",
+                        "deny": {}
+                    }
+                }
+            ]
+        }
+    }`
+
+	resource := `{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+            "name": "goodpod08"
+        },
+        "spec": {
+            "initContainers": [
+                {
+                    "name": "initcontainer01",
+                    "image": "docker.io/istio1/proxyv2",
+                    "securityContext": {
+                        "runAsUser": 0
+                    }
+                }
+            ],
+            "containers": [
+                {
+                    "name": "container01",
+                    "image": "dummyimagename",
+                    "securityContext": {
+                        "runAsUser": 100
+                    }
+                }
+            ]
+        }
+    }`
+
+	return buildContext(t, kyvernov1.Update, policy, resource, "")
+}

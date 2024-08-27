@@ -470,7 +470,7 @@ func (v *validator) substitutePatterns() error {
 	if v.pattern != nil {
 		i, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.pattern)
 		if err != nil {
-			return err
+			return fmt.Errorf("variable substitution error in pattern: %w", err)
 		}
 		v.pattern = i.(apiextensions.JSON)
 		return nil
@@ -479,11 +479,10 @@ func (v *validator) substitutePatterns() error {
 	if v.anyPattern != nil {
 		i, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.anyPattern)
 		if err != nil {
-			return err
+			return fmt.Errorf("variable substitution error in anyPattern: %w", err)
 		}
 		v.anyPattern = i.(apiextensions.JSON)
 		return nil
 	}
-
 	return nil
 }
