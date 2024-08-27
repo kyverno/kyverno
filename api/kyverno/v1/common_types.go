@@ -116,7 +116,6 @@ type ContextEntry struct {
 	Variable *Variable `json:"variable,omitempty" yaml:"variable,omitempty"`
 
 	// GlobalContextEntryReference is a reference to a cached global context entry.
-	// +kubebuilder:validation:Required
 	GlobalReference *GlobalContextEntryReference `json:"globalReference,omitempty" yaml:"globalReference,omitempty"`
 }
 
@@ -225,7 +224,7 @@ type ContextAPICall struct {
 type GlobalContextEntryReference struct {
 	// Name of the global context entry
 	// +kubebuilder:validation:Required
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example
