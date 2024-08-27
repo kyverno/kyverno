@@ -1,11 +1,20 @@
 package policy
 
 import (
+// 	"encoding/json"
+// 	"errors"
+// 	"fmt"
 	"testing"
 
+// 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+// 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/stretchr/testify/assert"
+// 	"gotest.tools/assert"
+// 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+// 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+// 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func Test_PolicyValidationWithInvalidVariable(t *testing.T) {
