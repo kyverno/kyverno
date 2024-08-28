@@ -12,5 +12,5 @@ spec:
               kinds:
                 - Scale
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         deny: {}

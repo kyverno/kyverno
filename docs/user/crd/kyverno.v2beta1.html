@@ -2774,7 +2774,7 @@ mutated to include the SHA digest retrieved during the registration.</p>
     
     
       <tr>
-        <td><code>validationFailureAction</code>
+        <td><code>failureAction</code>
           
           </br>
 
@@ -3151,7 +3151,9 @@ Defaults to true.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v2-CleanupPolicySpec">CleanupPolicySpec</a>, 
         <a href="#kyverno-io-v2beta1-CleanupPolicySpec">CleanupPolicySpec</a>, 
+        <a href="#kyverno-io-v2-PolicyExceptionSpec">PolicyExceptionSpec</a>, 
         <a href="#kyverno-io-v2beta1-PolicyExceptionSpec">PolicyExceptionSpec</a>, 
         <a href="#kyverno-io-v2beta1-Rule">Rule</a>)
     </p>
@@ -4548,7 +4550,7 @@ Defaults to &quot;false&quot; if not specified.</p>
     
     
       <tr>
-        <td><code>validationFailureAction</code>
+        <td><code>failureAction</code>
           
           </br>
 
@@ -4564,7 +4566,7 @@ Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          <p>ValidationFailureAction defines if a validation policy rule violation should block
+          <p>FailureAction defines if a validation policy rule violation should block
 the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
 Allowed values are Audit or Enforce.</p>
@@ -4580,7 +4582,7 @@ Allowed values are Audit or Enforce.</p>
     
     
       <tr>
-        <td><code>validationFailureActionOverrides</code>
+        <td><code>failureActionOverrides</code>
           
           </br>
 
@@ -4596,8 +4598,8 @@ Allowed values are Audit or Enforce.</p>
         <td>
           
 
-          <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+          <p>FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
+namespace-wise. It overrides FailureAction for the specified namespaces.</p>
 
 
           

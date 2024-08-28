@@ -12,5 +12,5 @@ spec:
               kinds:
                 - '*/*'
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         deny: {}

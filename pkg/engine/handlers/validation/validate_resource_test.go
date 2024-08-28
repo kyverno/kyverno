@@ -79,7 +79,7 @@ var (
 				]
 			  },
 			  "validate": {
-			    "validationFailureAction": "Enforce",
+			    "failureAction": "Enforce",
 				"message": "The label size is required",
 				"pattern": {
 				  "metadata": {
@@ -107,7 +107,7 @@ var (
 				]
 			  },
 			  "validate": {
-			    "validationFailureAction": "Enforce",
+			    "failureAction": "Enforce",
 				"message": "The label size cannot be changed for a namespace",
 				"deny": {
 				  "conditions": {

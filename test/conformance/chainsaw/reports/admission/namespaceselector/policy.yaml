@@ -19,7 +19,7 @@ spec:
               - key: org
                 operator: Exists
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       pattern:
         metadata:
           annotations:

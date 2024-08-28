@@ -14,6 +14,6 @@ spec:
               kinds:
                 - Pod
       validate:
-        validationFailureAction: Enforce
         allowExistingViolations: false
+        failureAction: Enforce
         deny: {}
