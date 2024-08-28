@@ -149,7 +149,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	}
 
 	allowExisitingViolations := true
-	if v.rule.Validation.AllowExistingViolations != nil && *v.rule.Validation.AllowExistingViolations == false {
+	if !*v.rule.Validation.AllowExistingViolations {
 		allowExisitingViolations = false
 	}
 	if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
