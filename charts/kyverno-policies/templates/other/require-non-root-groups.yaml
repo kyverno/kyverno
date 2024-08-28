@@ -23,14 +23,6 @@ metadata:
       using `anyPattern` from being persisted properly in Kubernetes 1.23.0-1.23.2.
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
-  {{- with index .Values "validationFailureActionByPolicy" $name }}
-  validationFailureAction: {{ toYaml . }}
-  {{- else }}
-  validationFailureAction: {{ .Values.validationFailureAction }}
-  {{- end }}
-  {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-  validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
-  {{- end }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -52,6 +44,14 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
+        {{- with index .Values "validationFailureActionByPolicy" $name }}
+        failureAction: {{ toYaml . }}
+        {{- else }}
+        failureAction: {{ .Values.validationFailureAction }}
+        {{- end }}
+        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+        failureActionOverrides: {{ toYaml . | nindent 8 }}
+        {{- end }}
         message: >-
           Running with root group IDs is disallowed. The fields
           spec.securityContext.runAsGroup, spec.containers[*].securityContext.runAsGroup,
@@ -99,6 +99,14 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
+        {{- with index .Values "validationFailureActionByPolicy" $name }}
+        failureAction: {{ toYaml . }}
+        {{- else }}
+        failureAction: {{ .Values.validationFailureAction }}
+        {{- end }}
+        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+        failureActionOverrides: {{ toYaml . | nindent 8 }}
+        {{- end }}
         message: >-
           Containers cannot run with a root primary or supplementary GID. The field
           spec.securityContext.supplementalGroups must be unset or
@@ -121,6 +129,14 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
+        {{- with index .Values "validationFailureActionByPolicy" $name }}
+        failureAction: {{ toYaml . }}
+        {{- else }}
+        failureAction: {{ .Values.validationFailureAction }}
+        {{- end }}
+        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+        failureActionOverrides: {{ toYaml . | nindent 8 }}
+        {{- end }}
         message: >-
           Containers cannot run with a root primary or supplementary GID. The field
           spec.securityContext.fsGroup must be unset or set to a value greater than zero.
