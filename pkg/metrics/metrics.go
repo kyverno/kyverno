@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -111,16 +111,6 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 			semconv.ServiceVersionKey.String(version.Version()),
 		),
 	)
-	// res, err := resource.New(
-	// 	ctx,
-	// 	resource.WithTelemetrySDK(),
-	// 	// resource.WithSchemaURL(semconv.SchemaURL),
-	// 	resource.WithAttributes(
-	// 		semconv.ServiceNameKey.String(MeterName),
-	// 		semconv.ServiceVersionKey.String(version.Version()),
-	// 	),
-	// 	resource.WithFromEnv(),
-	// )
 	if err != nil {
 		log.Error(err, "failed creating resource")
 		return nil, err
@@ -147,17 +137,6 @@ func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kco
 			semconv.ServiceVersionKey.String(version.Version()),
 		),
 	)
-	// res, err := resource.New(
-	// 	ctx,
-	// 	resource.WithTelemetrySDK(),
-	// 	// resource.WithSchemaURL(semconv.SchemaURL),
-	// 	resource.WithAttributes(
-	// 		semconv.ServiceNameKey.String("kyverno-svc-metrics"),
-	// 		semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace()),
-	// 		semconv.ServiceVersionKey.String(version.Version()),
-	// 	),
-	// 	resource.WithFromEnv(),
-	// )
 	if err != nil {
 		log.Error(err, "failed creating resource")
 		return nil, nil, err
