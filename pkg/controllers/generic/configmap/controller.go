@@ -33,7 +33,7 @@ type controller struct {
 	lister   corev1listers.ConfigMapNamespaceLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	// config
 	controllerName  string
@@ -58,7 +58,7 @@ func NewController(
 		informer:       informer.Informer(),
 		lister:         informer.Lister().ConfigMaps(namespace),
 		controllerName: controllerName,
-		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), controllerName),
 		logger:         logging.ControllerLogger(controllerName),
 		name:           name,
 		callback:       callback,
@@ -85,7 +85,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, _, _ 
 	return c.doReconcile(ctx, c.logger)
 }
 
-func (c *controller) doReconcile(ctx context.Context, logger logr.Logger) error {
+func (c *controller) doReconcile(ctx context.Context, _ logr.Logger) error {
 	observed, err := c.lister.Get(c.name)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
