@@ -33,8 +33,8 @@ type VerificationResult struct {
 }
 
 type Bundle struct {
-	ProtoBundle   *bundle.ProtobufBundle
-	DSSE_Envelope *in_toto.Statement
+	ProtoBundle   *bundle.Bundle
+	DSSE_Envelope *in_toto.Statement //nolint:staticcheck
 }
 
 func verifyBundleAndFetchAttestations(ctx context.Context, opts images.Options) ([]*VerificationResult, error) {
@@ -143,7 +143,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
 		}
-		b := &bundle.ProtobufBundle{}
+		b := &bundle.Bundle{}
 		err = b.UnmarshalJSON(bundleBytes)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal bundle: %w", err)
@@ -159,7 +159,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 				if dsseEnvelope.PayloadType != "application/vnd.in-toto+json" {
 					continue
 				}
-				var intotoStatement in_toto.Statement
+				var intotoStatement in_toto.Statement //nolint:staticcheck
 				if err := json.Unmarshal(dsseEnvelope.Payload, &intotoStatement); err != nil {
 					continue
 				}
@@ -185,7 +185,7 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 	}
 	artifactDigestVerificationOption := verify.WithArtifactDigest(desc.Digest.Algorithm, digest)
 
-	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.Subject, "", opts.SubjectRegExp)
+	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.IssuerRegExp, opts.Subject, opts.SubjectRegExp)
 	if err != nil {
 		return verify.PolicyBuilder{}, err
 	}
@@ -229,7 +229,7 @@ func decodeStatementsFromBundles(bundles []*VerificationResult) ([]map[string]in
 
 	var err error
 	var statement map[string]interface{}
-	var intotostatement in_toto.Statement
+	var intotostatement in_toto.Statement //nolint:staticcheck
 	decodedStatements := make([]map[string]interface{}, len(bundles))
 	for i, b := range bundles {
 		intotostatement = *b.Bundle.DSSE_Envelope

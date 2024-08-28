@@ -12,7 +12,7 @@ spec:
             kinds:
               - Secret
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         cel:
           expressions:
             - message: "long lived API tokens are not allowed"
