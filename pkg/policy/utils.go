@@ -11,21 +11,10 @@ func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstr
 		return false
 	}
 
-	isMatch := false
-	for _, name := range match.Names {
-		if wildcard.Match(name, res.GetName()) {
-			isMatch = true
-			break
-		}
-	}
-	if !isMatch {
-		return false
-	}
-
-	if !isNamespacedPolicy && len(match.Namespaces) > 0 {
-		isMatch = false
-		for _, namespace := range match.Namespaces {
-			if wildcard.Match(namespace, res.GetNamespace()) {
+	if len(match.Names) > 0 {
+		isMatch := false
+		for _, name := range match.Names {
+			if wildcard.Match(name, res.GetName()) {
 				isMatch = true
 				break
 			}
@@ -34,7 +23,20 @@ func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstr
 			return false
 		}
 	}
+
+	if !isNamespacedPolicy && len(match.Namespaces) > 0 && !contains(match.Namespaces, res.GetNamespace()) {
+		return false
+	}
 	return true
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 func castPolicy(p interface{}) kyvernov1.PolicyInterface {
