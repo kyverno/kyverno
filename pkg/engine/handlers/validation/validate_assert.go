@@ -12,11 +12,15 @@ import (
 	"github.com/kyverno/kyverno-json/pkg/engine/assert"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/utils/match"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -111,6 +115,23 @@ func (h validateAssertHandler) Process(
 	}
 	// compose a response
 	if len(errs) != 0 {
+		var allowExisitingViolations bool
+		if rule.Validation.AllowExistingViolations == nil {
+			allowExisitingViolations = true
+		} else {
+			allowExisitingViolations = *rule.Validation.AllowExistingViolations
+		}
+		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
+			errs, err := validateOldObject(ctx, policyContext, rule, payload, bindings)
+			if err != nil {
+				return resource, handlers.WithError(rule, engineapi.Validation, "failed to validate old object", err)
+			}
+
+			if len(errs) != 0 {
+				logger.V(3).Info("skipping modified resource as validation results have not changed")
+				return resource, handlers.WithSkip(rule, engineapi.Validation, "skipping modified resource as validation results have not changed")
+			}
+		}
 		var responses []*engineapi.RuleResponse
 		for _, err := range errs {
 			responses = append(responses, engineapi.RuleFail(rule.Name, engineapi.Validation, err.Error()))
@@ -121,4 +142,57 @@ func (h validateAssertHandler) Process(
 	return resource, handlers.WithResponses(
 		engineapi.RulePass(rule.Name, engineapi.Validation, msg),
 	)
+}
+
+func validateOldObject(ctx context.Context, policyContext engineapi.PolicyContext, rule kyvernov1.Rule, payload map[string]any, bindings binding.Bindings) (field.ErrorList, error) {
+	if policyContext.Operation() != kyvernov1.Update {
+		return nil, errors.New("invalid operation")
+	}
+
+	oldResource := policyContext.NewResource()
+
+	if rule.MatchResources.All != nil || rule.MatchResources.Any != nil {
+		matched := match.CheckMatchesResources(
+			policyContext.OldResource(),
+			kyvernov2beta1.MatchResources{
+				Any: rule.MatchResources.Any,
+				All: rule.MatchResources.All,
+			},
+			make(map[string]string),
+			kyvernov2.RequestInfo{},
+			oldResource.GroupVersionKind(),
+			"",
+		)
+		if matched != nil {
+			return nil, nil
+		}
+	}
+
+	if rule.ExcludeResources.All != nil || rule.ExcludeResources.Any != nil {
+		excluded := match.CheckMatchesResources(
+			policyContext.OldResource(),
+			kyvernov2beta1.MatchResources{
+				Any: rule.ExcludeResources.Any,
+				All: rule.ExcludeResources.All,
+			},
+			make(map[string]string),
+			kyvernov2.RequestInfo{},
+			oldResource.GroupVersionKind(),
+			"",
+		)
+		if excluded == nil {
+			return nil, nil
+		}
+	}
+
+	payload["object"] = policyContext.NewResource().Object
+	payload["oldObject"] = policyContext.NewResource().Object
+	payload["operation"] = kyvernov1.Create
+
+	asserttion := assert.Parse(ctx, rule.Validation.Assert.Value)
+	errs, err := assert.Assert(ctx, nil, asserttion, payload, bindings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply assertion: %w", err)
+	}
+	return errs, nil
 }
