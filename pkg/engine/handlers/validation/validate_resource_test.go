@@ -150,6 +150,7 @@ var (
         },
         "name": "check-image",
         "validate": {
+    			"failureAction": "Audit",
 					"allowExistingViolations": true,
           "foreach": [
             {
@@ -171,7 +172,6 @@ var (
         }
       }
     ],
-    "validationFailureAction": "Audit"
   }
 }
 	`

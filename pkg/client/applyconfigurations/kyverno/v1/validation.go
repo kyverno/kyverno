@@ -27,18 +27,18 @@ import (
 // ValidationApplyConfiguration represents an declarative configuration of the Validation type for use
 // with apply.
 type ValidationApplyConfiguration struct {
-	FailureAction          *v1.ValidationFailureAction                         `json:"failureAction,omitempty"`
-	FailureActionOverrides []ValidationFailureActionOverrideApplyConfiguration `json:"failureActionOverrides,omitempty"`
-	AllowExistingViolations          *bool                                               `json:"allowExistingViolations,omitempty"`
-	Message                *string                                             `json:"message,omitempty"`
-	Manifests              *ManifestsApplyConfiguration                        `json:"manifests,omitempty"`
-	ForEachValidation      []ForEachValidationApplyConfiguration               `json:"foreach,omitempty"`
-	RawPattern             *apiextensionsv1.JSON                               `json:"pattern,omitempty"`
-	RawAnyPattern          *apiextensionsv1.JSON                               `json:"anyPattern,omitempty"`
-	Deny                   *DenyApplyConfiguration                             `json:"deny,omitempty"`
-	PodSecurity            *PodSecurityApplyConfiguration                      `json:"podSecurity,omitempty"`
-	CEL                    *CELApplyConfiguration                              `json:"cel,omitempty"`
-	Assert                 *v1alpha1.Any                                       `json:"assert,omitempty"`
+	FailureAction           *v1.ValidationFailureAction                         `json:"failureAction,omitempty"`
+	FailureActionOverrides  []ValidationFailureActionOverrideApplyConfiguration `json:"failureActionOverrides,omitempty"`
+	AllowExistingViolations *bool                                               `json:"allowExistingViolations,omitempty"`
+	Message                 *string                                             `json:"message,omitempty"`
+	Manifests               *ManifestsApplyConfiguration                        `json:"manifests,omitempty"`
+	ForEachValidation       []ForEachValidationApplyConfiguration               `json:"foreach,omitempty"`
+	RawPattern              *apiextensionsv1.JSON                               `json:"pattern,omitempty"`
+	RawAnyPattern           *apiextensionsv1.JSON                               `json:"anyPattern,omitempty"`
+	Deny                    *DenyApplyConfiguration                             `json:"deny,omitempty"`
+	PodSecurity             *PodSecurityApplyConfiguration                      `json:"podSecurity,omitempty"`
+	CEL                     *CELApplyConfiguration                              `json:"cel,omitempty"`
+	Assert                  *v1alpha1.Any                                       `json:"assert,omitempty"`
 }
 
 // ValidationApplyConfiguration constructs an declarative configuration of the Validation type for use with
