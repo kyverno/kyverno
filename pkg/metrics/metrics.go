@@ -106,12 +106,21 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 	}
 	res, err := resource.Merge(
 		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
+		resource.NewSchemaless(
 			semconv.ServiceNameKey.String(MeterName),
 			semconv.ServiceVersionKey.String(version.Version()),
 		),
 	)
+	// res, err := resource.New(
+	// 	ctx,
+	// 	resource.WithTelemetrySDK(),
+	// 	// resource.WithSchemaURL(semconv.SchemaURL),
+	// 	resource.WithAttributes(
+	// 		semconv.ServiceNameKey.String(MeterName),
+	// 		semconv.ServiceVersionKey.String(version.Version()),
+	// 	),
+	// 	resource.WithFromEnv(),
+	// )
 	if err != nil {
 		log.Error(err, "failed creating resource")
 		return nil, err
@@ -132,13 +141,23 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, *http.ServeMux, error) {
 	res, err := resource.Merge(
 		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
+		resource.NewSchemaless(
 			semconv.ServiceNameKey.String("kyverno-svc-metrics"),
 			semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace()),
 			semconv.ServiceVersionKey.String(version.Version()),
 		),
 	)
+	// res, err := resource.New(
+	// 	ctx,
+	// 	resource.WithTelemetrySDK(),
+	// 	// resource.WithSchemaURL(semconv.SchemaURL),
+	// 	resource.WithAttributes(
+	// 		semconv.ServiceNameKey.String("kyverno-svc-metrics"),
+	// 		semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace()),
+	// 		semconv.ServiceVersionKey.String(version.Version()),
+	// 	),
+	// 	resource.WithFromEnv(),
+	// )
 	if err != nil {
 		log.Error(err, "failed creating resource")
 		return nil, nil, err
