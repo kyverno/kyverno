@@ -1,4 +1,4 @@
-if kubectl label po badpod foo=bad1 --overwrite 2>&1 | grep -q  "validation error: rule check-labels" 
+if kubectl label po badpod-allow-existing foo=bad1 --overwrite 2>&1 | grep -q  "validation error: rule check-labels" 
 then 
   echo "Test succeed, updating violating preexisting resource does throw error"
   exit 0

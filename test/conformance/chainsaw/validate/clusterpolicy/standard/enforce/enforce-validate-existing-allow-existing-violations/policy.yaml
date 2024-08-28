@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-labels
+  name: check-labels-allow-existing
 spec:
   background: true
   rules:
