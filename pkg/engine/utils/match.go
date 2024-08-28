@@ -244,7 +244,7 @@ func MatchesResourceDescription(
 	}
 
 	if len(reasonsForFailure) > 0 {
-		return fmt.Errorf(errorMessage)
+		return fmt.Errorf(errorMessage) //nolint:govet,staticcheck
 	}
 
 	return nil
