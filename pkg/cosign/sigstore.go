@@ -185,7 +185,7 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 	}
 	artifactDigestVerificationOption := verify.WithArtifactDigest(desc.Digest.Algorithm, digest)
 
-	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.Subject, "", opts.SubjectRegExp)
+	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.IssuerRegExp, opts.Subject, opts.SubjectRegExp)
 	if err != nil {
 		return verify.PolicyBuilder{}, err
 	}
