@@ -8,11 +8,11 @@ import (
 	stdlog "log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/go-logr/zerologr"
+	"github.com/rs/zerolog"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -55,49 +55,43 @@ func InitFlags(flags *flag.FlagSet) {
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string, loggingTimestampFormat string, level int) error {
-	var zc zap.Config
+	zerologr.SetMaxV(level)
+
+	var logger zerolog.Logger
 	switch logFormat {
 	case TextFormat:
-		zc = zap.NewDevelopmentConfig()
-		zc.EncoderConfig.EncodeLevel = zapLevelEncoderText
+		output := zerolog.ConsoleWriter{Out: os.Stderr}
+		output.TimeFormat = resolveTimestampFormat(loggingTimestampFormat)
+		logger = zerolog.New(output).With().Timestamp().Caller().Logger()
 	case JSONFormat:
-		zc = zap.NewProductionConfig()
-		zc.EncoderConfig.EncodeLevel = zapLevelEncoderJson
+		logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	default:
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}
-	// configure the timestamp format
-	switch loggingTimestampFormat {
-	case ISO8601:
-		zc.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	case RFC3339:
-		zc.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
-	case MILLIS:
-		zc.EncoderConfig.EncodeTime = zapcore.EpochMillisTimeEncoder
-	case NANOS:
-		zc.EncoderConfig.EncodeTime = zapcore.EpochNanosTimeEncoder
-	case EPOCH:
-		zc.EncoderConfig.EncodeTime = zapcore.EpochTimeEncoder
-	case RFC3339NANO:
-		zc.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
-	case "default":
-		zc.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
-	default:
-		return errors.New("timestamp format not recognized, pass `iso8601` for ISO8601, `rfc3339` for RFC3339, `rfc3339nano` for RFC3339NANO, `millis` for Epoch Millis, `nanos` for Epoch Nanos, or omit the flag for the Unix Epoch timestamp format")
-	}
-	// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).
-	zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-1 * level))
-	// disable stacktrace
-	zc.DisableStacktrace = true
-	zapLog, err := zc.Build()
-	if err != nil {
-		return err
-	}
-	globalLog = zapr.NewLogger(zapLog)
-	// in json mode we configure klog and global logger to use zapr
+
+	globalLog = zerologr.New(&logger)
 	klog.SetLogger(globalLog.WithName("klog"))
 	log.SetLogger(globalLog)
 	return nil
+}
+
+func resolveTimestampFormat(format string) string {
+	switch format {
+	case ISO8601:
+		return time.RFC3339
+	case RFC3339:
+		return time.RFC3339
+	case MILLIS:
+		return time.StampMilli
+	case NANOS:
+		return time.StampNano
+	case EPOCH:
+		return time.UnixDate
+	case RFC3339NANO:
+		return time.RFC3339Nano
+	default:
+		return time.RFC3339
+	}
 }
 
 // GlobalLogger returns a logr.Logger as configured in main.
@@ -187,22 +181,4 @@ func (a *writerAdapter) Write(p []byte) (int, error) {
 
 func StdLogger(logger logr.Logger, prefix string) *stdlog.Logger {
 	return stdlog.New(&writerAdapter{logger: logger}, prefix, stdlog.LstdFlags)
-}
-
-func zapLevelEncoderText(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(zapLevelToString(l))
-}
-
-func zapLevelEncoderJson(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(strings.ToLower(zapLevelToString(l)))
-}
-
-func zapLevelToString(zapLevel zapcore.Level) string {
-	if zapLevel <= 0 && zapLevel >= -2 {
-		return "INFO"
-	} else if zapLevel <= -3 {
-		return "DEBUG"
-	} else {
-		return zapLevel.CapitalString()
-	}
 }

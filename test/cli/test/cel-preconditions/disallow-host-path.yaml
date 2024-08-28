@@ -15,7 +15,7 @@ spec:
         - expression: "object.metadata.labels['color'] == 'red'"
           name: "Label should be red"
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         cel:
           expressions:
             - expression: "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"

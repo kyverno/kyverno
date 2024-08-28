@@ -5,4 +5,4 @@ metadata:
 spec:
   apiCall:
     urlPath: "/apis/apps/v1/namespaces/default/unknown"
-    refreshInterval: 10s
+    refreshInterval: 1h

@@ -5,6 +5,8 @@ features:
     eventTypes: []
 
 backgroundController:
+  extraArgs:
+    v: 4
   rbac:
     clusterRole:
       extraResources:

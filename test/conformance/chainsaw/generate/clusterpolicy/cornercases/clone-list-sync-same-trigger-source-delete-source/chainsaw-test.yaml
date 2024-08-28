@@ -8,6 +8,8 @@ spec:
   - name: step-01
     try:
     - apply:
+        file: permissions.yaml
+    - apply:
         file: chainsaw-step-01-apply-1-1.yaml
     - apply:
         file: chainsaw-step-01-apply-1-2.yaml
@@ -19,9 +21,15 @@ spec:
     try:
     - apply:
         file: trigger.yaml
+  - name: step-03
+    try:
+    - sleep:
+        duration: 2s
+  - name: step-04
+    try:
     - assert:
         file: target.yaml
-  - name: step-03
+  - name: step-05
     try:
     - delete:
         ref:
@@ -29,11 +37,11 @@ spec:
           kind: Secret
           name: mysecret
           namespace: clone-list-sync-same-trigger-source-trigger-ns
-  - name: step-04
+  - name: step-06
     try:
     - sleep:
         duration: 3s
-  - name: step-05
+  - name: step-07
     try:
     - error:
         file: target.yaml
