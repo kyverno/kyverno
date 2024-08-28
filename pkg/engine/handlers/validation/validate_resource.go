@@ -148,7 +148,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	}
 
-	if engineutils.IsUpdateRequest(v.policyContext) && v.rule.Validation.AllowExistingViolations && v.nesting == 0 { // is update request and is the root level validate
+	if engineutils.IsUpdateRequest(v.policyContext) && *v.rule.Validation.AllowExistingViolations && v.nesting == 0 { // is update request and is the root level validate
 		priorResp, err := v.validateOldObject(ctx)
 		if err != nil {
 			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to validate old object", err)

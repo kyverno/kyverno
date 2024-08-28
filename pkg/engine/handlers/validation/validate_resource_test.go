@@ -171,7 +171,7 @@ var (
           "message": "images must begin with ghcr.io"
         }
       }
-    ],
+    ]
   }
 }
 	`
