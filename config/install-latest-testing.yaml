@@ -1376,16 +1376,8 @@ spec:
             properties:
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -1426,12 +1418,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -2615,16 +2602,8 @@ spec:
             properties:
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -2665,12 +2644,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -3880,16 +3854,8 @@ spec:
             properties:
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -3930,12 +3896,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -5119,16 +5080,8 @@ spec:
             properties:
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -5169,12 +5122,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -5350,7 +5298,6 @@ spec:
                               Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                               CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                               'object' - The object from the incoming request. The value is null for DELETE requests.
                               'oldObject' - The existing object. The value is null for CREATE requests.
                               'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -5359,7 +5306,6 @@ spec:
                               'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                 request resource.
                               Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                               Required.
                             type: string
@@ -5372,7 +5318,6 @@ spec:
                               must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                               '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                               optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                               Required.
                             type: string
@@ -8007,18 +7952,15 @@ spec:
                                       a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                       name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                       The key is combined with the resource name of the
                                       ValidatingAdmissionPolicy to construct an audit annotation key:
                                       "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                       If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                       and the same audit annotation key, the annotation key will be identical.
                                       In this case, the first annotation written with the key will be included
                                       in the audit event and all subsequent annotations with the same key
                                       will be discarded.
-
 
                                       Required.
                                     type: string
@@ -8033,12 +7975,10 @@ spec:
                                       If the result of the valueExpression is more than 10kb in length, it
                                       will be truncated to 10kb.
 
-
                                       If multiple ValidatingAdmissionPolicyBinding resources match an
                                       API request, then the valueExpression will be evaluated for
                                       each binding. All unique values produced by the valueExpressions
                                       will be joined together in a comma-separated list.
-
 
                                       Required.
                                     type: string
@@ -8059,7 +7999,7 @@ spec:
                                       which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                       expressions have access to the contents of the
                                       API request/response, organized into CEL variables
-                                      as well as some other useful variables:\n\n\n-
+                                      as well as some other useful variables:\n\n-
                                       'object' - The object from the incoming request.
                                       The value is null for DELETE requests.\n- 'oldObject'
                                       - The existing object. The value is null for
@@ -8079,10 +8019,10 @@ spec:
                                       of the request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                       'authorizer.requestResource' - A CEL ResourceCheck
                                       constructed from the 'authorizer' and configured
-                                      with the\n  request resource.\n\n\nThe `apiVersion`,
+                                      with the\n  request resource.\n\nThe `apiVersion`,
                                       `kind`, `metadata.name` and `metadata.generateName`
                                       are always accessible from the root of the\nobject.
-                                      No other metadata properties are accessible.\n\n\nOnly
+                                      No other metadata properties are accessible.\n\nOnly
                                       property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                       are accessible.\nAccessible property names are
                                       escaped according to the following rules when
@@ -8102,7 +8042,7 @@ spec:
                                       {\"Expression\": \"object.x__dash__prop > 0\"}\n
                                       \ - Expression accessing a property named \"redact__d\":
                                       {\"Expression\": \"object.redact__underscores__d
-                                      > 0\"}\n\n\nEquality on arrays with list type
+                                      > 0\"}\n\nEquality on arrays with list type
                                       of 'set' or 'map' ignores element order, i.e.
                                       [1, 2] == [2, 1].\nConcatenation on arrays with
                                       x-kubernetes-list-type use the semantics of
@@ -8178,7 +8118,6 @@ spec:
                                   description: |-
                                     `name` is the name of the resource being referenced.
 
-
                                     `name` and `selector` are mutually exclusive properties. If one is set,
                                     the other must be unset.
                                   type: string
@@ -8188,14 +8127,11 @@ spec:
                                     the search for params to a specific namespace. Applies to both `name` and
                                     `selector` fields.
 
-
                                     A per-namespace parameter may be used by specifying a namespace-scoped
                                     `paramKind` in the policy and leaving this field empty.
 
-
                                     - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                     field results in a configuration error.
-
 
                                     - If `paramKind` is namespace-scoped, the namespace of the object being
                                     evaluated for admission will be used when this field is left unset. Take
@@ -8211,7 +8147,6 @@ spec:
                                     If set to `Deny`, then no matched parameters will be subject to the
                                     `failurePolicy` of the policy.
 
-
                                     Allowed values are `Allow` or `Deny`
                                     Default to `Deny`
                                   type: string
@@ -8220,10 +8155,8 @@ spec:
                                     selector can be used to match multiple param objects based on their labels.
                                     Supply selector: {} to match all resources of the ParamKind.
 
-
                                     If multiple params are found, they are all evaluated with the policy expressions
                                     and the results are ANDed together.
-
 
                                     One of `name` or `selector` must be set, but `name` and `selector` are
                                     mutually exclusive properties. If one is set, the other must be unset.
@@ -10054,7 +9987,6 @@ spec:
                             Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                             CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                             'object' - The object from the incoming request. The value is null for DELETE requests.
                             'oldObject' - The existing object. The value is null for CREATE requests.
                             'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -10063,7 +9995,6 @@ spec:
                             'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                               request resource.
                             Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                             Required.
                           type: string
@@ -10076,7 +10007,6 @@ spec:
                             must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                             '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                             optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                             Required.
                           type: string
@@ -10127,7 +10057,6 @@ spec:
                                   Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                   CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                                   'object' - The object from the incoming request. The value is null for DELETE requests.
                                   'oldObject' - The existing object. The value is null for CREATE requests.
                                   'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -10136,7 +10065,6 @@ spec:
                                   'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                     request resource.
                                   Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                                   Required.
                                 type: string
@@ -10149,7 +10077,6 @@ spec:
                                   must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                                   '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                                   optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                                   Required.
                                 type: string
@@ -12820,18 +12747,15 @@ spec:
                                           a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                           name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                           The key is combined with the resource name of the
                                           ValidatingAdmissionPolicy to construct an audit annotation key:
                                           "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                           If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                           and the same audit annotation key, the annotation key will be identical.
                                           In this case, the first annotation written with the key will be included
                                           in the audit event and all subsequent annotations with the same key
                                           will be discarded.
-
 
                                           Required.
                                         type: string
@@ -12846,12 +12770,10 @@ spec:
                                           If the result of the valueExpression is more than 10kb in length, it
                                           will be truncated to 10kb.
 
-
                                           If multiple ValidatingAdmissionPolicyBinding resources match an
                                           API request, then the valueExpression will be evaluated for
                                           each binding. All unique values produced by the valueExpressions
                                           will be joined together in a comma-separated list.
-
 
                                           Required.
                                         type: string
@@ -12873,12 +12795,12 @@ spec:
                                           expressions have access to the contents
                                           of the API request/response, organized into
                                           CEL variables as well as some other useful
-                                          variables:\n\n\n- 'object' - The object
-                                          from the incoming request. The value is
-                                          null for DELETE requests.\n- 'oldObject'
-                                          - The existing object. The value is null
-                                          for CREATE requests.\n- 'request' - Attributes
-                                          of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
+                                          variables:\n\n- 'object' - The object from
+                                          the incoming request. The value is null
+                                          for DELETE requests.\n- 'oldObject' - The
+                                          existing object. The value is null for CREATE
+                                          requests.\n- 'request' - Attributes of the
+                                          API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
                                           'params' - Parameter resource referred to
                                           by the policy binding being evaluated. Only
                                           populated if the policy has a ParamKind.\n-
@@ -12895,10 +12817,10 @@ spec:
                                           https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                           'authorizer.requestResource' - A CEL ResourceCheck
                                           constructed from the 'authorizer' and configured
-                                          with the\n  request resource.\n\n\nThe `apiVersion`,
+                                          with the\n  request resource.\n\nThe `apiVersion`,
                                           `kind`, `metadata.name` and `metadata.generateName`
                                           are always accessible from the root of the\nobject.
-                                          No other metadata properties are accessible.\n\n\nOnly
+                                          No other metadata properties are accessible.\n\nOnly
                                           property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                           are accessible.\nAccessible property names
                                           are escaped according to the following rules
@@ -12919,8 +12841,8 @@ spec:
                                           named \"x-prop\": {\"Expression\": \"object.x__dash__prop
                                           > 0\"}\n  - Expression accessing a property
                                           named \"redact__d\": {\"Expression\": \"object.redact__underscores__d
-                                          > 0\"}\n\n\nEquality on arrays with list
-                                          type of 'set' or 'map' ignores element order,
+                                          > 0\"}\n\nEquality on arrays with list type
+                                          of 'set' or 'map' ignores element order,
                                           i.e. [1, 2] == [2, 1].\nConcatenation on
                                           arrays with x-kubernetes-list-type use the
                                           semantics of the list type:\n  - 'set':
@@ -12996,7 +12918,6 @@ spec:
                                       description: |-
                                         `name` is the name of the resource being referenced.
 
-
                                         `name` and `selector` are mutually exclusive properties. If one is set,
                                         the other must be unset.
                                       type: string
@@ -13006,14 +12927,11 @@ spec:
                                         the search for params to a specific namespace. Applies to both `name` and
                                         `selector` fields.
 
-
                                         A per-namespace parameter may be used by specifying a namespace-scoped
                                         `paramKind` in the policy and leaving this field empty.
 
-
                                         - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                         field results in a configuration error.
-
 
                                         - If `paramKind` is namespace-scoped, the namespace of the object being
                                         evaluated for admission will be used when this field is left unset. Take
@@ -13029,7 +12947,6 @@ spec:
                                         If set to `Deny`, then no matched parameters will be subject to the
                                         `failurePolicy` of the policy.
 
-
                                         Allowed values are `Allow` or `Deny`
                                         Default to `Deny`
                                       type: string
@@ -13038,10 +12955,8 @@ spec:
                                         selector can be used to match multiple param objects based on their labels.
                                         Supply selector: {} to match all resources of the ParamKind.
 
-
                                         If multiple params are found, they are all evaluated with the policy expressions
                                         and the results are ANDed together.
-
 
                                         One of `name` or `selector` must be set, but `name` and `selector` are
                                         mutually exclusive properties. If one is set, the other must be unset.
@@ -14787,16 +14702,8 @@ spec:
                 type: object
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -14837,12 +14744,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -15032,7 +14934,6 @@ spec:
                               Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                               CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                               'object' - The object from the incoming request. The value is null for DELETE requests.
                               'oldObject' - The existing object. The value is null for CREATE requests.
                               'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -15041,7 +14942,6 @@ spec:
                               'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                 request resource.
                               Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                               Required.
                             type: string
@@ -15054,7 +14954,6 @@ spec:
                               must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                               '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                               optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                               Required.
                             type: string
@@ -17367,18 +17266,15 @@ spec:
                                       a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                       name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                       The key is combined with the resource name of the
                                       ValidatingAdmissionPolicy to construct an audit annotation key:
                                       "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                       If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                       and the same audit annotation key, the annotation key will be identical.
                                       In this case, the first annotation written with the key will be included
                                       in the audit event and all subsequent annotations with the same key
                                       will be discarded.
-
 
                                       Required.
                                     type: string
@@ -17393,12 +17289,10 @@ spec:
                                       If the result of the valueExpression is more than 10kb in length, it
                                       will be truncated to 10kb.
 
-
                                       If multiple ValidatingAdmissionPolicyBinding resources match an
                                       API request, then the valueExpression will be evaluated for
                                       each binding. All unique values produced by the valueExpressions
                                       will be joined together in a comma-separated list.
-
 
                                       Required.
                                     type: string
@@ -17419,7 +17313,7 @@ spec:
                                       which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                       expressions have access to the contents of the
                                       API request/response, organized into CEL variables
-                                      as well as some other useful variables:\n\n\n-
+                                      as well as some other useful variables:\n\n-
                                       'object' - The object from the incoming request.
                                       The value is null for DELETE requests.\n- 'oldObject'
                                       - The existing object. The value is null for
@@ -17439,10 +17333,10 @@ spec:
                                       of the request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                       'authorizer.requestResource' - A CEL ResourceCheck
                                       constructed from the 'authorizer' and configured
-                                      with the\n  request resource.\n\n\nThe `apiVersion`,
+                                      with the\n  request resource.\n\nThe `apiVersion`,
                                       `kind`, `metadata.name` and `metadata.generateName`
                                       are always accessible from the root of the\nobject.
-                                      No other metadata properties are accessible.\n\n\nOnly
+                                      No other metadata properties are accessible.\n\nOnly
                                       property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                       are accessible.\nAccessible property names are
                                       escaped according to the following rules when
@@ -17462,7 +17356,7 @@ spec:
                                       {\"Expression\": \"object.x__dash__prop > 0\"}\n
                                       \ - Expression accessing a property named \"redact__d\":
                                       {\"Expression\": \"object.redact__underscores__d
-                                      > 0\"}\n\n\nEquality on arrays with list type
+                                      > 0\"}\n\nEquality on arrays with list type
                                       of 'set' or 'map' ignores element order, i.e.
                                       [1, 2] == [2, 1].\nConcatenation on arrays with
                                       x-kubernetes-list-type use the semantics of
@@ -17538,7 +17432,6 @@ spec:
                                   description: |-
                                     `name` is the name of the resource being referenced.
 
-
                                     `name` and `selector` are mutually exclusive properties. If one is set,
                                     the other must be unset.
                                   type: string
@@ -17548,14 +17441,11 @@ spec:
                                     the search for params to a specific namespace. Applies to both `name` and
                                     `selector` fields.
 
-
                                     A per-namespace parameter may be used by specifying a namespace-scoped
                                     `paramKind` in the policy and leaving this field empty.
 
-
                                     - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                     field results in a configuration error.
-
 
                                     - If `paramKind` is namespace-scoped, the namespace of the object being
                                     evaluated for admission will be used when this field is left unset. Take
@@ -17571,7 +17461,6 @@ spec:
                                     If set to `Deny`, then no matched parameters will be subject to the
                                     `failurePolicy` of the policy.
 
-
                                     Allowed values are `Allow` or `Deny`
                                     Default to `Deny`
                                   type: string
@@ -17580,10 +17469,8 @@ spec:
                                     selector can be used to match multiple param objects based on their labels.
                                     Supply selector: {} to match all resources of the ParamKind.
 
-
                                     If multiple params are found, they are all evaluated with the policy expressions
                                     and the results are ANDed together.
-
 
                                     One of `name` or `selector` must be set, but `name` and `selector` are
                                     mutually exclusive properties. If one is set, the other must be unset.
@@ -19472,7 +19359,6 @@ spec:
                             Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                             CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                             'object' - The object from the incoming request. The value is null for DELETE requests.
                             'oldObject' - The existing object. The value is null for CREATE requests.
                             'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -19481,7 +19367,6 @@ spec:
                             'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                               request resource.
                             Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                             Required.
                           type: string
@@ -19494,7 +19379,6 @@ spec:
                             must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                             '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                             optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                             Required.
                           type: string
@@ -19545,7 +19429,6 @@ spec:
                                   Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                   CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                                   'object' - The object from the incoming request. The value is null for DELETE requests.
                                   'oldObject' - The existing object. The value is null for CREATE requests.
                                   'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -19554,7 +19437,6 @@ spec:
                                   'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                     request resource.
                                   Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                                   Required.
                                 type: string
@@ -19567,7 +19449,6 @@ spec:
                                   must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                                   '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                                   optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                                   Required.
                                 type: string
@@ -22238,18 +22119,15 @@ spec:
                                           a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                           name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                           The key is combined with the resource name of the
                                           ValidatingAdmissionPolicy to construct an audit annotation key:
                                           "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                           If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                           and the same audit annotation key, the annotation key will be identical.
                                           In this case, the first annotation written with the key will be included
                                           in the audit event and all subsequent annotations with the same key
                                           will be discarded.
-
 
                                           Required.
                                         type: string
@@ -22264,12 +22142,10 @@ spec:
                                           If the result of the valueExpression is more than 10kb in length, it
                                           will be truncated to 10kb.
 
-
                                           If multiple ValidatingAdmissionPolicyBinding resources match an
                                           API request, then the valueExpression will be evaluated for
                                           each binding. All unique values produced by the valueExpressions
                                           will be joined together in a comma-separated list.
-
 
                                           Required.
                                         type: string
@@ -22291,12 +22167,12 @@ spec:
                                           expressions have access to the contents
                                           of the API request/response, organized into
                                           CEL variables as well as some other useful
-                                          variables:\n\n\n- 'object' - The object
-                                          from the incoming request. The value is
-                                          null for DELETE requests.\n- 'oldObject'
-                                          - The existing object. The value is null
-                                          for CREATE requests.\n- 'request' - Attributes
-                                          of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
+                                          variables:\n\n- 'object' - The object from
+                                          the incoming request. The value is null
+                                          for DELETE requests.\n- 'oldObject' - The
+                                          existing object. The value is null for CREATE
+                                          requests.\n- 'request' - Attributes of the
+                                          API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
                                           'params' - Parameter resource referred to
                                           by the policy binding being evaluated. Only
                                           populated if the policy has a ParamKind.\n-
@@ -22313,10 +22189,10 @@ spec:
                                           https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                           'authorizer.requestResource' - A CEL ResourceCheck
                                           constructed from the 'authorizer' and configured
-                                          with the\n  request resource.\n\n\nThe `apiVersion`,
+                                          with the\n  request resource.\n\nThe `apiVersion`,
                                           `kind`, `metadata.name` and `metadata.generateName`
                                           are always accessible from the root of the\nobject.
-                                          No other metadata properties are accessible.\n\n\nOnly
+                                          No other metadata properties are accessible.\n\nOnly
                                           property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                           are accessible.\nAccessible property names
                                           are escaped according to the following rules
@@ -22337,8 +22213,8 @@ spec:
                                           named \"x-prop\": {\"Expression\": \"object.x__dash__prop
                                           > 0\"}\n  - Expression accessing a property
                                           named \"redact__d\": {\"Expression\": \"object.redact__underscores__d
-                                          > 0\"}\n\n\nEquality on arrays with list
-                                          type of 'set' or 'map' ignores element order,
+                                          > 0\"}\n\nEquality on arrays with list type
+                                          of 'set' or 'map' ignores element order,
                                           i.e. [1, 2] == [2, 1].\nConcatenation on
                                           arrays with x-kubernetes-list-type use the
                                           semantics of the list type:\n  - 'set':
@@ -22414,7 +22290,6 @@ spec:
                                       description: |-
                                         `name` is the name of the resource being referenced.
 
-
                                         `name` and `selector` are mutually exclusive properties. If one is set,
                                         the other must be unset.
                                       type: string
@@ -22424,14 +22299,11 @@ spec:
                                         the search for params to a specific namespace. Applies to both `name` and
                                         `selector` fields.
 
-
                                         A per-namespace parameter may be used by specifying a namespace-scoped
                                         `paramKind` in the policy and leaving this field empty.
 
-
                                         - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                         field results in a configuration error.
-
 
                                         - If `paramKind` is namespace-scoped, the namespace of the object being
                                         evaluated for admission will be used when this field is left unset. Take
@@ -22447,7 +22319,6 @@ spec:
                                         If set to `Deny`, then no matched parameters will be subject to the
                                         `failurePolicy` of the policy.
 
-
                                         Allowed values are `Allow` or `Deny`
                                         Default to `Deny`
                                       type: string
@@ -22456,10 +22327,8 @@ spec:
                                         selector can be used to match multiple param objects based on their labels.
                                         Supply selector: {} to match all resources of the ParamKind.
 
-
                                         If multiple params are found, they are all evaluated with the policy expressions
                                         and the results are ANDed together.
-
 
                                         One of `name` or `selector` must be set, but `name` and `selector` are
                                         mutually exclusive properties. If one is set, the other must be unset.
@@ -24205,16 +24074,8 @@ spec:
                 type: object
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -24255,12 +24116,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -24498,16 +24354,8 @@ spec:
             properties:
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -24548,12 +24396,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -24737,7 +24580,6 @@ spec:
                               Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                               CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                               'object' - The object from the incoming request. The value is null for DELETE requests.
                               'oldObject' - The existing object. The value is null for CREATE requests.
                               'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -24746,7 +24588,6 @@ spec:
                               'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                 request resource.
                               Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                               Required.
                             type: string
@@ -24759,7 +24600,6 @@ spec:
                               must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                               '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                               optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                               Required.
                             type: string
@@ -27394,18 +27234,15 @@ spec:
                                       a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                       name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                       The key is combined with the resource name of the
                                       ValidatingAdmissionPolicy to construct an audit annotation key:
                                       "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                       If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                       and the same audit annotation key, the annotation key will be identical.
                                       In this case, the first annotation written with the key will be included
                                       in the audit event and all subsequent annotations with the same key
                                       will be discarded.
-
 
                                       Required.
                                     type: string
@@ -27420,12 +27257,10 @@ spec:
                                       If the result of the valueExpression is more than 10kb in length, it
                                       will be truncated to 10kb.
 
-
                                       If multiple ValidatingAdmissionPolicyBinding resources match an
                                       API request, then the valueExpression will be evaluated for
                                       each binding. All unique values produced by the valueExpressions
                                       will be joined together in a comma-separated list.
-
 
                                       Required.
                                     type: string
@@ -27446,7 +27281,7 @@ spec:
                                       which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                       expressions have access to the contents of the
                                       API request/response, organized into CEL variables
-                                      as well as some other useful variables:\n\n\n-
+                                      as well as some other useful variables:\n\n-
                                       'object' - The object from the incoming request.
                                       The value is null for DELETE requests.\n- 'oldObject'
                                       - The existing object. The value is null for
@@ -27466,10 +27301,10 @@ spec:
                                       of the request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                       'authorizer.requestResource' - A CEL ResourceCheck
                                       constructed from the 'authorizer' and configured
-                                      with the\n  request resource.\n\n\nThe `apiVersion`,
+                                      with the\n  request resource.\n\nThe `apiVersion`,
                                       `kind`, `metadata.name` and `metadata.generateName`
                                       are always accessible from the root of the\nobject.
-                                      No other metadata properties are accessible.\n\n\nOnly
+                                      No other metadata properties are accessible.\n\nOnly
                                       property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                       are accessible.\nAccessible property names are
                                       escaped according to the following rules when
@@ -27489,7 +27324,7 @@ spec:
                                       {\"Expression\": \"object.x__dash__prop > 0\"}\n
                                       \ - Expression accessing a property named \"redact__d\":
                                       {\"Expression\": \"object.redact__underscores__d
-                                      > 0\"}\n\n\nEquality on arrays with list type
+                                      > 0\"}\n\nEquality on arrays with list type
                                       of 'set' or 'map' ignores element order, i.e.
                                       [1, 2] == [2, 1].\nConcatenation on arrays with
                                       x-kubernetes-list-type use the semantics of
@@ -27565,7 +27400,6 @@ spec:
                                   description: |-
                                     `name` is the name of the resource being referenced.
 
-
                                     `name` and `selector` are mutually exclusive properties. If one is set,
                                     the other must be unset.
                                   type: string
@@ -27575,14 +27409,11 @@ spec:
                                     the search for params to a specific namespace. Applies to both `name` and
                                     `selector` fields.
 
-
                                     A per-namespace parameter may be used by specifying a namespace-scoped
                                     `paramKind` in the policy and leaving this field empty.
 
-
                                     - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                     field results in a configuration error.
-
 
                                     - If `paramKind` is namespace-scoped, the namespace of the object being
                                     evaluated for admission will be used when this field is left unset. Take
@@ -27598,7 +27429,6 @@ spec:
                                     If set to `Deny`, then no matched parameters will be subject to the
                                     `failurePolicy` of the policy.
 
-
                                     Allowed values are `Allow` or `Deny`
                                     Default to `Deny`
                                   type: string
@@ -27607,10 +27437,8 @@ spec:
                                     selector can be used to match multiple param objects based on their labels.
                                     Supply selector: {} to match all resources of the ParamKind.
 
-
                                     If multiple params are found, they are all evaluated with the policy expressions
                                     and the results are ANDed together.
-
 
                                     One of `name` or `selector` must be set, but `name` and `selector` are
                                     mutually exclusive properties. If one is set, the other must be unset.
@@ -29441,7 +29269,6 @@ spec:
                             Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                             CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                             'object' - The object from the incoming request. The value is null for DELETE requests.
                             'oldObject' - The existing object. The value is null for CREATE requests.
                             'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -29450,7 +29277,6 @@ spec:
                             'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                               request resource.
                             Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                             Required.
                           type: string
@@ -29463,7 +29289,6 @@ spec:
                             must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                             '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                             optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                             Required.
                           type: string
@@ -29515,7 +29340,6 @@ spec:
                                   Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                   CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                                   'object' - The object from the incoming request. The value is null for DELETE requests.
                                   'oldObject' - The existing object. The value is null for CREATE requests.
                                   'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -29524,7 +29348,6 @@ spec:
                                   'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                     request resource.
                                   Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                                   Required.
                                 type: string
@@ -29537,7 +29360,6 @@ spec:
                                   must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                                   '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                                   optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                                   Required.
                                 type: string
@@ -32208,18 +32030,15 @@ spec:
                                           a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                           name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                           The key is combined with the resource name of the
                                           ValidatingAdmissionPolicy to construct an audit annotation key:
                                           "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                           If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                           and the same audit annotation key, the annotation key will be identical.
                                           In this case, the first annotation written with the key will be included
                                           in the audit event and all subsequent annotations with the same key
                                           will be discarded.
-
 
                                           Required.
                                         type: string
@@ -32234,12 +32053,10 @@ spec:
                                           If the result of the valueExpression is more than 10kb in length, it
                                           will be truncated to 10kb.
 
-
                                           If multiple ValidatingAdmissionPolicyBinding resources match an
                                           API request, then the valueExpression will be evaluated for
                                           each binding. All unique values produced by the valueExpressions
                                           will be joined together in a comma-separated list.
-
 
                                           Required.
                                         type: string
@@ -32261,12 +32078,12 @@ spec:
                                           expressions have access to the contents
                                           of the API request/response, organized into
                                           CEL variables as well as some other useful
-                                          variables:\n\n\n- 'object' - The object
-                                          from the incoming request. The value is
-                                          null for DELETE requests.\n- 'oldObject'
-                                          - The existing object. The value is null
-                                          for CREATE requests.\n- 'request' - Attributes
-                                          of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
+                                          variables:\n\n- 'object' - The object from
+                                          the incoming request. The value is null
+                                          for DELETE requests.\n- 'oldObject' - The
+                                          existing object. The value is null for CREATE
+                                          requests.\n- 'request' - Attributes of the
+                                          API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
                                           'params' - Parameter resource referred to
                                           by the policy binding being evaluated. Only
                                           populated if the policy has a ParamKind.\n-
@@ -32283,10 +32100,10 @@ spec:
                                           https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                           'authorizer.requestResource' - A CEL ResourceCheck
                                           constructed from the 'authorizer' and configured
-                                          with the\n  request resource.\n\n\nThe `apiVersion`,
+                                          with the\n  request resource.\n\nThe `apiVersion`,
                                           `kind`, `metadata.name` and `metadata.generateName`
                                           are always accessible from the root of the\nobject.
-                                          No other metadata properties are accessible.\n\n\nOnly
+                                          No other metadata properties are accessible.\n\nOnly
                                           property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                           are accessible.\nAccessible property names
                                           are escaped according to the following rules
@@ -32307,8 +32124,8 @@ spec:
                                           named \"x-prop\": {\"Expression\": \"object.x__dash__prop
                                           > 0\"}\n  - Expression accessing a property
                                           named \"redact__d\": {\"Expression\": \"object.redact__underscores__d
-                                          > 0\"}\n\n\nEquality on arrays with list
-                                          type of 'set' or 'map' ignores element order,
+                                          > 0\"}\n\nEquality on arrays with list type
+                                          of 'set' or 'map' ignores element order,
                                           i.e. [1, 2] == [2, 1].\nConcatenation on
                                           arrays with x-kubernetes-list-type use the
                                           semantics of the list type:\n  - 'set':
@@ -32384,7 +32201,6 @@ spec:
                                       description: |-
                                         `name` is the name of the resource being referenced.
 
-
                                         `name` and `selector` are mutually exclusive properties. If one is set,
                                         the other must be unset.
                                       type: string
@@ -32394,14 +32210,11 @@ spec:
                                         the search for params to a specific namespace. Applies to both `name` and
                                         `selector` fields.
 
-
                                         A per-namespace parameter may be used by specifying a namespace-scoped
                                         `paramKind` in the policy and leaving this field empty.
 
-
                                         - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                         field results in a configuration error.
-
 
                                         - If `paramKind` is namespace-scoped, the namespace of the object being
                                         evaluated for admission will be used when this field is left unset. Take
@@ -32417,7 +32230,6 @@ spec:
                                         If set to `Deny`, then no matched parameters will be subject to the
                                         `failurePolicy` of the policy.
 
-
                                         Allowed values are `Allow` or `Deny`
                                         Default to `Deny`
                                       type: string
@@ -32426,10 +32238,8 @@ spec:
                                         selector can be used to match multiple param objects based on their labels.
                                         Supply selector: {} to match all resources of the ParamKind.
 
-
                                         If multiple params are found, they are all evaluated with the policy expressions
                                         and the results are ANDed together.
-
 
                                         One of `name` or `selector` must be set, but `name` and `selector` are
                                         mutually exclusive properties. If one is set, the other must be unset.
@@ -34175,16 +33985,8 @@ spec:
                 type: object
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -34225,12 +34027,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -34421,7 +34218,6 @@ spec:
                               Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                               CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                               'object' - The object from the incoming request. The value is null for DELETE requests.
                               'oldObject' - The existing object. The value is null for CREATE requests.
                               'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -34430,7 +34226,6 @@ spec:
                               'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                 request resource.
                               Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                               Required.
                             type: string
@@ -34443,7 +34238,6 @@ spec:
                               must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                               '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                               optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                               Required.
                             type: string
@@ -36756,18 +36550,15 @@ spec:
                                       a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                       name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                       The key is combined with the resource name of the
                                       ValidatingAdmissionPolicy to construct an audit annotation key:
                                       "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                       If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                       and the same audit annotation key, the annotation key will be identical.
                                       In this case, the first annotation written with the key will be included
                                       in the audit event and all subsequent annotations with the same key
                                       will be discarded.
-
 
                                       Required.
                                     type: string
@@ -36782,12 +36573,10 @@ spec:
                                       If the result of the valueExpression is more than 10kb in length, it
                                       will be truncated to 10kb.
 
-
                                       If multiple ValidatingAdmissionPolicyBinding resources match an
                                       API request, then the valueExpression will be evaluated for
                                       each binding. All unique values produced by the valueExpressions
                                       will be joined together in a comma-separated list.
-
 
                                       Required.
                                     type: string
@@ -36808,7 +36597,7 @@ spec:
                                       which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                       expressions have access to the contents of the
                                       API request/response, organized into CEL variables
-                                      as well as some other useful variables:\n\n\n-
+                                      as well as some other useful variables:\n\n-
                                       'object' - The object from the incoming request.
                                       The value is null for DELETE requests.\n- 'oldObject'
                                       - The existing object. The value is null for
@@ -36828,10 +36617,10 @@ spec:
                                       of the request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                       'authorizer.requestResource' - A CEL ResourceCheck
                                       constructed from the 'authorizer' and configured
-                                      with the\n  request resource.\n\n\nThe `apiVersion`,
+                                      with the\n  request resource.\n\nThe `apiVersion`,
                                       `kind`, `metadata.name` and `metadata.generateName`
                                       are always accessible from the root of the\nobject.
-                                      No other metadata properties are accessible.\n\n\nOnly
+                                      No other metadata properties are accessible.\n\nOnly
                                       property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                       are accessible.\nAccessible property names are
                                       escaped according to the following rules when
@@ -36851,7 +36640,7 @@ spec:
                                       {\"Expression\": \"object.x__dash__prop > 0\"}\n
                                       \ - Expression accessing a property named \"redact__d\":
                                       {\"Expression\": \"object.redact__underscores__d
-                                      > 0\"}\n\n\nEquality on arrays with list type
+                                      > 0\"}\n\nEquality on arrays with list type
                                       of 'set' or 'map' ignores element order, i.e.
                                       [1, 2] == [2, 1].\nConcatenation on arrays with
                                       x-kubernetes-list-type use the semantics of
@@ -36927,7 +36716,6 @@ spec:
                                   description: |-
                                     `name` is the name of the resource being referenced.
 
-
                                     `name` and `selector` are mutually exclusive properties. If one is set,
                                     the other must be unset.
                                   type: string
@@ -36937,14 +36725,11 @@ spec:
                                     the search for params to a specific namespace. Applies to both `name` and
                                     `selector` fields.
 
-
                                     A per-namespace parameter may be used by specifying a namespace-scoped
                                     `paramKind` in the policy and leaving this field empty.
 
-
                                     - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                     field results in a configuration error.
-
 
                                     - If `paramKind` is namespace-scoped, the namespace of the object being
                                     evaluated for admission will be used when this field is left unset. Take
@@ -36960,7 +36745,6 @@ spec:
                                     If set to `Deny`, then no matched parameters will be subject to the
                                     `failurePolicy` of the policy.
 
-
                                     Allowed values are `Allow` or `Deny`
                                     Default to `Deny`
                                   type: string
@@ -36969,10 +36753,8 @@ spec:
                                     selector can be used to match multiple param objects based on their labels.
                                     Supply selector: {} to match all resources of the ParamKind.
 
-
                                     If multiple params are found, they are all evaluated with the policy expressions
                                     and the results are ANDed together.
-
 
                                     One of `name` or `selector` must be set, but `name` and `selector` are
                                     mutually exclusive properties. If one is set, the other must be unset.
@@ -38861,7 +38643,6 @@ spec:
                             Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                             CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                             'object' - The object from the incoming request. The value is null for DELETE requests.
                             'oldObject' - The existing object. The value is null for CREATE requests.
                             'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -38870,7 +38651,6 @@ spec:
                             'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                               request resource.
                             Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                             Required.
                           type: string
@@ -38883,7 +38663,6 @@ spec:
                             must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                             '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                             optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                             Required.
                           type: string
@@ -38934,7 +38713,6 @@ spec:
                                   Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                   CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                                   'object' - The object from the incoming request. The value is null for DELETE requests.
                                   'oldObject' - The existing object. The value is null for CREATE requests.
                                   'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -38943,7 +38721,6 @@ spec:
                                   'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                     request resource.
                                   Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                                   Required.
                                 type: string
@@ -38956,7 +38733,6 @@ spec:
                                   must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                                   '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                                   optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                                   Required.
                                 type: string
@@ -41627,18 +41403,15 @@ spec:
                                           a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                           name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                           The key is combined with the resource name of the
                                           ValidatingAdmissionPolicy to construct an audit annotation key:
                                           "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                           If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                           and the same audit annotation key, the annotation key will be identical.
                                           In this case, the first annotation written with the key will be included
                                           in the audit event and all subsequent annotations with the same key
                                           will be discarded.
-
 
                                           Required.
                                         type: string
@@ -41653,12 +41426,10 @@ spec:
                                           If the result of the valueExpression is more than 10kb in length, it
                                           will be truncated to 10kb.
 
-
                                           If multiple ValidatingAdmissionPolicyBinding resources match an
                                           API request, then the valueExpression will be evaluated for
                                           each binding. All unique values produced by the valueExpressions
                                           will be joined together in a comma-separated list.
-
 
                                           Required.
                                         type: string
@@ -41680,12 +41451,12 @@ spec:
                                           expressions have access to the contents
                                           of the API request/response, organized into
                                           CEL variables as well as some other useful
-                                          variables:\n\n\n- 'object' - The object
-                                          from the incoming request. The value is
-                                          null for DELETE requests.\n- 'oldObject'
-                                          - The existing object. The value is null
-                                          for CREATE requests.\n- 'request' - Attributes
-                                          of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
+                                          variables:\n\n- 'object' - The object from
+                                          the incoming request. The value is null
+                                          for DELETE requests.\n- 'oldObject' - The
+                                          existing object. The value is null for CREATE
+                                          requests.\n- 'request' - Attributes of the
+                                          API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
                                           'params' - Parameter resource referred to
                                           by the policy binding being evaluated. Only
                                           populated if the policy has a ParamKind.\n-
@@ -41702,10 +41473,10 @@ spec:
                                           https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                           'authorizer.requestResource' - A CEL ResourceCheck
                                           constructed from the 'authorizer' and configured
-                                          with the\n  request resource.\n\n\nThe `apiVersion`,
+                                          with the\n  request resource.\n\nThe `apiVersion`,
                                           `kind`, `metadata.name` and `metadata.generateName`
                                           are always accessible from the root of the\nobject.
-                                          No other metadata properties are accessible.\n\n\nOnly
+                                          No other metadata properties are accessible.\n\nOnly
                                           property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                           are accessible.\nAccessible property names
                                           are escaped according to the following rules
@@ -41726,8 +41497,8 @@ spec:
                                           named \"x-prop\": {\"Expression\": \"object.x__dash__prop
                                           > 0\"}\n  - Expression accessing a property
                                           named \"redact__d\": {\"Expression\": \"object.redact__underscores__d
-                                          > 0\"}\n\n\nEquality on arrays with list
-                                          type of 'set' or 'map' ignores element order,
+                                          > 0\"}\n\nEquality on arrays with list type
+                                          of 'set' or 'map' ignores element order,
                                           i.e. [1, 2] == [2, 1].\nConcatenation on
                                           arrays with x-kubernetes-list-type use the
                                           semantics of the list type:\n  - 'set':
@@ -41803,7 +41574,6 @@ spec:
                                       description: |-
                                         `name` is the name of the resource being referenced.
 
-
                                         `name` and `selector` are mutually exclusive properties. If one is set,
                                         the other must be unset.
                                       type: string
@@ -41813,14 +41583,11 @@ spec:
                                         the search for params to a specific namespace. Applies to both `name` and
                                         `selector` fields.
 
-
                                         A per-namespace parameter may be used by specifying a namespace-scoped
                                         `paramKind` in the policy and leaving this field empty.
 
-
                                         - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                         field results in a configuration error.
-
 
                                         - If `paramKind` is namespace-scoped, the namespace of the object being
                                         evaluated for admission will be used when this field is left unset. Take
@@ -41836,7 +41603,6 @@ spec:
                                         If set to `Deny`, then no matched parameters will be subject to the
                                         `failurePolicy` of the policy.
 
-
                                         Allowed values are `Allow` or `Deny`
                                         Default to `Deny`
                                       type: string
@@ -41845,10 +41611,8 @@ spec:
                                         selector can be used to match multiple param objects based on their labels.
                                         Supply selector: {} to match all resources of the ParamKind.
 
-
                                         If multiple params are found, they are all evaluated with the policy expressions
                                         and the results are ANDed together.
-
 
                                         One of `name` or `selector` must be set, but `name` and `selector` are
                                         mutually exclusive properties. If one is set, the other must be unset.
@@ -43594,16 +43358,8 @@ spec:
                 type: object
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -43644,12 +43400,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -45144,13 +44895,11 @@ spec:
                               RequestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale).
                               If this is specified and differs from the value in "kind", an equivalent match and conversion was performed.
 
-
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
                               `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
                               an API request to apps/v1beta1 deployments would be converted and sent to the webhook
                               with `kind: {group:"apps", version:"v1", kind:"Deployment"}` (matching the rule the webhook registered for),
                               and `requestKind: {group:"apps", version:"v1beta1", kind:"Deployment"}` (indicating the kind of the original API request).
-
 
                               See documentation for the "matchPolicy" field in the webhook configuration type for more details.
                             properties:
@@ -45170,13 +44919,11 @@ spec:
                               RequestResource is the fully-qualified resource of the original API request (for example, v1.pods).
                               If this is specified and differs from the value in "resource", an equivalent match and conversion was performed.
 
-
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
                               `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
                               an API request to apps/v1beta1 deployments would be converted and sent to the webhook
                               with `resource: {group:"apps", version:"v1", resource:"deployments"}` (matching the resource the webhook registered for),
                               and `requestResource: {group:"apps", version:"v1beta1", resource:"deployments"}` (indicating the resource of the original API request).
-
 
                               See documentation for the "matchPolicy" field in the webhook configuration type.
                             properties:
@@ -45528,13 +45275,11 @@ spec:
                               RequestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale).
                               If this is specified and differs from the value in "kind", an equivalent match and conversion was performed.
 
-
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
                               `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
                               an API request to apps/v1beta1 deployments would be converted and sent to the webhook
                               with `kind: {group:"apps", version:"v1", kind:"Deployment"}` (matching the rule the webhook registered for),
                               and `requestKind: {group:"apps", version:"v1beta1", kind:"Deployment"}` (indicating the kind of the original API request).
-
 
                               See documentation for the "matchPolicy" field in the webhook configuration type for more details.
                             properties:
@@ -45554,13 +45299,11 @@ spec:
                               RequestResource is the fully-qualified resource of the original API request (for example, v1.pods).
                               If this is specified and differs from the value in "resource", an equivalent match and conversion was performed.
 
-
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
                               `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
                               an API request to apps/v1beta1 deployments would be converted and sent to the webhook
                               with `resource: {group:"apps", version:"v1", resource:"deployments"}` (matching the resource the webhook registered for),
                               and `requestResource: {group:"apps", version:"v1beta1", resource:"deployments"}` (indicating the resource of the original API request).
-
 
                               See documentation for the "matchPolicy" field in the webhook configuration type.
                             properties:
@@ -46047,24 +45790,8 @@ spec:
                       description: Subjects is an optional reference to the checked
                         Kubernetes resources
                       items:
-                        description: |-
-                          ObjectReference contains enough information to let you inspect or modify the referred object.
-                          ---
-                          New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
-                           1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.
-                           2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
-                              restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
-                              Those cannot be well described when embedded.
-                           3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
-                           4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
-                              during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
-                              and the version of the actual struct is irrelevant.
-                           5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
-                              will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
-
-
-                          Instead of using this type, create a locally provided and used type that is well-focused on your reference.
-                          For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
+                        description: ObjectReference contains enough information to
+                          let you inspect or modify the referred object.
                         properties:
                           apiVersion:
                             description: API version of the referent.
@@ -46078,7 +45805,6 @@ spec:
                               the event) or if no container name is specified "spec.containers[2]" (container with
                               index 2 in this pod). This syntax is chosen only to have some well-defined way of
                               referencing a part of an object.
-                              TODO: this design is not final and this field is subject to change in the future.
                             type: string
                           kind:
                             description: |-
@@ -46406,24 +46132,8 @@ spec:
                       description: Subjects is an optional reference to the checked
                         Kubernetes resources
                       items:
-                        description: |-
-                          ObjectReference contains enough information to let you inspect or modify the referred object.
-                          ---
-                          New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
-                           1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.
-                           2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
-                              restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
-                              Those cannot be well described when embedded.
-                           3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
-                           4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
-                              during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
-                              and the version of the actual struct is irrelevant.
-                           5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
-                              will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
-
-
-                          Instead of using this type, create a locally provided and used type that is well-focused on your reference.
-                          For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
+                        description: ObjectReference contains enough information to
+                          let you inspect or modify the referred object.
                         properties:
                           apiVersion:
                             description: API version of the referent.
@@ -46437,7 +46147,6 @@ spec:
                               the event) or if no container name is specified "spec.containers[2]" (container with
                               index 2 in this pod). This syntax is chosen only to have some well-defined way of
                               referencing a part of an object.
-                              TODO: this design is not final and this field is subject to change in the future.
                             type: string
                           kind:
                             description: |-
@@ -46705,24 +46414,8 @@ spec:
                   description: Subjects is an optional reference to the checked Kubernetes
                     resources
                   items:
-                    description: |-
-                      ObjectReference contains enough information to let you inspect or modify the referred object.
-                      ---
-                      New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
-                       1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.
-                       2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
-                          restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
-                          Those cannot be well described when embedded.
-                       3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
-                       4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
-                          during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
-                          and the version of the actual struct is irrelevant.
-                       5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
-                          will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
-
-
-                      Instead of using this type, create a locally provided and used type that is well-focused on your reference.
-                      For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
+                    description: ObjectReference contains enough information to let
+                      you inspect or modify the referred object.
                     properties:
                       apiVersion:
                         description: API version of the referent.
@@ -46736,7 +46429,6 @@ spec:
                           the event) or if no container name is specified "spec.containers[2]" (container with
                           index 2 in this pod). This syntax is chosen only to have some well-defined way of
                           referencing a part of an object.
-                          TODO: this design is not final and this field is subject to change in the future.
                         type: string
                       kind:
                         description: |-
@@ -46837,7 +46529,6 @@ spec:
                   the event) or if no container name is specified "spec.containers[2]" (container with
                   index 2 in this pod). This syntax is chosen only to have some well-defined way of
                   referencing a part of an object.
-                  TODO: this design is not final and this field is subject to change in the future.
                 type: string
               kind:
                 description: |-
@@ -47090,24 +46781,8 @@ spec:
                   description: Subjects is an optional reference to the checked Kubernetes
                     resources
                   items:
-                    description: |-
-                      ObjectReference contains enough information to let you inspect or modify the referred object.
-                      ---
-                      New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
-                       1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.
-                       2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
-                          restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
-                          Those cannot be well described when embedded.
-                       3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
-                       4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
-                          during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
-                          and the version of the actual struct is irrelevant.
-                       5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
-                          will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
-
-
-                      Instead of using this type, create a locally provided and used type that is well-focused on your reference.
-                      For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
+                    description: ObjectReference contains enough information to let
+                      you inspect or modify the referred object.
                     properties:
                       apiVersion:
                         description: API version of the referent.
@@ -47121,7 +46796,6 @@ spec:
                           the event) or if no container name is specified "spec.containers[2]" (container with
                           index 2 in this pod). This syntax is chosen only to have some well-defined way of
                           referencing a part of an object.
-                          TODO: this design is not final and this field is subject to change in the future.
                         type: string
                       kind:
                         description: |-
@@ -47222,7 +46896,6 @@ spec:
                   the event) or if no container name is specified "spec.containers[2]" (container with
                   index 2 in this pod). This syntax is chosen only to have some well-defined way of
                   referencing a part of an object.
-                  TODO: this design is not final and this field is subject to change in the future.
                 type: string
               kind:
                 description: |-
