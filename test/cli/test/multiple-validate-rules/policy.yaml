@@ -17,7 +17,7 @@ spec:
           operator: Equals
           value: 'LoadBalancer'
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: >-
         Only approved ports may be used for LoadBalancer services.
       foreach:
@@ -38,7 +38,7 @@ spec:
           kinds:
           - Service
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: "NodePort services are not allowed. This is {{ request.object.spec.type }}"
       pattern:
         spec:

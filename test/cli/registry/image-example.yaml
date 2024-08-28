@@ -19,7 +19,7 @@ spec:
         operator: NotEquals
         value: DELETE
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       foreach:
       - context:
         - imageRegistry:
@@ -57,7 +57,7 @@ spec:
         operator: NotEquals
         value: DELETE
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       foreach:
       - context:
         - imageRegistry:

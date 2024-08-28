@@ -11,7 +11,7 @@ spec:
           kinds:
           - Pod
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       pattern:
         spec:
           containers:
