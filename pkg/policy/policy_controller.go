@@ -63,7 +63,7 @@ type policyController struct {
 	eventRecorder events.EventRecorder
 
 	// Policies that need to be synced
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	// pLister can list/get policy from the shared informer's store
 	pLister kyvernov1listers.ClusterPolicyLister
@@ -129,7 +129,7 @@ func NewPolicyController(
 		npInformer:      npInformer,
 		eventGen:        eventGen,
 		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), "policy"),
 		configuration:   configuration,
 		reconcilePeriod: reconcilePeriod,
 		metricsConfig:   metricsConfig,

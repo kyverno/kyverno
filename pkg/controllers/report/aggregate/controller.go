@@ -55,8 +55,8 @@ type controller struct {
 	cephrLister cache.GenericLister
 
 	// queues
-	frontQueue workqueue.RateLimitingInterface
-	backQueue  workqueue.RateLimitingInterface
+	frontQueue workqueue.TypedRateLimitingInterface[any]
+	backQueue  workqueue.TypedRateLimitingInterface[any]
 }
 
 type policyMapEntry struct {
@@ -83,8 +83,8 @@ func NewController(
 		cpolLister:  cpolInformer.Lister(),
 		ephrLister:  ephrInformer.Lister(),
 		cephrLister: cephrInformer.Lister(),
-		frontQueue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		backQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		frontQueue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
+		backQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
 	}
 	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, ephrInformer.Informer(), c.frontQueue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
