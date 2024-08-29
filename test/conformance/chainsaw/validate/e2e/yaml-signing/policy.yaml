@@ -30,7 +30,7 @@ spec:
             namespace: kube-system
             name: deployment-controller
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         manifests:
           attestors:
           - entries:

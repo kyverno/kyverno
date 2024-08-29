@@ -17,7 +17,7 @@ spec:
           - Pod
     name: validate-labels
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       pattern:
         metadata:
           labels:

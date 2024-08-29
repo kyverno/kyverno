@@ -97,7 +97,7 @@ type controller struct {
 	gctxentryLister   kyvernov2alpha1listers.GlobalContextEntryLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	// config
 	server             string
@@ -138,7 +138,7 @@ func NewController(
 	configuration config.Configuration,
 	caSecretName string,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
 	c := controller{
 		discoveryClient:    discoveryClient,
 		mwcClient:          mwcClient,

@@ -128,7 +128,7 @@ func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFa
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient versioned.Interface, mock bool, username string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient versioned.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -140,8 +140,8 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
 	for _, rule := range spec.Rules {
 		if rule.HasValidate() {
-			if rule.Validation.ValidationFailureAction != nil {
-				warnings = append(warnings, checkValidationFailureAction(*rule.Validation.ValidationFailureAction, rule.Validation.ValidationFailureActionOverrides)...)
+			if rule.Validation.FailureAction != nil {
+				warnings = append(warnings, checkValidationFailureAction(*rule.Validation.FailureAction, rule.Validation.FailureActionOverrides)...)
 			}
 		}
 	}
@@ -207,7 +207,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	if !policy.IsNamespaced() {
 		for i, r := range spec.Rules {
 			if r.HasValidate() {
-				err := validateNamespaces(r.Validation.ValidationFailureActionOverrides, specPath.Child("rules").Index(i).Child("validate").Child("validationFailureActionOverrides"))
+				err := validateNamespaces(r.Validation.FailureActionOverrides, specPath.Child("rules").Index(i).Child("validate").Child("validationFailureActionOverrides"))
 				if err != nil {
 					return warnings, err
 				}
@@ -322,13 +322,11 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		msg, err := validateActions(i, &rules[i], client, mock, username)
+		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA)
 		if err != nil {
 			return warnings, err
-		} else {
-			if len(msg) != 0 {
-				warnings = append(warnings, msg)
-			}
+		} else if len(w) > 0 {
+			warnings = append(warnings, w...)
 		}
 
 		if rule.HasVerifyImages() {
@@ -339,7 +337,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 			verifyImagePath := rulePath.Child("verifyImages")
 			for index, i := range rule.VerifyImages {
-				action := i.ValidationFailureAction
+				action := i.FailureAction
 				if action != nil {
 					if action.Audit() {
 						isAuditFailureAction = true
@@ -1235,7 +1233,7 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 }
 
 func validateRuleContext(rule kyvernov1.Rule) error {
-	if rule.Context == nil || len(rule.Context) == 0 {
+	if len(rule.Context) == 0 {
 		return nil
 	}
 

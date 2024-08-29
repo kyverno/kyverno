@@ -20,4 +20,4 @@ spec:
           operator: NotEquals
           value: dev
       message: The value {{ request.mode }} for val1 is not equal to 'dev'.
-      validationFailureAction: Enforce
+      failureAction: Enforce

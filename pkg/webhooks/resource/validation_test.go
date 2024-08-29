@@ -1071,8 +1071,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "audit",
-								"validationFailureActionOverrides":
+								"failureAction": "audit",
+								"failureActionOverrides":
 									[
 										{
 											"action": "enforce",
@@ -1141,8 +1141,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "audit",
-								"validationFailureActionOverrides":
+								"failureAction": "audit",
+								"failureActionOverrides":
 									[
 										{
 											"action": "enforce",
@@ -1213,8 +1213,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "audit",
-								"validationFailureActionOverrides":
+								"failureAction": "audit",
+								"failureActionOverrides":
 									[
 										{
 											"action": "enforce",
@@ -1283,8 +1283,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "enforce",
-								"validationFailureActionOverrides":
+								"failureAction": "enforce",
+								"failureActionOverrides":
 									[
 										{
 											"action": "enforce",
@@ -1353,8 +1353,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "enforce",
-								"validationFailureActionOverrides":
+								"failureAction": "enforce",
+								"failureActionOverrides":
 									[
 										{
 											"action": "enforce",
@@ -1425,8 +1425,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "enforce",
-								"validationFailureActionOverrides":
+								"failureAction": "enforce",
+								"failureActionOverrides":
 									[
 										{
 											"action": "enforce",
@@ -1495,8 +1495,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 							   }
 							},
 							"validate": {
-								"validationFailureAction": "enforce",
-								"validationFailureActionOverrides":
+								"failureAction": "enforce",
+								"failureActionOverrides":
 									[
 										{
 											"action": "enforce",
@@ -1568,8 +1568,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "enforce",
-								"validationFailureActionOverrides":
+								"failureAction": "enforce",
+								"failureActionOverrides":
 									[
 										{
 											"action": "audit",
@@ -1644,8 +1644,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "enforce",
-								"validationFailureActionOverrides":
+								"failureAction": "enforce",
+								"failureActionOverrides":
 									 [
 										 {
 											 "action": "audit",
@@ -1717,8 +1717,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "enforce",
-								"validationFailureActionOverrides":
+								"failureAction": "enforce",
+								"failureActionOverrides":
 									 [
 										 {
 											 "action": "audit",
@@ -1790,8 +1790,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "enforce",
-								"validationFailureActionOverrides":
+								"failureAction": "enforce",
+								"failureActionOverrides":
 									 [
 										 {
 											 "action": "audit",
@@ -1866,8 +1866,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "enforce",
-								"validationFailureActionOverrides":
+								"failureAction": "enforce",
+								"failureActionOverrides":
 									 [
 										 {
 											 "action": "audit",
@@ -1942,8 +1942,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "audit",
-								"validationFailureActionOverrides":
+								"failureAction": "audit",
+								"failureActionOverrides":
 									 [
 										 {
 											 "action": "enforce",
@@ -2017,8 +2017,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 								}
 							 },
 							 "validate": {
-								"validationFailureAction": "audit",
-								"validationFailureActionOverrides":
+								"failureAction": "audit",
+								"failureActionOverrides":
 									 [
 										 {
 											 "action": "enforce",

@@ -19,7 +19,7 @@ spec:
               operations:
               - DELETE
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         message: 'The label `team` is required.'
         pattern:
           metadata:
@@ -44,7 +44,7 @@ spec:
               operations:
               - CREATE
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         message: 'The label `match` is required.'
         pattern:
           metadata:

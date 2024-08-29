@@ -46,7 +46,7 @@ type controller struct {
 	secretLister corev1listers.SecretNamespaceLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	// config
 	controllerName string
@@ -80,7 +80,7 @@ func NewController(
 	configuration config.Configuration,
 	caSecretName string,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), controllerName)
 	c := controller{
 		vwcClient:      vwcClient,
 		vwcLister:      vwcInformer.Lister(),

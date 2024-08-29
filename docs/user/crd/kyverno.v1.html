@@ -4945,7 +4945,7 @@ mutated to include the SHA digest retrieved during the registration.</p>
     
     
       <tr>
-        <td><code>validationFailureAction</code>
+        <td><code>failureAction</code>
           
           </br>
 
@@ -9285,7 +9285,7 @@ It is an empty string when validating admission policy is successfully generated
     
     
       <tr>
-        <td><code>validationFailureAction</code>
+        <td><code>failureAction</code>
           
           </br>
 
@@ -9301,7 +9301,7 @@ It is an empty string when validating admission policy is successfully generated
         <td>
           
 
-          <p>ValidationFailureAction defines if a validation policy rule violation should block
+          <p>FailureAction defines if a validation policy rule violation should block
 the admission review request (Enforce), or allow (Audit) the admission review request
 and report an error in a policy report. Optional.
 Allowed values are Audit or Enforce.</p>
@@ -9317,7 +9317,7 @@ Allowed values are Audit or Enforce.</p>
     
     
       <tr>
-        <td><code>validationFailureActionOverrides</code>
+        <td><code>failureActionOverrides</code>
           
           </br>
 
@@ -9333,8 +9333,8 @@ Allowed values are Audit or Enforce.</p>
         <td>
           
 
-          <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
+          <p>FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
+namespace-wise. It overrides FailureAction for the specified namespaces.</p>
 
 
           

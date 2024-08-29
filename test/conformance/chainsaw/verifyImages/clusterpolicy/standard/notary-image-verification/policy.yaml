@@ -54,7 +54,7 @@ spec:
       - type: Notary
         imageReferences:
         - "ghcr.io/kyverno/test-verify-image*"
-        validationFailureAction: Enforce
+        failureAction: Enforce
         attestors:
         - count: 1
           entries:
