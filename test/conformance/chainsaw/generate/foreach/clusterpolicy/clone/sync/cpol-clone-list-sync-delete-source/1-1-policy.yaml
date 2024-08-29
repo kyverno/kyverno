@@ -36,7 +36,6 @@ spec:
               - foreach-cpol-clone-list-sync-delete-source-target-ns-1
           apiVersion: v1
           kind: Secret
-          name: cloned-secret-{{ elementIndex }}-{{ ns }}
           namespace: '{{ ns }}'
           cloneList:
             kinds:
