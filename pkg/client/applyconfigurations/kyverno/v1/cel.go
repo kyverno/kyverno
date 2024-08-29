@@ -19,17 +19,17 @@ limitations under the License.
 package v1
 
 import (
-	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
 )
 
 // CELApplyConfiguration represents an declarative configuration of the CEL type for use
 // with apply.
 type CELApplyConfiguration struct {
-	Expressions      []v1alpha1.Validation      `json:"expressions,omitempty"`
-	ParamKind        *v1alpha1.ParamKind        `json:"paramKind,omitempty"`
-	ParamRef         *v1alpha1.ParamRef         `json:"paramRef,omitempty"`
-	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty"`
-	Variables        []v1alpha1.Variable        `json:"variables,omitempty"`
+	Expressions      []v1beta1.Validation      `json:"expressions,omitempty"`
+	ParamKind        *v1beta1.ParamKind        `json:"paramKind,omitempty"`
+	ParamRef         *v1beta1.ParamRef         `json:"paramRef,omitempty"`
+	AuditAnnotations []v1beta1.AuditAnnotation `json:"auditAnnotations,omitempty"`
+	Variables        []v1beta1.Variable        `json:"variables,omitempty"`
 }
 
 // CELApplyConfiguration constructs an declarative configuration of the CEL type for use with
@@ -41,7 +41,7 @@ func CEL() *CELApplyConfiguration {
 // WithExpressions adds the given value to the Expressions field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Expressions field.
-func (b *CELApplyConfiguration) WithExpressions(values ...v1alpha1.Validation) *CELApplyConfiguration {
+func (b *CELApplyConfiguration) WithExpressions(values ...v1beta1.Validation) *CELApplyConfiguration {
 	for i := range values {
 		b.Expressions = append(b.Expressions, values[i])
 	}
@@ -51,7 +51,7 @@ func (b *CELApplyConfiguration) WithExpressions(values ...v1alpha1.Validation) *
 // WithParamKind sets the ParamKind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ParamKind field is set to the value of the last call.
-func (b *CELApplyConfiguration) WithParamKind(value v1alpha1.ParamKind) *CELApplyConfiguration {
+func (b *CELApplyConfiguration) WithParamKind(value v1beta1.ParamKind) *CELApplyConfiguration {
 	b.ParamKind = &value
 	return b
 }
@@ -59,7 +59,7 @@ func (b *CELApplyConfiguration) WithParamKind(value v1alpha1.ParamKind) *CELAppl
 // WithParamRef sets the ParamRef field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ParamRef field is set to the value of the last call.
-func (b *CELApplyConfiguration) WithParamRef(value v1alpha1.ParamRef) *CELApplyConfiguration {
+func (b *CELApplyConfiguration) WithParamRef(value v1beta1.ParamRef) *CELApplyConfiguration {
 	b.ParamRef = &value
 	return b
 }
@@ -67,7 +67,7 @@ func (b *CELApplyConfiguration) WithParamRef(value v1alpha1.ParamRef) *CELApplyC
 // WithAuditAnnotations adds the given value to the AuditAnnotations field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the AuditAnnotations field.
-func (b *CELApplyConfiguration) WithAuditAnnotations(values ...v1alpha1.AuditAnnotation) *CELApplyConfiguration {
+func (b *CELApplyConfiguration) WithAuditAnnotations(values ...v1beta1.AuditAnnotation) *CELApplyConfiguration {
 	for i := range values {
 		b.AuditAnnotations = append(b.AuditAnnotations, values[i])
 	}
@@ -77,7 +77,7 @@ func (b *CELApplyConfiguration) WithAuditAnnotations(values ...v1alpha1.AuditAnn
 // WithVariables adds the given value to the Variables field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Variables field.
-func (b *CELApplyConfiguration) WithVariables(values ...v1alpha1.Variable) *CELApplyConfiguration {
+func (b *CELApplyConfiguration) WithVariables(values ...v1beta1.Variable) *CELApplyConfiguration {
 	for i := range values {
 		b.Variables = append(b.Variables, values[i])
 	}
