@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   prepare-images:
-runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -43,7 +43,7 @@ runs-on: ubuntu-latest
           if-no-files-found: error
 
   load-test:
-runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
