@@ -283,7 +283,6 @@ func (e *engine) invokeRuleHandler(
 				// substitute properties
 				if err := internal.SubstitutePropertiesInRule(logger, &rule, policyContext.JSONContext()); err != nil {
 					logger.Error(err, "failed to substitute variables in rule properties")
-					return resource, handlers.WithError(rule, ruleType, "failed to substitute variables in rule properties", err)
 				}
 				// get policy exceptions that matches both policy and rule name
 				exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
