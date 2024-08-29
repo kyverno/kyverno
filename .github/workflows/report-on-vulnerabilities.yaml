@@ -15,7 +15,7 @@ env:
 
 jobs:
   scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-arm64-64core
     outputs:
       results: ${{ steps.parse-results.outputs.results }}
     steps:    
@@ -86,7 +86,7 @@ jobs:
         if-no-files-found: error
 
   open-issue:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-arm64-64core
     if: needs.scan.outputs.results == 'found'
     needs: scan
     permissions:
