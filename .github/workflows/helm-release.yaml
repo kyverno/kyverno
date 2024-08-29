@@ -35,8 +35,7 @@ jobs:
         run: ct lint --target-branch=main --check-version-increment=false --validate-maintainers=false
 
   linter-artifacthub:
-    runs-on:
-      group: kyverno-default
+    runs-on: ubuntu-latest
     container:
       image: artifacthub/ah
       options: --user root

@@ -54,8 +54,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   linter-artifacthub:
-    runs-on:
-      group: kyverno-default
+    runs-on: ubuntu-latest
     container:
       image: artifacthub/ah
       options: --user root
