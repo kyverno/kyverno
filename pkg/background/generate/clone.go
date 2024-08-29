@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, severSideApply bool, pattern kyvernov1.GeneratePatterns, client dclient.Interface) generateResponse {
+func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, severSideApply bool, pattern kyvernov1.GeneratePattern, client dclient.Interface) generateResponse {
 	source := sourceSpec
 	if pattern.Clone.Name != "" {
 		source = kyvernov1.ResourceSpec{
@@ -79,7 +79,7 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, sev
 	return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
 }
 
-func manageCloneList(log logr.Logger, targetNamespace string, severSideApply bool, pattern kyvernov1.GeneratePatterns, client dclient.Interface) []generateResponse {
+func manageCloneList(log logr.Logger, targetNamespace string, severSideApply bool, pattern kyvernov1.GeneratePattern, client dclient.Interface) []generateResponse {
 	var responses []generateResponse
 	sourceNamespace := pattern.CloneList.Namespace
 	kinds := pattern.CloneList.Kinds

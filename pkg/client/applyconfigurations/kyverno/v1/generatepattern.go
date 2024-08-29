@@ -23,25 +23,25 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 )
 
-// GeneratePatternsApplyConfiguration represents an declarative configuration of the GeneratePatterns type for use
+// GeneratePatternApplyConfiguration represents an declarative configuration of the GeneratePattern type for use
 // with apply.
-type GeneratePatternsApplyConfiguration struct {
+type GeneratePatternApplyConfiguration struct {
 	*ResourceSpecApplyConfiguration `json:"ResourceSpec,omitempty"`
 	RawData                         *apiextensionsv1.JSON        `json:"data,omitempty"`
 	Clone                           *CloneFromApplyConfiguration `json:"clone,omitempty"`
 	CloneList                       *CloneListApplyConfiguration `json:"cloneList,omitempty"`
 }
 
-// GeneratePatternsApplyConfiguration constructs an declarative configuration of the GeneratePatterns type for use with
+// GeneratePatternApplyConfiguration constructs an declarative configuration of the GeneratePattern type for use with
 // apply.
-func GeneratePatterns() *GeneratePatternsApplyConfiguration {
-	return &GeneratePatternsApplyConfiguration{}
+func GeneratePattern() *GeneratePatternApplyConfiguration {
+	return &GeneratePatternApplyConfiguration{}
 }
 
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
-func (b *GeneratePatternsApplyConfiguration) WithAPIVersion(value string) *GeneratePatternsApplyConfiguration {
+func (b *GeneratePatternApplyConfiguration) WithAPIVersion(value string) *GeneratePatternApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.APIVersion = &value
 	return b
@@ -50,7 +50,7 @@ func (b *GeneratePatternsApplyConfiguration) WithAPIVersion(value string) *Gener
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
-func (b *GeneratePatternsApplyConfiguration) WithKind(value string) *GeneratePatternsApplyConfiguration {
+func (b *GeneratePatternApplyConfiguration) WithKind(value string) *GeneratePatternApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.Kind = &value
 	return b
@@ -59,7 +59,7 @@ func (b *GeneratePatternsApplyConfiguration) WithKind(value string) *GeneratePat
 // WithNamespace sets the Namespace field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Namespace field is set to the value of the last call.
-func (b *GeneratePatternsApplyConfiguration) WithNamespace(value string) *GeneratePatternsApplyConfiguration {
+func (b *GeneratePatternApplyConfiguration) WithNamespace(value string) *GeneratePatternApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.Namespace = &value
 	return b
@@ -68,7 +68,7 @@ func (b *GeneratePatternsApplyConfiguration) WithNamespace(value string) *Genera
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *GeneratePatternsApplyConfiguration) WithName(value string) *GeneratePatternsApplyConfiguration {
+func (b *GeneratePatternApplyConfiguration) WithName(value string) *GeneratePatternApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.Name = &value
 	return b
@@ -77,13 +77,13 @@ func (b *GeneratePatternsApplyConfiguration) WithName(value string) *GeneratePat
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
-func (b *GeneratePatternsApplyConfiguration) WithUID(value types.UID) *GeneratePatternsApplyConfiguration {
+func (b *GeneratePatternApplyConfiguration) WithUID(value types.UID) *GeneratePatternApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.UID = &value
 	return b
 }
 
-func (b *GeneratePatternsApplyConfiguration) ensureResourceSpecApplyConfigurationExists() {
+func (b *GeneratePatternApplyConfiguration) ensureResourceSpecApplyConfigurationExists() {
 	if b.ResourceSpecApplyConfiguration == nil {
 		b.ResourceSpecApplyConfiguration = &ResourceSpecApplyConfiguration{}
 	}
@@ -92,7 +92,7 @@ func (b *GeneratePatternsApplyConfiguration) ensureResourceSpecApplyConfiguratio
 // WithRawData sets the RawData field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawData field is set to the value of the last call.
-func (b *GeneratePatternsApplyConfiguration) WithRawData(value apiextensionsv1.JSON) *GeneratePatternsApplyConfiguration {
+func (b *GeneratePatternApplyConfiguration) WithRawData(value apiextensionsv1.JSON) *GeneratePatternApplyConfiguration {
 	b.RawData = &value
 	return b
 }
@@ -100,7 +100,7 @@ func (b *GeneratePatternsApplyConfiguration) WithRawData(value apiextensionsv1.J
 // WithClone sets the Clone field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Clone field is set to the value of the last call.
-func (b *GeneratePatternsApplyConfiguration) WithClone(value *CloneFromApplyConfiguration) *GeneratePatternsApplyConfiguration {
+func (b *GeneratePatternApplyConfiguration) WithClone(value *CloneFromApplyConfiguration) *GeneratePatternApplyConfiguration {
 	b.Clone = value
 	return b
 }
@@ -108,7 +108,7 @@ func (b *GeneratePatternsApplyConfiguration) WithClone(value *CloneFromApplyConf
 // WithCloneList sets the CloneList field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CloneList field is set to the value of the last call.
-func (b *GeneratePatternsApplyConfiguration) WithCloneList(value *CloneListApplyConfiguration) *GeneratePatternsApplyConfiguration {
+func (b *GeneratePatternApplyConfiguration) WithCloneList(value *CloneListApplyConfiguration) *GeneratePatternApplyConfiguration {
 	b.CloneList = value
 	return b
 }
