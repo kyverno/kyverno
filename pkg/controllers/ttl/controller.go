@@ -29,7 +29,7 @@ const (
 type controller struct {
 	name         string
 	client       metadata.Getter
-	queue        workqueue.RateLimitingInterface
+	queue        workqueue.TypedRateLimitingInterface[any]
 	lister       cache.GenericLister
 	informer     cache.SharedIndexInformer
 	registration cache.ResourceEventHandlerRegistration
@@ -48,7 +48,7 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	if gvr.Group != "" {
 		name = gvr.Group + "/" + name
 	}
-	queue := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: name})
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: name})
 	c := &controller{
 		name:     name,
 		client:   client,
