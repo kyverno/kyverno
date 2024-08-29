@@ -232,8 +232,8 @@ func main() {
 						config.CleanupValidatingWebhookConfigurationName,
 						config.CleanupValidatingWebhookServicePath,
 						serverIP,
-						int32(servicePort),
-						int32(webhookServerPort),
+						int32(servicePort),       //nolint:gosec
+						int32(webhookServerPort), //nolint:gosec
 						nil,
 						[]admissionregistrationv1.RuleWithOperations{
 							{
@@ -268,8 +268,8 @@ func main() {
 						config.TtlValidatingWebhookConfigurationName,
 						config.TtlValidatingWebhookServicePath,
 						serverIP,
-						int32(servicePort),
-						int32(webhookServerPort),
+						int32(servicePort),       //nolint:gosec
+						int32(webhookServerPort), //nolint:gosec
 						&metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{

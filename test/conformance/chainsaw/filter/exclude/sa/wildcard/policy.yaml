@@ -18,5 +18,5 @@ spec:
           name: '?*'
           namespace: '?*'
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny: {}

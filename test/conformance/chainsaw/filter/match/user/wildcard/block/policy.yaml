@@ -15,5 +15,5 @@ spec:
         - kind: User
           name: '?*'
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny: {}

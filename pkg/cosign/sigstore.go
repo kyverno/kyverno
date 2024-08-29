@@ -33,8 +33,8 @@ type VerificationResult struct {
 }
 
 type Bundle struct {
-	ProtoBundle   *bundle.ProtobufBundle
-	DSSE_Envelope *in_toto.Statement
+	ProtoBundle   *bundle.Bundle
+	DSSE_Envelope *in_toto.Statement //nolint:staticcheck
 }
 
 func verifyBundleAndFetchAttestations(ctx context.Context, opts images.Options) ([]*VerificationResult, error) {
@@ -143,7 +143,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
 		}
-		b := &bundle.ProtobufBundle{}
+		b := &bundle.Bundle{}
 		err = b.UnmarshalJSON(bundleBytes)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal bundle: %w", err)
@@ -159,7 +159,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 				if dsseEnvelope.PayloadType != "application/vnd.in-toto+json" {
 					continue
 				}
-				var intotoStatement in_toto.Statement
+				var intotoStatement in_toto.Statement //nolint:staticcheck
 				if err := json.Unmarshal(dsseEnvelope.Payload, &intotoStatement); err != nil {
 					continue
 				}
@@ -185,17 +185,7 @@ func buildPolicy(desc *v1.Descriptor, opts images.Options) (verify.PolicyBuilder
 	}
 	artifactDigestVerificationOption := verify.WithArtifactDigest(desc.Digest.Algorithm, digest)
 
-	// TODO: Add full regexp support to sigstore and cosign
-	// Verify images only has subject field, and no subject regexp, subject cannot be passed to subject regexp
-	// because then string containing the subjects will also work. We should just add an issuer regexp
-	// Solve this in a separate PR,
-	// See: https://github.com/sigstore/cosign/blob/7c20052077a81d667526af879ec40168899dde1f/pkg/cosign/verify.go#L339-L356
-	subjectRegexp := ""
-	if strings.Contains(opts.Subject, "*") {
-		subjectRegexp = opts.Subject
-		opts.Subject = ""
-	}
-	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.Subject, "", subjectRegexp)
+	id, err := verify.NewShortCertificateIdentity(opts.Issuer, opts.IssuerRegExp, opts.Subject, opts.SubjectRegExp)
 	if err != nil {
 		return verify.PolicyBuilder{}, err
 	}
@@ -239,7 +229,7 @@ func decodeStatementsFromBundles(bundles []*VerificationResult) ([]map[string]in
 
 	var err error
 	var statement map[string]interface{}
-	var intotostatement in_toto.Statement
+	var intotostatement in_toto.Statement //nolint:staticcheck
 	decodedStatements := make([]map[string]interface{}, len(bundles))
 	for i, b := range bundles {
 		intotostatement = *b.Bundle.DSSE_Envelope

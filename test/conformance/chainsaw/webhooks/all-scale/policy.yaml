@@ -14,7 +14,7 @@ spec:
               kinds:
                 - '*/scale'
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         message: 'The label `team` is required.'
         pattern:
           metadata:
