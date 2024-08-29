@@ -102,7 +102,7 @@ func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource
 	}
 
 	if !ok {
-		return fmt.Errorf(msg)
+		return fmt.Errorf(msg) //nolint:all
 	}
 
 	return nil
