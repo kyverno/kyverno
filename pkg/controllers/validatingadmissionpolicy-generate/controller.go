@@ -53,7 +53,7 @@ type controller struct {
 	vapbindingLister admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyBindingLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	eventGen event.Interface
 	checker  checker.AuthChecker
@@ -70,7 +70,7 @@ func NewController(
 	eventGen event.Interface,
 	checker checker.AuthChecker,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
 	c := &controller{
 		client:           client,
 		kyvernoClient:    kyvernoClient,

@@ -1233,7 +1233,7 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 }
 
 func validateRuleContext(rule kyvernov1.Rule) error {
-	if rule.Context == nil || len(rule.Context) == 0 {
+	if len(rule.Context) == 0 {
 		return nil
 	}
 
