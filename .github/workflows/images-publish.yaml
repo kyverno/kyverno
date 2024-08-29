@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   publish-images:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: write
       id-token: write 

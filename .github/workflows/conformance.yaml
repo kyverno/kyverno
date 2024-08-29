@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   prepare-images:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -45,7 +45,7 @@ jobs:
           if-no-files-found: error
 
   prepare-cli:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -74,7 +74,7 @@ jobs:
           if-no-files-found: error
 
   standard:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -171,7 +171,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   validatingadmissionpolicies-v1alpha1:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -246,7 +246,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   k8s-version-specific-tests-above-1-28:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -322,7 +322,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   validatingadmissionpolicies-reports-v1alpha1:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -397,7 +397,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   validatingadmissionpolicies-reports-v1beta1:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -472,7 +472,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   force-failure-policy-ignore:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -548,7 +548,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   ttl:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -623,7 +623,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   custom-sigstore:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -718,7 +718,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   default:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -792,7 +792,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   policy-library:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -914,7 +914,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   monitor-helm-secret-size:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     needs: prepare-images
@@ -965,7 +965,7 @@ jobs:
           fi
 
   check-tests:
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
@@ -1028,7 +1028,7 @@ jobs:
       - default
       - monitor-helm-secret-size
       - check-tests
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
       - run: ${{ true }}
@@ -1047,7 +1047,7 @@ jobs:
       - default
       - monitor-helm-secret-size
       - check-tests
-    runs-on: ubuntu-arm64-64core
+    runs-on: ubuntu-latest
     if: ${{ failure() || cancelled() }}
     steps:
       - run: ${{ false }}
