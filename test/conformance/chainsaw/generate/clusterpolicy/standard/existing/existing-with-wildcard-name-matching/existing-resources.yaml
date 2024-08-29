@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tst-home-dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tst-mobile-dev
