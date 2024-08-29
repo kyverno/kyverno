@@ -19,7 +19,8 @@ concurrency:
 
 jobs:
   helm-tests:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kyverno-default
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -53,7 +54,8 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   linter-artifacthub:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kyverno-default
     container:
       image: artifacthub/ah
       options: --user root
