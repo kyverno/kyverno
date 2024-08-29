@@ -4,4 +4,4 @@ metadata:
   name: test
   labels:
     kubernetes.io/metadata.name: test
-    size: unknown
+    size: small
