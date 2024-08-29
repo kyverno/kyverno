@@ -29,7 +29,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -68,12 +68,12 @@ func createReportControllers(
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
-	var vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer
-	var vapBindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer
+	var vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer
+	var vapBindingInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyBindingInformer
 	// check if validating admission policies are registered in the API server
 	if validatingAdmissionPolicyReports {
-		vapInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies()
-		vapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings()
+		vapInformer = kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicies()
+		vapBindingInformer = kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicyBindings()
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV2 := kyvernoInformer.Kyverno().V2()

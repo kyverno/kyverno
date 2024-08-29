@@ -16,7 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,7 +30,7 @@ func GetResourceAccordingToResourcePath(
 	resourcePaths []string,
 	cluster bool,
 	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []admissionregistrationv1alpha1.ValidatingAdmissionPolicy,
+	validatingAdmissionPolicies []admissionregistrationv1beta1.ValidatingAdmissionPolicy,
 	dClient dclient.Interface,
 	namespace string,
 	policyReport bool,
