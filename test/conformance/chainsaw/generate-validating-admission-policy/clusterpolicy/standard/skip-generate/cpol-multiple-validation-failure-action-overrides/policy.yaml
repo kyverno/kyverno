@@ -11,8 +11,8 @@ spec:
             kinds:
             - Pod
       validate:
-        validationFailureAction: Audit
-        validationFailureActionOverrides:
+        failureAction: Audit
+        failureActionOverrides:
           - action: Enforce
             namespaces: 
               - default

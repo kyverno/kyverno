@@ -129,9 +129,9 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	}
 	if target := rule.Validation.GetPattern(); target != nil {
 		newValidate := kyvernov1.Validation{
-			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
-			ValidationFailureAction:          rule.Validation.ValidationFailureAction,
-			ValidationFailureActionOverrides: rule.Validation.ValidationFailureActionOverrides,
+			Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+			FailureAction:          rule.Validation.FailureAction,
+			FailureActionOverrides: rule.Validation.FailureActionOverrides,
 		}
 		newValidate.SetPattern(
 			map[string]interface{}{
@@ -145,10 +145,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	}
 	if rule.Validation.Deny != nil {
 		deny := kyvernov1.Validation{
-			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
-			Deny:                             rule.Validation.Deny,
-			ValidationFailureAction:          rule.Validation.ValidationFailureAction,
-			ValidationFailureActionOverrides: rule.Validation.ValidationFailureActionOverrides,
+			Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
+			Deny:                   rule.Validation.Deny,
+			FailureAction:          rule.Validation.FailureAction,
+			FailureActionOverrides: rule.Validation.FailureActionOverrides,
 		}
 		rule.Validation = deny
 		return rule
@@ -163,8 +163,8 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 				Version: rule.Validation.PodSecurity.Version,
 				Exclude: newExclude,
 			},
-			ValidationFailureAction:          rule.Validation.ValidationFailureAction,
-			ValidationFailureActionOverrides: rule.Validation.ValidationFailureActionOverrides,
+			FailureAction:          rule.Validation.FailureAction,
+			FailureActionOverrides: rule.Validation.FailureActionOverrides,
 		}
 		rule.Validation = podSecurity
 		return rule
@@ -183,12 +183,12 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			}
 			patterns = append(patterns, newPattern)
 		}
-		validationFailureAction := rule.Validation.ValidationFailureAction
-		validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
+		failureAction := rule.Validation.FailureAction
+		failureActionOverrides := rule.Validation.FailureActionOverrides
 		rule.Validation = kyvernov1.Validation{
-			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
-			ValidationFailureAction:          validationFailureAction,
-			ValidationFailureActionOverrides: validationFailureActionOverrides,
+			Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
+			FailureAction:          failureAction,
+			FailureActionOverrides: failureActionOverrides,
 		}
 		rule.Validation.SetAnyPattern(patterns)
 		return rule
@@ -196,13 +196,13 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
 		newForeachValidate := make([]kyvernov1.ForEachValidation, len(rule.Validation.ForEachValidation))
 		copy(newForeachValidate, rule.Validation.ForEachValidation)
-		validationFailureAction := rule.Validation.ValidationFailureAction
-		validationFailureActionOverrides := rule.Validation.ValidationFailureActionOverrides
+		failureAction := rule.Validation.FailureAction
+		failureActionOverrides := rule.Validation.FailureActionOverrides
 		rule.Validation = kyvernov1.Validation{
-			Message:                          variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
-			ForEachValidation:                newForeachValidate,
-			ValidationFailureAction:          validationFailureAction,
-			ValidationFailureActionOverrides: validationFailureActionOverrides,
+			Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+			ForEachValidation:      newForeachValidate,
+			FailureAction:          failureAction,
+			FailureActionOverrides: failureActionOverrides,
 		}
 		return rule
 	}

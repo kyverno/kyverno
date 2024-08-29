@@ -27,17 +27,17 @@ import (
 // ValidationApplyConfiguration represents an declarative configuration of the Validation type for use
 // with apply.
 type ValidationApplyConfiguration struct {
-	ValidationFailureAction          *v1.ValidationFailureAction                         `json:"validationFailureAction,omitempty"`
-	ValidationFailureActionOverrides []ValidationFailureActionOverrideApplyConfiguration `json:"validationFailureActionOverrides,omitempty"`
-	Message                          *string                                             `json:"message,omitempty"`
-	Manifests                        *ManifestsApplyConfiguration                        `json:"manifests,omitempty"`
-	ForEachValidation                []ForEachValidationApplyConfiguration               `json:"foreach,omitempty"`
-	RawPattern                       *apiextensionsv1.JSON                               `json:"pattern,omitempty"`
-	RawAnyPattern                    *apiextensionsv1.JSON                               `json:"anyPattern,omitempty"`
-	Deny                             *DenyApplyConfiguration                             `json:"deny,omitempty"`
-	PodSecurity                      *PodSecurityApplyConfiguration                      `json:"podSecurity,omitempty"`
-	CEL                              *CELApplyConfiguration                              `json:"cel,omitempty"`
-	Assert                           *v1alpha1.Any                                       `json:"assert,omitempty"`
+	FailureAction          *v1.ValidationFailureAction                         `json:"failureAction,omitempty"`
+	FailureActionOverrides []ValidationFailureActionOverrideApplyConfiguration `json:"failureActionOverrides,omitempty"`
+	Message                *string                                             `json:"message,omitempty"`
+	Manifests              *ManifestsApplyConfiguration                        `json:"manifests,omitempty"`
+	ForEachValidation      []ForEachValidationApplyConfiguration               `json:"foreach,omitempty"`
+	RawPattern             *apiextensionsv1.JSON                               `json:"pattern,omitempty"`
+	RawAnyPattern          *apiextensionsv1.JSON                               `json:"anyPattern,omitempty"`
+	Deny                   *DenyApplyConfiguration                             `json:"deny,omitempty"`
+	PodSecurity            *PodSecurityApplyConfiguration                      `json:"podSecurity,omitempty"`
+	CEL                    *CELApplyConfiguration                              `json:"cel,omitempty"`
+	Assert                 *v1alpha1.Any                                       `json:"assert,omitempty"`
 }
 
 // ValidationApplyConfiguration constructs an declarative configuration of the Validation type for use with
@@ -46,23 +46,23 @@ func Validation() *ValidationApplyConfiguration {
 	return &ValidationApplyConfiguration{}
 }
 
-// WithValidationFailureAction sets the ValidationFailureAction field in the declarative configuration to the given value
+// WithFailureAction sets the FailureAction field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ValidationFailureAction field is set to the value of the last call.
-func (b *ValidationApplyConfiguration) WithValidationFailureAction(value v1.ValidationFailureAction) *ValidationApplyConfiguration {
-	b.ValidationFailureAction = &value
+// If called multiple times, the FailureAction field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithFailureAction(value v1.ValidationFailureAction) *ValidationApplyConfiguration {
+	b.FailureAction = &value
 	return b
 }
 
-// WithValidationFailureActionOverrides adds the given value to the ValidationFailureActionOverrides field in the declarative configuration
+// WithFailureActionOverrides adds the given value to the FailureActionOverrides field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the ValidationFailureActionOverrides field.
-func (b *ValidationApplyConfiguration) WithValidationFailureActionOverrides(values ...*ValidationFailureActionOverrideApplyConfiguration) *ValidationApplyConfiguration {
+// If called multiple times, values provided by each call will be appended to the FailureActionOverrides field.
+func (b *ValidationApplyConfiguration) WithFailureActionOverrides(values ...*ValidationFailureActionOverrideApplyConfiguration) *ValidationApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
-			panic("nil value passed to WithValidationFailureActionOverrides")
+			panic("nil value passed to WithFailureActionOverrides")
 		}
-		b.ValidationFailureActionOverrides = append(b.ValidationFailureActionOverrides, *values[i])
+		b.FailureActionOverrides = append(b.FailureActionOverrides, *values[i])
 	}
 	return b
 }

@@ -356,7 +356,7 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 				if !p.Stdin {
 					fmt.Fprintf(p.Out, "\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
 				}
-				fmt.Fprintf(p.Out, "\n"+mutatedResource+"\n")
+				fmt.Fprintf(p.Out, "\n"+mutatedResource+"\n") //nolint:govet
 			}
 		} else {
 			err := p.printMutatedOutput(string(yamlEncodedResource))

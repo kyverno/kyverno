@@ -22,7 +22,7 @@ spec:
             operator: NotEquals
             value: DELETE
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: 'Test'
         pattern:
           metadata:

@@ -11,18 +11,18 @@ type AssertionTree = kjson.Any
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
-	// ValidationFailureAction defines if a validation policy rule violation should block
+	// FailureAction defines if a validation policy rule violation should block
 	// the admission review request (Enforce), or allow (Audit) the admission review request
 	// and report an error in a policy report. Optional.
 	// Allowed values are Audit or Enforce.
 	// +optional
 	// +kubebuilder:validation:Enum=Audit;Enforce
-	ValidationFailureAction *kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+	FailureAction *kyvernov1.ValidationFailureAction `json:"failureAction,omitempty" yaml:"failureAction,omitempty"`
 
-	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
+	// FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
+	// namespace-wise. It overrides FailureAction for the specified namespaces.
 	// +optional
-	ValidationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
+	FailureActionOverrides []kyvernov1.ValidationFailureActionOverride `json:"failureActionOverrides,omitempty" yaml:"failureActionOverrides,omitempty"`
 
 	// Message specifies a custom message to be displayed on failure.
 	// +optional

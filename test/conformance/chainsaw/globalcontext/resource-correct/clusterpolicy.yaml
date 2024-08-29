@@ -24,7 +24,7 @@ spec:
         - CREATE
         - UPDATE
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny:
         conditions:
           any:

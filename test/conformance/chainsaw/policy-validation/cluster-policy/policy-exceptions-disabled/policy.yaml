@@ -13,7 +13,7 @@ spec:
            - Pod
            - Deployment
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: Pod must include the 'app=my-app' label
         pattern:
           metadata:
