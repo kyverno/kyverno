@@ -10,32 +10,32 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
-	k8s_io_api_resource_v1alpha2 "k8s.io/api/resource/v1alpha2"
+	k8s_io_api_resource_v1alpha3 "k8s.io/api/resource/v1alpha3"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_io_apimachinery_pkg_types "k8s.io/apimachinery/pkg/types"
 	k8s_io_apimachinery_pkg_watch "k8s.io/apimachinery/pkg/watch"
-	k8s_io_client_go_applyconfigurations_resource_v1alpha2 "k8s.io/client-go/applyconfigurations/resource/v1alpha2"
-	k8s_io_client_go_kubernetes_typed_resource_v1alpha2 "k8s.io/client-go/kubernetes/typed/resource/v1alpha2"
+	k8s_io_client_go_applyconfigurations_resource_v1alpha3 "k8s.io/client-go/applyconfigurations/resource/v1alpha3"
+	k8s_io_client_go_kubernetes_typed_resource_v1alpha3 "k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
 )
 
-func WithLogging(inner k8s_io_client_go_kubernetes_typed_resource_v1alpha2.PodSchedulingContextInterface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_resource_v1alpha2.PodSchedulingContextInterface {
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface {
 	return &withLogging{inner, logger}
 }
 
-func WithMetrics(inner k8s_io_client_go_kubernetes_typed_resource_v1alpha2.PodSchedulingContextInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_resource_v1alpha2.PodSchedulingContextInterface {
+func WithMetrics(inner k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface {
 	return &withMetrics{inner, recorder}
 }
 
-func WithTracing(inner k8s_io_client_go_kubernetes_typed_resource_v1alpha2.PodSchedulingContextInterface, client, kind string) k8s_io_client_go_kubernetes_typed_resource_v1alpha2.PodSchedulingContextInterface {
+func WithTracing(inner k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface, client, kind string) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface {
 	return &withTracing{inner, client, kind}
 }
 
 type withLogging struct {
-	inner  k8s_io_client_go_kubernetes_typed_resource_v1alpha2.PodSchedulingContextInterface
+	inner  k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface
 	logger logr.Logger
 }
 
-func (c *withLogging) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_resource_v1alpha2.PodSchedulingContextApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withLogging) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_resource_v1alpha3.DeviceClassApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Apply")
 	ret0, ret1 := c.inner.Apply(arg0, arg1, arg2)
@@ -46,18 +46,7 @@ func (c *withLogging) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyco
 	}
 	return ret0, ret1
 }
-func (c *withLogging) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_resource_v1alpha2.PodSchedulingContextApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
-	start := time.Now()
-	logger := c.logger.WithValues("operation", "ApplyStatus")
-	ret0, ret1 := c.inner.ApplyStatus(arg0, arg1, arg2)
-	if err := multierr.Combine(ret1); err != nil {
-		logger.Error(err, "ApplyStatus failed", "duration", time.Since(start))
-	} else {
-		logger.Info("ApplyStatus done", "duration", time.Since(start))
-	}
-	return ret0, ret1
-}
-func (c *withLogging) Create(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha2.PodSchedulingContext, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withLogging) Create(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha3.DeviceClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Create")
 	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
@@ -90,7 +79,7 @@ func (c *withLogging) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 	}
 	return ret0
 }
-func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Get")
 	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
@@ -101,7 +90,7 @@ func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	}
 	return ret0, ret1
 }
-func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContextList, error) {
+func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_resource_v1alpha3.DeviceClassList, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "List")
 	ret0, ret1 := c.inner.List(arg0, arg1)
@@ -112,7 +101,7 @@ func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 	}
 	return ret0, ret1
 }
-func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Patch")
 	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
@@ -123,7 +112,7 @@ func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	}
 	return ret0, ret1
 }
-func (c *withLogging) Update(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha2.PodSchedulingContext, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withLogging) Update(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha3.DeviceClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Update")
 	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
@@ -131,17 +120,6 @@ func (c *withLogging) Update(arg0 context.Context, arg1 *k8s_io_api_resource_v1a
 		logger.Error(err, "Update failed", "duration", time.Since(start))
 	} else {
 		logger.Info("Update done", "duration", time.Since(start))
-	}
-	return ret0, ret1
-}
-func (c *withLogging) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha2.PodSchedulingContext, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
-	start := time.Now()
-	logger := c.logger.WithValues("operation", "UpdateStatus")
-	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
-	if err := multierr.Combine(ret1); err != nil {
-		logger.Error(err, "UpdateStatus failed", "duration", time.Since(start))
-	} else {
-		logger.Info("UpdateStatus done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -158,19 +136,15 @@ func (c *withLogging) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_a
 }
 
 type withMetrics struct {
-	inner    k8s_io_client_go_kubernetes_typed_resource_v1alpha2.PodSchedulingContextInterface
+	inner    k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface
 	recorder metrics.Recorder
 }
 
-func (c *withMetrics) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_resource_v1alpha2.PodSchedulingContextApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withMetrics) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_resource_v1alpha3.DeviceClassApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	defer c.recorder.RecordWithContext(arg0, "apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *withMetrics) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_resource_v1alpha2.PodSchedulingContextApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
-	defer c.recorder.RecordWithContext(arg0, "apply_status")
-	return c.inner.ApplyStatus(arg0, arg1, arg2)
-}
-func (c *withMetrics) Create(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha2.PodSchedulingContext, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withMetrics) Create(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha3.DeviceClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	defer c.recorder.RecordWithContext(arg0, "create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -182,25 +156,21 @@ func (c *withMetrics) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 	defer c.recorder.RecordWithContext(arg0, "delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *withMetrics) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withMetrics) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	defer c.recorder.RecordWithContext(arg0, "get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *withMetrics) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContextList, error) {
+func (c *withMetrics) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_resource_v1alpha3.DeviceClassList, error) {
 	defer c.recorder.RecordWithContext(arg0, "list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *withMetrics) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withMetrics) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	defer c.recorder.RecordWithContext(arg0, "patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *withMetrics) Update(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha2.PodSchedulingContext, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withMetrics) Update(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha3.DeviceClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	defer c.recorder.RecordWithContext(arg0, "update")
 	return c.inner.Update(arg0, arg1, arg2)
-}
-func (c *withMetrics) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha2.PodSchedulingContext, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
-	defer c.recorder.RecordWithContext(arg0, "update_status")
-	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
 func (c *withMetrics) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.RecordWithContext(arg0, "watch")
@@ -208,12 +178,12 @@ func (c *withMetrics) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_a
 }
 
 type withTracing struct {
-	inner  k8s_io_client_go_kubernetes_typed_resource_v1alpha2.PodSchedulingContextInterface
+	inner  k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface
 	client string
 	kind   string
 }
 
-func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_resource_v1alpha2.PodSchedulingContextApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_resource_v1alpha3.DeviceClassApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -234,28 +204,7 @@ func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyco
 	}
 	return ret0, ret1
 }
-func (c *withTracing) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_resource_v1alpha2.PodSchedulingContextApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
-	var span trace.Span
-	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartChildSpan(
-			arg0,
-			"",
-			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ApplyStatus"),
-			trace.WithAttributes(
-				tracing.KubeClientGroupKey.String(c.client),
-				tracing.KubeClientKindKey.String(c.kind),
-				tracing.KubeClientOperationKey.String("ApplyStatus"),
-			),
-		)
-		defer span.End()
-	}
-	ret0, ret1 := c.inner.ApplyStatus(arg0, arg1, arg2)
-	if span != nil {
-		tracing.SetSpanStatus(span, ret1)
-	}
-	return ret0, ret1
-}
-func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha2.PodSchedulingContext, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha3.DeviceClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -318,7 +267,7 @@ func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 	}
 	return ret0
 }
-func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -339,7 +288,7 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	}
 	return ret0, ret1
 }
-func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContextList, error) {
+func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_resource_v1alpha3.DeviceClassList, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -360,7 +309,7 @@ func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 	}
 	return ret0, ret1
 }
-func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -381,7 +330,7 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	}
 	return ret0, ret1
 }
-func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha2.PodSchedulingContext, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
+func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha3.DeviceClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_resource_v1alpha3.DeviceClass, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
 		arg0, span = tracing.StartChildSpan(
@@ -397,27 +346,6 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_resource_v1a
 		defer span.End()
 	}
 	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
-	if span != nil {
-		tracing.SetSpanStatus(span, ret1)
-	}
-	return ret0, ret1
-}
-func (c *withTracing) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_resource_v1alpha2.PodSchedulingContext, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_resource_v1alpha2.PodSchedulingContext, error) {
-	var span trace.Span
-	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartChildSpan(
-			arg0,
-			"",
-			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateStatus"),
-			trace.WithAttributes(
-				tracing.KubeClientGroupKey.String(c.client),
-				tracing.KubeClientKindKey.String(c.kind),
-				tracing.KubeClientOperationKey.String("UpdateStatus"),
-			),
-		)
-		defer span.End()
-	}
-	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
 	if span != nil {
 		tracing.SetSpanStatus(span, ret1)
 	}

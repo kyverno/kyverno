@@ -1,0 +1,567 @@
+
+  <html lang="en">
+    <head>
+      <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<style>
+    .bg-blue {
+        color: #ffffff;
+        background-color: #1589dd;
+    }
+</style>
+    </head>
+    <body>
+      <div class="container">
+        
+          
+          
+            <h2 id="reports-kyverno-io-v1">Package: <span style="font-family: monospace">reports.kyverno.io/v1</span></h2>
+            <p></p>
+          
+        
+        
+          
+            
+            <h3>Resource Types:</h3>
+            <ul><li>
+                    <a href="#reports-kyverno-io-v1-ClusterEphemeralReport">ClusterEphemeralReport</a>
+                  </li><li>
+                    <a href="#reports-kyverno-io-v1-EphemeralReport">EphemeralReport</a>
+                  </li></ul>
+
+            
+            
+  <H3 id="reports-kyverno-io-v1-ClusterEphemeralReport">ClusterEphemeralReport
+    </H3>
+
+  
+
+  <p><p>ClusterEphemeralReport is the Schema for the ClusterEphemeralReports API</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>reports.kyverno.io/v1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>ClusterEphemeralReport</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#reports-kyverno-io-v1-EphemeralReportSpec">
+                <span style="font-family: monospace">EphemeralReportSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>owner</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.OwnerReference</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>summary</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportSummary">
+                <span style="font-family: monospace">PolicyReportSummary</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportSummary provides a summary of results</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>results</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportResult">
+                <span style="font-family: monospace">[]PolicyReportResult</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportResult provides result details</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="reports-kyverno-io-v1-EphemeralReport">EphemeralReport
+    </H3>
+
+  
+
+  <p><p>EphemeralReport is the Schema for the EphemeralReports API</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>reports.kyverno.io/v1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>EphemeralReport</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#reports-kyverno-io-v1-EphemeralReportSpec">
+                <span style="font-family: monospace">EphemeralReportSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>owner</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.OwnerReference</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>summary</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportSummary">
+                <span style="font-family: monospace">PolicyReportSummary</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportSummary provides a summary of results</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>results</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportResult">
+                <span style="font-family: monospace">[]PolicyReportResult</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportResult provides result details</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="reports-kyverno-io-v1-EphemeralReportSpec">EphemeralReportSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#reports-kyverno-io-v1-ClusterEphemeralReport">ClusterEphemeralReport</a>, 
+        <a href="#reports-kyverno-io-v1-EphemeralReport">EphemeralReport</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>owner</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.OwnerReference</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>summary</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportSummary">
+                <span style="font-family: monospace">PolicyReportSummary</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportSummary provides a summary of results</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>results</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#wgpolicyk8s-io-v1alpha2-PolicyReportResult">
+                <span style="font-family: monospace">[]PolicyReportResult</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PolicyReportResult provides result details</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+          
+          <hr />
+        
+      </div>
+    </body>
+  </html>

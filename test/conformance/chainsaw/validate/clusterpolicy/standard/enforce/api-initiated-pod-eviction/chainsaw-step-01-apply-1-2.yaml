@@ -16,7 +16,7 @@ spec:
         - Pod/eviction
     name: deny-evict-by-label
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny:
         conditions:
           all:

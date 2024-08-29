@@ -11,7 +11,7 @@ spec:
             - Pod
     name: require-image-tag
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       message: An image tag is required.
       pattern:
         spec:
@@ -24,7 +24,7 @@ spec:
             - Pod
     name: validate-image-tag
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       message: Using a mutable image tag e.g. 'latest' is not allowed.
       pattern:
         spec:
@@ -49,7 +49,7 @@ status:
             - StatefulSet
       name: autogen-require-image-tag
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         message: An image tag is required.
         pattern:
           spec:
@@ -64,7 +64,7 @@ status:
             - CronJob
       name: autogen-cronjob-require-image-tag
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         message: An image tag is required.
         pattern:
           spec:
@@ -86,7 +86,7 @@ status:
             - StatefulSet
       name: autogen-validate-image-tag
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         message: Using a mutable image tag e.g. 'latest' is not allowed.
         pattern:
           spec:
@@ -101,7 +101,7 @@ status:
             - CronJob
       name: autogen-cronjob-validate-image-tag
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         message: Using a mutable image tag e.g. 'latest' is not allowed.
         pattern:
           spec:

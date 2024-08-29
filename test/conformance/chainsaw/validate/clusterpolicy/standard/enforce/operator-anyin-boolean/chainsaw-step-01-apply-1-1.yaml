@@ -21,7 +21,7 @@ spec:
         operator: NotEquals
         value: DELETE
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny:
         conditions:
           any:

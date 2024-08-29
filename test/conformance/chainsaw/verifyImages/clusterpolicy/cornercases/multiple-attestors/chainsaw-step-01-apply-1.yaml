@@ -33,7 +33,7 @@ spec:
       mutateDigest: true
       required: true
       verifyDigest: true
-      validationFailureAction: Enforce
+      failureAction: Enforce
   - match:
       any:
       - resources:
@@ -60,5 +60,5 @@ spec:
       mutateDigest: false
       required: true
       verifyDigest: false
-      validationFailureAction: Enforce
+      failureAction: Enforce
   webhookTimeoutSeconds: 30

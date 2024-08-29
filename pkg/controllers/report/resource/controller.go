@@ -82,7 +82,7 @@ type controller struct {
 	vapLister  admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	lock            sync.RWMutex
 	dynamicWatchers map[schema.GroupVersionResource]*watcher
@@ -99,7 +99,7 @@ func NewController(
 		client:          client,
 		polLister:       polInformer.Lister(),
 		cpolLister:      cpolInformer.Lister(),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
 	if vapInformer != nil {
