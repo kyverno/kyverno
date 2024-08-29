@@ -48072,6 +48072,7 @@ spec:
     targetPort: https
     protocol: TCP
     name: https
+    appProtocol: https
   selector:
     app.kubernetes.io/component: admission-controller
     app.kubernetes.io/instance: kyverno
@@ -48138,6 +48139,7 @@ spec:
     targetPort: https
     protocol: TCP
     name: https
+    appProtocol: https
   selector:
     app.kubernetes.io/component: cleanup-controller
     app.kubernetes.io/instance: kyverno
