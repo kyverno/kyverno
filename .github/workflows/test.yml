@@ -1,0 +1,2746 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# to update the workflow jobs, run the script below from the repository root:
+# `(cd hack/chainsaw-matrix && go run . > ../../.github/workflows/test.yml)`
+
+name: E2E tests (standard)
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - "main"
+      - "release*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: build-images
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+        with:
+          free-disk-space: false
+      - name: ko build
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make docker-save-image-all
+      - name: upload images archive
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: kyverno.tar
+          path: kyverno.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  prepare-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: build-cli
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+        with:
+          free-disk-space: false
+      - name: Build CLI
+        shell: bash
+        run: |
+          set -e
+          VERSION=${{ github.ref_name }} make build-cli
+      - name: upload images archive
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: kubectl-kyverno
+          path: cmd/cli/kubectl-kyverno/kubectl-kyverno
+          retention-days: 1
+          if-no-files-found: error
+  standard-assert:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^assert$/^(old-object-exists)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-autogen:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^autogen$/^(assert-autogen|conditions|conditions-deprecated|deployment-cronjob|deployment-cronjob-deprecated|deployment-statefulset-job|foreach-jsonpatch|none|none-deprecated|only-cronjob|only-deployment|restrict-image-registries)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-autogen-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^autogen$/^(should-autogen|should-autogen-deprecated|should-not-autogen|should-not-autogen-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-background-only_cluster-policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^background-only$/^cluster-policy$/^(no-admission-event|no-admission-event-deprecated|no-admission-report|no-admission-report-deprecated|not-rejected|not-rejected-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-background-only_policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^background-only$/^policy$/^(no-admission-event|no-admission-event-deprecated|no-admission-report|no-admission-report-deprecated|not-rejected|not-rejected-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-cleanup_v2_clusterpolicy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^cleanup$/^v2$/^clusterpolicy$/^(cleanup-pod|context-cleanup-pod)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-cleanup_v2_policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^cleanup$/^v2$/^policy$/^(cleanup-pod)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-cleanup_v2_validation:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^cleanup$/^v2$/^validation$/^(cron-format|no-user-info-in-match|not-supported-attributes-in-context)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-cleanup_v2beta1_clusterpolicy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^cleanup$/^v2beta1$/^clusterpolicy$/^(cleanup-pod|context-cleanup-pod)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-cleanup_v2beta1_policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^cleanup$/^v2beta1$/^policy$/^(cleanup-pod)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-cleanup_v2beta1_validation:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^cleanup$/^v2beta1$/^validation$/^(cron-format|no-user-info-in-match|not-supported-attributes-in-context)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-cli_apply:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^cli$/^apply$/^(apply-exception-with-ns-selector|apply-on-cluster-scoped-resources|warn-exit-code)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-custom-sigstore_standard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^custom-sigstore$/^standard$/^(basic|basic-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-deferred:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^deferred$/^(dependencies|dependencies-deprecated|foreach|recursive|resolve-overriden-variable|two-rules)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-events_clusterpolicy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^events$/^clusterpolicy$/^(generate-events-upon-fail-generation|generate-events-upon-successful-generation|generate-events-upon-successful-mutation|message-exceeds-1024-characters|no-events-upon-skip-generation)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-events_policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^events$/^policy$/^(policy-applied|policy-applied-deprecated|policy-violation|policy-violation-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-exceptions:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^exceptions$/^(allows-rejects-creation|applies-to-delete|conditions|events-creation|exclude-capabilities|exclude-ephemeral-containers|exclude-host-ports|exclude-host-process-and-host-namespaces|exclude-hostpath-volume|exclude-privilege-escalation|exclude-privileged-containers|exclude-restricted-capabilities)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-exceptions-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^exceptions$/^(exclude-restricted-seccomp|exclude-running-as-nonroot|exclude-running-as-nonroot-user|exclude-seccomp|exclude-selinux|exclude-sysctls|exclude-volume-types|good-bad-conditions|multiple-exceptions|multiple-exceptions-with-pod-security|only-for-specific-user|psa-run-as-non-root)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-exceptions-24:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^exceptions$/^(with-wildcard)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-exceptions_background-mode:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^exceptions$/^background-mode$/^(standard)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-filter_exclude_sa:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^filter$/^exclude$/^sa$/^(no-wildcard|wildcard)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-filter_exclude_user_no-wildcard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^filter$/^exclude$/^user$/^no-wildcard$/^(block|pass)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-filter_exclude_user_wildcard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^filter$/^exclude$/^user$/^wildcard$/^(block|pass)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-filter_match_sa:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^filter$/^match$/^sa$/^(no-wildcard|wildcard)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-filter_match_user_no-wildcard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^filter$/^match$/^user$/^no-wildcard$/^(block|pass)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-filter_match_user_wildcard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^filter$/^match$/^user$/^wildcard$/^(block|pass)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-flags_standard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^flags$/^standard$/^(emit-events)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-force-failure-policy-ignore_cluster-policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^force-failure-policy-ignore$/^cluster-policy$/^(fail|fail-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate-validating-admission-policy_clusterpolicy_standard_generate:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate-validating-admission-policy$/^clusterpolicy$/^standard$/^generate$/^(block-ephemeral-containers|block-exec-in-pods|cpol-all-match-resource|cpol-any-exclude-namespace-match-resource|cpol-any-exclude-resource|cpol-any-exclude-resource-match-with-namespace-selector|cpol-any-exclude-resource-match-with-object-selector|cpol-any-match-multiple-resources|cpol-any-match-resource|cpol-any-match-resources-by-names|cpol-match-all-exclude-one|cpol-match-kind-with-wildcard)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate-validating-admission-policy_clusterpolicy_standard_generate-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate-validating-admission-policy$/^clusterpolicy$/^standard$/^generate$/^(cpol-match-resource-in-specific-namespace|cpol-with-an-exception|cpol-with-an-exception-excluding-namespaces|cpol-with-two-exceptions)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate-validating-admission-policy_clusterpolicy_standard_skip-generate:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate-validating-admission-policy$/^clusterpolicy$/^standard$/^skip-generate$/^(cpol-any-match-multiple-resources-with-namespace-selector|cpol-any-match-multiple-resources-with-object-selector|cpol-any-match-resources-by-names-with-wildcard|cpol-any-match-resources-in-namespaces-with-wildcard|cpol-any-match-resources-with-different-namespace-selectors|cpol-any-match-resources-with-different-object-selectors|cpol-exclude-resources-in-specific-namespace|cpol-exclude-resources-with-namespace-selector|cpol-exclude-resources-with-object-selector|cpol-exclude-user-and-roles|cpol-match-resource-created-by-user|cpol-match-resource-using-annotations)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate-validating-admission-policy_clusterpolicy_standard_skip-generate-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate-validating-admission-policy$/^clusterpolicy$/^standard$/^skip-generate$/^(cpol-multiple-all-match-resources|cpol-multiple-rules|cpol-multiple-validation-failure-action-overrides|cpol-non-cel-rule|cpol-validation-failure-action-overrides-with-namespace|cpol-with-exception-and-conditions|cpol-with-exception-and-namespace-selector|cpol-with-exception-and-object-selector|cpol-with-exception-in-specific-namespace)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_cornercases:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^cornercases$/^(clone-list-sync-same-trigger-source-delete-source|clone-list-sync-same-trigger-source-update-source|clone-role-and-rolebinding|clone-source-name-exceeds-63-characters|clone-sync-same-trigger-source-delete-source|clone-sync-same-trigger-source-update-source|cpol-clone-create-on-trigger-deletion|cpol-clone-delete-ownerreferences-across-namespaces|cpol-clone-delete-ownerreferences-across-namespaces-deprecated|cpol-clone-sync-create-source-after-policy|cpol-clone-sync-reinstall-policy|cpol-clone-sync-reinstall-policy-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_cornercases-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^cornercases$/^(cpol-clone-sync-single-source-multiple-triggers-targets|cpol-clone-sync-single-source-multiple-triggers-targets-deprecated|cpol-clone-sync-single-trigger-source-multiple-targets|cpol-data-create-on-trigger-deletion|cpol-data-sync-create-upon-generated-resource|cpol-data-sync-no-creation-upon-generated-resource|cpol-data-sync-remove-list-element|cpol-data-sync-to-nosync-delete-rule|cpol-data-sync-to-nosync-delete-rule-deprecated|cpol-data-trigger-not-present|data-role-and-rolebinding|generate-event-upon-edit)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_cornercases-24:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^cornercases$/^(pod-restart-on-cm-update|pod-restart-on-cm-update-deprecated|trigger-resource-name-exceeds-63-characters)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_clone_multiple_sync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^clone$/^multiple$/^sync$/^(basic-create)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_clone_nosync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^clone$/^nosync$/^(cpol-clone-nosync-create|cpol-clone-nosync-delete-downstream|cpol-clone-nosync-delete-policy|cpol-clone-nosync-delete-rule|cpol-clone-nosync-delete-source|cpol-clone-nosync-delete-trigger|cpol-clone-nosync-modify-downstream|cpol-clone-nosync-modify-source|cpol-clone-nosync-update-trigger-no-match)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_clone_sync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^clone$/^sync$/^(cpol-clone-list-sync-create|cpol-clone-list-sync-create-deprecated|cpol-clone-list-sync-delete-source|cpol-clone-list-sync-update|cpol-clone-list-sync-update-deprecated|cpol-clone-sync-create|cpol-clone-sync-delete-downstream|cpol-clone-sync-delete-policy|cpol-clone-sync-delete-rule|cpol-clone-sync-delete-source|cpol-clone-sync-delete-trigger|cpol-clone-sync-existing-update-trigger-no-precondition)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_clone_sync-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^clone$/^sync$/^(cpol-clone-sync-existing-update-trigger-no-precondition-deprecated|cpol-clone-sync-modify-downstream|cpol-clone-sync-modify-downstream-apply|cpol-clone-sync-modify-source|cpol-clone-sync-no-existing-update-trigger-no-precondition|cpol-clone-sync-update-trigger-no-match)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_data_nosync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^data$/^nosync$/^(cpol-data-nosync-delete-downstream|cpol-data-nosync-delete-policy|cpol-data-nosync-delete-rule|cpol-data-nosync-delete-trigger|cpol-data-nosync-modify-downstream|cpol-data-nosync-modify-rule|cpol-data-nosync-update-trigger-no-match|generate-on-subresource-trigger)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_data_nosync-deprecated:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^data$/^nosync-deprecated$/^(cpol-data-nosync-delete-downstream|cpol-data-nosync-delete-policy|cpol-data-nosync-delete-rule|cpol-data-nosync-modify-downstream|cpol-data-nosync-modify-rule|generate-on-subresource-trigger)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_data_sync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^data$/^sync$/^(cpol-data-sync-create|cpol-data-sync-delete-downstream|cpol-data-sync-delete-one-trigger|cpol-data-sync-delete-policy|cpol-data-sync-delete-rule|cpol-data-sync-delete-trigger|cpol-data-sync-existing-update-trigger-no-precondition|cpol-data-sync-modify-downstream|cpol-data-sync-modify-policy|cpol-data-sync-modify-rule|cpol-data-sync-mutate-and-generate|cpol-data-sync-no-existing-update-trigger-no-precondition)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_data_sync-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^data$/^sync$/^(cpol-data-sync-orphan-downstream-delete-policy|cpol-data-sync-update-trigger-no-match)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_data_sync-deprecated:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^data$/^sync-deprecated$/^(cpol-data-sync-create|cpol-data-sync-delete-downstream|cpol-data-sync-delete-policy|cpol-data-sync-delete-rule|cpol-data-sync-existing-update-trigger-no-precondition|cpol-data-sync-modify-downstream|cpol-data-sync-modify-rule|cpol-data-sync-orphan-downstream-delete-policy)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_existing:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^existing$/^(different-configurations-for-generate-existing|different-generate-existing-values|different-generate-existing-values-reorder|existing-basic-add-rule-data|existing-basic-create-policy-data|existing-basic-create-policy-preconditions-data)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_clusterpolicy_standard_existing-deprecated:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^clusterpolicy$/^standard$/^existing-deprecated$/^(existing-basic-add-rule-data|existing-basic-create-policy-data|existing-basic-create-policy-preconditions-data)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_foreach_clusterpolicy_data_sync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^foreach$/^clusterpolicy$/^data$/^sync$/^(cpol-data-sync-create|cpol-data-sync-delete-policy)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_policy_cornercases:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^policy$/^cornercases$/^(pol-clone-create-on-trigger-deletion|pol-clone-sync-create-source-after-policy|pol-data-create-on-trigger-deletion)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_policy_standard_clone_nosync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^policy$/^standard$/^clone$/^nosync$/^(pol-clone-nosync-create|pol-clone-nosync-delete-downstream|pol-clone-nosync-delete-policy|pol-clone-nosync-delete-rule|pol-clone-nosync-delete-source|pol-clone-nosync-delete-trigger|pol-clone-nosync-invalid|pol-clone-nosync-modify-downstream|pol-clone-nosync-modify-source|pol-clone-nosync-update-trigger-no-match)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_policy_standard_clone_sync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^policy$/^standard$/^clone$/^sync$/^(pol-clone-sync-delete-downstream|pol-clone-sync-delete-policy|pol-clone-sync-delete-rule|pol-clone-sync-delete-source|pol-clone-sync-delete-trigger|pol-clone-sync-invalid|pol-clone-sync-modify-downstream|pol-clone-sync-modify-source|pol-clone-sync-update-trigger-no-match)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_policy_standard_data_nosync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^policy$/^standard$/^data$/^nosync$/^(pol-data-nosync-create-policy-invalid|pol-data-nosync-delete-downstream|pol-data-nosync-delete-policy|pol-data-nosync-delete-rule|pol-data-nosync-delete-rule-deprecated|pol-data-nosync-delete-trigger|pol-data-nosync-modify-downstream|pol-data-nosync-modify-rule|pol-data-nosync-update-trigger-no-match)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_policy_standard_data_sync:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^policy$/^standard$/^data$/^sync$/^(pol-data-sync-create-policy-invalid|pol-data-sync-create-policy-valid|pol-data-sync-delete-downstream|pol-data-sync-delete-policy|pol-data-sync-delete-rule|pol-data-sync-delete-rule-deprecated|pol-data-sync-delete-trigger|pol-data-sync-modify-downstream|pol-data-sync-modify-rule|pol-data-sync-modify-rule-deprecated|pol-data-sync-update-trigger-no-match)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_policy_standard_existing:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^policy$/^standard$/^existing$/^(match-trigger-namespace|match-trigger-namespace-deprecated|non-match-trigger-namespace|non-match-trigger-namespace-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_validation_clusterpolicy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^validation$/^clusterpolicy$/^(cloneList|immutable-clone|immutable-clonelist|immutable-downstream|immutable-rule-spec|orphan|prevent-loop|target-namespace-scope|use-generate-existing-on-policy-update)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_validation_clusterpolicy_permissions:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^validation$/^clusterpolicy$/^permissions$/^(no-permission|same-kind)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-generate_validation_policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^generate$/^validation$/^policy$/^(cloneList|immutable-clone|immutable-clonelist|immutable-downstream|immutable-rule-spec|permissions|prevent-loop|target-namespace-scope|use-generate-existing-on-policy-update)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-globalcontext:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^globalcontext$/^(apicall-correct|apicall-failed|gctxentry-not-exist|not-ready|resource-correct|validate-apicall-data|validate-crd|validate-reference)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-lease:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^lease$/^(admission-controller|background-controller|cleanup-controller|reports-controller)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_cascading:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^cascading$/^(first-rule-is-foreach|no-foreach|two-foreach-rules)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_clusterpolicy_cornercases:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^clusterpolicy$/^cornercases$/^(cascading-mutation|defaulting-namespace-labels|jmespath-with-special-chars|mutate-using-default-context|mutate-with-404-api-call|trigger-name-exceeds-63-characters|variables-mutate-existing|variables-mutate-existing-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_clusterpolicy_standard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^clusterpolicy$/^standard$/^(basic-check-output|mutate-node-status|userInfo-roles-clusterRoles)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_clusterpolicy_standard_existing:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^clusterpolicy$/^standard$/^existing$/^(background-false|background-false(deprecated)|basic-create|basic-create(deprecated)|basic-create-patchesJson6902|basic-create-patchesJson6902(deprecated)|basic-delete|basic-delete(deprecated)|basic-update|basic-update(deprecated)|delete-trigger-namespace|delete-trigger-namespace(deprecated))\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_clusterpolicy_standard_existing-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^clusterpolicy$/^standard$/^existing$/^(descending-patchJson6902|multiple-rules-match-exclude|multiple-rules-match-exclude(deprecated)|multiple-trigger-resources|multiple-trigger-resources(deprecated)|mutate-existing-node-status|mutate-pod-on-binding-request|namespaceselector|namespaceselector(deprecated)|preconditions|preconditions(deprecated)|target-context)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_clusterpolicy_standard_existing-24:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^clusterpolicy$/^standard$/^existing$/^(target-preconditions)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_clusterpolicy_standard_existing_onpolicyupdate:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^clusterpolicy$/^standard$/^existing$/^onpolicyupdate$/^(basic-create-policy|basic-create-policy(deprecated)|different-configurations-for-mutate-existing|different-mutate-existing-values|namespaceselector|namespaceselector(deprecated))\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_clusterpolicy_standard_existing_validation:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^clusterpolicy$/^standard$/^existing$/^validation$/^(mutate-existing-require-targets|mutate-existing-require-targets(deprecated)|target-variable-validation|target-variable-validation(deprecated))\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_clusterpolicy_standard_existing_validation_auth-check:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^clusterpolicy$/^standard$/^existing$/^validation$/^auth-check$/^(cpol-namespace-variable|cpol-namespace-variable(deprecated)|cpol-standard-auth-check|cpol-standard-auth-check(deprecated))\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^e2e$/^(foreach-patchStrategicMerge-context|foreach-patchStrategicMerge-preconditions|jmespath-logic|patchStrategicMerge-global|patchStrategicMerge-global-addifnotpresent|patchesJson6902-replace|patchesjson6902-simple|simple-conditional|variables-in-keys)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_policy_cornercases:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^policy$/^cornercases$/^(foreach-remove-elements)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_policy_standard_existing_validation:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^policy$/^standard$/^existing$/^validation$/^(auth-check)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_refactor:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^refactor$/^(k10-minimum-retention)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_refactor_foreach:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^refactor$/^foreach$/^(add-and-remove|remove-and-add|remove-multiple-elements-in-ascending-order|remove-multiple-elements-in-descending-order)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_refactor_nested-foreach:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^refactor$/^nested-foreach$/^(remove-all-env-vars)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-mutate_refactor_simple:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^mutate$/^refactor$/^simple$/^(remove-multiple-elements-in-ascending-order|remove-multiple-elements-in-descending-order)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-policy-validation_cluster-policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^policy-validation$/^cluster-policy$/^(admission-disabled|all-disabled|assert|background-subresource|background-variables-update|cel-expressions|deprecated-operations|invalid-pod-security-exceptions|invalid-pod-security-rule|invalid-subject-kind|invalid-timeout|invalid-timeout-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-policy-validation_cluster-policy-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^policy-validation$/^cluster-policy$/^(policy-exceptions-disabled|schema-validation-crd|success|target-context)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-policy-validation_policy:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^policy-validation$/^policy$/^(admission-disabled|all-disabled|assert|background-subresource|invalid-timeout)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-rangeoperators:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^rangeoperators$/^(standard)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-rbac:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^rbac$/^(aggregate-to-admin|cleanup-policy-with-clusterrole|mutate-policy-with-clusterrole)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-reports_admission:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^reports$/^admission$/^(exception|namespaceselector|namespaceselector-assert|test-report-admission-mode|two-rules-with-different-modes|update)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-reports_background:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^reports$/^background$/^(exception|exception-assert|exception-with-conditions|exception-with-podsecurity|multiple-exceptions-with-pod-security|report-deletion|test-report-background-mode|two-rules-with-different-modes|verify-image-fail|verify-image-pass)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-ttl:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^ttl$/^(delete-twice|invalid-label|past-timestamp|permission-lack|valid-label)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_anchors:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^anchors$/^(conditional|conditional-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_cornercases:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^cornercases$/^(apply-on-deletion|apply-on-deletion-deprecated|cel-messages-upon-resource-failure|cel-messages-upon-resource-failure-deprecated|check-message-upon-resource-failure|check-message-upon-resource-failure-deprecated|different-configuration-for-actions|ephemeral-containers|ephemeral-containers-deprecated|external-metrics|external-metrics-deprecated|invalid-jmespath-variable-substitution)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_cornercases-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^cornercases$/^(invalid-jmespath-variable-substitution-deprecated|psa-run-as-non-root|schema-validation-for-mutateExisting|schema-validation-for-mutateExisting-deprecated|two-rules-with-different-action|validate-pattern-should-fail|validate-pattern-should-fail-deprecated|validate-pattern-should-pass|validate-pattern-should-pass-deprecated|validate-pattern-should-skip|validate-pattern-should-skip-deprecated|variable-substitution-failure-messages)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_cornercases-24:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^cornercases$/^(variable-substitution-failure-messages-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^(gvk|gvk-deprecated|subresource|subresource-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_apicalls:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^apicalls$/^(lazyload|subjectaccessreview)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_apicalls-deprecated:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^apicalls-deprecated$/^(lazyload|subjectaccessreview)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^audit$/^(background-match-clusterRoles|background-match-roles|background-vars-roles|background-vars-serviceAccountName|background-vars-userInfo|configmap-context-lookup)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_audit-deprecated:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^audit-deprecated$/^(background-match-clusterRoles|background-match-roles|background-vars-roles|background-vars-serviceAccountName|background-vars-userInfo|configmap-context-lookup)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_cel:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^cel$/^(cel-preconditions|cel-variables|check-statefulset-namespace|deny|disallow-host-port)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_cel-deprecated:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^cel-deprecated$/^(cel-preconditions|cel-variables|check-statefulset-namespace|disallow-host-port)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_cel-deprecated_authorizor-checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^cel-deprecated$/^authorizor-checks$/^(with-permissions|without-permissions)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_cel-deprecated_parameter-resources:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^cel-deprecated$/^parameter-resources$/^(clusterscoped)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_cel-deprecated_parameter-resources_namespaced:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^cel-deprecated$/^parameter-resources$/^namespaced$/^(match-clusterscoped-resource|set-paramref-namespace|unset-paramref-namespace)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_cel_authorizor-checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^cel$/^authorizor-checks$/^(with-permissions|without-permissions)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_cel_parameter-resources:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^cel$/^parameter-resources$/^(clusterscoped)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_cel_parameter-resources_namespaced:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^cel$/^parameter-resources$/^namespaced$/^(match-clusterscoped-resource|set-paramref-namespace|unset-paramref-namespace)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^debug$/^(with-pod|with-subresource|with-wildcard)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_debug-deprecated:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^debug-deprecated$/^(with-pod|with-subresource|with-wildcard)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_enforce:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^enforce$/^(api-initiated-pod-eviction|block-pod-exec-requests|bypass-with-policy-exception|csr|enforce-validate-existing|failure-policy-ignore-anchor|ns-selector-with-wildcard-kind|operator-allnotin-01|operator-anyin-boolean|resource-apply-block|scaling-with-kubectl-scale)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_enforce-deprecated:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^enforce-deprecated$/^(api-initiated-pod-eviction|block-pod-exec-requests|bypass-with-policy-exception|csr|enforce-validate-existing|failure-policy-ignore-anchor|ns-selector-with-wildcard-kind|operator-allnotin-01|operator-anyin-boolean|resource-apply-block|scaling-with-kubectl-scale)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_exclude:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^exclude$/^(exclude-namespace|exclude-namespace(deprecated))\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_operations:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^operations$/^(only-update|only-update(deprecated))\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_psa:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^psa$/^(concurrent-policy-execution|seccomp-latest-check-no-exclusion|test-deletion-request|test-exclusion-capabilities|test-exclusion-host-namespaces|test-exclusion-host-ports|test-exclusion-hostpath-volume|test-exclusion-hostprocesses|test-exclusion-privilege-escalation|test-exclusion-privileged-containers|test-exclusion-restricted-capabilities|test-exclusion-restricted-seccomp)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_psa-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^psa$/^(test-exclusion-running-as-nonroot|test-exclusion-running-as-nonroot-user|test-exclusion-seccomp|test-exclusion-selinux|test-exclusion-sysctls|test-exclusion-volume-types)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_psa-deprecated:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^psa-deprecated$/^(seccomp-latest-check-no-exclusion|test-deletion-request|test-exclusion-capabilities|test-exclusion-host-namespaces|test-exclusion-host-ports|test-exclusion-hostpath-volume|test-exclusion-hostprocesses|test-exclusion-privilege-escalation|test-exclusion-privileged-containers|test-exclusion-restricted-capabilities|test-exclusion-restricted-seccomp|test-exclusion-running-as-nonroot)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_psa-deprecated-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^psa-deprecated$/^(test-exclusion-running-as-nonroot-user|test-exclusion-seccomp|test-exclusion-selinux|test-exclusion-sysctls|test-exclusion-volume-types)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_variables_lazyload:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^variables$/^lazyload$/^(conditions|conditions-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_clusterpolicy_standard_wildcard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^clusterpolicy$/^standard$/^wildcard$/^(block-verifyimage|block-verifyimage-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^e2e$/^(adding-key-to-config-map|adding-key-to-config-map-deprecated|global-anchor|global-anchor-deprecated|lowercase-kind-crd|lowercase-kind-crd-deprecated|old-object-exists|old-object-exists-deprecated|trusted-images|trusted-images-deprecated|x509-decode|x509-decode-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validate_e2e-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validate$/^e2e$/^(yaml-signing|yaml-signing-deprecated)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validating-admission-policy-reports:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validating-admission-policy-reports$/^(events)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-validating-admission-policy-reports_background:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^validating-admission-policy-reports$/^background$/^(validating-admission-policy-fail|validating-admission-policy-pass|with-validating-admission-policy-binding-fail|with-validating-admission-policy-binding-no-reports|with-validating-admission-policy-binding-pass)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-verify-manifests:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^verify-manifests$/^(multi-signatures|multi-signatures(deprecated)|single-signature|single-signature(deprecated))\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-verifyImages_clusterpolicy_cornercases:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^verifyImages$/^clusterpolicy$/^cornercases$/^(multiple-attestors)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-verifyImages_clusterpolicy_standard:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^verifyImages$/^clusterpolicy$/^standard$/^(configmap-context-lookup|empty-image|failure-policy-test-noconfigmap-diffimage-success|failure-policy-test-noconfigmap-diffimage-success-deprecated|imageExtractors-complex|imageExtractors-complex-keyless|imageExtractors-none|imageExtractors-simple|keyed-basic|keyed-basic-namespace-selector|keyed-oci11|keyed-secret)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-verifyImages_clusterpolicy_standard-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^verifyImages$/^clusterpolicy$/^standard$/^(keyed-tsa|keyless-attestation-invalid-attestor|keyless-attestation-regexp|keyless-attestations-multiple-subjects-1|keyless-attestations-multiple-subjects-2|keyless-attestations-multiple-subjects-3|keyless-attestations-multiple-subjects-4|keyless-attestations-multiple-subjects-counts-1|keyless-attestations-multiple-subjects-counts-2|keyless-attestations-multiple-subjects-counts-3|keyless-image-invalid-attestor|keyless-mutatedigest-verifydigest-required)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-verifyImages_clusterpolicy_standard-24:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^verifyImages$/^clusterpolicy$/^standard$/^(keyless-nomutatedigest-noverifydigest-norequired|keyless-nomutatedigest-noverifydigest-required|mutateDigest-noverifyDigest-norequired|noconfigmap-diffimage-success|nomutateDigest-verifyDigest-norequired|notary-attestation-verification|notary-image-verification|notary-image-verification-secret-from-policy|rollback-image-verification|sigstore-attestation-verification-regexp|sigstore-attestation-verification-test|sigstore-image-verification-test)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-verifyImages_clusterpolicy_standard-36:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^verifyImages$/^clusterpolicy$/^standard$/^(skip-image-reference|update-multi-containers|verify-image-background-audit|verify-image-background-basic|verify-image-background-existing|with-mutation)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-webhook-configurations:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^webhook-configurations$/^(cpol-match-conditions-block|cpol-match-conditions-pass|match-conditions-standard|match-conditions-userinfo|webhook-registeration)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-webhooks:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^webhooks$/^(all-scale|clusterpolicy|double-wildcard|dyn-op-mutate|dyn-op-mutate-multiple|dyn-op-validate|dyn-op-validate-and-mutate|dyn-op-validate-multiple|expected-webhooks|only-pod|pod-all-subresources|pod-exec-subresource)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+  standard-webhooks-12:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+    runs-on: ubuntu-latest
+    needs:
+    - prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ^webhooks$/^(policy|policy-clusterpolicy-different-resource-group|policy-clusterpolicy-namespaced-clusterscoped-resources|policy-clusterpolicy-namespaced-resources|policy-clusterpolicy-same-resource|policy-clusterpolicy-wildcard-resource|policy-clusterscope-resource|policy-different-resource-group|policy-wildcard-resource|scale|unknown-kind)\[.*\]$
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  policy-library:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: policy-library
+            values:
+              - standard
+        k8s-version:
+          - name: v1.27
+            version: v1.27.13
+          - name: v1.28
+            version: v1.28.9
+          - name: v1.29
+            version: v1.29.4
+          - name: v1.30
+            version: v1.30.0
+        tests:
+          - ^argo$
+          - ^aws$
+          - ^best-practices$
+          - ^castai$
+          - ^cert-manager$
+          - ^consul$
+          - ^external-secret-operator$
+          - ^flux$
+          - ^istio$
+          - ^karpenter$
+          - ^kasten$
+          - ^kubecost$
+          - ^kubeops$
+          - ^kubevirt$
+          - ^linkerd$
+          - ^nginx-ingress$
+          - ^openshift$
+          - ^other$/^a
+          - ^other$/^[b-d]
+          - ^other$/^[e-l]
+          - ^other$/^[m-q]
+          - ^other$/^re[c-q]
+          - ^other$/^res
+          - ^other$/^[s-z]
+          - ^pod-security$
+          - ^pod-security-cel$
+          - ^psa$
+          - ^psp-migration$
+          # - ^tekton
+          # - ^traefik
+          # - ^velero
+    needs:
+      - prepare-images
+      - prepare-cli
+    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+    steps:
+      - name: Checkout kyverno/kyverno
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Checkout kyverno/policies
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          repository: kyverno/policies
+          path: policies
+      # install tools
+      - name: Install helm
+        id: helm
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install chainsaw
+        uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
+      - name: Download kyverno CLI archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kubectl-kyverno
+      - name: Install Kyverno CLI
+        shell: bash
+        run: |
+          set -e
+          chmod +x kubectl-kyverno && mv kubectl-kyverno ./cmd/cli/kubectl-kyverno/kyverno
+          echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
+      # create cluster
+      - name: Create kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      # deploy kyverno
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install kyverno
+        shell: bash
+        run: |
+          set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
+          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      # run tests
+      - name: Install CRDs
+        run: |
+          set -e
+          kubectl apply -f ./policies/.chainsaw/crds
+      - name: Test with Chainsaw
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd policies
+          chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --no-color=false
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+
+  monitor-helm-secret-size:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    needs: prepare-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Setup caches
+        uses: ./.github/actions/setup-caches
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          build-cache-key: run-conformance
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        timeout-minutes: 10
+      - name: Create kind cluster
+        shell: bash
+        run: |
+          set -e
+          make kind-create-cluster
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        shell: bash
+        run: |
+          set -e
+          make kind-load-image-archive
+      - name: Install kyverno
+        shell: bash
+        run: |
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Check secret size
+        shell: bash
+        run: |
+          set -e
+          set -u
+          SIZE=$(kubectl get secrets -n kyverno sh.helm.release.v1.kyverno.v1 -o jsonpath='{.data.release}' | base64 -d | wc -c | awk '{print $1}')
+          MAX_ALLOWED=1030000
+          if [ "$SIZE" -gt "$MAX_ALLOWED" ]; then
+            echo "Helm secret size ($SIZE bytes) is above the max allowed ($MAX_ALLOWED bytes)"
+            exit 1
+          else
+            echo "Helm secret size ($SIZE bytes) is below the max allowed ($MAX_ALLOWED bytes)"
+          fi
+
+  e2e-required-success:
+    name: e2e-required
+    needs:
+      - standard-assert
+      - standard-autogen
+      - standard-autogen-12
+      - standard-background-only_cluster-policy
+      - standard-background-only_policy
+      - standard-cleanup_v2_clusterpolicy
+      - standard-cleanup_v2_policy
+      - standard-cleanup_v2_validation
+      - standard-cleanup_v2beta1_clusterpolicy
+      - standard-cleanup_v2beta1_policy
+      - standard-cleanup_v2beta1_validation
+      - standard-cli_apply
+      - standard-custom-sigstore_standard
+      - standard-deferred
+      - standard-events_clusterpolicy
+      - standard-events_policy
+      - standard-exceptions
+      - standard-exceptions-12
+      - standard-exceptions-24
+      - standard-exceptions_background-mode
+      - standard-filter_exclude_sa
+      - standard-filter_exclude_user_no-wildcard
+      - standard-filter_exclude_user_wildcard
+      - standard-filter_match_sa
+      - standard-filter_match_user_no-wildcard
+      - standard-filter_match_user_wildcard
+      - standard-flags_standard
+      - standard-force-failure-policy-ignore_cluster-policy
+      - standard-generate-validating-admission-policy_clusterpolicy_standard_generate
+      - standard-generate-validating-admission-policy_clusterpolicy_standard_generate-12
+      - standard-generate-validating-admission-policy_clusterpolicy_standard_skip-generate
+      - standard-generate-validating-admission-policy_clusterpolicy_standard_skip-generate-12
+      - standard-generate_clusterpolicy_cornercases
+      - standard-generate_clusterpolicy_cornercases-12
+      - standard-generate_clusterpolicy_cornercases-24
+      - standard-generate_clusterpolicy_standard_clone_multiple_sync
+      - standard-generate_clusterpolicy_standard_clone_nosync
+      - standard-generate_clusterpolicy_standard_clone_sync
+      - standard-generate_clusterpolicy_standard_clone_sync-12
+      - standard-generate_clusterpolicy_standard_data_nosync
+      - standard-generate_clusterpolicy_standard_data_nosync-deprecated
+      - standard-generate_clusterpolicy_standard_data_sync
+      - standard-generate_clusterpolicy_standard_data_sync-12
+      - standard-generate_clusterpolicy_standard_data_sync-deprecated
+      - standard-generate_clusterpolicy_standard_existing
+      - standard-generate_clusterpolicy_standard_existing-deprecated
+      - standard-generate_foreach_clusterpolicy_data_sync
+      - standard-generate_policy_cornercases
+      - standard-generate_policy_standard_clone_nosync
+      - standard-generate_policy_standard_clone_sync
+      - standard-generate_policy_standard_data_nosync
+      - standard-generate_policy_standard_data_sync
+      - standard-generate_policy_standard_existing
+      - standard-generate_validation_clusterpolicy
+      - standard-generate_validation_clusterpolicy_permissions
+      - standard-generate_validation_policy
+      - standard-globalcontext
+      - standard-lease
+      - standard-mutate_cascading
+      - standard-mutate_clusterpolicy_cornercases
+      - standard-mutate_clusterpolicy_standard
+      - standard-mutate_clusterpolicy_standard_existing
+      - standard-mutate_clusterpolicy_standard_existing-12
+      - standard-mutate_clusterpolicy_standard_existing-24
+      - standard-mutate_clusterpolicy_standard_existing_onpolicyupdate
+      - standard-mutate_clusterpolicy_standard_existing_validation
+      - standard-mutate_clusterpolicy_standard_existing_validation_auth-check
+      - standard-mutate_e2e
+      - standard-mutate_policy_cornercases
+      - standard-mutate_policy_standard_existing_validation
+      - standard-mutate_refactor
+      - standard-mutate_refactor_foreach
+      - standard-mutate_refactor_nested-foreach
+      - standard-mutate_refactor_simple
+      - standard-policy-validation_cluster-policy
+      - standard-policy-validation_cluster-policy-12
+      - standard-policy-validation_policy
+      - standard-rangeoperators
+      - standard-rbac
+      - standard-reports_admission
+      - standard-reports_background
+      - standard-ttl
+      - standard-validate_anchors
+      - standard-validate_clusterpolicy_cornercases
+      - standard-validate_clusterpolicy_cornercases-12
+      - standard-validate_clusterpolicy_cornercases-24
+      - standard-validate_clusterpolicy_standard
+      - standard-validate_clusterpolicy_standard_apicalls
+      - standard-validate_clusterpolicy_standard_apicalls-deprecated
+      - standard-validate_clusterpolicy_standard_audit
+      - standard-validate_clusterpolicy_standard_audit-deprecated
+      - standard-validate_clusterpolicy_standard_cel
+      - standard-validate_clusterpolicy_standard_cel-deprecated
+      - standard-validate_clusterpolicy_standard_cel-deprecated_authorizor-checks
+      - standard-validate_clusterpolicy_standard_cel-deprecated_parameter-resources
+      - standard-validate_clusterpolicy_standard_cel-deprecated_parameter-resources_namespaced
+      - standard-validate_clusterpolicy_standard_cel_authorizor-checks
+      - standard-validate_clusterpolicy_standard_cel_parameter-resources
+      - standard-validate_clusterpolicy_standard_cel_parameter-resources_namespaced
+      - standard-validate_clusterpolicy_standard_debug
+      - standard-validate_clusterpolicy_standard_debug-deprecated
+      - standard-validate_clusterpolicy_standard_enforce
+      - standard-validate_clusterpolicy_standard_enforce-deprecated
+      - standard-validate_clusterpolicy_standard_exclude
+      - standard-validate_clusterpolicy_standard_operations
+      - standard-validate_clusterpolicy_standard_psa
+      - standard-validate_clusterpolicy_standard_psa-12
+      - standard-validate_clusterpolicy_standard_psa-deprecated
+      - standard-validate_clusterpolicy_standard_psa-deprecated-12
+      - standard-validate_clusterpolicy_standard_variables_lazyload
+      - standard-validate_clusterpolicy_standard_wildcard
+      - standard-validate_e2e
+      - standard-validate_e2e-12
+      - standard-validating-admission-policy-reports
+      - standard-validating-admission-policy-reports_background
+      - standard-verify-manifests
+      - standard-verifyImages_clusterpolicy_cornercases
+      - standard-verifyImages_clusterpolicy_standard
+      - standard-verifyImages_clusterpolicy_standard-12
+      - standard-verifyImages_clusterpolicy_standard-24
+      - standard-verifyImages_clusterpolicy_standard-36
+      - standard-webhook-configurations
+      - standard-webhooks
+      - standard-webhooks-12
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+    steps:
+      - run: ${{ true }}
+
+  e2e-required-failure:
+    name: e2e-required
+    needs:
+      - standard-assert
+      - standard-autogen
+      - standard-autogen-12
+      - standard-background-only_cluster-policy
+      - standard-background-only_policy
+      - standard-cleanup_v2_clusterpolicy
+      - standard-cleanup_v2_policy
+      - standard-cleanup_v2_validation
+      - standard-cleanup_v2beta1_clusterpolicy
+      - standard-cleanup_v2beta1_policy
+      - standard-cleanup_v2beta1_validation
+      - standard-cli_apply
+      - standard-custom-sigstore_standard
+      - standard-deferred
+      - standard-events_clusterpolicy
+      - standard-events_policy
+      - standard-exceptions
+      - standard-exceptions-12
+      - standard-exceptions-24
+      - standard-exceptions_background-mode
+      - standard-filter_exclude_sa
+      - standard-filter_exclude_user_no-wildcard
+      - standard-filter_exclude_user_wildcard
+      - standard-filter_match_sa
+      - standard-filter_match_user_no-wildcard
+      - standard-filter_match_user_wildcard
+      - standard-flags_standard
+      - standard-force-failure-policy-ignore_cluster-policy
+      - standard-generate-validating-admission-policy_clusterpolicy_standard_generate
+      - standard-generate-validating-admission-policy_clusterpolicy_standard_generate-12
+      - standard-generate-validating-admission-policy_clusterpolicy_standard_skip-generate
+      - standard-generate-validating-admission-policy_clusterpolicy_standard_skip-generate-12
+      - standard-generate_clusterpolicy_cornercases
+      - standard-generate_clusterpolicy_cornercases-12
+      - standard-generate_clusterpolicy_cornercases-24
+      - standard-generate_clusterpolicy_standard_clone_multiple_sync
+      - standard-generate_clusterpolicy_standard_clone_nosync
+      - standard-generate_clusterpolicy_standard_clone_sync
+      - standard-generate_clusterpolicy_standard_clone_sync-12
+      - standard-generate_clusterpolicy_standard_data_nosync
+      - standard-generate_clusterpolicy_standard_data_nosync-deprecated
+      - standard-generate_clusterpolicy_standard_data_sync
+      - standard-generate_clusterpolicy_standard_data_sync-12
+      - standard-generate_clusterpolicy_standard_data_sync-deprecated
+      - standard-generate_clusterpolicy_standard_existing
+      - standard-generate_clusterpolicy_standard_existing-deprecated
+      - standard-generate_foreach_clusterpolicy_data_sync
+      - standard-generate_policy_cornercases
+      - standard-generate_policy_standard_clone_nosync
+      - standard-generate_policy_standard_clone_sync
+      - standard-generate_policy_standard_data_nosync
+      - standard-generate_policy_standard_data_sync
+      - standard-generate_policy_standard_existing
+      - standard-generate_validation_clusterpolicy
+      - standard-generate_validation_clusterpolicy_permissions
+      - standard-generate_validation_policy
+      - standard-globalcontext
+      - standard-lease
+      - standard-mutate_cascading
+      - standard-mutate_clusterpolicy_cornercases
+      - standard-mutate_clusterpolicy_standard
+      - standard-mutate_clusterpolicy_standard_existing
+      - standard-mutate_clusterpolicy_standard_existing-12
+      - standard-mutate_clusterpolicy_standard_existing-24
+      - standard-mutate_clusterpolicy_standard_existing_onpolicyupdate
+      - standard-mutate_clusterpolicy_standard_existing_validation
+      - standard-mutate_clusterpolicy_standard_existing_validation_auth-check
+      - standard-mutate_e2e
+      - standard-mutate_policy_cornercases
+      - standard-mutate_policy_standard_existing_validation
+      - standard-mutate_refactor
+      - standard-mutate_refactor_foreach
+      - standard-mutate_refactor_nested-foreach
+      - standard-mutate_refactor_simple
+      - standard-policy-validation_cluster-policy
+      - standard-policy-validation_cluster-policy-12
+      - standard-policy-validation_policy
+      - standard-rangeoperators
+      - standard-rbac
+      - standard-reports_admission
+      - standard-reports_background
+      - standard-ttl
+      - standard-validate_anchors
+      - standard-validate_clusterpolicy_cornercases
+      - standard-validate_clusterpolicy_cornercases-12
+      - standard-validate_clusterpolicy_cornercases-24
+      - standard-validate_clusterpolicy_standard
+      - standard-validate_clusterpolicy_standard_apicalls
+      - standard-validate_clusterpolicy_standard_apicalls-deprecated
+      - standard-validate_clusterpolicy_standard_audit
+      - standard-validate_clusterpolicy_standard_audit-deprecated
+      - standard-validate_clusterpolicy_standard_cel
+      - standard-validate_clusterpolicy_standard_cel-deprecated
+      - standard-validate_clusterpolicy_standard_cel-deprecated_authorizor-checks
+      - standard-validate_clusterpolicy_standard_cel-deprecated_parameter-resources
+      - standard-validate_clusterpolicy_standard_cel-deprecated_parameter-resources_namespaced
+      - standard-validate_clusterpolicy_standard_cel_authorizor-checks
+      - standard-validate_clusterpolicy_standard_cel_parameter-resources
+      - standard-validate_clusterpolicy_standard_cel_parameter-resources_namespaced
+      - standard-validate_clusterpolicy_standard_debug
+      - standard-validate_clusterpolicy_standard_debug-deprecated
+      - standard-validate_clusterpolicy_standard_enforce
+      - standard-validate_clusterpolicy_standard_enforce-deprecated
+      - standard-validate_clusterpolicy_standard_exclude
+      - standard-validate_clusterpolicy_standard_operations
+      - standard-validate_clusterpolicy_standard_psa
+      - standard-validate_clusterpolicy_standard_psa-12
+      - standard-validate_clusterpolicy_standard_psa-deprecated
+      - standard-validate_clusterpolicy_standard_psa-deprecated-12
+      - standard-validate_clusterpolicy_standard_variables_lazyload
+      - standard-validate_clusterpolicy_standard_wildcard
+      - standard-validate_e2e
+      - standard-validate_e2e-12
+      - standard-validating-admission-policy-reports
+      - standard-validating-admission-policy-reports_background
+      - standard-verify-manifests
+      - standard-verifyImages_clusterpolicy_cornercases
+      - standard-verifyImages_clusterpolicy_standard
+      - standard-verifyImages_clusterpolicy_standard-12
+      - standard-verifyImages_clusterpolicy_standard-24
+      - standard-verifyImages_clusterpolicy_standard-36
+      - standard-webhook-configurations
+      - standard-webhooks
+      - standard-webhooks-12
+    runs-on: ubuntu-latest
+    if: ${{ failure() || cancelled() }}
+    steps:
+      - run: ${{ false }}
