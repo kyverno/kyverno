@@ -21,7 +21,7 @@ spec:
           - user-?*
     name: ondemand-managed_by
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       message: '{{ request.object.metadata.namespace }} pods must be managed by open-ondemand'
       pattern:
         metadata:

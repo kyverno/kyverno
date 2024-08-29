@@ -140,8 +140,8 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
 	for _, rule := range spec.Rules {
 		if rule.HasValidate() {
-			if rule.Validation.ValidationFailureAction != nil {
-				warnings = append(warnings, checkValidationFailureAction(*rule.Validation.ValidationFailureAction, rule.Validation.ValidationFailureActionOverrides)...)
+			if rule.Validation.FailureAction != nil {
+				warnings = append(warnings, checkValidationFailureAction(*rule.Validation.FailureAction, rule.Validation.FailureActionOverrides)...)
 			}
 		}
 	}
@@ -207,7 +207,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	if !policy.IsNamespaced() {
 		for i, r := range spec.Rules {
 			if r.HasValidate() {
-				err := validateNamespaces(r.Validation.ValidationFailureActionOverrides, specPath.Child("rules").Index(i).Child("validate").Child("validationFailureActionOverrides"))
+				err := validateNamespaces(r.Validation.FailureActionOverrides, specPath.Child("rules").Index(i).Child("validate").Child("validationFailureActionOverrides"))
 				if err != nil {
 					return warnings, err
 				}
@@ -337,7 +337,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 			verifyImagePath := rulePath.Child("verifyImages")
 			for index, i := range rule.VerifyImages {
-				action := i.ValidationFailureAction
+				action := i.FailureAction
 				if action != nil {
 					if action.Audit() {
 						isAuditFailureAction = true
@@ -560,7 +560,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 
 		ctx := buildContext(ruleCopy, background, mutateTarget)
 		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s in policy %s: %s", ruleCopy.Name, policy.GetName(),err.Error())
+			return fmt.Errorf("variable substitution failed: %s", err.Error())
 		}
 	}
 
@@ -1233,7 +1233,7 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 }
 
 func validateRuleContext(rule kyvernov1.Rule) error {
-	if rule.Context == nil || len(rule.Context) == 0 {
+	if len(rule.Context) == 0 {
 		return nil
 	}
 

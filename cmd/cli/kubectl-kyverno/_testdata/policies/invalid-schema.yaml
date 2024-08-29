@@ -30,7 +30,7 @@ spec:
         kinds:
         - Pod
     validate:
-      validationFailureAction: audit
+      failureAction: audit
       message: CPU and memory resource requests and limits are required for user pods
       pattern:
         spec:

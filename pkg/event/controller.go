@@ -41,7 +41,7 @@ type controller struct {
 	logger               logr.Logger
 	eventsClient         v1.EventsV1Interface
 	omitEvents           sets.Set[string]
-	queue                workqueue.RateLimitingInterface
+	queue                workqueue.TypedRateLimitingInterface[any]
 	clock                clock.Clock
 	hostname             string
 	droppedEventsCounter metric.Int64Counter
@@ -64,7 +64,7 @@ func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, ma
 		logger:               logger,
 		eventsClient:         eventsClient,
 		omitEvents:           sets.New(omitEvents...),
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
 		clock:                clock,
 		hostname:             hostname,
 		droppedEventsCounter: droppedEventsCounter,

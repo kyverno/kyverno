@@ -30,7 +30,7 @@ spec:
           - ConfigMap
     name: check-sar
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny:
         conditions:
           any:
