@@ -4,13 +4,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type ValidatingAdmissionPolicyProcessor struct {
-	Policies             []v1alpha1.ValidatingAdmissionPolicy
-	Bindings             []v1alpha1.ValidatingAdmissionPolicyBinding
+	Policies             []admissionregistrationv1beta1.ValidatingAdmissionPolicy
+	Bindings             []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
 	Resource             *unstructured.Unstructured
 	NamespaceSelectorMap map[string]map[string]string
 	PolicyReport         bool
