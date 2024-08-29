@@ -148,12 +148,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	}
 
-	var allowExisitingViolations bool
-	if v.rule.Validation.AllowExistingViolations == nil {
-		allowExisitingViolations = true
-	} else {
-		allowExisitingViolations = *v.rule.Validation.AllowExistingViolations
-	}
+	allowExisitingViolations := v.rule.HasValidateAllowExistingViolations()
 	if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
 		priorResp, err := v.validateOldObject(ctx)
 		if err != nil {

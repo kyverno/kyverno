@@ -112,23 +112,16 @@ func (h validateAssertHandler) Process(
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "failed to apply assertion", err)
 	}
-	logger.V(2).Info("not nested errors", "errors", errs)
 	// compose a response
 	if len(errs) != 0 {
-		var allowExisitingViolations bool
-		if rule.Validation.AllowExistingViolations == nil {
-			allowExisitingViolations = true
-		} else {
-			allowExisitingViolations = *rule.Validation.AllowExistingViolations
-		}
-		logger.V(2).Info("old object verification", "allowexistingviolations", allowExisitingViolations)
+		allowExisitingViolations := rule.HasValidateAllowExistingViolations()
 		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
 			errs, err := validateOldObject(ctx, policyContext, rule, payload, bindings)
 			if err != nil {
 				return resource, handlers.WithError(rule, engineapi.Validation, "failed to validate old object", err)
 			}
 
-			logger.V(2).Info("old object verification", "errors", errs)
+			logger.V(3).Info("old object verification", "errors", errs)
 			if len(errs) != 0 {
 				logger.V(3).Info("skipping modified resource as validation results have not changed")
 				return resource, handlers.WithSkip(rule, engineapi.Validation, "skipping modified resource as validation results have not changed")

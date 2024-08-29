@@ -165,9 +165,20 @@ func (r *Rule) HasValidateAssert() bool {
 	return !datautils.DeepEqual(r.Validation.Assert, AssertionTree{})
 }
 
-// HasValidate checks for validate rule
+// HasValidateAssert checks for validate.assert rule
 func (r *Rule) HasValidate() bool {
-	return !datautils.DeepEqual(r.Validation, Validation{})
+	return !datautils.DeepEqual(r.Validation.Assert, AssertionTree{})
+}
+
+// HasValidate checks for validate rule
+func (r *Rule) HasValidateAllowExistingViolations() bool {
+	var allowExisitingViolations bool
+	if r.Validation.AllowExistingViolations == nil {
+		allowExisitingViolations = true
+	} else {
+		allowExisitingViolations = *r.Validation.AllowExistingViolations
+	}
+	return allowExisitingViolations
 }
 
 // HasGenerate checks for generate rule

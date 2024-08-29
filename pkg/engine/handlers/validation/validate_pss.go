@@ -135,12 +135,7 @@ func (h validatePssHandler) validate(
 		}
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks)
-		var allowExisitingViolations bool
-		if rule.Validation.AllowExistingViolations == nil {
-			allowExisitingViolations = true
-		} else {
-			allowExisitingViolations = *rule.Validation.AllowExistingViolations
-		}
+		allowExisitingViolations := rule.HasValidateAllowExistingViolations()
 		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
 			priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
 			if err != nil {
