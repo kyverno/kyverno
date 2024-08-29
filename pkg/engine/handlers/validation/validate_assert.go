@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils/match"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
@@ -113,6 +112,7 @@ func (h validateAssertHandler) Process(
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "failed to apply assertion", err)
 	}
+	logger.V(2).Info("not nested errors", "errors", errs)
 	// compose a response
 	if len(errs) != 0 {
 		var allowExisitingViolations bool
@@ -121,12 +121,14 @@ func (h validateAssertHandler) Process(
 		} else {
 			allowExisitingViolations = *rule.Validation.AllowExistingViolations
 		}
+		logger.V(2).Info("old object verification", "allowexistingviolations", allowExisitingViolations)
 		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
 			errs, err := validateOldObject(ctx, policyContext, rule, payload, bindings)
 			if err != nil {
 				return resource, handlers.WithError(rule, engineapi.Validation, "failed to validate old object", err)
 			}
 
+			logger.V(2).Info("old object verification", "errors", errs)
 			if len(errs) != 0 {
 				logger.V(3).Info("skipping modified resource as validation results have not changed")
 				return resource, handlers.WithSkip(rule, engineapi.Validation, "skipping modified resource as validation results have not changed")
@@ -146,7 +148,7 @@ func (h validateAssertHandler) Process(
 
 func validateOldObject(ctx context.Context, policyContext engineapi.PolicyContext, rule kyvernov1.Rule, payload map[string]any, bindings binding.Bindings) (field.ErrorList, error) {
 	if policyContext.Operation() != kyvernov1.Update {
-		return nil, errors.New("invalid operation")
+		return nil, nil
 	}
 
 	oldResource := policyContext.NewResource()
@@ -185,8 +187,8 @@ func validateOldObject(ctx context.Context, policyContext engineapi.PolicyContex
 		}
 	}
 
-	payload["object"] = policyContext.NewResource().Object
-	payload["oldObject"] = policyContext.NewResource().Object
+	payload["object"] = policyContext.OldResource().Object
+	payload["oldObject"] = nil
 	payload["operation"] = kyvernov1.Create
 
 	asserttion := assert.Parse(ctx, rule.Validation.Assert.Value)

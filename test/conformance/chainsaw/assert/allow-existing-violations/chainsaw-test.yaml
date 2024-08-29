@@ -21,3 +21,14 @@ spec:
       try:
         - update:
             file: ns-update.yaml
+    - name: step-04
+      try:
+        - update:
+            file: ns-update-good.yaml
+    - name: step-05
+      try:
+        - update:
+            file: ns-update-bad.yaml
+            expect:
+            - check:
+                ($error != null): true
