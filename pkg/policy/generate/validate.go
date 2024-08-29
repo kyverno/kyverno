@@ -59,19 +59,19 @@ func (g *Generate) Validate(ctx context.Context) (warnings []string, path string
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
 	if rule.ForEachGeneration != nil {
 		for _, forEach := range rule.ForEachGeneration {
-			if err := g.canIGeneratePattern(ctx, forEach.GeneratePattern); err != nil {
-				return "foreach", err
+			if err := g.validateAuth(ctx, forEach.GeneratePattern); err != nil {
+				return nil, "foreach", err
 			}
 		}
 	} else {
-		if err := g.canIGeneratePattern(ctx, rule.GeneratePattern); err != nil {
-			return "", err
+		if err := g.validateAuth(ctx, rule.GeneratePattern); err != nil {
+			return nil, "", err
 		}
 	}
 	return nil, "", nil
 }
 
-func (g *Generate) canIGeneratePattern(ctx context.Context, generate kyvernov1.GeneratePattern) error {
+func (g *Generate) validateAuth(ctx context.Context, generate kyvernov1.GeneratePattern) error {
 	if len(generate.CloneList.Kinds) != 0 {
 		for _, kind := range generate.CloneList.Kinds {
 			gvk, sub := parseCloneKind(kind)
