@@ -15,8 +15,7 @@ env:
 
 jobs:
   scan:
-    runs-on:
-      group: kyverno-default
+runs-on: ubuntu-latest
     outputs:
       results: ${{ steps.parse-results.outputs.results }}
     steps:    
@@ -87,8 +86,7 @@ jobs:
         if-no-files-found: error
 
   open-issue:
-    runs-on:
-      group: kyverno-default
+runs-on: ubuntu-latest
     if: needs.scan.outputs.results == 'found'
     needs: scan
     permissions:

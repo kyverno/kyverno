@@ -17,8 +17,7 @@ concurrency:
 
 jobs:
   analysis:
-    runs-on:
-      group: kyverno-default
+runs-on: ubuntu-latest
     permissions:
       security-events: write
       id-token: write

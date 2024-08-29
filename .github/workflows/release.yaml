@@ -11,8 +11,7 @@ on:
 
 jobs:
   release-images:
-    runs-on:
-      group: kyverno-default
+runs-on: ubuntu-latest
     permissions:
       packages: write
       id-token: write
@@ -227,8 +226,7 @@ jobs:
       registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   create-release:
-    runs-on:
-      group: kyverno-default
+runs-on: ubuntu-latest
     needs: release-images
     permissions:
       contents: write
@@ -263,8 +261,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   push-and-sign-install-manifest:
-    runs-on:
-      group: kyverno-default
+runs-on: ubuntu-latest
     needs: create-release
     permissions:
       contents: write # needed to write releases
@@ -325,8 +322,7 @@ jobs:
           cosign sign --yes ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ github.ref_name }}
 
   release-cli-via-krew:
-    runs-on:
-      group: kyverno-default
+runs-on: ubuntu-latest
     needs: create-release
     steps:
       - name: Checkout

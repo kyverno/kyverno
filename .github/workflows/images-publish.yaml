@@ -16,8 +16,7 @@ concurrency:
 
 jobs:
   publish-images:
-    runs-on:
-      group: kyverno-default
+runs-on: ubuntu-latest
     permissions:
       packages: write
       id-token: write 
