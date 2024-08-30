@@ -18,7 +18,7 @@ func TestGetKinds(t *testing.T) {
 		{
 			name: "Matching pods",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-1"
@@ -38,7 +38,7 @@ spec:
 		{
 			name: "Matching deployments, replicasets, daemonsets and statefulsets",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-2"
@@ -58,7 +58,7 @@ spec:
 		{
 			name: "Matching deployments/scale",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-3"
@@ -78,7 +78,7 @@ spec:
 		{
 			name: "Matching jobs and cronjobs",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-4"
@@ -98,7 +98,7 @@ spec:
 		{
 			name: "Multiple resource rules",
 			policy: []byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "policy-5"

@@ -10,14 +10,14 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // BuildValidatingAdmissionPolicy is used to build a Kubernetes ValidatingAdmissionPolicy from a Kyverno policy
 func BuildValidatingAdmissionPolicy(
 	discoveryClient dclient.IDiscovery,
-	vap *admissionregistrationv1alpha1.ValidatingAdmissionPolicy,
+	vap *admissionregistrationv1beta1.ValidatingAdmissionPolicy,
 	cpol kyvernov1.PolicyInterface,
 	exceptions []kyvernov2.PolicyException,
 ) error {
@@ -32,8 +32,8 @@ func BuildValidatingAdmissionPolicy(
 	}
 
 	// construct the rules
-	var matchResources admissionregistrationv1alpha1.MatchResources
-	var matchRules, excludeRules []admissionregistrationv1alpha1.NamedRuleWithOperations
+	var matchResources admissionregistrationv1beta1.MatchResources
+	var matchRules, excludeRules []admissionregistrationv1beta1.NamedRuleWithOperations
 
 	rule := cpol.GetSpec().Rules[0]
 
@@ -92,7 +92,7 @@ func BuildValidatingAdmissionPolicy(
 	}
 
 	// set policy spec
-	vap.Spec = admissionregistrationv1alpha1.ValidatingAdmissionPolicySpec{
+	vap.Spec = admissionregistrationv1beta1.ValidatingAdmissionPolicySpec{
 		MatchConstraints: &matchResources,
 		ParamKind:        rule.Validation.CEL.ParamKind,
 		Variables:        rule.Validation.CEL.Variables,
@@ -108,7 +108,7 @@ func BuildValidatingAdmissionPolicy(
 
 // BuildValidatingAdmissionPolicyBinding is used to build a Kubernetes ValidatingAdmissionPolicyBinding from a Kyverno policy
 func BuildValidatingAdmissionPolicyBinding(
-	vapbinding *admissionregistrationv1alpha1.ValidatingAdmissionPolicyBinding,
+	vapbinding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
 	cpol kyvernov1.PolicyInterface,
 ) error {
 	// set owner reference
@@ -122,28 +122,28 @@ func BuildValidatingAdmissionPolicyBinding(
 	}
 
 	// set validation action for vap binding
-	var validationActions []admissionregistrationv1alpha1.ValidationAction
+	var validationActions []admissionregistrationv1beta1.ValidationAction
 	validateAction := cpol.GetSpec().Rules[0].Validation.FailureAction
 	if validateAction != nil {
 		if validateAction.Enforce() {
-			validationActions = append(validationActions, admissionregistrationv1alpha1.Deny)
+			validationActions = append(validationActions, admissionregistrationv1beta1.Deny)
 		} else if validateAction.Audit() {
-			validationActions = append(validationActions, admissionregistrationv1alpha1.Audit)
-			validationActions = append(validationActions, admissionregistrationv1alpha1.Warn)
+			validationActions = append(validationActions, admissionregistrationv1beta1.Audit)
+			validationActions = append(validationActions, admissionregistrationv1beta1.Warn)
 		}
 	} else {
 		validateAction := cpol.GetSpec().ValidationFailureAction
 		if validateAction.Enforce() {
-			validationActions = append(validationActions, admissionregistrationv1alpha1.Deny)
+			validationActions = append(validationActions, admissionregistrationv1beta1.Deny)
 		} else if validateAction.Audit() {
-			validationActions = append(validationActions, admissionregistrationv1alpha1.Audit)
-			validationActions = append(validationActions, admissionregistrationv1alpha1.Warn)
+			validationActions = append(validationActions, admissionregistrationv1beta1.Audit)
+			validationActions = append(validationActions, admissionregistrationv1beta1.Warn)
 		}
 	}
 
 	// set validating admission policy binding spec
 	rule := cpol.GetSpec().Rules[0]
-	vapbinding.Spec = admissionregistrationv1alpha1.ValidatingAdmissionPolicyBindingSpec{
+	vapbinding.Spec = admissionregistrationv1beta1.ValidatingAdmissionPolicyBindingSpec{
 		PolicyName:        cpol.GetName(),
 		ParamRef:          rule.Validation.CEL.ParamRef,
 		ValidationActions: validationActions,
@@ -155,8 +155,8 @@ func BuildValidatingAdmissionPolicyBinding(
 }
 
 func translateResourceFilters(discoveryClient dclient.IDiscovery,
-	matchResources *admissionregistrationv1alpha1.MatchResources,
-	rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations,
+	matchResources *admissionregistrationv1beta1.MatchResources,
+	rules *[]admissionregistrationv1beta1.NamedRuleWithOperations,
 	resFilters kyvernov1.ResourceFilters,
 	isMatch bool,
 ) error {
@@ -171,8 +171,8 @@ func translateResourceFilters(discoveryClient dclient.IDiscovery,
 
 func translateResource(
 	discoveryClient dclient.IDiscovery,
-	matchResources *admissionregistrationv1alpha1.MatchResources,
-	rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations,
+	matchResources *admissionregistrationv1beta1.MatchResources,
+	rules *[]admissionregistrationv1beta1.NamedRuleWithOperations,
 	res kyvernov1.ResourceDescription,
 	isMatch bool,
 ) error {
@@ -206,7 +206,7 @@ func translateResource(
 
 func constructValidatingAdmissionPolicyRules(
 	discoveryClient dclient.IDiscovery,
-	rules *[]admissionregistrationv1alpha1.NamedRuleWithOperations,
+	rules *[]admissionregistrationv1beta1.NamedRuleWithOperations,
 	res kyvernov1.ResourceDescription,
 	isMatch bool,
 ) error {
@@ -226,7 +226,7 @@ func constructValidatingAdmissionPolicyRules(
 	// apiVersions: ["version"]
 	// resources:   ["resource"]
 	for _, kind := range res.Kinds {
-		var r admissionregistrationv1alpha1.NamedRuleWithOperations
+		var r admissionregistrationv1beta1.NamedRuleWithOperations
 
 		if kind == "*" {
 			r = buildNamedRuleWithOperations(resourceNames, "*", "*", ops, "*")
@@ -270,7 +270,7 @@ func constructValidatingAdmissionPolicyRules(
 
 	// if exclude block has namespaces but no kinds, we need to add a rule for the namespaces
 	if !isMatch && len(res.Namespaces) > 0 && len(res.Kinds) == 0 {
-		r := admissionregistrationv1alpha1.NamedRuleWithOperations{
+		r := admissionregistrationv1beta1.NamedRuleWithOperations{
 			ResourceNames: res.Namespaces,
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 				Rule: admissionregistrationv1.Rule{
@@ -291,8 +291,8 @@ func buildNamedRuleWithOperations(
 	group, version string,
 	operations []admissionregistrationv1.OperationType,
 	resources ...string,
-) admissionregistrationv1alpha1.NamedRuleWithOperations {
-	return admissionregistrationv1alpha1.NamedRuleWithOperations{
+) admissionregistrationv1beta1.NamedRuleWithOperations {
+	return admissionregistrationv1beta1.NamedRuleWithOperations{
 		ResourceNames: resourceNames,
 		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
