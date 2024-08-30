@@ -113,7 +113,7 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 			return err
 		}
 		if !ok {
-			errs = append(errs, fmt.Errorf(msg))
+			errs = append(errs, fmt.Errorf(msg)) //nolint:all
 		}
 	}
 

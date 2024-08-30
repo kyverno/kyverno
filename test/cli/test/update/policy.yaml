@@ -17,7 +17,7 @@ spec:
             operator: Equals
             value: UPDATE
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         message: Pass only if labels are different
         deny:
           conditions:

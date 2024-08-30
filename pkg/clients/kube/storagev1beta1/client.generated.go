@@ -7,6 +7,7 @@ import (
 	csistoragecapacities "github.com/kyverno/kyverno/pkg/clients/kube/storagev1beta1/csistoragecapacities"
 	storageclasses "github.com/kyverno/kyverno/pkg/clients/kube/storagev1beta1/storageclasses"
 	volumeattachments "github.com/kyverno/kyverno/pkg/clients/kube/storagev1beta1/volumeattachments"
+	volumeattributesclasses "github.com/kyverno/kyverno/pkg/clients/kube/storagev1beta1/volumeattributesclasses"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_storage_v1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
 	"k8s.io/client-go/rest"
@@ -53,6 +54,10 @@ func (c *withMetrics) VolumeAttachments() k8s_io_client_go_kubernetes_typed_stor
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "VolumeAttachment", c.clientType)
 	return volumeattachments.WithMetrics(c.inner.VolumeAttachments(), recorder)
 }
+func (c *withMetrics) VolumeAttributesClasses() k8s_io_client_go_kubernetes_typed_storage_v1beta1.VolumeAttributesClassInterface {
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "VolumeAttributesClass", c.clientType)
+	return volumeattributesclasses.WithMetrics(c.inner.VolumeAttributesClasses(), recorder)
+}
 
 type withTracing struct {
 	inner  k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface
@@ -77,6 +82,9 @@ func (c *withTracing) StorageClasses() k8s_io_client_go_kubernetes_typed_storage
 func (c *withTracing) VolumeAttachments() k8s_io_client_go_kubernetes_typed_storage_v1beta1.VolumeAttachmentInterface {
 	return volumeattachments.WithTracing(c.inner.VolumeAttachments(), c.client, "VolumeAttachment")
 }
+func (c *withTracing) VolumeAttributesClasses() k8s_io_client_go_kubernetes_typed_storage_v1beta1.VolumeAttributesClassInterface {
+	return volumeattributesclasses.WithTracing(c.inner.VolumeAttributesClasses(), c.client, "VolumeAttributesClass")
+}
 
 type withLogging struct {
 	inner  k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface
@@ -100,4 +108,7 @@ func (c *withLogging) StorageClasses() k8s_io_client_go_kubernetes_typed_storage
 }
 func (c *withLogging) VolumeAttachments() k8s_io_client_go_kubernetes_typed_storage_v1beta1.VolumeAttachmentInterface {
 	return volumeattachments.WithLogging(c.inner.VolumeAttachments(), c.logger.WithValues("resource", "VolumeAttachments"))
+}
+func (c *withLogging) VolumeAttributesClasses() k8s_io_client_go_kubernetes_typed_storage_v1beta1.VolumeAttributesClassInterface {
+	return volumeattributesclasses.WithLogging(c.inner.VolumeAttributesClasses(), c.logger.WithValues("resource", "VolumeAttributesClasses"))
 }

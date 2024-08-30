@@ -62,7 +62,7 @@ spec:
       variable:
         jmesPath: subtract(`{{budget.spendLimit}}`,`{{budget.currentSpend}}`)
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       # Need to improve this by rounding.
       message: "This Deployment, which costs ${{ predictedcost }} to run for a month, will overrun the remaining budget of ${{ remainingbudget }}. Please seek approval."
       deny:

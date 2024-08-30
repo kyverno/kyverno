@@ -12,7 +12,7 @@ spec:
           kinds:
           - Namespace
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: >-
         The label `uw.systems/owner` is required. Check policy at
         https://github.com/utilitywarehouse/system-manifests/tree/master/kyverno/policies/namespaces/require-ns-owner-label.yaml
