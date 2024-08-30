@@ -20,7 +20,8 @@ concurrency:
 
 jobs:
   cli-test:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kyverno-default
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -53,7 +54,8 @@ jobs:
           $CLI_PATH test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
 
   kubectl-validate-cli-test:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kyverno-default
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7

@@ -14,7 +14,8 @@ on:
 
 jobs:
   nancy-scan:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kyverno-default
     name: nancy-scan
     steps:
       - name: Checkout
@@ -52,7 +53,8 @@ jobs:
           if-no-files-found: error
 
   open-issue:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kyverno-default
     if: needs.nancy-scan.result == 'success'
     needs: nancy-scan
     permissions:

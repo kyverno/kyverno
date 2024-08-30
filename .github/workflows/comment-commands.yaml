@@ -12,7 +12,8 @@ on:
 
 jobs:
   execute:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: kyverno-default
     permissions:
       issues: write
       pull-requests: write
