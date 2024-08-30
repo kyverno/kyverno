@@ -92,7 +92,7 @@ jobs:
           - name: v1.30
             version: v1.30.4
           - name: v1.31
-            version: v1.30.0
+            version: v1.31.0
         tests:
           - ^assert$
           - ^autogen$
@@ -190,7 +190,7 @@ jobs:
           - name: v1.30
             version: v1.30.4
           - name: v1.31
-            version: v1.30.0
+            version: v1.31.0
         tests:
           - generate-validating-admission-policy
           - webhook-configurations
@@ -266,7 +266,7 @@ jobs:
           - name: v1.30
             version: v1.30.4
           - name: v1.31
-            version: v1.30.0
+            version: v1.31.0
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
@@ -341,7 +341,7 @@ jobs:
           - name: v1.30
             version: v1.30.4
           - name: v1.31
-            version: v1.30.0
+            version: v1.31.0
         tests:
           - force-failure-policy-ignore
           - rbac
@@ -417,7 +417,7 @@ jobs:
           - name: v1.30
             version: v1.30.4
           - name: v1.31
-            version: v1.30.0
+            version: v1.31.0
         tests:
           - ttl
     needs: prepare-images
@@ -492,7 +492,7 @@ jobs:
           - name: v1.30
             version: v1.30.4
           - name: v1.31
-            version: v1.30.0
+            version: v1.31.0
         tests:
           - custom-sigstore
     needs: prepare-images
@@ -586,7 +586,7 @@ jobs:
           - name: v1.30
             version: v1.30.4
           - name: v1.31
-            version: v1.30.0
+            version: v1.31.0
         tests:
           - rbac
     needs: prepare-images
@@ -658,7 +658,7 @@ jobs:
           - name: v1.30
             version: v1.30.4
           - name: v1.31
-            version: v1.30.0
+            version: v1.31.0
         tests:
           - ^argo$
           - ^aws$
