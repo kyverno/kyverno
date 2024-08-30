@@ -12,7 +12,7 @@ type ImageVerification struct {
 	// Allowed values are Audit or Enforce.
 	// +optional
 	// +kubebuilder:validation:Enum=Audit;Enforce
-	ValidationFailureAction *kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+	FailureAction *kyvernov1.ValidationFailureAction `json:"failureAction,omitempty" yaml:"failureAction,omitempty"`
 
 	// Type specifies the method of signature validation. The allowed options
 	// are Cosign and Notary. By default Cosign is used if a type is not specified.

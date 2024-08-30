@@ -12,7 +12,7 @@ spec:
           - Pod
     name: allowed-fluxcd-annotations
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny:
         conditions:
           all:

@@ -44,14 +44,14 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 			continue
 		}
 		if generate.GetData() != nil {
-			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, generate.GeneratePatterns, deleteDownstream, false); err != nil {
+			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, generate.GeneratePattern, deleteDownstream, false); err != nil {
 				errs = append(errs, err)
 			}
 		}
 
 		for _, foreach := range generate.ForEachGeneration {
 			if foreach.GetData() != nil {
-				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, foreach.GeneratePatterns, deleteDownstream, false); err != nil {
+				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, foreach.GeneratePattern, deleteDownstream, false); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -156,7 +156,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		sync, orphanDownstreamOnPolicyDelete := r.GetSyncAndOrphanDownstream()
 		if generate.GetData() != nil {
 			if sync && (generate.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, r.Generation.GeneratePatterns, true, true); err != nil {
+				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, r.Generation.GeneratePattern, true, true); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -165,7 +165,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		for _, foreach := range generate.ForEachGeneration {
 			if foreach.GetData() != nil {
 				if sync && (foreach.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-					if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, foreach.GeneratePatterns, true, true); err != nil {
+					if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, foreach.GeneratePattern, true, true); err != nil {
 						errs = append(errs, err)
 					}
 				}
@@ -194,7 +194,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	return multierr.Combine(errs...)
 }
 
-func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, ruleName string, pattern kyvernov1.GeneratePatterns, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
+func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, ruleName string, pattern kyvernov1.GeneratePattern, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
 	labels := map[string]string{
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),

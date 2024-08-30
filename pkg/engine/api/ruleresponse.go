@@ -5,7 +5,7 @@ import (
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"
@@ -46,7 +46,7 @@ type RuleResponse struct {
 	// exceptions are the exceptions applied (if any)
 	exceptions []kyvernov2.PolicyException
 	// binding is the validatingadmissionpolicybinding (if any)
-	binding *v1alpha1.ValidatingAdmissionPolicyBinding
+	binding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
 	// properties are the additional properties from the rule that will be added to the policy report result
@@ -96,7 +96,7 @@ func (r RuleResponse) WithExceptions(exceptions []kyvernov2.PolicyException) *Ru
 	return &r
 }
 
-func (r RuleResponse) WithBinding(binding *v1alpha1.ValidatingAdmissionPolicyBinding) *RuleResponse {
+func (r RuleResponse) WithBinding(binding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) *RuleResponse {
 	r.binding = binding
 	return &r
 }
@@ -136,7 +136,7 @@ func (r *RuleResponse) Exceptions() []kyvernov2.PolicyException {
 	return r.exceptions
 }
 
-func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *v1alpha1.ValidatingAdmissionPolicyBinding {
+func (r *RuleResponse) ValidatingAdmissionPolicyBinding() *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding {
 	return r.binding
 }
 

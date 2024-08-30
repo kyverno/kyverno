@@ -717,7 +717,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &audit,
+								FailureAction: &audit,
 							},
 						},
 					},
@@ -732,7 +732,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
+								FailureAction: &enforce,
 							},
 						},
 					},
@@ -773,8 +773,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
 									Namespaces: []string{"*"},
 								}},
@@ -792,8 +792,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     "invalid",
 									Namespaces: []string{"*"},
 								}},
@@ -970,8 +970,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
 									Namespaces: []string{"foo"},
 								}},
@@ -990,8 +990,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
 									Namespaces: []string{"bar"},
 								}},
@@ -1013,8 +1013,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action: kyvernov1.Audit,
 									NamespaceSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
@@ -1040,8 +1040,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action: kyvernov1.Audit,
 									NamespaceSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
@@ -1067,8 +1067,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
 									Namespaces: []string{"foo"},
 									NamespaceSelector: &metav1.LabelSelector{
@@ -1095,8 +1095,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
 									Namespaces: []string{"bar"},
 									NamespaceSelector: &metav1.LabelSelector{
@@ -1123,8 +1123,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
 									Namespaces: []string{"foo"},
 									NamespaceSelector: &metav1.LabelSelector{
@@ -1151,8 +1151,8 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 					Rules: []kyvernov1.Rule{
 						{
 							Validation: kyvernov1.Validation{
-								ValidationFailureAction: &enforce,
-								ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+								FailureAction: &enforce,
+								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
 									Namespaces: []string{"*"},
 									NamespaceSelector: &metav1.LabelSelector{

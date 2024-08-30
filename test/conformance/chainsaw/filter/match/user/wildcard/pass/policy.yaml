@@ -15,5 +15,5 @@ spec:
         - kind: User
           name: not-?*
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny: {}

@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -143,13 +143,12 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          by fulfilled for a request to be sent to a webhook.
+                          be fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
                               Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                               CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
-
 
                               'object' - The object from the incoming request. The value is null for DELETE requests.
                               'oldObject' - The existing object. The value is null for CREATE requests.
@@ -159,7 +158,6 @@ spec:
                               'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                 request resource.
                               Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                               Required.
                             type: string
@@ -172,7 +170,6 @@ spec:
                               must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                               '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                               optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                               Required.
                             type: string
@@ -286,6 +283,8 @@ spec:
                               name:
                                 description: Name of the global context entry
                                 type: string
+                            required:
+                            - name
                             type: object
                           imageRegistry:
                             description: |-
@@ -1270,6 +1269,8 @@ spec:
                                           description: Name of the global context
                                             entry
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     imageRegistry:
                                       description: |-
@@ -2300,6 +2301,8 @@ spec:
                                           description: Name of the global context
                                             entry
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     imageRegistry:
                                       description: |-
@@ -2644,6 +2647,8 @@ spec:
                                           description: Name of the global context
                                             entry
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     imageRegistry:
                                       description: |-
@@ -2800,18 +2805,15 @@ spec:
                                       a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                       name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                       The key is combined with the resource name of the
                                       ValidatingAdmissionPolicy to construct an audit annotation key:
                                       "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                       If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                       and the same audit annotation key, the annotation key will be identical.
                                       In this case, the first annotation written with the key will be included
                                       in the audit event and all subsequent annotations with the same key
                                       will be discarded.
-
 
                                       Required.
                                     type: string
@@ -2826,12 +2828,10 @@ spec:
                                       If the result of the valueExpression is more than 10kb in length, it
                                       will be truncated to 10kb.
 
-
                                       If multiple ValidatingAdmissionPolicyBinding resources match an
                                       API request, then the valueExpression will be evaluated for
                                       each binding. All unique values produced by the valueExpressions
                                       will be joined together in a comma-separated list.
-
 
                                       Required.
                                     type: string
@@ -2852,7 +2852,7 @@ spec:
                                       which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                       expressions have access to the contents of the
                                       API request/response, organized into CEL variables
-                                      as well as some other useful variables:\n\n\n-
+                                      as well as some other useful variables:\n\n-
                                       'object' - The object from the incoming request.
                                       The value is null for DELETE requests.\n- 'oldObject'
                                       - The existing object. The value is null for
@@ -2872,10 +2872,10 @@ spec:
                                       of the request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                       'authorizer.requestResource' - A CEL ResourceCheck
                                       constructed from the 'authorizer' and configured
-                                      with the\n  request resource.\n\n\nThe `apiVersion`,
+                                      with the\n  request resource.\n\nThe `apiVersion`,
                                       `kind`, `metadata.name` and `metadata.generateName`
                                       are always accessible from the root of the\nobject.
-                                      No other metadata properties are accessible.\n\n\nOnly
+                                      No other metadata properties are accessible.\n\nOnly
                                       property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                       are accessible.\nAccessible property names are
                                       escaped according to the following rules when
@@ -2895,7 +2895,7 @@ spec:
                                       {\"Expression\": \"object.x__dash__prop > 0\"}\n
                                       \ - Expression accessing a property named \"redact__d\":
                                       {\"Expression\": \"object.redact__underscores__d
-                                      > 0\"}\n\n\nEquality on arrays with list type
+                                      > 0\"}\n\nEquality on arrays with list type
                                       of 'set' or 'map' ignores element order, i.e.
                                       [1, 2] == [2, 1].\nConcatenation on arrays with
                                       x-kubernetes-list-type use the semantics of
@@ -2969,11 +2969,14 @@ spec:
                               properties:
                                 name:
                                   description: |-
-                                    `name` is the name of the resource being referenced.
+                                    name is the name of the resource being referenced.
 
+                                    One of `name` or `selector` must be set, but `name` and `selector` are
+                                    mutually exclusive properties. If one is set, the other must be unset.
 
-                                    `name` and `selector` are mutually exclusive properties. If one is set,
-                                    the other must be unset.
+                                    A single parameter used for all admission requests can be configured
+                                    by setting the `name` field, leaving `selector` blank, and setting namespace
+                                    if `paramKind` is namespace-scoped.
                                   type: string
                                 namespace:
                                   description: |-
@@ -2981,14 +2984,11 @@ spec:
                                     the search for params to a specific namespace. Applies to both `name` and
                                     `selector` fields.
 
-
                                     A per-namespace parameter may be used by specifying a namespace-scoped
                                     `paramKind` in the policy and leaving this field empty.
 
-
                                     - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                     field results in a configuration error.
-
 
                                     - If `paramKind` is namespace-scoped, the namespace of the object being
                                     evaluated for admission will be used when this field is left unset. Take
@@ -3004,19 +3004,17 @@ spec:
                                     If set to `Deny`, then no matched parameters will be subject to the
                                     `failurePolicy` of the policy.
 
-
                                     Allowed values are `Allow` or `Deny`
-                                    Default to `Deny`
+
+                                    Required
                                   type: string
                                 selector:
                                   description: |-
                                     selector can be used to match multiple param objects based on their labels.
                                     Supply selector: {} to match all resources of the ParamKind.
 
-
                                     If multiple params are found, they are all evaluated with the policy expressions
                                     and the results are ANDed together.
-
 
                                     One of `name` or `selector` must be set, but `name` and `selector` are
                                     mutually exclusive properties. If one is set, the other must be unset.
@@ -3074,7 +3072,8 @@ spec:
                                 The variables defined here will be available under `variables` in other expressions of the policy.
                               items:
                                 description: Variable is the definition of a variable
-                                  that is used for composition.
+                                  that is used for composition. A variable is defined
+                                  as a named expression.
                                 properties:
                                   expression:
                                     description: |-
@@ -3091,6 +3090,7 @@ spec:
                                 - expression
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               type: array
                           type: object
                         deny:
@@ -3105,6 +3105,87 @@ spec:
                                 See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
                               x-kubernetes-preserve-unknown-fields: true
                           type: object
+                        failureAction:
+                          description: |-
+                            FailureAction defines if a validation policy rule violation should block
+                            the admission review request (Enforce), or allow (Audit) the admission review request
+                            and report an error in a policy report. Optional.
+                            Allowed values are Audit or Enforce.
+                          enum:
+                          - Audit
+                          - Enforce
+                          type: string
+                        failureActionOverrides:
+                          description: |-
+                            FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
+                            namespace-wise. It overrides FailureAction for the specified namespaces.
+                          items:
+                            properties:
+                              action:
+                                description: ValidationFailureAction defines the policy
+                                  validation failure action
+                                enum:
+                                - audit
+                                - enforce
+                                - Audit
+                                - Enforce
+                                type: string
+                              namespaceSelector:
+                                description: |-
+                                  A label selector is a label query over a set of resources. The result of matchLabels and
+                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                  label selector matches no objects.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
                         foreach:
                           description: ForEach applies validate rules to a list of
                             sub-elements by creating a context for each entry in the
@@ -3227,6 +3308,8 @@ spec:
                                           description: Name of the global context
                                             entry
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     imageRegistry:
                                       description: |-
@@ -3848,87 +3931,6 @@ spec:
                               - latest
                               type: string
                           type: object
-                        validationFailureAction:
-                          description: |-
-                            ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (Enforce), or allow (Audit) the admission review request
-                            and report an error in a policy report. Optional.
-                            Allowed values are Audit or Enforce.
-                          enum:
-                          - Audit
-                          - Enforce
-                          type: string
-                        validationFailureActionOverrides:
-                          description: |-
-                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-                          items:
-                            properties:
-                              action:
-                                description: ValidationFailureAction defines the policy
-                                  validation failure action
-                                enum:
-                                - audit
-                                - enforce
-                                - Audit
-                                - Enforce
-                                type: string
-                              namespaceSelector:
-                                description: |-
-                                  A label selector is a label query over a set of resources. The result of matchLabels and
-                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
-                                  label selector matches no objects.
-                                properties:
-                                  matchExpressions:
-                                    description: matchExpressions is a list of label
-                                      selector requirements. The requirements are
-                                      ANDed.
-                                    items:
-                                      description: |-
-                                        A label selector requirement is a selector that contains values, a key, and an operator that
-                                        relates the key and values.
-                                      properties:
-                                        key:
-                                          description: key is the label key that the
-                                            selector applies to.
-                                          type: string
-                                        operator:
-                                          description: |-
-                                            operator represents a key's relationship to a set of values.
-                                            Valid operators are In, NotIn, Exists and DoesNotExist.
-                                          type: string
-                                        values:
-                                          description: |-
-                                            values is an array of string values. If the operator is In or NotIn,
-                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                            the values array must be empty. This array is replaced during a strategic
-                                            merge patch.
-                                          items:
-                                            type: string
-                                          type: array
-                                          x-kubernetes-list-type: atomic
-                                      required:
-                                      - key
-                                      - operator
-                                      type: object
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                  matchLabels:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                    type: object
-                                type: object
-                                x-kubernetes-map-type: atomic
-                              namespaces:
-                                items:
-                                  type: string
-                                type: array
-                            type: object
-                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -4617,6 +4619,12 @@ spec:
                               CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
                               Defaults to false.
                             type: boolean
+                          failureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           image:
                             description: Deprecated. Use ImageReferences instead.
                             type: string
@@ -4713,12 +4721,6 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule.
                             type: boolean
-                          validationFailureAction:
-                            description: Allowed values are Audit or Enforce.
-                            enum:
-                            - Audit
-                            - Enforce
-                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -4845,7 +4847,6 @@ spec:
                             Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                             CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                             'object' - The object from the incoming request. The value is null for DELETE requests.
                             'oldObject' - The existing object. The value is null for CREATE requests.
                             'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -4854,7 +4855,6 @@ spec:
                             'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                               request resource.
                             Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                             Required.
                           type: string
@@ -4867,7 +4867,6 @@ spec:
                             must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                             '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                             optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                             Required.
                           type: string
@@ -4911,13 +4910,12 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must by fulfilled for a request to be sent to a webhook.
+                              must be fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
                                   Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                   CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
-
 
                                   'object' - The object from the incoming request. The value is null for DELETE requests.
                                   'oldObject' - The existing object. The value is null for CREATE requests.
@@ -4927,7 +4925,6 @@ spec:
                                   'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                     request resource.
                                   Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                                   Required.
                                 type: string
@@ -4940,7 +4937,6 @@ spec:
                                   must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                                   '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                                   optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                                   Required.
                                 type: string
@@ -5054,6 +5050,8 @@ spec:
                                   name:
                                     description: Name of the global context entry
                                     type: string
+                                required:
+                                - name
                                 type: object
                               imageRegistry:
                                 description: |-
@@ -6050,6 +6048,8 @@ spec:
                                               description: Name of the global context
                                                 entry
                                               type: string
+                                          required:
+                                          - name
                                           type: object
                                         imageRegistry:
                                           description: |-
@@ -7092,6 +7092,8 @@ spec:
                                               description: Name of the global context
                                                 entry
                                               type: string
+                                          required:
+                                          - name
                                           type: object
                                         imageRegistry:
                                           description: |-
@@ -7445,6 +7447,8 @@ spec:
                                               description: Name of the global context
                                                 entry
                                               type: string
+                                          required:
+                                          - name
                                           type: object
                                         imageRegistry:
                                           description: |-
@@ -7605,18 +7609,15 @@ spec:
                                           a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                           name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                           The key is combined with the resource name of the
                                           ValidatingAdmissionPolicy to construct an audit annotation key:
                                           "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                           If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                           and the same audit annotation key, the annotation key will be identical.
                                           In this case, the first annotation written with the key will be included
                                           in the audit event and all subsequent annotations with the same key
                                           will be discarded.
-
 
                                           Required.
                                         type: string
@@ -7631,12 +7632,10 @@ spec:
                                           If the result of the valueExpression is more than 10kb in length, it
                                           will be truncated to 10kb.
 
-
                                           If multiple ValidatingAdmissionPolicyBinding resources match an
                                           API request, then the valueExpression will be evaluated for
                                           each binding. All unique values produced by the valueExpressions
                                           will be joined together in a comma-separated list.
-
 
                                           Required.
                                         type: string
@@ -7658,12 +7657,12 @@ spec:
                                           expressions have access to the contents
                                           of the API request/response, organized into
                                           CEL variables as well as some other useful
-                                          variables:\n\n\n- 'object' - The object
-                                          from the incoming request. The value is
-                                          null for DELETE requests.\n- 'oldObject'
-                                          - The existing object. The value is null
-                                          for CREATE requests.\n- 'request' - Attributes
-                                          of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
+                                          variables:\n\n- 'object' - The object from
+                                          the incoming request. The value is null
+                                          for DELETE requests.\n- 'oldObject' - The
+                                          existing object. The value is null for CREATE
+                                          requests.\n- 'request' - Attributes of the
+                                          API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
                                           'params' - Parameter resource referred to
                                           by the policy binding being evaluated. Only
                                           populated if the policy has a ParamKind.\n-
@@ -7680,10 +7679,10 @@ spec:
                                           https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                           'authorizer.requestResource' - A CEL ResourceCheck
                                           constructed from the 'authorizer' and configured
-                                          with the\n  request resource.\n\n\nThe `apiVersion`,
+                                          with the\n  request resource.\n\nThe `apiVersion`,
                                           `kind`, `metadata.name` and `metadata.generateName`
                                           are always accessible from the root of the\nobject.
-                                          No other metadata properties are accessible.\n\n\nOnly
+                                          No other metadata properties are accessible.\n\nOnly
                                           property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                           are accessible.\nAccessible property names
                                           are escaped according to the following rules
@@ -7704,8 +7703,8 @@ spec:
                                           named \"x-prop\": {\"Expression\": \"object.x__dash__prop
                                           > 0\"}\n  - Expression accessing a property
                                           named \"redact__d\": {\"Expression\": \"object.redact__underscores__d
-                                          > 0\"}\n\n\nEquality on arrays with list
-                                          type of 'set' or 'map' ignores element order,
+                                          > 0\"}\n\nEquality on arrays with list type
+                                          of 'set' or 'map' ignores element order,
                                           i.e. [1, 2] == [2, 1].\nConcatenation on
                                           arrays with x-kubernetes-list-type use the
                                           semantics of the list type:\n  - 'set':
@@ -7779,11 +7778,14 @@ spec:
                                   properties:
                                     name:
                                       description: |-
-                                        `name` is the name of the resource being referenced.
+                                        name is the name of the resource being referenced.
 
+                                        One of `name` or `selector` must be set, but `name` and `selector` are
+                                        mutually exclusive properties. If one is set, the other must be unset.
 
-                                        `name` and `selector` are mutually exclusive properties. If one is set,
-                                        the other must be unset.
+                                        A single parameter used for all admission requests can be configured
+                                        by setting the `name` field, leaving `selector` blank, and setting namespace
+                                        if `paramKind` is namespace-scoped.
                                       type: string
                                     namespace:
                                       description: |-
@@ -7791,14 +7793,11 @@ spec:
                                         the search for params to a specific namespace. Applies to both `name` and
                                         `selector` fields.
 
-
                                         A per-namespace parameter may be used by specifying a namespace-scoped
                                         `paramKind` in the policy and leaving this field empty.
 
-
                                         - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                         field results in a configuration error.
-
 
                                         - If `paramKind` is namespace-scoped, the namespace of the object being
                                         evaluated for admission will be used when this field is left unset. Take
@@ -7814,19 +7813,17 @@ spec:
                                         If set to `Deny`, then no matched parameters will be subject to the
                                         `failurePolicy` of the policy.
 
-
                                         Allowed values are `Allow` or `Deny`
-                                        Default to `Deny`
+
+                                        Required
                                       type: string
                                     selector:
                                       description: |-
                                         selector can be used to match multiple param objects based on their labels.
                                         Supply selector: {} to match all resources of the ParamKind.
 
-
                                         If multiple params are found, they are all evaluated with the policy expressions
                                         and the results are ANDed together.
-
 
                                         One of `name` or `selector` must be set, but `name` and `selector` are
                                         mutually exclusive properties. If one is set, the other must be unset.
@@ -7884,7 +7881,8 @@ spec:
                                     The variables defined here will be available under `variables` in other expressions of the policy.
                                   items:
                                     description: Variable is the definition of a variable
-                                      that is used for composition.
+                                      that is used for composition. A variable is
+                                      defined as a named expression.
                                     properties:
                                       expression:
                                         description: |-
@@ -7901,6 +7899,7 @@ spec:
                                     - expression
                                     - name
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   type: array
                               type: object
                             deny:
@@ -7915,6 +7914,87 @@ spec:
                                     See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
                                   x-kubernetes-preserve-unknown-fields: true
                               type: object
+                            failureAction:
+                              description: |-
+                                FailureAction defines if a validation policy rule violation should block
+                                the admission review request (Enforce), or allow (Audit) the admission review request
+                                and report an error in a policy report. Optional.
+                                Allowed values are Audit or Enforce.
+                              enum:
+                              - Audit
+                              - Enforce
+                              type: string
+                            failureActionOverrides:
+                              description: |-
+                                FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
+                                namespace-wise. It overrides FailureAction for the specified namespaces.
+                              items:
+                                properties:
+                                  action:
+                                    description: ValidationFailureAction defines the
+                                      policy validation failure action
+                                    enum:
+                                    - audit
+                                    - enforce
+                                    - Audit
+                                    - Enforce
+                                    type: string
+                                  namespaceSelector:
+                                    description: |-
+                                      A label selector is a label query over a set of resources. The result of matchLabels and
+                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                      label selector matches no objects.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
                             foreach:
                               description: ForEach applies validate rules to a list
                                 of sub-elements by creating a context for each entry
@@ -8041,6 +8121,8 @@ spec:
                                               description: Name of the global context
                                                 entry
                                               type: string
+                                          required:
+                                          - name
                                           type: object
                                         imageRegistry:
                                           description: |-
@@ -8670,87 +8752,6 @@ spec:
                                   - latest
                                   type: string
                               type: object
-                            validationFailureAction:
-                              description: |-
-                                ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (Enforce), or allow (Audit) the admission review request
-                                and report an error in a policy report. Optional.
-                                Allowed values are Audit or Enforce.
-                              enum:
-                              - Audit
-                              - Enforce
-                              type: string
-                            validationFailureActionOverrides:
-                              description: |-
-                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-                              items:
-                                properties:
-                                  action:
-                                    description: ValidationFailureAction defines the
-                                      policy validation failure action
-                                    enum:
-                                    - audit
-                                    - enforce
-                                    - Audit
-                                    - Enforce
-                                    type: string
-                                  namespaceSelector:
-                                    description: |-
-                                      A label selector is a label query over a set of resources. The result of matchLabels and
-                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
-                                      label selector matches no objects.
-                                    properties:
-                                      matchExpressions:
-                                        description: matchExpressions is a list of
-                                          label selector requirements. The requirements
-                                          are ANDed.
-                                        items:
-                                          description: |-
-                                            A label selector requirement is a selector that contains values, a key, and an operator that
-                                            relates the key and values.
-                                          properties:
-                                            key:
-                                              description: key is the label key that
-                                                the selector applies to.
-                                              type: string
-                                            operator:
-                                              description: |-
-                                                operator represents a key's relationship to a set of values.
-                                                Valid operators are In, NotIn, Exists and DoesNotExist.
-                                              type: string
-                                            values:
-                                              description: |-
-                                                values is an array of string values. If the operator is In or NotIn,
-                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                the values array must be empty. This array is replaced during a strategic
-                                                merge patch.
-                                              items:
-                                                type: string
-                                              type: array
-                                              x-kubernetes-list-type: atomic
-                                          required:
-                                          - key
-                                          - operator
-                                          type: object
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      matchLabels:
-                                        additionalProperties:
-                                          type: string
-                                        description: |-
-                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                        type: object
-                                    type: object
-                                    x-kubernetes-map-type: atomic
-                                  namespaces:
-                                    items:
-                                      type: string
-                                    type: array
-                                type: object
-                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -9453,6 +9454,12 @@ spec:
                                   CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
                                   Defaults to false.
                                 type: boolean
+                              failureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
@@ -9550,12 +9557,6 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
-                              validationFailureAction:
-                                description: Allowed values are Audit or Enforce.
-                                enum:
-                                - Audit
-                                - Enforce
-                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -9570,16 +9571,8 @@ spec:
                 type: object
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -9620,12 +9613,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -9815,7 +9803,6 @@ spec:
                               Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                               CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                               'object' - The object from the incoming request. The value is null for DELETE requests.
                               'oldObject' - The existing object. The value is null for CREATE requests.
                               'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -9824,7 +9811,6 @@ spec:
                               'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                 request resource.
                               Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                               Required.
                             type: string
@@ -9837,7 +9823,6 @@ spec:
                               must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                               '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                               optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                               Required.
                             type: string
@@ -9951,6 +9936,8 @@ spec:
                               name:
                                 description: Name of the global context entry
                                 type: string
+                            required:
+                            - name
                             type: object
                           imageRegistry:
                             description: |-
@@ -10733,6 +10720,8 @@ spec:
                                           description: Name of the global context
                                             entry
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     imageRegistry:
                                       description: |-
@@ -11561,6 +11550,8 @@ spec:
                                           description: Name of the global context
                                             entry
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     imageRegistry:
                                       description: |-
@@ -11905,6 +11896,8 @@ spec:
                                           description: Name of the global context
                                             entry
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     imageRegistry:
                                       description: |-
@@ -12142,18 +12135,15 @@ spec:
                                       a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                       name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                       The key is combined with the resource name of the
                                       ValidatingAdmissionPolicy to construct an audit annotation key:
                                       "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                       If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                       and the same audit annotation key, the annotation key will be identical.
                                       In this case, the first annotation written with the key will be included
                                       in the audit event and all subsequent annotations with the same key
                                       will be discarded.
-
 
                                       Required.
                                     type: string
@@ -12168,12 +12158,10 @@ spec:
                                       If the result of the valueExpression is more than 10kb in length, it
                                       will be truncated to 10kb.
 
-
                                       If multiple ValidatingAdmissionPolicyBinding resources match an
                                       API request, then the valueExpression will be evaluated for
                                       each binding. All unique values produced by the valueExpressions
                                       will be joined together in a comma-separated list.
-
 
                                       Required.
                                     type: string
@@ -12194,7 +12182,7 @@ spec:
                                       which will be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                                       expressions have access to the contents of the
                                       API request/response, organized into CEL variables
-                                      as well as some other useful variables:\n\n\n-
+                                      as well as some other useful variables:\n\n-
                                       'object' - The object from the incoming request.
                                       The value is null for DELETE requests.\n- 'oldObject'
                                       - The existing object. The value is null for
@@ -12214,10 +12202,10 @@ spec:
                                       of the request.\n  See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                       'authorizer.requestResource' - A CEL ResourceCheck
                                       constructed from the 'authorizer' and configured
-                                      with the\n  request resource.\n\n\nThe `apiVersion`,
+                                      with the\n  request resource.\n\nThe `apiVersion`,
                                       `kind`, `metadata.name` and `metadata.generateName`
                                       are always accessible from the root of the\nobject.
-                                      No other metadata properties are accessible.\n\n\nOnly
+                                      No other metadata properties are accessible.\n\nOnly
                                       property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                       are accessible.\nAccessible property names are
                                       escaped according to the following rules when
@@ -12237,7 +12225,7 @@ spec:
                                       {\"Expression\": \"object.x__dash__prop > 0\"}\n
                                       \ - Expression accessing a property named \"redact__d\":
                                       {\"Expression\": \"object.redact__underscores__d
-                                      > 0\"}\n\n\nEquality on arrays with list type
+                                      > 0\"}\n\nEquality on arrays with list type
                                       of 'set' or 'map' ignores element order, i.e.
                                       [1, 2] == [2, 1].\nConcatenation on arrays with
                                       x-kubernetes-list-type use the semantics of
@@ -12311,11 +12299,14 @@ spec:
                               properties:
                                 name:
                                   description: |-
-                                    `name` is the name of the resource being referenced.
+                                    name is the name of the resource being referenced.
 
+                                    One of `name` or `selector` must be set, but `name` and `selector` are
+                                    mutually exclusive properties. If one is set, the other must be unset.
 
-                                    `name` and `selector` are mutually exclusive properties. If one is set,
-                                    the other must be unset.
+                                    A single parameter used for all admission requests can be configured
+                                    by setting the `name` field, leaving `selector` blank, and setting namespace
+                                    if `paramKind` is namespace-scoped.
                                   type: string
                                 namespace:
                                   description: |-
@@ -12323,14 +12314,11 @@ spec:
                                     the search for params to a specific namespace. Applies to both `name` and
                                     `selector` fields.
 
-
                                     A per-namespace parameter may be used by specifying a namespace-scoped
                                     `paramKind` in the policy and leaving this field empty.
 
-
                                     - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                     field results in a configuration error.
-
 
                                     - If `paramKind` is namespace-scoped, the namespace of the object being
                                     evaluated for admission will be used when this field is left unset. Take
@@ -12346,19 +12334,17 @@ spec:
                                     If set to `Deny`, then no matched parameters will be subject to the
                                     `failurePolicy` of the policy.
 
-
                                     Allowed values are `Allow` or `Deny`
-                                    Default to `Deny`
+
+                                    Required
                                   type: string
                                 selector:
                                   description: |-
                                     selector can be used to match multiple param objects based on their labels.
                                     Supply selector: {} to match all resources of the ParamKind.
 
-
                                     If multiple params are found, they are all evaluated with the policy expressions
                                     and the results are ANDed together.
-
 
                                     One of `name` or `selector` must be set, but `name` and `selector` are
                                     mutually exclusive properties. If one is set, the other must be unset.
@@ -12416,7 +12402,8 @@ spec:
                                 The variables defined here will be available under `variables` in other expressions of the policy.
                               items:
                                 description: Variable is the definition of a variable
-                                  that is used for composition.
+                                  that is used for composition. A variable is defined
+                                  as a named expression.
                                 properties:
                                   expression:
                                     description: |-
@@ -12433,6 +12420,7 @@ spec:
                                 - expression
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               type: array
                           type: object
                         deny:
@@ -12536,6 +12524,87 @@ spec:
                                   type: array
                               type: object
                           type: object
+                        failureAction:
+                          description: |-
+                            FailureAction defines if a validation policy rule violation should block
+                            the admission review request (Enforce), or allow (Audit) the admission review request
+                            and report an error in a policy report. Optional.
+                            Allowed values are Audit or Enforce.
+                          enum:
+                          - Audit
+                          - Enforce
+                          type: string
+                        failureActionOverrides:
+                          description: |-
+                            FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
+                            namespace-wise. It overrides FailureAction for the specified namespaces.
+                          items:
+                            properties:
+                              action:
+                                description: ValidationFailureAction defines the policy
+                                  validation failure action
+                                enum:
+                                - audit
+                                - enforce
+                                - Audit
+                                - Enforce
+                                type: string
+                              namespaceSelector:
+                                description: |-
+                                  A label selector is a label query over a set of resources. The result of matchLabels and
+                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                  label selector matches no objects.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
                         foreach:
                           description: ForEach applies validate rules to a list of
                             sub-elements by creating a context for each entry in the
@@ -12658,6 +12727,8 @@ spec:
                                           description: Name of the global context
                                             entry
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                     imageRegistry:
                                       description: |-
@@ -13279,87 +13350,6 @@ spec:
                               - latest
                               type: string
                           type: object
-                        validationFailureAction:
-                          description: |-
-                            ValidationFailureAction defines if a validation policy rule violation should block
-                            the admission review request (Enforce), or allow (Audit) the admission review request
-                            and report an error in a policy report. Optional.
-                            Allowed values are Audit or Enforce.
-                          enum:
-                          - Audit
-                          - Enforce
-                          type: string
-                        validationFailureActionOverrides:
-                          description: |-
-                            ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                            namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-                          items:
-                            properties:
-                              action:
-                                description: ValidationFailureAction defines the policy
-                                  validation failure action
-                                enum:
-                                - audit
-                                - enforce
-                                - Audit
-                                - Enforce
-                                type: string
-                              namespaceSelector:
-                                description: |-
-                                  A label selector is a label query over a set of resources. The result of matchLabels and
-                                  matchExpressions are ANDed. An empty label selector matches all objects. A null
-                                  label selector matches no objects.
-                                properties:
-                                  matchExpressions:
-                                    description: matchExpressions is a list of label
-                                      selector requirements. The requirements are
-                                      ANDed.
-                                    items:
-                                      description: |-
-                                        A label selector requirement is a selector that contains values, a key, and an operator that
-                                        relates the key and values.
-                                      properties:
-                                        key:
-                                          description: key is the label key that the
-                                            selector applies to.
-                                          type: string
-                                        operator:
-                                          description: |-
-                                            operator represents a key's relationship to a set of values.
-                                            Valid operators are In, NotIn, Exists and DoesNotExist.
-                                          type: string
-                                        values:
-                                          description: |-
-                                            values is an array of string values. If the operator is In or NotIn,
-                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                            the values array must be empty. This array is replaced during a strategic
-                                            merge patch.
-                                          items:
-                                            type: string
-                                          type: array
-                                          x-kubernetes-list-type: atomic
-                                      required:
-                                      - key
-                                      - operator
-                                      type: object
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                  matchLabels:
-                                    additionalProperties:
-                                      type: string
-                                    description: |-
-                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                    type: object
-                                type: object
-                                x-kubernetes-map-type: atomic
-                              namespaces:
-                                items:
-                                  type: string
-                                type: array
-                            type: object
-                          type: array
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
@@ -14032,6 +14022,12 @@ spec:
                                   type: array
                               type: object
                             type: array
+                          failureAction:
+                            description: Allowed values are Audit or Enforce.
+                            enum:
+                            - Audit
+                            - Enforce
+                            type: string
                           imageReferences:
                             description: |-
                               ImageReferences is a list of matching image reference patterns. At least one pattern in the
@@ -14113,12 +14109,6 @@ spec:
                             description: UseCache enables caching of image verify
                               responses for this rule
                             type: boolean
-                          validationFailureAction:
-                            description: Allowed values are Audit or Enforce.
-                            enum:
-                            - Audit
-                            - Enforce
-                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -14245,7 +14235,6 @@ spec:
                             Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                             CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
-
                             'object' - The object from the incoming request. The value is null for DELETE requests.
                             'oldObject' - The existing object. The value is null for CREATE requests.
                             'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
@@ -14254,7 +14243,6 @@ spec:
                             'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                               request resource.
                             Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                             Required.
                           type: string
@@ -14267,7 +14255,6 @@ spec:
                             must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                             '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                             optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                             Required.
                           type: string
@@ -14311,13 +14298,12 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must by fulfilled for a request to be sent to a webhook.
+                              must be fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
                                   Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                                   CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
-
 
                                   'object' - The object from the incoming request. The value is null for DELETE requests.
                                   'oldObject' - The existing object. The value is null for CREATE requests.
@@ -14327,7 +14313,6 @@ spec:
                                   'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
                                     request resource.
                                   Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-
 
                                   Required.
                                 type: string
@@ -14340,7 +14325,6 @@ spec:
                                   must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
                                   '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
                                   optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
-
 
                                   Required.
                                 type: string
@@ -14454,6 +14438,8 @@ spec:
                                   name:
                                     description: Name of the global context entry
                                     type: string
+                                required:
+                                - name
                                 type: object
                               imageRegistry:
                                 description: |-
@@ -15450,6 +15436,8 @@ spec:
                                               description: Name of the global context
                                                 entry
                                               type: string
+                                          required:
+                                          - name
                                           type: object
                                         imageRegistry:
                                           description: |-
@@ -16492,6 +16480,8 @@ spec:
                                               description: Name of the global context
                                                 entry
                                               type: string
+                                          required:
+                                          - name
                                           type: object
                                         imageRegistry:
                                           description: |-
@@ -16845,6 +16835,8 @@ spec:
                                               description: Name of the global context
                                                 entry
                                               type: string
+                                          required:
+                                          - name
                                           type: object
                                         imageRegistry:
                                           description: |-
@@ -17005,18 +16997,15 @@ spec:
                                           a ValidatingAdmissionPolicy must be unique. The key must be a qualified
                                           name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
 
-
                                           The key is combined with the resource name of the
                                           ValidatingAdmissionPolicy to construct an audit annotation key:
                                           "{ValidatingAdmissionPolicy name}/{key}".
-
 
                                           If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
                                           and the same audit annotation key, the annotation key will be identical.
                                           In this case, the first annotation written with the key will be included
                                           in the audit event and all subsequent annotations with the same key
                                           will be discarded.
-
 
                                           Required.
                                         type: string
@@ -17031,12 +17020,10 @@ spec:
                                           If the result of the valueExpression is more than 10kb in length, it
                                           will be truncated to 10kb.
 
-
                                           If multiple ValidatingAdmissionPolicyBinding resources match an
                                           API request, then the valueExpression will be evaluated for
                                           each binding. All unique values produced by the valueExpressions
                                           will be joined together in a comma-separated list.
-
 
                                           Required.
                                         type: string
@@ -17058,12 +17045,12 @@ spec:
                                           expressions have access to the contents
                                           of the API request/response, organized into
                                           CEL variables as well as some other useful
-                                          variables:\n\n\n- 'object' - The object
-                                          from the incoming request. The value is
-                                          null for DELETE requests.\n- 'oldObject'
-                                          - The existing object. The value is null
-                                          for CREATE requests.\n- 'request' - Attributes
-                                          of the API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
+                                          variables:\n\n- 'object' - The object from
+                                          the incoming request. The value is null
+                                          for DELETE requests.\n- 'oldObject' - The
+                                          existing object. The value is null for CREATE
+                                          requests.\n- 'request' - Attributes of the
+                                          API request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n-
                                           'params' - Parameter resource referred to
                                           by the policy binding being evaluated. Only
                                           populated if the policy has a ParamKind.\n-
@@ -17080,10 +17067,10 @@ spec:
                                           https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz\n-
                                           'authorizer.requestResource' - A CEL ResourceCheck
                                           constructed from the 'authorizer' and configured
-                                          with the\n  request resource.\n\n\nThe `apiVersion`,
+                                          with the\n  request resource.\n\nThe `apiVersion`,
                                           `kind`, `metadata.name` and `metadata.generateName`
                                           are always accessible from the root of the\nobject.
-                                          No other metadata properties are accessible.\n\n\nOnly
+                                          No other metadata properties are accessible.\n\nOnly
                                           property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*`
                                           are accessible.\nAccessible property names
                                           are escaped according to the following rules
@@ -17104,8 +17091,8 @@ spec:
                                           named \"x-prop\": {\"Expression\": \"object.x__dash__prop
                                           > 0\"}\n  - Expression accessing a property
                                           named \"redact__d\": {\"Expression\": \"object.redact__underscores__d
-                                          > 0\"}\n\n\nEquality on arrays with list
-                                          type of 'set' or 'map' ignores element order,
+                                          > 0\"}\n\nEquality on arrays with list type
+                                          of 'set' or 'map' ignores element order,
                                           i.e. [1, 2] == [2, 1].\nConcatenation on
                                           arrays with x-kubernetes-list-type use the
                                           semantics of the list type:\n  - 'set':
@@ -17179,11 +17166,14 @@ spec:
                                   properties:
                                     name:
                                       description: |-
-                                        `name` is the name of the resource being referenced.
+                                        name is the name of the resource being referenced.
 
+                                        One of `name` or `selector` must be set, but `name` and `selector` are
+                                        mutually exclusive properties. If one is set, the other must be unset.
 
-                                        `name` and `selector` are mutually exclusive properties. If one is set,
-                                        the other must be unset.
+                                        A single parameter used for all admission requests can be configured
+                                        by setting the `name` field, leaving `selector` blank, and setting namespace
+                                        if `paramKind` is namespace-scoped.
                                       type: string
                                     namespace:
                                       description: |-
@@ -17191,14 +17181,11 @@ spec:
                                         the search for params to a specific namespace. Applies to both `name` and
                                         `selector` fields.
 
-
                                         A per-namespace parameter may be used by specifying a namespace-scoped
                                         `paramKind` in the policy and leaving this field empty.
 
-
                                         - If `paramKind` is cluster-scoped, this field MUST be unset. Setting this
                                         field results in a configuration error.
-
 
                                         - If `paramKind` is namespace-scoped, the namespace of the object being
                                         evaluated for admission will be used when this field is left unset. Take
@@ -17214,19 +17201,17 @@ spec:
                                         If set to `Deny`, then no matched parameters will be subject to the
                                         `failurePolicy` of the policy.
 
-
                                         Allowed values are `Allow` or `Deny`
-                                        Default to `Deny`
+
+                                        Required
                                       type: string
                                     selector:
                                       description: |-
                                         selector can be used to match multiple param objects based on their labels.
                                         Supply selector: {} to match all resources of the ParamKind.
 
-
                                         If multiple params are found, they are all evaluated with the policy expressions
                                         and the results are ANDed together.
-
 
                                         One of `name` or `selector` must be set, but `name` and `selector` are
                                         mutually exclusive properties. If one is set, the other must be unset.
@@ -17284,7 +17269,8 @@ spec:
                                     The variables defined here will be available under `variables` in other expressions of the policy.
                                   items:
                                     description: Variable is the definition of a variable
-                                      that is used for composition.
+                                      that is used for composition. A variable is
+                                      defined as a named expression.
                                     properties:
                                       expression:
                                         description: |-
@@ -17301,6 +17287,7 @@ spec:
                                     - expression
                                     - name
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   type: array
                               type: object
                             deny:
@@ -17315,6 +17302,87 @@ spec:
                                     See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
                                   x-kubernetes-preserve-unknown-fields: true
                               type: object
+                            failureAction:
+                              description: |-
+                                FailureAction defines if a validation policy rule violation should block
+                                the admission review request (Enforce), or allow (Audit) the admission review request
+                                and report an error in a policy report. Optional.
+                                Allowed values are Audit or Enforce.
+                              enum:
+                              - Audit
+                              - Enforce
+                              type: string
+                            failureActionOverrides:
+                              description: |-
+                                FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
+                                namespace-wise. It overrides FailureAction for the specified namespaces.
+                              items:
+                                properties:
+                                  action:
+                                    description: ValidationFailureAction defines the
+                                      policy validation failure action
+                                    enum:
+                                    - audit
+                                    - enforce
+                                    - Audit
+                                    - Enforce
+                                    type: string
+                                  namespaceSelector:
+                                    description: |-
+                                      A label selector is a label query over a set of resources. The result of matchLabels and
+                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
+                                      label selector matches no objects.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
                             foreach:
                               description: ForEach applies validate rules to a list
                                 of sub-elements by creating a context for each entry
@@ -17441,6 +17509,8 @@ spec:
                                               description: Name of the global context
                                                 entry
                                               type: string
+                                          required:
+                                          - name
                                           type: object
                                         imageRegistry:
                                           description: |-
@@ -18070,87 +18140,6 @@ spec:
                                   - latest
                                   type: string
                               type: object
-                            validationFailureAction:
-                              description: |-
-                                ValidationFailureAction defines if a validation policy rule violation should block
-                                the admission review request (Enforce), or allow (Audit) the admission review request
-                                and report an error in a policy report. Optional.
-                                Allowed values are Audit or Enforce.
-                              enum:
-                              - Audit
-                              - Enforce
-                              type: string
-                            validationFailureActionOverrides:
-                              description: |-
-                                ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
-                                namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
-                              items:
-                                properties:
-                                  action:
-                                    description: ValidationFailureAction defines the
-                                      policy validation failure action
-                                    enum:
-                                    - audit
-                                    - enforce
-                                    - Audit
-                                    - Enforce
-                                    type: string
-                                  namespaceSelector:
-                                    description: |-
-                                      A label selector is a label query over a set of resources. The result of matchLabels and
-                                      matchExpressions are ANDed. An empty label selector matches all objects. A null
-                                      label selector matches no objects.
-                                    properties:
-                                      matchExpressions:
-                                        description: matchExpressions is a list of
-                                          label selector requirements. The requirements
-                                          are ANDed.
-                                        items:
-                                          description: |-
-                                            A label selector requirement is a selector that contains values, a key, and an operator that
-                                            relates the key and values.
-                                          properties:
-                                            key:
-                                              description: key is the label key that
-                                                the selector applies to.
-                                              type: string
-                                            operator:
-                                              description: |-
-                                                operator represents a key's relationship to a set of values.
-                                                Valid operators are In, NotIn, Exists and DoesNotExist.
-                                              type: string
-                                            values:
-                                              description: |-
-                                                values is an array of string values. If the operator is In or NotIn,
-                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                                the values array must be empty. This array is replaced during a strategic
-                                                merge patch.
-                                              items:
-                                                type: string
-                                              type: array
-                                              x-kubernetes-list-type: atomic
-                                          required:
-                                          - key
-                                          - operator
-                                          type: object
-                                        type: array
-                                        x-kubernetes-list-type: atomic
-                                      matchLabels:
-                                        additionalProperties:
-                                          type: string
-                                        description: |-
-                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
-                                        type: object
-                                    type: object
-                                    x-kubernetes-map-type: atomic
-                                  namespaces:
-                                    items:
-                                      type: string
-                                    type: array
-                                type: object
-                              type: array
                           type: object
                         verifyImages:
                           description: VerifyImages is used to verify image signatures
@@ -18853,6 +18842,12 @@ spec:
                                   CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
                                   Defaults to false.
                                 type: boolean
+                              failureAction:
+                                description: Allowed values are Audit or Enforce.
+                                enum:
+                                - Audit
+                                - Enforce
+                                type: string
                               image:
                                 description: Deprecated. Use ImageReferences instead.
                                 type: string
@@ -18950,12 +18945,6 @@ spec:
                                 description: UseCache enables caching of image verify
                                   responses for this rule.
                                 type: boolean
-                              validationFailureAction:
-                                description: Allowed values are Audit or Enforce.
-                                enum:
-                                - Audit
-                                - Enforce
-                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -18970,16 +18959,8 @@ spec:
                 type: object
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -19020,12 +19001,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string

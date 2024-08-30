@@ -97,7 +97,7 @@ type controller struct {
 	gctxentryLister   kyvernov2alpha1listers.GlobalContextEntryLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	// config
 	server             string
@@ -138,7 +138,7 @@ func NewController(
 	configuration config.Configuration,
 	caSecretName string,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
 	c := controller{
 		discoveryClient:    discoveryClient,
 		mwcClient:          mwcClient,
@@ -981,11 +981,19 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
+			for _, g := range rule.Generation.ForEachGeneration {
+				if g.GeneratePattern.ResourceSpec.Kind != "" {
+					matchedGVK = append(matchedGVK, g.GeneratePattern.ResourceSpec.Kind)
+				} else {
+					matchedGVK = append(matchedGVK, g.GeneratePattern.CloneList.Kinds...)
+				}
+			}
 			if rule.Generation.ResourceSpec.Kind != "" {
 				matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
+			} else {
+				matchedGVK = append(matchedGVK, rule.Generation.CloneList.Kinds...)
+				continue
 			}
-			matchedGVK = append(matchedGVK, rule.Generation.CloneList.Kinds...)
-			continue
 		}
 		if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
 			(updateValidate && rule.HasMutateExisting()) ||
