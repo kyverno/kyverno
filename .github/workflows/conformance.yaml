@@ -486,13 +486,11 @@ jobs:
               - custom-sigstore
         k8s-version:
           - name: v1.28
-            version: v1.28.13
+            version: v1.28.x
           - name: v1.29
-            version: v1.29.8
+            version: v1.29.x
           - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+            version: v1.30.x
         tests:
           - custom-sigstore
     needs: prepare-images
