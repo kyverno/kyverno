@@ -146,7 +146,7 @@ func createrLeaderControllers(
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 		serverIP,
-		int32(webhookTimeout),
+		int32(webhookTimeout), //nolint:gosec
 		servicePort,
 		webhookServerPort,
 		autoUpdateWebhooks,
@@ -222,8 +222,8 @@ func createrLeaderControllers(
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
-			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
-			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
+			kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicies(),
+			kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
 			checker,
 		)
@@ -473,8 +473,8 @@ func main() {
 					setup.KyvernoDynamicClient,
 					certRenewer,
 					runtime,
-					int32(servicePort),
-					int32(webhookServerPort),
+					int32(servicePort),       //nolint:gosec
+					int32(webhookServerPort), //nolint:gosec
 					setup.Configuration,
 					eventGenerator,
 				)
@@ -585,7 +585,7 @@ func main() {
 			kubeInformer.Rbac().V1().RoleBindings().Lister(),
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
-			int32(webhookServerPort),
+			int32(webhookServerPort), //nolint:gosec
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers

@@ -16,7 +16,7 @@ spec:
             kinds:
               - Pod
       verifyImages:
-      - validationFailureAction: Enforce
+      - failureAction: Enforce
         imageReferences:
         - "ghcr.io/chipzoller/zulu:*"
         attestors:

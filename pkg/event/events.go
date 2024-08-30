@@ -347,7 +347,7 @@ func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName
 	vapEvent := Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
-			APIVersion: "admissionregistration.k8s.io/v1alpha1",
+			APIVersion: "admissionregistration.k8s.io/v1beta1",
 			Kind:       "ValidatingAdmissionPolicy",
 			Name:       vapName,
 		},
@@ -359,7 +359,7 @@ func NewValidatingAdmissionPolicyEvent(policy kyvernov1.PolicyInterface, vapName
 	vapBindingEvent := Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
-			APIVersion: "admissionregistration.k8s.io/v1alpha1",
+			APIVersion: "admissionregistration.k8s.io/v1beta1",
 			Kind:       "ValidatingAdmissionPolicyBinding",
 			Name:       vapBindingName,
 		},

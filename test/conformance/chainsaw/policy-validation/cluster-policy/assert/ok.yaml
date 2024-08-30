@@ -11,7 +11,7 @@ spec:
           kinds:
             - Namespace
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: "namespace must have an env label"
       assert:
         object:

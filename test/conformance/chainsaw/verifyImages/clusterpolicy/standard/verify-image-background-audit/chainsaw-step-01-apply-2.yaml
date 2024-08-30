@@ -29,7 +29,7 @@ spec:
       - ghcr.io/kyverno/test-verify-image:*
       mutateDigest: false
       verifyDigest: false
-      validationFailureAction: Audit
+      failureAction: Audit
   - name: require-ns-purpose-label
     match:
       any:
@@ -37,7 +37,7 @@ spec:
           kinds:
           - Pod
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       message: "You must have label `purpose` with value `production` set on all new namespaces."
       pattern:
         metadata:

@@ -14,7 +14,7 @@ spec:
             - "prod-*"
             - "staging"
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         cel:
           expressions:
             - expression: "'app' in object.metadata.labels"
