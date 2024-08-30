@@ -77,14 +77,15 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 				warnings = append(warnings, w...)
 			}
 		} else {
-			admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
-			checker = generate.NewGenerateFactory(client, rule.Generation, admissionSA, logging.GlobalLogger())
-			if w, path, err := checker.Validate(context.TODO()); err != nil {
-				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
-			} else if warnings != nil {
-				warnings = append(warnings, w...)
+			if rule.Generation.Synchronize {
+				admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
+				checker = generate.NewGenerateFactory(client, rule.Generation, admissionSA, logging.GlobalLogger())
+				if w, path, err := checker.Validate(context.TODO()); err != nil {
+					return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
+				} else if warnings != nil {
+					warnings = append(warnings, w...)
+				}
 			}
-
 			checker = generate.NewGenerateFactory(client, rule.Generation, backgroundSA, logging.GlobalLogger())
 			if w, path, err := checker.Validate(context.TODO()); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
