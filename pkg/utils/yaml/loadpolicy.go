@@ -8,14 +8,14 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	log "github.com/kyverno/kyverno/pkg/logging"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // GetPolicy extracts policies from YAML bytes
-func GetPolicy(bytes []byte) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, validatingAdmissionPolicyBindings []v1alpha1.ValidatingAdmissionPolicyBinding, err error) {
+func GetPolicy(bytes []byte) (policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []admissionregistrationv1beta1.ValidatingAdmissionPolicy, validatingAdmissionPolicyBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, err error) {
 	documents, err := extyaml.SplitDocuments(bytes)
 	if err != nil {
 		return nil, nil, nil, err
@@ -51,11 +51,11 @@ func GetPolicy(bytes []byte) (policies []kyvernov1.PolicyInterface, validatingAd
 	return policies, validatingAdmissionPolicies, validatingAdmissionPolicyBindings, err
 }
 
-func addPolicy(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy, validatingAdmissionPolicyBindings []v1alpha1.ValidatingAdmissionPolicyBinding, us *unstructured.Unstructured) ([]kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, []v1alpha1.ValidatingAdmissionPolicyBinding, error) {
+func addPolicy(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies []admissionregistrationv1beta1.ValidatingAdmissionPolicy, validatingAdmissionPolicyBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, us *unstructured.Unstructured) ([]kyvernov1.PolicyInterface, []admissionregistrationv1beta1.ValidatingAdmissionPolicy, []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, error) {
 	kind := us.GetKind()
 
 	if strings.Compare(kind, "ValidatingAdmissionPolicy") == 0 {
-		validatingAdmissionPolicy := v1alpha1.ValidatingAdmissionPolicy{}
+		validatingAdmissionPolicy := admissionregistrationv1beta1.ValidatingAdmissionPolicy{}
 
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(us.Object, &validatingAdmissionPolicy, true); err != nil {
 			return policies, nil, validatingAdmissionPolicyBindings, fmt.Errorf("failed to decode policy: %v", err)
@@ -68,7 +68,7 @@ func addPolicy(policies []kyvernov1.PolicyInterface, validatingAdmissionPolicies
 
 		validatingAdmissionPolicies = append(validatingAdmissionPolicies, validatingAdmissionPolicy)
 	} else if strings.Compare(kind, "ValidatingAdmissionPolicyBinding") == 0 {
-		validatingAdmissionPolicyBinding := v1alpha1.ValidatingAdmissionPolicyBinding{}
+		validatingAdmissionPolicyBinding := admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding{}
 
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(us.Object, &validatingAdmissionPolicyBinding, true); err != nil {
 			return policies, validatingAdmissionPolicies, nil, fmt.Errorf("failed to decode policy: %v", err)
