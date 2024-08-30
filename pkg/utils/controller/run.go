@@ -54,7 +54,7 @@ func newControllerMetrics(logger logr.Logger, controllerName string) *controller
 	}
 }
 
-func Run(ctx context.Context, logger logr.Logger, controllerName string, period time.Duration, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, routines ...func(context.Context, logr.Logger)) {
+func Run(ctx context.Context, logger logr.Logger, controllerName string, period time.Duration, queue workqueue.TypedRateLimitingInterface[any], n, maxRetries int, r reconcileFunc, routines ...func(context.Context, logr.Logger)) {
 	logger.Info("starting ...")
 	defer logger.Info("stopped")
 	var wg sync.WaitGroup
@@ -88,12 +88,12 @@ func Run(ctx context.Context, logger logr.Logger, controllerName string, period 
 	logger.Info("waiting for workers to terminate ...")
 }
 
-func worker(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) {
+func worker(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[any], maxRetries int, r reconcileFunc) {
 	for processNextWorkItem(ctx, logger, metric, queue, maxRetries, r) {
 	}
 }
 
-func processNextWorkItem(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) bool {
+func processNextWorkItem(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[any], maxRetries int, r reconcileFunc) bool {
 	if obj, quit := queue.Get(); !quit {
 		defer queue.Done(obj)
 		handleErr(ctx, logger, metric, queue, maxRetries, reconcile(ctx, logger, obj, r), obj)
@@ -102,7 +102,7 @@ func processNextWorkItem(ctx context.Context, logger logr.Logger, metric *contro
 	return false
 }
 
-func handleErr(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.RateLimitingInterface, maxRetries int, err error, obj interface{}) {
+func handleErr(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[any], maxRetries int, err error, obj interface{}) {
 	if metric.reconcileTotal != nil {
 		metric.reconcileTotal.Add(ctx, 1, sdkmetric.WithAttributes(attribute.String("controller_name", metric.controllerName)))
 	}

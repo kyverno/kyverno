@@ -12,7 +12,7 @@ spec:
           kinds:
           - Pod
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       message: "Using a mutable image tag e.g. 'latest' is not allowed."
       pattern:
         spec:

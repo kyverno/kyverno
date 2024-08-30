@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
-	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
 	"k8s.io/client-go/util/workqueue"
@@ -79,10 +79,10 @@ type controller struct {
 	// listers
 	polLister  kyvernov1listers.PolicyLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
-	vapLister  admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
+	vapLister  admissionregistrationv1beta1listers.ValidatingAdmissionPolicyLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	lock            sync.RWMutex
 	dynamicWatchers map[schema.GroupVersionResource]*watcher
@@ -93,13 +93,13 @@ func NewController(
 	client dclient.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
+	vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
 		client:          client,
 		polLister:       polInformer.Lister(),
 		cpolLister:      cpolInformer.Lister(),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
 	if vapInformer != nil {

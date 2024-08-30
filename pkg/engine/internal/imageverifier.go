@@ -82,7 +82,7 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 		if found {
 			result := newValueObj[img] != oldValueObj[img]
 			if result {
-				log.V(2).Info("annotation mismatch", "oldValue", oldValue, "newValue", newValue, "key", kyverno.AnnotationImageVerify)
+				log.V(2).Info("annotation mismatch", "image", img, "oldValue", oldValue, "newValue", newValue, "key", kyverno.AnnotationImageVerify)
 				return result
 			}
 		}
@@ -126,12 +126,12 @@ func isImageVerified(resource unstructured.Unstructured, image string, log logr.
 	}
 	data, ok := annotations[kyverno.AnnotationImageVerify]
 	if !ok {
-		log.V(2).Info("missing image metadata in annotation", "key", kyverno.AnnotationImageVerify)
+		log.V(2).Info("missing image metadata in annotation", "key", kyverno.AnnotationImageVerify, "image", image)
 		return false, fmt.Errorf("image is not verified")
 	}
 	ivm, err := engineapi.ParseImageMetadata(data)
 	if err != nil {
-		log.Error(err, "failed to parse image verification metadata", "data", data)
+		log.Error(err, "failed to parse image verification metadata", "data", data, "image", image)
 		return false, fmt.Errorf("failed to parse image metadata: %w", err)
 	}
 	return ivm.IsVerified(image), nil
@@ -239,7 +239,7 @@ func (iv *ImageVerifier) Verify(
 
 		if HasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
 			msg := kyverno.AnnotationImageVerify + " annotation cannot be changed"
-			iv.logger.Info("image verification error", "reason", msg)
+			iv.logger.Info("image verification error", "reason", msg, "image", image)
 			responses = append(responses, engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg))
 			continue
 		}
@@ -263,7 +263,7 @@ func (iv *ImageVerifier) Verify(
 		if iv.ivCache != nil {
 			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
 			if err != nil {
-				iv.logger.Error(err, "error occurred during cache get")
+				iv.logger.Error(err, "error occurred during cache get", "image", image)
 			} else {
 				isInCache = found
 			}
@@ -282,7 +282,7 @@ func (iv *ImageVerifier) Verify(
 				if iv.ivCache != nil {
 					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
 					if err != nil {
-						iv.logger.Error(err, "error occurred during cache set")
+						iv.logger.Error(err, "error occurred during cache set", "image", image)
 					} else {
 						if setted {
 							iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
@@ -334,7 +334,7 @@ func (iv *ImageVerifier) verifyImage(
 	}
 	iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 	if err := iv.policyContext.JSONContext().AddImageInfo(imageInfo, cfg); err != nil {
-		iv.logger.Error(err, "failed to add image to context")
+		iv.logger.Error(err, "failed to add image to context", "image", image)
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err), ""
 	}
 	if len(imageVerify.Attestors) > 0 {
@@ -376,7 +376,7 @@ func (iv *ImageVerifier) verifyAttestors(
 		iv.logger.V(4).Info("verifying attestors", "path", path)
 		cosignResponse, err = iv.verifyAttestorSet(ctx, attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
-			iv.logger.Error(err, "failed to verify image")
+			iv.logger.Error(err, "failed to verify image", "image", image)
 			return iv.handleRegistryErrors(image, err), nil
 		}
 	}
@@ -432,7 +432,7 @@ func (iv *ImageVerifier) verifyAttestations(
 				v, opts, subPath := iv.buildVerifier(a, imageVerify, image, &imageVerify.Attestations[i])
 				cosignResp, err := v.FetchAttestations(ctx, *opts)
 				if err != nil {
-					iv.logger.Error(err, "failed to fetch attestations")
+					iv.logger.Error(err, "failed to fetch attestations", "image", image)
 					errorList = append(errorList, err)
 					continue
 				}
@@ -447,12 +447,12 @@ func (iv *ImageVerifier) verifyAttestations(
 				if attestationError == nil {
 					verifiedCount++
 					if verifiedCount >= requiredCount {
-						iv.logger.V(2).Info("image attestations verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
+						iv.logger.V(2).Info("image attestations verification succeeded", "image", image, "verifiedCount", verifiedCount, "requiredCount", requiredCount)
 						break
 					}
 				} else {
 					attestationError = fmt.Errorf("%s: %w", entryPath+subPath, attestationError)
-					iv.logger.Error(attestationError, "image attestation verification failed")
+					iv.logger.Error(attestationError, "image attestation verification failed", "image", image)
 					errorList = append(errorList, attestationError)
 				}
 			}
@@ -493,7 +493,7 @@ func (iv *ImageVerifier) verifyAttestorSet(
 		var entryError error
 		var cosignResp *images.Response
 		attestorPath := fmt.Sprintf("%s.entries[%d]", path, i)
-		iv.logger.V(4).Info("verifying attestorSet", "path", attestorPath)
+		iv.logger.V(4).Info("verifying attestorSet", "path", attestorPath, "image", image)
 
 		if a.Attestor != nil {
 			nestedAttestorSet, err := kyvernov1.AttestorSetUnmarshal(a.Attestor)
@@ -514,7 +514,7 @@ func (iv *ImageVerifier) verifyAttestorSet(
 		if entryError == nil {
 			verifiedCount++
 			if verifiedCount >= requiredCount {
-				iv.logger.V(2).Info("image attestors verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
+				iv.logger.V(2).Info("image attestors verification succeeded", "image", image, "verifiedCount", verifiedCount, "requiredCount", requiredCount)
 				return cosignResp, nil
 			}
 		} else {
@@ -523,7 +523,7 @@ func (iv *ImageVerifier) verifyAttestorSet(
 	}
 
 	err := multierr.Combine(errorList...)
-	iv.logger.Info("image attestors verification failed", "verifiedCount", verifiedCount, "requiredCount", requiredCount, "errors", err.Error())
+	iv.logger.Info("image attestors verification failed", "image", image, "verifiedCount", verifiedCount, "requiredCount", requiredCount, "errors", err.Error())
 	return nil, err
 }
 
@@ -569,7 +569,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		opts.Type = attestation.Type
 		opts.IgnoreSCT = true // TODO: Add option to allow SCT when attestors are not provided
 		if attestation.PredicateType != "" && attestation.Type == "" {
-			iv.logger.Info("predicate type has been deprecated, please use type instead")
+			iv.logger.Info("predicate type has been deprecated, please use type instead", "image", image)
 			opts.Type = attestation.PredicateType
 		}
 		opts.FetchAttestations = true
@@ -657,7 +657,7 @@ func (iv *ImageVerifier) buildCosignVerifier(
 		opts.Annotations = attestor.Annotations
 	}
 
-	iv.logger.V(4).Info("cosign verifier built", "ignoreTlog", opts.IgnoreTlog, "ignoreSCT", opts.IgnoreSCT)
+	iv.logger.V(4).Info("cosign verifier built", "ignoreTlog", opts.IgnoreTlog, "ignoreSCT", opts.IgnoreSCT, "image", image)
 	return cosign.NewVerifier(), opts, path
 }
 
@@ -678,7 +678,7 @@ func (iv *ImageVerifier) buildNotaryVerifier(
 		opts.Type = attestation.Type
 		opts.PredicateType = attestation.PredicateType
 		if attestation.PredicateType != "" && attestation.Type == "" {
-			iv.logger.Info("predicate type has been deprecated, please use type instead")
+			iv.logger.Info("predicate type has been deprecated, please use type instead", "image", image)
 			opts.Type = attestation.PredicateType
 		}
 		opts.FetchAttestations = true

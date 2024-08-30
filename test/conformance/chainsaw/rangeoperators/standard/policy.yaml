@@ -11,7 +11,7 @@ spec:
             kinds:
             - ConfigMap
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: "All data values must be in the specified range."
         pattern:
           data:
