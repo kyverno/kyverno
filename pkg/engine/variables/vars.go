@@ -308,7 +308,7 @@ func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interf
 	return ctx.Query(variable)
 }
 
-func find_next_variable(s string) []int {
+func findNextVariable(s string) []int {
 	var res []int
 
 	all := regex.RegexMustache.FindAllStringIndex(s, -1)
@@ -340,11 +340,11 @@ func find_next_variable(s string) []int {
 	return res
 }
 
-func rep(value string, isDeleteRequest bool, log logr.Logger, ctx context.EvalInterface, vr VariableResolver, data *jsonUtils.ActionData) (interface{}, error) {
+func recursivelySubstituteVariables(value string, isDeleteRequest bool, log logr.Logger, ctx context.EvalInterface, vr VariableResolver, data *jsonUtils.ActionData) (interface{}, error) {
 	// find the first variable
 	// var prefix string
 	isEscaped := false
-	loc := find_next_variable(value)
+	loc := findNextVariable(value)
 	if loc == nil {
 		// We're inside the bottom most {{}}, so just 'unescape' (remove \) from escaped {{}} strings and evaluate the JMESPath expression
 		//   \{{ }} -> {{ }}
@@ -389,11 +389,11 @@ func rep(value string, isDeleteRequest bool, log logr.Logger, ctx context.EvalIn
 			shallow = true
 		}
 		// We do {{}} templating for the remaining part of the current context
-		templated_variable, err := rep(variable, isDeleteRequest, log, ctx, vr, data)
+		templated_variable, err := recursivelySubstituteVariables(variable, isDeleteRequest, log, ctx, vr, data)
 		if err != nil {
 			return nil, err
 		}
-		processed_suffix, err := rep(suffix, isDeleteRequest, log, ctx, vr, data)
+		processed_suffix, err := recursivelySubstituteVariables(suffix, isDeleteRequest, log, ctx, vr, data)
 		if err != nil {
 			return nil, err
 		}
@@ -433,7 +433,7 @@ func rep(value string, isDeleteRequest bool, log logr.Logger, ctx context.EvalIn
 			marshalled_value = strings.Replace(marshalled_value, "'", "\\'", -1)
 			return prefix + marshalled_value + processed_suffix.(string), nil
 		} else {
-			processed_variable, err := rep(marshalled_value, isDeleteRequest, log, ctx, vr, data)
+			processed_variable, err := recursivelySubstituteVariables(marshalled_value, isDeleteRequest, log, ctx, vr, data)
 			if err != nil {
 				return nil, err
 			}
@@ -450,7 +450,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 		if !ok {
 			return data.Element, nil
 		}
-		v, e := rep(value, isDeleteRequest, log, ctx, vr, data)
+		v, e := recursivelySubstituteVariables(value, isDeleteRequest, log, ctx, vr, data)
 		return v, e
 	})
 }
