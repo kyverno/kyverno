@@ -476,8 +476,7 @@ jobs:
         uses: ./.github/actions/kyverno-logs
 
   custom-sigstore:
-    runs-on:
-      group: kyverno-default
+    runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
