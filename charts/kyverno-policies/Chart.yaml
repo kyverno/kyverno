@@ -21,3 +21,8 @@ kubeVersion: ">=1.25.0-0"
 annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
+  artifacthub.io/changes: |
+    - kind: removed
+      description: Remove spec.validationFailureAction field from policies as it is deprecated
+    - kind: added
+      description: Add spec.validate[*].failureAction field to policies
