@@ -138,7 +138,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          by fulfilled for a request to be sent to a webhook.
+                          be fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -2963,10 +2963,14 @@ spec:
                               properties:
                                 name:
                                   description: |-
-                                    `name` is the name of the resource being referenced.
+                                    name is the name of the resource being referenced.
 
-                                    `name` and `selector` are mutually exclusive properties. If one is set,
-                                    the other must be unset.
+                                    One of `name` or `selector` must be set, but `name` and `selector` are
+                                    mutually exclusive properties. If one is set, the other must be unset.
+
+                                    A single parameter used for all admission requests can be configured
+                                    by setting the `name` field, leaving `selector` blank, and setting namespace
+                                    if `paramKind` is namespace-scoped.
                                   type: string
                                 namespace:
                                   description: |-
@@ -2995,7 +2999,8 @@ spec:
                                     `failurePolicy` of the policy.
 
                                     Allowed values are `Allow` or `Deny`
-                                    Default to `Deny`
+
+                                    Required
                                   type: string
                                 selector:
                                   description: |-
@@ -3061,7 +3066,8 @@ spec:
                                 The variables defined here will be available under `variables` in other expressions of the policy.
                               items:
                                 description: Variable is the definition of a variable
-                                  that is used for composition.
+                                  that is used for composition. A variable is defined
+                                  as a named expression.
                                 properties:
                                   expression:
                                     description: |-
@@ -3078,6 +3084,7 @@ spec:
                                 - expression
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               type: array
                           type: object
                         deny:
@@ -4898,7 +4905,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must by fulfilled for a request to be sent to a webhook.
+                              must be fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -7764,10 +7771,14 @@ spec:
                                   properties:
                                     name:
                                       description: |-
-                                        `name` is the name of the resource being referenced.
+                                        name is the name of the resource being referenced.
 
-                                        `name` and `selector` are mutually exclusive properties. If one is set,
-                                        the other must be unset.
+                                        One of `name` or `selector` must be set, but `name` and `selector` are
+                                        mutually exclusive properties. If one is set, the other must be unset.
+
+                                        A single parameter used for all admission requests can be configured
+                                        by setting the `name` field, leaving `selector` blank, and setting namespace
+                                        if `paramKind` is namespace-scoped.
                                       type: string
                                     namespace:
                                       description: |-
@@ -7796,7 +7807,8 @@ spec:
                                         `failurePolicy` of the policy.
 
                                         Allowed values are `Allow` or `Deny`
-                                        Default to `Deny`
+
+                                        Required
                                       type: string
                                     selector:
                                       description: |-
@@ -7862,7 +7874,8 @@ spec:
                                     The variables defined here will be available under `variables` in other expressions of the policy.
                                   items:
                                     description: Variable is the definition of a variable
-                                      that is used for composition.
+                                      that is used for composition. A variable is
+                                      defined as a named expression.
                                     properties:
                                       expression:
                                         description: |-
@@ -7879,6 +7892,7 @@ spec:
                                     - expression
                                     - name
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   type: array
                               type: object
                             deny:
@@ -12279,10 +12293,14 @@ spec:
                               properties:
                                 name:
                                   description: |-
-                                    `name` is the name of the resource being referenced.
+                                    name is the name of the resource being referenced.
 
-                                    `name` and `selector` are mutually exclusive properties. If one is set,
-                                    the other must be unset.
+                                    One of `name` or `selector` must be set, but `name` and `selector` are
+                                    mutually exclusive properties. If one is set, the other must be unset.
+
+                                    A single parameter used for all admission requests can be configured
+                                    by setting the `name` field, leaving `selector` blank, and setting namespace
+                                    if `paramKind` is namespace-scoped.
                                   type: string
                                 namespace:
                                   description: |-
@@ -12311,7 +12329,8 @@ spec:
                                     `failurePolicy` of the policy.
 
                                     Allowed values are `Allow` or `Deny`
-                                    Default to `Deny`
+
+                                    Required
                                   type: string
                                 selector:
                                   description: |-
@@ -12377,7 +12396,8 @@ spec:
                                 The variables defined here will be available under `variables` in other expressions of the policy.
                               items:
                                 description: Variable is the definition of a variable
-                                  that is used for composition.
+                                  that is used for composition. A variable is defined
+                                  as a named expression.
                                 properties:
                                   expression:
                                     description: |-
@@ -12394,6 +12414,7 @@ spec:
                                 - expression
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               type: array
                           type: object
                         deny:
@@ -14271,7 +14292,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must by fulfilled for a request to be sent to a webhook.
+                              must be fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -17137,10 +17158,14 @@ spec:
                                   properties:
                                     name:
                                       description: |-
-                                        `name` is the name of the resource being referenced.
+                                        name is the name of the resource being referenced.
 
-                                        `name` and `selector` are mutually exclusive properties. If one is set,
-                                        the other must be unset.
+                                        One of `name` or `selector` must be set, but `name` and `selector` are
+                                        mutually exclusive properties. If one is set, the other must be unset.
+
+                                        A single parameter used for all admission requests can be configured
+                                        by setting the `name` field, leaving `selector` blank, and setting namespace
+                                        if `paramKind` is namespace-scoped.
                                       type: string
                                     namespace:
                                       description: |-
@@ -17169,7 +17194,8 @@ spec:
                                         `failurePolicy` of the policy.
 
                                         Allowed values are `Allow` or `Deny`
-                                        Default to `Deny`
+
+                                        Required
                                       type: string
                                     selector:
                                       description: |-
@@ -17235,7 +17261,8 @@ spec:
                                     The variables defined here will be available under `variables` in other expressions of the policy.
                                   items:
                                     description: Variable is the definition of a variable
-                                      that is used for composition.
+                                      that is used for composition. A variable is
+                                      defined as a named expression.
                                     properties:
                                       expression:
                                         description: |-
@@ -17252,6 +17279,7 @@ spec:
                                     - expression
                                     - name
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   type: array
                               type: object
                             deny:

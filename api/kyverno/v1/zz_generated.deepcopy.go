@@ -24,7 +24,7 @@ package v1
 import (
 	k8smanifest "github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -218,29 +218,29 @@ func (in *CEL) DeepCopyInto(out *CEL) {
 	*out = *in
 	if in.Expressions != nil {
 		in, out := &in.Expressions, &out.Expressions
-		*out = make([]v1alpha1.Validation, len(*in))
+		*out = make([]v1beta1.Validation, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.ParamKind != nil {
 		in, out := &in.ParamKind, &out.ParamKind
-		*out = new(v1alpha1.ParamKind)
+		*out = new(v1beta1.ParamKind)
 		**out = **in
 	}
 	if in.ParamRef != nil {
 		in, out := &in.ParamRef, &out.ParamRef
-		*out = new(v1alpha1.ParamRef)
+		*out = new(v1beta1.ParamRef)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.AuditAnnotations != nil {
 		in, out := &in.AuditAnnotations, &out.AuditAnnotations
-		*out = make([]v1alpha1.AuditAnnotation, len(*in))
+		*out = make([]v1beta1.AuditAnnotation, len(*in))
 		copy(*out, *in)
 	}
 	if in.Variables != nil {
 		in, out := &in.Variables, &out.Variables
-		*out = make([]v1alpha1.Variable, len(*in))
+		*out = make([]v1beta1.Variable, len(*in))
 		copy(*out, *in)
 	}
 	return
@@ -1384,7 +1384,7 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 	if in.CELPreconditions != nil {
 		in, out := &in.CELPreconditions, &out.CELPreconditions
-		*out = make([]v1alpha1.MatchCondition, len(*in))
+		*out = make([]v1beta1.MatchCondition, len(*in))
 		copy(*out, *in)
 	}
 	in.Mutation.DeepCopyInto(&out.Mutation)
