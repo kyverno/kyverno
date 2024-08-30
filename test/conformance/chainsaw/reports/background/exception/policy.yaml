@@ -13,7 +13,7 @@ spec:
               kinds:
                 - ConfigMap
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: 'The label `team` is required.'
         pattern:
           metadata:

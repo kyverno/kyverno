@@ -51,7 +51,7 @@ type controller struct {
 	deploymentLister appsv1listers.DeploymentNamespaceLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	// config
 	controllerName      string
@@ -95,7 +95,7 @@ func NewController(
 	webhookCleanupSetup func(context.Context, logr.Logger) error,
 	postWebhookCleanup func(context.Context, logr.Logger) error,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), controllerName)
 	c := controller{
 		vwcClient:           vwcClient,
 		vwcLister:           vwcInformer.Lister(),

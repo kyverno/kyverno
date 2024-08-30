@@ -11,7 +11,7 @@ spec:
           kinds:
             - Pod
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: "pod must have an env label"
       foreach:
       - list: "['dummy']"

@@ -26,10 +26,10 @@ import (
 // ForEachGenerationApplyConfiguration represents an declarative configuration of the ForEachGeneration type for use
 // with apply.
 type ForEachGenerationApplyConfiguration struct {
-	List                                *string                             `json:"list,omitempty"`
-	Context                             []ContextEntryApplyConfiguration    `json:"context,omitempty"`
-	AnyAllConditions                    *AnyAllConditionsApplyConfiguration `json:"preconditions,omitempty"`
-	*GeneratePatternsApplyConfiguration `json:"GeneratePatterns,omitempty"`
+	List                               *string                             `json:"list,omitempty"`
+	Context                            []ContextEntryApplyConfiguration    `json:"context,omitempty"`
+	AnyAllConditions                   *AnyAllConditionsApplyConfiguration `json:"preconditions,omitempty"`
+	*GeneratePatternApplyConfiguration `json:"GeneratePattern,omitempty"`
 }
 
 // ForEachGenerationApplyConfiguration constructs an declarative configuration of the ForEachGeneration type for use with
@@ -122,7 +122,7 @@ func (b *ForEachGenerationApplyConfiguration) ensureResourceSpecApplyConfigurati
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawData field is set to the value of the last call.
 func (b *ForEachGenerationApplyConfiguration) WithRawData(value apiextensionsv1.JSON) *ForEachGenerationApplyConfiguration {
-	b.ensureGeneratePatternsApplyConfigurationExists()
+	b.ensureGeneratePatternApplyConfigurationExists()
 	b.RawData = &value
 	return b
 }
@@ -131,7 +131,7 @@ func (b *ForEachGenerationApplyConfiguration) WithRawData(value apiextensionsv1.
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Clone field is set to the value of the last call.
 func (b *ForEachGenerationApplyConfiguration) WithClone(value *CloneFromApplyConfiguration) *ForEachGenerationApplyConfiguration {
-	b.ensureGeneratePatternsApplyConfigurationExists()
+	b.ensureGeneratePatternApplyConfigurationExists()
 	b.Clone = value
 	return b
 }
@@ -140,13 +140,13 @@ func (b *ForEachGenerationApplyConfiguration) WithClone(value *CloneFromApplyCon
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CloneList field is set to the value of the last call.
 func (b *ForEachGenerationApplyConfiguration) WithCloneList(value *CloneListApplyConfiguration) *ForEachGenerationApplyConfiguration {
-	b.ensureGeneratePatternsApplyConfigurationExists()
+	b.ensureGeneratePatternApplyConfigurationExists()
 	b.CloneList = value
 	return b
 }
 
-func (b *ForEachGenerationApplyConfiguration) ensureGeneratePatternsApplyConfigurationExists() {
-	if b.GeneratePatternsApplyConfiguration == nil {
-		b.GeneratePatternsApplyConfiguration = &GeneratePatternsApplyConfiguration{}
+func (b *ForEachGenerationApplyConfiguration) ensureGeneratePatternApplyConfigurationExists() {
+	if b.GeneratePatternApplyConfiguration == nil {
+		b.GeneratePatternApplyConfiguration = &GeneratePatternApplyConfiguration{}
 	}
 }

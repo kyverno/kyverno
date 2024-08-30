@@ -14,7 +14,7 @@ spec:
           - Pod
     name: test-not-in
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny:
         conditions:
           any:

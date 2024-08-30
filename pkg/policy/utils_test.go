@@ -52,6 +52,78 @@ func Test_resourceMatches(t *testing.T) {
 			want:               false,
 		},
 		{
+			name: "Matching resource with a wildcard name",
+			match: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+				Name:  "my-*",
+			},
+			res: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name": "my-pod",
+					},
+				},
+			},
+			isNamespacedPolicy: false,
+			want:               true,
+		},
+		{
+			name: "Non-matching resource with a wildcard name",
+			match: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+				Name:  "my-*",
+			},
+			res: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name": "test-pod",
+					},
+				},
+			},
+			isNamespacedPolicy: false,
+			want:               false,
+		},
+		{
+			name: "Matching resource with multiple wildcard names",
+			match: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+				Names: []string{"my-*", "test-pod"},
+			},
+			res: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name": "my-pod",
+					},
+				},
+			},
+			isNamespacedPolicy: false,
+			want:               true,
+		},
+		{
+			name: "Non-matching resource with multiple wildcard names",
+			match: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+				Names: []string{"my-*", "test-pod"},
+			},
+			res: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name": "pod",
+					},
+				},
+			},
+			isNamespacedPolicy: false,
+			want:               false,
+		},
+		{
 			name: "Matching resource based on its namespace",
 			match: kyverno.ResourceDescription{
 				Namespaces: []string{"test-ns"},
