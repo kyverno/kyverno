@@ -144,7 +144,7 @@ func validateOldObject(ctx context.Context, policyContext engineapi.PolicyContex
 		return nil, nil
 	}
 
-	oldResource := policyContext.NewResource()
+	oldResource := policyContext.OldResource()
 
 	if rule.MatchResources.All != nil || rule.MatchResources.Any != nil {
 		matched := match.CheckMatchesResources(
