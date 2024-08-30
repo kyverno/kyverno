@@ -137,18 +137,20 @@ func (h validatePssHandler) validate(
 		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks)
 		allowExisitingViolations := rule.HasValidateAllowExistingViolations()
 		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
+			logger.V(4).Info("is update request")
 			priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
 			if err != nil {
 				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to validate old object", err)
 			}
 
-			if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
-				logger.V(3).Info("skipping modified resource as validation results have not changed")
+			if ruleResponse.Status() == priorResp.Status() {
+				logger.V(3).Info("skipping modified resource as validation results have not changed", "oldResp", priorResp, "newResp", ruleResponse)
 				if ruleResponse.Status() == engineapi.RuleStatusPass {
 					return resource, ruleResponse
 				}
 				return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
 			}
+			logger.V(4).Info("old object response is different", "oldResp", priorResp, "newResp", ruleResponse)
 		}
 
 		return resource, ruleResponse
@@ -212,10 +214,7 @@ func (h validatePssHandler) validateOldObject(
 		return nil, errors.Wrapf(err, "failed to set operation")
 	}
 
-	obj := resource.Object
-	resource.Object = nil
-	_, resp := h.validate(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
-	resource.Object = obj
+	_, resp := h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
 
 	if err := policyContext.SetResources(oldResource, newResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to reset resources")
