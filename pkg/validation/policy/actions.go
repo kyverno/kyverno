@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
@@ -76,6 +77,14 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 				warnings = append(warnings, w...)
 			}
 		} else {
+			admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
+			checker = generate.NewGenerateFactory(client, rule.Generation, admissionSA, logging.GlobalLogger())
+			if w, path, err := checker.Validate(context.TODO()); err != nil {
+				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
+			} else if warnings != nil {
+				warnings = append(warnings, w...)
+			}
+
 			checker = generate.NewGenerateFactory(client, rule.Generation, backgroundSA, logging.GlobalLogger())
 			if w, path, err := checker.Validate(context.TODO()); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
