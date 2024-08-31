@@ -1,4 +1,4 @@
-{{- if .Values.cleanupController.enabled -}}
+{{- if and .Values.cleanupController.enabled .Values.test.enabled -}}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -25,5 +25,5 @@ spec:
       command:
         - /bin/sh
         - -c
-        - sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.service.port }}/health/liveness
+        - sleep {{ .Values.test.sleep | default 20 }} ; wget -O- -S --no-check-certificate https://{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.service.port }}/health/liveness
 {{- end -}}

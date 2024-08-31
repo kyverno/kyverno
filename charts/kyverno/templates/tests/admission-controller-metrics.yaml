@@ -1,4 +1,4 @@
-{{- if .Values.admissionController.metricsService.create -}}
+{{- if and .Values.admissionController.metricsService.create .Values.test.enabled -}}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -25,5 +25,5 @@ spec:
       command:
         - /bin/sh
         - -c
-        - sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.admission-controller.serviceName" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.admissionController.metricsService.port }}/metrics
+        - sleep {{ .Values.test.sleep | default 20 }} ; wget -O- -S --no-check-certificate http://{{ template "kyverno.admission-controller.serviceName" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.admissionController.metricsService.port }}/metrics
 {{- end -}}

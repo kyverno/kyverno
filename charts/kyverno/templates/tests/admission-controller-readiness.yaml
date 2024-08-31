@@ -1,3 +1,4 @@
+{{- if and .Values.admissionController.enabled (not .Values.test.disabled) -}}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -24,4 +25,5 @@ spec:
       command:
         - /bin/sh
         - -c
-        - sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.admissionController.service.port }}/health/readiness
+        - sleep {{ .Values.test.sleep | default 20 }} ; wget -O- -S --no-check-certificate https://{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.admissionController.service.port }}/health/readiness
+{{- end -}}

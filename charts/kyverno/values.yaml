@@ -425,6 +425,10 @@ existingImagePullSecrets: []
 
 # Tests configuration
 test:
+  #enable or disable test pods
+  enabled: true
+  #sleep time before running test
+  sleep: 40
 
   image:
     # -- (string) Image registry
