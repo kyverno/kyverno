@@ -1,4 +1,4 @@
-{{- if and .Values.reportsController.enabled .Values.reportsController.metricsService.create (not .Values.test.disabled) -}}
+{{- if and .Values.test.enabled .Values.reportsController.enabled .Values.reportsController.metricsService.create -}}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -25,5 +25,5 @@ spec:
       command:
         - /bin/sh
         - -c
-        - sleep {{ .Values.test.sleep | default 20 }} ; wget -O- -S --no-check-certificate http://{{ template "kyverno.reports-controller.name" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.reportsController.metricsService.port }}/metrics
+        - sleep {{ default 20 .Values.test.sleep }} ; wget -O- -S --no-check-certificate http://{{ template "kyverno.reports-controller.name" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.reportsController.metricsService.port }}/metrics
 {{- end -}}

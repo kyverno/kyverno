@@ -425,7 +425,6 @@ existingImagePullSecrets: []
 
 # Tests configuration
 test:
-
   #enable or disable test pods
   enabled: true
   
