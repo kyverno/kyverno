@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Set matrix data
         id: tests
-        run: echo "tests=$(jq -c . < ./.github/e2e-matrix.json)" >> $GITHUB_OUTPUT
+        run: echo "tests=$(jq -c . < ./test/conformance/chainsaw/e2e-matrix.json)" >> $GITHUB_OUTPUT
 
   prepare-images:
     runs-on: ubuntu-latest
