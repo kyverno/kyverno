@@ -6,7 +6,9 @@ updates:
       interval: daily
     rebase-strategy: disabled
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/actions/*/
     schedule:
       interval: daily
     rebase-strategy: disabled
