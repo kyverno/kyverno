@@ -6,6 +6,9 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+  {{- with .Values.admissionController.annotations }}
+  annotations: {{ tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.admissionController.replicas }}
   revisionHistoryLimit: {{ .Values.admissionController.revisionHistoryLimit }}
