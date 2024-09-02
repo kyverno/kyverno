@@ -4,14 +4,20 @@ inputs:
   k8s-version:
     description: Kubernetes version
     required: true
-  config:
-    description: Chainsaw config
-    required: true
-  tests:
-    description: Test regex
-    required: true
+  kind-config:
+    description: Kind cluster config
+    default: ./scripts/config/kind/default.yaml
+  kyverno-configs:
+    description: Kyverno configs
+    default: standard
   token:
     description: GH token
+    required: true
+  chainsaw-config:
+    description: Chainsaw config
+    default: ../../../.chainsaw.yaml
+  chainsaw-tests:
+    description: Test regex
     required: true
 runs:
   using: composite
@@ -28,7 +34,7 @@ runs:
       with:
         node_image: kindest/node:${{ inputs.k8s-version }}
         cluster_name: kind
-        config: ./scripts/config/kind/default.yaml
+        config: ${{ inputs.kind-config }}
     # deploy kyverno
     - name: Download kyverno images archive
       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
@@ -44,7 +50,7 @@ runs:
       run: |
         set -e
         export HELM=${{ steps.helm.outputs.helm-path }}
-        export USE_CONFIG=standard
+        export USE_CONFIG=${{ inputs.kyverno-configs }}
         make kind-install-kyverno
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno-wait-ready
@@ -55,7 +61,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -e
-        cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ inputs.tests }}' --config ../../../.chainsaw.yaml
+        cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' --config ${{ inputs.chainsaw-config }}
     # debug
     - name: Debug failure
       if: failure()
