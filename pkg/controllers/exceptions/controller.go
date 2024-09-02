@@ -33,7 +33,7 @@ type controller struct {
 	polexLister kyvernov2listers.PolicyExceptionLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	// state
 	lock      sync.RWMutex
@@ -53,7 +53,7 @@ func NewController(
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	namespace string,
 ) *controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}

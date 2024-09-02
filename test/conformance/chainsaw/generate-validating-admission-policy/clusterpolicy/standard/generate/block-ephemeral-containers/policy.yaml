@@ -15,7 +15,7 @@ spec:
             - CREATE
             - UPDATE
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       cel:
         expressions:
           - expression: "!has(object.spec.ephemeralContainers)"

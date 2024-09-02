@@ -31,4 +31,4 @@ spec:
             rekor:
               url: "{{ tufvalues.data.REKOR_URL }}"
       required: true
-      validationFailureAction: Enforce
+      failureAction: Enforce

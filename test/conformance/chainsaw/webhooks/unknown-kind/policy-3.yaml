@@ -12,7 +12,7 @@ spec:
               kinds:
                 - v2/Pod
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         message: 'The label `team` is required.'
         pattern:
           metadata:

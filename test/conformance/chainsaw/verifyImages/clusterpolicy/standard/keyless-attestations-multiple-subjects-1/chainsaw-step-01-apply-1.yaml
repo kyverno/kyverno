@@ -33,5 +33,5 @@ spec:
         predicateType: https://slsa.dev/provenance/v0.2
       imageReferences:
       - ghcr.io/chipzoller/zulu*
-      validationFailureAction: Enforce
+      failureAction: Enforce
   webhookTimeoutSeconds: 30
