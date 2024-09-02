@@ -14,7 +14,7 @@ import (
 	"github.com/kyverno/chainsaw/pkg/discovery"
 )
 
-const chunkSize = 12
+const chunkSize = 16
 
 func main() {
 	tests, err := discovery.DiscoverTests("chainsaw-test.yaml", nil, false, "../../test/conformance/chainsaw")
