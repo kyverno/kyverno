@@ -15,6 +15,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  define-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.tests.outputs.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Set matrix data
+        id: tests
+        run: echo "tests=$(jq -c . < ./test/conformance/chainsaw/e2e-matrix.json)" >> $GITHUB_OUTPUT
+
   prepare-images:
     runs-on: ubuntu-latest
     steps:
@@ -73,102 +84,385 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  standard:
+  assert:
     runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: standard
-            values:
-              - standard
-        k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
-        tests:
-          - ^assert$
-          - ^autogen$
-          - ^background-only$
-          - ^cleanup$
-          - ^deferred$
-          - ^events$
-          - ^exceptions$
-          - ^filter$
-          - ^generate$/^clusterpolicy$
-          - ^generate$/^policy$
-          - ^generate$/^validation$
-          - ^generate$/^foreach$
-          - ^globalcontext$
-          - ^lease$
-          - ^mutate$
-          - ^policy-validation$
-          - ^rangeoperators$
-          - ^rbac$
-          - ^reports$
-          - ^validate$
-          - ^verify-manifests$
-          - ^verifyImages$
-          - ^webhooks$
-    needs:
-    - prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).assert }}
+    needs: [ prepare-images, define-matrix ]
     steps:
-      - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      # install tools
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
         with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
-      # create cluster
-      - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+
+  autogen:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).autogen }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
-          cluster_name: kind
-          config: ./scripts/config/kind/default.yaml
-      # deploy kyverno
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  background-only:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).background-only }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
         with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      # run tests
-      - name: Test with Chainsaw
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
-      # debug
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).cleanup }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  deferred:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).deferred }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  events:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).events }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  exceptions:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).exceptions }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  filter:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).filter }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).generate }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  globalcontext:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).globalcontext }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  lease:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).lease }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  mutate:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).mutate }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  policy-validation:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).policy-validation }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  rangeoperators:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).rangeoperators }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  rbac:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).rbac }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  reports:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).reports }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).validate }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  verify-manifests:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).verify-manifests }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  verifyImages:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).verifyImages }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  webhooks:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).webhooks }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          config: standard
+          tests: ${{ matrix.tests }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   k8s-version-specific-tests-above-1-28:
     runs-on: ubuntu-latest
@@ -177,25 +471,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: specific-tests-above-1-28
-            values:
-              - standard
-              - generate-validating-admission-policy
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - generate-validating-admission-policy
           - webhook-configurations
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -211,7 +495,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/vap-v1beta1.yaml
       # deploy kyverno
@@ -229,7 +513,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,generate-validating-admission-policy
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -253,24 +537,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: validating-admission-policy-reports
-            values:
-              - standard
-              - validating-admission-policy-reports
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -286,7 +560,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/vap-v1beta1.yaml
       # deploy kyverno
@@ -304,7 +578,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,validating-admission-policy-reports
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -328,25 +602,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: force-failure-policy-ignore
-            values:
-              - standard
-              - force-failure-policy-ignore
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - force-failure-policy-ignore
           - rbac
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -362,7 +626,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -380,7 +644,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,force-failure-policy-ignore
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -404,24 +668,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: ttl
-            values:
-              - standard
-              - ttl
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - ttl
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -437,7 +691,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -455,7 +709,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,ttl
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -479,22 +733,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: custom-sigstore
-            values:
-              - standard
-              - custom-sigstore
         k8s-version:
-          - name: v1.28
-            version: v1.28.x
-          - name: v1.29
-            version: v1.29.x
-          - name: v1.30
-            version: v1.30.x
+          - v1.28.x
+          - v1.29.x
+          - v1.30.x
         tests:
           - custom-sigstore
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -515,7 +760,7 @@ jobs:
         uses: sigstore/scaffolding/actions/setup@fd2699d622d15b39c2bf7bc7ca4e005d4dda0e24
         with:
           version: main
-          k8s-version: ${{ matrix.k8s-version.version }}
+          k8s-version: ${{ matrix.k8s-version }}
           knative-version: "1.10.0"
       - name: Create TUF values config map
         run: |
@@ -538,7 +783,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,custom-sigstore
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -572,23 +817,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: default
-            values:
-              - default
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - rbac
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -604,7 +840,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -622,7 +858,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=default
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -644,19 +880,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: policy-library
-            values:
-              - standard
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - ^argo$
           - ^aws$
@@ -692,7 +920,6 @@ jobs:
     needs:
       - prepare-images
       - prepare-cli
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -723,7 +950,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -741,7 +968,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -823,7 +1050,6 @@ jobs:
           - ^cli$
     needs:
     - prepare-cli
-    name: ${{ matrix.tests }} - chainsaw
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -865,7 +1091,27 @@ jobs:
   conformance-required-success:
     name: conformance-required
     needs:
-      - standard
+      - assert
+      - autogen
+      - background-only
+      - cleanup
+      - deferred
+      - events
+      - exceptions
+      - filter
+      - generate
+      - globalcontext
+      - lease
+      - mutate
+      - policy-validation
+      - rangeoperators
+      - rbac
+      - reports
+      - ttl
+      - validate
+      - verify-manifests
+      - verifyImages
+      - webhooks
       - ttl
       - force-failure-policy-ignore
       - k8s-version-specific-tests-above-1-28
@@ -882,7 +1128,27 @@ jobs:
   conformance-required-failure:
     name: conformance-required
     needs:
-      - standard
+      - assert
+      - autogen
+      - background-only
+      - cleanup
+      - deferred
+      - events
+      - exceptions
+      - filter
+      - generate
+      - globalcontext
+      - lease
+      - mutate
+      - policy-validation
+      - rangeoperators
+      - rbac
+      - reports
+      - ttl
+      - validate
+      - verify-manifests
+      - verifyImages
+      - webhooks
       - ttl
       - force-failure-policy-ignore
       - k8s-version-specific-tests-above-1-28
