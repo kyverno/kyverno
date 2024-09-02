@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Set matrix data
         id: tests
-        run: echo "tests=$(jq -c . < ./.github/e2e-matrix.json)" >> $GITHUB_OUTPUT
+        run: echo "tests=$(jq -c . < ./test/conformance/chainsaw/e2e-matrix.json)" >> $GITHUB_OUTPUT
 
   prepare-images:
     runs-on: ubuntu-latest
@@ -48,7 +48,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -77,171 +77,459 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make build-cli
       - name: upload images archive
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: kubectl-kyverno
           path: cmd/cli/kubectl-kyverno/kubectl-kyverno
           retention-days: 1
           if-no-files-found: error
 
-  standard:
+  assert:
     runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        k8s-version:
-          # - v1.28.13
-          # - v1.29.8
-          # - v1.30.4
-          - v1.31.0
-        tests:
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).assert }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).autogen }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).background-only }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).cleanup }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).deferred }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).events }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).exceptions }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).filter }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).generate }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).globalcontext }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).lease }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).mutate }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).policy-validation }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).rangeoperators }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).rbac }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).reports }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).validate }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).verify-manifests }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).verifyImages }}
-          - ${{ fromJSON(needs.define-matrix.outputs.tests).webhooks }}
-    needs:
-    - prepare-images
-    - define-matrix
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).assert }}
+    needs: [ prepare-images, define-matrix ]
     steps:
-      - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      # install tools
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
         with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
-      # create cluster
-      - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
-        with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
-          cluster_name: kind
-          config: ./scripts/config/kind/default.yaml
-      # deploy kyverno
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=standard
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      # run tests
-      - name: Test with Chainsaw
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ matrix.tests }}' --config ../../../.chainsaw.yaml
-      # debug
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
+          chainsaw-tests: ${{ matrix.tests }}
 
-  k8s-version-specific-tests-above-1-28:
+  autogen:
     runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        k8s-version:
-          - v1.28.13
-          - v1.29.8
-          - v1.30.4
-          - v1.31.0
-        tests:
-          - generate-validating-admission-policy
-          - webhook-configurations
-    needs: prepare-images
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).autogen }}
+    needs: [ prepare-images, define-matrix ]
     steps:
-      - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      # install tools
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
         with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
-      # create cluster
-      - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+          chainsaw-tests: ${{ matrix.tests }}
+
+  background-only:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).background-only }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
         with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
-          cluster_name: kind
-          config: ./scripts/config/kind/vap-v1beta1.yaml
-      # deploy kyverno
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).cleanup }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
         with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=standard,generate-validating-admission-policy
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      # run tests
-      - name: Test with Chainsaw
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
-      # debug
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  deferred:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).deferred }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  events:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).events }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  exceptions:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).exceptions }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  filter:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).filter }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).generate }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  generate-validating-admission-policy:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).generate-validating-admission-policy }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+          kyverno-configs: standard,generate-validating-admission-policy
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  globalcontext:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).globalcontext }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  lease:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).lease }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  mutate:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).mutate }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  policy-validation:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).policy-validation }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  rangeoperators:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).rangeoperators }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  rbac:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        kyverno-configs: [ standard, default ]
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).rbac }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: ${{ matrix.kyverno-configs }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  reports:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).reports }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  ttl:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).ttl }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard,ttl
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).validate }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  verify-manifests:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).verify-manifests }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  verifyImages:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).verifyImages }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  webhook-configurations:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).webhook-configurations }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+          kyverno-configs: standard,generate-validating-admission-policy
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
+  webhooks:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).webhooks }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
 
   validatingadmissionpolicies-reports-v1beta1:
     runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         k8s-version:
           - v1.28.13
@@ -258,8 +546,6 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
       # create cluster
@@ -271,7 +557,7 @@ jobs:
           config: ./scripts/config/kind/vap-v1beta1.yaml
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -306,7 +592,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         k8s-version:
           - v1.28.13
@@ -324,8 +610,6 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
       # create cluster
@@ -337,7 +621,7 @@ jobs:
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -367,77 +651,12 @@ jobs:
         if: failure()
         uses: ./.github/actions/kyverno-logs
 
-  ttl:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: read
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version:
-          - v1.28.13
-          - v1.29.8
-          - v1.30.4
-          - v1.31.0
-        tests:
-          - ttl
-    needs: prepare-images
-    steps:
-      - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      # install tools
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
-      # create cluster
-      - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
-        with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
-          cluster_name: kind
-          config: ./scripts/config/kind/default.yaml
-      # deploy kyverno
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=standard,ttl
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      # run tests
-      - name: Test with Chainsaw
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
-      # debug
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
-
   custom-sigstore:
     runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         k8s-version:
           - v1.28.x
@@ -453,8 +672,6 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install crane
         uses: imjasonh/setup-crane@31b88efe9de28ae0ffa220711af4b60be9435f6e
       - name: Install Cosign
@@ -463,7 +680,7 @@ jobs:
         uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@fd2699d622d15b39c2bf7bc7ca4e005d4dda0e24
+        uses: sigstore/scaffolding/actions/setup@16ae89aa23914c53b22e951b225ff08c34ca35a0
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version }}
@@ -476,7 +693,7 @@ jobs:
           kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -516,75 +733,10 @@ jobs:
         if: failure()
         uses: ./.github/actions/kyverno-logs
 
-  default:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: read
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version:
-          - v1.28.13
-          - v1.29.8
-          - v1.30.4
-          - v1.31.0
-        tests:
-          - rbac
-    needs: prepare-images
-    steps:
-      - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      # install tools
-      - name: Install helm
-        id: helm
-        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
-      # create cluster
-      - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
-        with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
-          cluster_name: kind
-          config: ./scripts/config/kind/default.yaml
-      # deploy kyverno
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=default
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno-wait-ready
-      # run tests
-      - name: Test with Chainsaw
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          cd ./test/conformance/chainsaw && chainsaw test --test-dir ./${{ matrix.tests }} --config ../../../.chainsaw.yaml
-      # debug
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno-logs
-
   policy-library:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         k8s-version:
           - v1.28.13
@@ -638,12 +790,10 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
       - name: Download kyverno CLI archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: kubectl-kyverno
       - name: Install Kyverno CLI
@@ -661,7 +811,7 @@ jobs:
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -717,7 +867,7 @@ jobs:
           set -e
           make kind-create-cluster
       - name: Download kyverno images archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -750,7 +900,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         tests:
           - ^cli$
@@ -761,7 +911,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       # install tools
       - name: Download kyverno CLI archive
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: kubectl-kyverno
       - name: Install chainsaw
@@ -797,13 +947,33 @@ jobs:
   conformance-required-success:
     name: conformance-required
     needs:
-      - standard
+      - assert
+      - autogen
+      - background-only
+      - cleanup
+      - deferred
+      - events
+      - exceptions
+      - filter
+      - generate
+      - generate-validating-admission-policy
+      - globalcontext
+      - lease
+      - mutate
+      - policy-validation
+      - rangeoperators
+      - rbac
+      - reports
+      - ttl
+      - validate
+      - verify-manifests
+      - verifyImages
+      - webhook-configurations
+      - webhooks
       - ttl
       - force-failure-policy-ignore
-      - k8s-version-specific-tests-above-1-28
       - validatingadmissionpolicies-reports-v1beta1
       - custom-sigstore
-      - default
       - monitor-helm-secret-size
       - check-tests
     runs-on: ubuntu-latest
@@ -814,13 +984,33 @@ jobs:
   conformance-required-failure:
     name: conformance-required
     needs:
-      - standard
+      - assert
+      - autogen
+      - background-only
+      - cleanup
+      - deferred
+      - events
+      - exceptions
+      - filter
+      - generate
+      - generate-validating-admission-policy
+      - globalcontext
+      - lease
+      - mutate
+      - policy-validation
+      - rangeoperators
+      - rbac
+      - reports
+      - ttl
+      - validate
+      - verify-manifests
+      - verifyImages
+      - webhook-configurations
+      - webhooks
       - ttl
       - force-failure-policy-ignore
-      - k8s-version-specific-tests-above-1-28
       - validatingadmissionpolicies-reports-v1beta1
       - custom-sigstore
-      - default
       - monitor-helm-secret-size
       - check-tests
     runs-on: ubuntu-latest
