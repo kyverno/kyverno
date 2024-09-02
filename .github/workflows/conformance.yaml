@@ -80,19 +80,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: standard
-            values:
-              - standard
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - ^assert$
           - ^autogen$
@@ -119,7 +111,6 @@ jobs:
           - ^webhooks$
     needs:
     - prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -135,7 +126,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -153,7 +144,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -177,25 +168,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: specific-tests-above-1-28
-            values:
-              - standard
-              - generate-validating-admission-policy
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - generate-validating-admission-policy
           - webhook-configurations
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -211,7 +192,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/vap-v1beta1.yaml
       # deploy kyverno
@@ -229,7 +210,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,generate-validating-admission-policy
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -253,24 +234,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: validating-admission-policy-reports
-            values:
-              - standard
-              - validating-admission-policy-reports
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - validating-admission-policy-reports
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -286,7 +257,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/vap-v1beta1.yaml
       # deploy kyverno
@@ -304,7 +275,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,validating-admission-policy-reports
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -328,25 +299,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: force-failure-policy-ignore
-            values:
-              - standard
-              - force-failure-policy-ignore
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - force-failure-policy-ignore
           - rbac
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -362,7 +323,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -380,7 +341,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,force-failure-policy-ignore
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -404,24 +365,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: ttl
-            values:
-              - standard
-              - ttl
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - ttl
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -437,7 +388,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -455,7 +406,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,ttl
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -479,22 +430,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: custom-sigstore
-            values:
-              - standard
-              - custom-sigstore
         k8s-version:
-          - name: v1.28
-            version: v1.28.x
-          - name: v1.29
-            version: v1.29.x
-          - name: v1.30
-            version: v1.30.x
+          - v1.28.x
+          - v1.29.x
+          - v1.30.x
         tests:
           - custom-sigstore
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -515,7 +457,7 @@ jobs:
         uses: sigstore/scaffolding/actions/setup@fd2699d622d15b39c2bf7bc7ca4e005d4dda0e24
         with:
           version: main
-          k8s-version: ${{ matrix.k8s-version.version }}
+          k8s-version: ${{ matrix.k8s-version }}
           knative-version: "1.10.0"
       - name: Create TUF values config map
         run: |
@@ -538,7 +480,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard,custom-sigstore
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -572,23 +514,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: default
-            values:
-              - default
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - rbac
     needs: prepare-images
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -604,7 +537,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -622,7 +555,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=default
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -644,19 +577,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - name: policy-library
-            values:
-              - standard
         k8s-version:
-          - name: v1.28
-            version: v1.28.13
-          - name: v1.29
-            version: v1.29.8
-          - name: v1.30
-            version: v1.30.4
-          - name: v1.31
-            version: v1.31.0
+          - v1.28.13
+          - v1.29.8
+          - v1.30.4
+          - v1.31.0
         tests:
           - ^argo$
           - ^aws$
@@ -692,7 +617,6 @@ jobs:
     needs:
       - prepare-images
       - prepare-cli
-    name: ${{ matrix.k8s-version.name }} - ${{ matrix.config.name }} - ${{ matrix.tests }}
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -723,7 +647,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -741,7 +665,7 @@ jobs:
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+          export USE_CONFIG=standard
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
@@ -823,7 +747,6 @@ jobs:
           - ^cli$
     needs:
     - prepare-cli
-    name: ${{ matrix.tests }} - chainsaw
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
