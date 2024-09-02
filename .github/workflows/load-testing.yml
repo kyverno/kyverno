@@ -51,7 +51,7 @@ jobs:
       matrix:
         k8s-version:
           - name: v1.30
-            version: v1.30.0
+            version: v1.31.0
         kyverno-config:
           - name: default
             values:
