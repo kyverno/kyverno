@@ -526,8 +526,6 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
       # create cluster
@@ -592,8 +590,6 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
       # create cluster
@@ -657,8 +653,6 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
       # create cluster
@@ -721,8 +715,6 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install crane
         uses: imjasonh/setup-crane@31b88efe9de28ae0ffa220711af4b60be9435f6e
       - name: Install Cosign
@@ -806,8 +798,6 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
       # create cluster
@@ -906,8 +896,6 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install chainsaw
         uses: kyverno/action-install-chainsaw@82d8e747037f840e0ef9bdd97ecdc617f5535bdc # v0.2.8
       - name: Download kyverno CLI archive
