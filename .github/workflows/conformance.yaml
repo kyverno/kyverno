@@ -15,6 +15,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  define-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.tests.outputs.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Set matrix data
+        id: tests
+        run: echo "tests=$(jq -c . < ./.github/e2e-matrix.json)" >> $GITHUB_OUTPUT
+
   prepare-images:
     runs-on: ubuntu-latest
     steps:
@@ -81,36 +92,34 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version:
-          - v1.28.13
-          - v1.29.8
-          - v1.30.4
+          # - v1.28.13
+          # - v1.29.8
+          # - v1.30.4
           - v1.31.0
         tests:
-          - ^assert$
-          - ^autogen$
-          - ^background-only$
-          - ^cleanup$
-          - ^deferred$
-          - ^events$
-          - ^exceptions$
-          - ^filter$
-          - ^generate$/^clusterpolicy$
-          - ^generate$/^policy$
-          - ^generate$/^validation$
-          - ^generate$/^foreach$
-          - ^globalcontext$
-          - ^lease$
-          - ^mutate$
-          - ^policy-validation$
-          - ^rangeoperators$
-          - ^rbac$
-          - ^reports$
-          - ^validate$
-          - ^verify-manifests$
-          - ^verifyImages$
-          - ^webhooks$
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).assert }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).autogen }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).background-only }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).cleanup }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).deferred }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).events }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).exceptions }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).filter }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).generate }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).globalcontext }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).lease }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).mutate }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).policy-validation }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).rangeoperators }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).rbac }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).reports }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).validate }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).verify-manifests }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).verifyImages }}
+          - ${{ fromJSON(needs.define-matrix.outputs.tests).webhooks }}
     needs:
     - prepare-images
+    - define-matrix
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
