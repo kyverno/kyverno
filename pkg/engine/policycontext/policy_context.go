@@ -207,9 +207,11 @@ func NewPolicyContext(
 	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
+
 	if err := enginectx.AddImageInfos(&resource, configuration); err != nil {
 		return nil, err
 	}
+
 	if admissionInfo != nil {
 		if err := enginectx.AddUserInfo(*admissionInfo); err != nil {
 			return nil, err

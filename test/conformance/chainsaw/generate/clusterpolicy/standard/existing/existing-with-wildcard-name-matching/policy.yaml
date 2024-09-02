@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: create-default-serviceaccount
+spec:
+  rules:
+  - name: default-service-account
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          names:
+          - "tst-*"
+    generate:
+      generateExisting: true
+      synchronize: false
+      apiVersion: v1
+      kind: ServiceAccount
+      namespace: "{{request.object.metadata.name}}"
+      name: "{{to_lower(request.object.metadata.name | to_string(@) | split(@, '-') | [1])}}"
