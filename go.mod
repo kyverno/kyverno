@@ -7,7 +7,7 @@ require (
 	github.com/AdamKorcz/go-fuzz-headers-1 v0.0.0-20230919221257-8b5d3ce2d11d
 	github.com/IGLOU-EU/go-wildcard v1.0.3
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/alitto/pond v1.9.1
+	github.com/alitto/pond v1.9.2
 	github.com/aquilax/truncate v1.0.0
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20240826150212-5dc58b6e29f8
