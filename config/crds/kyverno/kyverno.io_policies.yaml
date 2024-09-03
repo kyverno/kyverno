@@ -365,6 +365,8 @@ spec:
                                   in YAML or JSON form.
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
+                        required:
+                        - name
                         type: object
                       type: array
                     exclude:
@@ -1367,6 +1369,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               data:
@@ -2414,6 +2418,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               foreach:
@@ -2771,6 +2777,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               kind:
@@ -3437,6 +3445,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               deny:
@@ -5191,6 +5201,8 @@ spec:
                                       representable in YAML or JSON form.
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                            required:
+                            - name
                             type: object
                           type: array
                         exclude:
@@ -6206,6 +6218,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   data:
@@ -7265,6 +7279,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   foreach:
@@ -7631,6 +7647,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   kind:
@@ -8309,6 +8327,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   deny:
@@ -10133,6 +10153,8 @@ spec:
                                   in YAML or JSON form.
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
+                        required:
+                        - name
                         type: object
                       type: array
                     exclude:
@@ -10929,6 +10951,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               data:
@@ -11770,6 +11794,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               foreach:
@@ -12127,6 +12153,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               kind:
@@ -12969,6 +12997,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               deny:
@@ -14691,6 +14721,8 @@ spec:
                                       representable in YAML or JSON form.
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                            required:
+                            - name
                             type: object
                           type: array
                         exclude:
@@ -15706,6 +15738,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   data:
@@ -16765,6 +16799,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   foreach:
@@ -17131,6 +17167,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   kind:
@@ -17809,6 +17847,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   deny:

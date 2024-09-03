@@ -333,6 +333,8 @@ spec:
                             in YAML or JSON form.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
+                  required:
+                  - name
                   type: object
                 type: array
               exclude:
@@ -1570,6 +1572,8 @@ spec:
                             in YAML or JSON form.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
+                  required:
+                  - name
                   type: object
                 type: array
               exclude:
