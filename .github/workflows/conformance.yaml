@@ -102,6 +102,7 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           chainsaw-tests: ${{ matrix.tests }}
+      - run: echo ${{ github.workflow }}-${{ github.ref }}
 
   autogen:
     runs-on: ubuntu-latest
