@@ -369,6 +369,7 @@ The chart values are organised per component.
 | admissionController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
 | admissionController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
+| admissionController.annotations | object | `{}` | Deployment annotations. |
 | admissionController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | admissionController.priorityClassName | string | `""` | Optional priority class |
 | admissionController.apiPriorityAndFairness | bool | `false` | Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno admission controller activities. This will help ensure Kyverno stability in busy clusters. Ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/ |
@@ -471,6 +472,7 @@ The chart values are organised per component.
 | backgroundController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
 | backgroundController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
+| backgroundController.annotations | object | `{}` | Deployment annotations. |
 | backgroundController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | backgroundController.priorityClassName | string | `""` | Optional priority class |
 | backgroundController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
@@ -544,6 +546,7 @@ The chart values are organised per component.
 | cleanupController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | cleanupController.podLabels | object | `{}` | Additional labels to add to each pod |
 | cleanupController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
+| cleanupController.annotations | object | `{}` | Deployment annotations. |
 | cleanupController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
 | cleanupController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
@@ -625,6 +628,7 @@ The chart values are organised per component.
 | reportsController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
 | reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
+| reportsController.annotations | object | `{}` | Deployment annotations. |
 | reportsController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | reportsController.priorityClassName | string | `""` | Optional priority class |
 | reportsController.apiPriorityAndFairness | bool | `false` | Change `apiPriorityAndFairness` to `true` if you want to insulate the API calls made by Kyverno reports controller activities. This will help ensure Kyverno reports stability in busy clusters. Ref: https://kubernetes.io/docs/concepts/cluster-administration/flow-control/ |
