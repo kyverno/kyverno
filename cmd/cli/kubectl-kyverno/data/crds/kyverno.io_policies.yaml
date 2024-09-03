@@ -361,10 +361,9 @@ spec:
                         ExcludeResources defines when this policy rule should not be applied. The exclude
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the name or role.
-                      oneOf:
-                      - required:
+                      not:
+                        required:
                         - any
-                      - required:
                         - all
                       properties:
                         all:
@@ -1557,10 +1556,9 @@ spec:
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the user name or role.
                         At least one kind is required.
-                      oneOf:
-                      - required:
+                      not:
+                        required:
                         - any
-                      - required:
                         - all
                       properties:
                         all:
@@ -5134,10 +5132,9 @@ spec:
                             ExcludeResources defines when this policy rule should not be applied. The exclude
                             criteria can include resource information (e.g. kind, name, namespace, labels)
                             and admission review request information like the name or role.
-                          oneOf:
-                          - required:
+                          not:
+                            required:
                             - any
-                          - required:
                             - all
                           properties:
                             all:
@@ -6345,10 +6342,9 @@ spec:
                             criteria can include resource information (e.g. kind, name, namespace, labels)
                             and admission review request information like the user name or role.
                             At least one kind is required.
-                          oneOf:
-                          - required:
+                          not:
+                            required:
                             - any
-                          - required:
                             - all
                           properties:
                             all:
@@ -14526,10 +14522,9 @@ spec:
                             ExcludeResources defines when this policy rule should not be applied. The exclude
                             criteria can include resource information (e.g. kind, name, namespace, labels)
                             and admission review request information like the name or role.
-                          oneOf:
-                          - required:
+                          not:
+                            required:
                             - any
-                          - required:
                             - all
                           properties:
                             all:
@@ -15737,10 +15732,9 @@ spec:
                             criteria can include resource information (e.g. kind, name, namespace, labels)
                             and admission review request information like the user name or role.
                             At least one kind is required.
-                          oneOf:
-                          - required:
+                          not:
+                            required:
                             - any
-                          - required:
                             - all
                           properties:
                             all:
