@@ -23,14 +23,6 @@ metadata:
       all containers must explicitly drop `ALL` capabilities.
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
-  {{- with index .Values "validationFailureActionByPolicy" $name }}
-  validationFailureAction: {{ toYaml . }}
-  {{- else }}
-  validationFailureAction: {{ .Values.validationFailureAction }}
-  {{- end }}
-  {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-  validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
-  {{- end }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -69,6 +61,14 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
+        {{- with index .Values "validationFailureActionByPolicy" $name }}
+        failureAction: {{ toYaml . }}
+        {{- else }}
+        failureAction: {{ .Values.validationFailureAction }}
+        {{- end }}
+        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+        failureActionOverrides: {{ toYaml . | nindent 8 }}
+        {{- end }}
         message: >-
           Containers must drop `ALL` capabilities.
         foreach:
@@ -114,6 +114,14 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
+        {{- with index .Values "validationFailureActionByPolicy" $name }}
+        failureAction: {{ toYaml . }}
+        {{- else }}
+        failureAction: {{ .Values.validationFailureAction }}
+        {{- end }}
+        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+        failureActionOverrides: {{ toYaml . | nindent 8 }}
+        {{- end }}
         message: >-
           Any capabilities added other than NET_BIND_SERVICE are disallowed.
         foreach:
