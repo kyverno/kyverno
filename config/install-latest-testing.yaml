@@ -349,6 +349,17 @@ spec:
                   description: |-
                     ContextEntry adds variables and data sources to a rule Context. Either a
                     ConfigMap reference or a APILookup must be provided.
+                  oneOf:
+                  - required:
+                    - configMap
+                  - required:
+                    - apiCall
+                  - required:
+                    - imageRegistry
+                  - required:
+                    - variable
+                  - required:
+                    - globalReference
                   properties:
                     apiCall:
                       description: |-
@@ -1575,6 +1586,17 @@ spec:
                   description: |-
                     ContextEntry adds variables and data sources to a rule Context. Either a
                     ConfigMap reference or a APILookup must be provided.
+                  oneOf:
+                  - required:
+                    - configMap
+                  - required:
+                    - apiCall
+                  - required:
+                    - imageRegistry
+                  - required:
+                    - variable
+                  - required:
+                    - globalReference
                   properties:
                     apiCall:
                       description: |-
@@ -2827,6 +2849,17 @@ spec:
                   description: |-
                     ContextEntry adds variables and data sources to a rule Context. Either a
                     ConfigMap reference or a APILookup must be provided.
+                  oneOf:
+                  - required:
+                    - configMap
+                  - required:
+                    - apiCall
+                  - required:
+                    - imageRegistry
+                  - required:
+                    - variable
+                  - required:
+                    - globalReference
                   properties:
                     apiCall:
                       description: |-
@@ -4053,6 +4086,17 @@ spec:
                   description: |-
                     ContextEntry adds variables and data sources to a rule Context. Either a
                     ConfigMap reference or a APILookup must be provided.
+                  oneOf:
+                  - required:
+                    - configMap
+                  - required:
+                    - apiCall
+                  - required:
+                    - imageRegistry
+                  - required:
+                    - variable
+                  - required:
+                    - globalReference
                   properties:
                     apiCall:
                       description: |-
@@ -5334,6 +5378,17 @@ spec:
                         description: |-
                           ContextEntry adds variables and data sources to a rule Context. Either a
                           ConfigMap reference or a APILookup must be provided.
+                        oneOf:
+                        - required:
+                          - configMap
+                        - required:
+                          - apiCall
+                        - required:
+                          - imageRegistry
+                        - required:
+                          - variable
+                        - required:
+                          - globalReference
                         properties:
                           apiCall:
                             description: |-
@@ -6322,6 +6377,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -7358,6 +7424,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -7704,6 +7781,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -8359,6 +8447,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -10103,6 +10202,17 @@ spec:
                             description: |-
                               ContextEntry adds variables and data sources to a rule Context. Either a
                               ConfigMap reference or a APILookup must be provided.
+                            oneOf:
+                            - required:
+                              - configMap
+                            - required:
+                              - apiCall
+                            - required:
+                              - imageRegistry
+                            - required:
+                              - variable
+                            - required:
+                              - globalReference
                             properties:
                               apiCall:
                                 description: |-
@@ -11100,6 +11210,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -12148,6 +12269,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -12503,6 +12635,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -13170,6 +13313,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -14990,6 +15144,17 @@ spec:
                         description: |-
                           ContextEntry adds variables and data sources to a rule Context. Either a
                           ConfigMap reference or a APILookup must be provided.
+                        oneOf:
+                        - required:
+                          - configMap
+                        - required:
+                          - apiCall
+                        - required:
+                          - imageRegistry
+                        - required:
+                          - variable
+                        - required:
+                          - globalReference
                         properties:
                           apiCall:
                             description: |-
@@ -15772,6 +15937,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -16602,6 +16778,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -16948,6 +17135,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -17779,6 +17977,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -19492,6 +19701,17 @@ spec:
                             description: |-
                               ContextEntry adds variables and data sources to a rule Context. Either a
                               ConfigMap reference or a APILookup must be provided.
+                            oneOf:
+                            - required:
+                              - configMap
+                            - required:
+                              - apiCall
+                            - required:
+                              - imageRegistry
+                            - required:
+                              - variable
+                            - required:
+                              - globalReference
                             properties:
                               apiCall:
                                 description: |-
@@ -20489,6 +20709,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -21537,6 +21768,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -21892,6 +22134,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -22559,6 +22812,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -24653,6 +24917,17 @@ spec:
                         description: |-
                           ContextEntry adds variables and data sources to a rule Context. Either a
                           ConfigMap reference or a APILookup must be provided.
+                        oneOf:
+                        - required:
+                          - configMap
+                        - required:
+                          - apiCall
+                        - required:
+                          - imageRegistry
+                        - required:
+                          - variable
+                        - required:
+                          - globalReference
                         properties:
                           apiCall:
                             description: |-
@@ -25641,6 +25916,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -26677,6 +26963,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -27023,6 +27320,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -27678,6 +27986,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -29423,6 +29742,17 @@ spec:
                             description: |-
                               ContextEntry adds variables and data sources to a rule Context. Either a
                               ConfigMap reference or a APILookup must be provided.
+                            oneOf:
+                            - required:
+                              - configMap
+                            - required:
+                              - apiCall
+                            - required:
+                              - imageRegistry
+                            - required:
+                              - variable
+                            - required:
+                              - globalReference
                             properties:
                               apiCall:
                                 description: |-
@@ -30420,6 +30750,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -31468,6 +31809,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -31823,6 +32175,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -32490,6 +32853,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -34311,6 +34685,17 @@ spec:
                         description: |-
                           ContextEntry adds variables and data sources to a rule Context. Either a
                           ConfigMap reference or a APILookup must be provided.
+                        oneOf:
+                        - required:
+                          - configMap
+                        - required:
+                          - apiCall
+                        - required:
+                          - imageRegistry
+                        - required:
+                          - variable
+                        - required:
+                          - globalReference
                         properties:
                           apiCall:
                             description: |-
@@ -35093,6 +35478,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -35923,6 +36319,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -36269,6 +36676,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -37100,6 +37518,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -38813,6 +39242,17 @@ spec:
                             description: |-
                               ContextEntry adds variables and data sources to a rule Context. Either a
                               ConfigMap reference or a APILookup must be provided.
+                            oneOf:
+                            - required:
+                              - configMap
+                            - required:
+                              - apiCall
+                            - required:
+                              - imageRegistry
+                            - required:
+                              - variable
+                            - required:
+                              - globalReference
                             properties:
                               apiCall:
                                 description: |-
@@ -39810,6 +40250,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -40858,6 +41309,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -41213,6 +41675,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -41880,6 +42353,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-

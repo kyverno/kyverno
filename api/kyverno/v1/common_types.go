@@ -97,6 +97,11 @@ type AnyAllConditions struct {
 
 // ContextEntry adds variables and data sources to a rule Context. Either a
 // ConfigMap reference or a APILookup must be provided.
+// +kubebuilder:oneOf:={required:{configMap}}
+// +kubebuilder:oneOf:={required:{apiCall}}
+// +kubebuilder:oneOf:={required:{imageRegistry}}
+// +kubebuilder:oneOf:={required:{variable}}
+// +kubebuilder:oneOf:={required:{globalReference}}
 type ContextEntry struct {
 	// Name is the variable name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
