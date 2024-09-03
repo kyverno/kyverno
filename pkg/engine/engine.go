@@ -280,6 +280,10 @@ func (e *engine) invokeRuleHandler(
 					s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
 					return resource, handlers.WithSkip(rule, ruleType, s)
 				}
+				// substitute properties
+				if err := internal.SubstitutePropertiesInRule(logger, &rule, policyContext.JSONContext()); err != nil {
+					logger.Error(err, "failed to substitute variables in rule properties")
+				}
 				// get policy exceptions that matches both policy and rule name
 				exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
 				if err != nil {
