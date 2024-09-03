@@ -89,7 +89,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).assert }}
@@ -108,7 +108,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).autogen }}
@@ -127,7 +127,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).background-only }}
@@ -146,7 +146,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).cleanup }}
@@ -165,7 +165,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).deferred }}
@@ -184,7 +184,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).events }}
@@ -203,7 +203,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).exceptions }}
@@ -222,7 +222,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).filter }}
@@ -241,7 +241,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).generate }}
@@ -260,7 +260,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).generate-validating-admission-policy }}
@@ -280,7 +280,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).globalcontext }}
@@ -299,7 +299,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).lease }}
@@ -318,7 +318,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).mutate }}
@@ -337,7 +337,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).policy-validation }}
@@ -356,7 +356,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).rangeoperators }}
@@ -375,7 +375,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         kyverno-configs: [ standard, default ]
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
@@ -395,7 +395,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).reports }}
@@ -414,7 +414,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).ttl }}
@@ -433,7 +433,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).validate }}
@@ -452,7 +452,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).verify-manifests }}
@@ -471,7 +471,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).verifyImages }}
@@ -490,7 +490,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).webhook-configurations }}
@@ -510,7 +510,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).webhooks }}
@@ -529,7 +529,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version:
           - v1.28.13
@@ -592,7 +592,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version:
           - v1.28.13
@@ -656,7 +656,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version:
           - v1.28.x
@@ -736,7 +736,7 @@ jobs:
   policy-library:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         k8s-version:
           - v1.28.13
@@ -900,7 +900,7 @@ jobs:
     permissions:
       packages: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         tests:
           - ^cli$
