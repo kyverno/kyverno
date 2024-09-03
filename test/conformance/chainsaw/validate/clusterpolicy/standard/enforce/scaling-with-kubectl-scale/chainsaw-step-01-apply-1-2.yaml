@@ -15,7 +15,7 @@ spec:
         - test-validate
     name: validate-nginx-test
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: nginx-test needs to have 2 replicas
       pattern:
         spec:

@@ -16,7 +16,7 @@ spec:
           - foo
     name: validate-some-foo
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       deny:
         conditions:
         - key: '{{ images.containers.*.registry }}'
@@ -36,7 +36,7 @@ spec:
           - Pod
     name: validate-some-non-foo
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       deny:
         conditions:
         - key: '{{ images.containers.*.registry }}'

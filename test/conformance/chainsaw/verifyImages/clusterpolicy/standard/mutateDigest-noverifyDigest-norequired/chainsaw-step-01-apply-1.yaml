@@ -16,5 +16,5 @@ spec:
       mutateDigest: true
       required: false
       verifyDigest: false
-      validationFailureAction: Enforce
+      failureAction: Enforce
   webhookTimeoutSeconds: 30

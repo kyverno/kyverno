@@ -29,5 +29,5 @@ spec:
       - ghcr.io/kyverno/test-verify-image:*
       mutateDigest: false
       verifyDigest: false
-      validationFailureAction: Audit
+      failureAction: Audit
 

@@ -303,7 +303,7 @@ items:
 		name: "ValidatingAdmissionPolicy",
 		args: args{
 			[]byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "demo-policy.example.com"
@@ -326,7 +326,7 @@ spec:
 		name: "ValidatingAdmissionPolicy and Policy",
 		args: args{
 			[]byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "demo-policy.example.com"
@@ -380,7 +380,7 @@ spec:
 		name: "ValidatingAdmissionPolicy and ClusterPolicy",
 		args: args{
 			[]byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "demo-policy.example.com"
@@ -433,7 +433,7 @@ spec:
 		name: "ValidatingAdmissionPolicyBinding",
 		args: args{
 			[]byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   name: "demo-binding-test.example.com"
@@ -453,7 +453,7 @@ spec:
 		name: "ValidatingAdmissionPolicy and its binding",
 		args: args{
 			[]byte(`
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: "demo-policy.example.com"
@@ -468,7 +468,7 @@ spec:
   validations:
     - expression: "object.spec.replicas <= 5"
 ---
-apiVersion: admissionregistration.k8s.io/v1alpha1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   name: "demo-binding-test.example.com"

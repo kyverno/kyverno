@@ -175,7 +175,7 @@ func (s *Spec) HasValidate() bool {
 func (s *Spec) HasValidateEnforce() bool {
 	for _, rule := range s.Rules {
 		if rule.HasValidate() {
-			action := rule.Validation.ValidationFailureAction
+			action := rule.Validation.FailureAction
 			if action != nil && action.Enforce() {
 				return true
 			}

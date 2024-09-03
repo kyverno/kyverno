@@ -60,7 +60,7 @@ func buildTestNamespaceLabelsContext(t *testing.T) api.PolicyContext {
 				]
 			  },
 			  "validate": {
-			    "validationFailureAction": "Enforce",
+			    "failureAction": "Enforce",
 				"message": "The label size is required",
 				"pattern": {
 				  "metadata": {
@@ -88,7 +88,7 @@ func buildTestNamespaceLabelsContext(t *testing.T) api.PolicyContext {
 				]
 			  },
 			  "validate": {
-			    "validationFailureAction": "Enforce",
+			    "failureAction": "Enforce",
 				"message": "The label size cannot be changed for a namespace",
 				"deny": {
 				  "conditions": {

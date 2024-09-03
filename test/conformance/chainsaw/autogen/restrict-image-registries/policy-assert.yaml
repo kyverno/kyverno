@@ -19,7 +19,7 @@ spec:
         spec:
           containers:
           - image: registry.domain.com/*
-      validationFailureAction: Enforce
+      failureAction: Enforce
 status:
   autogen:
     rules:
@@ -43,7 +43,7 @@ status:
               spec:
                 containers:
                 - image: registry.domain.com/*
-        validationFailureAction: Enforce
+        failureAction: Enforce
     - match:
         any:
         - resources:
@@ -61,7 +61,7 @@ status:
                   spec:
                     containers:
                     - image: registry.domain.com/*
-        validationFailureAction: Enforce
+        failureAction: Enforce
   conditions:
   - message: Ready
     reason: Succeeded
