@@ -55,6 +55,11 @@ spec:
             type: object
           spec:
             description: Spec declares policy exception behaviors.
+            oneOf:
+            - required:
+              - kubernetesResource
+            - required:
+              - apiCall
             properties:
               apiCall:
                 description: |-
