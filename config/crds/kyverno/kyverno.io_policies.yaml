@@ -2809,6 +2809,12 @@ spec:
                         will be deprecated in the next major release.
                         See: https://kyverno.io/docs/writing-policies/preconditions/
                       x-kubernetes-preserve-unknown-fields: true
+                    reportProperties:
+                      additionalProperties:
+                        type: string
+                      description: ReportProperties are the additional properties
+                        from the rule that will be added to the policy report result
+                      type: object
                     skipBackgroundRequests:
                       default: true
                       description: |-
@@ -7669,6 +7675,13 @@ spec:
                             will be deprecated in the next major release.
                             See: https://kyverno.io/docs/writing-policies/preconditions/
                           x-kubernetes-preserve-unknown-fields: true
+                        reportProperties:
+                          additionalProperties:
+                            type: string
+                          description: ReportProperties are the additional properties
+                            from the rule that will be added to the policy report
+                            result
+                          type: object
                         skipBackgroundRequests:
                           default: true
                           description: |-
@@ -17169,6 +17182,13 @@ spec:
                             will be deprecated in the next major release.
                             See: https://kyverno.io/docs/writing-policies/preconditions/
                           x-kubernetes-preserve-unknown-fields: true
+                        reportProperties:
+                          additionalProperties:
+                            type: string
+                          description: ReportProperties are the additional properties
+                            from the rule that will be added to the policy report
+                            result
+                          type: object
                         skipBackgroundRequests:
                           default: true
                           description: |-
