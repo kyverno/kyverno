@@ -9,7 +9,7 @@ metadata:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
   {{- with .Values.backgroundController.annotations }}
   annotations:
-    {{ tpl (toYaml .) $ | nindent 4 }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.backgroundController.replicas }}

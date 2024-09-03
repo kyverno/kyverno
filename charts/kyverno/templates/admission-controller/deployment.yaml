@@ -8,7 +8,7 @@ metadata:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
   {{- with .Values.admissionController.annotations }}
   annotations:
-    {{ tpl (toYaml .) $ | nindent 4 }}
+    {{- tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.admissionController.replicas }}
