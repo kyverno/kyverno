@@ -84,7 +84,7 @@ func (h mutateImageHandler) Process(
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Mutation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", ")).WithExceptions(matchedExceptions),
+			engineapi.RuleSkip(rule.Name, engineapi.Mutation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
 		)
 	}
 
@@ -92,7 +92,7 @@ func (h mutateImageHandler) Process(
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
 		return resource, handlers.WithResponses(
-			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
+			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
 		)
 	}
 	var engineResponses []*engineapi.RuleResponse
@@ -101,7 +101,7 @@ func (h mutateImageHandler) Process(
 		rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials)
 		if err != nil {
 			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err),
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to fetch secrets", err, rule.ReportProperties),
 			)
 		}
 		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm)
@@ -114,25 +114,25 @@ func (h mutateImageHandler) Process(
 		decoded, err := json_patch.DecodePatch(patch)
 		if err != nil {
 			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to decode patch", err),
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to decode patch", err, rule.ReportProperties),
 			)
 		}
 		options := &json_patch.ApplyOptions{SupportNegativeIndices: true, AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
 		resourceBytes, err := resource.MarshalJSON()
 		if err != nil {
 			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to marshal resource", err),
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to marshal resource", err, rule.ReportProperties),
 			)
 		}
 		patchedResourceBytes, err := decoded.ApplyWithOptions(resourceBytes, options)
 		if err != nil {
 			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to apply patch", err),
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to apply patch", err, rule.ReportProperties),
 			)
 		}
 		if err := resource.UnmarshalJSON(patchedResourceBytes); err != nil {
 			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to unmarshal resource", err),
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to unmarshal resource", err, rule.ReportProperties),
 			)
 		}
 	}
