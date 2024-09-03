@@ -8,7 +8,8 @@ metadata:
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
   {{- with .Values.cleanupController.annotations }}
-  annotations: {{ tpl (toYaml .) $ | nindent 4 }}
+  annotations:
+    {{ tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.cleanupController.replicas }}
