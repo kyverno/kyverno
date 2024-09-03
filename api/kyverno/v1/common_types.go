@@ -104,7 +104,7 @@ type AnyAllConditions struct {
 // +kubebuilder:oneOf:={required:{globalReference}}
 type ContextEntry struct {
 	// Name is the variable name.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 
 	// ConfigMap is the ConfigMap reference.
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
