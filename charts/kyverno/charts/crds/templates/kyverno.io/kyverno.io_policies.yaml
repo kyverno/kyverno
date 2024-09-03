@@ -9815,8 +9815,6 @@ spec:
                 - generated
                 - message
                 type: object
-            required:
-            - ready
             type: object
         required:
         - spec
@@ -19342,8 +19340,6 @@ spec:
                 - generated
                 - message
                 type: object
-            required:
-            - ready
             type: object
         required:
         - spec
