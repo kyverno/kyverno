@@ -7,22 +7,28 @@ spec:
   steps:
     - name: step-01
       try:
+      - script:
+          content: kubectl patch configmap kyverno -p '{"data":{"generateSuccessEvents":"true"}}' -n kyverno
+      - assert:
+          file: kyverno-configmap-assert.yaml
+    - name: step-02
+      try:
         - apply:
             file: policy.yaml
         - assert:
             file: policy-assert.yaml
-    - name: step-02
+    - name: step-03
       try:
       - apply:
           file: good-resources.yaml
-    - name: step-03
+    - name: step-04
       try:
         - apply:
             expect:
               - check:
                   ($error != null): true
             file: bad-resources.yaml
-    - name: step-04
+    - name: step-05
       try:
       - assert:
           file: events-assert.yaml
