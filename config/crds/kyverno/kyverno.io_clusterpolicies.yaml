@@ -137,7 +137,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          by fulfilled for a request to be sent to a webhook.
+                          be fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -179,6 +179,17 @@ spec:
                         description: |-
                           ContextEntry adds variables and data sources to a rule Context. Either a
                           ConfigMap reference or a APILookup must be provided.
+                        oneOf:
+                        - required:
+                          - configMap
+                        - required:
+                          - apiCall
+                        - required:
+                          - imageRegistry
+                        - required:
+                          - variable
+                        - required:
+                          - globalReference
                         properties:
                           apiCall:
                             description: |-
@@ -353,6 +364,8 @@ spec:
                                   in YAML or JSON form.
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
+                        required:
+                        - name
                         type: object
                       type: array
                     exclude:
@@ -360,6 +373,10 @@ spec:
                         ExcludeResources defines when this policy rule should not be applied. The exclude
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the name or role.
+                      not:
+                        required:
+                        - any
+                        - all
                       properties:
                         all:
                           description: All allows specifying resources which will
@@ -377,6 +394,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -587,6 +608,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -793,6 +818,10 @@ spec:
                             Requires at least one tag to be specified when under MatchResources.
                             Specifying ResourceDescription directly under match is being deprecated.
                             Please specify under "any" or "all" instead.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1163,6 +1192,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -1340,6 +1380,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               data:
@@ -1551,6 +1593,10 @@ spec:
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the user name or role.
                         At least one kind is required.
+                      not:
+                        required:
+                        - any
+                        - all
                       properties:
                         all:
                           description: All allows specifying resources which will
@@ -1568,6 +1614,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -1778,6 +1828,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -1984,6 +2038,10 @@ spec:
                             Requires at least one tag to be specified when under MatchResources.
                             Specifying ResourceDescription directly under match is being deprecated.
                             Please specify under "any" or "all" instead.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -2195,6 +2253,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -2372,6 +2441,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               foreach:
@@ -2541,6 +2612,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -2718,6 +2800,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               kind:
@@ -2756,6 +2840,12 @@ spec:
                         will be deprecated in the next major release.
                         See: https://kyverno.io/docs/writing-policies/preconditions/
                       x-kubernetes-preserve-unknown-fields: true
+                    reportProperties:
+                      additionalProperties:
+                        type: string
+                      description: ReportProperties are the additional properties
+                        from the rule that will be added to the policy report result
+                      type: object
                     skipBackgroundRequests:
                       default: true
                       description: |-
@@ -2957,10 +3047,14 @@ spec:
                               properties:
                                 name:
                                   description: |-
-                                    `name` is the name of the resource being referenced.
+                                    name is the name of the resource being referenced.
 
-                                    `name` and `selector` are mutually exclusive properties. If one is set,
-                                    the other must be unset.
+                                    One of `name` or `selector` must be set, but `name` and `selector` are
+                                    mutually exclusive properties. If one is set, the other must be unset.
+
+                                    A single parameter used for all admission requests can be configured
+                                    by setting the `name` field, leaving `selector` blank, and setting namespace
+                                    if `paramKind` is namespace-scoped.
                                   type: string
                                 namespace:
                                   description: |-
@@ -2989,7 +3083,8 @@ spec:
                                     `failurePolicy` of the policy.
 
                                     Allowed values are `Allow` or `Deny`
-                                    Default to `Deny`
+
+                                    Required
                                   type: string
                                 selector:
                                   description: |-
@@ -3055,7 +3150,8 @@ spec:
                                 The variables defined here will be available under `variables` in other expressions of the policy.
                               items:
                                 description: Variable is the definition of a variable
-                                  that is used for composition.
+                                  that is used for composition. A variable is defined
+                                  as a named expression.
                                 properties:
                                   expression:
                                     description: |-
@@ -3072,6 +3168,7 @@ spec:
                                 - expression
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               type: array
                           type: object
                         deny:
@@ -3189,6 +3286,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -3366,6 +3474,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               deny:
@@ -4891,7 +5001,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must by fulfilled for a request to be sent to a webhook.
+                              must be fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -4933,6 +5043,17 @@ spec:
                             description: |-
                               ContextEntry adds variables and data sources to a rule Context. Either a
                               ConfigMap reference or a APILookup must be provided.
+                            oneOf:
+                            - required:
+                              - configMap
+                            - required:
+                              - apiCall
+                            - required:
+                              - imageRegistry
+                            - required:
+                              - variable
+                            - required:
+                              - globalReference
                             properties:
                               apiCall:
                                 description: |-
@@ -5108,6 +5229,8 @@ spec:
                                       representable in YAML or JSON form.
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                            required:
+                            - name
                             type: object
                           type: array
                         exclude:
@@ -5115,6 +5238,10 @@ spec:
                             ExcludeResources defines when this policy rule should not be applied. The exclude
                             criteria can include resource information (e.g. kind, name, namespace, labels)
                             and admission review request information like the name or role.
+                          not:
+                            required:
+                            - any
+                            - all
                           properties:
                             all:
                               description: All allows specifying resources which will
@@ -5132,6 +5259,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -5343,6 +5474,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -5550,6 +5685,10 @@ spec:
                                 Requires at least one tag to be specified when under MatchResources.
                                 Specifying ResourceDescription directly under match is being deprecated.
                                 Please specify under "any" or "all" instead.
+                              not:
+                                required:
+                                - name
+                                - names
                               properties:
                                 annotations:
                                   additionalProperties:
@@ -5926,6 +6065,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -6108,6 +6258,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   data:
@@ -6321,6 +6473,10 @@ spec:
                             criteria can include resource information (e.g. kind, name, namespace, labels)
                             and admission review request information like the user name or role.
                             At least one kind is required.
+                          not:
+                            required:
+                            - any
+                            - all
                           properties:
                             all:
                               description: All allows specifying resources which will
@@ -6338,6 +6494,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -6549,6 +6709,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -6756,6 +6920,10 @@ spec:
                                 Requires at least one tag to be specified when under MatchResources.
                                 Specifying ResourceDescription directly under match is being deprecated.
                                 Please specify under "any" or "all" instead.
+                              not:
+                                required:
+                                - name
+                                - names
                               properties:
                                 annotations:
                                   additionalProperties:
@@ -6970,6 +7138,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -7152,6 +7331,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   foreach:
@@ -7325,6 +7506,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -7507,6 +7699,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   kind:
@@ -7545,6 +7739,13 @@ spec:
                             will be deprecated in the next major release.
                             See: https://kyverno.io/docs/writing-policies/preconditions/
                           x-kubernetes-preserve-unknown-fields: true
+                        reportProperties:
+                          additionalProperties:
+                            type: string
+                          description: ReportProperties are the additional properties
+                            from the rule that will be added to the policy report
+                            result
+                          type: object
                         skipBackgroundRequests:
                           default: true
                           description: |-
@@ -7752,10 +7953,14 @@ spec:
                                   properties:
                                     name:
                                       description: |-
-                                        `name` is the name of the resource being referenced.
+                                        name is the name of the resource being referenced.
 
-                                        `name` and `selector` are mutually exclusive properties. If one is set,
-                                        the other must be unset.
+                                        One of `name` or `selector` must be set, but `name` and `selector` are
+                                        mutually exclusive properties. If one is set, the other must be unset.
+
+                                        A single parameter used for all admission requests can be configured
+                                        by setting the `name` field, leaving `selector` blank, and setting namespace
+                                        if `paramKind` is namespace-scoped.
                                       type: string
                                     namespace:
                                       description: |-
@@ -7784,7 +7989,8 @@ spec:
                                         `failurePolicy` of the policy.
 
                                         Allowed values are `Allow` or `Deny`
-                                        Default to `Deny`
+
+                                        Required
                                       type: string
                                     selector:
                                       description: |-
@@ -7850,7 +8056,8 @@ spec:
                                     The variables defined here will be available under `variables` in other expressions of the policy.
                                   items:
                                     description: Variable is the definition of a variable
-                                      that is used for composition.
+                                      that is used for composition. A variable is
+                                      defined as a named expression.
                                     properties:
                                       expression:
                                         description: |-
@@ -7867,6 +8074,7 @@ spec:
                                     - expression
                                     - name
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   type: array
                               type: object
                             deny:
@@ -7985,6 +8193,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -8167,6 +8386,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   deny:
@@ -9805,6 +10026,17 @@ spec:
                         description: |-
                           ContextEntry adds variables and data sources to a rule Context. Either a
                           ConfigMap reference or a APILookup must be provided.
+                        oneOf:
+                        - required:
+                          - configMap
+                        - required:
+                          - apiCall
+                        - required:
+                          - imageRegistry
+                        - required:
+                          - variable
+                        - required:
+                          - globalReference
                         properties:
                           apiCall:
                             description: |-
@@ -9979,6 +10211,8 @@ spec:
                                   in YAML or JSON form.
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
+                        required:
+                        - name
                         type: object
                       type: array
                     exclude:
@@ -9986,6 +10220,10 @@ spec:
                         ExcludeResources defines when this policy rule should not be applied. The exclude
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the name or role.
+                      not:
+                        required:
+                        - any
+                        - all
                       properties:
                         all:
                           description: All allows specifying resources which will
@@ -10003,6 +10241,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -10213,6 +10455,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -10587,6 +10833,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -10764,6 +11021,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               data:
@@ -10975,6 +11234,10 @@ spec:
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the user name or role.
                         At least one kind is required.
+                      not:
+                        required:
+                        - any
+                        - all
                       properties:
                         all:
                           description: All allows specifying resources which will
@@ -10992,6 +11255,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -11202,6 +11469,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -11417,6 +11688,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -11594,6 +11876,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               foreach:
@@ -11763,6 +12047,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -11940,6 +12235,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               kind:
@@ -12266,10 +12563,14 @@ spec:
                               properties:
                                 name:
                                   description: |-
-                                    `name` is the name of the resource being referenced.
+                                    name is the name of the resource being referenced.
 
-                                    `name` and `selector` are mutually exclusive properties. If one is set,
-                                    the other must be unset.
+                                    One of `name` or `selector` must be set, but `name` and `selector` are
+                                    mutually exclusive properties. If one is set, the other must be unset.
+
+                                    A single parameter used for all admission requests can be configured
+                                    by setting the `name` field, leaving `selector` blank, and setting namespace
+                                    if `paramKind` is namespace-scoped.
                                   type: string
                                 namespace:
                                   description: |-
@@ -12298,7 +12599,8 @@ spec:
                                     `failurePolicy` of the policy.
 
                                     Allowed values are `Allow` or `Deny`
-                                    Default to `Deny`
+
+                                    Required
                                   type: string
                                 selector:
                                   description: |-
@@ -12364,7 +12666,8 @@ spec:
                                 The variables defined here will be available under `variables` in other expressions of the policy.
                               items:
                                 description: Variable is the definition of a variable
-                                  that is used for composition.
+                                  that is used for composition. A variable is defined
+                                  as a named expression.
                                 properties:
                                   expression:
                                     description: |-
@@ -12381,6 +12684,7 @@ spec:
                                 - expression
                                 - name
                                 type: object
+                                x-kubernetes-map-type: atomic
                               type: array
                           type: object
                         deny:
@@ -12587,6 +12891,17 @@ spec:
                                   description: |-
                                     ContextEntry adds variables and data sources to a rule Context. Either a
                                     ConfigMap reference or a APILookup must be provided.
+                                  oneOf:
+                                  - required:
+                                    - configMap
+                                  - required:
+                                    - apiCall
+                                  - required:
+                                    - imageRegistry
+                                  - required:
+                                    - variable
+                                  - required:
+                                    - globalReference
                                   properties:
                                     apiCall:
                                       description: |-
@@ -12764,6 +13079,8 @@ spec:
                                             object representable in YAML or JSON form.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
+                                  required:
+                                  - name
                                   type: object
                                 type: array
                               deny:
@@ -14258,7 +14575,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must by fulfilled for a request to be sent to a webhook.
+                              must be fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -14300,6 +14617,17 @@ spec:
                             description: |-
                               ContextEntry adds variables and data sources to a rule Context. Either a
                               ConfigMap reference or a APILookup must be provided.
+                            oneOf:
+                            - required:
+                              - configMap
+                            - required:
+                              - apiCall
+                            - required:
+                              - imageRegistry
+                            - required:
+                              - variable
+                            - required:
+                              - globalReference
                             properties:
                               apiCall:
                                 description: |-
@@ -14475,6 +14803,8 @@ spec:
                                       representable in YAML or JSON form.
                                     x-kubernetes-preserve-unknown-fields: true
                                 type: object
+                            required:
+                            - name
                             type: object
                           type: array
                         exclude:
@@ -14482,6 +14812,10 @@ spec:
                             ExcludeResources defines when this policy rule should not be applied. The exclude
                             criteria can include resource information (e.g. kind, name, namespace, labels)
                             and admission review request information like the name or role.
+                          not:
+                            required:
+                            - any
+                            - all
                           properties:
                             all:
                               description: All allows specifying resources which will
@@ -14499,6 +14833,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -14710,6 +15048,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -14917,6 +15259,10 @@ spec:
                                 Requires at least one tag to be specified when under MatchResources.
                                 Specifying ResourceDescription directly under match is being deprecated.
                                 Please specify under "any" or "all" instead.
+                              not:
+                                required:
+                                - name
+                                - names
                               properties:
                                 annotations:
                                   additionalProperties:
@@ -15293,6 +15639,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -15475,6 +15832,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   data:
@@ -15688,6 +16047,10 @@ spec:
                             criteria can include resource information (e.g. kind, name, namespace, labels)
                             and admission review request information like the user name or role.
                             At least one kind is required.
+                          not:
+                            required:
+                            - any
+                            - all
                           properties:
                             all:
                               description: All allows specifying resources which will
@@ -15705,6 +16068,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -15916,6 +16283,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -16123,6 +16494,10 @@ spec:
                                 Requires at least one tag to be specified when under MatchResources.
                                 Specifying ResourceDescription directly under match is being deprecated.
                                 Please specify under "any" or "all" instead.
+                              not:
+                                required:
+                                - name
+                                - names
                               properties:
                                 annotations:
                                   additionalProperties:
@@ -16337,6 +16712,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -16519,6 +16905,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   foreach:
@@ -16692,6 +17080,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -16874,6 +17273,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   kind:
@@ -16912,6 +17313,13 @@ spec:
                             will be deprecated in the next major release.
                             See: https://kyverno.io/docs/writing-policies/preconditions/
                           x-kubernetes-preserve-unknown-fields: true
+                        reportProperties:
+                          additionalProperties:
+                            type: string
+                          description: ReportProperties are the additional properties
+                            from the rule that will be added to the policy report
+                            result
+                          type: object
                         skipBackgroundRequests:
                           default: true
                           description: |-
@@ -17119,10 +17527,14 @@ spec:
                                   properties:
                                     name:
                                       description: |-
-                                        `name` is the name of the resource being referenced.
+                                        name is the name of the resource being referenced.
 
-                                        `name` and `selector` are mutually exclusive properties. If one is set,
-                                        the other must be unset.
+                                        One of `name` or `selector` must be set, but `name` and `selector` are
+                                        mutually exclusive properties. If one is set, the other must be unset.
+
+                                        A single parameter used for all admission requests can be configured
+                                        by setting the `name` field, leaving `selector` blank, and setting namespace
+                                        if `paramKind` is namespace-scoped.
                                       type: string
                                     namespace:
                                       description: |-
@@ -17151,7 +17563,8 @@ spec:
                                         `failurePolicy` of the policy.
 
                                         Allowed values are `Allow` or `Deny`
-                                        Default to `Deny`
+
+                                        Required
                                       type: string
                                     selector:
                                       description: |-
@@ -17217,7 +17630,8 @@ spec:
                                     The variables defined here will be available under `variables` in other expressions of the policy.
                                   items:
                                     description: Variable is the definition of a variable
-                                      that is used for composition.
+                                      that is used for composition. A variable is
+                                      defined as a named expression.
                                     properties:
                                       expression:
                                         description: |-
@@ -17234,6 +17648,7 @@ spec:
                                     - expression
                                     - name
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   type: array
                               type: object
                             deny:
@@ -17352,6 +17767,17 @@ spec:
                                       description: |-
                                         ContextEntry adds variables and data sources to a rule Context. Either a
                                         ConfigMap reference or a APILookup must be provided.
+                                      oneOf:
+                                      - required:
+                                        - configMap
+                                      - required:
+                                        - apiCall
+                                      - required:
+                                        - imageRegistry
+                                      - required:
+                                        - variable
+                                      - required:
+                                        - globalReference
                                       properties:
                                         apiCall:
                                           description: |-
@@ -17534,6 +17960,8 @@ spec:
                                                 or JSON form.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
+                                      required:
+                                      - name
                                       type: object
                                     type: array
                                   deny:

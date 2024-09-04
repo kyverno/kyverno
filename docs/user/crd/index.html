@@ -1001,8 +1001,8 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <td>
 <code>expressions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1alpha1-admissionregistration">
-[]Kubernetes admissionregistration/v1alpha1.Validation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1beta1-admissionregistration">
+[]Kubernetes admissionregistration/v1beta1.Validation
 </a>
 </em>
 </td>
@@ -1014,8 +1014,8 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <td>
 <code>paramKind</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramkind-v1alpha1-admissionregistration">
-Kubernetes admissionregistration/v1alpha1.ParamKind
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramkind-v1beta1-admissionregistration">
+Kubernetes admissionregistration/v1beta1.ParamKind
 </a>
 </em>
 </td>
@@ -1028,8 +1028,8 @@ Kubernetes admissionregistration/v1alpha1.ParamKind
 <td>
 <code>paramRef</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramref-v1alpha1-admissionregistration">
-Kubernetes admissionregistration/v1alpha1.ParamRef
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramref-v1beta1-admissionregistration">
+Kubernetes admissionregistration/v1beta1.ParamRef
 </a>
 </em>
 </td>
@@ -1042,8 +1042,8 @@ Kubernetes admissionregistration/v1alpha1.ParamRef
 <td>
 <code>auditAnnotations</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1alpha1-admissionregistration">
-[]Kubernetes admissionregistration/v1alpha1.AuditAnnotation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1beta1-admissionregistration">
+[]Kubernetes admissionregistration/v1beta1.AuditAnnotation
 </a>
 </em>
 </td>
@@ -1056,8 +1056,8 @@ Kubernetes admissionregistration/v1alpha1.ParamRef
 <td>
 <code>variables</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1alpha1-admissionregistration">
-[]Kubernetes admissionregistration/v1alpha1.Variable
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1beta1-admissionregistration">
+[]Kubernetes admissionregistration/v1beta1.Variable
 </a>
 </em>
 </td>
@@ -1201,7 +1201,7 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.GeneratePatterns">GeneratePatterns</a>)
+<a href="#kyverno.io/v1.GeneratePattern">GeneratePattern</a>)
 </p>
 <p>
 <p>CloneFrom provides the location of the source resource used to generate target resources.
@@ -1707,10 +1707,10 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 </tr>
 <tr>
 <td>
-<code>GeneratePatterns</code><br/>
+<code>GeneratePattern</code><br/>
 <em>
-<a href="#kyverno.io/v1.GeneratePatterns">
-GeneratePatterns
+<a href="#kyverno.io/v1.GeneratePattern">
+GeneratePattern
 </a>
 </em>
 </td>
@@ -2051,7 +2051,7 @@ ForEachValidationWrapper
 <p>
 <p>ForeachOrder specifies the iteration order in foreach statements.</p>
 </p>
-<h3 id="kyverno.io/v1.GeneratePatterns">GeneratePatterns
+<h3 id="kyverno.io/v1.GeneratePattern">GeneratePattern
 </h3>
 <p>
 (<em>Appears on:</em>
@@ -2197,10 +2197,10 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 </tr>
 <tr>
 <td>
-<code>GeneratePatterns</code><br/>
+<code>GeneratePattern</code><br/>
 <em>
-<a href="#kyverno.io/v1.GeneratePatterns">
-GeneratePatterns
+<a href="#kyverno.io/v1.GeneratePattern">
+GeneratePattern
 </a>
 </em>
 </td>
@@ -3699,7 +3699,7 @@ ResourceDescription
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.GeneratePatterns">GeneratePatterns</a>, 
+<a href="#kyverno.io/v1.GeneratePattern">GeneratePattern</a>, 
 <a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>, 
@@ -3828,6 +3828,18 @@ string
 </tr>
 <tr>
 <td>
+<code>reportProperties</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ReportProperties are the additional properties from the rule that will be added to the policy report result</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>match</code><br/>
 <em>
 <a href="#kyverno.io/v1.MatchResources">
@@ -3895,8 +3907,8 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>celPreconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1alpha1-admissionregistration">
-[]Kubernetes admissionregistration/v1alpha1.MatchCondition
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1beta1-admissionregistration">
+[]Kubernetes admissionregistration/v1beta1.MatchCondition
 </a>
 </em>
 </td>

@@ -28,7 +28,7 @@ type generator struct {
 	anyAllConditions any
 	trigger          unstructured.Unstructured
 	forEach          []kyvernov1.ForEachGeneration
-	pattern          kyvernov1.GeneratePatterns
+	pattern          kyvernov1.GeneratePattern
 	contextLoader    engineapi.EngineContextLoader
 }
 
@@ -40,7 +40,7 @@ func newGenerator(client dclient.Interface,
 	contextEntries []kyvernov1.ContextEntry,
 	anyAllConditions any,
 	trigger unstructured.Unstructured,
-	pattern kyvernov1.GeneratePatterns,
+	pattern kyvernov1.GeneratePattern,
 	contextLoader engineapi.EngineContextLoader,
 ) *generator {
 	return &generator{
@@ -264,7 +264,7 @@ func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elemen
 			foreach.Context,
 			foreach.AnyAllConditions,
 			g.trigger,
-			foreach.GeneratePatterns,
+			foreach.GeneratePattern,
 			g.contextLoader).
 			generate()
 		if err != nil {

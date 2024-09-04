@@ -2032,7 +2032,7 @@ attributes for keyless verification, or a nested attestor declaration.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Validation</span>
+              <span style="font-family: monospace">[]admissionregistration/v1beta1.Validation</span>
             
           
         </td>
@@ -2059,7 +2059,7 @@ attributes for keyless verification, or a nested attestor declaration.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.ParamKind</span>
+              <span style="font-family: monospace">admissionregistration/v1beta1.ParamKind</span>
             
           
         </td>
@@ -2086,7 +2086,7 @@ attributes for keyless verification, or a nested attestor declaration.</p>
           
           
             
-              <span style="font-family: monospace">admissionregistration/v1alpha1.ParamRef</span>
+              <span style="font-family: monospace">admissionregistration/v1beta1.ParamRef</span>
             
           
         </td>
@@ -2113,7 +2113,7 @@ attributes for keyless verification, or a nested attestor declaration.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.AuditAnnotation</span>
+              <span style="font-family: monospace">[]admissionregistration/v1beta1.AuditAnnotation</span>
             
           
         </td>
@@ -2140,7 +2140,7 @@ attributes for keyless verification, or a nested attestor declaration.</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.Variable</span>
+              <span style="font-family: monospace">[]admissionregistration/v1beta1.Variable</span>
             
           
         </td>
@@ -2455,7 +2455,7 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
   
     <p>
       (<em>Appears in:</em>
-        <a href="#kyverno-io-v1-GeneratePatterns">GeneratePatterns</a>)
+        <a href="#kyverno-io-v1-GeneratePattern">GeneratePattern</a>)
     </p>
   
 
@@ -3503,7 +3503,7 @@ See: https://kyverno.io/docs/writing-policies/preconditions/</p>
     
     
       <tr>
-        <td><code>GeneratePatterns</code>
+        <td><code>GeneratePattern</code>
           
           <span style="color:blue;"> *</span>
           
@@ -3512,8 +3512,8 @@ See: https://kyverno.io/docs/writing-policies/preconditions/</p>
           
           
             
-              <a href="#kyverno-io-v1-GeneratePatterns">
-                <span style="font-family: monospace">GeneratePatterns</span>
+              <a href="#kyverno-io-v1-GeneratePattern">
+                <span style="font-family: monospace">GeneratePattern</span>
               </a>
             
           
@@ -4193,7 +4193,7 @@ must be satisfied for the validation rule to succeed.</p>
 
   
 
-  <H3 id="kyverno-io-v1-GeneratePatterns">GeneratePatterns
+  <H3 id="kyverno-io-v1-GeneratePattern">GeneratePattern
     </H3>
 
   
@@ -4470,15 +4470,15 @@ Defaults to &quot;false&quot; if not specified.</p>
     
     
       <tr>
-        <td><code>GeneratePatterns</code>
+        <td><code>GeneratePattern</code>
           
           </br>
 
           
           
             
-              <a href="#kyverno-io-v1-GeneratePatterns">
-                <span style="font-family: monospace">GeneratePatterns</span>
+              <a href="#kyverno-io-v1-GeneratePattern">
+                <span style="font-family: monospace">GeneratePattern</span>
               </a>
             
           
@@ -7330,7 +7330,7 @@ does not match an empty label set.</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#kyverno-io-v1-GeneratePatterns">GeneratePatterns</a>, 
+        <a href="#kyverno-io-v1-GeneratePattern">GeneratePattern</a>, 
         <a href="#kyverno-io-v1-TargetResourceSpec">TargetResourceSpec</a>)
     </p>
   
@@ -7591,6 +7591,33 @@ declaration to specify which resources to exclude.</p>
     
     
       <tr>
+        <td><code>reportProperties</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ReportProperties are the additional properties from the rule that will be added to the policy report result</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>match</code>
           
           <span style="color:blue;"> *</span>
@@ -7726,7 +7753,7 @@ See: https://kyverno.io/docs/writing-policies/preconditions/</p>
           
           
             
-              <span style="font-family: monospace">[]admissionregistration/v1alpha1.MatchCondition</span>
+              <span style="font-family: monospace">[]admissionregistration/v1beta1.MatchCondition</span>
             
           
         </td>

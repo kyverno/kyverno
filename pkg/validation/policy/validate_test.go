@@ -14,6 +14,46 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+func Test_PolicyValidationWithInvalidVariable(t *testing.T) {
+	policy := &kyvernov1.ClusterPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterPolicy",
+			APIVersion: "kyverno.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "policy-with-invalid-variable",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "test-rule-invalid-variable",
+					MatchResources: kyvernov1.MatchResources{
+						Any: []kyvernov1.ResourceFilter{
+							{
+								ResourceDescription: kyvernov1.ResourceDescription{
+									Kinds: []string{"Pod"},
+								},
+							},
+						},
+					},
+					Validation: kyvernov1.Validation{
+						Message: "{{ bar }} world!",
+						Deny:    &kyvernov1.Deny{},
+					},
+				},
+			},
+		},
+	}
+
+	err := ValidateVariables(policy, false)
+
+	assert.NotNil(t, err)
+
+	assert.Contains(t, err.Error(), "variable substitution failed")
+	assert.Contains(t, err.Error(), "test-rule-invalid-variable")
+	assert.Contains(t, err.Error(), "variable bar must match regex")
+}
+
 func Test_Validate_ResourceDescription_Empty(t *testing.T) {
 	var err error
 	rawResourcedescirption := []byte(`{}`)
@@ -3291,3 +3331,6 @@ func Test_isMapStringString(t *testing.T) {
 		})
 	}
 }
+
+
+
