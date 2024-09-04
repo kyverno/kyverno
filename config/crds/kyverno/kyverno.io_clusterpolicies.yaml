@@ -394,6 +394,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -604,6 +608,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -810,6 +818,10 @@ spec:
                             Requires at least one tag to be specified when under MatchResources.
                             Specifying ResourceDescription directly under match is being deprecated.
                             Please specify under "any" or "all" instead.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1602,6 +1614,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -1812,6 +1828,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -2018,6 +2038,10 @@ spec:
                             Requires at least one tag to be specified when under MatchResources.
                             Specifying ResourceDescription directly under match is being deprecated.
                             Please specify under "any" or "all" instead.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -5235,6 +5259,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -5446,6 +5474,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -5653,6 +5685,10 @@ spec:
                                 Requires at least one tag to be specified when under MatchResources.
                                 Specifying ResourceDescription directly under match is being deprecated.
                                 Please specify under "any" or "all" instead.
+                              not:
+                                required:
+                                - name
+                                - names
                               properties:
                                 annotations:
                                   additionalProperties:
@@ -6458,6 +6494,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -6669,6 +6709,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -6876,6 +6920,10 @@ spec:
                                 Requires at least one tag to be specified when under MatchResources.
                                 Specifying ResourceDescription directly under match is being deprecated.
                                 Please specify under "any" or "all" instead.
+                              not:
+                                required:
+                                - name
+                                - names
                               properties:
                                 annotations:
                                   additionalProperties:
@@ -10170,6 +10218,10 @@ spec:
                         ExcludeResources defines when this policy rule should not be applied. The exclude
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the name or role.
+                      not:
+                        required:
+                        - any
+                        - all
                       properties:
                         all:
                           description: All allows specifying resources which will
@@ -10187,6 +10239,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -10397,6 +10453,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -11172,6 +11232,10 @@ spec:
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the user name or role.
                         At least one kind is required.
+                      not:
+                        required:
+                        - any
+                        - all
                       properties:
                         all:
                           description: All allows specifying resources which will
@@ -11189,6 +11253,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -11399,6 +11467,10 @@ spec:
                               resources:
                                 description: ResourceDescription contains information
                                   about the resource being created or modified.
+                                not:
+                                  required:
+                                  - name
+                                  - names
                                 properties:
                                   annotations:
                                     additionalProperties:
@@ -14759,6 +14831,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -14970,6 +15046,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -15177,6 +15257,10 @@ spec:
                                 Requires at least one tag to be specified when under MatchResources.
                                 Specifying ResourceDescription directly under match is being deprecated.
                                 Please specify under "any" or "all" instead.
+                              not:
+                                required:
+                                - name
+                                - names
                               properties:
                                 annotations:
                                   additionalProperties:
@@ -15982,6 +16066,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -16193,6 +16281,10 @@ spec:
                                   resources:
                                     description: ResourceDescription contains information
                                       about the resource being created or modified.
+                                    not:
+                                      required:
+                                      - name
+                                      - names
                                     properties:
                                       annotations:
                                         additionalProperties:
@@ -16400,6 +16492,10 @@ spec:
                                 Requires at least one tag to be specified when under MatchResources.
                                 Specifying ResourceDescription directly under match is being deprecated.
                                 Please specify under "any" or "all" instead.
+                              not:
+                                required:
+                                - name
+                                - names
                               properties:
                                 annotations:
                                   additionalProperties:

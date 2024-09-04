@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
@@ -18,7 +19,7 @@ import (
 
 // Validation provides methods to validate a rule
 type Validation interface {
-	Validate(ctx context.Context) (warnings []string, path string, err error)
+	Validate(ctx context.Context, verbs []string) (warnings []string, path string, err error)
 }
 
 // validateAction performs validation on the rule actions
@@ -35,7 +36,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	// Mutate
 	if rule.HasMutate() {
 		checker = mutate.NewMutateFactory(rule.Mutation, client, mock, backgroundSA)
-		if w, path, err := checker.Validate(context.TODO()); err != nil {
+		if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].mutate.%s.: %v", idx, path, err)
 		} else if w != nil {
 			warnings = append(warnings, w...)
@@ -45,7 +46,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	// Validate
 	if rule.HasValidate() {
 		checker = validate.NewValidateFactory(rule, client, mock, reportsSA)
-		if w, path, err := checker.Validate(context.TODO()); err != nil {
+		if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].validate.%s.: %v", idx, path, err)
 		} else if w != nil {
 			warnings = append(warnings, w...)
@@ -70,14 +71,23 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		// this need to modified to use different implementation for online and offline mode
 		if mock {
 			checker = generate.NewFakeGenerate(rule.Generation)
-			if w, path, err := checker.Validate(context.TODO()); err != nil {
+			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			} else if warnings != nil {
 				warnings = append(warnings, w...)
 			}
 		} else {
+			if rule.Generation.Synchronize {
+				admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
+				checker = generate.NewGenerateFactory(client, rule.Generation, admissionSA, logging.GlobalLogger())
+				if w, path, err := checker.Validate(context.TODO(), []string{"list", "get"}); err != nil {
+					return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
+				} else if warnings != nil {
+					warnings = append(warnings, w...)
+				}
+			}
 			checker = generate.NewGenerateFactory(client, rule.Generation, backgroundSA, logging.GlobalLogger())
-			if w, path, err := checker.Validate(context.TODO()); err != nil {
+			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			} else if warnings != nil {
 				warnings = append(warnings, w...)

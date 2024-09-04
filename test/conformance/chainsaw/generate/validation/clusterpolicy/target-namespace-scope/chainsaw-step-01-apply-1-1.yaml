@@ -5,18 +5,31 @@ metadata:
     app.kubernetes.io/component: background-controller
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
+    rbac.kyverno.io/aggregate-to-admission-controller: "true"
   name: kyverno:background-controller:manage-ns-crossplane-role
 rules:
 - apiGroups:
   - ""
-  - iam.aws.crossplane.io
   resources:
   - namespaces
-  - roles
   verbs:
   - create
   - update
   - delete
+  - get
+- apiGroups:
+  - iam.aws.crossplane.io
+  resources:
+  - roles
+  verbs:
+  - list
+  - get
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - list
   - get
 - apiGroups:
   - kyverno.io
