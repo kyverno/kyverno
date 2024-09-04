@@ -1,27 +1,25 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:rbac
   labels:
-    rbac.kyverno.io/aggregate-to-background-controller: "true"
     rbac.kyverno.io/aggregate-to-admission-controller: "true"
+  name: kyverno:background-controller:manage-ns-crossplane-role
 rules:
 - apiGroups:
-  - rbac.authorization.k8s.io
+  - ""
+  - iam.aws.crossplane.io
   resources:
-  - clusterroles
-  - clusterrolebindings
+  - configmaps
+  - roles
   verbs:
-  - get
-  - list
-  - watch
   - create
   - update
   - delete
+  - get
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
-  - rolebindings
+  - roles
   verbs:
-  - get
   - list
+  - get
