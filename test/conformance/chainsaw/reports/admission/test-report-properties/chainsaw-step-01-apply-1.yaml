@@ -19,7 +19,7 @@ spec:
       operation: '{{ request.operation }}'
       objName: '{{ objName }}'
     validate:
-      validationFailureAction: Audit
+      failureAction: Audit
       message: The `owner` label is required for all Namespaces.
       pattern:
         metadata:
