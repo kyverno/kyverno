@@ -15,7 +15,7 @@
     "^cli$"
   ],
   "configs": [
-    "^configs$/^(dont-emit-success-events-upon-generateSuccessEvents-set-false|emit-success-events-upon-generateSuccessEvents-set-true)\\[.*\\]$"
+    "^configs$"
   ],
   "custom-sigstore": [
     "^custom-sigstore$"
