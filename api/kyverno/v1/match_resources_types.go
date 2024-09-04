@@ -7,6 +7,7 @@ import (
 
 // MatchResources is used to specify resource and admission review request data for
 // which a policy rule is applicable.
+// +kubebuilder:not:={required:{any,all}}
 type MatchResources struct {
 	// Any allows specifying resources which will be ORed
 	// +optional

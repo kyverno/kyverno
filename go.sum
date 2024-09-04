@@ -136,8 +136,8 @@ github.com/alibabacloud-go/tea-utils/v2 v2.0.6/go.mod h1:qxn986l+q33J5VkialKMqT/
 github.com/alibabacloud-go/tea-xml v1.1.2/go.mod h1:Rq08vgCcCAjHyRi/M7xlHKUykZCEtyBy9+DPF6GgEu8=
 github.com/alibabacloud-go/tea-xml v1.1.3 h1:7LYnm+JbOq2B+T/B0fHC4Ies4/FofC4zHzYtqw7dgt0=
 github.com/alibabacloud-go/tea-xml v1.1.3/go.mod h1:Rq08vgCcCAjHyRi/M7xlHKUykZCEtyBy9+DPF6GgEu8=
-github.com/alitto/pond v1.9.1 h1:OfCpIrMyrWJpn34f647DcFmUxjK8+7Nu3eoVN/WTP+o=
-github.com/alitto/pond v1.9.1/go.mod h1:xQn3P/sHTYcU/1BR3i86IGIrilcrGC2LiS+E2+CJWsI=
+github.com/alitto/pond v1.9.2 h1:9Qb75z/scEZVCoSU+osVmQ0I0JOeLfdTDafrbcJ8CLs=
+github.com/alitto/pond v1.9.2/go.mod h1:xQn3P/sHTYcU/1BR3i86IGIrilcrGC2LiS+E2+CJWsI=
 github.com/aliyun/credentials-go v1.1.2/go.mod h1:ozcZaMR5kLM7pwtCMEpVmQ242suV6qTJya2bDq4X1Tw=
 github.com/aliyun/credentials-go v1.3.6/go.mod h1:1LxUuX7L5YrZUWzBrRyk0SwSdH4OmPrib8NVePL3fxM=
 github.com/aliyun/credentials-go v1.3.8 h1:NYNdqSii0mesiq2cHrUHrKKB9qxYsaSPIwkRvHjXwPk=
@@ -798,8 +798,8 @@ github.com/sigstore/protobuf-specs v0.3.2 h1:nCVARCN+fHjlNCk3ThNXwrZRqIommIeNKWw
 github.com/sigstore/protobuf-specs v0.3.2/go.mod h1:RZ0uOdJR4OB3tLQeAyWoJFbNCBFrPQdcokntde4zRBA=
 github.com/sigstore/rekor v1.3.6 h1:QvpMMJVWAp69a3CHzdrLelqEqpTM3ByQRt5B5Kspbi8=
 github.com/sigstore/rekor v1.3.6/go.mod h1:JDTSNNMdQ/PxdsS49DJkJ+pRJCO/83nbR5p3aZQteXc=
-github.com/sigstore/sigstore v1.8.8 h1:B6ZQPBKK7Z7tO3bjLNnlCMG+H66tO4E/+qAphX8T/hg=
-github.com/sigstore/sigstore v1.8.8/go.mod h1:GW0GgJSCTBJY3fUOuGDHeFWcD++c4G8Y9K015pwcpDI=
+github.com/sigstore/sigstore v1.8.9 h1:NiUZIVWywgYuVTxXmRoTT4O4QAGiTEKup4N1wdxFadk=
+github.com/sigstore/sigstore v1.8.9/go.mod h1:d9ZAbNDs8JJfxJrYmulaTazU3Pwr8uLL9+mii4BNR3w=
 github.com/sigstore/sigstore-go v0.6.0 h1:X72BkR8kXFcdhF/V5GA2fpFvCz+VyZ6fI0YgTBn5feI=
 github.com/sigstore/sigstore-go v0.6.0/go.mod h1:+RyopI/FJDE6z5WVs2sQ2nkc+zsxxByDmbp8a4HoxbA=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.8 h1:2zHmUvaYCwV6LVeTo+OAkTm8ykOGzA9uFlAjwDPAUWM=
@@ -808,8 +808,8 @@ github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.8 h1:RKk4Z+qMaLORUdT7z
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.8/go.mod h1:dMJdlBWKHMu2xf0wIKpbo7+QfG+RzVkBB3nHP8EMM5o=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.8 h1:89Xtxj8oqZt3UlSpCP4wApFvnQ2Z/dgowW5QOVhQigI=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.8/go.mod h1:Wa4xn/H3pU/yW/6tHiMXTpObBtBSGC5q29KYFEPKN6o=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.8 h1:Zte3Oogkd8m+nu2oK3yHtGmN++TZWh2Lm6q2iSprT1M=
-github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.8/go.mod h1:j00crVw6ki4/WViXflw0zWgNALrAzZT+GbIK8v7Xlz4=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.9 h1:E+bvFTS6uM//iSAeneNj5pubzntQmio/yAKFzmRzzD0=
+github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.9/go.mod h1:0RKVuZXIZAFhT0frfx+GzyrtlesiRK3ceF55nIgkZI4=
 github.com/sigstore/timestamp-authority v1.2.2 h1:X4qyutnCQqJ0apMewFyx+3t7Tws00JQ/JonBiu3QvLE=
 github.com/sigstore/timestamp-authority v1.2.2/go.mod h1:nEah4Eq4wpliDjlY342rXclGSO7Kb9hoRrl9tqLW13A=
 github.com/sirupsen/logrus v1.7.0/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
