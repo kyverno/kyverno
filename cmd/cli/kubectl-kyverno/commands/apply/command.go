@@ -33,7 +33,7 @@ import (
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -222,8 +222,8 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedIn
 }
 
 func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
-	vaps []v1alpha1.ValidatingAdmissionPolicy,
-	vapBindings []v1alpha1.ValidatingAdmissionPolicyBinding,
+	vaps []admissionregistrationv1beta1.ValidatingAdmissionPolicy,
+	vapBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
 	namespaceSelectorMap map[string]map[string]string,
 	rc *processor.ResultCounts,
@@ -322,7 +322,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	return &rc, resources, responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.PolicyInterface, vap []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
+func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1beta1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(out, nil, c.ResourcePaths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, fmt.Errorf("failed to load resources (%w)", err)
@@ -330,11 +330,11 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.P
 	return resources, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, []v1alpha1.ValidatingAdmissionPolicyBinding, error) {
+func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, []kyvernov1.PolicyInterface, []admissionregistrationv1beta1.ValidatingAdmissionPolicy, []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, error) {
 	// load policies
 	var policies []kyvernov1.PolicyInterface
-	var vaps []v1alpha1.ValidatingAdmissionPolicy
-	var vapBindings []v1alpha1.ValidatingAdmissionPolicyBinding
+	var vaps []admissionregistrationv1beta1.ValidatingAdmissionPolicy
+	var vapBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
 
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)

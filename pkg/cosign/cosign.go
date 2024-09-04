@@ -436,7 +436,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to base64 decode payload for %v: %w", statementRaw, err)
 	}
 
-	var statement in_toto.Statement
+	var statement in_toto.Statement //nolint:staticcheck
 	if err := json.Unmarshal(statementRaw, &statement); err != nil {
 		return nil, err
 	}
@@ -453,7 +453,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 	return decodeCosignCustomProvenanceV01(statement)
 }
 
-func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]interface{}, error) {
+func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]interface{}, error) { //nolint:staticcheck
 	if statement.Type != attestation.CosignCustomProvenanceV01 {
 		return nil, fmt.Errorf("invalid statement type %s", attestation.CosignCustomProvenanceV01)
 	}

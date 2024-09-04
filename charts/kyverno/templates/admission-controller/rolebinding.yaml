@@ -4,6 +4,14 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}
   namespace: {{ template "kyverno.namespace" . }}
+  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
+  {{- if not .Values.templating.enabled }}
+  finalizers:
+  - kyverno.io/webhooks
+  - kyverno.io/exceptionwebhooks
+  - kyverno.io/globalcontextwebhooks
+  {{- end }}
+  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 roleRef:

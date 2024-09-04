@@ -391,13 +391,21 @@ metricsConfig:
   bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30]
 
   # -- (map) Configures the exposure of individual metrics, by default all metrics and all labels are exported, changing this configuration requires restart of the kyverno admission controller
-  metricsExposure: ~
-  # metricsExposure:
-  #   kyverno_policy_execution_duration_seconds:
-  #     disabledLabelDimensions: ["resource_kind", "resource_namespace", "resource_request_operation"]
-  #     bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
-  #   kyverno_admission_review_duration_seconds:
-  #     enabled: false
+  metricsExposure:
+    kyverno_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_admission_review_duration_seconds:
+      # enabled: false
+      disabledLabelDimensions: ["resource_namespace"]
+    kyverno_policy_rule_info_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_admission_requests_total:
+      disabledLabelDimensions: ["resource_namespace"]
+    kyverno_cleanup_controller_deletedobjects_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
 
 # -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
 imagePullSecrets: {}
@@ -460,6 +468,10 @@ customLabels: {}
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: true
+
+  autoDeleteWebhooks:
+    # -- Allow webhooks controller to delete webhooks using finalizers
+    enabled: false
 
   image:
     # -- (string) Image registry
@@ -746,6 +758,9 @@ admissionController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
     # example.com/annotation: foo
+
+  # -- Deployment annotations.
+  annotations: {}
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
@@ -1200,6 +1215,9 @@ backgroundController:
   podAnnotations: {}
   # example.com/annotation: foo
 
+  # -- Deployment annotations.
+  annotations: {}
+
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
   # @default -- See [values.yaml](values.yaml)
@@ -1459,6 +1477,9 @@ cleanupController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment annotations.
+  annotations: {}
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
@@ -1769,6 +1790,9 @@ reportsController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment annotations.
+  annotations: {}
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy

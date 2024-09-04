@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -156,6 +156,17 @@ spec:
                   description: |-
                     ContextEntry adds variables and data sources to a rule Context. Either a
                     ConfigMap reference or a APILookup must be provided.
+                  oneOf:
+                  - required:
+                    - configMap
+                  - required:
+                    - apiCall
+                  - required:
+                    - imageRegistry
+                  - required:
+                    - variable
+                  - required:
+                    - globalReference
                   properties:
                     apiCall:
                       description: |-
@@ -253,6 +264,8 @@ spec:
                         name:
                           description: Name of the global context entry
                           type: string
+                      required:
+                      - name
                       type: object
                     imageRegistry:
                       description: |-
@@ -326,6 +339,8 @@ spec:
                             in YAML or JSON form.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
+                  required:
+                  - name
                   type: object
                 type: array
               exclude:
@@ -333,6 +348,10 @@ spec:
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
                   criteria can include resource information (e.g. kind, name, namespace, labels)
                   and admission review request information like the name or role.
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -349,6 +368,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -556,6 +579,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -755,6 +782,10 @@ spec:
                   criteria can include resource information (e.g. kind, name, namespace, labels)
                   and admission review request information like the user name or role.
                   At least one kind is required.
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -771,6 +802,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -978,6 +1013,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1182,16 +1221,8 @@ spec:
             properties:
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -1232,12 +1263,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -1393,6 +1419,17 @@ spec:
                   description: |-
                     ContextEntry adds variables and data sources to a rule Context. Either a
                     ConfigMap reference or a APILookup must be provided.
+                  oneOf:
+                  - required:
+                    - configMap
+                  - required:
+                    - apiCall
+                  - required:
+                    - imageRegistry
+                  - required:
+                    - variable
+                  - required:
+                    - globalReference
                   properties:
                     apiCall:
                       description: |-
@@ -1490,6 +1527,8 @@ spec:
                         name:
                           description: Name of the global context entry
                           type: string
+                      required:
+                      - name
                       type: object
                     imageRegistry:
                       description: |-
@@ -1563,6 +1602,8 @@ spec:
                             in YAML or JSON form.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
+                  required:
+                  - name
                   type: object
                 type: array
               exclude:
@@ -1570,6 +1611,10 @@ spec:
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
                   criteria can include resource information (e.g. kind, name, namespace, labels)
                   and admission review request information like the name or role.
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -1586,6 +1631,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1793,6 +1842,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1992,6 +2045,10 @@ spec:
                   criteria can include resource information (e.g. kind, name, namespace, labels)
                   and admission review request information like the user name or role.
                   At least one kind is required.
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -2008,6 +2065,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -2215,6 +2276,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -2419,16 +2484,8 @@ spec:
             properties:
               conditions:
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -2469,12 +2526,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string

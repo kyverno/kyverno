@@ -36,7 +36,7 @@ func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, use
 }
 
 // Validate validates the 'generate' rule
-func (g *Generate) Validate(ctx context.Context) (warnings []string, path string, err error) {
+func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []string, path string, err error) {
 	rule := g.rule
 	if rule.CloneList.Selector != nil {
 		if wildcard.ContainsWildcard(rule.CloneList.Selector.String()) {
@@ -59,41 +59,42 @@ func (g *Generate) Validate(ctx context.Context) (warnings []string, path string
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
 	if rule.ForEachGeneration != nil {
 		for _, forEach := range rule.ForEachGeneration {
-			if err := g.validateAuth(ctx, forEach.GeneratePatterns); err != nil {
+			if err := g.validateAuth(ctx, verbs, forEach.GeneratePattern); err != nil {
 				return nil, "foreach", err
 			}
 		}
 	} else {
-		if err := g.validateAuth(ctx, rule.GeneratePatterns); err != nil {
+		if err := g.validateAuth(ctx, verbs, rule.GeneratePattern); err != nil {
 			return nil, "", err
 		}
 	}
 	return nil, "", nil
 }
 
-// validateAuth returns a error if kyverno cannot perform operations
-func (g *Generate) validateAuth(ctx context.Context, generate kyvernov1.GeneratePatterns) error {
+func (g *Generate) validateAuth(ctx context.Context, verbs []string, generate kyvernov1.GeneratePattern) error {
 	if len(generate.CloneList.Kinds) != 0 {
 		for _, kind := range generate.CloneList.Kinds {
 			gvk, sub := parseCloneKind(kind)
-			return g.canIGenerate(ctx, gvk, generate.Namespace, sub)
+			return g.canIGenerate(ctx, verbs, gvk, generate.Namespace, sub)
 		}
 	} else {
 		k, sub := kubeutils.SplitSubresource(generate.Kind)
-		return g.canIGenerate(ctx, strings.Join([]string{generate.APIVersion, k}, "/"), generate.Namespace, sub)
+		return g.canIGenerate(ctx, verbs, strings.Join([]string{generate.APIVersion, k}, "/"), generate.Namespace, sub)
 	}
 	return nil
 }
 
-func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource string) error {
+func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namespace, subresource string) error {
 	if regex.IsVariable(gvk) {
 		g.log.V(2).Info("resource Kind uses variables; skipping authorization checks.")
 		return nil
 	}
 
-	verbs := []string{"get", "create"}
-	if g.rule.Synchronize {
-		verbs = []string{"get", "create", "update", "delete"}
+	if verbs == nil {
+		verbs = []string{"get", "create"}
+		if g.rule.Synchronize {
+			verbs = []string{"get", "create", "update", "delete"}
+		}
 	}
 
 	ok, msg, err := g.authChecker.CanI(ctx, verbs, gvk, namespace, "", subresource)
@@ -102,7 +103,7 @@ func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource
 	}
 
 	if !ok {
-		return fmt.Errorf(msg)
+		return fmt.Errorf(msg) //nolint:all
 	}
 
 	return nil

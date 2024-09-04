@@ -15,7 +15,7 @@ spec:
               - CREATE
               - UPDATE
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         cel:
           expressions:
             - expression: "authorizer.serviceAccount('default', 'test-account').group('').resource('pods').namespace('default').check('delete').allowed()"

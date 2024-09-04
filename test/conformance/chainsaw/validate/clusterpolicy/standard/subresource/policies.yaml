@@ -14,7 +14,7 @@ spec:
               kinds:
                 - Deployment/scale
       validate:
-        validationFailureAction: Audit
+        failureAction: Audit
         deny: {}
 ---
 apiVersion: kyverno.io/v1
@@ -33,5 +33,5 @@ spec:
               kinds:
                 - StatefulSet/scale
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         deny: {}

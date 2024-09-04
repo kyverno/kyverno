@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -51,6 +51,10 @@ type Rule struct {
 	// +optional
 	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
 
+	// ReportProperties are the additional properties from the rule that will be added to the policy report result
+	// +optional
+	ReportProperties map[string]string `json:"reportProperties,omitempty" yaml:"reportProperties,omitempty"`
+
 	// MatchResources defines when this policy rule should be applied. The match
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
@@ -81,7 +85,7 @@ type Rule struct {
 	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of CEL conditions. It can only be used with the validate.cel subrule
 	// +optional
-	CELPreconditions []admissionregistrationv1alpha1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
+	CELPreconditions []admissionregistrationv1beta1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional

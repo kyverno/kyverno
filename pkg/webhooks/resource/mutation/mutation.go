@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
@@ -26,7 +27,7 @@ type MutationHandler interface {
 	// HandleMutation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleMutation(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time) ([]byte, []string, error)
+	HandleMutation(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time, config.Configuration) ([]byte, []string, error)
 }
 
 func NewMutationHandler(
@@ -59,8 +60,9 @@ func (h *mutationHandler) HandleMutation(
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	admissionRequestTimestamp time.Time,
+	cfg config.Configuration,
 ) ([]byte, []string, error) {
-	mutatePatches, mutateEngineResponses, err := h.applyMutations(ctx, request, policies, policyContext)
+	mutatePatches, mutateEngineResponses, err := h.applyMutations(ctx, request, policies, policyContext, cfg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -75,6 +77,7 @@ func (v *mutationHandler) applyMutations(
 	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
+	cfg config.Configuration,
 ) ([]byte, []engineapi.EngineResponse, error) {
 	if len(policies) == 0 {
 		return nil, nil, nil
@@ -127,7 +130,7 @@ func (v *mutationHandler) applyMutations(
 		}
 	}
 
-	events := webhookutils.GenerateEvents(engineResponses, false)
+	events := webhookutils.GenerateEvents(engineResponses, false, cfg)
 	v.eventGen.Add(events...)
 
 	logMutationResponse(patches, engineResponses, v.log)
@@ -164,6 +167,6 @@ func logMutationResponse(patches []jsonpatch.JsonPatchOperation, engineResponses
 
 	// if any of the policies fails, print out the error
 	if !engineutils.IsResponseSuccessful(engineResponses) {
-		logger.Error(fmt.Errorf(webhookutils.GetErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
+		logger.Error(fmt.Errorf(webhookutils.GetErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation") //nolint:govet,staticcheck
 	}
 }

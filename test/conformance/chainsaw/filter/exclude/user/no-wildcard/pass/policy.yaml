@@ -17,5 +17,5 @@ spec:
         - kind: User
           name: kubernetes-admin
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny: {}

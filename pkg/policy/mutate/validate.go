@@ -37,7 +37,7 @@ func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface, mock bool,
 }
 
 // Validate validates the 'mutate' rule
-func (m *Mutate) Validate(ctx context.Context) (warnings []string, path string, err error) {
+func (m *Mutate) Validate(ctx context.Context, _ []string) (warnings []string, path string, err error) {
 	if m.hasForEach() {
 		if m.hasPatchStrategicMerge() || m.hasPatchesJSON6902() {
 			return nil, "foreach", fmt.Errorf("only one of `foreach`, `patchStrategicMerge`, or `patchesJson6902` is allowed")
@@ -113,7 +113,7 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 			return err
 		}
 		if !ok {
-			errs = append(errs, fmt.Errorf(msg))
+			errs = append(errs, fmt.Errorf(msg)) //nolint:all
 		}
 	}
 

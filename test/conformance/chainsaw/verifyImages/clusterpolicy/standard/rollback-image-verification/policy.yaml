@@ -21,7 +21,7 @@ spec:
       verifyImages:
       - imageReferences:
         - "ghcr.io/kyverno*"
-        validationFailureAction: Enforce
+        failureAction: Enforce
         attestors:
         - count: 1
           entries:

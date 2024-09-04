@@ -14,7 +14,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,7 +29,7 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func GetKinds(policy v1alpha1.ValidatingAdmissionPolicy) []string {
+func GetKinds(policy admissionregistrationv1beta1.ValidatingAdmissionPolicy) []string {
 	var kindList []string
 
 	matchResources := policy.Spec.MatchConstraints
@@ -120,7 +120,7 @@ func Validate(
 		nsLister := NewCustomNamespaceLister(client)
 		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 
-		// convert policy from v1alpha1 to v1
+		// convert policy from v1beta1 to v1
 		v1policy := ConvertValidatingAdmissionPolicy(policy)
 
 		// construct admission attributes
@@ -179,8 +179,8 @@ func Validate(
 }
 
 func validateResource(
-	policy v1alpha1.ValidatingAdmissionPolicy,
-	binding *v1alpha1.ValidatingAdmissionPolicyBinding,
+	policy admissionregistrationv1beta1.ValidatingAdmissionPolicy,
+	binding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
 	namespace corev1.Namespace,
 	a admission.Attributes,
@@ -208,9 +208,9 @@ func validateResource(
 		failPolicy = admissionregistrationv1.FailurePolicyType(*policy.Spec.FailurePolicy)
 	}
 
-	var matchPolicy v1alpha1.MatchPolicyType
+	var matchPolicy admissionregistrationv1beta1.MatchPolicyType
 	if policy.Spec.MatchConstraints.MatchPolicy == nil {
-		matchPolicy = v1alpha1.Equivalent
+		matchPolicy = admissionregistrationv1beta1.Equivalent
 	} else {
 		matchPolicy = *policy.Spec.MatchConstraints.MatchPolicy
 	}
@@ -228,23 +228,23 @@ func validateResource(
 
 	// no validations are returned if match conditions aren't met
 	if datautils.DeepEqual(validateResult, validating.ValidateResult{}) {
-		ruleResp = engineapi.RuleSkip(policy.GetName(), engineapi.Validation, "match conditions aren't met")
+		ruleResp = engineapi.RuleSkip(policy.GetName(), engineapi.Validation, "match conditions aren't met", nil)
 	} else {
 		isPass := true
 		for _, policyDecision := range validateResult.Decisions {
 			if policyDecision.Evaluation == validating.EvalError {
 				isPass = false
-				ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
+				ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil, nil)
 				break
 			} else if policyDecision.Action == validating.ActionDeny {
 				isPass = false
-				ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message)
+				ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
 				break
 			}
 		}
 
 		if isPass {
-			ruleResp = engineapi.RulePass(policy.GetName(), engineapi.Validation, "")
+			ruleResp = engineapi.RulePass(policy.GetName(), engineapi.Validation, "", nil)
 		}
 	}
 

@@ -65,7 +65,7 @@ func (h validateAssertHandler) Process(
 		}
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", ")).WithExceptions(matchedExceptions),
+			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
 		)
 	}
 	// load context
@@ -79,7 +79,7 @@ func (h validateAssertHandler) Process(
 			logger.Error(err, "failed to load context")
 		}
 		return resource, handlers.WithResponses(
-			engineapi.RuleError(rule.Name, engineapi.Validation, "failed to load context", err),
+			engineapi.RuleError(rule.Name, engineapi.Validation, "failed to load context", err, rule.ReportProperties),
 		)
 	}
 	// prepare bindings
@@ -113,12 +113,12 @@ func (h validateAssertHandler) Process(
 	if len(errs) != 0 {
 		var responses []*engineapi.RuleResponse
 		for _, err := range errs {
-			responses = append(responses, engineapi.RuleFail(rule.Name, engineapi.Validation, err.Error()))
+			responses = append(responses, engineapi.RuleFail(rule.Name, engineapi.Validation, err.Error(), rule.ReportProperties))
 		}
 		return resource, handlers.WithResponses(responses...)
 	}
 	msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
 	return resource, handlers.WithResponses(
-		engineapi.RulePass(rule.Name, engineapi.Validation, msg),
+		engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties),
 	)
 }

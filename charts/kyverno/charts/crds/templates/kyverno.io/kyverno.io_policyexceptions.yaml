@@ -9,7 +9,7 @@ metadata:
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -175,6 +175,10 @@ spec:
               match:
                 description: Match defines match clause used to check if a resource
                   applies to the exception
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -191,6 +195,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -398,6 +406,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -804,6 +816,10 @@ spec:
               match:
                 description: Match defines match clause used to check if a resource
                   applies to the exception
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -820,6 +836,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1027,6 +1047,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
