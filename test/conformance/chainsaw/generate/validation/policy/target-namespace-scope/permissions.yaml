@@ -16,3 +16,10 @@ rules:
   - update
   - delete
   - get
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - list
+  - get
