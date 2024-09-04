@@ -469,6 +469,10 @@ webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: true
 
+  autoDeleteWebhooks:
+    # -- Allow webhooks controller to delete webhooks using finalizers
+    enabled: false
+
   image:
     # -- (string) Image registry
     registry: ~
