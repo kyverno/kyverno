@@ -2,31 +2,83 @@ package generate
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type generator struct {
-	client  dclient.Interface
-	logger  logr.Logger
-	policy  kyvernov1.PolicyInterface
-	rule    kyvernov1.Rule
-	trigger unstructured.Unstructured
+	client           dclient.Interface
+	logger           logr.Logger
+	policyContext    engineapi.PolicyContext
+	policy           kyvernov1.PolicyInterface
+	rule             kyvernov1.Rule
+	contextEntries   []kyvernov1.ContextEntry
+	anyAllConditions any
+	trigger          unstructured.Unstructured
+	forEach          []kyvernov1.ForEachGeneration
+	pattern          kyvernov1.GeneratePattern
+	contextLoader    engineapi.EngineContextLoader
 }
 
-func newGenerator(client dclient.Interface, logger logr.Logger, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, trigger unstructured.Unstructured) *generator {
+func newGenerator(client dclient.Interface,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	policy kyvernov1.PolicyInterface,
+	rule kyvernov1.Rule,
+	contextEntries []kyvernov1.ContextEntry,
+	anyAllConditions any,
+	trigger unstructured.Unstructured,
+	pattern kyvernov1.GeneratePattern,
+	contextLoader engineapi.EngineContextLoader,
+) *generator {
 	return &generator{
-		client:  client,
-		logger:  logger,
-		policy:  policy,
-		rule:    rule,
-		trigger: trigger,
+		client:           client,
+		logger:           logger,
+		policyContext:    policyContext,
+		policy:           policy,
+		rule:             rule,
+		contextEntries:   contextEntries,
+		anyAllConditions: anyAllConditions,
+		trigger:          trigger,
+		pattern:          pattern,
+		contextLoader:    contextLoader,
+	}
+}
+
+func newForeachGenerator(client dclient.Interface,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	policy kyvernov1.PolicyInterface,
+	rule kyvernov1.Rule,
+	contextEntries []kyvernov1.ContextEntry,
+	anyAllConditions any,
+	trigger unstructured.Unstructured,
+	forEach []kyvernov1.ForEachGeneration,
+	contextLoader engineapi.EngineContextLoader,
+) *generator {
+	return &generator{
+		client:           client,
+		logger:           logger,
+		policyContext:    policyContext,
+		policy:           policy,
+		rule:             rule,
+		contextEntries:   contextEntries,
+		anyAllConditions: anyAllConditions,
+		trigger:          trigger,
+		forEach:          forEach,
+		contextLoader:    contextLoader,
 	}
 }
 
@@ -35,16 +87,41 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 	var err error
 	var newGenResources []kyvernov1.ResourceSpec
 
-	target := g.rule.Generation.ResourceSpec
+	if err := g.loadContext(context.TODO()); err != nil {
+		return newGenResources, fmt.Errorf("failed to load context: %v", err)
+	}
+
+	typeConditions, err := engineutils.TransformConditions(g.anyAllConditions)
+	if err != nil {
+		return newGenResources, fmt.Errorf("failed to parse preconditions: %v", err)
+	}
+
+	preconditionsPassed, msg, err := variables.EvaluateConditions(g.logger, g.policyContext.JSONContext(), typeConditions)
+	if err != nil {
+		return newGenResources, fmt.Errorf("failed to evaluate preconditions: %v", err)
+	}
+
+	if !preconditionsPassed {
+		g.logger.V(2).Info("preconditions not met", "msg", msg)
+		return newGenResources, nil
+	}
+
+	pattern, err := variables.SubstituteAllInType(g.logger, g.policyContext.JSONContext(), &g.pattern)
+	if err != nil {
+		g.logger.Error(err, "variable substitution failed for rule", "rule", g.rule.Name)
+		return nil, err
+	}
+
+	target := pattern.ResourceSpec
 	logger := g.logger.WithValues("target", target.String())
 
-	if g.rule.Generation.Clone.Name != "" {
-		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, g.policy.GetSpec().UseServerSideApply, g.rule, g.client)
+	if pattern.Clone.Name != "" {
+		resp := manageClone(logger.WithValues("type", "clone"), target, kyvernov1.ResourceSpec{}, g.policy.GetSpec().UseServerSideApply, *pattern, g.client)
 		responses = append(responses, resp)
-	} else if len(g.rule.Generation.CloneList.Kinds) != 0 {
-		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), g.policy.GetSpec().UseServerSideApply, g.rule, g.client)
+	} else if len(pattern.CloneList.Kinds) != 0 {
+		responses = manageCloneList(logger.WithValues("type", "cloneList"), target.GetNamespace(), g.policy.GetSpec().UseServerSideApply, *pattern, g.client)
 	} else {
-		resp := manageData(logger.WithValues("type", "data"), target, g.rule.Generation.RawData, g.rule.Generation.Synchronize, g.client)
+		resp := manageData(logger.WithValues("type", "data"), target, pattern.RawData, g.rule.Generation.Synchronize, g.client)
 		responses = append(responses, resp)
 	}
 
@@ -137,4 +214,77 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		}
 	}
 	return newGenResources, nil
+}
+
+func (g *generator) generateForeach() ([]kyvernov1.ResourceSpec, error) {
+	var errors []error
+	var genResources []kyvernov1.ResourceSpec
+
+	for i, foreach := range g.forEach {
+		elements, err := engineutils.EvaluateList(foreach.List, g.policyContext.JSONContext())
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed to evaluate %v foreach list: %v", i, err))
+			continue
+		}
+		gen, err := g.generateElements(foreach, elements, nil)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed to process %v foreach in rule %s: %v", i, g.rule.Name, err))
+		}
+		if gen != nil {
+			genResources = append(genResources, gen...)
+		}
+	}
+	return genResources, multierr.Combine(errors...)
+}
+
+func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elements []interface{}, elementScope *bool) ([]kyvernov1.ResourceSpec, error) {
+	var errors []error
+	var genResources []kyvernov1.ResourceSpec
+	g.policyContext.JSONContext().Checkpoint()
+	defer g.policyContext.JSONContext().Restore()
+
+	for index, element := range elements {
+		if element == nil {
+			continue
+		}
+
+		g.policyContext.JSONContext().Reset()
+		policyContext := g.policyContext.Copy()
+		if err := engineutils.AddElementToContext(policyContext, element, index, 0, elementScope); err != nil {
+			g.logger.Error(err, "")
+			errors = append(errors, fmt.Errorf("failed to add %v element to context: %v", index, err))
+			continue
+		}
+
+		gen, err := newGenerator(g.client,
+			g.logger,
+			policyContext,
+			g.policy,
+			g.rule,
+			foreach.Context,
+			foreach.AnyAllConditions,
+			g.trigger,
+			foreach.GeneratePattern,
+			g.contextLoader).
+			generate()
+		if err != nil {
+			errors = append(errors, fmt.Errorf("failed to process %v element: %v", index, err))
+		}
+		if gen != nil {
+			genResources = append(genResources, gen...)
+		}
+	}
+	return genResources, multierr.Combine(errors...)
+}
+
+func (g *generator) loadContext(ctx context.Context) error {
+	if err := g.contextLoader(ctx, g.contextEntries, g.policyContext.JSONContext()); err != nil {
+		if _, ok := err.(gojmespath.NotFoundError); ok {
+			g.logger.V(3).Info("failed to load context", "reason", err.Error())
+		} else {
+			g.logger.Error(err, "failed to load context")
+		}
+		return err
+	}
+	return nil
 }

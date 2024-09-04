@@ -649,8 +649,8 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
           ]
         },
         "validate": {
-          "validationFailureAction": "Enforce",
-          "validationFailureActionOverrides": [
+          "failureAction": "Enforce",
+          "failureActionOverrides": [
             {
               "action": "Enforce",
               "namespaces": [
@@ -704,8 +704,8 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
           ]
         },
         "validate": {
-          "validationFailureAction": "Enforce",
-          "validationFailureActionOverrides": [
+          "failureAction": "Enforce",
+          "failureActionOverrides": [
             {
               "action": "Enforce",
               "namespaces": [

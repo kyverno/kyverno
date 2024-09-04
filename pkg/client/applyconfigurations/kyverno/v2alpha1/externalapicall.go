@@ -29,6 +29,7 @@ import (
 type ExternalAPICallApplyConfiguration struct {
 	v1.APICallApplyConfiguration `json:",omitempty,inline"`
 	RefreshInterval              *metav1.Duration `json:"refreshInterval,omitempty"`
+	RetryLimit                   *int             `json:"retryLimit,omitempty"`
 }
 
 // ExternalAPICallApplyConfiguration constructs an declarative configuration of the ExternalAPICall type for use with
@@ -79,5 +80,13 @@ func (b *ExternalAPICallApplyConfiguration) WithService(value *v1.ServiceCallApp
 // If called multiple times, the RefreshInterval field is set to the value of the last call.
 func (b *ExternalAPICallApplyConfiguration) WithRefreshInterval(value metav1.Duration) *ExternalAPICallApplyConfiguration {
 	b.RefreshInterval = &value
+	return b
+}
+
+// WithRetryLimit sets the RetryLimit field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RetryLimit field is set to the value of the last call.
+func (b *ExternalAPICallApplyConfiguration) WithRetryLimit(value int) *ExternalAPICallApplyConfiguration {
+	b.RetryLimit = &value
 	return b
 }

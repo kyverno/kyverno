@@ -77,10 +77,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.DenyApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("DryRunOption"):
 		return &kyvernov1.DryRunOptionApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ForEachGeneration"):
+		return &kyvernov1.ForEachGenerationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ForEachMutation"):
 		return &kyvernov1.ForEachMutationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ForEachValidation"):
 		return &kyvernov1.ForEachValidationApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("GeneratePattern"):
+		return &kyvernov1.GeneratePatternApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Generation"):
 		return &kyvernov1.GenerationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("GlobalContextEntryReference"):

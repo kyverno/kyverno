@@ -70,5 +70,5 @@ spec:
                 -----END CERTIFICATE-----
       imageReferences:
       - ghcr.io/kyverno/test-verify-image:*
-      validationFailureAction: Enforce
+      failureAction: Enforce
   webhookTimeoutSeconds: 30

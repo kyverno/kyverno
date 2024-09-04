@@ -13,15 +13,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, severSideApply bool, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
+func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, severSideApply bool, pattern kyvernov1.GeneratePattern, client dclient.Interface) generateResponse {
 	source := sourceSpec
-	clone := rule.Generation
-	if clone.Clone.Name != "" {
+	if pattern.Clone.Name != "" {
 		source = kyvernov1.ResourceSpec{
 			APIVersion: target.GetAPIVersion(),
 			Kind:       target.GetKind(),
-			Namespace:  clone.Clone.Namespace,
-			Name:       clone.Clone.Name,
+			Namespace:  pattern.Clone.Namespace,
+			Name:       pattern.Clone.Name,
 		}
 	}
 
@@ -80,14 +79,13 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, sev
 	return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
 }
 
-func manageCloneList(log logr.Logger, targetNamespace string, severSideApply bool, rule kyvernov1.Rule, client dclient.Interface) []generateResponse {
+func manageCloneList(log logr.Logger, targetNamespace string, severSideApply bool, pattern kyvernov1.GeneratePattern, client dclient.Interface) []generateResponse {
 	var responses []generateResponse
-	cloneList := rule.Generation.CloneList
-	sourceNamespace := cloneList.Namespace
-	kinds := cloneList.Kinds
+	sourceNamespace := pattern.CloneList.Namespace
+	kinds := pattern.CloneList.Kinds
 	for _, kind := range kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-		sources, err := client.ListResource(context.TODO(), apiVersion, kind, sourceNamespace, cloneList.Selector)
+		sources, err := client.ListResource(context.TODO(), apiVersion, kind, sourceNamespace, pattern.CloneList.Selector)
 		if err != nil {
 			responses = append(responses,
 				newSkipGenerateResponse(
@@ -101,13 +99,13 @@ func manageCloneList(log logr.Logger, targetNamespace string, severSideApply boo
 		for _, source := range sources.Items {
 			target := newResourceSpec(source.GetAPIVersion(), source.GetKind(), targetNamespace, source.GetName())
 
-			if (cloneList.Kinds != nil) && (source.GetNamespace() == target.GetNamespace()) {
+			if (pattern.CloneList.Kinds != nil) && (source.GetNamespace() == target.GetNamespace()) {
 				log.V(4).Info("skip resource self-clone")
 				responses = append(responses, newSkipGenerateResponse(nil, target, nil))
 				continue
 			}
 			responses = append(responses,
-				manageClone(log, target, newResourceSpec(source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source.GetName()), severSideApply, rule, client))
+				manageClone(log, target, newResourceSpec(source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source.GetName()), severSideApply, pattern, client))
 		}
 	}
 	return responses

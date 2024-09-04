@@ -66,7 +66,7 @@ func (h validatePssHandler) Process(
 			}
 			logger.V(3).Info("policy rule is skipped due to policy exception", "exception", key)
 			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key).WithExceptions([]kyvernov2.PolicyException{polex}),
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key, rule.ReportProperties).WithExceptions([]kyvernov2.PolicyException{polex}),
 			)
 		}
 	}
@@ -99,7 +99,7 @@ func (h validatePssHandler) Process(
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
 		return resource, handlers.WithResponses(
-			engineapi.RulePass(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
+			engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks),
 		)
 	} else {
 		// apply pod security exceptions if exist
@@ -120,12 +120,12 @@ func (h validatePssHandler) Process(
 			podSecurityChecks.Checks = pssChecks
 			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", ")).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks),
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks),
 			)
 		}
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		return resource, handlers.WithResponses(
-			engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
+			engineapi.RuleFail(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks),
 		)
 	}
 }

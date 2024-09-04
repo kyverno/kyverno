@@ -14,6 +14,8 @@ spec:
   - name: step-02
     try:
     - apply:
+        file: permissions.yaml
+    - apply:
         file: crd.yaml
     - assert:
         file: crd-assert.yaml

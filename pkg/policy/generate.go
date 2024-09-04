@@ -36,18 +36,25 @@ func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.Po
 
 func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterface, deleteDownstream bool) error {
 	var errs []error
+	var err error
 	ur := newGenerateUR(policy)
 	for _, rule := range policy.GetSpec().Rules {
 		generate := rule.Generation
 		if !generate.Synchronize {
 			continue
 		}
-		if generate.GetData() == nil {
-			continue
+		if generate.GetData() != nil {
+			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, generate.GeneratePattern, deleteDownstream, false); err != nil {
+				errs = append(errs, err)
+			}
 		}
-		var err error
-		if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule, deleteDownstream, false); err != nil {
-			errs = append(errs, err)
+
+		for _, foreach := range generate.ForEachGeneration {
+			if foreach.GetData() != nil {
+				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, foreach.GeneratePattern, deleteDownstream, false); err != nil {
+					errs = append(errs, err)
+				}
+			}
 		}
 	}
 
@@ -137,6 +144,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 
 func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {
 	var errs []error
+	var err error
 	rules := autogen.ComputeRules(policy, "")
 	ur := newGenerateUR(policy)
 	for _, r := range rules {
@@ -144,14 +152,23 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		if !generate.Synchronize {
 			continue
 		}
-		if generate.GetData() == nil {
-			continue
+
+		sync, orphanDownstreamOnPolicyDelete := r.GetSyncAndOrphanDownstream()
+		if generate.GetData() != nil {
+			if sync && (generate.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
+				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, r.Generation.GeneratePattern, true, true); err != nil {
+					errs = append(errs, err)
+				}
+			}
 		}
-		generateType, sync, orphanDownstreamOnPolicyDelete := r.GetTypeAndSyncAndOrphanDownstream()
-		if sync && (generateType == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
-			var err error
-			if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r, true, true); err != nil {
-				errs = append(errs, err)
+
+		for _, foreach := range generate.ForEachGeneration {
+			if foreach.GetData() != nil {
+				if sync && (foreach.GetType() == kyvernov1.Data) && !orphanDownstreamOnPolicyDelete {
+					if ur, err = pc.buildUrForDataRuleChanges(policy, ur, r.Name, foreach.GeneratePattern, true, true); err != nil {
+						errs = append(errs, err)
+					}
+				}
 			}
 		}
 	}
@@ -177,15 +194,15 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	return multierr.Combine(errs...)
 }
 
-func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, rule kyvernov1.Rule, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
+func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInterface, ur *kyvernov2.UpdateRequest, ruleName string, pattern kyvernov1.GeneratePattern, deleteDownstream, policyDeletion bool) (*kyvernov2.UpdateRequest, error) {
 	labels := map[string]string{
 		common.GeneratePolicyLabel:          policy.GetName(),
 		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
-		common.GenerateRuleLabel:            rule.Name,
+		common.GenerateRuleLabel:            ruleName,
 		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
 	}
 
-	downstreams, err := common.FindDownstream(pc.client, rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), labels)
+	downstreams, err := common.FindDownstream(pc.client, pattern.GetAPIVersion(), pattern.GetKind(), labels)
 	if err != nil {
 		return ur, err
 	}
@@ -198,7 +215,7 @@ func (pc *policyController) buildUrForDataRuleChanges(policy kyvernov1.PolicyInt
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
-		addRuleContext(ur, rule.Name, trigger, deleteDownstream)
+		addRuleContext(ur, ruleName, trigger, deleteDownstream)
 		if policyDeletion {
 			addGeneratedResources(ur, downstream)
 		}

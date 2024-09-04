@@ -11,4 +11,4 @@ spec:
         -----BEGIN CERTIFICATE-----
         -----REDACTED-----
         -----END CERTIFICATE-----
-    refreshInterval: 10ns
+    refreshInterval: 1h

@@ -146,7 +146,7 @@ func createrLeaderControllers(
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 		serverIP,
-		int32(webhookTimeout),
+		int32(webhookTimeout), //nolint:gosec
 		servicePort,
 		webhookServerPort,
 		autoUpdateWebhooks,
@@ -222,8 +222,8 @@ func createrLeaderControllers(
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
-			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
-			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
+			kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicies(),
+			kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
 			checker,
 		)
@@ -247,6 +247,7 @@ func main() {
 		servicePort                  int
 		webhookServerPort            int
 		backgroundServiceAccountName string
+		reportsServiceAccountName    string
 		maxAPICallResponseLength     int64
 		renewBefore                  time.Duration
 		maxAuditWorkers              int
@@ -267,7 +268,8 @@ func main() {
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
-	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background service account name.")
+	flagset.StringVar(&backgroundServiceAccountName, "backgroundServiceAccountName", "", "Background controller service account name.")
+	flagset.StringVar(&reportsServiceAccountName, "reportsServiceAccountName", "", "Reports controller service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
@@ -471,8 +473,8 @@ func main() {
 					setup.KyvernoDynamicClient,
 					certRenewer,
 					runtime,
-					int32(servicePort),
-					int32(webhookServerPort),
+					int32(servicePort),       //nolint:gosec
+					int32(webhookServerPort), //nolint:gosec
 					setup.Configuration,
 					eventGenerator,
 				)
@@ -516,6 +518,7 @@ func main() {
 			setup.KyvernoDynamicClient,
 			setup.KyvernoClient,
 			backgroundServiceAccountName,
+			reportsServiceAccountName,
 		)
 		ephrs, err := StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
@@ -544,6 +547,7 @@ func main() {
 			eventGenerator,
 			admissionReports,
 			backgroundServiceAccountName,
+			reportsServiceAccountName,
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,
@@ -581,7 +585,7 @@ func main() {
 			kubeInformer.Rbac().V1().RoleBindings().Lister(),
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
-			int32(webhookServerPort),
+			int32(webhookServerPort), //nolint:gosec
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers

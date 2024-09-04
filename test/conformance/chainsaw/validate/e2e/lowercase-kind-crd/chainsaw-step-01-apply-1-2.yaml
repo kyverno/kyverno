@@ -11,7 +11,7 @@ spec:
           - acid.zalan.do/v1/postgresql
     name: test-rule
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: The label app=foo is required
       pattern:
         metadata:
