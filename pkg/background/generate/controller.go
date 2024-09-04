@@ -325,7 +325,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			g := newForeachGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.ForEachGeneration, contextLoader)
 			genResource, err = g.generateForeach()
 		} else {
-			g := newGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.GeneratePatterns, contextLoader)
+			g := newGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.GeneratePattern, contextLoader)
 			genResource, err = g.generate()
 		}
 

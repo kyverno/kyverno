@@ -12,7 +12,7 @@ spec:
           - Namespace
     name: check-owner
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: The `owner` label is required for all Namespaces.
       pattern:
         metadata:

@@ -30,7 +30,7 @@ spec:
         operator: Equals
         value: CONNECT
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       deny:
         conditions:
           all:

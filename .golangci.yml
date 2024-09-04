@@ -42,10 +42,13 @@ linters:
 
 run:
   timeout: 15m
-  skip-files:
+
+issues:
+  exclude-files:
     - ".+\\.generated.go"
     - ".+_test.go"
     - ".+_test_.+.go"
+    - docs/perf-testing/
 
 linters-settings:
   importas:

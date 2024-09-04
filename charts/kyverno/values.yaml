@@ -391,13 +391,21 @@ metricsConfig:
   bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30]
 
   # -- (map) Configures the exposure of individual metrics, by default all metrics and all labels are exported, changing this configuration requires restart of the kyverno admission controller
-  metricsExposure: ~
-  # metricsExposure:
-  #   kyverno_policy_execution_duration_seconds:
-  #     disabledLabelDimensions: ["resource_kind", "resource_namespace", "resource_request_operation"]
-  #     bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
-  #   kyverno_admission_review_duration_seconds:
-  #     enabled: false
+  metricsExposure:
+    kyverno_policy_execution_duration_seconds:
+      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+    kyverno_admission_review_duration_seconds:
+      # enabled: false
+      disabledLabelDimensions: ["resource_namespace"]
+    kyverno_policy_rule_info_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_admission_requests_total:
+      disabledLabelDimensions: ["resource_namespace"]
+    kyverno_cleanup_controller_deletedobjects_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
 
 # -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
 imagePullSecrets: {}
@@ -697,6 +705,12 @@ admissionController:
     # -- Create RBAC resources
     create: true
 
+    # -- Create rolebinding to view role
+    createViewRoleBinding: true
+
+    # -- The view role to use in the rolebinding
+    viewRoleName: view
+
     serviceAccount:
       # -- The ServiceAccount name
       name:
@@ -709,15 +723,7 @@ admissionController:
       # -- Extra resource permissions to add in the core cluster role.
       # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
       # @default -- See [values.yaml](values.yaml)
-      extraResources:
-        - apiGroups:
-            - '*'
-          resources:
-            - '*'
-          verbs:
-            - get
-            - list
-            - watch
+      extraResources: []
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -748,6 +754,9 @@ admissionController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
     # example.com/annotation: foo
+
+  # -- Deployment annotations.
+  annotations: {}
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
@@ -1108,6 +1117,12 @@ backgroundController:
     # -- Create RBAC resources
     create: true
 
+    # -- Create rolebinding to view role
+    createViewRoleBinding: true
+
+    # -- The view role to use in the rolebinding
+    viewRoleName: view
+
     serviceAccount:
       # -- Service account name
       name:
@@ -1121,14 +1136,6 @@ backgroundController:
       # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
       # @default -- See [values.yaml](values.yaml)
       extraResources:
-        - apiGroups:
-            - '*'
-          resources:
-            - '*'
-          verbs:
-            - get
-            - list
-            - watch
         - apiGroups:
             - networking.k8s.io
           resources:
@@ -1154,7 +1161,6 @@ backgroundController:
             - ''
           resources:
             - configmaps
-            - secrets
             - resourcequotas
             - limitranges
           verbs:
@@ -1204,6 +1210,9 @@ backgroundController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment annotations.
+  annotations: {}
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
@@ -1465,6 +1474,9 @@ cleanupController:
   podAnnotations: {}
   # example.com/annotation: foo
 
+  # -- Deployment annotations.
+  annotations: {}
+
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
   # @default -- See [values.yaml](values.yaml)
@@ -1718,6 +1730,12 @@ reportsController:
     # -- Create RBAC resources
     create: true
 
+    # -- Create rolebinding to view role
+    createViewRoleBinding: true
+
+    # -- The view role to use in the rolebinding
+    viewRoleName: view
+
     serviceAccount:
       # -- Service account name
       name:
@@ -1730,15 +1748,7 @@ reportsController:
       # -- Extra resource permissions to add in the core cluster role.
       # This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`.
       # @default -- See [values.yaml](values.yaml)
-      extraResources:
-        - apiGroups:
-            - '*'
-          resources:
-            - '*'
-          verbs:
-            - get
-            - list
-            - watch
+      extraResources: []
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1776,6 +1786,9 @@ reportsController:
   # -- Additional annotations to add to each pod
   podAnnotations: {}
   # example.com/annotation: foo
+
+  # -- Deployment annotations.
+  annotations: {}
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy

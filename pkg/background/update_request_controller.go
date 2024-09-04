@@ -55,7 +55,7 @@ type controller struct {
 	informersSynced []cache.InformerSynced
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	eventGen      event.Interface
 	configuration config.Configuration
@@ -84,7 +84,7 @@ func NewController(
 		polLister:     polInformer.Lister(),
 		urLister:      urLister,
 		nsLister:      namespaceInformer.Lister(),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "background"),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), "background"),
 		eventGen:      eventGen,
 		configuration: configuration,
 		jp:            jp,

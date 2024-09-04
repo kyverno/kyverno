@@ -12,7 +12,7 @@ spec:
           kinds:
           - CertificateSigningRequest
     validate:
-      validationFailureAction: Enforce
+      failureAction: Enforce
       message: >-
         CSR created by {{ request.userInfo | to_string(@) }}
         with ClusterRoles {{ request.clusterRoles | to_string(@) }}

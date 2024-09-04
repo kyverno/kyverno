@@ -242,7 +242,7 @@ func Test_GetSupportedControllers(t *testing.T) {
 		},
 		{
 			name:                "rule-with-validate-podsecurity",
-			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"validationFailureAction":"enforce","podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`),
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"failureAction":"enforce","podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`),
 			expectedControllers: PodControllers,
 		},
 	}
@@ -539,7 +539,7 @@ kA==
 }
 
 func Test_PodSecurityWithNoExceptions(t *testing.T) {
-	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"validationFailureAction":"enforce","podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
+	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"failureAction":"enforce","podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
 	policies, _, _, err := yamlutils.GetPolicy([]byte(policy))
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
@@ -573,7 +573,7 @@ func Test_ValidateWithCELExpressions(t *testing.T) {
 				]
 			  },
 			  "validate": {
-			    "validationFailureAction": "Enforce",
+			    "failureAction": "Enforce",
 				"cel": {
 				  "expressions": [
 					{

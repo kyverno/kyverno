@@ -43,6 +43,7 @@ func NewGenerationHandler(
 	eventGen event.Interface,
 	metrics metrics.MetricsConfigManager,
 	backgroundServiceAccountName string,
+	reportsServiceAccountName string,
 ) GenerationHandler {
 	return &generationHandler{
 		log:                          log,
@@ -57,6 +58,7 @@ func NewGenerationHandler(
 		eventGen:                     eventGen,
 		metrics:                      metrics,
 		backgroundServiceAccountName: backgroundServiceAccountName,
+		reportsServiceAccountName:    reportsServiceAccountName,
 	}
 }
 
@@ -73,6 +75,7 @@ type generationHandler struct {
 	eventGen                     event.Interface
 	metrics                      metrics.MetricsConfigManager
 	backgroundServiceAccountName string
+	reportsServiceAccountName    string
 }
 
 func (h *generationHandler) Handle(
@@ -214,7 +217,7 @@ func (h *generationHandler) syncTriggerAction(
 	for _, rule := range rules {
 		// fire generation on trigger deletion
 		if (request.Operation == admissionv1.Delete) && webhookutils.MatchDeleteOperation(rule) {
-			h.log.V(4).Info("creating the UR to generate downstream on trigger's deletion", "operation", request.Operation, "rule", rule.Name)
+			h.log.V(4).Info("creating the UR to generate downstream on trigger's deletion", "operation", request.Operation, "rule", rule.Name, "trigger", triggerSpec.String())
 			ruleCtx := buildRuleContext(rule, triggerSpec, false)
 			urSpec.RuleContext = append(urSpec.RuleContext, ruleCtx)
 			continue
@@ -222,7 +225,7 @@ func (h *generationHandler) syncTriggerAction(
 
 		// delete downstream on trigger deletion
 		if rule.Generation.Synchronize {
-			h.log.V(4).Info("creating the UR to delete downstream on trigger's event", "operation", request.Operation, "rule", rule.Name)
+			h.log.V(4).Info("creating the UR to delete downstream on trigger's event", "operation", request.Operation, "rule", rule.Name, "trigger", triggerSpec.String())
 			ruleCtx := buildRuleContext(rule, triggerSpec, true)
 			urSpec.RuleContext = append(urSpec.RuleContext, ruleCtx)
 		}

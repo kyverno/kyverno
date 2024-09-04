@@ -25,7 +25,7 @@ spec:
         variable:
           value: large
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: "The label `size` is required"
         assert:
           object:
@@ -42,7 +42,7 @@ spec:
             kinds:
               - Namespace
       validate:
-        validationFailureAction: Enforce
+        failureAction: Enforce
         message: "request.oldObject cannot be null for update requests"
         assert:
           oldObject: {}
