@@ -2,9 +2,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/component: background-controller
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
     rbac.kyverno.io/aggregate-to-admission-controller: "true"
   name: kyverno:background-controller:manage-ns-crossplane-role
 rules:
@@ -12,17 +9,8 @@ rules:
   - ""
   - iam.aws.crossplane.io
   resources:
-  - namespaces
+  - configmaps
   - roles
-  verbs:
-  - create
-  - update
-  - delete
-  - get
-- apiGroups:
-  - kyverno.io
-  resources:
-  - clustercleanuppolicies
   verbs:
   - create
   - update
