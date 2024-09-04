@@ -714,7 +714,7 @@ jobs:
       - name: Create test image
         shell: bash
         run: |
-          DIGEST=$(crane digest cgr.dev/chainguard/static)   
+          DIGEST=$(crane digest cgr.dev/chainguard/static)
           IMAGE_NAME=$(uuidgen | tr "[:upper:]" "[:lower:]")
           TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
           crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
