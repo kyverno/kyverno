@@ -1,61 +1,48 @@
 {
   "assert": [
-    "^assert$/^(old-object-exists)\\[.*\\]$"
+    "^assert$"
   ],
   "autogen": [
-    "^autogen$/^(assert-autogen|conditions|conditions-deprecated|deployment-cronjob|deployment-cronjob-deprecated|deployment-statefulset-job|foreach-jsonpatch|none|none-deprecated|only-cronjob|only-deployment|restrict-image-registries|should-autogen|should-autogen-deprecated|should-not-autogen|should-not-autogen-deprecated)\\[.*\\]$"
+    "^autogen$"
   ],
   "background-only": [
-    "^background-only$/^cluster-policy$/^(no-admission-event|no-admission-event-deprecated|no-admission-report|no-admission-report-deprecated|not-rejected|not-rejected-deprecated)\\[.*\\]$",
-    "^background-only$/^policy$/^(no-admission-event|no-admission-event-deprecated|no-admission-report|no-admission-report-deprecated|not-rejected|not-rejected-deprecated)\\[.*\\]$"
+    "^background-only$"
   ],
   "cleanup": [
-    "^cleanup$/^v2$/^clusterpolicy$/^(cleanup-pod|context-cleanup-pod)\\[.*\\]$",
-    "^cleanup$/^v2$/^policy$/^(cleanup-pod)\\[.*\\]$",
-    "^cleanup$/^v2$/^validation$/^(cron-format|no-user-info-in-match|not-supported-attributes-in-context)\\[.*\\]$",
-    "^cleanup$/^v2beta1$/^clusterpolicy$/^(cleanup-pod|context-cleanup-pod)\\[.*\\]$",
-    "^cleanup$/^v2beta1$/^policy$/^(cleanup-pod)\\[.*\\]$",
-    "^cleanup$/^v2beta1$/^validation$/^(cron-format|no-user-info-in-match|not-supported-attributes-in-context)\\[.*\\]$"
+    "^cleanup$"
   ],
   "cli": [
-    "^cli$/^apply$/^(apply-exception-with-ns-selector|apply-on-cluster-scoped-resources|warn-exit-code)\\[.*\\]$"
+    "^cli$"
   ],
   "custom-sigstore": [
-    "^custom-sigstore$/^standard$/^(basic|basic-deprecated)\\[.*\\]$"
+    "^custom-sigstore$"
   ],
   "deferred": [
-    "^deferred$/^(dependencies|dependencies-deprecated|foreach|recursive|resolve-overriden-variable|two-rules)\\[.*\\]$"
+    "^deferred$"
   ],
   "events": [
-    "^events$/^clusterpolicy$/^(generate-events-upon-fail-generation|generate-events-upon-successful-generation|generate-events-upon-successful-mutation|message-exceeds-1024-characters|no-events-upon-skip-generation)\\[.*\\]$",
-    "^events$/^policy$/^(policy-applied|policy-applied-deprecated|policy-violation|policy-violation-deprecated)\\[.*\\]$"
+    "^events$"
   ],
   "exceptions": [
-    "^exceptions$/^(allows-rejects-creation|applies-to-delete|conditions|events-creation|exclude-capabilities|exclude-ephemeral-containers|exclude-host-ports|exclude-host-process-and-host-namespaces|exclude-hostpath-volume|exclude-privilege-escalation|exclude-privileged-containers|exclude-restricted-capabilities|exclude-restricted-seccomp|exclude-running-as-nonroot|exclude-running-as-nonroot-user|exclude-seccomp)\\[.*\\]$",
-    "^exceptions$/^(exclude-selinux|exclude-sysctls|exclude-volume-types|good-bad-conditions|multiple-exceptions|multiple-exceptions-with-pod-security|only-for-specific-user|psa-run-as-non-root|with-wildcard)\\[.*\\]$",
+    "^exceptions$/^(allows-rejects-creation|applies-to-delete|conditions|events-creation|exclude-capabilities|exclude-ephemeral-containers|exclude-host-ports|exclude-host-process-and-host-namespaces|exclude-hostpath-volume|exclude-privilege-escalation|exclude-privileged-containers|exclude-restricted-capabilities|exclude-restricted-seccomp|exclude-running-as-nonroot|exclude-running-as-nonroot-user|exclude-seccomp|exclude-selinux|exclude-sysctls|exclude-volume-types|good-bad-conditions)\\[.*\\]$",
+    "^exceptions$/^(multiple-exceptions|multiple-exceptions-with-pod-security|only-for-specific-user|psa-run-as-non-root|with-wildcard)\\[.*\\]$",
     "^exceptions$/^background-mode$/^(standard)\\[.*\\]$"
   ],
   "filter": [
-    "^filter$/^exclude$/^sa$/^(no-wildcard|wildcard)\\[.*\\]$",
-    "^filter$/^exclude$/^user$/^no-wildcard$/^(block|pass)\\[.*\\]$",
-    "^filter$/^exclude$/^user$/^wildcard$/^(block|pass)\\[.*\\]$",
-    "^filter$/^match$/^sa$/^(no-wildcard|wildcard)\\[.*\\]$",
-    "^filter$/^match$/^user$/^no-wildcard$/^(block|pass)\\[.*\\]$",
-    "^filter$/^match$/^user$/^wildcard$/^(block|pass)\\[.*\\]$"
+    "^filter$"
   ],
   "flags": [
-    "^flags$/^standard$/^(emit-events)\\[.*\\]$"
+    "^flags$"
   ],
   "force-failure-policy-ignore": [
-    "^force-failure-policy-ignore$/^cluster-policy$/^(fail|fail-deprecated)\\[.*\\]$"
+    "^force-failure-policy-ignore$"
   ],
   "generate": [
-    "^generate$/^clusterpolicy$/^cornercases$/^(clone-list-sync-same-trigger-source-delete-source|clone-list-sync-same-trigger-source-update-source|clone-role-and-rolebinding|clone-source-name-exceeds-63-characters|clone-sync-same-trigger-source-delete-source|clone-sync-same-trigger-source-update-source|cpol-clone-create-on-trigger-deletion|cpol-clone-delete-ownerreferences-across-namespaces|cpol-clone-delete-ownerreferences-across-namespaces-deprecated|cpol-clone-sync-create-source-after-policy|cpol-clone-sync-reinstall-policy|cpol-clone-sync-reinstall-policy-deprecated|cpol-clone-sync-single-source-multiple-triggers-targets|cpol-clone-sync-single-source-multiple-triggers-targets-deprecated|cpol-clone-sync-single-trigger-source-multiple-targets|cpol-data-create-on-trigger-deletion)\\[.*\\]$",
-    "^generate$/^clusterpolicy$/^cornercases$/^(cpol-data-sync-create-upon-generated-resource|cpol-data-sync-no-creation-upon-generated-resource|cpol-data-sync-remove-list-element|cpol-data-sync-to-nosync-delete-rule|cpol-data-sync-to-nosync-delete-rule-deprecated|cpol-data-trigger-not-present|data-role-and-rolebinding|generate-event-upon-edit|pod-restart-on-cm-update|pod-restart-on-cm-update-deprecated|trigger-resource-name-exceeds-63-characters)\\[.*\\]$",
+    "^generate$/^clusterpolicy$/^cornercases$/^(clone-list-sync-same-trigger-source-delete-source|clone-list-sync-same-trigger-source-update-source|clone-role-and-rolebinding|clone-source-name-exceeds-63-characters|clone-sync-same-trigger-source-delete-source|clone-sync-same-trigger-source-update-source|cpol-clone-create-on-trigger-deletion|cpol-clone-delete-ownerreferences-across-namespaces|cpol-clone-delete-ownerreferences-across-namespaces-deprecated|cpol-clone-sync-create-source-after-policy|cpol-clone-sync-reinstall-policy|cpol-clone-sync-reinstall-policy-deprecated|cpol-clone-sync-single-source-multiple-triggers-targets|cpol-clone-sync-single-source-multiple-triggers-targets-deprecated|cpol-clone-sync-single-trigger-source-multiple-targets|cpol-data-create-on-trigger-deletion|cpol-data-sync-create-upon-generated-resource|cpol-data-sync-no-creation-upon-generated-resource|cpol-data-sync-remove-list-element|cpol-data-sync-to-nosync-delete-rule)\\[.*\\]$",
+    "^generate$/^clusterpolicy$/^cornercases$/^(cpol-data-sync-to-nosync-delete-rule-deprecated|cpol-data-trigger-not-present|data-role-and-rolebinding|generate-event-upon-edit|pod-restart-on-cm-update|pod-restart-on-cm-update-deprecated|trigger-resource-name-exceeds-63-characters)\\[.*\\]$",
     "^generate$/^clusterpolicy$/^standard$/^clone$/^multiple$/^sync$/^(basic-create)\\[.*\\]$",
     "^generate$/^clusterpolicy$/^standard$/^clone$/^nosync$/^(cpol-clone-nosync-create|cpol-clone-nosync-delete-downstream|cpol-clone-nosync-delete-policy|cpol-clone-nosync-delete-rule|cpol-clone-nosync-delete-source|cpol-clone-nosync-delete-trigger|cpol-clone-nosync-modify-downstream|cpol-clone-nosync-modify-source|cpol-clone-nosync-update-trigger-no-match)\\[.*\\]$",
-    "^generate$/^clusterpolicy$/^standard$/^clone$/^sync$/^(cpol-clone-list-sync-create|cpol-clone-list-sync-create-deprecated|cpol-clone-list-sync-delete-source|cpol-clone-list-sync-update|cpol-clone-list-sync-update-deprecated|cpol-clone-sync-create|cpol-clone-sync-delete-downstream|cpol-clone-sync-delete-policy|cpol-clone-sync-delete-rule|cpol-clone-sync-delete-source|cpol-clone-sync-delete-trigger|cpol-clone-sync-existing-update-trigger-no-precondition|cpol-clone-sync-existing-update-trigger-no-precondition-deprecated|cpol-clone-sync-modify-downstream|cpol-clone-sync-modify-downstream-apply|cpol-clone-sync-modify-source)\\[.*\\]$",
-    "^generate$/^clusterpolicy$/^standard$/^clone$/^sync$/^(cpol-clone-sync-no-existing-update-trigger-no-precondition|cpol-clone-sync-update-trigger-no-match)\\[.*\\]$",
+    "^generate$/^clusterpolicy$/^standard$/^clone$/^sync$/^(cpol-clone-list-sync-create|cpol-clone-list-sync-create-deprecated|cpol-clone-list-sync-delete-source|cpol-clone-list-sync-update|cpol-clone-list-sync-update-deprecated|cpol-clone-sync-create|cpol-clone-sync-delete-downstream|cpol-clone-sync-delete-policy|cpol-clone-sync-delete-rule|cpol-clone-sync-delete-source|cpol-clone-sync-delete-trigger|cpol-clone-sync-existing-update-trigger-no-precondition|cpol-clone-sync-existing-update-trigger-no-precondition-deprecated|cpol-clone-sync-modify-downstream|cpol-clone-sync-modify-downstream-apply|cpol-clone-sync-modify-source|cpol-clone-sync-no-existing-update-trigger-no-precondition|cpol-clone-sync-update-trigger-no-match)\\[.*\\]$",
     "^generate$/^clusterpolicy$/^standard$/^data$/^nosync$/^(cpol-data-nosync-delete-downstream|cpol-data-nosync-delete-policy|cpol-data-nosync-delete-rule|cpol-data-nosync-delete-trigger|cpol-data-nosync-modify-downstream|cpol-data-nosync-modify-rule|cpol-data-nosync-update-trigger-no-match|generate-on-subresource-trigger)\\[.*\\]$",
     "^generate$/^clusterpolicy$/^standard$/^data$/^nosync-deprecated$/^(cpol-data-nosync-delete-downstream|cpol-data-nosync-delete-policy|cpol-data-nosync-delete-rule|cpol-data-nosync-modify-downstream|cpol-data-nosync-modify-rule|generate-on-subresource-trigger)\\[.*\\]$",
     "^generate$/^clusterpolicy$/^standard$/^data$/^sync$/^(cpol-data-sync-create|cpol-data-sync-delete-downstream|cpol-data-sync-delete-one-trigger|cpol-data-sync-delete-policy|cpol-data-sync-delete-rule|cpol-data-sync-delete-trigger|cpol-data-sync-existing-update-trigger-no-precondition|cpol-data-sync-modify-downstream|cpol-data-sync-modify-policy|cpol-data-sync-modify-rule|cpol-data-sync-mutate-and-generate|cpol-data-sync-no-existing-update-trigger-no-precondition|cpol-data-sync-orphan-downstream-delete-policy|cpol-data-sync-update-trigger-no-match)\\[.*\\]$",
@@ -77,21 +64,21 @@
   ],
   "generate-validating-admission-policy": [
     "^generate-validating-admission-policy$/^clusterpolicy$/^standard$/^generate$/^(block-ephemeral-containers|block-exec-in-pods|cpol-all-match-resource|cpol-any-exclude-namespace-match-resource|cpol-any-exclude-resource|cpol-any-exclude-resource-match-with-namespace-selector|cpol-any-exclude-resource-match-with-object-selector|cpol-any-match-multiple-resources|cpol-any-match-resource|cpol-any-match-resources-by-names|cpol-match-all-exclude-one|cpol-match-kind-with-wildcard|cpol-match-resource-in-specific-namespace|cpol-with-an-exception|cpol-with-an-exception-excluding-namespaces|cpol-with-two-exceptions)\\[.*\\]$",
-    "^generate-validating-admission-policy$/^clusterpolicy$/^standard$/^skip-generate$/^(cpol-any-match-multiple-resources-with-namespace-selector|cpol-any-match-multiple-resources-with-object-selector|cpol-any-match-resources-by-names-with-wildcard|cpol-any-match-resources-in-namespaces-with-wildcard|cpol-any-match-resources-with-different-namespace-selectors|cpol-any-match-resources-with-different-object-selectors|cpol-exclude-resources-in-specific-namespace|cpol-exclude-resources-with-namespace-selector|cpol-exclude-resources-with-object-selector|cpol-exclude-user-and-roles|cpol-match-resource-created-by-user|cpol-match-resource-using-annotations|cpol-multiple-all-match-resources|cpol-multiple-rules|cpol-multiple-validation-failure-action-overrides|cpol-non-cel-rule)\\[.*\\]$",
-    "^generate-validating-admission-policy$/^clusterpolicy$/^standard$/^skip-generate$/^(cpol-validation-failure-action-overrides-with-namespace|cpol-with-exception-and-conditions|cpol-with-exception-and-namespace-selector|cpol-with-exception-and-object-selector|cpol-with-exception-in-specific-namespace)\\[.*\\]$"
+    "^generate-validating-admission-policy$/^clusterpolicy$/^standard$/^skip-generate$/^(cpol-any-match-multiple-resources-with-namespace-selector|cpol-any-match-multiple-resources-with-object-selector|cpol-any-match-resources-by-names-with-wildcard|cpol-any-match-resources-in-namespaces-with-wildcard|cpol-any-match-resources-with-different-namespace-selectors|cpol-any-match-resources-with-different-object-selectors|cpol-exclude-resources-in-specific-namespace|cpol-exclude-resources-with-namespace-selector|cpol-exclude-resources-with-object-selector|cpol-exclude-user-and-roles|cpol-match-resource-created-by-user|cpol-match-resource-using-annotations|cpol-multiple-all-match-resources|cpol-multiple-rules|cpol-multiple-validation-failure-action-overrides|cpol-non-cel-rule|cpol-validation-failure-action-overrides-with-namespace|cpol-with-exception-and-conditions|cpol-with-exception-and-namespace-selector|cpol-with-exception-and-object-selector)\\[.*\\]$",
+    "^generate-validating-admission-policy$/^clusterpolicy$/^standard$/^skip-generate$/^(cpol-with-exception-in-specific-namespace)\\[.*\\]$"
   ],
   "globalcontext": [
-    "^globalcontext$/^(apicall-correct|apicall-failed|gctxentry-not-exist|not-ready|resource-correct|validate-apicall-data|validate-crd|validate-reference)\\[.*\\]$"
+    "^globalcontext$"
   ],
   "lease": [
-    "^lease$/^(admission-controller|background-controller|cleanup-controller|reports-controller)\\[.*\\]$"
+    "^lease$"
   ],
   "mutate": [
     "^mutate$/^cascading$/^(first-rule-is-foreach|no-foreach|two-foreach-rules)\\[.*\\]$",
     "^mutate$/^clusterpolicy$/^cornercases$/^(cascading-mutation|defaulting-namespace-labels|jmespath-with-special-chars|mutate-using-default-context|mutate-with-404-api-call|trigger-name-exceeds-63-characters|variables-mutate-existing|variables-mutate-existing-deprecated)\\[.*\\]$",
     "^mutate$/^clusterpolicy$/^standard$/^(basic-check-output|mutate-node-status|userInfo-roles-clusterRoles)\\[.*\\]$",
-    "^mutate$/^clusterpolicy$/^standard$/^existing$/^(background-false|background-false(deprecated)|basic-create|basic-create(deprecated)|basic-create-patchesJson6902|basic-create-patchesJson6902(deprecated)|basic-delete|basic-delete(deprecated)|basic-update|basic-update(deprecated)|delete-trigger-namespace|delete-trigger-namespace(deprecated)|descending-patchJson6902|multiple-rules-match-exclude|multiple-rules-match-exclude(deprecated)|multiple-trigger-resources)\\[.*\\]$",
-    "^mutate$/^clusterpolicy$/^standard$/^existing$/^(multiple-trigger-resources(deprecated)|mutate-existing-node-status|mutate-pod-on-binding-request|namespaceselector|namespaceselector(deprecated)|preconditions|preconditions(deprecated)|target-context|target-preconditions)\\[.*\\]$",
+    "^mutate$/^clusterpolicy$/^standard$/^existing$/^(background-false|background-false(deprecated)|basic-create|basic-create(deprecated)|basic-create-patchesJson6902|basic-create-patchesJson6902(deprecated)|basic-delete|basic-delete(deprecated)|basic-update|basic-update(deprecated)|delete-trigger-namespace|delete-trigger-namespace(deprecated)|descending-patchJson6902|multiple-rules-match-exclude|multiple-rules-match-exclude(deprecated)|multiple-trigger-resources|multiple-trigger-resources(deprecated)|mutate-existing-node-status|mutate-pod-on-binding-request|namespaceselector)\\[.*\\]$",
+    "^mutate$/^clusterpolicy$/^standard$/^existing$/^(namespaceselector(deprecated)|preconditions|preconditions(deprecated)|target-context|target-preconditions)\\[.*\\]$",
     "^mutate$/^clusterpolicy$/^standard$/^existing$/^onpolicyupdate$/^(basic-create-policy|basic-create-policy(deprecated)|different-configurations-for-mutate-existing|different-mutate-existing-values|namespaceselector|namespaceselector(deprecated))\\[.*\\]$",
     "^mutate$/^clusterpolicy$/^standard$/^existing$/^validation$/^(mutate-existing-require-targets|mutate-existing-require-targets(deprecated)|target-variable-validation|target-variable-validation(deprecated))\\[.*\\]$",
     "^mutate$/^clusterpolicy$/^standard$/^existing$/^validation$/^auth-check$/^(cpol-namespace-variable|cpol-namespace-variable(deprecated)|cpol-standard-auth-check|cpol-standard-auth-check(deprecated))\\[.*\\]$",
@@ -108,22 +95,21 @@
     "^policy-validation$/^policy$/^(admission-disabled|all-disabled|assert|background-subresource|invalid-timeout)\\[.*\\]$"
   ],
   "rangeoperators": [
-    "^rangeoperators$/^(standard)\\[.*\\]$"
+    "^rangeoperators$"
   ],
   "rbac": [
-    "^rbac$/^(aggregate-to-admin|cleanup-policy-with-clusterrole|mutate-policy-with-clusterrole)\\[.*\\]$"
+    "^rbac$"
   ],
   "reports": [
-    "^reports$/^admission$/^(exception|namespaceselector|namespaceselector-assert|test-report-admission-mode|test-report-properties|two-rules-with-different-modes|update)\\[.*\\]$",
-    "^reports$/^background$/^(exception|exception-assert|exception-with-conditions|exception-with-podsecurity|multiple-exceptions-with-pod-security|report-deletion|test-report-background-mode|two-rules-with-different-modes|verify-image-fail|verify-image-pass)\\[.*\\]$"
+    "^reports$"
   ],
   "ttl": [
-    "^ttl$/^(delete-twice|invalid-label|past-timestamp|permission-lack|valid-label)\\[.*\\]$"
+    "^ttl$"
   ],
   "validate": [
     "^validate$/^anchors$/^(conditional|conditional-deprecated)\\[.*\\]$",
-    "^validate$/^clusterpolicy$/^cornercases$/^(apply-on-deletion|apply-on-deletion-deprecated|cel-messages-upon-resource-failure|cel-messages-upon-resource-failure-deprecated|check-message-upon-resource-failure|check-message-upon-resource-failure-deprecated|different-configuration-for-actions|ephemeral-containers|ephemeral-containers-deprecated|external-metrics|external-metrics-deprecated|invalid-jmespath-variable-substitution|invalid-jmespath-variable-substitution-deprecated|psa-run-as-non-root|schema-validation-for-mutateExisting|schema-validation-for-mutateExisting-deprecated)\\[.*\\]$",
-    "^validate$/^clusterpolicy$/^cornercases$/^(two-rules-with-different-action|validate-pattern-should-fail|validate-pattern-should-fail-deprecated|validate-pattern-should-pass|validate-pattern-should-pass-deprecated|validate-pattern-should-skip|validate-pattern-should-skip-deprecated|variable-substitution-failure-messages|variable-substitution-failure-messages-deprecated)\\[.*\\]$",
+    "^validate$/^clusterpolicy$/^cornercases$/^(apply-on-deletion|apply-on-deletion-deprecated|cel-messages-upon-resource-failure|cel-messages-upon-resource-failure-deprecated|check-message-upon-resource-failure|check-message-upon-resource-failure-deprecated|different-configuration-for-actions|ephemeral-containers|ephemeral-containers-deprecated|external-metrics|external-metrics-deprecated|invalid-jmespath-variable-substitution|invalid-jmespath-variable-substitution-deprecated|psa-run-as-non-root|schema-validation-for-mutateExisting|schema-validation-for-mutateExisting-deprecated|two-rules-with-different-action|validate-pattern-should-fail|validate-pattern-should-fail-deprecated|validate-pattern-should-pass)\\[.*\\]$",
+    "^validate$/^clusterpolicy$/^cornercases$/^(validate-pattern-should-pass-deprecated|validate-pattern-should-skip|validate-pattern-should-skip-deprecated|variable-substitution-failure-messages|variable-substitution-failure-messages-deprecated)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^(gvk|gvk-deprecated|subresource|subresource-deprecated)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^apicalls$/^(lazyload|subjectaccessreview)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^apicalls-deprecated$/^(lazyload|subjectaccessreview)\\[.*\\]$",
@@ -143,32 +129,29 @@
     "^validate$/^clusterpolicy$/^standard$/^enforce-deprecated$/^(api-initiated-pod-eviction|block-pod-exec-requests|bypass-with-policy-exception|csr|enforce-validate-existing|failure-policy-ignore-anchor|ns-selector-with-wildcard-kind|operator-allnotin-01|operator-anyin-boolean|resource-apply-block|scaling-with-kubectl-scale)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^exclude$/^(exclude-namespace|exclude-namespace(deprecated))\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^operations$/^(only-update|only-update(deprecated))\\[.*\\]$",
-    "^validate$/^clusterpolicy$/^standard$/^psa$/^(concurrent-policy-execution|seccomp-latest-check-no-exclusion|test-deletion-request|test-exclusion-capabilities|test-exclusion-host-namespaces|test-exclusion-host-ports|test-exclusion-hostpath-volume|test-exclusion-hostprocesses|test-exclusion-privilege-escalation|test-exclusion-privileged-containers|test-exclusion-restricted-capabilities|test-exclusion-restricted-seccomp|test-exclusion-running-as-nonroot|test-exclusion-running-as-nonroot-user|test-exclusion-seccomp|test-exclusion-selinux)\\[.*\\]$",
-    "^validate$/^clusterpolicy$/^standard$/^psa$/^(test-exclusion-sysctls|test-exclusion-volume-types)\\[.*\\]$",
-    "^validate$/^clusterpolicy$/^standard$/^psa-deprecated$/^(seccomp-latest-check-no-exclusion|test-deletion-request|test-exclusion-capabilities|test-exclusion-host-namespaces|test-exclusion-host-ports|test-exclusion-hostpath-volume|test-exclusion-hostprocesses|test-exclusion-privilege-escalation|test-exclusion-privileged-containers|test-exclusion-restricted-capabilities|test-exclusion-restricted-seccomp|test-exclusion-running-as-nonroot|test-exclusion-running-as-nonroot-user|test-exclusion-seccomp|test-exclusion-selinux|test-exclusion-sysctls)\\[.*\\]$",
-    "^validate$/^clusterpolicy$/^standard$/^psa-deprecated$/^(test-exclusion-volume-types)\\[.*\\]$",
+    "^validate$/^clusterpolicy$/^standard$/^psa$/^(concurrent-policy-execution|seccomp-latest-check-no-exclusion|test-deletion-request|test-exclusion-capabilities|test-exclusion-host-namespaces|test-exclusion-host-ports|test-exclusion-hostpath-volume|test-exclusion-hostprocesses|test-exclusion-privilege-escalation|test-exclusion-privileged-containers|test-exclusion-restricted-capabilities|test-exclusion-restricted-seccomp|test-exclusion-running-as-nonroot|test-exclusion-running-as-nonroot-user|test-exclusion-seccomp|test-exclusion-selinux|test-exclusion-sysctls|test-exclusion-volume-types)\\[.*\\]$",
+    "^validate$/^clusterpolicy$/^standard$/^psa-deprecated$/^(seccomp-latest-check-no-exclusion|test-deletion-request|test-exclusion-capabilities|test-exclusion-host-namespaces|test-exclusion-host-ports|test-exclusion-hostpath-volume|test-exclusion-hostprocesses|test-exclusion-privilege-escalation|test-exclusion-privileged-containers|test-exclusion-restricted-capabilities|test-exclusion-restricted-seccomp|test-exclusion-running-as-nonroot|test-exclusion-running-as-nonroot-user|test-exclusion-seccomp|test-exclusion-selinux|test-exclusion-sysctls|test-exclusion-volume-types)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^variables$/^lazyload$/^(conditions|conditions-deprecated)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^wildcard$/^(block-verifyimage|block-verifyimage-deprecated)\\[.*\\]$",
     "^validate$/^e2e$/^(adding-key-to-config-map|adding-key-to-config-map-deprecated|global-anchor|global-anchor-deprecated|lowercase-kind-crd|lowercase-kind-crd-deprecated|old-object-exists|old-object-exists-deprecated|trusted-images|trusted-images-deprecated|x509-decode|x509-decode-deprecated|yaml-signing|yaml-signing-deprecated)\\[.*\\]$"
   ],
   "validating-admission-policy-reports": [
-    "^validating-admission-policy-reports$/^(events)\\[.*\\]$",
-    "^validating-admission-policy-reports$/^background$/^(validating-admission-policy-fail|validating-admission-policy-pass|with-validating-admission-policy-binding-fail|with-validating-admission-policy-binding-no-reports|with-validating-admission-policy-binding-pass)\\[.*\\]$"
+    "^validating-admission-policy-reports$"
   ],
   "verify-manifests": [
-    "^verify-manifests$/^(multi-signatures|multi-signatures(deprecated)|single-signature|single-signature(deprecated))\\[.*\\]$"
+    "^verify-manifests$"
   ],
   "verifyImages": [
     "^verifyImages$/^clusterpolicy$/^cornercases$/^(multiple-attestors)\\[.*\\]$",
-    "^verifyImages$/^clusterpolicy$/^standard$/^(configmap-context-lookup|empty-image|failure-policy-test-noconfigmap-diffimage-success|failure-policy-test-noconfigmap-diffimage-success-deprecated|imageExtractors-complex|imageExtractors-complex-keyless|imageExtractors-none|imageExtractors-simple|keyed-basic|keyed-basic-namespace-selector|keyed-oci11|keyed-secret|keyed-tsa|keyless-attestation-invalid-attestor|keyless-attestation-regexp|keyless-attestations-multiple-subjects-1)\\[.*\\]$",
-    "^verifyImages$/^clusterpolicy$/^standard$/^(keyless-attestations-multiple-subjects-2|keyless-attestations-multiple-subjects-3|keyless-attestations-multiple-subjects-4|keyless-attestations-multiple-subjects-counts-1|keyless-attestations-multiple-subjects-counts-2|keyless-attestations-multiple-subjects-counts-3|keyless-image-invalid-attestor|keyless-mutatedigest-verifydigest-required|keyless-nomutatedigest-noverifydigest-norequired|keyless-nomutatedigest-noverifydigest-required|mutateDigest-noverifyDigest-norequired|noconfigmap-diffimage-success|nomutateDigest-verifyDigest-norequired|notary-attestation-verification|notary-image-verification|notary-image-verification-secret-from-policy)\\[.*\\]$",
-    "^verifyImages$/^clusterpolicy$/^standard$/^(rollback-image-verification|sigstore-attestation-verification-regexp|sigstore-attestation-verification-test|sigstore-image-verification-test|skip-image-reference|update-multi-containers|verify-image-background-audit|verify-image-background-basic|verify-image-background-existing|with-mutation)\\[.*\\]$"
+    "^verifyImages$/^clusterpolicy$/^standard$/^(configmap-context-lookup|empty-image|failure-policy-test-noconfigmap-diffimage-success|failure-policy-test-noconfigmap-diffimage-success-deprecated|imageExtractors-complex|imageExtractors-complex-keyless|imageExtractors-none|imageExtractors-simple|keyed-basic|keyed-basic-namespace-selector|keyed-oci11|keyed-secret|keyed-tsa|keyless-attestation-invalid-attestor|keyless-attestation-regexp|keyless-attestations-multiple-subjects-1|keyless-attestations-multiple-subjects-2|keyless-attestations-multiple-subjects-3|keyless-attestations-multiple-subjects-4|keyless-attestations-multiple-subjects-counts-1)\\[.*\\]$",
+    "^verifyImages$/^clusterpolicy$/^standard$/^(keyless-attestations-multiple-subjects-counts-2|keyless-attestations-multiple-subjects-counts-3|keyless-image-invalid-attestor|keyless-mutatedigest-verifydigest-required|keyless-nomutatedigest-noverifydigest-norequired|keyless-nomutatedigest-noverifydigest-required|mutateDigest-noverifyDigest-norequired|noconfigmap-diffimage-success|nomutateDigest-verifyDigest-norequired|notary-attestation-verification|notary-image-verification|notary-image-verification-secret-from-policy|rollback-image-verification|sigstore-attestation-verification-regexp|sigstore-attestation-verification-test|sigstore-image-verification-test|skip-image-reference|update-multi-containers|verify-image-background-audit|verify-image-background-basic)\\[.*\\]$",
+    "^verifyImages$/^clusterpolicy$/^standard$/^(verify-image-background-existing|with-mutation)\\[.*\\]$"
   ],
   "webhook-configurations": [
-    "^webhook-configurations$/^(cpol-match-conditions-block|cpol-match-conditions-pass|match-conditions-standard|match-conditions-userinfo|webhook-registeration)\\[.*\\]$"
+    "^webhook-configurations$"
   ],
   "webhooks": [
-    "^webhooks$/^(all-scale|clusterpolicy|double-wildcard|dyn-op-mutate|dyn-op-mutate-multiple|dyn-op-validate|dyn-op-validate-and-mutate|dyn-op-validate-multiple|expected-webhooks|only-pod|pod-all-subresources|pod-exec-subresource|policy|policy-clusterpolicy-different-resource-group|policy-clusterpolicy-namespaced-clusterscoped-resources|policy-clusterpolicy-namespaced-resources)\\[.*\\]$",
-    "^webhooks$/^(policy-clusterpolicy-same-resource|policy-clusterpolicy-wildcard-resource|policy-clusterscope-resource|policy-different-resource-group|policy-wildcard-resource|scale|unknown-kind)\\[.*\\]$"
+    "^webhooks$/^(all-scale|clusterpolicy|double-wildcard|dyn-op-mutate|dyn-op-mutate-multiple|dyn-op-validate|dyn-op-validate-and-mutate|dyn-op-validate-multiple|expected-webhooks|only-pod|pod-all-subresources|pod-exec-subresource|policy|policy-clusterpolicy-different-resource-group|policy-clusterpolicy-namespaced-clusterscoped-resources|policy-clusterpolicy-namespaced-resources|policy-clusterpolicy-same-resource|policy-clusterpolicy-wildcard-resource|policy-clusterscope-resource|policy-different-resource-group)\\[.*\\]$",
+    "^webhooks$/^(policy-wildcard-resource|scale|unknown-kind)\\[.*\\]$"
   ]
 }
