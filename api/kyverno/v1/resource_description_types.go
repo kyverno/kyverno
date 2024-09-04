@@ -10,6 +10,7 @@ import (
 )
 
 // ResourceDescription contains criteria used to match resources.
+// +kubebuilder:not:={required:{name,names}}
 type ResourceDescription struct {
 	// Kinds is a list of resource kinds.
 	// +optional
