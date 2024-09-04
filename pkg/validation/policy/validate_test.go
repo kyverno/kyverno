@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
+	golangassert "gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,7 @@ import (
 )
 
 func Test_PolicyValidationWithInvalidVariable(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{
+	policy := &kyverno.ClusterPolicy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterPolicy",
 			APIVersion: "kyverno.io/v1",
@@ -23,22 +24,22 @@ func Test_PolicyValidationWithInvalidVariable(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "policy-with-invalid-variable",
 		},
-		Spec: kyvernov1.Spec{
-			Rules: []kyvernov1.Rule{
+		Spec: kyverno.Spec{
+			Rules: []kyverno.Rule{
 				{
 					Name: "test-rule-invalid-variable",
-					MatchResources: kyvernov1.MatchResources{
-						Any: []kyvernov1.ResourceFilter{
+					MatchResources: kyverno.MatchResources{
+						Any: []kyverno.ResourceFilter{
 							{
-								ResourceDescription: kyvernov1.ResourceDescription{
+								ResourceDescription: kyverno.ResourceDescription{
 									Kinds: []string{"Pod"},
 								},
 							},
 						},
 					},
-					Validation: kyvernov1.Validation{
+					Validation: kyverno.Validation{
 						Message: "{{ bar }} world!",
-						Deny:    &kyvernov1.Deny{},
+						Deny:    &kyverno.Deny{},
 					},
 				},
 			},
@@ -60,10 +61,10 @@ func Test_Validate_ResourceDescription_Empty(t *testing.T) {
 
 	var rd kyverno.ResourceDescription
 	err = json.Unmarshal(rawResourcedescirption, &rd)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateMatchedResourceDescription(rd)
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_Validate_ResourceDescription_MatchedValid(t *testing.T) {
@@ -81,10 +82,10 @@ func Test_Validate_ResourceDescription_MatchedValid(t *testing.T) {
 
 	var rd kyverno.ResourceDescription
 	err := json.Unmarshal(rawResourcedescirption, &rd)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateMatchedResourceDescription(rd)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_Validate_DenyConditions_KeyRequestOperation_Empty(t *testing.T) {
@@ -92,13 +93,13 @@ func Test_Validate_DenyConditions_KeyRequestOperation_Empty(t *testing.T) {
 
 	var dcs apiextensions.JSON
 	err := json.Unmarshal(denyConditions, &dcs)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_Validate_Preconditions_KeyRequestOperation_Empty(t *testing.T) {
@@ -106,13 +107,13 @@ func Test_Validate_Preconditions_KeyRequestOperation_Empty(t *testing.T) {
 
 	var pcs apiextensions.JSON
 	err := json.Unmarshal(preConditions, &pcs)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(pcs, "preconditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(pcs, "preconditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_ExpectedValue(t *testing.T) {
@@ -148,13 +149,13 @@ func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_ExpectedValue(
 
 	var dcs apiextensions.JSON
 	err := json.Unmarshal(denyConditions, &dcs)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_RightfullyTemplatizedValue(t *testing.T) {
@@ -175,13 +176,13 @@ func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_RightfullyTemp
 
 	var dcs apiextensions.JSON
 	err := json.Unmarshal(denyConditions, &dcs)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_WrongfullyTemplatizedValue(t *testing.T) {
@@ -202,10 +203,10 @@ func Test_Validate_DenyConditionsValuesString_KeyRequestOperation_WrongfullyTemp
 
 	var dcs []kyverno.Condition
 	err := json.Unmarshal(denyConditions, &dcs)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_Validate_PreconditionsValuesString_KeyRequestOperation_UnknownValue(t *testing.T) {
@@ -226,13 +227,13 @@ func Test_Validate_PreconditionsValuesString_KeyRequestOperation_UnknownValue(t 
 
 	var pcs apiextensions.JSON
 	err := json.Unmarshal(preConditions, &pcs)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(pcs, "preconditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(pcs, "preconditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_Validate_DenyConditionsValuesList_KeyRequestOperation_ExpectedItem(t *testing.T) {
@@ -264,10 +265,10 @@ func Test_Validate_DenyConditionsValuesList_KeyRequestOperation_ExpectedItem(t *
 
 	var dcs []kyverno.Condition
 	err := json.Unmarshal(denyConditions, &dcs)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(dcs, "conditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_Validate_PreconditionsValuesList_KeyRequestOperation_UnknownItem(t *testing.T) {
@@ -293,13 +294,13 @@ func Test_Validate_PreconditionsValuesList_KeyRequestOperation_UnknownItem(t *te
 
 	var pcs apiextensions.JSON
 	err := json.Unmarshal(preConditions, &pcs)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(pcs, "preconditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = validateConditions(pcs, "preconditions")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_Validate_Policy(t *testing.T) {
@@ -386,10 +387,10 @@ func Test_Validate_Policy(t *testing.T) {
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 // needed mock to be true
@@ -533,10 +534,10 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_BackGroundUserInfo_match_roles(t *testing.T) {
@@ -565,7 +566,7 @@ func Test_BackGroundUserInfo_match_roles(t *testing.T) {
  `)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = containsUserVariables(policy, nil)
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/roles")
@@ -597,7 +598,7 @@ func Test_BackGroundUserInfo_match_clusterRoles(t *testing.T) {
  `)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = containsUserVariables(policy, nil)
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/clusterRoles")
@@ -632,7 +633,7 @@ func Test_BackGroundUserInfo_match_subjects(t *testing.T) {
 	  } `)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = containsUserVariables(policy, nil)
 	assert.Equal(t, err.Error(), "invalid variable used at path: spec/rules[0]/match/subjects")
@@ -663,10 +664,10 @@ func Test_BackGroundUserInfo_mutate_patchStrategicMerge1(t *testing.T) {
 	`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = ValidateVariables(policy, true)
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_Context_Variable_Substitution(t *testing.T) {
@@ -735,10 +736,10 @@ func Test_Context_Variable_Substitution(t *testing.T) {
 }`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = ValidateVariables(policy, true)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_BackGroundUserInfo_mutate_patchStrategicMerge2(t *testing.T) {
@@ -766,10 +767,10 @@ func Test_BackGroundUserInfo_mutate_patchStrategicMerge2(t *testing.T) {
 	`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = ValidateVariables(policy, true)
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
@@ -797,10 +798,10 @@ func Test_BackGroundUserInfo_validate_pattern(t *testing.T) {
 	`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = ValidateVariables(policy, true)
-	assert.Assert(t, err != nil, err)
+	assert.NotNil(t, err)
 }
 
 func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
@@ -832,10 +833,10 @@ func Test_BackGroundUserInfo_validate_anyPattern(t *testing.T) {
 	  }	`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = ValidateVariables(policy, true)
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
@@ -867,10 +868,10 @@ func Test_BackGroundUserInfo_validate_anyPattern_multiple_var(t *testing.T) {
 	  }	`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = ValidateVariables(policy, true)
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
@@ -902,10 +903,10 @@ func Test_BackGroundUserInfo_validate_anyPattern_serviceAccount(t *testing.T) {
 	  }	`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	err = ValidateVariables(policy, true)
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_ruleOnlyDealsWithResourceMetaData(t *testing.T) {
@@ -1006,10 +1007,10 @@ func Test_Validate_Kind(t *testing.T) {
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_Validate_Any_Kind(t *testing.T) {
@@ -1054,10 +1055,10 @@ func Test_Validate_Any_Kind(t *testing.T) {
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_Wildcards_Kind(t *testing.T) {
@@ -1098,10 +1099,10 @@ func Test_Wildcards_Kind(t *testing.T) {
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_Namespced_Policy(t *testing.T) {
@@ -1147,10 +1148,10 @@ func Test_Namespced_Policy(t *testing.T) {
 
 	var policy *kyverno.Policy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_patchesJson6902_Policy(t *testing.T) {
@@ -1194,10 +1195,10 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_deny_exec(t *testing.T) {
@@ -1241,10 +1242,10 @@ func Test_deny_exec(t *testing.T) {
 	  }`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_SignatureAlgorithm(t *testing.T) {
@@ -1388,11 +1389,11 @@ func Test_SignatureAlgorithm(t *testing.T) {
 	for _, testcase := range testcases {
 		var policy *kyverno.ClusterPolicy
 		err := json.Unmarshal(testcase.policy, &policy)
-		assert.NilError(t, err)
+		assert.Nil(t, err)
 
 		_, err = Validate(policy, nil, nil, nil, true, "", "")
 		if testcase.expectedOutput {
-			assert.NilError(t, err)
+			assert.Nil(t, err)
 		} else {
 			assert.ErrorContains(t, err, "Invalid signature algorithm provided")
 		}
@@ -1437,10 +1438,10 @@ func Test_existing_resource_policy(t *testing.T) {
 	  }`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
@@ -1492,11 +1493,11 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	res, err := Validate(policy, nil, nil, nil, true, "", "")
-	assert.NilError(t, err)
-	assert.Assert(t, res == nil)
+	assert.Nil(t, err)
+	assert.Nil(t, res)
 }
 
 func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T) {
@@ -1548,11 +1549,11 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	warnings, err := Validate(policy, nil, nil, nil, true, "", "")
-	assert.Assert(t, warnings != nil)
-	assert.NilError(t, err)
+	assert.NotNil(t, warnings)
+	assert.Nil(t, err)
 }
 
 func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
@@ -1604,11 +1605,11 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	warnings, err := Validate(policy, nil, nil, nil, true, "", "")
-	assert.Assert(t, warnings == nil)
-	assert.NilError(t, err)
+	assert.Nil(t, warnings)
+	assert.Nil(t, err)
 }
 
 func Test_ValidateJSON6902(t *testing.T) {
@@ -1616,19 +1617,19 @@ func Test_ValidateJSON6902(t *testing.T) {
   op: addition
   value: "nginx"`
 	err := validateJSONPatch(patch, 0)
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 
 	patch = `- path: "/metadata/labels/img"
   op: add
   value: "nginx"`
 	err = validateJSONPatch(patch, 0)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	patch = `- path: "/metadata/labels/img"
   op: add
   value: "nginx"`
 	err = validateJSONPatch(patch, 0)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_ValidateNamespace(t *testing.T) {
@@ -2056,7 +2057,7 @@ func Test_ValidateNamespace(t *testing.T) {
 			if tc.expectedError != nil {
 				assert.Error(t, err, tc.expectedError.Error())
 			} else {
-				assert.NilError(t, err)
+				assert.Nil(t, err)
 			}
 		})
 	}
@@ -2145,10 +2146,10 @@ func Test_Any_wildcard_policy(t *testing.T) {
 	}`)
 	var policy *kyverno.ClusterPolicy
 	err = json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	_, err = Validate(policy, nil, nil, nil, true, "", "")
-	assert.Assert(t, err != nil)
+	assert.NotNil(t, err)
 }
 
 func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
@@ -2200,7 +2201,7 @@ func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
 
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
+	assert.Nil(t, err)
 
 	expectedErr := fmt.Errorf("path: spec.rules[0]: jmespath may not be used in an image extractor when mutating digests with verify images")
 
@@ -3266,12 +3267,12 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 	for _, test := range tests {
 		var old, new *kyverno.Policy
 		err := json.Unmarshal(test.oldPolicy, &old)
-		assert.NilError(t, err)
+		assert.Nil(t, err)
 		err = json.Unmarshal(test.newPolicy, &new)
-		assert.NilError(t, err)
+		assert.Nil(t, err)
 
 		err = immutableGenerateFields(new, old)
-		assert.Assert(t, (err != nil) == test.expectedErr, test.name, err)
+		golangassert.Assert(t, (err != nil) == test.expectedErr, test.name, err)
 	}
 }
 
@@ -3331,6 +3332,3 @@ func Test_isMapStringString(t *testing.T) {
 		})
 	}
 }
-
-
-
