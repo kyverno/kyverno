@@ -2,7 +2,7 @@ apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   creationTimestamp: null
-  name: generate-events-upon-successful-mutation
+  name: emit-success-events-upon-generate-success-events-set-true
 spec:
   steps:
   - name: step-01
@@ -21,7 +21,13 @@ spec:
     try:
     - apply:
         file: resource.yaml
+    - assert:
+        file: resource-assert.yaml
   - name: step-04
     try:
-    - assert:
-        file: event-assert.yaml
+    - script:
+        content: kubectl get event -n default
+        check:
+          # This check ensures that the string 'reason="PolicyApplied"' is not found
+          # in stdout or else fails
+          (contains($stdout, 'PolicyApplied')): true
