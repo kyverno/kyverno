@@ -470,22 +470,6 @@ func (iv *ImageVerifier) verifyAttestations(
 					continue
 				}
 
-				name := imageVerify.Attestations[i].Name
-
-				rawResp, err := getRawResp(cosignResp.Statements)
-				if err != nil {
-					iv.logger.Error(err, "Error while finding report in statement")
-					errorList = append(errorList, err)
-					continue
-				}
-
-				err = iv.policyContext.JSONContext().AddContextEntry(name, rawResp)
-				if err != nil {
-					iv.logger.Error(err, "failed to add resource data to context entry")
-					errorList = append(errorList, err)
-					continue
-				}
-
 				if imageInfo.Digest == "" {
 					imageInfo.Digest = cosignResp.Digest
 					image = imageInfo.String()
@@ -525,16 +509,16 @@ func (iv *ImageVerifier) verifyAttestations(
 			if err := iv.validate(imageVerify, ctx); err != nil {
 				msg := fmt.Sprintf("validation in verifyImages failed: %v", err)
 				iv.logger.Error(err, "validation in verifyImages failed")
-				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
+				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), imageInfo.Digest
 			}
 		}
 		msg := fmt.Sprintf("verifyImages validation is passed in %v rule", iv.rule.Name)
-		return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
+		return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), imageInfo.Digest
 	}
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
-	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg), imageInfo.Digest
+	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), imageInfo.Digest
 }
 
 func (iv *ImageVerifier) verifyAttestorSet(

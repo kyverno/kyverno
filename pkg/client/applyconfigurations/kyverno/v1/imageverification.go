@@ -25,6 +25,7 @@ import (
 // ImageVerificationApplyConfiguration represents an declarative configuration of the ImageVerification type for use
 // with apply.
 type ImageVerificationApplyConfiguration struct {
+	FailureAction            *v1.ValidationFailureAction                  `json:"failureAction,omitempty"`
 	Type                     *v1.ImageVerificationType                    `json:"type,omitempty"`
 	Image                    *string                                      `json:"image,omitempty"`
 	ImageReferences          []string                                     `json:"imageReferences,omitempty"`
@@ -38,6 +39,7 @@ type ImageVerificationApplyConfiguration struct {
 	Attestations             []AttestationApplyConfiguration              `json:"attestations,omitempty"`
 	Annotations              map[string]string                            `json:"annotations,omitempty"`
 	Repository               *string                                      `json:"repository,omitempty"`
+	CosignOCI11              *bool                                        `json:"cosignOCI11,omitempty"`
 	MutateDigest             *bool                                        `json:"mutateDigest,omitempty"`
 	VerifyDigest             *bool                                        `json:"verifyDigest,omitempty"`
 	Validation               *ValidateImageVerificationApplyConfiguration `json:"validate,omitempty"`

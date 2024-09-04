@@ -26,6 +26,7 @@ import (
 // ImageVerificationApplyConfiguration represents an declarative configuration of the ImageVerification type for use
 // with apply.
 type ImageVerificationApplyConfiguration struct {
+	FailureAction            *v1.ValidationFailureAction                            `json:"failureAction,omitempty"`
 	Type                     *v1.ImageVerificationType                              `json:"type,omitempty"`
 	ImageReferences          []string                                               `json:"imageReferences,omitempty"`
 	SkipImageReferences      []string                                               `json:"skipImageReferences,omitempty"`
