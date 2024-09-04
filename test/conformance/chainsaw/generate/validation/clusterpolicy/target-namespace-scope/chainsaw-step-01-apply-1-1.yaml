@@ -10,14 +10,26 @@ metadata:
 rules:
 - apiGroups:
   - ""
-  - iam.aws.crossplane.io
   resources:
   - namespaces
-  - roles
   verbs:
   - create
   - update
   - delete
+  - get
+- apiGroups:
+  - iam.aws.crossplane.io
+  resources:
+  - roles
+  verbs:
+  - list
+  - get
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - list
   - get
 - apiGroups:
   - kyverno.io

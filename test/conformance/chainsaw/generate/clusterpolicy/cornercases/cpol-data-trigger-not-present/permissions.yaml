@@ -4,6 +4,7 @@ metadata:
   name: kyverno:rbac
   labels:
     rbac.kyverno.io/aggregate-to-background-controller: "true"
+    rbac.kyverno.io/aggregate-to-admission-controller: "true"
 rules:
 - apiGroups:
   - rbac.authorization.k8s.io
