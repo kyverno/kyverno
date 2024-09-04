@@ -14,7 +14,7 @@ import (
 	"github.com/kyverno/chainsaw/pkg/discovery"
 )
 
-const chunkSize = 16
+const chunkSize = 20
 
 func main() {
 	tests, err := discovery.DiscoverTests("chainsaw-test.yaml", nil, false, "../../test/conformance/chainsaw")
@@ -36,27 +36,42 @@ func main() {
 		}
 		paths = append(paths, strings.Join(parts, "/"))
 	}
-	suites := map[string][]string{}
+	suites := map[string]map[string][]string{}
 	for _, path := range paths {
 		parts := strings.Split(path, "/")
-		root := strings.Join(parts[:len(parts)-1], "/")
-		suites[root] = append(suites[root], parts[len(parts)-1])
+		root := parts[0]
+		folder := strings.Join(parts[:len(parts)-1], "/")
+		if suites[root] == nil {
+			suites[root] = map[string][]string{}
+		}
+		suites[root][folder] = append(suites[root][folder], parts[len(parts)-1])
 	}
 	ts := map[string][]string{}
-	for _, key := range slices.Sorted(maps.Keys(suites)) {
-		root := ""
-		for _, part := range strings.Split(key, "/") {
-			root += "^" + part + "$" + "/"
+	for _, root := range slices.Sorted(maps.Keys(suites)) {
+		count := 0
+		for _, tests := range suites[root] {
+			count += len(tests)
 		}
-		slices.Sort(suites[key])
-		for i := 0; i < len(suites[key]); i += chunkSize {
-			end := i + chunkSize
-			if end > len(suites[key]) {
-				end = len(suites[key])
+		if count <= chunkSize {
+			ts[root] = []string{
+				"^" + root + "$",
 			}
-			pattern := root + "^" + "(" + strings.Join(suites[key][i:end], "|") + ")\\[.*\\]$"
-			key := strings.Split(key, "/")[0]
-			ts[key] = append(ts[key], pattern)
+		} else {
+			for _, folder := range slices.Sorted(maps.Keys(suites[root])) {
+				tests := suites[root][folder]
+				pattern := ""
+				for _, part := range strings.Split(folder, "/") {
+					pattern += "^" + part + "$" + "/"
+				}
+				for i := 0; i < len(tests); i += chunkSize {
+					end := i + chunkSize
+					if end > len(tests) {
+						end = len(tests)
+					}
+					pattern := pattern + "^" + "(" + strings.Join(tests[i:end], "|") + ")\\[.*\\]$"
+					ts[root] = append(ts[root], pattern)
+				}
+			}
 		}
 	}
 	data, err := json.MarshalIndent(ts, "", "  ")
