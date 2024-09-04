@@ -29,15 +29,15 @@ import (
 // Policy declares validation, mutation, and generation behaviors for matching resources.
 // See: https://kyverno.io/docs/writing-policies/ for more information.
 type Policy struct {
-	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines policy behaviors and contains one or more rules.
-	Spec Spec `json:"spec" yaml:"spec"`
+	Spec Spec `json:"spec"`
 
 	// Status contains policy runtime data.
 	// +optional
-	Status kyvernov1.PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Status kyvernov1.PolicyStatus `json:"status,omitempty"`
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -123,7 +123,7 @@ func (p *Policy) GetKind() string {
 
 // PolicyList is a list of Policy instances.
 type PolicyList struct {
-	metav1.TypeMeta `json:",inline" yaml:",inline"`
-	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []Policy `json:"items" yaml:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []Policy `json:"items"`
 }
