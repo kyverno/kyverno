@@ -804,10 +804,10 @@ github.com/sigstore/sigstore-go v0.6.0 h1:X72BkR8kXFcdhF/V5GA2fpFvCz+VyZ6fI0YgTB
 github.com/sigstore/sigstore-go v0.6.0/go.mod h1:+RyopI/FJDE6z5WVs2sQ2nkc+zsxxByDmbp8a4HoxbA=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.8 h1:2zHmUvaYCwV6LVeTo+OAkTm8ykOGzA9uFlAjwDPAUWM=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.8/go.mod h1:OEhheBplZinUsm7W9BupafztVZV3ldkAxEHbpAeC0Pk=
-github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.8 h1:RKk4Z+qMaLORUdT7zntwMqKiYAej1VQlCswg0S7xNSY=
-github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.8/go.mod h1:dMJdlBWKHMu2xf0wIKpbo7+QfG+RzVkBB3nHP8EMM5o=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.8 h1:89Xtxj8oqZt3UlSpCP4wApFvnQ2Z/dgowW5QOVhQigI=
-github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.8/go.mod h1:Wa4xn/H3pU/yW/6tHiMXTpObBtBSGC5q29KYFEPKN6o=
+github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.9 h1:eXFm3cte0hvxxYsvGpCMd7aBusEgKJdlUw1Fb5AZQpw=
+github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.9/go.mod h1:RYy9GKnFKKwqbg3Uc6rUyhQdichSVkFlfxnY6f7cAWc=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.9 h1:liWcl12dfFeQXU0JemQVgdVQx02Fls9UPdrFzVrCWhs=
+github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.9/go.mod h1:Ckx62auqPQvNJWRBAboY+/kHs77gy6L33b6UtB/FB5U=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.9 h1:E+bvFTS6uM//iSAeneNj5pubzntQmio/yAKFzmRzzD0=
 github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.9/go.mod h1:0RKVuZXIZAFhT0frfx+GzyrtlesiRK3ceF55nIgkZI4=
 github.com/sigstore/timestamp-authority v1.2.2 h1:X4qyutnCQqJ0apMewFyx+3t7Tws00JQ/JonBiu3QvLE=
@@ -1147,8 +1147,8 @@ golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1/go.mod h1:I/5z698sn9Ka8T
 golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df/go.mod h1:K8+ghG5WaK9qNqU5K3HdILfMLy1f3aNYFI/wnl100a8=
 gomodules.xyz/jsonpatch/v2 v2.4.0 h1:Ci3iUJyx9UeRx7CeFN8ARgGbkESwJK+KB9lLcWxY/Zw=
 gomodules.xyz/jsonpatch/v2 v2.4.0/go.mod h1:AH3dM2RI6uoBZxn3LVrfvJ3E0/9dG4cSrbuBJT4moAY=
-google.golang.org/api v0.194.0 h1:dztZKG9HgtIpbI35FhfuSNR/zmaMVdxNlntHj1sIS4s=
-google.golang.org/api v0.194.0/go.mod h1:AgvUFdojGANh3vI+P7EVnxj3AISHllxGCJSFmggmnd0=
+google.golang.org/api v0.195.0 h1:Ude4N8FvTKnnQJHU48RFI40jOBgIrL8Zqr3/QeST6yU=
+google.golang.org/api v0.195.0/go.mod h1:DOGRWuv3P8TU8Lnz7uQc4hyNqrBpMtD9ppW3wBJurgc=
 google.golang.org/appengine v1.1.0/go.mod h1:EbEs0AVv82hx2wNQdGPgUI5lhzA/G0D9YwlJXL52JkM=
 google.golang.org/appengine v1.4.0/go.mod h1:xpcJRLb0r/rnEns0DIKYYv+WjYCduHsrkT7/EB5XEv4=
 google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8/go.mod h1:JiN7NxoALGmiZfu7CAH4rXhgtRTLTxftemlI0sWmxmc=
