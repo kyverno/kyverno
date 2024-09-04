@@ -1,5 +1,7 @@
 package utils
 
+import "sync"
+
 var PSS_baseline_control_names = []string{
 	"HostProcess",
 	"Host Namespaces",
@@ -110,17 +112,21 @@ var PSS_control_name_to_ids = map[string][]string{
 	},
 }
 
-// reverse mapping of PSS_control_name_to_ids
-var pss_control_id_to_name = map[string]string{}
+var pssControlIDToNameOnce = sync.OnceValue(initPSSControlNameToIdsMapping)
 
-func PSSControlIDToName(id string) string {
-	if len(pss_control_id_to_name) == 0 {
-		for name, ids := range PSS_control_name_to_ids {
-			for _, id := range ids {
-				pss_control_id_to_name[id] = name
-			}
+// initialize reverse mapping of PSS_control_name_to_ids
+func initPSSControlNameToIdsMapping() map[string]string {
+	pss_control_id_to_name := make(map[string]string)
+	for name, ids := range PSS_control_name_to_ids {
+		for _, id := range ids {
+			pss_control_id_to_name[id] = name
 		}
 	}
+	return pss_control_id_to_name
+}
+
+func PSSControlIDToName(id string) string {
+	pss_control_id_to_name := pssControlIDToNameOnce()
 	return pss_control_id_to_name[id]
 }
 
