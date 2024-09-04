@@ -364,6 +364,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -571,6 +575,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -786,6 +794,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -993,6 +1005,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1603,6 +1619,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1810,6 +1830,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -2025,6 +2049,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -2232,6 +2260,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
