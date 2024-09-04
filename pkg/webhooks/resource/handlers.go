@@ -158,7 +158,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	wg.Wait()
 	if !ok {
 		logger.Info("admission request denied")
-		events := webhookutils.GenerateEvents(enforceResponses, true)
+		events := webhookutils.GenerateEvents(enforceResponses, true, h.configuration)
 		h.eventGen.Add(events...)
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
@@ -168,12 +168,12 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 		switch {
 		case len(auditResponses) == 0:
-			events = webhookutils.GenerateEvents(enforceResponses, false)
+			events = webhookutils.GenerateEvents(enforceResponses, false, h.configuration)
 		case len(enforceResponses) == 0:
-			events = webhookutils.GenerateEvents(auditResponses, false)
+			events = webhookutils.GenerateEvents(auditResponses, false, h.configuration)
 		default:
 			responses := mergeEngineResponses(auditResponses, enforceResponses)
-			events = webhookutils.GenerateEvents(responses, false)
+			events = webhookutils.GenerateEvents(responses, false, h.configuration)
 		}
 
 		h.eventGen.Add(events...)
@@ -201,7 +201,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.Response(request.UID, err)
 	}
 	mh := mutation.NewMutationHandler(logger, h.engine, h.eventGen, h.nsLister, h.metricsConfig)
-	patches, warnings, err := mh.HandleMutation(ctx, request.AdmissionRequest, mutatePolicies, policyContext, startTime)
+	patches, warnings, err := mh.HandleMutation(ctx, request.AdmissionRequest, mutatePolicies, policyContext, startTime, h.configuration)
 	if err != nil {
 		logger.Error(err, "mutation failed")
 		return admissionutils.Response(request.UID, err)
