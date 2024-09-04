@@ -95,7 +95,7 @@
     "^mutate$/^clusterpolicy$/^standard$/^existing$/^onpolicyupdate$/^(basic-create-policy|basic-create-policy(deprecated)|different-configurations-for-mutate-existing|different-mutate-existing-values|namespaceselector|namespaceselector(deprecated))\\[.*\\]$",
     "^mutate$/^clusterpolicy$/^standard$/^existing$/^validation$/^(mutate-existing-require-targets|mutate-existing-require-targets(deprecated)|target-variable-validation|target-variable-validation(deprecated))\\[.*\\]$",
     "^mutate$/^clusterpolicy$/^standard$/^existing$/^validation$/^auth-check$/^(cpol-namespace-variable|cpol-namespace-variable(deprecated)|cpol-standard-auth-check|cpol-standard-auth-check(deprecated))\\[.*\\]$",
-    "^mutate$/^e2e$/^(foreach-patchStrategicMerge-context|foreach-patchStrategicMerge-preconditions|jmespath-logic|patchStrategicMerge-global|patchStrategicMerge-global-addifnotpresent|patchesJson6902-replace|patchesjson6902-simple|simple-conditional|variables-in-keys)\\[.*\\]$",
+    "^mutate$/^e2e$/^(emit-warning|foreach-patchStrategicMerge-context|foreach-patchStrategicMerge-preconditions|jmespath-logic|patchStrategicMerge-global|patchStrategicMerge-global-addifnotpresent|patchesJson6902-replace|patchesjson6902-simple|simple-conditional|variables-in-keys)\\[.*\\]$",
     "^mutate$/^policy$/^cornercases$/^(foreach-remove-elements)\\[.*\\]$",
     "^mutate$/^policy$/^standard$/^existing$/^validation$/^(auth-check)\\[.*\\]$",
     "^mutate$/^refactor$/^(k10-minimum-retention)\\[.*\\]$",
@@ -114,7 +114,7 @@
     "^rbac$/^(aggregate-to-admin|cleanup-policy-with-clusterrole|mutate-policy-with-clusterrole)\\[.*\\]$"
   ],
   "reports": [
-    "^reports$/^admission$/^(exception|namespaceselector|namespaceselector-assert|test-report-admission-mode|test-report-properties|two-rules-with-different-modes|update)\\[.*\\]$",
+    "^reports$/^admission$/^(exception|namespaceselector|namespaceselector-assert|test-report-admission-mode|test-report-audit-warn|test-report-properties|two-rules-with-different-modes|update)\\[.*\\]$",
     "^reports$/^background$/^(exception|exception-assert|exception-with-conditions|exception-with-podsecurity|multiple-exceptions-with-pod-security|report-deletion|test-report-background-mode|two-rules-with-different-modes|verify-image-fail|verify-image-pass)\\[.*\\]$"
   ],
   "ttl": [
@@ -124,7 +124,7 @@
     "^validate$/^anchors$/^(conditional|conditional-deprecated)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^cornercases$/^(apply-on-deletion|apply-on-deletion-deprecated|cel-messages-upon-resource-failure|cel-messages-upon-resource-failure-deprecated|check-message-upon-resource-failure|check-message-upon-resource-failure-deprecated|different-configuration-for-actions|ephemeral-containers|ephemeral-containers-deprecated|external-metrics|external-metrics-deprecated|invalid-jmespath-variable-substitution|invalid-jmespath-variable-substitution-deprecated|psa-run-as-non-root|schema-validation-for-mutateExisting|schema-validation-for-mutateExisting-deprecated)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^cornercases$/^(two-rules-with-different-action|validate-pattern-should-fail|validate-pattern-should-fail-deprecated|validate-pattern-should-pass|validate-pattern-should-pass-deprecated|validate-pattern-should-skip|validate-pattern-should-skip-deprecated|variable-substitution-failure-messages|variable-substitution-failure-messages-deprecated)\\[.*\\]$",
-    "^validate$/^clusterpolicy$/^standard$/^(gvk|gvk-deprecated|subresource|subresource-deprecated)\\[.*\\]$",
+    "^validate$/^clusterpolicy$/^standard$/^(emit-warning|gvk|gvk-deprecated|subresource|subresource-deprecated)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^apicalls$/^(lazyload|subjectaccessreview)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^apicalls-deprecated$/^(lazyload|subjectaccessreview)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^audit$/^(background-match-clusterRoles|background-match-roles|background-vars-roles|background-vars-serviceAccountName|background-vars-userInfo|configmap-context-lookup)\\[.*\\]$",
