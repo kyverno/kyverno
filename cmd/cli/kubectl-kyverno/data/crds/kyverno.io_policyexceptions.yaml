@@ -169,6 +169,10 @@ spec:
               match:
                 description: Match defines match clause used to check if a resource
                   applies to the exception
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -806,6 +810,10 @@ spec:
               match:
                 description: Match defines match clause used to check if a resource
                   applies to the exception
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
