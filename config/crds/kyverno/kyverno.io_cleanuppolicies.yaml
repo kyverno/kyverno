@@ -150,6 +150,17 @@ spec:
                   description: |-
                     ContextEntry adds variables and data sources to a rule Context. Either a
                     ConfigMap reference or a APILookup must be provided.
+                  oneOf:
+                  - required:
+                    - configMap
+                  - required:
+                    - apiCall
+                  - required:
+                    - imageRegistry
+                  - required:
+                    - variable
+                  - required:
+                    - globalReference
                   properties:
                     apiCall:
                       description: |-
@@ -322,6 +333,8 @@ spec:
                             in YAML or JSON form.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
+                  required:
+                  - name
                   type: object
                 type: array
               exclude:
@@ -345,6 +358,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -552,6 +569,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -767,6 +788,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -974,6 +999,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1376,6 +1405,17 @@ spec:
                   description: |-
                     ContextEntry adds variables and data sources to a rule Context. Either a
                     ConfigMap reference or a APILookup must be provided.
+                  oneOf:
+                  - required:
+                    - configMap
+                  - required:
+                    - apiCall
+                  - required:
+                    - imageRegistry
+                  - required:
+                    - variable
+                  - required:
+                    - globalReference
                   properties:
                     apiCall:
                       description: |-
@@ -1548,6 +1588,8 @@ spec:
                             in YAML or JSON form.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
+                  required:
+                  - name
                   type: object
                 type: array
               exclude:
@@ -1571,6 +1613,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1778,6 +1824,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -1993,6 +2043,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:
@@ -2200,6 +2254,10 @@ spec:
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified.
+                          not:
+                            required:
+                            - name
+                            - names
                           properties:
                             annotations:
                               additionalProperties:

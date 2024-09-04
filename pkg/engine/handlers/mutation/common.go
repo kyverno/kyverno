@@ -152,6 +152,7 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 		engineapi.Mutation,
 		message,
 		mutateResp.Status,
+		rule.ReportProperties,
 	)
 	if mutateResp.Status == engineapi.RuleStatusPass {
 		if len(rule.Mutation.Targets) != 0 {

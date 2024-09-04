@@ -117,7 +117,7 @@
     "^rbac$/^(aggregate-to-admin|cleanup-policy-with-clusterrole|mutate-policy-with-clusterrole)\\[.*\\]$"
   ],
   "reports": [
-    "^reports$/^admission$/^(exception|namespaceselector|namespaceselector-assert|test-report-admission-mode|two-rules-with-different-modes|update)\\[.*\\]$",
+    "^reports$/^admission$/^(exception|namespaceselector|namespaceselector-assert|test-report-admission-mode|test-report-properties|two-rules-with-different-modes|update)\\[.*\\]$",
     "^reports$/^background$/^(exception|exception-assert|exception-with-conditions|exception-with-podsecurity|multiple-exceptions-with-pod-security|report-deletion|test-report-background-mode|two-rules-with-different-modes|verify-image-fail|verify-image-pass)\\[.*\\]$"
   ],
   "ttl": [

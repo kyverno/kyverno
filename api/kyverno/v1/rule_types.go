@@ -51,6 +51,10 @@ type Rule struct {
 	// +optional
 	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
 
+	// ReportProperties are the additional properties from the rule that will be added to the policy report result
+	// +optional
+	ReportProperties map[string]string `json:"reportProperties,omitempty" yaml:"reportProperties,omitempty"`
+
 	// MatchResources defines when this policy rule should be applied. The match
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.

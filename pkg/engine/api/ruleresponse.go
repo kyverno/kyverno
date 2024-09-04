@@ -49,9 +49,11 @@ type RuleResponse struct {
 	binding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
 	// emitWarning enable passing rule message as warning to api server warning header
 	emitWarning bool
+	// properties are the additional properties from the rule that will be added to the policy report result
+	properties map[string]string
 }
 
-func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
+func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus, properties map[string]string) *RuleResponse {
 	emitWarn := false
 	if status == RuleStatusError || status == RuleStatusFail || status == RuleStatusWarn {
 		emitWarn = true
@@ -62,30 +64,31 @@ func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStat
 		message:     msg,
 		status:      status,
 		emitWarning: emitWarn,
+		properties:  properties,
 	}
 }
 
-func RuleError(name string, ruleType RuleType, msg string, err error) *RuleResponse {
+func RuleError(name string, ruleType RuleType, msg string, err error, properties map[string]string) *RuleResponse {
 	if err != nil {
-		return NewRuleResponse(name, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), RuleStatusError)
+		return NewRuleResponse(name, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), RuleStatusError, properties)
 	}
-	return NewRuleResponse(name, ruleType, msg, RuleStatusError)
+	return NewRuleResponse(name, ruleType, msg, RuleStatusError, properties)
 }
 
-func RuleSkip(name string, ruleType RuleType, msg string) *RuleResponse {
-	return NewRuleResponse(name, ruleType, msg, RuleStatusSkip)
+func RuleSkip(name string, ruleType RuleType, msg string, properties map[string]string) *RuleResponse {
+	return NewRuleResponse(name, ruleType, msg, RuleStatusSkip, properties)
 }
 
-func RuleWarn(name string, ruleType RuleType, msg string) *RuleResponse {
-	return NewRuleResponse(name, ruleType, msg, RuleStatusWarn)
+func RuleWarn(name string, ruleType RuleType, msg string, properties map[string]string) *RuleResponse {
+	return NewRuleResponse(name, ruleType, msg, RuleStatusWarn, properties)
 }
 
-func RulePass(name string, ruleType RuleType, msg string) *RuleResponse {
-	return NewRuleResponse(name, ruleType, msg, RuleStatusPass)
+func RulePass(name string, ruleType RuleType, msg string, properties map[string]string) *RuleResponse {
+	return NewRuleResponse(name, ruleType, msg, RuleStatusPass, properties)
 }
 
-func RuleFail(name string, ruleType RuleType, msg string) *RuleResponse {
-	return NewRuleResponse(name, ruleType, msg, RuleStatusFail)
+func RuleFail(name string, ruleType RuleType, msg string, properties map[string]string) *RuleResponse {
+	return NewRuleResponse(name, ruleType, msg, RuleStatusFail, properties)
 }
 
 func (r RuleResponse) WithExceptions(exceptions []kyvernov2.PolicyException) *RuleResponse {
@@ -171,6 +174,10 @@ func (r *RuleResponse) Status() RuleStatus {
 
 func (r *RuleResponse) EmitWarning() bool {
 	return r.emitWarning
+}
+
+func (r *RuleResponse) Properties() map[string]string {
+	return r.properties
 }
 
 // HasStatus checks if rule status is in a given list
