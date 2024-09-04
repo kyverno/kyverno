@@ -7,6 +7,10 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+  {{- with .Values.reportsController.annotations }}
+  annotations:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.reportsController.replicas }}
   revisionHistoryLimit: {{ .Values.reportsController.revisionHistoryLimit }}
