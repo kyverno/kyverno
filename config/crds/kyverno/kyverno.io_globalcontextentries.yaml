@@ -232,8 +232,6 @@ spec:
               ready:
                 description: Deprecated in favor of Conditions
                 type: boolean
-            required:
-            - ready
             type: object
         required:
         - spec

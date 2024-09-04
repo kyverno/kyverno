@@ -21,7 +21,7 @@ const (
 // See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/
 type PolicyStatus struct {
 	// Deprecated in favor of Conditions
-	Ready bool `json:"ready" yaml:"ready"`
+	Ready *bool `json:"ready,omitempty"`
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// +optional
@@ -58,7 +58,7 @@ func (status *PolicyStatus) SetReady(ready bool, message string) {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = PolicyReasonFailed
 	}
-	status.Ready = ready
+	status.Ready = nil
 	meta.SetStatusCondition(&status.Conditions, condition)
 }
 
