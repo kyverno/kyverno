@@ -138,7 +138,7 @@ func (h validatePssHandler) validate(
 			logger.V(4).Info("is update request")
 			priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
 			if err != nil {
-				logger.Error(err, "failed to validate old object", "rule", rule.Name)
+				logger.V(2).Info("failed to validate old object", "rule", rule.Name, "error", err.Error())
 				return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed", rule.ReportProperties)
 			}
 
