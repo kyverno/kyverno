@@ -175,7 +175,7 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	emptyResource := unstructured.Unstructured{}
 
 	if ok := matchResource(oldResource, v.rule); !ok {
-		return nil, nil
+		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", v.rule.ReportProperties), nil
 	}
 
 	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
