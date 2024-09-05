@@ -223,6 +223,11 @@ spec:
                                   - value
                                   type: object
                                 type: array
+                              default:
+                                description: |-
+                                  Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                  returns error
+                                x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: |-
                                   JMESPath is an optional JSON Match Expression that can be used to
@@ -1236,6 +1241,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -2297,6 +2307,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -2656,6 +2671,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -3330,6 +3350,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -3882,15 +3907,20 @@ spec:
                                               type: object
                                             signatureAlgorithm:
                                               default: sha256
-                                              description: Specify signature algorithm
-                                                for public keys. Supported values
-                                                are sha224, sha256, sha384 and sha512.
+                                              description: Deprecated. Use attestor.signatureAlgorithm
+                                                instead.
                                               type: string
                                           type: object
                                         repository:
                                           description: |-
                                             Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                             If specified Repository will override other OCI image repository locations for this Attestor.
+                                          type: string
+                                        signatureAlgorithm:
+                                          default: sha256
+                                          description: Specify signature algorithm
+                                            for public keys. Supported values are
+                                            sha224, sha256, sha384 and sha512.
                                           type: string
                                       type: object
                                     type: array
@@ -4313,16 +4343,20 @@ spec:
                                                   type: object
                                                 signatureAlgorithm:
                                                   default: sha256
-                                                  description: Specify signature algorithm
-                                                    for public keys. Supported values
-                                                    are sha224, sha256, sha384 and
-                                                    sha512.
+                                                  description: Deprecated. Use attestor.signatureAlgorithm
+                                                    instead.
                                                   type: string
                                               type: object
                                             repository:
                                               description: |-
                                                 Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                 If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         type: array
@@ -4698,15 +4732,20 @@ spec:
                                             type: object
                                           signatureAlgorithm:
                                             default: sha256
-                                            description: Specify signature algorithm
-                                              for public keys. Supported values are
-                                              sha224, sha256, sha384 and sha512.
+                                            description: Deprecated. Use attestor.signatureAlgorithm
+                                              instead.
                                             type: string
                                         type: object
                                       repository:
                                         description: |-
                                           Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                           If specified Repository will override other OCI image repository locations for this Attestor.
+                                        type: string
+                                      signatureAlgorithm:
+                                        default: sha256
+                                        description: Specify signature algorithm for
+                                          public keys. Supported values are sha224,
+                                          sha256, sha384 and sha512.
                                         type: string
                                     type: object
                                   type: array
@@ -5088,6 +5127,11 @@ spec:
                                       - value
                                       type: object
                                     type: array
+                                  default:
+                                    description: |-
+                                      Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                      returns error
+                                    x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: |-
                                       JMESPath is an optional JSON Match Expression that can be used to
@@ -6111,6 +6155,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -7184,6 +7233,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -7552,6 +7606,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -8239,6 +8298,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -8800,16 +8864,20 @@ spec:
                                                   type: object
                                                 signatureAlgorithm:
                                                   default: sha256
-                                                  description: Specify signature algorithm
-                                                    for public keys. Supported values
-                                                    are sha224, sha256, sha384 and
-                                                    sha512.
+                                                  description: Deprecated. Use attestor.signatureAlgorithm
+                                                    instead.
                                                   type: string
                                               type: object
                                             repository:
                                               description: |-
                                                 Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                 If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         type: array
@@ -9242,16 +9310,22 @@ spec:
                                                       type: object
                                                     signatureAlgorithm:
                                                       default: sha256
-                                                      description: Specify signature
-                                                        algorithm for public keys.
-                                                        Supported values are sha224,
-                                                        sha256, sha384 and sha512.
+                                                      description: Deprecated. Use
+                                                        attestor.signatureAlgorithm
+                                                        instead.
                                                       type: string
                                                   type: object
                                                 repository:
                                                   description: |-
                                                     Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                     If specified Repository will override other OCI image repository locations for this Attestor.
+                                                  type: string
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             type: array
@@ -9631,15 +9705,20 @@ spec:
                                                 type: object
                                               signatureAlgorithm:
                                                 default: sha256
-                                                description: Specify signature algorithm
-                                                  for public keys. Supported values
-                                                  are sha224, sha256, sha384 and sha512.
+                                                description: Deprecated. Use attestor.signatureAlgorithm
+                                                  instead.
                                                 type: string
                                             type: object
                                           repository:
                                             description: |-
                                               Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                               If specified Repository will override other OCI image repository locations for this Attestor.
+                                            type: string
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       type: array
@@ -9863,8 +9942,6 @@ spec:
                 - generated
                 - message
                 type: object
-            required:
-            - ready
             type: object
         required:
         - spec
@@ -10072,6 +10149,11 @@ spec:
                                   - value
                                   type: object
                                 type: array
+                              default:
+                                description: |-
+                                  Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                  returns error
+                                x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: |-
                                   JMESPath is an optional JSON Match Expression that can be used to
@@ -10229,6 +10311,10 @@ spec:
                         ExcludeResources defines when this policy rule should not be applied. The exclude
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the name or role.
+                      not:
+                        required:
+                        - any
+                        - all
                       properties:
                         all:
                           description: All allows specifying resources which will
@@ -10875,6 +10961,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -11239,6 +11330,10 @@ spec:
                         criteria can include resource information (e.g. kind, name, namespace, labels)
                         and admission review request information like the user name or role.
                         At least one kind is required.
+                      not:
+                        required:
+                        - any
+                        - all
                       properties:
                         all:
                           description: All allows specifying resources which will
@@ -11726,6 +11821,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -12085,6 +12185,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -12929,6 +13034,11 @@ spec:
                                             - value
                                             type: object
                                           type: array
+                                        default:
+                                          description: |-
+                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                            returns error
+                                          x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
                                             JMESPath is an optional JSON Match Expression that can be used to
@@ -13481,15 +13591,20 @@ spec:
                                               type: object
                                             signatureAlgorithm:
                                               default: sha256
-                                              description: Specify signature algorithm
-                                                for public keys. Supported values
-                                                are sha224, sha256, sha384 and sha512.
+                                              description: Deprecated. Use attestor.signatureAlgorithm
+                                                instead.
                                               type: string
                                           type: object
                                         repository:
                                           description: |-
                                             Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                             If specified Repository will override other OCI image repository locations for this Attestor.
+                                          type: string
+                                        signatureAlgorithm:
+                                          default: sha256
+                                          description: Specify signature algorithm
+                                            for public keys. Supported values are
+                                            sha224, sha256, sha384 and sha512.
                                           type: string
                                       type: object
                                     type: array
@@ -13901,16 +14016,20 @@ spec:
                                                   type: object
                                                 signatureAlgorithm:
                                                   default: sha256
-                                                  description: Specify signature algorithm
-                                                    for public keys. Supported values
-                                                    are sha224, sha256, sha384 and
-                                                    sha512.
+                                                  description: Deprecated. Use attestor.signatureAlgorithm
+                                                    instead.
                                                   type: string
                                               type: object
                                             repository:
                                               description: |-
                                                 Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                 If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         type: array
@@ -14286,15 +14405,20 @@ spec:
                                             type: object
                                           signatureAlgorithm:
                                             default: sha256
-                                            description: Specify signature algorithm
-                                              for public keys. Supported values are
-                                              sha224, sha256, sha384 and sha512.
+                                            description: Deprecated. Use attestor.signatureAlgorithm
+                                              instead.
                                             type: string
                                         type: object
                                       repository:
                                         description: |-
                                           Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                           If specified Repository will override other OCI image repository locations for this Attestor.
+                                        type: string
+                                      signatureAlgorithm:
+                                        default: sha256
+                                        description: Specify signature algorithm for
+                                          public keys. Supported values are sha224,
+                                          sha256, sha384 and sha512.
                                         type: string
                                     type: object
                                   type: array
@@ -14655,6 +14779,11 @@ spec:
                                       - value
                                       type: object
                                     type: array
+                                  default:
+                                    description: |-
+                                      Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                      returns error
+                                    x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: |-
                                       JMESPath is an optional JSON Match Expression that can be used to
@@ -15678,6 +15807,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -16751,6 +16885,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -17119,6 +17258,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -17806,6 +17950,11 @@ spec:
                                                 - value
                                                 type: object
                                               type: array
+                                            default:
+                                              description: |-
+                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
+                                                returns error
+                                              x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
                                                 JMESPath is an optional JSON Match Expression that can be used to
@@ -18367,16 +18516,20 @@ spec:
                                                   type: object
                                                 signatureAlgorithm:
                                                   default: sha256
-                                                  description: Specify signature algorithm
-                                                    for public keys. Supported values
-                                                    are sha224, sha256, sha384 and
-                                                    sha512.
+                                                  description: Deprecated. Use attestor.signatureAlgorithm
+                                                    instead.
                                                   type: string
                                               type: object
                                             repository:
                                               description: |-
                                                 Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                 If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha224, sha256, sha384 and sha512.
                                               type: string
                                           type: object
                                         type: array
@@ -18809,16 +18962,22 @@ spec:
                                                       type: object
                                                     signatureAlgorithm:
                                                       default: sha256
-                                                      description: Specify signature
-                                                        algorithm for public keys.
-                                                        Supported values are sha224,
-                                                        sha256, sha384 and sha512.
+                                                      description: Deprecated. Use
+                                                        attestor.signatureAlgorithm
+                                                        instead.
                                                       type: string
                                                   type: object
                                                 repository:
                                                   description: |-
                                                     Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                                     If specified Repository will override other OCI image repository locations for this Attestor.
+                                                  type: string
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha224, sha256, sha384 and
+                                                    sha512.
                                                   type: string
                                               type: object
                                             type: array
@@ -19198,15 +19357,20 @@ spec:
                                                 type: object
                                               signatureAlgorithm:
                                                 default: sha256
-                                                description: Specify signature algorithm
-                                                  for public keys. Supported values
-                                                  are sha224, sha256, sha384 and sha512.
+                                                description: Deprecated. Use attestor.signatureAlgorithm
+                                                  instead.
                                                 type: string
                                             type: object
                                           repository:
                                             description: |-
                                               Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
                                               If specified Repository will override other OCI image repository locations for this Attestor.
+                                            type: string
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha224, sha256, sha384 and sha512.
                                             type: string
                                         type: object
                                       type: array
@@ -19430,8 +19594,6 @@ spec:
                 - generated
                 - message
                 type: object
-            required:
-            - ready
             type: object
         required:
         - spec

@@ -192,6 +192,11 @@ spec:
                             - value
                             type: object
                           type: array
+                        default:
+                          description: |-
+                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                            returns error
+                          x-kubernetes-preserve-unknown-fields: true
                         jmesPath:
                           description: |-
                             JMESPath is an optional JSON Match Expression that can be used to
@@ -348,6 +353,10 @@ spec:
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
                   criteria can include resource information (e.g. kind, name, namespace, labels)
                   and admission review request information like the name or role.
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -778,6 +787,10 @@ spec:
                   criteria can include resource information (e.g. kind, name, namespace, labels)
                   and admission review request information like the user name or role.
                   At least one kind is required.
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -1447,6 +1460,11 @@ spec:
                             - value
                             type: object
                           type: array
+                        default:
+                          description: |-
+                            Default is an optional arbitrary JSON object that the context may take if the apiCall
+                            returns error
+                          x-kubernetes-preserve-unknown-fields: true
                         jmesPath:
                           description: |-
                             JMESPath is an optional JSON Match Expression that can be used to
@@ -1603,6 +1621,10 @@ spec:
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
                   criteria can include resource information (e.g. kind, name, namespace, labels)
                   and admission review request information like the name or role.
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -2033,6 +2055,10 @@ spec:
                   criteria can include resource information (e.g. kind, name, namespace, labels)
                   and admission review request information like the user name or role.
                   At least one kind is required.
+                not:
+                  required:
+                  - any
+                  - all
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
