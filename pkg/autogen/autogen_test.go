@@ -484,6 +484,7 @@ kA==
 						}},
 					}},
 				}},
+				SkipBackgroundRequests: false,
 			}, {
 				Name: "autogen-cronjob-check-image",
 				MatchResources: kyvernov1.MatchResources{
@@ -523,6 +524,7 @@ kA==
 						}},
 					}},
 				}},
+				SkipBackgroundRequests: true,
 			}},
 		},
 	}
