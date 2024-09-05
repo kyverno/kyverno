@@ -60,7 +60,7 @@ type ImageVerification struct {
 
 	// Validation checks conditions across multiple image
 	// verification attestations or context entries
-	Validation kyvernov1.ValidateImageVerification `json:"validate,omitempty" yaml:"validate,omitempty"`
+	Validation kyvernov1.ValidateImageVerification `json:"validate,omitempty"`
 
 	// Required validates that images are verified i.e. have matched passed a signature or attestation check.
 	// +kubebuilder:default=true

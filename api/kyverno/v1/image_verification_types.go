@@ -119,7 +119,7 @@ type ImageVerification struct {
 
 	// Validation checks conditions across multiple image
 	// verification attestations or context entries
-	Validation ValidateImageVerification `json:"validate,omitempty" yaml:"validate,omitempty"`
+	Validation ValidateImageVerification `json:"validate,omitempty"`
 
 	// Required validates that images are verified i.e. have matched passed a signature or attestation check.
 	// +kubebuilder:default=true
@@ -325,7 +325,7 @@ type CTLog struct {
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
 	// Name is the variable name.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 
 	// Deprecated in favour of 'Type', to be removed soon
 	// +kubebuilder:validation:Optional
@@ -366,11 +366,11 @@ type ImageRegistryCredentials struct {
 type ValidateImageVerification struct {
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
-	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+	Message string `json:"message,omitempty"`
 
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
-	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+	Deny *Deny `json:"deny,omitempty"`
 }
 
 func (iv *ImageVerification) GetType() ImageVerificationType {
