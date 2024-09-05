@@ -10,14 +10,12 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/pss"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -140,7 +138,8 @@ func (h validatePssHandler) validate(
 			logger.V(4).Info("is update request")
 			priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
 			if err != nil {
-				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to validate old object", err, rule.ReportProperties)
+				logger.Error(err, "failed to validate old object", "rule", rule.Name)
+				return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed", rule.ReportProperties)
 			}
 
 			if ruleResponse.Status() == priorResp.Status() {
@@ -174,38 +173,8 @@ func (h validatePssHandler) validateOldObject(
 	oldResource := policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if rule.MatchResources.All != nil || rule.MatchResources.Any != nil {
-		matched := match.CheckMatchesResources(
-			policyContext.OldResource(),
-			kyvernov2beta1.MatchResources{
-				Any: rule.MatchResources.Any,
-				All: rule.MatchResources.All,
-			},
-			make(map[string]string),
-			kyvernov2.RequestInfo{},
-			oldResource.GroupVersionKind(),
-			"",
-		)
-		if matched != nil {
-			return nil, nil
-		}
-	}
-
-	if rule.ExcludeResources.All != nil || rule.ExcludeResources.Any != nil {
-		excluded := match.CheckMatchesResources(
-			policyContext.OldResource(),
-			kyvernov2beta1.MatchResources{
-				Any: rule.ExcludeResources.Any,
-				All: rule.ExcludeResources.All,
-			},
-			make(map[string]string),
-			kyvernov2.RequestInfo{},
-			oldResource.GroupVersionKind(),
-			"",
-		)
-		if excluded == nil {
-			return nil, nil
-		}
+	if ok := matchResource(oldResource, rule); !ok {
+		return nil, nil
 	}
 	if err := policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")

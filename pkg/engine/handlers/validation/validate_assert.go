@@ -12,12 +12,10 @@ import (
 	"github.com/kyverno/kyverno-json/pkg/engine/assert"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/utils/match"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
@@ -146,38 +144,8 @@ func validateOldObject(ctx context.Context, policyContext engineapi.PolicyContex
 
 	oldResource := policyContext.OldResource()
 
-	if rule.MatchResources.All != nil || rule.MatchResources.Any != nil {
-		matched := match.CheckMatchesResources(
-			policyContext.OldResource(),
-			kyvernov2beta1.MatchResources{
-				Any: rule.MatchResources.Any,
-				All: rule.MatchResources.All,
-			},
-			make(map[string]string),
-			kyvernov2.RequestInfo{},
-			oldResource.GroupVersionKind(),
-			"",
-		)
-		if matched != nil {
-			return nil, nil
-		}
-	}
-
-	if rule.ExcludeResources.All != nil || rule.ExcludeResources.Any != nil {
-		excluded := match.CheckMatchesResources(
-			policyContext.OldResource(),
-			kyvernov2beta1.MatchResources{
-				Any: rule.ExcludeResources.Any,
-				All: rule.ExcludeResources.All,
-			},
-			make(map[string]string),
-			kyvernov2.RequestInfo{},
-			oldResource.GroupVersionKind(),
-			"",
-		)
-		if excluded == nil {
-			return nil, nil
-		}
+	if ok := matchResource(oldResource, rule); !ok {
+		return nil, nil
 	}
 
 	payload["object"] = policyContext.OldResource().Object

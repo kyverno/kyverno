@@ -10,14 +10,12 @@ import (
 	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/utils/match"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -176,38 +174,8 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if v.rule.MatchResources.All != nil || v.rule.MatchResources.Any != nil {
-		matched := match.CheckMatchesResources(
-			v.policyContext.OldResource(),
-			kyvernov2beta1.MatchResources{
-				Any: v.rule.MatchResources.Any,
-				All: v.rule.MatchResources.All,
-			},
-			make(map[string]string),
-			kyvernov2.RequestInfo{},
-			oldResource.GroupVersionKind(),
-			"",
-		)
-		if matched != nil {
-			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", v.rule.ReportProperties), nil
-		}
-	}
-
-	if v.rule.ExcludeResources.All != nil || v.rule.ExcludeResources.Any != nil {
-		excluded := match.CheckMatchesResources(
-			v.policyContext.OldResource(),
-			kyvernov2beta1.MatchResources{
-				Any: v.rule.ExcludeResources.Any,
-				All: v.rule.ExcludeResources.All,
-			},
-			make(map[string]string),
-			kyvernov2.RequestInfo{},
-			oldResource.GroupVersionKind(),
-			"",
-		)
-		if excluded == nil {
-			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource excluded", v.rule.ReportProperties), nil
-		}
+	if ok := matchResource(oldResource, v.rule); !ok {
+		return nil, nil
 	}
 
 	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
