@@ -29,15 +29,15 @@ import (
 
 // ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
 type ClusterPolicy struct {
-	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec declares policy behaviors.
-	Spec Spec `json:"spec" yaml:"spec"`
+	Spec Spec `json:"spec"`
 
 	// Status contains policy runtime data.
 	// +optional
-	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Status PolicyStatus `json:"status,omitempty"`
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -132,7 +132,7 @@ func (p *ClusterPolicy) CreateDeepCopy() PolicyInterface {
 
 // ClusterPolicyList is a list of ClusterPolicy instances.
 type ClusterPolicyList struct {
-	metav1.TypeMeta `json:",inline" yaml:",inline"`
-	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []ClusterPolicy `json:"items" yaml:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []ClusterPolicy `json:"items"`
 }
