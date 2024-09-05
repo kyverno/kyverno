@@ -19,7 +19,7 @@ runs:
         tool-cache: true
         android: true
         dotnet: true
-        haskell: true
+        haskell: false
         large-packages: false
         swap-storage: false
     - shell: bash
