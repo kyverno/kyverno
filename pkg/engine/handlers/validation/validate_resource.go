@@ -160,7 +160,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 			if ruleResponse.Status() == engineapi.RuleStatusPass {
 				return ruleResponse
 			}
-			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed", v.rule.ReportProperties)
 		}
 	}
 
@@ -189,7 +189,7 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 			"",
 		)
 		if matched != nil {
-			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched"), nil
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", v.rule.ReportProperties), nil
 		}
 	}
 
@@ -206,7 +206,7 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 			"",
 		)
 		if excluded == nil {
-			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource excluded"), nil
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource excluded", v.rule.ReportProperties), nil
 		}
 	}
 

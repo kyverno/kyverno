@@ -78,7 +78,7 @@ func (h validatePssHandler) validate(
 			key, err := cache.MetaNamespaceKeyFunc(&polex)
 			if err != nil {
 				logger.Error(err, "failed to compute policy exception key", "namespace", polex.GetNamespace(), "name", polex.GetName())
-				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err)
+				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err, rule.ReportProperties)
 			}
 			logger.V(3).Info("policy rule is skipped due to policy exception", "exception", key)
 			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key, rule.ReportProperties).WithExceptions([]kyvernov2.PolicyException{polex})
@@ -92,7 +92,7 @@ func (h validatePssHandler) validate(
 	}
 	podSpec, metadata, err := getSpec(resource)
 	if err != nil {
-		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "Error while getting new resource", err)
+		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "Error while getting new resource", err, rule.ReportProperties)
 	}
 	pod := &corev1.Pod{
 		Spec:       *podSpec,
@@ -100,7 +100,7 @@ func (h validatePssHandler) validate(
 	}
 	levelVersion, err := pss.ParseVersion(podSecurity.Level, podSecurity.Version)
 	if err != nil {
-		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to parse pod security api version", err)
+		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to parse pod security api version", err, rule.ReportProperties)
 	}
 	allowed, pssChecks := pss.EvaluatePod(levelVersion, podSecurity.Exclude, pod)
 	pssChecks = convertChecks(pssChecks, resource.GetKind())
@@ -121,7 +121,7 @@ func (h validatePssHandler) validate(
 			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
 			if err != nil {
 				logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err)
+				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err, rule.ReportProperties)
 			}
 			keys = append(keys, key)
 			excludes = append(excludes, exception.Spec.PodSecurity...)
@@ -131,7 +131,7 @@ func (h validatePssHandler) validate(
 		if len(pssChecks) == 0 && err == nil {
 			podSecurityChecks.Checks = pssChecks
 			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
-			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", ")).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks)
+			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks)
 		}
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
@@ -148,7 +148,7 @@ func (h validatePssHandler) validate(
 				if ruleResponse.Status() == engineapi.RuleStatusPass {
 					return resource, ruleResponse
 				}
-				return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
+				return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed", rule.ReportProperties)
 			}
 			logger.V(4).Info("old object response is different", "oldResp", priorResp, "newResp", ruleResponse)
 		}
