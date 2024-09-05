@@ -30,7 +30,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -470,7 +470,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		// build Kubernetes ValidatingAdmissionPolicy
-		vap := &admissionregistrationv1alpha1.ValidatingAdmissionPolicy{
+		vap := &admissionregistrationv1beta1.ValidatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: policy.GetName(),
 			},
@@ -560,7 +560,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 
 		ctx := buildContext(ruleCopy, background, mutateTarget)
 		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
+			return fmt.Errorf("variable substitution failed for %s/%s: %s", policy.GetName(), ruleCopy.Name, err.Error())
 		}
 	}
 
@@ -1233,7 +1233,7 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 }
 
 func validateRuleContext(rule kyvernov1.Rule) error {
-	if rule.Context == nil || len(rule.Context) == 0 {
+	if len(rule.Context) == 0 {
 		return nil
 	}
 

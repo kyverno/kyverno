@@ -135,19 +135,20 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		cosignOpts.RootCerts = cp
 	}
 
+	signatureAlgorithm, ok := signatureAlgorithmMap[opts.SignatureAlgorithm]
+	if !ok {
+		return nil, fmt.Errorf("invalid signature algorithm provided %s", opts.SignatureAlgorithm)
+	}
+
 	if opts.Key != "" {
 		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
-			if signatureAlgorithm, ok := signatureAlgorithmMap[opts.SignatureAlgorithm]; ok {
-				cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithm)
-				if err != nil {
-					return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
-				}
-			} else {
-				return nil, fmt.Errorf("invalid signature algorithm provided %s", opts.SignatureAlgorithm)
+			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithm)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
 			}
 		} else {
 			// this supports Kubernetes secrets and KMS
-			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, opts.Key)
+			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, opts.Key, signatureAlgorithm)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load public key from %s: %w", opts.Key, err)
 			}
@@ -161,7 +162,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 			}
 
 			if opts.CertChain == "" {
-				cosignOpts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, crypto.SHA256)
+				cosignOpts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, signatureAlgorithm)
 				if err != nil {
 					return nil, fmt.Errorf("failed to load signature from certificate: %w", err)
 				}
@@ -435,7 +436,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to base64 decode payload for %v: %w", statementRaw, err)
 	}
 
-	var statement in_toto.Statement
+	var statement in_toto.Statement //nolint:staticcheck
 	if err := json.Unmarshal(statementRaw, &statement); err != nil {
 		return nil, err
 	}
@@ -452,7 +453,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 	return decodeCosignCustomProvenanceV01(statement)
 }
 
-func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]interface{}, error) {
+func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]interface{}, error) { //nolint:staticcheck
 	if statement.Type != attestation.CosignCustomProvenanceV01 {
 		return nil, fmt.Errorf("invalid statement type %s", attestation.CosignCustomProvenanceV01)
 	}

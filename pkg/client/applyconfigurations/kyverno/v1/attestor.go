@@ -25,12 +25,13 @@ import (
 // AttestorApplyConfiguration represents an declarative configuration of the Attestor type for use
 // with apply.
 type AttestorApplyConfiguration struct {
-	Keys         *StaticKeyAttestorApplyConfiguration   `json:"keys,omitempty"`
-	Certificates *CertificateAttestorApplyConfiguration `json:"certificates,omitempty"`
-	Keyless      *KeylessAttestorApplyConfiguration     `json:"keyless,omitempty"`
-	Attestor     *apiextensionsv1.JSON                  `json:"attestor,omitempty"`
-	Annotations  map[string]string                      `json:"annotations,omitempty"`
-	Repository   *string                                `json:"repository,omitempty"`
+	Keys               *StaticKeyAttestorApplyConfiguration   `json:"keys,omitempty"`
+	Certificates       *CertificateAttestorApplyConfiguration `json:"certificates,omitempty"`
+	Keyless            *KeylessAttestorApplyConfiguration     `json:"keyless,omitempty"`
+	Attestor           *apiextensionsv1.JSON                  `json:"attestor,omitempty"`
+	Annotations        map[string]string                      `json:"annotations,omitempty"`
+	Repository         *string                                `json:"repository,omitempty"`
+	SignatureAlgorithm *string                                `json:"signatureAlgorithm,omitempty"`
 }
 
 // AttestorApplyConfiguration constructs an declarative configuration of the Attestor type for use with
@@ -90,5 +91,13 @@ func (b *AttestorApplyConfiguration) WithAnnotations(entries map[string]string) 
 // If called multiple times, the Repository field is set to the value of the last call.
 func (b *AttestorApplyConfiguration) WithRepository(value string) *AttestorApplyConfiguration {
 	b.Repository = &value
+	return b
+}
+
+// WithSignatureAlgorithm sets the SignatureAlgorithm field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SignatureAlgorithm field is set to the value of the last call.
+func (b *AttestorApplyConfiguration) WithSignatureAlgorithm(value string) *AttestorApplyConfiguration {
+	b.SignatureAlgorithm = &value
 	return b
 }

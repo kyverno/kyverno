@@ -11,7 +11,7 @@ import (
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,9 +97,14 @@ type AnyAllConditions struct {
 
 // ContextEntry adds variables and data sources to a rule Context. Either a
 // ConfigMap reference or a APILookup must be provided.
+// +kubebuilder:oneOf:={required:{configMap}}
+// +kubebuilder:oneOf:={required:{apiCall}}
+// +kubebuilder:oneOf:={required:{imageRegistry}}
+// +kubebuilder:oneOf:={required:{variable}}
+// +kubebuilder:oneOf:={required:{globalReference}}
 type ContextEntry struct {
 	// Name is the variable name.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 
 	// ConfigMap is the ConfigMap reference.
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
@@ -211,6 +216,11 @@ type APICall struct {
 
 type ContextAPICall struct {
 	APICall `json:",inline" yaml:",inline"`
+
+	// Default is an optional arbitrary JSON object that the context may take if the apiCall
+	// returns error
+	// +optional
+	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example
@@ -569,36 +579,36 @@ func (pss *PodSecurityStandard) Validate(path *field.Path) (errs field.ErrorList
 // CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 type CEL struct {
 	// Expressions is a list of CELExpression types.
-	Expressions []v1alpha1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
+	Expressions []admissionregistrationv1beta1.Validation `json:"expressions,omitempty" yaml:"expressions,omitempty"`
 
 	// ParamKind is a tuple of Group Kind and Version.
 	// +optional
-	ParamKind *v1alpha1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
+	ParamKind *admissionregistrationv1beta1.ParamKind `json:"paramKind,omitempty" yaml:"paramKind,omitempty"`
 
 	// ParamRef references a parameter resource.
 	// +optional
-	ParamRef *v1alpha1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
+	ParamRef *admissionregistrationv1beta1.ParamRef `json:"paramRef,omitempty" yaml:"paramRef,omitempty"`
 
 	// AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the API request.
 	// +optional
-	AuditAnnotations []v1alpha1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
+	AuditAnnotations []admissionregistrationv1beta1.AuditAnnotation `json:"auditAnnotations,omitempty" yaml:"auditAnnotations,omitempty"`
 
 	// Variables contain definitions of variables that can be used in composition of other expressions.
 	// Each variable is defined as a named CEL expression.
 	// The variables defined here will be available under `variables` in other expressions of the policy.
 	// +optional
-	Variables []v1alpha1.Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
+	Variables []admissionregistrationv1beta1.Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
 }
 
 func (c *CEL) HasParam() bool {
 	return c.ParamKind != nil && c.ParamRef != nil
 }
 
-func (c *CEL) GetParamKind() v1alpha1.ParamKind {
+func (c *CEL) GetParamKind() admissionregistrationv1beta1.ParamKind {
 	return *c.ParamKind
 }
 
-func (c *CEL) GetParamRef() v1alpha1.ParamRef {
+func (c *CEL) GetParamRef() admissionregistrationv1beta1.ParamRef {
 	return *c.ParamRef
 }
 
@@ -763,14 +773,14 @@ type Generation struct {
 	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty" yaml:"orphanDownstreamOnPolicyDelete,omitempty"`
 
 	// +optional
-	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
+	GeneratePattern `json:",omitempty" yaml:",omitempty"`
 
 	// ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachGeneration []ForEachGeneration `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
-type GeneratePatterns struct {
+type GeneratePattern struct {
 	// ResourceSpec contains information to select the resource.
 	// +kubebuilder:validation:Optional
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
@@ -808,7 +818,7 @@ type ForEachGeneration struct {
 	// +optional
 	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
-	GeneratePatterns `json:",omitempty" yaml:",omitempty"`
+	GeneratePattern `json:",omitempty" yaml:",omitempty"`
 }
 
 type CloneList struct {
@@ -845,16 +855,16 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 
 	if g.ForEachGeneration != nil {
 		for i, foreach := range g.ForEachGeneration {
-			err := foreach.GeneratePatterns.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
+			err := foreach.GeneratePattern.Validate(path.Child("foreach").Index(i), namespaced, policyNamespace, clusterResources)
 			errs = append(errs, err...)
 		}
 		return errs
 	} else {
-		return g.GeneratePatterns.Validate(path, namespaced, policyNamespace, clusterResources)
+		return g.GeneratePattern.Validate(path, namespaced, policyNamespace, clusterResources)
 	}
 }
 
-func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if namespaced {
 		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
 			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
@@ -873,7 +883,7 @@ func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNam
 		}
 	}
 
-	newGeneration := GeneratePatterns{
+	newGeneration := GeneratePattern{
 		ResourceSpec: ResourceSpec{
 			Kind:       g.ResourceSpec.GetKind(),
 			APIVersion: g.ResourceSpec.GetAPIVersion(),
@@ -901,7 +911,7 @@ func (g *GeneratePatterns) Validate(path *field.Path, namespaced bool, policyNam
 	return append(errs, g.ValidateCloneList(path, namespaced, policyNamespace, clusterResources)...)
 }
 
-func (g *GeneratePatterns) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+func (g *GeneratePattern) ValidateCloneList(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if len(g.CloneList.Kinds) == 0 {
 		return nil
 	}
@@ -938,7 +948,7 @@ func (g *GeneratePatterns) ValidateCloneList(path *field.Path, namespaced bool, 
 	return errs
 }
 
-func (g *GeneratePatterns) GetType() GenerateType {
+func (g *GeneratePattern) GetType() GenerateType {
 	if g.RawData != nil {
 		return Data
 	}
@@ -946,15 +956,15 @@ func (g *GeneratePatterns) GetType() GenerateType {
 	return Clone
 }
 
-func (g *GeneratePatterns) GetData() apiextensions.JSON {
+func (g *GeneratePattern) GetData() apiextensions.JSON {
 	return FromJSON(g.RawData)
 }
 
-func (g *GeneratePatterns) SetData(in apiextensions.JSON) {
+func (g *GeneratePattern) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
-func (g *GeneratePatterns) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
+func (g *GeneratePattern) validateNamespacedTargetsScope(clusterResources sets.Set[string], policyNamespace string) error {
 	target := g.ResourceSpec
 	if clusterResources.Has(target.GetAPIVersion() + "/" + target.GetKind()) {
 		return fmt.Errorf("the target must be a namespaced resource: %v/%v", target.GetAPIVersion(), target.GetKind())
