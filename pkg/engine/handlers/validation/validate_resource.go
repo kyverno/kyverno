@@ -150,7 +150,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
 		priorResp, err := v.validateOldObject(ctx)
 		if err != nil {
-			v.log.V(2).Info("failed to validate old object", "rule", v.rule.Name, "error", err.Error())
+			v.log.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", v.rule.Name, "error", err.Error())
 			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed", ruleResponse.Properties())
 		}
 
