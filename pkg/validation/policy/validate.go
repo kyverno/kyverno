@@ -424,6 +424,21 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasVerifyImages() {
 			checkForDeprecatedFieldsInVerifyImages(rule, &warnings)
+
+			if rule.HasValidateImageVerification() {
+				for _, verifyImage := range rule.VerifyImages {
+					validationElem := verifyImage.Validation.DeepCopy()
+					if validationElem.Deny != nil {
+						validationElem.Deny.RawAnyAllConditions = nil
+					}
+					validationJson, err := json.Marshal(validationElem)
+					if err != nil {
+						return nil, err
+					}
+					checkForScaleSubresource(validationJson, allKinds, &warnings)
+					checkForStatusSubresource(validationJson, allKinds, &warnings)
+				}
+			}
 		}
 
 		checkForDeprecatedOperatorsInRule(rule, &warnings)
@@ -560,7 +575,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 
 		ctx := buildContext(ruleCopy, background, mutateTarget)
 		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for %s/%s: %s", policy.GetName(), ruleCopy.Name, err.Error())
+			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
 		}
 	}
 
@@ -713,8 +728,12 @@ func ruleWithoutPattern(ruleCopy *kyvernov1.Rule) *kyvernov1.Rule {
 
 func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecontext.MockContext {
 	re := getAllowedVariables(background, target)
+
 	ctx := enginecontext.NewMockContext(re)
+
 	addContextVariables(rule.Context, ctx)
+	addImageVerifyVariables(rule, ctx)
+
 	for _, fe := range rule.Validation.ForEachValidation {
 		addContextVariables(fe.Context, ctx)
 	}
@@ -755,6 +774,16 @@ func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.Mo
 			ctx.AddVariable(contextEntry.Name + ".metadata")
 			ctx.AddVariable(contextEntry.Name + ".data.*")
 			ctx.AddVariable(contextEntry.Name + ".metadata.*")
+		}
+	}
+}
+
+func addImageVerifyVariables(rule *kyvernov1.Rule, ctx *enginecontext.MockContext) {
+	if rule.HasValidateImageVerification() {
+		for _, verifyImage := range rule.VerifyImages {
+			for _, attestation := range verifyImage.Attestations {
+				ctx.AddVariable(attestation.Name + "*")
+			}
 		}
 	}
 }
@@ -1008,6 +1037,16 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 				for _, c := range att.Conditions {
 					if path, err := validateAnyAllConditionOperator(c, "conditions"); err != nil {
 						return fmt.Sprintf("verifyImages.attestations.%s", path), err
+					}
+				}
+			}
+			if rule.HasValidateImageVerification() {
+				if target := vi.Validation.Deny.GetAnyAllConditions(); target != nil {
+					if path, err := validateConditions(target, "conditions"); err != nil {
+						return fmt.Sprintf("imageVerify.validate.deny.%s", path), err
+					}
+					if path, err := validateRawJSONConditionOperator(target, "conditions"); err != nil {
+						return fmt.Sprintf("imageVerify.validate.deny.%s", path), err
 					}
 				}
 			}

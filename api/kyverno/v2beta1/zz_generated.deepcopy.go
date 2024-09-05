@@ -397,6 +397,7 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.Validation.DeepCopyInto(&out.Validation)
 	if in.ImageRegistryCredentials != nil {
 		in, out := &in.ImageRegistryCredentials, &out.ImageRegistryCredentials
 		*out = new(v1.ImageRegistryCredentials)
