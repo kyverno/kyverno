@@ -139,6 +139,19 @@ func (r *Rule) HasVerifyImages() bool {
 	return false
 }
 
+// HasValidateImageVerification checks for verifyImages rule has Validation
+func (r *Rule) HasValidateImageVerification() bool {
+	if !r.HasVerifyImages() {
+		return false
+	}
+	for _, verifyImage := range r.VerifyImages {
+		if !datautils.DeepEqual(verifyImage.Validation, ValidateImageVerification{}) {
+			return true
+		}
+	}
+	return false
+}
+
 // HasVerifyImageChecks checks whether the verifyImages rule has validation checks
 func (r *Rule) HasVerifyImageChecks() bool {
 	for _, verifyImage := range r.VerifyImages {
