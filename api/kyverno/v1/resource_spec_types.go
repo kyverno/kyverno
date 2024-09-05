@@ -10,18 +10,18 @@ import (
 type ResourceSpec struct {
 	// APIVersion specifies resource apiVersion.
 	// +optional
-	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
+	APIVersion string `json:"apiVersion,omitempty"`
 	// Kind specifies resource kind.
-	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Kind string `json:"kind,omitempty"`
 	// Namespace specifies resource namespace.
 	// +optional
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 	// Name specifies the resource name.
 	// +optional
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 	// UID specifies the resource uid.
 	// +optional
-	UID types.UID `json:"uid,omitempty" yaml:"uid,omitempty"`
+	UID types.UID `json:"uid,omitempty"`
 }
 
 func (s ResourceSpec) GetName() string       { return s.Name }
@@ -40,11 +40,11 @@ func (s ResourceSpec) String() string {
 // TargetResourceSpec defines targets for mutating existing resources.
 type TargetResourceSpec struct {
 	// ResourceSpec contains the target resources to load when mutating existing resources.
-	ResourceSpec `json:",omitempty" yaml:",omitempty"`
+	ResourceSpec `json:",omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
-	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+	Context []ContextEntry `json:"context,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
@@ -54,7 +54,7 @@ type TargetResourceSpec struct {
 	// +optional
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
-	RawAnyAllConditions *ConditionsWrapper `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	RawAnyAllConditions *ConditionsWrapper `json:"preconditions,omitempty"`
 }
 
 func (r *TargetResourceSpec) GetAnyAllConditions() any {
