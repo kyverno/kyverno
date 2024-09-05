@@ -894,6 +894,17 @@ string
 If specified Repository will override other OCI image repository locations for this Attestor.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>signatureAlgorithm</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1430,6 +1441,21 @@ APICall
 <p>
 (Members of <code>APICall</code> are embedded into this type.)
 </p>
+</td>
+</tr>
+<tr>
+<td>
+<code>default</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Default is an optional arbitrary JSON object that the context may take if the apiCall
+returns error</p>
 </td>
 </tr>
 <tr>
@@ -3828,6 +3854,18 @@ string
 </tr>
 <tr>
 <td>
+<code>reportProperties</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ReportProperties are the additional properties from the rule that will be added to the policy report result</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>match</code><br/>
 <em>
 <a href="#kyverno.io/v1.MatchResources">
@@ -4373,7 +4411,7 @@ string
 </em>
 </td>
 <td>
-<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
+<p>Deprecated. Use attestor.signatureAlgorithm instead.</p>
 </td>
 </tr>
 <tr>

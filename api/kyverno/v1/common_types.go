@@ -97,9 +97,14 @@ type AnyAllConditions struct {
 
 // ContextEntry adds variables and data sources to a rule Context. Either a
 // ConfigMap reference or a APILookup must be provided.
+// +kubebuilder:oneOf:={required:{configMap}}
+// +kubebuilder:oneOf:={required:{apiCall}}
+// +kubebuilder:oneOf:={required:{imageRegistry}}
+// +kubebuilder:oneOf:={required:{variable}}
+// +kubebuilder:oneOf:={required:{globalReference}}
 type ContextEntry struct {
 	// Name is the variable name.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 
 	// ConfigMap is the ConfigMap reference.
 	ConfigMap *ConfigMapReference `json:"configMap,omitempty" yaml:"configMap,omitempty"`
@@ -211,6 +216,11 @@ type APICall struct {
 
 type ContextAPICall struct {
 	APICall `json:",inline" yaml:",inline"`
+
+	// Default is an optional arbitrary JSON object that the context may take if the apiCall
+	// returns error
+	// +optional
+	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example

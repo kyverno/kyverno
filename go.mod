@@ -47,12 +47,12 @@ require (
 	github.com/sigstore/cosign/v2 v2.4.0
 	github.com/sigstore/k8s-manifest-sigstore v0.5.4
 	github.com/sigstore/rekor v1.3.6
-	github.com/sigstore/sigstore v1.8.8
-	github.com/sigstore/sigstore-go v0.6.0
+	github.com/sigstore/sigstore v1.8.9
+	github.com/sigstore/sigstore-go v0.6.1
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.8
-	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.8
-	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.8
-	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.8
+	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.9
+	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.9
+	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.9
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
@@ -69,7 +69,7 @@ require (
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/multierr v1.11.0
 	golang.org/x/crypto v0.26.0
-	golang.org/x/text v0.17.0
+	golang.org/x/text v0.18.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/grpc v1.66.0
 	gopkg.in/inf.v0 v0.9.1
@@ -374,7 +374,7 @@ require (
 	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/term v0.23.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
-	google.golang.org/api v0.194.0 // indirect
+	google.golang.org/api v0.195.0 // indirect
 	google.golang.org/genproto v0.0.0-20240827150818-7e3bb234dfed // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240827150818-7e3bb234dfed // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240827150818-7e3bb234dfed // indirect

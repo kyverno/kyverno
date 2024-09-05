@@ -81,7 +81,7 @@ func (h validatePssHandler) validate(
 				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err)
 			}
 			logger.V(3).Info("policy rule is skipped due to policy exception", "exception", key)
-			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key).WithExceptions([]kyvernov2.PolicyException{polex})
+			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key, rule.ReportProperties).WithExceptions([]kyvernov2.PolicyException{polex})
 		}
 	}
 
@@ -112,7 +112,7 @@ func (h validatePssHandler) validate(
 	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
-		return resource, engineapi.RulePass(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks)
+		return resource, engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
 	} else {
 		// apply pod security exceptions if exist
 		var excludes []kyvernov1.PodSecurityStandard
@@ -134,13 +134,13 @@ func (h validatePssHandler) validate(
 			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", ")).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks)
 		}
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
-		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks)
+		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
 		allowExisitingViolations := rule.HasValidateAllowExistingViolations()
 		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
 			logger.V(4).Info("is update request")
 			priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
 			if err != nil {
-				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to validate old object", err)
+				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to validate old object", err, rule.ReportProperties)
 			}
 
 			if ruleResponse.Status() == priorResp.Status() {
