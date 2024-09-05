@@ -594,11 +594,12 @@ func (iv *ImageVerifier) buildCosignVerifier(
 ) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
-		ImageRef:    image,
-		Repository:  imageVerify.Repository,
-		CosignOCI11: imageVerify.CosignOCI11,
-		Annotations: imageVerify.Annotations,
-		Client:      iv.rclient,
+		ImageRef:           image,
+		Repository:         imageVerify.Repository,
+		CosignOCI11:        imageVerify.CosignOCI11,
+		Annotations:        imageVerify.Annotations,
+		SignatureAlgorithm: attestor.SignatureAlgorithm,
+		Client:             iv.rclient,
 	}
 
 	if imageVerify.Type == kyvernov1.SigstoreBundle {
