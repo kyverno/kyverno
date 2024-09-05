@@ -1502,6 +1502,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.EmitWarning != nil {
+		in, out := &in.EmitWarning, &out.EmitWarning
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Admission != nil {
 		in, out := &in.Admission, &out.Admission
 		*out = new(bool)
