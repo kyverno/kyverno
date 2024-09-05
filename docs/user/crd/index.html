@@ -894,6 +894,17 @@ string
 If specified Repository will override other OCI image repository locations for this Attestor.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>signatureAlgorithm</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -4400,7 +4411,7 @@ string
 </em>
 </td>
 <td>
-<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
+<p>Deprecated. Use attestor.signatureAlgorithm instead.</p>
 </td>
 </tr>
 <tr>
