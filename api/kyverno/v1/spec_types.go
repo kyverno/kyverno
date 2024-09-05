@@ -75,7 +75,7 @@ type Spec struct {
 	// Enabling this option will extend admission request processing times. The default value is "false".
 	// +optional
 	// +kubebuilder:default=false
-	EmitWarning *bool `json:"emitWarning,omitempty" yaml:"emitWarning,omitempty"`
+	EmitWarning *bool `json:"emitWarning,omitempty"`
 
 	// Admission controls if rules are applied during admission.
 	// Optional. Default value is "true".
