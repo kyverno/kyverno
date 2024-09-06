@@ -7,7 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MockPolicySelector mocks the PolicySelector interface for testing purposes.
@@ -24,11 +24,11 @@ func (m *MockPolicySelector) Find(policyName, rule string) ([]*kyvernov2.PolicyE
 // createMockPolicy creates a mock policy with the given name for testing.
 func createMockPolicy(name string) kyvernov1.PolicyInterface {
 	return &kyvernov1.ClusterPolicy{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: "kyverno.io/v1",
 			Kind:       "ClusterPolicy",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	}
@@ -37,11 +37,11 @@ func createMockPolicy(name string) kyvernov1.PolicyInterface {
 // createMockPolicyException creates a mock policy exception with the given name for testing.
 func createMockPolicyException(name string) *kyvernov2.PolicyException {
 	return &kyvernov2.PolicyException{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: "kyverno.io/v2",
 			Kind:       "PolicyException",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	}
