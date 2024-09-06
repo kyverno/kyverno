@@ -5,10 +5,10 @@ name: Conformance tests
 permissions: {}
 
 on:
-  pull_request:
-    branches:
-      - "main"
-      - "release*"
+  workflow_run:
+    workflows: ["Prepare Images"]
+    types:
+      - completed
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,35 +25,6 @@ jobs:
       - name: Set matrix data
         id: tests
         run: echo "tests=$(jq -c . < ./test/conformance/chainsaw/e2e-matrix.json)" >> $GITHUB_OUTPUT
-
-  prepare-images:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
-        with:
-          build-cache-key: build-images
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-        with:
-          free-disk-space: false
-      - name: ko build
-        shell: bash
-        run: |
-          set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
-      - name: upload images archive
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: kyverno.tar
-          path: kyverno.tar
-          retention-days: 1
-          if-no-files-found: error
 
   prepare-cli:
     runs-on: ubuntu-latest
@@ -91,9 +62,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).assert }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -110,9 +81,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).autogen }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -129,9 +100,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).background-only }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -148,9 +119,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).cleanup }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -167,9 +138,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).deferred }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -186,9 +157,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).events }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -205,9 +176,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).exceptions }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -224,9 +195,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).filter }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -243,9 +214,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).force-failure-policy-ignore }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -262,9 +233,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).generate }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -281,9 +252,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).generate-validating-admission-policy }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -301,9 +272,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).globalcontext }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -320,9 +291,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).lease }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -339,9 +310,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).mutate }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -358,9 +329,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).policy-validation }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -377,9 +348,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).rangeoperators }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -396,10 +367,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kyverno-configs: [ standard, default, 'standard,force-failure-policy-ignore' ]
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        kyverno-configs:
+          [standard, default, "standard,force-failure-policy-ignore"]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).rbac }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -416,9 +388,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).reports }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -435,9 +407,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).ttl }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -454,9 +426,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).validate }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -473,9 +445,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).validating-admission-policy-reports }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -493,9 +465,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).verify-manifests }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -512,9 +484,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).verifyImages }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -531,9 +503,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).webhook-configurations }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -551,9 +523,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        k8s-version: [v1.28.13, v1.29.8, v1.30.4, v1.31.0]
         tests: ${{ fromJSON(needs.define-matrix.outputs.tests).webhooks }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [define-matrix]
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: ./.github/actions/run-tests
@@ -576,7 +548,6 @@ jobs:
           - v1.30.x
         tests:
           - custom-sigstore
-    needs: prepare-images
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -688,7 +659,6 @@ jobs:
           # - ^traefik
           # - ^velero
     needs:
-      - prepare-images
       - prepare-cli
     steps:
       - name: Checkout kyverno/kyverno
@@ -760,7 +730,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: read
-    needs: prepare-images
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -817,7 +786,7 @@ jobs:
         tests:
           - ^cli$
     needs:
-    - prepare-cli
+      - prepare-cli
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7

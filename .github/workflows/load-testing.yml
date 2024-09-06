@@ -3,45 +3,16 @@ name: Baseline Load Tests
 permissions: {}
 
 on:
-  pull_request:
-    branches:
-      - "main"
-      - "release*"
+  workflow_run:
+    workflows: ["Prepare Images"]
+    types:
+      - completed
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  prepare-images:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      - name: Setup caches
-        uses: ./.github/actions/setup-caches
-        timeout-minutes: 5
-        continue-on-error: true
-        with:
-          build-cache-key: build-images
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-        timeout-minutes: 10
-        with:
-          free-disk-space: false
-      - name: ko build
-        shell: bash
-        run: |
-          set -e
-          VERSION=${{ github.ref_name }} make docker-save-image-all
-      - name: upload images archive
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: kyverno.tar
-          path: kyverno.tar
-          retention-days: 1
-          if-no-files-found: error
-
   load-test:
     runs-on: ubuntu-latest
     permissions:
@@ -67,8 +38,6 @@ jobs:
             iterations: 100
           - vus: 10
             iterations: 200
-    needs:
-      - prepare-images
     name: ${{ matrix.kyverno-config.name }} - ${{ matrix.test }} - ${{ matrix.k6-config.vus }} vus - ${{ matrix.k6-config.iterations }} iterations
     steps:
       - name: Checkout kyverno/kyverno
