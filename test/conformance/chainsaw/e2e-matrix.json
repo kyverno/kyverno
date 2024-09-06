@@ -128,7 +128,7 @@
     "^validate$/^clusterpolicy$/^standard$/^cel$/^parameter-resources$/^namespaced$/^(match-clusterscoped-resource|set-paramref-namespace|unset-paramref-namespace)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^debug$/^(with-pod|with-subresource|with-wildcard)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^debug-deprecated$/^(with-pod|with-subresource|with-wildcard)\\[.*\\]$",
-    "^validate$/^clusterpolicy$/^standard$/^enforce$/^(api-initiated-pod-eviction|block-pod-exec-requests|bypass-with-policy-exception|csr|enforce-validate-existing|failure-policy-ignore-anchor|ns-selector-with-wildcard-kind|operator-allnotin-01|operator-anyin-boolean|resource-apply-block|scaling-with-kubectl-scale)\\[.*\\]$",
+    "^validate$/^clusterpolicy$/^standard$/^enforce$/^(api-initiated-pod-eviction|block-pod-exec-requests|bypass-with-policy-exception|csr|enforce-validate-existing|enforce-validate-existing-allow-existing-violations|enforce-validate-existing-deny|enforce-validate-existing-pss|failure-policy-ignore-anchor|ns-selector-with-wildcard-kind|operator-allnotin-01|operator-anyin-boolean|resource-apply-block|scaling-with-kubectl-scale)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^enforce-deprecated$/^(api-initiated-pod-eviction|block-pod-exec-requests|bypass-with-policy-exception|csr|enforce-validate-existing|failure-policy-ignore-anchor|ns-selector-with-wildcard-kind|operator-allnotin-01|operator-anyin-boolean|resource-apply-block|scaling-with-kubectl-scale)\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^exclude$/^(exclude-namespace|exclude-namespace(deprecated))\\[.*\\]$",
     "^validate$/^clusterpolicy$/^standard$/^operations$/^(only-update|only-update(deprecated))\\[.*\\]$",

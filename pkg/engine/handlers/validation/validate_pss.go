@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -36,9 +37,22 @@ func (h validatePssHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	_ engineapi.EngineContextLoader,
+	engineLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	resource, ruleResp := h.validate(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
+	return resource, handlers.WithResponses(ruleResp)
+}
+
+func (h validatePssHandler) validate(
+	ctx context.Context,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
+	rule kyvernov1.Rule,
+	engineLoader engineapi.EngineContextLoader,
+	exceptions []*kyvernov2.PolicyException,
+) (unstructured.Unstructured, *engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		logger.V(3).Info("skipping PSS validation on deleted resource")
 		return resource, nil
@@ -62,12 +76,10 @@ func (h validatePssHandler) Process(
 			key, err := cache.MetaNamespaceKeyFunc(&polex)
 			if err != nil {
 				logger.Error(err, "failed to compute policy exception key", "namespace", polex.GetNamespace(), "name", polex.GetName())
-				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err, rule.ReportProperties)
 			}
 			logger.V(3).Info("policy rule is skipped due to policy exception", "exception", key)
-			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key, rule.ReportProperties).WithExceptions([]kyvernov2.PolicyException{polex}),
-			)
+			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exception "+key, rule.ReportProperties).WithExceptions([]kyvernov2.PolicyException{polex})
 		}
 	}
 
@@ -78,7 +90,7 @@ func (h validatePssHandler) Process(
 	}
 	podSpec, metadata, err := getSpec(resource)
 	if err != nil {
-		return resource, handlers.WithError(rule, engineapi.Validation, "Error while getting new resource", err)
+		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "Error while getting new resource", err, rule.ReportProperties)
 	}
 	pod := &corev1.Pod{
 		Spec:       *podSpec,
@@ -86,7 +98,7 @@ func (h validatePssHandler) Process(
 	}
 	levelVersion, err := pss.ParseVersion(podSecurity.Level, podSecurity.Version)
 	if err != nil {
-		return resource, handlers.WithError(rule, engineapi.Validation, "failed to parse pod security api version", err)
+		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to parse pod security api version", err, rule.ReportProperties)
 	}
 	allowed, pssChecks := pss.EvaluatePod(levelVersion, podSecurity.Exclude, pod)
 	pssChecks = convertChecks(pssChecks, resource.GetKind())
@@ -98,9 +110,7 @@ func (h validatePssHandler) Process(
 	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
-		return resource, handlers.WithResponses(
-			engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks),
-		)
+		return resource, engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
 	} else {
 		// apply pod security exceptions if exist
 		var excludes []kyvernov1.PodSecurityStandard
@@ -109,7 +119,7 @@ func (h validatePssHandler) Process(
 			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
 			if err != nil {
 				logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+				return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to compute exception key", err, rule.ReportProperties)
 			}
 			keys = append(keys, key)
 			excludes = append(excludes, exception.Spec.PodSecurity...)
@@ -119,15 +129,71 @@ func (h validatePssHandler) Process(
 		if len(pssChecks) == 0 && err == nil {
 			podSecurityChecks.Checks = pssChecks
 			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
-			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks),
-			)
+			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks)
 		}
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
-		return resource, handlers.WithResponses(
-			engineapi.RuleFail(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks),
-		)
+		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
+		allowExisitingViolations := rule.HasValidateAllowExistingViolations()
+		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
+			logger.V(4).Info("is update request")
+			priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
+			if err != nil {
+				logger.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name, "error", err.Error())
+				return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed", rule.ReportProperties)
+			}
+
+			if ruleResponse.Status() == priorResp.Status() {
+				logger.V(3).Info("skipping modified resource as validation results have not changed", "oldResp", priorResp, "newResp", ruleResponse)
+				if ruleResponse.Status() == engineapi.RuleStatusPass {
+					return resource, ruleResponse
+				}
+				return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed", rule.ReportProperties)
+			}
+			logger.V(4).Info("old object response is different", "oldResp", priorResp, "newResp", ruleResponse)
+		}
+
+		return resource, ruleResponse
 	}
+}
+
+func (h validatePssHandler) validateOldObject(
+	ctx context.Context,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
+	rule kyvernov1.Rule,
+	engineLoader engineapi.EngineContextLoader,
+	exceptions []*kyvernov2.PolicyException,
+) (*engineapi.RuleResponse, error) {
+	if policyContext.Operation() != kyvernov1.Update {
+		return nil, nil
+	}
+
+	newResource := policyContext.NewResource()
+	oldResource := policyContext.OldResource()
+	emptyResource := unstructured.Unstructured{}
+
+	if ok := matchResource(oldResource, rule); !ok {
+		return nil, nil
+	}
+	if err := policyContext.SetResources(emptyResource, oldResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to set resources")
+	}
+	if err := policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
+		return nil, errors.Wrapf(err, "failed to set operation")
+	}
+
+	_, resp := h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
+
+	if err := policyContext.SetResources(oldResource, newResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to reset resources")
+	}
+
+	if err := policyContext.SetOperation(kyvernov1.Update); err != nil {
+		return nil, errors.Wrapf(err, "failed to reset operation")
+	}
+
+	return resp, nil
 }
 
 func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []pssutils.PSSCheckResult) {

@@ -473,6 +473,11 @@ type Validation struct {
 	// +optional
 	FailureActionOverrides []ValidationFailureActionOverride `json:"failureActionOverrides,omitempty"`
 
+	// AllowExistingViolations allows prexisting violating resources to continue violating a policy.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=true
+	AllowExistingViolations *bool `json:"allowExistingViolations,omitempty" yaml:"allowExistingViolations,omitempty"`
+
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
 	Message string `json:"message,omitempty"`
