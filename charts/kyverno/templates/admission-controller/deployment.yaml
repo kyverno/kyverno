@@ -4,8 +4,20 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.admission-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
+  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
+  {{- if not .Values.templating.enabled }}
+  finalizers:
+  - kyverno.io/webhooks
+  - kyverno.io/exceptionwebhooks
+  - kyverno.io/globalcontextwebhooks
+  {{- end }}
+  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+  {{- with .Values.admissionController.annotations }}
+  annotations:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.admissionController.replicas }}
   revisionHistoryLimit: {{ .Values.admissionController.revisionHistoryLimit }}
@@ -101,6 +113,8 @@ spec:
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+          - name: KYVERNO_ROLE_NAME
+            value: {{ template "kyverno.admission-controller.roleName" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
@@ -134,6 +148,9 @@ spec:
             - --reportsServiceAccountName=system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.reports-controller.serviceAccountName" . }}
             - --servicePort={{ .Values.admissionController.service.port }}
             - --webhookServerPort={{ .Values.admissionController.webhookServer.port }}
+            {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
+            - --autoDeleteWebhooks
+            {{- end }}
             {{- if .Values.admissionController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.admissionController.tracing.address }}
@@ -216,6 +233,8 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+          - name: KYVERNO_ROLE_NAME
+            value: {{ template "kyverno.admission-controller.roleName" . }}
           - name: KYVERNO_SVC
             value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT

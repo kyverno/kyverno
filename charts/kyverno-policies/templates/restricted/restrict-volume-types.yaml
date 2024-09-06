@@ -24,14 +24,6 @@ metadata:
       This policy blocks any other type of volume other than those in the allow list.
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
-  {{- with index .Values "validationFailureActionByPolicy" $name }}
-  validationFailureAction: {{ toYaml . }}
-  {{- else }}
-  validationFailureAction: {{ .Values.validationFailureAction }}
-  {{- end }}
-  {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-  validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
-  {{- end }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -70,6 +62,14 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
+        {{- with index .Values "validationFailureActionByPolicy" $name }}
+        failureAction: {{ toYaml . }}
+        {{- else }}
+        failureAction: {{ .Values.validationFailureAction }}
+        {{- end }}
+        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+        failureActionOverrides: {{ toYaml . | nindent 8 }}
+        {{- end }}
         message: >-
           Only the following types of volumes may be used: configMap, csi, downwardAPI,
           emptyDir, ephemeral, persistentVolumeClaim, projected, and secret.

@@ -46,7 +46,7 @@ func NewMockValidateFactory(rule *kyvernov1.Rule) *Validate {
 }
 
 // Validate validates the 'validate' rule
-func (v *Validate) Validate(ctx context.Context) (warnings []string, path string, err error) {
+func (v *Validate) Validate(ctx context.Context, _ []string) (warnings []string, path string, err error) {
 	if err := v.validateElements(); err != nil {
 		return nil, "", err
 	}
