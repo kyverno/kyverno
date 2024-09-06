@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: badpod-deny
+  namespace: default
+  labels:
+    foo: bad
+spec:
+  containers:
+  - name: container01
+    image: busybox:1.35
+    args:
+    - sleep
+    - 1d

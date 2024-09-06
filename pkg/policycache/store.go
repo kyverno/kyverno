@@ -102,6 +102,10 @@ func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	var errs []error
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
+	auditWarning := false
+	if policy.GetSpec().EmitWarning != nil && *policy.GetSpec().EmitWarning {
+		auditWarning = true
+	}
 	m.policies[key] = policy
 	type state struct {
 		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool
@@ -169,6 +173,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 				Mutate:               sets.New[string](),
 				ValidateEnforce:      sets.New[string](),
 				ValidateAudit:        sets.New[string](),
+				ValidateAuditWarn:    sets.New[string](),
 				Generate:             sets.New[string](),
 				VerifyImagesMutate:   sets.New[string](),
 				VerifyImagesValidate: sets.New[string](),
@@ -177,6 +182,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 		m.kindType[gvrs][Mutate] = set(m.kindType[gvrs][Mutate], key, state.hasMutate)
 		m.kindType[gvrs][ValidateEnforce] = set(m.kindType[gvrs][ValidateEnforce], key, state.hasValidate && enforcePolicy)
 		m.kindType[gvrs][ValidateAudit] = set(m.kindType[gvrs][ValidateAudit], key, state.hasValidate && !enforcePolicy)
+		m.kindType[gvrs][ValidateAuditWarn] = set(m.kindType[gvrs][ValidateAuditWarn], key, state.hasValidate && !enforcePolicy && auditWarning)
 		m.kindType[gvrs][Generate] = set(m.kindType[gvrs][Generate], key, state.hasGenerate)
 		m.kindType[gvrs][VerifyImagesMutate] = set(m.kindType[gvrs][VerifyImagesMutate], key, state.hasVerifyImages)
 		m.kindType[gvrs][VerifyImagesValidate] = set(m.kindType[gvrs][VerifyImagesValidate], key, state.hasVerifyImages && state.hasImagesValidationChecks)

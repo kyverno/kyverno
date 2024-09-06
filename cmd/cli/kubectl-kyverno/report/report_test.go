@@ -26,11 +26,13 @@ func TestComputeClusterPolicyReports(t *testing.T) {
 			"pods-require-account",
 			engineapi.Validation,
 			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+			nil,
 		),
 		*engineapi.RulePass(
 			"pods-require-limits",
 			engineapi.Validation,
 			"validation rule 'pods-require-limits' passed.",
+			nil,
 		),
 	)
 	clustered, namespaced := ComputePolicyReports(false, er)
@@ -60,11 +62,13 @@ func TestComputePolicyReports(t *testing.T) {
 			"pods-require-account",
 			engineapi.Validation,
 			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+			nil,
 		),
 		*engineapi.RulePass(
 			"pods-require-limits",
 			engineapi.Validation,
 			"validation rule 'pods-require-limits' passed.",
+			nil,
 		),
 	)
 	clustered, namespaced := ComputePolicyReports(false, er)
@@ -94,11 +98,13 @@ func TestComputePolicyReportResultsPerPolicyOld(t *testing.T) {
 			"pods-require-account",
 			engineapi.Validation,
 			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+			nil,
 		),
 		*engineapi.RulePass(
 			"pods-require-limits",
 			engineapi.Validation,
 			"validation rule 'pods-require-limits' passed.",
+			nil,
 		),
 	)
 	results := ComputePolicyReportResultsPerPolicy(false, er)
@@ -175,7 +181,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 		name:           "skip",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleSkip("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleSkip("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
 			Source:    "kyverno",
 			Policy:    "pod-requirements",
@@ -191,7 +197,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 		name:           "pass",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RulePass("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RulePass("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
 			Source:    "kyverno",
 			Policy:    "pod-requirements",
@@ -207,7 +213,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 		name:           "fail",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
 			Source:    "kyverno",
 			Policy:    "pod-requirements",
@@ -223,7 +229,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 		name:           "fail - audit warn",
 		auditWarn:      true,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
 			Source:    "kyverno",
 			Policy:    "pod-requirements",
@@ -239,7 +245,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 		name:           "error",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleError("xxx", engineapi.Mutation, "test", nil),
+		ruleResponse:   *engineapi.RuleError("xxx", engineapi.Mutation, "test", nil, nil),
 		want: policyreportv1alpha2.PolicyReportResult{
 			Source:    "kyverno",
 			Policy:    "pod-requirements",
@@ -255,7 +261,7 @@ func TestComputePolicyReportResult(t *testing.T) {
 		name:           "warn",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleWarn("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleWarn("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
 			Source:    "kyverno",
 			Policy:    "pod-requirements",
@@ -294,7 +300,7 @@ func TestPSSComputePolicyReportResult(t *testing.T) {
 		name:           "fail",
 		auditWarn:      false,
 		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test"),
+		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
 		want: policyreportv1alpha2.PolicyReportResult{
 			Source:     "kyverno",
 			Policy:     "psa",
