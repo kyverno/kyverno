@@ -1,4 +1,4 @@
-{{- if and .Values.admissionController.enabled .Values.test.enabled -}}
+{{- if .Values.admissionController.enabled -}}
 apiVersion: v1
 kind: Pod
 metadata:

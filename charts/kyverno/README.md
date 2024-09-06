@@ -722,7 +722,6 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| test.enabled | bool | `true` |  |
 | test.sleep | int | `30` |  |
 | test.image.registry | string | `nil` | Image registry |
 | test.image.repository | string | `"busybox"` | Image repository |

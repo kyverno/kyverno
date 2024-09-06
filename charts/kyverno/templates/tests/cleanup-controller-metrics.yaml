@@ -1,4 +1,4 @@
-{{- if and .Values.cleanupController.enabled .Values.cleanupController.metricsService.create .Values.test.enabled -}}
+{{- if and .Values.cleanupController.enabled .Values.cleanupController.metricsService.create -}}
 apiVersion: v1
 kind: Pod
 metadata:

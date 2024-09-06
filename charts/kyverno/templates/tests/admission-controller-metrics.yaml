@@ -1,4 +1,4 @@
-{{- if and .Values.admissionController.metricsService.create .Values.test.enabled -}}
+{{- if .Values.admissionController.metricsService.create -}}
 apiVersion: v1
 kind: Pod
 metadata:
