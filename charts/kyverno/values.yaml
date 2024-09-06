@@ -428,6 +428,8 @@ existingImagePullSecrets: []
 
 # Tests configuration
 test:
+  # -- Sleep time before running test
+  sleep: 20
 
   image:
     # -- (string) Image registry
