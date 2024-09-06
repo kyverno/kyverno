@@ -106,6 +106,14 @@ func (c *PolicyContext) Operation() kyvernov1.AdmissionOperation {
 	return c.operation
 }
 
+func (c *PolicyContext) SetOperation(op kyvernov1.AdmissionOperation) error {
+	c.operation = op
+	if err := c.jsonContext.AddOperation(string(op)); err != nil {
+		return errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+	return nil
+}
+
 func (c *PolicyContext) NamespaceLabels() map[string]string {
 	return c.namespaceLabels
 }

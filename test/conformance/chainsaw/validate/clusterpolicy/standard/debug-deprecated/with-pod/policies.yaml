@@ -15,4 +15,5 @@ spec:
               kinds:
                 - Pod
       validate:
+        allowExistingViolations: false
         deny: {}
