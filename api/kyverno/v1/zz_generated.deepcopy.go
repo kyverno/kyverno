@@ -1698,6 +1698,11 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.AllowExistingViolations != nil {
+		in, out := &in.AllowExistingViolations, &out.AllowExistingViolations
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Manifests != nil {
 		in, out := &in.Manifests, &out.Manifests
 		*out = new(Manifests)
