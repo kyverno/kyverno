@@ -1,0 +1,45 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: enforce-validate-existing
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: bad-deploy.yaml
+    - assert:
+        file: bad-deploy-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: bad-deploy-update.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: bad-deploy-update-comply.yaml
+  - name: step-05
+    try:
+    - apply:
+        file: bad-deploy-update-remove-comply.yaml
+        expect:
+        - check:
+            ($error != `null`): true
+  - name: step-06
+    try:
+    - apply:
+        file: good-deploy.yaml
+  - name: step-07
+    try:
+    - apply:
+        file: good-deploy-update.yaml
+        expect:
+        - check:
+            ($error != `null`): true

@@ -8205,6 +8205,11 @@ spec:
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
+                        allowExistingViolations:
+                          default: true
+                          description: AllowExistingViolations allows prexisting violating
+                            resources to continue violating a policy.
+                          type: boolean
                         anyPattern:
                           description: |-
                             AnyPattern specifies list of validation patterns. At least one of the patterns
@@ -13169,6 +13174,11 @@ spec:
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
+                            allowExistingViolations:
+                              default: true
+                              description: AllowExistingViolations allows prexisting
+                                violating resources to continue violating a policy.
+                              type: boolean
                             anyPattern:
                               description: |-
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
@@ -22870,6 +22880,11 @@ spec:
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
+                            allowExistingViolations:
+                              default: true
+                              description: AllowExistingViolations allows prexisting
+                                violating resources to continue violating a policy.
+                              type: boolean
                             anyPattern:
                               description: |-
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
@@ -28163,6 +28178,11 @@ spec:
                     validate:
                       description: Validation is used to validate matching resources.
                       properties:
+                        allowExistingViolations:
+                          default: true
+                          description: AllowExistingViolations allows prexisting violating
+                            resources to continue violating a policy.
+                          type: boolean
                         anyPattern:
                           description: |-
                             AnyPattern specifies list of validation patterns. At least one of the patterns
@@ -33128,6 +33148,11 @@ spec:
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
+                            allowExistingViolations:
+                              default: true
+                              description: AllowExistingViolations allows prexisting
+                                violating resources to continue violating a policy.
+                              type: boolean
                             anyPattern:
                               description: |-
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
@@ -42830,6 +42855,11 @@ spec:
                         validate:
                           description: Validation is used to validate matching resources.
                           properties:
+                            allowExistingViolations:
+                              default: true
+                              description: AllowExistingViolations allows prexisting
+                                violating resources to continue violating a policy.
+                              type: boolean
                             anyPattern:
                               description: |-
                                 AnyPattern specifies list of validation patterns. At least one of the patterns
