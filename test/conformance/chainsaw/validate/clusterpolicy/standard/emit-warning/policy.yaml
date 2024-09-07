@@ -12,7 +12,7 @@ spec:
         - Pod
     validate:
       message: The label 'app' is required.
-      validationFailureAction: Audit
+      failureAction: Audit
       pattern:
         metadata:
           labels:
