@@ -71,7 +71,7 @@ func TestBlockRequest(t *testing.T) {
 			Rules: []kyvernov1.Rule{
 				{
 					Name: "rule-audit",
-					Validation: kyvernov1.Validation{
+					Validation: &kyvernov1.Validation{
 						FailureAction: &audit,
 					},
 				},
@@ -87,7 +87,7 @@ func TestBlockRequest(t *testing.T) {
 			Rules: []kyvernov1.Rule{
 				{
 					Name: "rule-enforce",
-					Validation: kyvernov1.Validation{
+					Validation: &kyvernov1.Validation{
 						FailureAction: &enforce,
 					},
 				},

@@ -48,7 +48,7 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !datautils.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
 		jsonFriendlyStruct.Mutation = rule.Mutation.DeepCopy()
 	}
-	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
+	if rule.Validation != nil && !datautils.DeepEqual(*rule.Validation, kyvernov1.Validation{}) {
 		jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 	}
 	kyvernoAnyAllConditions := rule.GetAnyAllConditions()
@@ -128,7 +128,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if target := rule.Validation.GetPattern(); target != nil {
-		newValidate := kyvernov1.Validation{
+		newValidate := &kyvernov1.Validation{
 			Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
 			FailureAction:          rule.Validation.FailureAction,
 			FailureActionOverrides: rule.Validation.FailureActionOverrides,
@@ -144,7 +144,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if rule.Validation.Deny != nil {
-		deny := kyvernov1.Validation{
+		deny := &kyvernov1.Validation{
 			Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
 			Deny:                   rule.Validation.Deny,
 			FailureAction:          rule.Validation.FailureAction,
@@ -156,7 +156,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	if rule.Validation.PodSecurity != nil {
 		newExclude := make([]kyvernov1.PodSecurityStandard, len(rule.Validation.PodSecurity.Exclude))
 		copy(newExclude, rule.Validation.PodSecurity.Exclude)
-		podSecurity := kyvernov1.Validation{
+		podSecurity := &kyvernov1.Validation{
 			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "podSecurity"),
 			PodSecurity: &kyvernov1.PodSecurity{
 				Level:   rule.Validation.PodSecurity.Level,
@@ -185,7 +185,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		}
 		failureAction := rule.Validation.FailureAction
 		failureActionOverrides := rule.Validation.FailureActionOverrides
-		rule.Validation = kyvernov1.Validation{
+		rule.Validation = &kyvernov1.Validation{
 			Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
 			FailureAction:          failureAction,
 			FailureActionOverrides: failureActionOverrides,
@@ -198,7 +198,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		copy(newForeachValidate, rule.Validation.ForEachValidation)
 		failureAction := rule.Validation.FailureAction
 		failureActionOverrides := rule.Validation.FailureActionOverrides
-		rule.Validation = kyvernov1.Validation{
+		rule.Validation = &kyvernov1.Validation{
 			Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
 			ForEachValidation:      newForeachValidate,
 			FailureAction:          failureAction,
