@@ -27,6 +27,12 @@ customPolicies: []
 #   metadata: # metadata
 #   spec: # spec
 
+# -- Additional custom policy files to include.
+customPoliciesPath: []
+  # - "custom-policies/policy-1.yaml"
+  # - "custom-policies/policy-3.yaml"
+  # - "other-custom-policies/policy-2.yaml"
+
 # -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
 # For more info: https://kyverno.io/docs/writing-policies/policy-settings/
 failurePolicy: Fail

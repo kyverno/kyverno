@@ -1,0 +1,7 @@
+{{- $policyFiles := .Values.customPoliciesPath -}}
+
+{{- range $filename := $policyFiles }}
+---
+# Path: {{ $filename }}
+{{ $.Files.Get $filename | toString }}
+{{- end }}

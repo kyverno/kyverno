@@ -47,6 +47,14 @@ customPolicies:
     spec: # spec
 ````
 
+If custom policies are as saved as files, their paths can be configured as list under `.Values.customPoliciesPath`:
+```
+  - "custom-policies/policy-1.yaml"
+  - "custom-policies/policy-3.yaml"
+  - "other-policies/policy-2.yaml"
+```
+**Note**: The custom policies files path should be relative to the `charts/kyverno-policies` folder.
+
 ## Installing the Chart
 
 These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
@@ -80,6 +88,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
 | customPolicies | list | `[]` | Additional custom policies to include. |
+| customPoliciesPath | list | `[]` | Additional custom policy files to include. |
 | failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/writing-policies/policy-settings/ |
 | validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
