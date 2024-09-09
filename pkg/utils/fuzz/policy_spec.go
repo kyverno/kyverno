@@ -179,7 +179,7 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyvernov1.Rule, error) {
 		if err != nil {
 			return rule, err
 		}
-		rule.ExcludeResources = *er
+		rule.ExcludeResources = er
 	}
 
 	setRawAnyAllConditions, err := f.GetBool()

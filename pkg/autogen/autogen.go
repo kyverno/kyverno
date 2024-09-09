@@ -210,7 +210,7 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		out.MatchResources = *rule.MatchResources
 	}
 	if rule.ExcludeResources != nil {
-		out.ExcludeResources = *rule.ExcludeResources
+		out.ExcludeResources = rule.ExcludeResources
 	}
 	if rule.Context != nil {
 		out.Context = *rule.Context

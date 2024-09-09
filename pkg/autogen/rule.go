@@ -42,7 +42,7 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !datautils.DeepEqual(rule.MatchResources, kyvernov1.MatchResources{}) {
 		jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
 	}
-	if !datautils.DeepEqual(rule.ExcludeResources, kyvernov1.MatchResources{}) {
+	if rule.ExcludeResources != nil && !datautils.DeepEqual(*rule.ExcludeResources, kyvernov1.MatchResources{}) {
 		jsonFriendlyStruct.ExcludeResources = rule.ExcludeResources.DeepCopy()
 	}
 	if !datautils.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
