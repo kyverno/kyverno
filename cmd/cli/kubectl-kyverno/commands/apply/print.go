@@ -75,7 +75,11 @@ func printException(out io.Writer, result v1alpha2.PolicyReportResult, ttl time.
 		names := []string{r.Name}
 		rules := []string{result.Rule}
 		if strings.HasPrefix(result.Rule, "autogen-") {
-			kinds = append(kinds, "Pod")
+			if r.Kind == "CronJob" {
+				kinds = append(kinds, "Job")
+			} else {
+				kinds = append(kinds, "Pod")
+			}
 			names = append(names, r.Name+"-*")
 			rules = append(rules, result.Rule[len("autogen-"):])
 		}
