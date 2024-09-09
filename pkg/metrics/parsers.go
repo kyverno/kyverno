@@ -29,7 +29,7 @@ func ParseRuleType(rule kyvernov1.Rule) RuleType {
 	if !datautils.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
 		return Mutate
 	}
-	if !datautils.DeepEqual(rule.Generation, kyvernov1.Generation{}) {
+	if rule.Generation != nil && !datautils.DeepEqual(*rule.Generation, kyvernov1.Generation{}) {
 		return Generate
 	}
 	if len(rule.VerifyImages) > 0 {
