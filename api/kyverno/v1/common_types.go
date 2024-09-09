@@ -217,8 +217,8 @@ type APICall struct {
 type ContextAPICall struct {
 	APICall `json:",inline"`
 
-	// Default is an optional arbitrary JSON object that the context may take if the apiCall
-	// returns error
+	// Default is an optional arbitrary JSON object that the context
+	// value is set to, if the apiCall returns error.
 	// +optional
 	Default *apiextv1.JSON `json:"default,omitempty"`
 
@@ -250,6 +250,9 @@ type ServiceCall struct {
 	// `https://{service}.{namespace}:{port}/{path}`.
 	URL string `json:"url"`
 
+	// Headers is a list of optional HTTP headers to be included in the request.
+	Headers []HTTPHeader `json:"headers,omitempty"`
+
 	// CABundle is a PEM encoded CA bundle which will be used to validate
 	// the server certificate.
 	// +kubebuilder:validation:Optional
@@ -267,6 +270,13 @@ type RequestData struct {
 
 	// Value is the data value
 	Value *apiextv1.JSON `json:"value"`
+}
+
+type HTTPHeader struct {
+	// Key is the header key
+	Key string `json:"key"`
+	// Value is the header value
+	Value string `json:"value"`
 }
 
 // Condition defines variable-based conditional criteria for rule execution.

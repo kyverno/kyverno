@@ -376,12 +376,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		match := rule.MatchResources
-		exclude := rule.ExcludeResources
 		matchKinds := match.GetKinds()
-		excludeKinds := exclude.GetKinds()
-		allKinds := make([]string, 0, len(matchKinds)+len(excludeKinds))
+		var allKinds []string
 		allKinds = append(allKinds, matchKinds...)
-		allKinds = append(allKinds, excludeKinds...)
+		if exclude := rule.ExcludeResources; exclude != nil {
+			excludeKinds := exclude.GetKinds()
+			allKinds = append(allKinds, excludeKinds...)
+		}
 		if rule.HasValidate() {
 			validationElem := rule.Validation.DeepCopy()
 			if validationElem.Deny != nil {
@@ -690,17 +691,16 @@ func jsonPatchPathHasVariables(patch string) error {
 	return nil
 }
 
-func objectHasVariables(object interface{}) error {
-	var err error
-	objectJSON, err := json.Marshal(object)
-	if err != nil {
-		return err
+func objectHasVariables(object any) error {
+	if object != nil {
+		objectJSON, err := json.Marshal(object)
+		if err != nil {
+			return err
+		}
+		if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+			return fmt.Errorf("invalid variables")
+		}
 	}
-
-	if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
-		return fmt.Errorf("invalid variables")
-	}
-
 	return nil
 }
 
