@@ -5,7 +5,8 @@ permissions: {}
 on:
   pull_request:
     branches:
-      - 'main'
+      - main
+      - release-*
     types:
       - opened
       - synchronize
