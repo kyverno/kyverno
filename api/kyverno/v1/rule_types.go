@@ -59,7 +59,7 @@ type Rule struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources MatchResources `json:"match,omitempty"`
+	MatchResources MatchResources `json:"match"`
 
 	// ExcludeResources defines when this policy rule should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
@@ -97,7 +97,7 @@ type Rule struct {
 
 	// Generation is used to create new resources.
 	// +optional
-	Generation Generation `json:"generate,omitempty"`
+	Generation *Generation `json:"generate,omitempty"`
 
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
@@ -200,7 +200,7 @@ func (r *Rule) HasValidateAllowExistingViolations() bool {
 
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
-	return !datautils.DeepEqual(r.Generation, Generation{})
+	return r.Generation != nil && !datautils.DeepEqual(*r.Generation, Generation{})
 }
 
 func (r *Rule) IsPodSecurity() bool {

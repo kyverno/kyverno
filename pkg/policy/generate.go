@@ -39,6 +39,9 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 	var err error
 	ur := newGenerateUR(policy)
 	for _, rule := range policy.GetSpec().Rules {
+		if !rule.HasGenerate() {
+			continue
+		}
 		generate := rule.Generation
 		if !generate.Synchronize {
 			continue
@@ -48,7 +51,6 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 				errs = append(errs, err)
 			}
 		}
-
 		for _, foreach := range generate.ForEachGeneration {
 			if foreach.GetData() != nil {
 				if ur, err = pc.buildUrForDataRuleChanges(policy, ur, rule.Name, foreach.GeneratePattern, deleteDownstream, false); err != nil {
@@ -57,7 +59,6 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 			}
 		}
 	}
-
 	if len(ur.Spec.RuleContext) == 0 {
 		return multierr.Combine(errs...)
 	}
@@ -88,7 +89,6 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		if !rule.HasGenerate() {
 			continue
 		}
-
 		// check if the rule sets the generateExisting field.
 		// if not, use the policy level setting
 		generateExisting := rule.Generation.GenerateExisting
@@ -99,7 +99,6 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		} else if !policy.GetSpec().GenerateExisting {
 			continue
 		}
-
 		triggers = getTriggers(pc.client, rule, policy.IsNamespaced(), policy.GetNamespace(), pc.log)
 		policyNew.GetSpec().SetRules([]kyvernov1.Rule{rule})
 		for _, trigger := range triggers {
@@ -109,7 +108,6 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 				errors = append(errors, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err))
 				continue
 			}
-
 			engineResponse := pc.engine.ApplyBackgroundChecks(context.TODO(), policyContext)
 			if len(engineResponse.PolicyResponse.Rules) == 0 {
 				continue
@@ -148,6 +146,9 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	rules := autogen.ComputeRules(policy, "")
 	ur := newGenerateUR(policy)
 	for _, r := range rules {
+		if !r.HasGenerate() {
+			continue
+		}
 		generate := r.Generation
 		if !generate.Synchronize {
 			continue
