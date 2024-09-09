@@ -3,7 +3,6 @@ package apicall
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -48,17 +47,22 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 				return
 			}
 
-			w.Write(responseData)
-
 			if useChunked {
 				flusher, ok := w.(http.Flusher)
 				if !ok {
-					panic("expected http.ResponseWriter to be an http.Flusher")
+					http.Error(w, "expected http.ResponseWriter to be an http.Flusher", http.StatusInternalServerError)
+					return
 				}
-				for i := 1; i <= 10; i++ {
-					fmt.Fprintf(w, "Chunk #%d\n", i)
+				chunkSize := len(responseData) / 10
+				for i := 0; i < 10; i++ {
+					data := responseData[i*chunkSize : (i+1)*chunkSize]
+					w.Write(data)
 					flusher.Flush()
 				}
+				w.Write(responseData[10*chunkSize:])
+				flusher.Flush()
+			} else {
+				w.Write(responseData)
 			}
 
 			return
@@ -75,9 +79,9 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 }
 
 func Test_serviceGetRequest(t *testing.T) {
-	testfn := func(t *testing.T, _ bool) {
+	testfn := func(t *testing.T, useChunked bool) {
 		serverResponse := []byte(`{ "day": "Sunday" }`)
-		s := buildTestServer(serverResponse, false)
+		s := buildTestServer(serverResponse, useChunked)
 		defer s.Close()
 
 		entry := kyvernov1.ContextEntry{}
