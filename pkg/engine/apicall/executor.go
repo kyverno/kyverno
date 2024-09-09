@@ -120,7 +120,7 @@ func (a *executor) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APIC
 	}
 
 	var data io.Reader = nil
-	if apiCall.Data != nil {
+	if apiCall.Method == "POST" {
 		var err error
 		data, err = a.buildRequestData(apiCall.Data)
 		if err != nil {

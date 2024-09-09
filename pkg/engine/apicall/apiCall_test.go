@@ -34,7 +34,6 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resource", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
-
 			auth := r.Header.Get("Authorization")
 			if auth != "Bearer 1234567890" {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
