@@ -94,6 +94,37 @@ func Command() *cobra.Command {
 			} else if table {
 				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
+				for _, response := range responses {
+					var failedRules []engineapi.RuleResponse
+					resPath := fmt.Sprintf("%s/%s/%s", response.Resource.GetNamespace(), response.Resource.GetKind(), response.Resource.GetName())
+					for _, rule := range response.PolicyResponse.Rules {
+						if rule.Status() == engineapi.RuleStatusFail {
+							failedRules = append(failedRules, rule)
+						}
+						if rule.RuleType() == engineapi.Mutation {
+							if rule.Status() == engineapi.RuleStatusSkip {
+								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().GetName(), "->", "resource", resPath)
+							} else if rule.Status() == engineapi.RuleStatusError {
+								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
+							}
+						}
+					}
+					if len(failedRules) > 0 {
+						auditWarn := false
+						if applyCommandConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
+							auditWarn = true
+						}
+						if auditWarn {
+							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed as audit warning:")
+						} else {
+							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
+						}
+						for i, rule := range failedRules {
+							fmt.Fprintln(out, i+1, "-", rule.Name(), rule.Message())
+						}
+						fmt.Fprintln(out, "")
+					}
+				}
 				printViolations(out, rc)
 			}
 			return exit(out, rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
