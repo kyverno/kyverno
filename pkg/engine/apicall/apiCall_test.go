@@ -2,7 +2,6 @@ package apicall
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
