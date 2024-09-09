@@ -25,5 +25,5 @@ spec:
       command:
         - /bin/sh
         - -c
-        - sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.service.port }}/health/liveness
+        - sleep {{ .Values.test.sleep }} ; wget -O- -S --no-check-certificate https://{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.service.port }}/health/liveness
 {{- end -}}

@@ -8,7 +8,6 @@ kind: ConfigMap
 metadata:
   name: owner
   namespace: cpol-clone-delete-ownerreferences-across-namespaces-source-ns
-type: Opaque
 ---
 apiVersion: v1
 data:

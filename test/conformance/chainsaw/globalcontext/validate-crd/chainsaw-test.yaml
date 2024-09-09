@@ -19,7 +19,7 @@ spec:
             expect:
               - check:
                   ($error): |-
-                    admission webhook "kyverno-svc.kyverno.svc" denied the request: spec.kubernetesResource: Forbidden: A global context entry should either have KubernetesResource or APICall
+                    GlobalContextEntry.kyverno.io "ingress-2" is invalid: <nil>: Invalid value: "": "spec" must validate one and only one schema (oneOf). Found 2 valid alternatives
     - name: step-03
       try:
         - apply:
@@ -27,4 +27,4 @@ spec:
             expect:
               - check:
                   ($error): |-
-                    admission webhook "kyverno-svc.kyverno.svc" denied the request: spec.kubernetesResource: Forbidden: A global context entry should either have KubernetesResource or APICall
+                    GlobalContextEntry.kyverno.io "ingress-3" is invalid: [<nil>: Invalid value: "": "spec" must validate one and only one schema (oneOf). Found none valid, spec.kubernetesResource: Required value]

@@ -8,4 +8,3 @@ status:
     reason: Failed
     status: "False"
     type: Ready
-  ready: false

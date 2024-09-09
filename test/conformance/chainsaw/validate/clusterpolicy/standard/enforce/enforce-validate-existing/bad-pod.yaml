@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: badpod
+  name: badpod-validate-existing
   namespace: default
   labels:
     foo: bad
