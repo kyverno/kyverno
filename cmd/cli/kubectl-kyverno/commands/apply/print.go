@@ -77,11 +77,14 @@ func printException(out io.Writer, result v1alpha2.PolicyReportResult, ttl time.
 		if strings.HasPrefix(result.Rule, "autogen-") {
 			if r.Kind == "CronJob" {
 				kinds = append(kinds, "Job")
+				rules = append(rules, strings.ReplaceAll(result.Rule, "autogen-cronjob-", "autogen-"))
+				kinds = append(kinds, "Pod")
+				rules = append(rules, result.Rule[len("autogen-cronjob-"):])
 			} else {
 				kinds = append(kinds, "Pod")
+				rules = append(rules, result.Rule[len("autogen-"):])
 			}
 			names = append(names, r.Name+"-*")
-			rules = append(rules, result.Rule[len("autogen-"):])
 		}
 
 		exception := kyvernov2beta1.PolicyException{
