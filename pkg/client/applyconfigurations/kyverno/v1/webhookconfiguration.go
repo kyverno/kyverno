@@ -19,13 +19,16 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/api/admissionregistration/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 // WebhookConfigurationApplyConfiguration represents an declarative configuration of the WebhookConfiguration type for use
 // with apply.
 type WebhookConfigurationApplyConfiguration struct {
-	MatchConditions []v1.MatchCondition `json:"matchConditions,omitempty"`
+	FailurePolicy   *v1.FailurePolicyType                    `json:"failurePolicy,omitempty"`
+	TimeoutSeconds  *int32                                   `json:"timeoutSeconds,omitempty"`
+	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty"`
 }
 
 // WebhookConfigurationApplyConfiguration constructs an declarative configuration of the WebhookConfiguration type for use with
@@ -34,10 +37,26 @@ func WebhookConfiguration() *WebhookConfigurationApplyConfiguration {
 	return &WebhookConfigurationApplyConfiguration{}
 }
 
+// WithFailurePolicy sets the FailurePolicy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the FailurePolicy field is set to the value of the last call.
+func (b *WebhookConfigurationApplyConfiguration) WithFailurePolicy(value v1.FailurePolicyType) *WebhookConfigurationApplyConfiguration {
+	b.FailurePolicy = &value
+	return b
+}
+
+// WithTimeoutSeconds sets the TimeoutSeconds field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the TimeoutSeconds field is set to the value of the last call.
+func (b *WebhookConfigurationApplyConfiguration) WithTimeoutSeconds(value int32) *WebhookConfigurationApplyConfiguration {
+	b.TimeoutSeconds = &value
+	return b
+}
+
 // WithMatchConditions adds the given value to the MatchConditions field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the MatchConditions field.
-func (b *WebhookConfigurationApplyConfiguration) WithMatchConditions(values ...v1.MatchCondition) *WebhookConfigurationApplyConfiguration {
+func (b *WebhookConfigurationApplyConfiguration) WithMatchConditions(values ...admissionregistrationv1.MatchCondition) *WebhookConfigurationApplyConfiguration {
 	for i := range values {
 		b.MatchConditions = append(b.MatchConditions, values[i])
 	}

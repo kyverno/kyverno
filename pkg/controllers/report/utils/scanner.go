@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"go.uber.org/multierr"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -31,7 +31,7 @@ type ScanResult struct {
 }
 
 type Scanner interface {
-	ScanResource(context.Context, unstructured.Unstructured, map[string]string, []v1alpha1.ValidatingAdmissionPolicyBinding, ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult
+	ScanResource(context.Context, unstructured.Unstructured, map[string]string, []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult
 }
 
 func NewScanner(
@@ -50,7 +50,7 @@ func NewScanner(
 	}
 }
 
-func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, bindings []v1alpha1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
+func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, bindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
 	results := map[*engineapi.GenericPolicy]ScanResult{}
 	for i, policy := range policies {
 		var errors []error
@@ -66,6 +66,17 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 			}
 			spec := pol.GetSpec()
 			if spec.HasVerifyImages() && len(errors) == 0 {
+				if response != nil {
+					// remove responses of verify image rules
+					ruleResponses := make([]engineapi.RuleResponse, 0, len(response.PolicyResponse.Rules))
+					for _, v := range response.PolicyResponse.Rules {
+						if v.RuleType() != engineapi.ImageVerify {
+							ruleResponses = append(ruleResponses, v)
+						}
+					}
+					response.PolicyResponse.Rules = ruleResponses
+				}
+
 				ivResponse, err := s.validateImages(ctx, resource, nsLabels, pol)
 				if err != nil {
 					logger.Error(err, "failed to scan images")
@@ -106,6 +117,9 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithPolicy(policy).
 		WithNamespaceLabels(nsLabels)
 	response := s.engine.Validate(ctx, policyCtx)
+	if len(response.PolicyResponse.Rules) > 0 {
+		s.logger.V(6).Info("validateResource", "policy", policy, "response", response)
+	}
 	return &response, nil
 }
 
@@ -126,7 +140,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithNamespaceLabels(nsLabels)
 	response, _ := s.engine.VerifyAndPatchImages(ctx, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
-		s.logger.Info("validateImages", "policy", policy, "response", response)
+		s.logger.V(6).Info("validateImages", "policy", policy, "response", response)
 	}
 	return &response, nil
 }

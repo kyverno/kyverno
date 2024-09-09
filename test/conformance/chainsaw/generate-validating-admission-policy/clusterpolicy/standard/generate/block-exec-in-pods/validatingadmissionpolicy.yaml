@@ -1,0 +1,32 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  name: deny-exec-by-namespace-name
+  ownerReferences:
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    name: deny-exec-by-namespace-name
+spec:
+  failurePolicy: Fail
+  matchConditions:
+  - expression: request.operation == 'CONNECT'
+    name: operation-should-be-connect
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      - CONNECT
+      - DELETE
+      resources:
+      - pods/exec
+      scope: '*'
+  validations:
+  - expression: request.namespace != 'pci'
+    message: Pods in this namespace may not be exec'd into.

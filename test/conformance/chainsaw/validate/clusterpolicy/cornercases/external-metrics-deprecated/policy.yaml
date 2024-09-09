@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+    name: external-metrics-policy-default
+    namespace: default
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: external-metrics-rule-default
+    match:
+      all:
+      - clusterRoles:
+        - evil-cr
+        resources:
+          kinds:
+          - Secret
+    validate:
+      message: 'You should be careful when trying to change/delete {{request.oldObject.kind}} in {{request.oldObject.name}}. These are my-precious resources and touching them might break my heart.'
+      deny:
+        conditions:
+          any:
+          - key: '{{request.operation}}'
+            operator: Equals
+            value: DELETE
+          - key: '{{request.operation}}'
+            operator: Equals
+            value: UPDATE
+          - key: '{{request.operation}}'
+            operator: Equals
+            value: CREATE

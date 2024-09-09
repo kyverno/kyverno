@@ -1,0 +1,39 @@
+apiVersion: v1
+items:
+- apiVersion: wgpolicyk8s.io/v1alpha2
+  kind: PolicyReport
+  metadata:
+    labels:
+      app.kubernetes.io/managed-by: kyverno
+    namespace: test-verify-images
+    ownerReferences:
+    - apiVersion: v1
+      kind: Pod
+      name: test-secret-pod
+  results:
+  - policy: keyed-basic-policy
+    result: pass
+    rule: keyed-basic-rule
+    scored: true
+    source: kyverno
+  - message: 'validation error: You must have label `purpose` with value `production`
+      set on all new namespaces. rule require-ns-purpose-label failed at path /metadata/labels/'
+    policy: keyed-basic-policy
+    result: fail
+    rule: require-ns-purpose-label
+    scored: true
+    source: kyverno
+  scope:
+    apiVersion: v1
+    kind: Pod
+    name: test-secret-pod
+    namespace: test-verify-images
+  summary:
+    error: 0
+    fail: 1
+    pass: 1
+    skip: 0
+    warn: 0
+kind: List
+metadata:
+  resourceVersion: ""

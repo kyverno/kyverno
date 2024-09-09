@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: uid-groups-fsgroup-validate
 spec:
-  validationFailureAction: enforce
   background: true
   rules:
     - name: check-runasuser
@@ -17,6 +16,7 @@ spec:
             kinds:
               - Pod
       validate:
+        failureAction: Enforce
         message: >-
           Running with specific user IDs {{ allowedUIDs }}. The fields
           spec.securityContext.runAsGroup, spec.containers[*].securityContext.runAsGroup,

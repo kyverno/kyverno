@@ -5,25 +5,20 @@ name: Nancy
 permissions: {}
 
 on:
-  push:
-    branches:
-      - '*'
-  pull_request:
-    branches:
-      - 'main'
-      - 'release*'
+  workflow_dispatch:
+  schedule:
+    - cron: '23 2 * * *' # Every day at 02:23 UTC
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    
+
 
 jobs:
-  nancy:
+  nancy-scan:
     runs-on: ubuntu-latest
-    name: Nancy
+    name: nancy-scan
     steps:
       - name: Checkout
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -35,3 +30,47 @@ jobs:
         run: go list -json -deps ./... > go.list
       - name: Nancy SAST Scan
         uses: sonatype-nexus-community/nancy-github-action@726e338312e68ecdd4b4195765f174d3b3ce1533 # v1.0.3
+        with:
+          output_format: json
+          output-file: nancy-results.json
+      - name: Parse scan results
+        id: parse-results
+        run: |
+          if [ -s nancy-results.json ]; then
+            echo "Vulnerabilities found, creating issue"
+            echo "results=found" >> $GITHUB_OUTPUT
+          else
+            echo "No vulnerabilities found, halting"
+            echo "results=nothing" >> $GITHUB_OUTPUT
+          fi
+      - name: Upload vulnerability scan report
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        if: steps.parse-results.outputs.results == 'found'
+        with:
+          name: nancy-results.json
+          path: nancy-results.json
+          if-no-files-found: error
+
+  open-issue:
+    runs-on: ubuntu-latest
+    if: needs.nancy-scan.result == 'success'
+    needs: nancy-scan
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Download scan results
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: nancy-results.json
+      - name: Set scan output
+        id: set-scan-output
+        run: echo "results=$(cat nancy-results.json | jq -c)" >> $GITHUB_OUTPUT
+      - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESULTS: ${{ steps.set-scan-output.outputs.results }}
+        with:
+          filename: .github/ISSUE_TEMPLATE/VULN-TEMPLATE.md
+        

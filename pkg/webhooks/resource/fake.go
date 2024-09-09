@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 
+	"github.com/alitto/pond"
 	fakekyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -38,8 +39,8 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 
 	dclient := dclient.NewEmptyFakeClient()
 	configuration := config.NewDefaultConfiguration(false)
-	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
-	peLister := kyvernoInformers.Kyverno().V2beta1().PolicyExceptions().Lister()
+	urLister := kyvernoInformers.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
+	peLister := kyvernoInformers.Kyverno().V2().PolicyExceptions().Lister()
 	jp := jmespath.New(configuration)
 	rclient := registryclient.NewOrDie()
 
@@ -53,6 +54,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 		urGenerator:   updaterequest.NewFake(),
 		eventGen:      event.NewFake(),
 		pcBuilder:     webhookutils.NewPolicyContextBuilder(configuration, jp),
+		auditPool:     pond.New(8, 1000),
 		engine: engine.NewEngine(
 			configuration,
 			config.NewDefaultMetricsConfiguration(),

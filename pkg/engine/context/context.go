@@ -1,6 +1,7 @@
 package context
 
 import (
+	cont "context"
 	"encoding/csv"
 	"fmt"
 	"regexp"
@@ -8,11 +9,12 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -71,7 +73,7 @@ type Interface interface {
 	AddOperation(data string) error
 
 	// AddUserInfo merges userInfo json under kyverno.userInfo
-	AddUserInfo(userInfo kyvernov1beta1.RequestInfo) error
+	AddUserInfo(userInfo kyvernov2.RequestInfo) error
 
 	// AddServiceAccount merges ServiceAccount types
 	AddServiceAccount(userName string) error
@@ -109,7 +111,7 @@ type Interface interface {
 	Reset()
 
 	// AddJSON  merges the json map with context
-	addJSON(dataMap map[string]interface{}) error
+	addJSON(dataMap map[string]interface{}, overwriteMaps bool) error
 }
 
 // Context stores the data resources as JSON
@@ -138,8 +140,8 @@ func NewContextFromRaw(jp jmespath.Interface, raw map[string]interface{}) Interf
 }
 
 // addJSON merges json data
-func (ctx *context) addJSON(dataMap map[string]interface{}) error {
-	mergeMaps(dataMap, ctx.jsonRaw)
+func (ctx *context) addJSON(dataMap map[string]interface{}, overwriteMaps bool) error {
+	mergeMaps(dataMap, ctx.jsonRaw, overwriteMaps)
 	return nil
 }
 
@@ -166,7 +168,7 @@ func (ctx *context) AddRequest(request admissionv1.AdmissionRequest) error {
 		return err
 	}
 
-	if err := addToContext(ctx, mapObj, "request"); err != nil {
+	if err := addToContext(ctx, mapObj, false, "request"); err != nil {
 		return err
 	}
 
@@ -180,7 +182,7 @@ func (ctx *context) AddVariable(key string, value interface{}) error {
 	if fields, err := reader.Read(); err != nil {
 		return err
 	} else {
-		return addToContext(ctx, value, fields...)
+		return addToContext(ctx, value, false, fields...)
 	}
 }
 
@@ -190,7 +192,7 @@ func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}
-	return addToContext(ctx, data, name)
+	return addToContext(ctx, data, false, name)
 }
 
 func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
@@ -200,34 +202,34 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 		return err
 	}
 	// Adding a nil entry to clean out any existing data in the context with the entry name
-	if err := addToContext(ctx, nil, name); err != nil {
+	if err := addToContext(ctx, nil, false, name); err != nil {
 		logger.Error(err, "unable to replace context entry", "context entry name", name)
 		return err
 	}
-	return addToContext(ctx, data, name)
+	return addToContext(ctx, data, false, name)
 }
 
 // AddResource data at path: request.object
 func (ctx *context) AddResource(data map[string]interface{}) error {
 	clearLeafValue(ctx.jsonRaw, "request", "object")
-	return addToContext(ctx, data, "request", "object")
+	return addToContext(ctx, data, false, "request", "object")
 }
 
 // AddOldResource data at path: request.oldObject
 func (ctx *context) AddOldResource(data map[string]interface{}) error {
 	clearLeafValue(ctx.jsonRaw, "request", "oldObject")
-	return addToContext(ctx, data, "request", "oldObject")
+	return addToContext(ctx, data, false, "request", "oldObject")
 }
 
 // AddTargetResource adds data at path: target
 func (ctx *context) SetTargetResource(data map[string]interface{}) error {
 	clearLeafValue(ctx.jsonRaw, "target")
-	return addToContext(ctx, data, "target")
+	return addToContext(ctx, data, false, "target")
 }
 
 // AddOperation data at path: request.operation
 func (ctx *context) AddOperation(data string) error {
-	if err := addToContext(ctx, data, "request", "operation"); err != nil {
+	if err := addToContext(ctx, data, false, "request", "operation"); err != nil {
 		return err
 	}
 
@@ -236,9 +238,9 @@ func (ctx *context) AddOperation(data string) error {
 }
 
 // AddUserInfo adds userInfo at path request.userInfo
-func (ctx *context) AddUserInfo(userRequestInfo kyvernov1beta1.RequestInfo) error {
+func (ctx *context) AddUserInfo(userRequestInfo kyvernov2.RequestInfo) error {
 	if data, err := toUnstructured(&userRequestInfo); err == nil {
-		return addToContext(ctx, data, "request")
+		return addToContext(ctx, data, false, "request")
 	} else {
 		return err
 	}
@@ -265,7 +267,7 @@ func (ctx *context) AddServiceAccount(userName string) error {
 		"serviceAccountName":      saName,
 		"serviceAccountNamespace": saNamespace,
 	}
-	if err := ctx.addJSON(data); err != nil {
+	if err := ctx.addJSON(data, false); err != nil {
 		return err
 	}
 
@@ -275,7 +277,7 @@ func (ctx *context) AddServiceAccount(userName string) error {
 
 // AddNamespace merges resource json under request.namespace
 func (ctx *context) AddNamespace(namespace string) error {
-	return addToContext(ctx, namespace, "request", "namespace")
+	return addToContext(ctx, namespace, false, "request", "namespace")
 }
 
 func (ctx *context) AddElement(data interface{}, index, nesting int) error {
@@ -287,7 +289,7 @@ func (ctx *context) AddElement(data interface{}, index, nesting int) error {
 		"elementIndex":     int64(index),
 		nestedElementIndex: int64(index),
 	}
-	return addToContext(ctx, data)
+	return addToContext(ctx, data, true)
 }
 
 func (ctx *context) AddImageInfo(info apiutils.ImageInfo, cfg config.Configuration) error {
@@ -300,16 +302,29 @@ func (ctx *context) AddImageInfo(info apiutils.ImageInfo, cfg config.Configurati
 		"tag":              info.Tag,
 		"digest":           info.Digest,
 	}
-	return addToContext(ctx, data, "image")
+	return addToContext(ctx, data, false, "image")
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg config.Configuration) error {
-	images, err := apiutils.ExtractImagesFromResource(*resource, nil, cfg)
+	imageInfoLoader := &ImageInfoLoader{
+		resource: resource,
+		eCtx:     ctx,
+		cfg:      cfg,
+	}
+	dl, err := NewDeferredLoader("images", imageInfoLoader, logger)
 	if err != nil {
 		return err
 	}
-
-	return ctx.addImageInfos(images)
+	if toggle.FromContext(cont.Background()).EnableDeferredLoading() {
+		if err := ctx.AddDeferredLoader(dl); err != nil {
+			return err
+		}
+	} else {
+		if err := imageInfoLoader.LoadData(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (ctx *context) addImageInfos(images map[string]map[string]apiutils.ImageInfo) error {
@@ -321,9 +336,28 @@ func (ctx *context) addImageInfos(images map[string]map[string]apiutils.ImageInf
 	if err != nil {
 		return err
 	}
-
 	logging.V(4).Info("updated image info", "images", utm)
-	return addToContext(ctx, utm, "images")
+	return addToContext(ctx, utm, false, "images")
+}
+
+type ImageInfoLoader struct {
+	resource  *unstructured.Unstructured
+	hasLoaded bool
+	eCtx      *context
+	cfg       config.Configuration
+}
+
+func (l *ImageInfoLoader) HasLoaded() bool {
+	return l.hasLoaded
+}
+
+func (l *ImageInfoLoader) LoadData() error {
+	images, err := apiutils.ExtractImagesFromResource(*l.resource, nil, l.cfg)
+	if err != nil {
+		return err
+	}
+
+	return l.eCtx.addImageInfos(images)
 }
 
 func convertImagesToUnstructured(images map[string]map[string]apiutils.ImageInfo) (map[string]interface{}, error) {
@@ -363,6 +397,12 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 }
 
 func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
+	// force load of image info from deferred loader
+	if len(ctx.images) == 0 {
+		if err := ctx.loadDeferred("images"); err != nil {
+			return map[string]map[string]apiutils.ImageInfo{}
+		}
+	}
 	return ctx.images
 }
 

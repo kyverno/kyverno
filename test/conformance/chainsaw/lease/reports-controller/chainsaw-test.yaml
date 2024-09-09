@@ -1,0 +1,45 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: reports-controller-lease
+spec:
+  concurrent: false
+  steps:
+  - try:
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: kyverno
+            labels:
+              app.kubernetes.io/component: reports-controller
+              app.kubernetes.io/instance: kyverno
+              app.kubernetes.io/part-of: kyverno
+          status:
+            (containerStatuses[?name == 'controller']):
+            - ready: true
+              restartCount: 0
+    - patch:
+        resource:
+          apiVersion: coordination.k8s.io/v1
+          kind: Lease
+          metadata:
+            name: kyverno-reports-controller
+            namespace: kyverno
+          spec:
+            holderIdentity: foo
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            namespace: kyverno
+            labels:
+              app.kubernetes.io/component: reports-controller
+              app.kubernetes.io/instance: kyverno
+              app.kubernetes.io/part-of: kyverno
+          status:
+            (containerStatuses[?name == 'controller']):
+            - ready: true
+              restartCount: 1

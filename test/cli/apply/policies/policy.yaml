@@ -19,12 +19,12 @@ spec:
           - Pod
     name: validate-image-tag
     validate:
+      failureAction: Audit
       message: Using a mutable image tag e.g. 'latest' is not allowed.
       pattern:
         spec:
           containers:
           - image: '!*:latest'
-  validationFailureAction: Audit
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -48,6 +48,7 @@ spec:
         operator: NotEquals
         value: DELETE
     validate:
+      failureAction: Audit
       foreach:
       - deny:
           conditions:
@@ -57,4 +58,3 @@ spec:
               value: '{{ element.securityContext.capabilities.drop || '''' }}'
         list: request.object.spec.[ephemeralContainers, initContainers, containers][]
       message: Containers must drop `ALL` capabilities.
-  validationFailureAction: Audit

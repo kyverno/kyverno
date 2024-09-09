@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: rds-enforce-final-snapshot
 spec:
-  validationFailureAction: Enforce
   rules:
     - name: rds-enforce-final-snapshot
       match:
@@ -12,6 +11,7 @@ spec:
               kinds:
                 - rds.aws.crossplane.io/v1alpha1/DBCluster
       validate:
+        failureAction: Enforce
         message: "Final snapshot must not be skipped"
         pattern:
           spec:

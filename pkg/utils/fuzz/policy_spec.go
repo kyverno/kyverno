@@ -6,8 +6,7 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 )
 
 func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyvernov1.Spec, error) {
@@ -96,12 +95,6 @@ func CreatePolicySpec(ff *fuzz.ConsumeFuzzer) (kyvernov1.Spec, error) {
 		return *spec, err
 	}
 	spec.MutateExistingOnPolicyUpdate = mutateExistingOnPolicyUpdate
-
-	generateExistingOnPolicyUpdate, err := ff.GetBool()
-	if err != nil {
-		return *spec, err
-	}
-	spec.GenerateExistingOnPolicyUpdate = &generateExistingOnPolicyUpdate
 
 	generateExisting, err := ff.GetBool()
 	if err != nil {
@@ -194,7 +187,7 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyvernov1.Rule, error) {
 		return rule, err
 	}
 	if setRawAnyAllConditions {
-		raac := &apiextv1.JSON{}
+		raac := &kyvernov1.ConditionsWrapper{}
 		err = f.GenerateStruct(raac)
 		if err != nil {
 			return rule, err
@@ -207,7 +200,7 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyvernov1.Rule, error) {
 		return rule, err
 	}
 	if setCELPreconditions {
-		celp := make([]admissionregistrationv1alpha1.MatchCondition, 0)
+		celp := make([]admissionregistrationv1beta1.MatchCondition, 0)
 		err = f.CreateSlice(&celp)
 		if err != nil {
 			return rule, err

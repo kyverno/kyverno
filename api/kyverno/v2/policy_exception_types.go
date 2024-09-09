@@ -27,14 +27,15 @@ import (
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=polex,categories=kyverno
+// +kubebuilder:storageversion
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException struct {
-	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
-	Spec PolicyExceptionSpec `json:"spec" yaml:"spec"`
+	Spec PolicyExceptionSpec `json:"spec"`
 }
 
 // Validate implements programmatic validation
@@ -62,23 +63,23 @@ type PolicyExceptionSpec struct {
 	// Background controls if exceptions are applied to existing policies during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
-	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
+	Background *bool `json:"background,omitempty"`
 
 	// Match defines match clause used to check if a resource applies to the exception
-	Match kyvernov2beta1.MatchResources `json:"match" yaml:"match"`
+	Match kyvernov2beta1.MatchResources `json:"match"`
 
 	// Conditions are used to determine if a resource applies to the exception by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements.
 	// +optional
-	Conditions *kyvernov2beta1.AnyAllConditions `json:"conditions,omitempty"`
+	Conditions *AnyAllConditions `json:"conditions,omitempty"`
 
 	// Exceptions is a list policy/rules to be excluded
-	Exceptions []Exception `json:"exceptions" yaml:"exceptions"`
+	Exceptions []Exception `json:"exceptions"`
 
 	// PodSecurity specifies the Pod Security Standard controls to be excluded.
 	// Applicable only to policies that have validate.podSecurity subrule.
 	// +optional
-	PodSecurity []kyvernov1.PodSecurityStandard `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+	PodSecurity []kyvernov1.PodSecurityStandard `json:"podSecurity,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
@@ -100,6 +101,11 @@ func (p *PolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) 
 	for i, e := range p.Exceptions {
 		errs = append(errs, e.Validate(exceptionsPath.Index(i))...)
 	}
+
+	podSecuityPath := path.Child("podSecurity")
+	for i, p := range p.PodSecurity {
+		errs = append(errs, p.Validate(podSecuityPath.Index(i))...)
+	}
 	return errs
 }
 
@@ -118,10 +124,10 @@ type Exception struct {
 	// PolicyName identifies the policy to which the exception is applied.
 	// The policy name uses the format <namespace>/<name> unless it
 	// references a ClusterPolicy.
-	PolicyName string `json:"policyName" yaml:"policyName"`
+	PolicyName string `json:"policyName"`
 
 	// RuleNames identifies the rules to which the exception is applied.
-	RuleNames []string `json:"ruleNames" yaml:"ruleNames"`
+	RuleNames []string `json:"ruleNames"`
 }
 
 // Validate implements programmatic validation
@@ -149,7 +155,7 @@ func (p *Exception) Contains(policy string, rule string) bool {
 
 // PolicyExceptionList is a list of Policy Exceptions
 type PolicyExceptionList struct {
-	metav1.TypeMeta `json:",inline" yaml:",inline"`
-	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []PolicyException `json:"items" yaml:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []PolicyException `json:"items"`
 }

@@ -19,26 +19,61 @@ limitations under the License.
 package v1
 
 import (
+	v1alpha1 "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ValidationApplyConfiguration represents an declarative configuration of the Validation type for use
 // with apply.
 type ValidationApplyConfiguration struct {
-	Message           *string                               `json:"message,omitempty"`
-	Manifests         *ManifestsApplyConfiguration          `json:"manifests,omitempty"`
-	ForEachValidation []ForEachValidationApplyConfiguration `json:"foreach,omitempty"`
-	RawPattern        *apiextensionsv1.JSON                 `json:"pattern,omitempty"`
-	RawAnyPattern     *apiextensionsv1.JSON                 `json:"anyPattern,omitempty"`
-	Deny              *DenyApplyConfiguration               `json:"deny,omitempty"`
-	PodSecurity       *PodSecurityApplyConfiguration        `json:"podSecurity,omitempty"`
-	CEL               *CELApplyConfiguration                `json:"cel,omitempty"`
+	FailureAction           *v1.ValidationFailureAction                         `json:"failureAction,omitempty"`
+	FailureActionOverrides  []ValidationFailureActionOverrideApplyConfiguration `json:"failureActionOverrides,omitempty"`
+	AllowExistingViolations *bool                                               `json:"allowExistingViolations,omitempty"`
+	Message                 *string                                             `json:"message,omitempty"`
+	Manifests               *ManifestsApplyConfiguration                        `json:"manifests,omitempty"`
+	ForEachValidation       []ForEachValidationApplyConfiguration               `json:"foreach,omitempty"`
+	RawPattern              *apiextensionsv1.JSON                               `json:"pattern,omitempty"`
+	RawAnyPattern           *apiextensionsv1.JSON                               `json:"anyPattern,omitempty"`
+	Deny                    *DenyApplyConfiguration                             `json:"deny,omitempty"`
+	PodSecurity             *PodSecurityApplyConfiguration                      `json:"podSecurity,omitempty"`
+	CEL                     *CELApplyConfiguration                              `json:"cel,omitempty"`
+	Assert                  *v1alpha1.Any                                       `json:"assert,omitempty"`
 }
 
 // ValidationApplyConfiguration constructs an declarative configuration of the Validation type for use with
 // apply.
 func Validation() *ValidationApplyConfiguration {
 	return &ValidationApplyConfiguration{}
+}
+
+// WithFailureAction sets the FailureAction field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the FailureAction field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithFailureAction(value v1.ValidationFailureAction) *ValidationApplyConfiguration {
+	b.FailureAction = &value
+	return b
+}
+
+// WithFailureActionOverrides adds the given value to the FailureActionOverrides field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the FailureActionOverrides field.
+func (b *ValidationApplyConfiguration) WithFailureActionOverrides(values ...*ValidationFailureActionOverrideApplyConfiguration) *ValidationApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithFailureActionOverrides")
+		}
+		b.FailureActionOverrides = append(b.FailureActionOverrides, *values[i])
+	}
+	return b
+}
+
+// WithAllowExistingViolations sets the AllowExistingViolations field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AllowExistingViolations field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithAllowExistingViolations(value bool) *ValidationApplyConfiguration {
+	b.AllowExistingViolations = &value
+	return b
 }
 
 // WithMessage sets the Message field in the declarative configuration to the given value
@@ -107,5 +142,13 @@ func (b *ValidationApplyConfiguration) WithPodSecurity(value *PodSecurityApplyCo
 // If called multiple times, the CEL field is set to the value of the last call.
 func (b *ValidationApplyConfiguration) WithCEL(value *CELApplyConfiguration) *ValidationApplyConfiguration {
 	b.CEL = value
+	return b
+}
+
+// WithAssert sets the Assert field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Assert field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithAssert(value v1alpha1.Any) *ValidationApplyConfiguration {
+	b.Assert = &value
 	return b
 }

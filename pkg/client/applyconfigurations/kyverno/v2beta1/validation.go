@@ -19,27 +19,53 @@ limitations under the License.
 package v2beta1
 
 import (
-	v1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	v1alpha1 "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
 )
 
 // ValidationApplyConfiguration represents an declarative configuration of the Validation type for use
 // with apply.
 type ValidationApplyConfiguration struct {
-	Message           *string                                  `json:"message,omitempty"`
-	Manifests         *v1.ManifestsApplyConfiguration          `json:"manifests,omitempty"`
-	ForEachValidation []v1.ForEachValidationApplyConfiguration `json:"foreach,omitempty"`
-	RawPattern        *apiextensionsv1.JSON                    `json:"pattern,omitempty"`
-	RawAnyPattern     *apiextensionsv1.JSON                    `json:"anyPattern,omitempty"`
-	Deny              *DenyApplyConfiguration                  `json:"deny,omitempty"`
-	PodSecurity       *v1.PodSecurityApplyConfiguration        `json:"podSecurity,omitempty"`
-	CEL               *v1.CELApplyConfiguration                `json:"cel,omitempty"`
+	FailureAction          *v1.ValidationFailureAction                                   `json:"failureAction,omitempty"`
+	FailureActionOverrides []kyvernov1.ValidationFailureActionOverrideApplyConfiguration `json:"failureActionOverrides,omitempty"`
+	Message                *string                                                       `json:"message,omitempty"`
+	Manifests              *kyvernov1.ManifestsApplyConfiguration                        `json:"manifests,omitempty"`
+	ForEachValidation      []kyvernov1.ForEachValidationApplyConfiguration               `json:"foreach,omitempty"`
+	RawPattern             *kyverno.Any                                                  `json:"pattern,omitempty"`
+	RawAnyPattern          *kyverno.Any                                                  `json:"anyPattern,omitempty"`
+	Deny                   *DenyApplyConfiguration                                       `json:"deny,omitempty"`
+	PodSecurity            *kyvernov1.PodSecurityApplyConfiguration                      `json:"podSecurity,omitempty"`
+	CEL                    *kyvernov1.CELApplyConfiguration                              `json:"cel,omitempty"`
+	Assert                 *v1alpha1.Any                                                 `json:"assert,omitempty"`
 }
 
 // ValidationApplyConfiguration constructs an declarative configuration of the Validation type for use with
 // apply.
 func Validation() *ValidationApplyConfiguration {
 	return &ValidationApplyConfiguration{}
+}
+
+// WithFailureAction sets the FailureAction field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the FailureAction field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithFailureAction(value v1.ValidationFailureAction) *ValidationApplyConfiguration {
+	b.FailureAction = &value
+	return b
+}
+
+// WithFailureActionOverrides adds the given value to the FailureActionOverrides field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the FailureActionOverrides field.
+func (b *ValidationApplyConfiguration) WithFailureActionOverrides(values ...*kyvernov1.ValidationFailureActionOverrideApplyConfiguration) *ValidationApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithFailureActionOverrides")
+		}
+		b.FailureActionOverrides = append(b.FailureActionOverrides, *values[i])
+	}
+	return b
 }
 
 // WithMessage sets the Message field in the declarative configuration to the given value
@@ -53,7 +79,7 @@ func (b *ValidationApplyConfiguration) WithMessage(value string) *ValidationAppl
 // WithManifests sets the Manifests field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Manifests field is set to the value of the last call.
-func (b *ValidationApplyConfiguration) WithManifests(value *v1.ManifestsApplyConfiguration) *ValidationApplyConfiguration {
+func (b *ValidationApplyConfiguration) WithManifests(value *kyvernov1.ManifestsApplyConfiguration) *ValidationApplyConfiguration {
 	b.Manifests = value
 	return b
 }
@@ -61,7 +87,7 @@ func (b *ValidationApplyConfiguration) WithManifests(value *v1.ManifestsApplyCon
 // WithForEachValidation adds the given value to the ForEachValidation field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the ForEachValidation field.
-func (b *ValidationApplyConfiguration) WithForEachValidation(values ...*v1.ForEachValidationApplyConfiguration) *ValidationApplyConfiguration {
+func (b *ValidationApplyConfiguration) WithForEachValidation(values ...*kyvernov1.ForEachValidationApplyConfiguration) *ValidationApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithForEachValidation")
@@ -74,7 +100,7 @@ func (b *ValidationApplyConfiguration) WithForEachValidation(values ...*v1.ForEa
 // WithRawPattern sets the RawPattern field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawPattern field is set to the value of the last call.
-func (b *ValidationApplyConfiguration) WithRawPattern(value apiextensionsv1.JSON) *ValidationApplyConfiguration {
+func (b *ValidationApplyConfiguration) WithRawPattern(value kyverno.Any) *ValidationApplyConfiguration {
 	b.RawPattern = &value
 	return b
 }
@@ -82,7 +108,7 @@ func (b *ValidationApplyConfiguration) WithRawPattern(value apiextensionsv1.JSON
 // WithRawAnyPattern sets the RawAnyPattern field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RawAnyPattern field is set to the value of the last call.
-func (b *ValidationApplyConfiguration) WithRawAnyPattern(value apiextensionsv1.JSON) *ValidationApplyConfiguration {
+func (b *ValidationApplyConfiguration) WithRawAnyPattern(value kyverno.Any) *ValidationApplyConfiguration {
 	b.RawAnyPattern = &value
 	return b
 }
@@ -98,7 +124,7 @@ func (b *ValidationApplyConfiguration) WithDeny(value *DenyApplyConfiguration) *
 // WithPodSecurity sets the PodSecurity field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the PodSecurity field is set to the value of the last call.
-func (b *ValidationApplyConfiguration) WithPodSecurity(value *v1.PodSecurityApplyConfiguration) *ValidationApplyConfiguration {
+func (b *ValidationApplyConfiguration) WithPodSecurity(value *kyvernov1.PodSecurityApplyConfiguration) *ValidationApplyConfiguration {
 	b.PodSecurity = value
 	return b
 }
@@ -106,7 +132,15 @@ func (b *ValidationApplyConfiguration) WithPodSecurity(value *v1.PodSecurityAppl
 // WithCEL sets the CEL field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CEL field is set to the value of the last call.
-func (b *ValidationApplyConfiguration) WithCEL(value *v1.CELApplyConfiguration) *ValidationApplyConfiguration {
+func (b *ValidationApplyConfiguration) WithCEL(value *kyvernov1.CELApplyConfiguration) *ValidationApplyConfiguration {
 	b.CEL = value
+	return b
+}
+
+// WithAssert sets the Assert field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Assert field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithAssert(value v1alpha1.Any) *ValidationApplyConfiguration {
+	b.Assert = &value
 	return b
 }

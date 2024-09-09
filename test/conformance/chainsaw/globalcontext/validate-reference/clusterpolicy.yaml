@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: cpol-gctx-validate-reference
 spec:
-  validationFailureAction: Enforce
   failurePolicy: Fail
   rules:
   - name: main-deployment-exists
@@ -24,6 +23,7 @@ spec:
         - CREATE
         - UPDATE
     validate:
+      failureAction: Enforce
       deny:
         conditions:
           any:

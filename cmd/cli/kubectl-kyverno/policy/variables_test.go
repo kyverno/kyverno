@@ -11,10 +11,10 @@ import (
 func TestExtractVariables(t *testing.T) {
 	loadPolicy := func(path string) kyvernov1.PolicyInterface {
 		t.Helper()
-		policies, _, _, err := Load(nil, "", path)
+		results, err := Load(nil, "", path)
 		assert.NoError(t, err)
-		assert.Equal(t, len(policies), 1)
-		return policies[0]
+		assert.Equal(t, len(results.Policies), 1)
+		return results.Policies[0]
 
 	}
 	tests := []struct {

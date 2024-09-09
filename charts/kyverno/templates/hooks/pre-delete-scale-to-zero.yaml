@@ -10,10 +10,15 @@ metadata:
   annotations:
     helm.sh/hook: pre-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-weight: "100"
 spec:
   backoffLimit: 2
   template:
     metadata:
+      {{- with .Values.webhooksCleanup.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.webhooksCleanup.podLabels }}
       labels:
         {{- toYaml . | nindent 8 }}
@@ -25,8 +30,8 @@ spec:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       restartPolicy: Never
-      {{- with .Values.webhooksCleanup.imagePullSecrets }}
-      imagePullSecrets: 
+      {{- with .Values.webhooksCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       containers:
@@ -46,7 +51,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.webhooksCleanup.tolerations }}
+      {{- with .Values.webhooksCleanup.tolerations | default .Values.global.tolerations}}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

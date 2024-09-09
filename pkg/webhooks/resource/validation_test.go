@@ -1051,6 +1051,1028 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 				"kubernetes.io/metadata.name": "dev",
 			},
 		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "audit",
+								"failureActionOverrides":
+									[
+										{
+											"action": "enforce",
+											"namespaces": [
+												"default"
+											]
+										},
+										{
+											"action": "audit",
+											"namespaces": [
+												"test"
+											]
+										}
+									],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+				 }
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+					   "namespace": "default"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: true,
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "audit",
+								"failureActionOverrides":
+									[
+										{
+											"action": "enforce",
+											"namespaces": [
+												"default"
+											]
+										},
+										{
+											"action": "audit",
+											"namespaces": [
+												"test"
+											]
+										}
+									],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+				 }
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+					   "labels": {
+						   "app": "my-app"
+					   }
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: false,
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "audit",
+								"failureActionOverrides":
+									[
+										{
+											"action": "enforce",
+											"namespaces": [
+												"default"
+											]
+										},
+										{
+											"action": "audit",
+											"namespaces": [
+												"test"
+											]
+										}
+									],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+				 }
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+					   "namespace": "test"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: false,
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "enforce",
+								"failureActionOverrides":
+									[
+										{
+											"action": "enforce",
+											"namespaces": [
+												"default"
+											]
+										},
+										{
+											"action": "audit",
+											"namespaces": [
+												"test"
+											]
+										}
+									],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+				 }
+		 	`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+					   "namespace": "default"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: true,
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "enforce",
+								"failureActionOverrides":
+									[
+										{
+											"action": "enforce",
+											"namespaces": [
+												"default"
+											]
+										},
+										{
+											"action": "audit",
+											"namespaces": [
+												"test"
+											]
+										}
+									],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+			 	}
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+					   "labels": {
+						   "app": "my-app"
+					   }
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: false,
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "enforce",
+								"failureActionOverrides":
+									[
+										{
+											"action": "enforce",
+											"namespaces": [
+												"default"
+											]
+										},
+										{
+											"action": "audit",
+											"namespaces": [
+												"test"
+											]
+										}
+									],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+				 }
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+					   "namespace": "test"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: false,
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							"name": "check-label-app",
+							"match": {
+							   "resources": {
+								  "kinds": [
+									 "Pod"
+								  ]
+							   }
+							},
+							"validate": {
+								"failureAction": "enforce",
+								"failureActionOverrides":
+									[
+										{
+											"action": "enforce",
+											"namespaces": [
+												"default"
+											]
+										},
+										{
+											"action": "audit",
+											"namespaces": [
+												"test"
+											]
+										}
+									],
+							   "message": "The label 'app' is required.",
+							   "pattern": {
+								   "metadata": {
+									   "labels": {
+										   "app": "?*"
+									   }
+								   }
+							   }
+						   }
+						 }
+					   ]
+					}
+				 }
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+					   "namespace": ""
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: true,
+			messages: map[string]string{
+				"check-label-app": "validation error: The label 'app' is required. rule check-label-app failed at path /metadata/labels/",
+			},
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "enforce",
+								"failureActionOverrides":
+									[
+										{
+											"action": "audit",
+											"namespaces": [
+												"dev"
+											],
+											"namespaceSelector": {
+												"matchExpressions": [{
+													"key" : "kubernetes.io/metadata.name",
+													"operator": "In",
+													"values": [
+														"prod"
+													]
+												}]
+											}
+										}
+									],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+			 	}
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+						 "namespace": "default"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: true,
+			messages: map[string]string{
+				"check-label-app": "validation error: The label 'app' is required. rule check-label-app failed at path /metadata/labels/",
+			},
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "enforce",
+								"failureActionOverrides":
+									 [
+										 {
+											 "action": "audit",
+											 "namespaceSelector": {
+												 "matchExpressions": [{
+												   "key" : "kubernetes.io/metadata.name",
+												   "operator": "In",
+												   "values": [
+														"prod"
+													 ]
+												 }]
+											 }
+										 }
+									 ],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+			 	}
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+						 "namespace": "prod"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: false,
+			rawResourceNamespaceLabels: map[string]string{
+				"kubernetes.io/metadata.name": "prod",
+			},
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "enforce",
+								"failureActionOverrides":
+									 [
+										 {
+											 "action": "audit",
+											 "namespaceSelector": {
+												 "matchExpressions": [{
+												   "key" : "kubernetes.io/metadata.name",
+												   "operator": "In",
+												   "values": [
+														"prod"
+													 ]
+												 }]
+											 }
+										 }
+									 ],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+			 	}
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+						 "namespace": "default"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: true,
+			messages: map[string]string{
+				"check-label-app": "validation error: The label 'app' is required. rule check-label-app failed at path /metadata/labels/",
+			},
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "enforce",
+								"failureActionOverrides":
+									 [
+										 {
+											 "action": "audit",
+											 "namespaces": [
+											   "dev"
+											 ],
+											 "namespaceSelector": {
+												 "matchExpressions": [{
+												   "key" : "kubernetes.io/metadata.name",
+												   "operator": "In",
+												   "values": [
+														"prod"
+													 ]
+												 }]
+											 }
+										 }
+									 ],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+			 	}
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+						 "namespace": "dev"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: true,
+			rawResourceNamespaceLabels: map[string]string{
+				"kubernetes.io/metadata.name": "dev",
+			},
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "enforce",
+								"failureActionOverrides":
+									 [
+										 {
+											 "action": "audit",
+											 "namespaces": [
+											   "dev"
+											 ],
+											 "namespaceSelector": {
+												 "matchExpressions": [{
+												   "key" : "kubernetes.io/metadata.name",
+												   "operator": "In",
+												   "values": [
+														"prod"
+													 ]
+												 }]
+											 }
+										 }
+									 ],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+			 	}
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+						 "namespace": "prod"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: true,
+			rawResourceNamespaceLabels: map[string]string{
+				"kubernetes.io/metadata.name": "prod",
+			},
+		},
+		{
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "audit",
+								"failureActionOverrides":
+									 [
+										 {
+											 "action": "enforce",
+											 "namespaces": [
+											   "dev"
+											 ],
+											 "namespaceSelector": {
+												 "matchExpressions": [{
+												   "key" : "kubernetes.io/metadata.name",
+													"operator": "In",
+													"values": [
+														"prod"
+													 ]
+												 }]
+											 }
+										 }
+									 ],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+			 	}
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+						 "namespace": "dev"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: false,
+			rawResourceNamespaceLabels: map[string]string{
+				"kubernetes.io/metadata.name": "dev",
+			},
+		}, {
+			rawPolicy: []byte(`
+				{
+					"apiVersion": "kyverno.io/v1",
+					"kind": "ClusterPolicy",
+					"metadata": {
+					   "name": "check-label-app"
+					},
+					"spec": {
+					   "rules": [
+						  {
+							 "name": "check-label-app",
+							 "match": {
+								"resources": {
+								   "kinds": [
+									  "Pod"
+								   ]
+								}
+							 },
+							 "validate": {
+								"failureAction": "audit",
+								"failureActionOverrides":
+									 [
+										 {
+											 "action": "enforce",
+											 "namespaces": [
+											   "dev"
+											 ],
+											 "namespaceSelector": {
+												 "matchExpressions": [{
+												   "key" : "kubernetes.io/metadata.name",
+												   "operator": "In",
+												   "values": [
+														"dev"
+													 ]
+												 }]
+											 }
+										 }
+									 ],
+								"message": "The label 'app' is required.",
+								"pattern": {
+									"metadata": {
+										"labels": {
+											"app": "?*"
+										}
+									}
+								}
+							}
+						  }
+					   ]
+					}
+			 	}
+			`),
+			rawResource: []byte(`
+				{
+					"apiVersion": "v1",
+					"kind": "Pod",
+					"metadata": {
+					   "name": "test-pod",
+						 "namespace": "dev"
+					},
+					"spec": {
+					   "containers": [
+						  {
+							 "name": "nginx",
+							 "image": "nginx:latest"
+						  }
+					   ]
+					}
+				 }
+			`),
+			blocked: true,
+			rawResourceNamespaceLabels: map[string]string{
+				"kubernetes.io/metadata.name": "dev",
+			},
+		},
 	}
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)

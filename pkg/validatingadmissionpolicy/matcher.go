@@ -1,7 +1,7 @@
 package validatingadmissionpolicy
 
 import (
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -14,7 +14,7 @@ import (
 // - if the object selector matches the resource
 // - if the resource is excluded by the policy/binding
 // - if the resource matches the policy/binding rules
-func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[string]string, matchCriteria admissionregistrationv1alpha1.MatchResources) (bool, error) {
+func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[string]string, matchCriteria admissionregistrationv1beta1.MatchResources) (bool, error) {
 	// check if the namespace selector matches the resource namespace
 	if matchCriteria.NamespaceSelector != nil {
 		if len(matchCriteria.NamespaceSelector.MatchLabels) > 0 || len(matchCriteria.NamespaceSelector.MatchExpressions) > 0 {
@@ -66,7 +66,7 @@ func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[stri
 	return true, nil
 }
 
-func matchesResourceRules(resourceRules []admissionregistrationv1alpha1.NamedRuleWithOperations, attr admission.Attributes) bool {
+func matchesResourceRules(resourceRules []admissionregistrationv1beta1.NamedRuleWithOperations, attr admission.Attributes) bool {
 	for _, r := range resourceRules {
 		ruleMatcher := rules.Matcher{
 			Rule: r.RuleWithOperations,

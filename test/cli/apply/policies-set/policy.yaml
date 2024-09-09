@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
    name: enforce-label
 spec:
-   validationFailureAction: Audit
    background: false
    rules:
      - name: enforce-label
@@ -13,6 +12,7 @@ spec:
              kinds:
                - Pod
        validate:
+         failureAction: Audit
          message: "The foo label must be set."
          pattern:
            metadata:

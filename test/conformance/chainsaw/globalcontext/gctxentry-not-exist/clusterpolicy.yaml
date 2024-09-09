@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: cpol-gctxentry-not-exist
 spec:
-  validationFailureAction: Enforce
   failurePolicy: Fail
   rules:
   - name: main-deployment-exists
@@ -25,6 +24,7 @@ spec:
         - CREATE
         - UPDATE
     validate:
+      failureAction: Enforce
       deny:
         conditions:
           any:

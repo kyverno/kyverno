@@ -30,7 +30,7 @@ func (a *dclientAdapter) GetResources(ctx context.Context, group, version, kind,
 	if err != nil {
 		return nil, err
 	}
-	var result []engineapi.Resource
+	result := make([]engineapi.Resource, 0, len(resources))
 	for _, resource := range resources {
 		result = append(result, engineapi.Resource{
 			Group:        resource.Group,
@@ -70,7 +70,7 @@ func (a *dclientAdapter) IsNamespaced(group, version, kind string) (bool, error)
 }
 
 func (a *dclientAdapter) CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, string, error) {
-	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, verb, subresource, user)
+	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "", verb, subresource, user)
 	ok, reason, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, reason, err

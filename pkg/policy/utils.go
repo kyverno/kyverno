@@ -2,30 +2,41 @@ package policy
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func fetchUniqueKinds(rule kyvernov1.Rule) []string {
-	kinds := sets.New(rule.MatchResources.Kinds...)
-
-	for _, any := range rule.MatchResources.Any {
-		kinds.Insert(any.Kinds...)
+func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstructured, isNamespacedPolicy bool) bool {
+	if match.Name != "" && !wildcard.Match(match.Name, res.GetName()) {
+		return false
 	}
 
-	for _, all := range rule.MatchResources.All {
-		kinds.Insert(all.Kinds...)
+	if len(match.Names) > 0 {
+		isMatch := false
+		for _, name := range match.Names {
+			if wildcard.Match(name, res.GetName()) {
+				isMatch = true
+				break
+			}
+		}
+		if !isMatch {
+			return false
+		}
 	}
 
-	return kinds.UnsortedList()
+	if !isNamespacedPolicy && len(match.Namespaces) > 0 && !contains(match.Namespaces, res.GetNamespace()) {
+		return false
+	}
+	return true
 }
 
-func convertlist(ulists []unstructured.Unstructured) []*unstructured.Unstructured {
-	var result []*unstructured.Unstructured
-	for _, list := range ulists {
-		result = append(result, list.DeepCopy())
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
 	}
-	return result
+	return false
 }
 
 func castPolicy(p interface{}) kyvernov1.PolicyInterface {
@@ -37,4 +48,15 @@ func castPolicy(p interface{}) kyvernov1.PolicyInterface {
 		policy = obj
 	}
 	return policy
+}
+
+func policyKey(policy kyvernov1.PolicyInterface) string {
+	var policyNameNamespaceKey string
+
+	if policy.IsNamespaced() {
+		policyNameNamespaceKey = policy.GetNamespace() + "/" + policy.GetName()
+	} else {
+		policyNameNamespaceKey = policy.GetName()
+	}
+	return policyNameNamespaceKey
 }

@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: require-ns-owner-label
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
   - name: check-for-namespace-owner-label
@@ -13,6 +12,7 @@ spec:
           kinds:
           - Namespace
     validate:
+      failureAction: Enforce
       message: >-
         The label `uw.systems/owner` is required. Check policy at
         https://github.com/utilitywarehouse/system-manifests/tree/master/kyverno/policies/namespaces/require-ns-owner-label.yaml

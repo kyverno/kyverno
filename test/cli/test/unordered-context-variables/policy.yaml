@@ -28,4 +28,4 @@ spec:
         spec:
           =(hostIPC): false
           =(hostPID): false
-  validationFailureAction: Enforce
+      failureAction: Enforce

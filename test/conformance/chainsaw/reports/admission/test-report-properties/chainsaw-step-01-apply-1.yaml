@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-owner
+spec:
+  background: false
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    name: check-owner
+    context:
+    - name: objName
+      variable:
+        jmesPath: request.object.metadata.name
+    reportProperties:
+      operation: '{{ request.operation }}'
+      objName: '{{ objName }}'
+    validate:
+      failureAction: Audit
+      message: The `owner` label is required for all Namespaces.
+      pattern:
+        metadata:
+          labels:
+            owner: ?*

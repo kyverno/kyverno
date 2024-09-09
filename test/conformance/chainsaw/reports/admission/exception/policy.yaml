@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: require-labels
 spec:
-  validationFailureAction: Enforce
   background: true
   rules:
     - name: require-team
@@ -13,8 +12,22 @@ spec:
               kinds:
                 - ConfigMap
       validate:
+        failureAction: Enforce
         message: 'The label `team` is required.'
         pattern:
           metadata:
             labels:
               team: '?*'
+    - name: require-team-assert
+      match:
+        any:
+          - resources:
+              kinds:
+                - ConfigMap
+      validate:
+        message: 'The label `team` is required.'
+        assert:
+          object:
+            metadata:
+              labels:
+                team: {}

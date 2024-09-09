@@ -8,12 +8,22 @@ metadata:
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
+        rbac.kyverno.io/aggregate-to-admission-controller: "true"
+    - matchLabels:
         {{- include "kyverno.admission-controller.matchLabels" . | nindent 8 }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ template "kyverno.admission-controller.roleName" . }}:core
+  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
+  {{- if not .Values.templating.enabled }}
+  finalizers:
+  - kyverno.io/webhooks
+  - kyverno.io/exceptionwebhooks
+  - kyverno.io/globalcontextwebhooks
+  {{- end }}
+  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
@@ -62,10 +72,6 @@ rules:
       - updaterequests/status
       - globalcontextentries
       - globalcontextentries/status
-      - admissionreports
-      - clusteradmissionreports
-      - backgroundscanreports
-      - clusterbackgroundscanreports
       - policyexceptions
     verbs:
       - create
@@ -141,6 +147,31 @@ rules:
       - get
       - list
       - watch
+  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
+  {{- if not .Values.templating.enabled }}
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterroles
+      - clusterrolebindings
+    resourceNames:
+      - {{ template "kyverno.admission-controller.roleName" . }}
+      - {{ template "kyverno.admission-controller.roleName" . }}:core
+      - {{ template "kyverno.admission-controller.roleName" . }}:temporary
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterroles
+      - clusterrolebindings
+    verbs:
+      - create
+      - list
+  {{- end }}
+  {{- end }}
 {{- with .Values.admissionController.rbac.coreClusterRole.extraResources }}
   {{- toYaml . | nindent 2 }}
 {{- end }}

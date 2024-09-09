@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-state-metrics
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-state-metrics-source-cm
+  namespace: kube-state-metrics
+  labels:
+    kubestatemetrics.platform.example: source
+data:
+  allowed: '"true"'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kube-state-metrics
+  name: kube-state-metrics
+  labels:
+    app: busybox
+spec:
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      containers:
+      - name: busybox
+        image: busybox:1.35
+        command:
+        - sleep
+        - "36000"

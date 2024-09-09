@@ -1,0 +1,41 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  name: check-label-app5
+  ownerReferences:
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    name: check-label-app5
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    excludeResourceRules:
+    - apiGroups:
+      - apps
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      resources:
+      - deployments
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: In
+        values:
+        - production
+        - staging
+    resourceRules:
+    - apiGroups:
+      - '*'
+      apiVersions:
+      - '*'
+      operations:
+      - CREATE
+      resources:
+      - '*'
+      scope: '*'
+  validations:
+  - expression: '''app'' in object.metadata.labels'

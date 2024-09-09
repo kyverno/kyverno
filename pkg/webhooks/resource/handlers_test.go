@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -143,6 +144,43 @@ var policyVerifySignature = `
 }
 `
 
+var policyAddLabels = `{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "add-labels"
+  },
+  "spec": {
+    "admission": true,
+    "background": true,
+    "rules": [
+      {
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "foo": "bar"
+              }
+            }
+          }
+        },
+        "name": "add-labels"
+      }
+    ]
+  }
+}`
+
 var policyMutateAndVerify = `
 {
     "apiVersion": "kyverno.io/v1",
@@ -212,8 +250,15 @@ var policyMutateAndVerify = `
                                 "entries": [
                                     {
                                         "keys": {
-                                            "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----"
-                                        }
+                                            "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+																						"rekor": {
+																							"url": "https://rekor.sigstore.dev",
+																							"ignoreTlog": true
+																						},
+																						"ctlog": {
+																							"ignoreSCT": true
+																						}
+																				}
                                     }
                                 ]
                             }
@@ -255,6 +300,27 @@ var pod = `{
 	"metadata": {
 	   "name": "test-pod",
 	   "namespace": ""
+	},
+	"spec": {
+	   "containers": [
+		  {
+			 "name": "nginx",
+			 "image": "nginx:latest"
+		  }
+	   ]
+	}
+ }
+`
+
+var goodPod = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+	   "name": "test-pod",
+	   "namespace": "",
+		 "labels": {
+					"app": "kyverno"
+			}
 	},
 	"spec": {
 	   "containers": [
@@ -533,7 +599,7 @@ func Test_MutateAndVerify(t *testing.T) {
 		AdmissionRequest: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateAndVerify),
 			},
@@ -578,7 +644,7 @@ func Test_MutateAndGenerate(t *testing.T) {
 		AdmissionRequest: v1.AdmissionRequest{
 			Operation: v1.Create,
 			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 			Object: apiruntime.RawExtension{
 				Raw: []byte(resourceMutateandGenerate),
 			},
@@ -587,38 +653,149 @@ func Test_MutateAndGenerate(t *testing.T) {
 		},
 	}
 
-	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
-
-	assert.Assert(t, len(mockPcBuilder.contexts) >= 3, fmt.Sprint("expected no of context ", 3, " received ", len(mockPcBuilder.contexts)))
-
-	validateJSONContext := mockPcBuilder.contexts[0].JSONContext()
-	mutateJSONContext := mockPcBuilder.contexts[1].JSONContext()
-	generateJSONContext := mockPcBuilder.contexts[2].JSONContext()
-
-	_, err = enginecontext.AddMockDeferredLoader(validateJSONContext, "key1", "value1")
-	assert.NilError(t, err)
-	_, err = enginecontext.AddMockDeferredLoader(mutateJSONContext, "key2", "value2")
-	assert.NilError(t, err)
-	_, err = enginecontext.AddMockDeferredLoader(generateJSONContext, "key3", "value3")
+	_, mutatePolicies, generatePolicies, _, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
 	assert.NilError(t, err)
 
-	_, err = mutateJSONContext.Query("key1")
-	assert.ErrorContains(t, err, `Unknown key "key1" in path`)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	resourceHandlers.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, time.Now(), &wg)
+	wg.Wait()
+
+	assert.Assert(t, len(mockPcBuilder.contexts) >= 2, fmt.Sprint("expected no of context ", 2, " received ", len(mockPcBuilder.contexts)))
+
+	mutateJSONContext := mockPcBuilder.contexts[0].JSONContext()
+	generateJSONContext := mockPcBuilder.contexts[1].JSONContext()
+
+	_, err = enginecontext.AddMockDeferredLoader(mutateJSONContext, "key1", "value1")
+	assert.NilError(t, err)
+	_, err = enginecontext.AddMockDeferredLoader(generateJSONContext, "key2", "value2")
+	assert.NilError(t, err)
+
+	_, err = mutateJSONContext.Query("key2")
+	assert.ErrorContains(t, err, `Unknown key "key2" in path`)
+
 	_, err = generateJSONContext.Query("key1")
 	assert.ErrorContains(t, err, `Unknown key "key1" in path`)
+}
 
-	_, err = validateJSONContext.Query("key2")
-	assert.ErrorContains(t, err, `Unknown key "key2" in path`)
-	_, err = generateJSONContext.Query("key2")
-	assert.ErrorContains(t, err, `Unknown key "key2" in path`)
+func Test_ValidateAuditWarn(t *testing.T) {
+	policyCache := policycache.NewCache()
+	logger := log.WithName("Test_ValidateAuditWarn")
 
-	_, err = validateJSONContext.Query("key3")
-	assert.ErrorContains(t, err, `Unknown key "key3" in path`)
-	_, err = mutateJSONContext.Query("key3")
-	assert.ErrorContains(t, err, `Unknown key "key3" in path`)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+
+	var validPolicy kyverno.ClusterPolicy
+	err := json.Unmarshal([]byte(policyCheckLabel), &validPolicy)
+	assert.NilError(t, err)
+
+	key := makeKey(&validPolicy)
+	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+	}
+
+	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
+	assert.Equal(t, response.Allowed, true)
+	assert.Equal(t, len(response.Warnings), 0, "should not emit warning when audit warn is set to false")
+
+	auditWarn := true
+	validPolicy.Spec.EmitWarning = &auditWarn
+	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+
+	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
+	assert.Equal(t, response.Allowed, true)
+	assert.Equal(t, len(response.Warnings), 1, "should emit warning when audit warn is set to true")
+
+	policyCache.Unset(key)
+}
+
+func Test_ValidateAuditWarnGood(t *testing.T) {
+	policyCache := policycache.NewCache()
+	logger := log.WithName("Test_ValidateAuditWarnGood")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+
+	var validPolicy kyverno.ClusterPolicy
+	err := json.Unmarshal([]byte(policyCheckLabel), &validPolicy)
+	assert.NilError(t, err)
+	auditWarn := true
+	validPolicy.Spec.EmitWarning = &auditWarn
+	key := makeKey(&validPolicy)
+	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(goodPod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+	}
+
+	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
+	assert.Equal(t, response.Allowed, true)
+	assert.Equal(t, len(response.Warnings), 0, "should emit warning for pass rule response")
+
+	policyCache.Unset(key)
+}
+
+func Test_MutateWarn(t *testing.T) {
+	policyCache := policycache.NewCache()
+	logger := log.WithName("Test_MutateWarn")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal([]byte(policyAddLabels), &policy)
+	assert.NilError(t, err)
+
+	key := makeKey(&policy)
+	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+	}
+
+	response := resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
+
+	auditWarn := true
+	policy.Spec.EmitWarning = &auditWarn
+	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+
+	response = resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
+	assert.Equal(t, response.Allowed, true)
+	assert.Equal(t, len(response.Warnings), 1, "should emit warning when audit warn is set to true")
 }
 
 func makeKey(policy kyverno.PolicyInterface) string {
@@ -632,10 +809,10 @@ func makeKey(policy kyverno.PolicyInterface) string {
 }
 
 type mockPolicyContextBuilder struct {
+	sync.Mutex
 	configuration config.Configuration
 	jp            jmespath.Interface
 	contexts      []*engine.PolicyContext
-	count         int
 }
 
 func newMockPolicyContextBuilder(
@@ -646,12 +823,14 @@ func newMockPolicyContextBuilder(
 		configuration: configuration,
 		jp:            jp,
 		contexts:      make([]*policycontext.PolicyContext, 0),
-		count:         0,
 	}
 }
 
 func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, roles, clusterRoles []string, gvk schema.GroupVersionKind) (*engine.PolicyContext, error) {
-	userRequestInfo := kyvernov1beta1.RequestInfo{
+	b.Lock()
+	defer b.Unlock()
+
+	userRequestInfo := kyvernov2.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
@@ -660,7 +839,6 @@ func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, r
 	if err != nil {
 		return nil, err
 	}
-	b.count += 1
 	b.contexts = append(b.contexts, pc)
 	return pc, err
 }

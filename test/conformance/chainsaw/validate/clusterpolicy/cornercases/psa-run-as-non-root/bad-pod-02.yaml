@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: test-pod
+  name: test-pod
+spec:
+  containers:
+  - image: nginx
+    name: test-pod
+    resources:
+      limits:
+        cpu: "2"
+        memory: 4Gi
+      requests:
+        cpu: 50m
+        memory: 256Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+  initContainers:
+  - args:
+    - istio-iptables
+    env:
+    - name: TERMINATION_DRAIN_DURATION_SECONDS
+      value: "30"
+    image: some.registry/istio/proxyv2:1.18.7
+    imagePullPolicy: IfNotPresent
+    name: istio-init
+    resources:
+      limits:
+        cpu: "2"
+        memory: 1Gi
+      requests:
+        cpu: 10m
+        memory: 40Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true

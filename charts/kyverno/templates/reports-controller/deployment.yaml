@@ -7,6 +7,10 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+  {{- with .Values.reportsController.annotations }}
+  annotations:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.reportsController.replicas }}
   revisionHistoryLimit: {{ .Values.reportsController.revisionHistoryLimit }}
@@ -28,7 +32,7 @@ spec:
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
-      {{- with .Values.reportsController.imagePullSecrets }}
+      {{- with .Values.reportsController.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -40,7 +44,7 @@ spec:
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.reportsController.tolerations }}
+      {{- with .Values.reportsController.tolerations | default .Values.global.tolerations}}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -126,7 +130,6 @@ spec:
               "logging"
               "omitEvents"
               "policyExceptions"
-              "reports"
               "registryClient"
               "tuf"
             ) | nindent 12 }}

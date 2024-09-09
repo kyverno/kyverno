@@ -2,9 +2,9 @@ package cel
 
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	"k8s.io/apiserver/pkg/cel/environment"
 )
@@ -12,19 +12,19 @@ import (
 type Compiler struct {
 	compositedCompiler cel.CompositedCompiler
 	// CEL expressions
-	validateExpressions        []admissionregistrationv1alpha1.Validation
-	auditAnnotationExpressions []admissionregistrationv1alpha1.AuditAnnotation
+	validateExpressions        []admissionregistrationv1beta1.Validation
+	auditAnnotationExpressions []admissionregistrationv1beta1.AuditAnnotation
 	matchExpressions           []admissionregistrationv1.MatchCondition
-	variables                  []admissionregistrationv1alpha1.Variable
+	variables                  []admissionregistrationv1beta1.Variable
 }
 
 func NewCompiler(
-	validations []admissionregistrationv1alpha1.Validation,
-	auditAnnotations []admissionregistrationv1alpha1.AuditAnnotation,
+	validations []admissionregistrationv1beta1.Validation,
+	auditAnnotations []admissionregistrationv1beta1.AuditAnnotation,
 	matchConditions []admissionregistrationv1.MatchCondition,
-	variables []admissionregistrationv1alpha1.Variable,
+	variables []admissionregistrationv1beta1.Variable,
 ) (*Compiler, error) {
-	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
+	compositedCompiler, err := cel.NewCompositedCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), false))
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (c Compiler) CompileMatchExpressions(optionalVars cel.OptionalVariableDecla
 func (c Compiler) convertValidations() []cel.ExpressionAccessor {
 	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.validateExpressions))
 	for i, validation := range c.validateExpressions {
-		validation := validatingadmissionpolicy.ValidationCondition{
+		validation := validating.ValidationCondition{
 			Expression: validation.Expression,
 			Message:    validation.Message,
 			Reason:     validation.Reason,
@@ -94,7 +94,7 @@ func (c Compiler) convertMessageExpressions() []cel.ExpressionAccessor {
 	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.validateExpressions))
 	for i, validation := range c.validateExpressions {
 		if validation.MessageExpression != "" {
-			condition := validatingadmissionpolicy.MessageExpressionCondition{
+			condition := validating.MessageExpressionCondition{
 				MessageExpression: validation.MessageExpression,
 			}
 			celExpressionAccessor[i] = &condition
@@ -106,7 +106,7 @@ func (c Compiler) convertMessageExpressions() []cel.ExpressionAccessor {
 func (c Compiler) convertAuditAnnotations() []cel.ExpressionAccessor {
 	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.auditAnnotationExpressions))
 	for i, validation := range c.auditAnnotationExpressions {
-		validation := validatingadmissionpolicy.AuditAnnotationCondition{
+		validation := validating.AuditAnnotationCondition{
 			Key:             validation.Key,
 			ValueExpression: validation.ValueExpression,
 		}
@@ -130,7 +130,7 @@ func (c Compiler) convertMatchExpressions() []cel.ExpressionAccessor {
 func (c Compiler) convertVariables() []cel.NamedExpressionAccessor {
 	namedExpressions := make([]cel.NamedExpressionAccessor, len(c.variables))
 	for i, variable := range c.variables {
-		namedExpressions[i] = &validatingadmissionpolicy.Variable{
+		namedExpressions[i] = &validating.Variable{
 			Name:       variable.Name,
 			Expression: variable.Expression,
 		}

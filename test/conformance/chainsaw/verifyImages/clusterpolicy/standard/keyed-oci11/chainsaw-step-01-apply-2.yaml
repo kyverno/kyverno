@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: keyed-basic-policy
+spec:
+  background: false
+  failurePolicy: Fail
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    name: keyed-basic-rule
+    verifyImages:
+    - attestors:
+      - entries:
+        - keys:
+            publicKeys: |-
+              -----BEGIN PUBLIC KEY-----
+              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoKYkkX32oSx61B4iwKXa6llAF2dB
+              IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
+              -----END PUBLIC KEY-----
+            rekor:
+              ignoreTlog: true
+              url: https://rekor.sigstore.dev
+      imageReferences:
+      - ghcr.io/kyverno/test-verify-image:*
+      cosignOCI11: true
+      failureAction: Enforce
+  webhookTimeoutSeconds: 30

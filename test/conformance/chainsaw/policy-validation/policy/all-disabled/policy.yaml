@@ -3,7 +3,6 @@ kind: Policy
 metadata:
   name: all-disabled
 spec:
-  validationFailureAction: Audit
   admission: false
   background: false
   rules:
@@ -14,4 +13,5 @@ spec:
           kinds:
           - Pod
     validate:
+      failureAction: Audit
       deny: {}
