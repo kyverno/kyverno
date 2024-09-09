@@ -15,3 +15,4 @@ Contributors are those who have made enough contributions to the project as defi
 | Mohamed Asif S           | [@mohamedasifs123](https://github.com/mohamedasifs123)|
 | Suruchi Kumari           | [@coder12git](https://github.com/coder12git)|
 | Shubham Singh            | [@1shubham7](https://github.com/1shubham7)             |
+| Pradeep Narasimha        | [@praddy26](https://github.com/praddy26)               |
