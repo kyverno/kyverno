@@ -39,17 +39,13 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 				if !ok {
 					panic("expected http.ResponseWriter to be an http.Flusher")
 				}
-				check := make([]byte, 0)
 				chunkSize := len(responseData) / 10
 				for i := 0; i < 10; i++ {
 					data := responseData[i*chunkSize : (i+1)*chunkSize]
-					check = append(check, data...)
 					w.Write(data)
 					flusher.Flush()
 				}
-				check = append(check, responseData[10*chunkSize:]...)
 				w.Write(responseData[10*chunkSize:])
-				fmt.Println(check)
 				flusher.Flush()
 			} else {
 				w.Write(responseData)
