@@ -583,7 +583,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				},
 			)
 			if err != nil {
-				logger.Error(err, "failed to update policy status", "policy", policy)
+				logger.Error(err, "failed to update clusterpolicy status", "policy", policy.GetName())
 				continue
 			}
 		} else {
@@ -596,7 +596,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				},
 			)
 			if err != nil {
-				logger.Error(err, "failed to update policy status", "policy", policy)
+				logger.Error(err, "failed to update policy status", "namespace", policy.GetNamespace(), "policy", policy.GetName())
 				continue
 			}
 		}
