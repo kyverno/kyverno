@@ -40,16 +40,11 @@ type GlobalContextEntry struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
-	Spec GlobalContextEntrySpec `json:"spec" yaml:"spec"`
+	Spec GlobalContextEntrySpec `json:"spec"`
 
 	// Status contains globalcontextentry runtime data.
 	// +optional
 	Status GlobalContextEntryStatus `json:"status,omitempty"`
-}
-
-// GetStatus returns the globalcontextentry status
-func (p *GlobalContextEntry) GetStatus() *GlobalContextEntryStatus {
-	return &p.Status
 }
 
 // Validate implements programmatic validation
@@ -58,12 +53,9 @@ func (c *GlobalContextEntry) Validate() (errs field.ErrorList) {
 	return errs
 }
 
-// IsNamespaced indicates if the policy is namespace scoped
-func (c *GlobalContextEntry) IsNamespaced() bool {
-	return false
-}
-
 // GlobalContextEntrySpec stores policy exception spec
+// +kubebuilder:oneOf:={required:{kubernetesResource}}
+// +kubebuilder:oneOf:={required:{apiCall}}
 type GlobalContextEntrySpec struct {
 	// Stores a list of Kubernetes resources which will be cached.
 	// Mutually exclusive with APICall.
@@ -170,14 +162,11 @@ func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
 	if e.RefreshInterval.Duration == 0*time.Second {
 		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "A Resource entry requires a refresh interval greater than 0 seconds"))
 	}
-
 	if (e.Service == nil && e.URLPath == "") || (e.Service != nil && e.URLPath != "") {
 		errs = append(errs, field.Forbidden(path.Child("service"), "An External API call should either have Service or URLPath"))
 	}
-
 	if e.Data != nil && e.Method != "POST" {
 		errs = append(errs, field.Forbidden(path.Child("method"), "An External API call with data should have method as POST"))
 	}
-
 	return errs
 }

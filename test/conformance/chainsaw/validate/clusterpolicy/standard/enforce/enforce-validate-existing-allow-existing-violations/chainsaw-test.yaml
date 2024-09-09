@@ -1,0 +1,25 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: enforce-validate-existing
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: bad-pod.yaml
+    - assert:
+        file: bad-pod-ready.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
+  - name: step-03
+    try:
+    - script:
+        content: ./bad-pod-update-test.sh
+        timeout: 30s
+

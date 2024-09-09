@@ -52,6 +52,42 @@ func TestAddOperationsForValidatingWebhookConfMultiplePolicies(t *testing.T) {
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
 				"ConfigMap": {"CREATE", "UPDATE", "DELETE", "CONNECT"},
 			},
+		}, {
+			name: "test-2",
+			policies: []kyverno.ClusterPolicy{
+				{
+					Spec: kyverno.Spec{
+						Rules: []kyverno.Rule{
+							{
+								MatchResources: kyverno.MatchResources{
+									ResourceDescription: kyverno.ResourceDescription{
+										Kinds:      []string{"Role"},
+										Operations: []kyverno.AdmissionOperation{"DELETE"},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Spec: kyverno.Spec{
+						Rules: []kyverno.Rule{
+							{
+								MatchResources: kyverno.MatchResources{
+									ResourceDescription: kyverno.ResourceDescription{
+										Kinds:      []string{"Secrets"},
+										Operations: []kyverno.AdmissionOperation{"CONNECT"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResult: map[string][]admissionregistrationv1.OperationType{
+				"Role":    {"DELETE"},
+				"Secrets": {"CONNECT"},
+			},
 		},
 	}
 
@@ -349,7 +385,7 @@ func TestAddOperationsForMutatingtingWebhookConfMultiplePolicies(t *testing.T) {
 					Spec: kyverno.Spec{
 						Rules: []kyverno.Rule{
 							{
-								Generation: kyverno.Generation{},
+								Generation: &kyverno.Generation{},
 								MatchResources: kyverno.MatchResources{
 									ResourceDescription: kyverno.ResourceDescription{
 										Kinds: []string{"Deployments", "StatefulSet", "DaemonSet", "Job"},

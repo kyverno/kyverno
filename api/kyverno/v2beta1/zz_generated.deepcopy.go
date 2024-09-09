@@ -397,6 +397,7 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.Validation.DeepCopyInto(&out.Validation)
 	if in.ImageRegistryCredentials != nil {
 		in, out := &in.ImageRegistryCredentials, &out.ImageRegistryCredentials
 		*out = new(v1.ImageRegistryCredentials)
@@ -746,6 +747,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.SkipBackgroundRequests != nil {
+		in, out := &in.SkipBackgroundRequests, &out.SkipBackgroundRequests
+		*out = new(bool)
+		**out = **in
 	}
 	return
 }

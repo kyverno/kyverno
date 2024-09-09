@@ -246,7 +246,7 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyvernov1.Rule, error) {
 		if err != nil {
 			return rule, err
 		}
-		rule.Generation = *g
+		rule.Generation = g
 	}
 
 	setVerifyImages, err := f.GetBool()

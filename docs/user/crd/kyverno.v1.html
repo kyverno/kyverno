@@ -295,6 +295,34 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
     
     
       <tr>
+        <td><code>emitWarning</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &quot;false&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>admission</code>
           
           </br>
@@ -840,6 +868,34 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
           
 
           <p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>emitWarning</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &quot;false&quot;.</p>
 
 
           
@@ -1480,6 +1536,35 @@ OCI registry and decodes them into a list of Statements.</p>
     
     
       <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the variable name.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>predicateType</code>
           
           <span style="color:blue;"> *</span>
@@ -1808,6 +1893,35 @@ The payload may contain other key-value pairs.</p>
 
           <p>Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
 If specified Repository will override other OCI image repository locations for this Attestor.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>signatureAlgorithm</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
 
 
           
@@ -2936,6 +3050,34 @@ or can be variables declared using JMESPath.</p>
     
     
       <tr>
+        <td><code>default</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Default is an optional arbitrary JSON object that the context may take if the apiCall
+returns error</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>jmesPath</code>
           
           <span style="color:blue;"> *</span>
@@ -3206,6 +3348,7 @@ details.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#kyverno-io-v1-ForEachValidation">ForEachValidation</a>, 
+        <a href="#kyverno-io-v1-ValidateImageVerification">ValidateImageVerification</a>, 
         <a href="#kyverno-io-v1-Validation">Validation</a>)
     </p>
   
@@ -5455,6 +5598,38 @@ Defaults to true.</p>
     
     
       <tr>
+        <td><code>validate</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ValidateImageVerification">
+                <span style="font-family: monospace">ValidateImageVerification</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validation checks conditions across multiple image
+verification attestations or context entries</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>required</code>
           
           <span style="color:blue;"> *</span>
@@ -7591,6 +7766,33 @@ declaration to specify which resources to exclude.</p>
     
     
       <tr>
+        <td><code>reportProperties</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ReportProperties are the additional properties from the rule that will be added to the policy report result</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>match</code>
           
           <span style="color:blue;"> *</span>
@@ -8429,6 +8631,34 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
     
     
       <tr>
+        <td><code>emitWarning</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &quot;false&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>admission</code>
           
           </br>
@@ -8770,7 +9000,7 @@ When multiple keys are specified each key is processed as a separate staticKey e
         <td>
           
 
-          <p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
+          <p>Deprecated. Use attestor.signatureAlgorithm instead.</p>
 
 
           
@@ -9157,6 +9387,99 @@ See: https://kyverno.io/docs/writing-policies/preconditions/</p>
     </table>
   
 
+  <H3 id="kyverno-io-v1-ValidateImageVerification">ValidateImageVerification
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ImageVerification">ImageVerification</a>)
+    </p>
+  
+
+  <p><p>ValidateImageVerification checks conditions across multiple image
+verification attestations or context entries</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>message</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Message specifies a custom message to be displayed on failure.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>deny</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-Deny">
+                <span style="font-family: monospace">Deny</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Deny defines conditions used to pass or fail a validation rule.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v1-ValidatingAdmissionPolicyStatus">ValidatingAdmissionPolicyStatus
     </H3>
 
@@ -9335,6 +9658,35 @@ Allowed values are Audit or Enforce.</p>
 
           <p>FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
 namespace-wise. It overrides FailureAction for the specified namespaces.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>allowExistingViolations</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>AllowExistingViolations allows prexisting violating resources to continue violating a policy.</p>
 
 
           

@@ -110,5 +110,5 @@ func IsSameRuleResponse(r1 *engineapi.RuleResponse, r2 *engineapi.RuleResponse) 
 
 func IsUpdateRequest(ctx engineapi.PolicyContext) bool {
 	// is the OldObject and NewObject are available, the request is an UPDATE
-	return ctx.OldResource().Object != nil && ctx.NewResource().Object != nil
+	return (ctx.OldResource().Object != nil && ctx.NewResource().Object != nil) || ctx.Operation() == kyvernov1.Update
 }
