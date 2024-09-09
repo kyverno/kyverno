@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
@@ -71,30 +70,40 @@ func printExceptions(out io.Writer, engineResponses []engineapi.EngineResponse, 
 func printException(out io.Writer, result v1alpha2.PolicyReportResult, ttl time.Duration) error {
 	for _, r := range result.Resources {
 		name := strings.Join([]string{result.Policy, result.Rule, r.Namespace, r.Name}, "-")
-		exception := kyvernov2.PolicyException{
+
+		kinds := []string{r.Kind}
+		names := []string{r.Name}
+		rules := []string{result.Rule}
+		if strings.HasPrefix(result.Rule, "autogen-") {
+			kinds = append(kinds, "Pod")
+			names = append(names, r.Name+"-*")
+			rules = append(rules, result.Rule[len("autogen-"):])
+		}
+
+		exception := kyvernov2beta1.PolicyException{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "PolicyException",
-				APIVersion: kyvernov2.SchemeGroupVersion.String(),
+				APIVersion: kyvernov2beta1.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
 			},
-			Spec: kyvernov2.PolicyExceptionSpec{
+			Spec: kyvernov2beta1.PolicyExceptionSpec{
 				Match: kyvernov2beta1.MatchResources{
 					All: kyvernov1.ResourceFilters{
 						kyvernov1.ResourceFilter{
 							ResourceDescription: kyvernov1.ResourceDescription{
-								Kinds:      []string{r.Kind},
-								Names:      []string{r.Name},
+								Kinds:      kinds,
+								Names:      names,
 								Namespaces: []string{r.Namespace},
 							},
 						},
 					},
 				},
-				Exceptions: []kyvernov2.Exception{
+				Exceptions: []kyvernov2beta1.Exception{
 					{
 						PolicyName: result.Policy,
-						RuleNames:  []string{result.Rule},
+						RuleNames:  rules,
 					},
 				},
 			},
