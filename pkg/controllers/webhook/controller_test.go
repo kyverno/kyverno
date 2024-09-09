@@ -385,7 +385,7 @@ func TestAddOperationsForMutatingtingWebhookConfMultiplePolicies(t *testing.T) {
 					Spec: kyverno.Spec{
 						Rules: []kyverno.Rule{
 							{
-								Generation: kyverno.Generation{},
+								Generation: &kyverno.Generation{},
 								MatchResources: kyverno.MatchResources{
 									ResourceDescription: kyverno.ResourceDescription{
 										Kinds: []string{"Deployments", "StatefulSet", "DaemonSet", "Job"},
