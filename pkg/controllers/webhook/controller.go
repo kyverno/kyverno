@@ -574,38 +574,30 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 	}
 	for _, policy := range policies {
 		if policy.GetNamespace() == "" {
-			p, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policy.GetName(), metav1.GetOptions{})
-			if err != nil {
-				logger.Error(err, "failed to get latest clusterpolicy for status reconciliation", "policy", policy.GetName())
-				continue
-			}
 			_, err = controllerutils.UpdateStatus(
 				ctx,
-				p,
+				policy.(*kyvernov1.ClusterPolicy),
 				c.kyvernoClient.KyvernoV1().ClusterPolicies(),
 				func(policy *kyvernov1.ClusterPolicy) error {
 					return updateStatusFunc(policy)
 				},
 			)
 			if err != nil {
-				return err
-			}
-		} else {
-			p, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).Get(ctx, policy.GetName(), metav1.GetOptions{})
-			if err != nil {
-				logger.Error(err, "failed to get latest policy for status reconciliation", "namespace", policy.GetNamespace, "policy", policy.GetName())
+				logger.Error(err, "failed to update policy status", "policy", policy)
 				continue
 			}
+		} else {
 			_, err = controllerutils.UpdateStatus(
 				ctx,
-				p,
+				policy.(*kyvernov1.Policy),
 				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
 				func(policy *kyvernov1.Policy) error {
 					return updateStatusFunc(policy)
 				},
 			)
 			if err != nil {
-				return err
+				logger.Error(err, "failed to update policy status", "policy", policy)
+				continue
 			}
 		}
 	}
