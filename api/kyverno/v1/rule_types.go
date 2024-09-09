@@ -97,7 +97,7 @@ type Rule struct {
 
 	// Generation is used to create new resources.
 	// +optional
-	Generation Generation `json:"generate,omitempty"`
+	Generation *Generation `json:"generate,omitempty"`
 
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
@@ -200,7 +200,7 @@ func (r *Rule) HasValidateAllowExistingViolations() bool {
 
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
-	return !datautils.DeepEqual(r.Generation, Generation{})
+	return r.Generation != nil && !datautils.DeepEqual(*r.Generation, Generation{})
 }
 
 func (r *Rule) IsPodSecurity() bool {
