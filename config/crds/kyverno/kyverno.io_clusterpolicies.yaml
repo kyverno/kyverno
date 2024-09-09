@@ -4895,6 +4895,7 @@ spec:
                         type: object
                       type: array
                   required:
+                  - match
                   - name
                   type: object
                 type: array
@@ -9898,6 +9899,7 @@ spec:
                             type: object
                           type: array
                       required:
+                      - match
                       - name
                       type: object
                     type: array
@@ -14601,6 +14603,7 @@ spec:
                         type: object
                       type: array
                   required:
+                  - match
                   - name
                   type: object
                 type: array
@@ -19604,6 +19607,7 @@ spec:
                             type: object
                           type: array
                       required:
+                      - match
                       - name
                       type: object
                     type: array
