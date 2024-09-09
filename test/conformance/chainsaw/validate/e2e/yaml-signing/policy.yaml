@@ -3,10 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: validate-resources
 spec:
-  validationFailureAction: Enforce
   background: false
-  webhookTimeoutSeconds: 30
-  failurePolicy: Fail  
   rules:
     - name: validate-resources
       match:
@@ -33,6 +30,7 @@ spec:
             namespace: kube-system
             name: deployment-controller
       validate:
+        failureAction: Enforce
         manifests:
           attestors:
           - entries:
@@ -47,3 +45,6 @@ spec:
                   ignoreTlog: true
                 ctlog:
                   ignoreSCT: true
+  webhookConfiguration:
+    timeoutSeconds: 30
+    failurePolicy: Fail 

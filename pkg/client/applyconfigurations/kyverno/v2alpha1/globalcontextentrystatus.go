@@ -25,8 +25,9 @@ import (
 // GlobalContextEntryStatusApplyConfiguration represents an declarative configuration of the GlobalContextEntryStatus type for use
 // with apply.
 type GlobalContextEntryStatusApplyConfiguration struct {
-	Ready      *bool          `json:"ready,omitempty"`
-	Conditions []v1.Condition `json:"conditions,omitempty"`
+	Ready           *bool          `json:"ready,omitempty"`
+	Conditions      []v1.Condition `json:"conditions,omitempty"`
+	LastRefreshTime *v1.Time       `json:"lastRefreshTime,omitempty"`
 }
 
 // GlobalContextEntryStatusApplyConfiguration constructs an declarative configuration of the GlobalContextEntryStatus type for use with
@@ -50,5 +51,13 @@ func (b *GlobalContextEntryStatusApplyConfiguration) WithConditions(values ...v1
 	for i := range values {
 		b.Conditions = append(b.Conditions, values[i])
 	}
+	return b
+}
+
+// WithLastRefreshTime sets the LastRefreshTime field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LastRefreshTime field is set to the value of the last call.
+func (b *GlobalContextEntryStatusApplyConfiguration) WithLastRefreshTime(value v1.Time) *GlobalContextEntryStatusApplyConfiguration {
+	b.LastRefreshTime = &value
 	return b
 }

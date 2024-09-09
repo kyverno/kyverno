@@ -20,11 +20,10 @@ func (r *KyvernoResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths
 	var err error
 
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
-	var resourceTypes []schema.GroupVersionKind
 	var subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
 
 	for _, policy := range r.policies {
-		for _, rule := range autogen.ComputeRules(policy) {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			var resourceTypesInRule map[schema.GroupVersionKind]bool
 			resourceTypesInRule, subresourceMap = GetKindsFromRule(rule, dClient)
 			for resourceKind := range resourceTypesInRule {
@@ -33,6 +32,7 @@ func (r *KyvernoResources) FetchResourcesFromPolicy(out io.Writer, resourcePaths
 		}
 	}
 
+	resourceTypes := make([]schema.GroupVersionKind, 0, len(resourceTypesMap))
 	for kind := range resourceTypesMap {
 		resourceTypes = append(resourceTypes, kind)
 	}

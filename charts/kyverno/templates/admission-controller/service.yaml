@@ -15,6 +15,7 @@ spec:
     targetPort: https
     protocol: TCP
     name: https
+    appProtocol: https
     {{- if and (eq .Values.admissionController.service.type "NodePort") (not (empty .Values.admissionController.service.nodePort)) }}
     nodePort: {{ .Values.admissionController.service.nodePort }}
     {{- end }}
@@ -36,7 +37,7 @@ metadata:
 spec:
   ports:
   - port: {{ .Values.admissionController.metricsService.port }}
-    targetPort: 8000
+    targetPort: {{ .Values.admissionController.metering.port }}
     protocol: TCP
     name: metrics-port
     {{- if and (eq .Values.admissionController.metricsService.type "NodePort") (not (empty .Values.admissionController.metricsService.nodePort)) }}

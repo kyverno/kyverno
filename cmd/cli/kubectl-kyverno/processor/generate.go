@@ -5,8 +5,6 @@ import (
 	"io"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -48,7 +46,7 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 	listKinds := map[schema.GroupVersionResource]string{}
 
 	// Collect items in a potential cloneList to provide list kinds to the fake dynamic client.
-	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
+	for _, rule := range autogen.ComputeRules(policyContext.Policy(), "") {
 		if !rule.HasGenerate() || len(rule.Generation.CloneList.Kinds) == 0 {
 			continue
 		}
@@ -80,23 +78,10 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 		return nil, err
 	}
 
-	gr := kyvernov1beta1.UpdateRequest{
-		Spec: kyvernov1beta1.UpdateRequestSpec{
-			Type:   kyvernov1beta1.Generate,
-			Policy: generateResponse.Policy().GetName(),
-			Resource: kyvernov1.ResourceSpec{
-				Kind:       generateResponse.Resource.GetKind(),
-				Namespace:  generateResponse.Resource.GetNamespace(),
-				Name:       generateResponse.Resource.GetName(),
-				APIVersion: generateResponse.Resource.GetAPIVersion(),
-			},
-		},
-	}
-
 	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		genResource, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, gr, []string{rule.Name()})
+		genResource, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, []string{rule.Name()})
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +120,6 @@ func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[s
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(s, nil),
 		nil,
-		"",
 	))
 	return c, nil
 }

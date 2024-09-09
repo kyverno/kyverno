@@ -1,3 +1,9 @@
+## v1.13.0
+
+### Note
+
+- Removed deprecated flag `reportsChunkSize`.
+
 ## v1.11.0
 
 ## v1.11.0-rc.1

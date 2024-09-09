@@ -14,11 +14,12 @@ scope:
 results:
 - category: Pod Security
   message: "Validation rule 'restricted' failed. It violates PodSecurity \"restricted:latest\":
-        \n(Forbidden reason: unrestricted capabilities, field error list: [spec.containers[0].securityContext.capabilities.drop:
+        (Forbidden reason: unrestricted capabilities, field error list: [spec.containers[0].securityContext.capabilities.drop:
         Required value])"
   policy: podsecurity-subrule-restricted
   properties:
     controls: capabilities_restricted
+    controlsJSON: '[{"ID":"capabilities_restricted","Name":"Capabilities","Images":["docker.io/dummyimagename:latest"]}]'
     standard: restricted
     version: latest
   result: fail

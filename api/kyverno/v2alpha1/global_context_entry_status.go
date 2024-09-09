@@ -19,9 +19,12 @@ const (
 
 type GlobalContextEntryStatus struct {
 	// Deprecated in favor of Conditions
-	Ready bool `json:"ready" yaml:"ready"`
+	Ready *bool `json:"ready,omitempty"`
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// Indicates the time when the globalcontextentry was last refreshed successfully for the API Call
+	// +optional
+	LastRefreshTime metav1.Time `json:"lastRefreshTime,omitempty"`
 }
 
 func (status *GlobalContextEntryStatus) SetReady(ready bool, message string) {
@@ -36,8 +39,12 @@ func (status *GlobalContextEntryStatus) SetReady(ready bool, message string) {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = GlobalContextEntryReasonFailed
 	}
-	status.Ready = ready
+	status.Ready = nil
 	meta.SetStatusCondition(&status.Conditions, condition)
+}
+
+func (status *GlobalContextEntryStatus) UpdateRefreshTime() {
+	status.LastRefreshTime = metav1.Now()
 }
 
 // IsReady indicates if the globalcontextentry has loaded

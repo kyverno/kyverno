@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -39,6 +40,7 @@ type imageVerificationHandler struct {
 	admissionReports bool
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
+	reportsBreaker   breaker.Breaker
 }
 
 func NewImageVerificationHandler(
@@ -49,6 +51,7 @@ func NewImageVerificationHandler(
 	admissionReports bool,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
+	reportsBreaker breaker.Breaker,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
@@ -58,6 +61,7 @@ func NewImageVerificationHandler(
 		admissionReports: admissionReports,
 		cfg:              cfg,
 		nsLister:         nsLister,
+		reportsBreaker:   reportsBreaker,
 	}
 }
 
@@ -67,7 +71,7 @@ func (h *imageVerificationHandler) Handle(
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) ([]byte, []string, error) {
-	ok, message, imagePatches, warnings := h.handleVerifyImages(ctx, h.log, request, policyContext, policies)
+	ok, message, imagePatches, warnings := h.handleVerifyImages(ctx, h.log, request, policyContext, policies, h.cfg)
 	if !ok {
 		return nil, nil, errors.New(message)
 	}
@@ -81,6 +85,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	request admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
 	policies []kyvernov1.PolicyInterface,
+	cfg config.Configuration,
 ) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
 		return true, "", nil, nil
@@ -117,7 +122,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	}
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
-	events := webhookutils.GenerateEvents(engineResponses, blocked)
+	events := webhookutils.GenerateEvents(engineResponses, blocked, cfg)
 	h.eventGen.Add(events...)
 
 	if blocked {
@@ -152,7 +157,7 @@ func (v *imageVerificationHandler) handleAudit(
 	ctx context.Context,
 	resource unstructured.Unstructured,
 	request admissionv1.AdmissionRequest,
-	namespaceLabels map[string]string,
+	_ map[string]string,
 	engineResponses ...engineapi.EngineResponse,
 ) {
 	createReport := v.admissionReports
@@ -175,7 +180,10 @@ func (v *imageVerificationHandler) handleAudit(
 			if createReport {
 				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
 				if len(report.GetResults()) > 0 {
-					_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+					err := v.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+						_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+						return err
+					})
 					if err != nil {
 						v.log.Error(err, "failed to create report")
 					}

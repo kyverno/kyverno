@@ -20,8 +20,8 @@ spec:
               - managed
     name: validate-name
     validate:
+      failureAction: Audit
       message: The Pod must end with -nginx
       pattern:
         metadata:
           name: '*-nginx'
-  validationFailureAction: Audit

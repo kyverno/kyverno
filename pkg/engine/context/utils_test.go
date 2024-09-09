@@ -33,7 +33,7 @@ func TestMergeMaps(t *testing.T) {
 		},
 	}
 
-	mergeMaps(map1, map2)
+	mergeMaps(map1, map2, false)
 
 	assert.Equal(t, "bar1", map2["strVal"])
 	assert.Equal(t, "bar2", map2["strVal2"])
@@ -52,7 +52,7 @@ func TestMergeMaps(t *testing.T) {
 	}
 
 	ctxMap := map[string]interface{}{}
-	mergeMaps(requestObj, ctxMap)
+	mergeMaps(requestObj, ctxMap, false)
 
 	r := ctxMap["request"].(map[string]interface{})
 	o := r["object"].(map[string]interface{})
@@ -67,7 +67,7 @@ func TestMergeMaps(t *testing.T) {
 		},
 	}
 
-	mergeMaps(requestObj2, ctxMap)
+	mergeMaps(requestObj2, ctxMap, false)
 	r2 := ctxMap["request"].(map[string]interface{})
 	o2 := r2["object"].(map[string]interface{})
 	assert.Equal(t, "bar2", o2["foo"])
@@ -79,13 +79,39 @@ func TestMergeMaps(t *testing.T) {
 		},
 	}
 
-	mergeMaps(request3, ctxMap)
+	mergeMaps(request3, ctxMap, false)
 	r3 := ctxMap["request"].(map[string]interface{})
 	o3 := r3["object"].(map[string]interface{})
 	assert.NotNil(t, o3)
 	assert.Equal(t, "bar2", o2["foo"])
 	assert.Equal(t, "bar2", o2["foo2"])
 	assert.Equal(t, "user1", r3["userInfo"])
+
+	request4 := map[string]interface{}{
+		"request": map[string]interface{}{
+			"object": map[string]interface{}{
+				"foo": "bar3",
+			},
+		},
+	}
+
+	mergeMaps(request4, ctxMap, false)
+	r4 := ctxMap["request"].(map[string]interface{})
+	assert.NotNil(t, r4)
+	assert.Equal(t, "user1", r4["userInfo"])
+
+	request5 := map[string]interface{}{
+		"request": map[string]interface{}{
+			"object": map[string]interface{}{
+				"foo": "bar4",
+			},
+		},
+	}
+
+	mergeMaps(request5, ctxMap, true)
+	r5 := ctxMap["request"].(map[string]interface{})
+	userInfo := r5["userInfo"]
+	assert.Nil(t, userInfo)
 }
 
 func TestStructToUntypedMap(t *testing.T) {

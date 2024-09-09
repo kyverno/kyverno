@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: freeze-policy
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: freeze-rule
@@ -19,5 +18,6 @@ spec:
                   values:
                   - "true"
       validate:
+        failureAction: Enforce
         message: "Namespace is frozen."
         deny: {}

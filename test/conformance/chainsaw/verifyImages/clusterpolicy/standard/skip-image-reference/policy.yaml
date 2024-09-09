@@ -36,7 +36,6 @@ kind: ClusterPolicy
 metadata:
   name: verify-exclude-refs
 spec:
-  validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
   failurePolicy: Fail  
   rules:
@@ -57,10 +56,9 @@ spec:
         - "ghcr.io/*"
         skipImageReferences:
         - "ghcr.io/chipzoller*"
+        failureAction: Enforce
         attestors:
         - count: 1
           entries:
           - certificates:
               cert: "{{ keys.data.certificate }}"
-  name: keys
-  namespace: test-verify-images

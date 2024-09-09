@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: priv
 spec:
-  validationFailureAction: Enforce
   background: true
   rules:
     - name: priv-esc
@@ -13,6 +12,7 @@ spec:
               kinds:
                 - Pod
       validate:
+        failureAction: Enforce
         message: >-
           Lorem ipse
         pattern:

@@ -5,26 +5,29 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
-	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
-	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
+	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -36,24 +39,24 @@ const (
 	ControllerName = "aggregate-report-controller"
 	maxRetries     = 10
 	enqueueDelay   = 10 * time.Second
+	deletionGrace  = time.Minute * 2
 )
 
 type controller struct {
 	// clients
-	client versioned.Interface
+	client  versioned.Interface
+	dclient dclient.Interface
 
 	// listers
-	polLister  kyvernov1listers.PolicyLister
-	cpolLister kyvernov1listers.ClusterPolicyLister
-	vapLister  admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
+	polLister   kyvernov1listers.PolicyLister
+	cpolLister  kyvernov1listers.ClusterPolicyLister
+	vapLister   admissionregistrationv1beta1listers.ValidatingAdmissionPolicyLister
+	ephrLister  cache.GenericLister
+	cephrLister cache.GenericLister
 
-	// queue
-	queue workqueue.RateLimitingInterface
-
-	// cache
-	metadataCache resource.MetadataCache
-
-	chunkSize int
+	// queues
+	frontQueue workqueue.TypedRateLimitingInterface[any]
+	backQueue  workqueue.TypedRateLimitingInterface[any]
 }
 
 type policyMapEntry struct {
@@ -63,34 +66,45 @@ type policyMapEntry struct {
 
 func NewController(
 	client versioned.Interface,
+	dclient dclient.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
-	metadataCache resource.MetadataCache,
-	chunkSize int,
+	vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
 	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
 	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
 	c := controller{
-		client:        client,
-		polLister:     polInformer.Lister(),
-		cpolLister:    cpolInformer.Lister(),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
-		metadataCache: metadataCache,
-		chunkSize:     chunkSize,
+		client:      client,
+		dclient:     dclient,
+		polLister:   polInformer.Lister(),
+		cpolLister:  cpolInformer.Lister(),
+		ephrLister:  ephrInformer.Lister(),
+		cephrLister: cephrInformer.Lister(),
+		frontQueue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
+		backQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
+	}
+	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, ephrInformer.Informer(), c.frontQueue, enqueueDelay); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, cephrInformer.Informer(), c.frontQueue, enqueueDelay); err != nil {
+		logger.Error(err, "failed to register event handlers")
 	}
 	enqueueAll := func() {
-		if list, err := polrInformer.Lister().List(labels.Everything()); err == nil {
+		selector := labels.SelectorFromSet(labels.Set{
+			kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+		})
+
+		if list, err := polrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
-				c.queue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
+				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
 			}
 		}
-		if list, err := cpolrInformer.Lister().List(labels.Everything()); err == nil {
+		if list, err := cpolrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
-				c.queue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
+				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
 			}
 		}
 	}
@@ -121,36 +135,18 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
-	enqueueFromAdmr := func(obj metav1.Object) {
-		switch reportutils.GetSource(obj) {
-		case "background-scan":
-			c.queue.AddAfter(controllerutils.MetaObjectToName(obj), enqueueDelay)
-		case "admission":
-			obj := cache.ObjectName{Namespace: obj.GetNamespace(), Name: string(reportutils.GetResourceUid(obj))}
-			c.queue.AddAfter(obj.String(), enqueueDelay)
-		}
-	}
-	if _, err := controllerutils.AddEventHandlersT(
-		ephrInformer.Informer(),
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-	); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-	if _, err := controllerutils.AddEventHandlersT(
-		cephrInformer.Informer(),
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(_, obj metav1.Object) { enqueueFromAdmr(obj) },
-		func(obj metav1.Object) { enqueueFromAdmr(obj) },
-	); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
 	return &c
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+	var group wait.Group
+	group.StartWithContext(ctx, func(ctx context.Context) {
+		controllerutils.Run(ctx, logger, ControllerName, time.Second, c.frontQueue, workers, maxRetries, c.frontReconcile)
+	})
+	group.StartWithContext(ctx, func(ctx context.Context) {
+		controllerutils.Run(ctx, logger, ControllerName, time.Second, c.backQueue, workers, maxRetries, c.backReconcile)
+	})
+	group.Wait()
 }
 
 func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
@@ -168,7 +164,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: cpol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogen.ComputeRules(cpol) {
+		for _, rule := range autogen.ComputeRules(cpol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
@@ -185,7 +181,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: pol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogen.ComputeRules(pol) {
+		for _, rule := range autogen.ComputeRules(pol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
@@ -210,34 +206,12 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 	return results, nil
 }
 
-func (c *controller) getBackgroundScanReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
-	if namespace == "" {
-		report, err := c.client.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return report, nil
-	} else {
-		report, err := c.client.ReportsV1().EphemeralReports(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return report, nil
-	}
-}
-
-func (c *controller) getAdmissionReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, name string) ([]reportsv1.ReportInterface, error) {
 	selector, err := reportutils.SelectorResourceUidEquals(types.UID(name))
 	if err != nil {
 		return nil, err
 	}
-	var results []kyvernov1alpha2.ReportInterface
+	var results []reportsv1.ReportInterface
 	if namespace == "" {
 		reports, err := c.client.ReportsV1().ClusterEphemeralReports().List(ctx, metav1.ListOptions{
 			LabelSelector: selector.String(),
@@ -249,8 +223,10 @@ func (c *controller) getAdmissionReports(ctx context.Context, namespace, name st
 			return nil, err
 		}
 		for _, report := range reports.Items {
-			report := report
-			results = append(results, &report)
+			if len(report.OwnerReferences) != 0 {
+				report := report
+				results = append(results, &report)
+			}
 		}
 	} else {
 		reports, err := c.client.ReportsV1().EphemeralReports(namespace).List(ctx, metav1.ListOptions{
@@ -263,14 +239,16 @@ func (c *controller) getAdmissionReports(ctx context.Context, namespace, name st
 			return nil, err
 		}
 		for _, report := range reports.Items {
-			report := report
-			results = append(results, &report)
+			if len(report.OwnerReferences) != 0 {
+				report := report
+				results = append(results, &report)
+			}
 		}
 	}
 	return results, nil
 }
 
-func (c *controller) getPolicyReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
 	if namespace == "" {
 		report, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -292,97 +270,187 @@ func (c *controller) getPolicyReport(ctx context.Context, namespace, name string
 	}
 }
 
-func (c *controller) getReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, kyvernov1alpha2.ReportInterface, error) {
-	admissionReports, err := c.getAdmissionReports(ctx, namespace, name)
-	if err != nil {
-		return nil, nil, err
+func (c *controller) lookupEphemeralReportMeta(_ context.Context, namespace, name string) (*metav1.PartialObjectMetadata, error) {
+	if namespace == "" {
+		obj, err := c.cephrLister.Get(name)
+		if err != nil {
+			return nil, err
+		}
+		return obj.(*metav1.PartialObjectMetadata), nil
+	} else {
+		obj, err := c.ephrLister.ByNamespace(namespace).Get(name)
+		if err != nil {
+			return nil, err
+		}
+		return obj.(*metav1.PartialObjectMetadata), nil
 	}
-	backgroundReport, err := c.getBackgroundScanReport(ctx, namespace, name)
-	if err != nil {
-		return nil, nil, err
-	}
-	return admissionReports, backgroundReport, nil
 }
 
-func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
-	uid := types.UID(name)
-	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
-	if exists {
-		admissionReports, backgroundReport, err := c.getReports(ctx, namespace, name)
+func (c *controller) getEphemeralReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
+	if namespace == "" {
+		obj, err := c.client.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
+			return nil, err
+		}
+		return obj, err
+	} else {
+		obj, err := c.client.ReportsV1().EphemeralReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return obj, err
+	}
+}
+
+func (c *controller) deleteEphemeralReport(ctx context.Context, namespace, name string) error {
+	if namespace == "" {
+		return c.client.ReportsV1().ClusterEphemeralReports().Delete(ctx, name, metav1.DeleteOptions{})
+	} else {
+		return c.client.ReportsV1().EphemeralReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	}
+}
+
+func (c *controller) findResource(ctx context.Context, reportMeta *metav1.PartialObjectMetadata) (*unstructured.Unstructured, error) {
+	gvr := reportutils.GetResourceGVR(reportMeta)
+	dyn := c.dclient.GetDynamicInterface().Resource(gvr)
+	namespace, name := reportutils.GetResourceNamespaceAndName(reportMeta)
+	var iface dynamic.ResourceInterface
+	if namespace == "" {
+		iface = dyn
+	} else {
+		iface = dyn.Namespace(namespace)
+	}
+	resource, err := iface.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return nil, err
+		}
+		return nil, nil
+	}
+	return resource, nil
+}
+
+func (c *controller) adopt(ctx context.Context, reportMeta *metav1.PartialObjectMetadata) bool {
+	resource, err := c.findResource(ctx, reportMeta)
+	if err != nil {
+		return false
+	}
+	if resource == nil {
+		return false
+	}
+	report, err := c.getEphemeralReport(ctx, reportMeta.GetNamespace(), reportMeta.GetName())
+	if err != nil {
+		return false
+	}
+	if report == nil {
+		return false
+	}
+	controllerutils.SetOwner(report, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
+	reportutils.SetResourceUid(report, resource.GetUID())
+	if _, err := updateReport(ctx, report, c.client); err != nil {
+		return false
+	}
+	return true
+}
+
+func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
+	reportMeta, err := c.lookupEphemeralReportMeta(ctx, namespace, name)
+	// try to lookup metadata from lister
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		policyReport, err := c.getPolicyReport(ctx, namespace, name)
-		if err != nil {
+		return nil
+	}
+	// check if it is owned already
+	if len(reportMeta.OwnerReferences) != 0 {
+		defer func() {
+			obj := cache.ObjectName{Namespace: namespace, Name: string(reportMeta.OwnerReferences[0].UID)}
+			c.backQueue.Add(obj.String())
+		}()
+		return nil
+	}
+	// try to find the owner
+	if c.adopt(ctx, reportMeta) {
+		return nil
+	}
+	// if not found and too old, forget about it
+	if isTooOld(reportMeta) {
+		return c.deleteEphemeralReport(ctx, reportMeta.GetNamespace(), reportMeta.GetName())
+	}
+	// else try again later
+	c.frontQueue.AddAfter(controllerutils.MetaObjectToName(reportMeta), enqueueDelay)
+	return nil
+}
+
+func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) (err error) {
+	var reports []reportsv1.ReportInterface
+	// get the report
+	// if we don't have a report, we will eventually create one
+	report, err := c.getReport(ctx, namespace, name)
+	if err != nil {
+		return err
+	}
+	if report != nil {
+		reports = append(reports, report)
+	}
+	// get ephemeral reports
+	ephemeralReports, err := c.findOwnedEphemeralReports(ctx, namespace, name)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		create := false
-		scope := &corev1.ObjectReference{
-			Kind:       gvk.Kind,
-			Namespace:  namespace,
-			Name:       resource.Name,
-			UID:        uid,
-			APIVersion: gvk.GroupVersion().String(),
-		}
-		if policyReport == nil {
-			create = true
-			policyReport = reportutils.NewPolicyReport(namespace, name, scope)
-			controllerutils.SetOwner(policyReport, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
-		}
-		// aggregate reports
-		policyMap, err := c.createPolicyMap()
-		if err != nil {
-			return err
-		}
-		vapMap, err := c.createVapMap()
-		if err != nil {
-			return err
-		}
-		merged := map[string]policyreportv1alpha2.PolicyReportResult{}
-		var reports []kyvernov1alpha2.ReportInterface
-		reports = append(reports, policyReport)
-		reports = append(reports, backgroundReport)
-		reports = append(reports, admissionReports...)
-		mergeReports(policyMap, vapMap, merged, uid, reports...)
-		var results []policyreportv1alpha2.PolicyReportResult
-		for _, result := range merged {
-			results = append(results, result)
-		}
-		if len(results) == 0 {
-			if !create {
-				if err := deleteReport(ctx, policyReport, c.client); err != nil {
-					return err
+	}
+	// if there was no error aggregating the report we can delete ephemeral reports
+	defer func() {
+		if err == nil {
+			for _, ephemeralReport := range ephemeralReports {
+				if err := deleteReport(ctx, ephemeralReport, c.client); err != nil {
+					logger.Error(err, "failed to delete ephemeral report")
 				}
 			}
-		} else {
-			reportutils.SetResults(policyReport, results...)
-			if create {
-				if _, err := reportutils.CreateReport(ctx, policyReport, c.client); err != nil {
-					return err
-				}
-			} else {
-				if _, err := updateReport(ctx, policyReport, c.client); err != nil {
-					return err
-				}
-			}
 		}
-		for _, admissionReport := range admissionReports {
-			if err := deleteReport(ctx, admissionReport, c.client); err != nil {
-				return err
-			}
-		}
-		if backgroundReport != nil {
-			if err := deleteReport(ctx, backgroundReport, c.client); err != nil {
-				return err
-			}
+	}()
+	// aggregate reports
+	policyMap, err := c.createPolicyMap()
+	if err != nil {
+		return err
+	}
+	vapMap, err := c.createVapMap()
+	if err != nil {
+		return err
+	}
+	reports = append(reports, ephemeralReports...)
+	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
+	mergeReports(policyMap, vapMap, merged, types.UID(name), reports...)
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(merged))
+	for _, result := range merged {
+		results = append(results, result)
+	}
+	if len(results) == 0 {
+		if report != nil {
+			return deleteReport(ctx, report, c.client)
 		}
 	} else {
-		policyReport, err := c.getPolicyReport(ctx, namespace, name)
-		if err != nil {
-			return err
+		if report == nil {
+			owner := ephemeralReports[0].GetOwnerReferences()[0]
+			scope := &corev1.ObjectReference{
+				Kind:       owner.Kind,
+				Namespace:  namespace,
+				Name:       owner.Name,
+				UID:        owner.UID,
+				APIVersion: owner.APIVersion,
+			}
+			report = reportutils.NewPolicyReport(namespace, name, scope)
+			controllerutils.SetOwner(report, owner.APIVersion, owner.Kind, owner.Name, owner.UID)
 		}
-		if policyReport != nil {
-			if err := deleteReport(ctx, policyReport, c.client); err != nil {
+		reportutils.SetResults(report, results...)
+		if report.GetResourceVersion() == "" {
+			if _, err := reportutils.CreateReport(ctx, report, c.client); err != nil {
+				return err
+			}
+		} else {
+			if _, err := updateReport(ctx, report, c.client); err != nil {
 				return err
 			}
 		}

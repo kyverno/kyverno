@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-test-2
+  namespace: shared-dp
+spec:
+  containers:
+    - name: container
+      image: nginx
+
+

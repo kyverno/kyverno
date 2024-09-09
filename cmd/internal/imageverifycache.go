@@ -1,13 +1,11 @@
 package internal
 
 import (
-	"context"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 )
 
-func setupImageVerifyCache(ctx context.Context, logger logr.Logger) imageverifycache.Client {
+func setupImageVerifyCache(logger logr.Logger) imageverifycache.Client {
 	logger = logger.WithName("image-verify-cache").WithValues("enabled", imageVerifyCacheEnabled, "maxsize", imageVerifyCacheMaxSize, "ttl", imageVerifyCacheTTLDuration)
 	logger.Info("setup image verify cache...")
 	opts := []imageverifycache.Option{

@@ -25,9 +25,9 @@ func (l *store) Set(key string, val Entry) {
 	l.Lock()
 	defer l.Unlock()
 	old := l.store[key]
-	// If the key already exists, skip it before replacing it
+	// If the key already exists, stop it before replacing it
 	if old != nil {
-		val.Stop()
+		old.Stop()
 	}
 	l.store[key] = val
 }

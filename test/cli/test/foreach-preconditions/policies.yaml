@@ -32,4 +32,4 @@ spec:
             operator: NotEquals
             value: ""
       message: Limits may not exceed 2.5x the requests.
-  validationFailureAction: Enforce
+      failureAction: Enforce

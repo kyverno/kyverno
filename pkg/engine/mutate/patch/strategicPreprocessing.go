@@ -44,7 +44,7 @@ func NewGlobalConditionError(err error) error {
 // A parent node having MappingNode keeps the data as <keyNode>, <ValueNode> inside it's Content field and Tag field as "!!map".
 // A parent node having Sequence keeps the data as array of Node inside Content field and a Tag field as "!!seq".
 // https://github.com/kubernetes-sigs/kustomize/blob/master/kyaml/yaml/rnode.go
-func preProcessPattern(logger logr.Logger, pattern, resource *yaml.RNode) error {
+func PreProcessPattern(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	err := preProcessRecursive(logger, pattern, resource)
 	if err != nil {
 		return err

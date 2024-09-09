@@ -626,7 +626,7 @@ var (
 )
 
 func Test_VerifyManifest_SignedYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, signed_resource, "")
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, signed_resource, "")
 	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(signed_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
@@ -648,7 +648,7 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 }
 
 func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, unsigned_resource, "")
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, unsigned_resource, "")
 	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(unsigned_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
@@ -670,7 +670,7 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 }
 
 func Test_VerifyManifest_InvalidYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, invalid_resource, "")
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, invalid_resource, "")
 	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(invalid_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
@@ -692,7 +692,7 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 }
 
 func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, multi_sig_resource, "")
 	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
@@ -720,7 +720,7 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 }
 
 func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
-	policyContext := buildContext(t, test_policy, multi_sig2_resource, "")
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, multi_sig2_resource, "")
 	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig2_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
@@ -752,7 +752,7 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 }
 
 func Test_VerifyManifest_AtLeastOne(t *testing.T) {
-	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
+	policyContext := buildContext(t, kyvernov1.Create, test_policy, multi_sig_resource, "")
 	var request v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext().AddRequest(request)
@@ -780,7 +780,7 @@ func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 	assert.Equal(t, verified, true)
 }
 
-func buildContext(t *testing.T, policy, resource string, oldResource string) engineapi.PolicyContext {
+func buildContext(t *testing.T, operation kyvernov1.AdmissionOperation, policy, resource string, oldResource string) engineapi.PolicyContext {
 	var cpol kyvernov1.ClusterPolicy
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
@@ -791,7 +791,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) eng
 	policyContext, err := policycontext.NewPolicyContext(
 		jp,
 		*resourceUnstructured,
-		kyvernov1.Create,
+		operation,
 		nil,
 		cfg,
 	)

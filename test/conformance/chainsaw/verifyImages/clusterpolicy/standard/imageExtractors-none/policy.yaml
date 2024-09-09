@@ -29,4 +29,4 @@ spec:
       required: true
       useCache: true
       verifyDigest: true
-  validationFailureAction: Enforce
+      failureAction: Enforce

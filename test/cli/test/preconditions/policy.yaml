@@ -24,4 +24,4 @@ spec:
         spec:
           containers:
           - name: '*busybox*'
-  validationFailureAction: Enforce
+      failureAction: Enforce

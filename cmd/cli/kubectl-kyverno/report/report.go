@@ -1,9 +1,7 @@
 package report
 
 import (
-	"github.com/kyverno/kyverno/api/kyverno"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
@@ -13,47 +11,26 @@ import (
 
 func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) policyreportv1alpha2.PolicyReportResult {
 	policy := engineResponse.Policy()
+	policyType := policy.GetType()
 	policyName := cache.MetaObjectToName(policy.MetaObject()).String()
-	audit := engineResponse.GetValidationFailureAction().Audit()
-	scored := annotations.Scored(policy.GetAnnotations())
-	category := annotations.Category(policy.GetAnnotations())
-	severity := annotations.Severity(policy.GetAnnotations())
-	result := policyreportv1alpha2.PolicyReportResult{
-		Policy: policyName,
-		Resources: []corev1.ObjectReference{
-			{
-				Kind:       engineResponse.Resource.GetKind(),
-				Namespace:  engineResponse.Resource.GetNamespace(),
-				APIVersion: engineResponse.Resource.GetAPIVersion(),
-				Name:       engineResponse.Resource.GetName(),
-				UID:        engineResponse.Resource.GetUID(),
-			},
-		},
-		Scored:   scored,
-		Category: category,
-		Severity: severity,
+	resource := engineResponse.Resource
+	resorceRef := &corev1.ObjectReference{
+		Kind:            resource.GetKind(),
+		Name:            resource.GetName(),
+		Namespace:       resource.GetNamespace(),
+		UID:             resource.GetUID(),
+		APIVersion:      resource.GetAPIVersion(),
+		ResourceVersion: resource.GetResourceVersion(),
 	}
-	if ruleResponse.Status() == engineapi.RuleStatusSkip {
-		result.Result = policyreportv1alpha2.StatusSkip
-	} else if ruleResponse.Status() == engineapi.RuleStatusError {
-		result.Result = policyreportv1alpha2.StatusError
-	} else if ruleResponse.Status() == engineapi.RuleStatusPass {
-		result.Result = policyreportv1alpha2.StatusPass
-	} else if ruleResponse.Status() == engineapi.RuleStatusFail {
-		if !scored || (audit && auditWarn) {
+
+	result := reportutils.ToPolicyReportResult(policyType, policyName, ruleResponse, policy.GetAnnotations(), resorceRef)
+	if result.Result == policyreportv1alpha2.StatusFail {
+		audit := engineResponse.GetValidationFailureAction().Audit()
+		if audit && auditWarn {
 			result.Result = policyreportv1alpha2.StatusWarn
-		} else {
-			result.Result = policyreportv1alpha2.StatusFail
 		}
-	} else {
-		result.Result = policyreportv1alpha2.StatusError
 	}
-	if policy.GetType() == engineapi.KyvernoPolicyType {
-		result.Rule = ruleResponse.Name()
-	}
-	result.Message = ruleResponse.Message()
-	result.Source = kyverno.ValueKyvernoApp
-	result.Timestamp = metav1.Timestamp{Seconds: ruleResponse.Stats().Timestamp()}
+
 	return result
 }
 

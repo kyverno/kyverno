@@ -14,9 +14,9 @@ spec:
         - foo-role
     name: ns-roles
     validate:
+      failureAction: Audit
       message: The `owner` label is required for all Namespaces.
       pattern:
         metadata:
           labels:
             owner: ?*
-  validationFailureAction: Audit

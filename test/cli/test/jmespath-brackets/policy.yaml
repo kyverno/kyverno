@@ -26,7 +26,7 @@ spec:
               a: "1"
               test: ""
       message: All pod labels must match except test
-  validationFailureAction: Enforce
+      failureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -51,4 +51,4 @@ spec:
           value: false
       message: For creating a namespace you need to set the objectid of the Azure
         AD Group that needs access to this namespace as the aadobjectid label
-  validationFailureAction: Enforce
+      failureAction: Enforce

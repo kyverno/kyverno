@@ -40,8 +40,10 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Groww](https://groww.in/) | We have implemented Kyverno as a part of Auto compliance. We put policies to satisfy CIS Compliance for GKE as well as block anomalies detected by the Red Team. |
 | [Spotify](https://www.cncf.io/announcements/2023/11/08/cloud-native-computing-foundation-presents-the-top-end-user-award-to-spotify/) | Spotify uses Kyverno extensively for its admission controller capabilities, including best practices and environment-specific data. |
 | [US DoD Platform One](https://p1.dso.mil/) |  The US Department of Defense (DoD) Platform One uses Kyverno as its default policy engine for Kubernetes. |
-| [Censhare](https://www.censhare.com/) | We use Kyverno in almost all possible areas of security and automation, we call Kyverno as a "Multi-tenancy engine" since we host a multi-tenancy environment for our partners and customers. We have deprecated our own tooling that was complicated and hard to maintain, Thanks to Kyverno.  | 
-
+| [Censhare](https://www.censhare.com/) | We use Kyverno in almost all possible areas of security and automation, we call Kyverno as a "Multi-tenancy engine" since we host a multi-tenancy environment for our partners and customers. We have deprecated our own tooling that was complicated and hard to maintain, Thanks to Kyverno.  |
+| [Coinone](https://coinone.co.kr) | Use Kyverno to enforce security hardening and best practices, and mutate pod specs related to graceful shutdown handling, such as tGPS<sup>terminationGracePeriodSeconds</sup> and custom preStop script. |
+| [Davidson consulting](https://www.davidson.group) | We are using Kyverno mutation policies in our pre-production environment to add default NetworkPolicy and to add labels to OKD resources. | 
+| [InfraCloud Technologies](https://www.infracloud.io/) | We have successfully implemented Kyverno as a crucial component of our SOC2 compliance, alongside other essential security hardening measures & best practices. Kyverno's policies offer a significantly streamlined implementation process, far exceeding the complexities associated with cloud services. | 
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->

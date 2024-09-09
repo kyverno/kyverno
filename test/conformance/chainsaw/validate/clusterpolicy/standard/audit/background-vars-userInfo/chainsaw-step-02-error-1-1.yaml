@@ -12,9 +12,9 @@ spec:
           - Pod
     name: ns-vars-userinfo
     validate:
+      failureAction: Audit
       message: The `owner` label is required for all Namespaces.
       pattern:
         metadata:
           labels:
             owner: '{{request.userInfo}}'
-  validationFailureAction: Audit

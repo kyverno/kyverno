@@ -1,0 +1,70 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-data-sync-create
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: ns.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: first-pod.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: policies.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: pod1.yaml
+  - name: step-05 # checks if admission controller was restarted
+    try:
+    - script:
+        content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
+        check:
+          # there should not be any matching value thus error != null is true
+          ($error != null): true
+  - name: step-06
+    try:
+    - apply:
+        file: pod2.yaml
+  - name: step-07
+    try:
+    - script:
+        content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
+        check:
+          ($error != null): true
+  - name: step-08
+    try:
+    - apply:
+        file: pod3.yaml
+  - name: step-09
+    try:
+    - script:
+        content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
+        check:
+          ($error != null): true
+  - name: step-10
+    try:
+    - apply:
+        file: pod4.yaml
+  - name: step-11
+    try:
+    - script:
+        content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
+        check:
+          ($error != null): true
+  - name: step-12
+    try:
+    - apply:
+        file: pod5.yaml
+  - name: step-13
+    try:
+    - script:
+        content: kubectl get po -A | awk '$5>0' | grep -q 'kyverno-admission-controller'
+        check:
+          ($error != null): true

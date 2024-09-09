@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 var jp = jmespath.New(config.NewDefaultConfiguration(false))
@@ -22,7 +22,7 @@ func Test_checkCondition(t *testing.T) {
 	type args struct {
 		logger    logr.Logger
 		ctx       enginecontext.Interface
-		condition kyvernov2beta1.Condition
+		condition kyvernov2.Condition
 	}
 	tests := []struct {
 		name    string
@@ -34,13 +34,13 @@ func Test_checkCondition(t *testing.T) {
 		args: args{
 			logger: logging.GlobalLogger(),
 			ctx:    ctx,
-			condition: kyvernov2beta1.Condition{
-				RawKey: &v1.JSON{
-					Raw: []byte(`"{{ request.object.name }}"`),
+			condition: kyvernov2.Condition{
+				RawKey: &kyverno.Any{
+					Value: "{{ request.object.name }}",
 				},
-				Operator: kyvernov2beta1.ConditionOperators["Equals"],
-				RawValue: &v1.JSON{
-					Raw: []byte(`"dummy"`),
+				Operator: kyvernov2.ConditionOperators["Equals"],
+				RawValue: &kyverno.Any{
+					Value: "dummy",
 				},
 			},
 		},

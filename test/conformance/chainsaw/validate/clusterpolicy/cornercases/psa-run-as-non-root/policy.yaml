@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: psp-restricted-limited
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: true
+  rules:
+  - name: restricted
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - default
+    validate:
+      failureAction: Enforce
+      podSecurity:
+        level: restricted
+        version: v1.29
+        exclude:
+        - controlName: Volume Types
+        - controlName: Seccomp
+        - controlName: Seccomp
+          images:
+          - '*'
+        - controlName: Capabilities
+          images:
+          - "*"

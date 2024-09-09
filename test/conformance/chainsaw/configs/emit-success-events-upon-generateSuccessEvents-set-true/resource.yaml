@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foo
+  namespace: default
+  labels:
+    team: kyverno

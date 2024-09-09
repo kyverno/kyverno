@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-deployment-replicas
 spec:
-  validationFailureAction: Enforce
   background: true
   rules:
     - name: check-deployment-replicas
@@ -13,6 +12,7 @@ spec:
             kinds:
               - Deployment
       validate:
+        failureAction: Enforce
         cel:
           expressions:
             - expression: "object.replicas > 1" # should be "object.spec.replicas > 1"

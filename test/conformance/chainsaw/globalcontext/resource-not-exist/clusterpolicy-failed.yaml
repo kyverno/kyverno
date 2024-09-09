@@ -1,9 +1,0 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: namespace-has-coordinator
-status:
-  conditions:
-  - reason: Failed
-    status: "False"
-    type: Ready

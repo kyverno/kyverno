@@ -5,13 +5,13 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 )
 
-func CheckAnyAllConditions(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2beta1.AnyAllConditions) (bool, error) {
+func CheckAnyAllConditions(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2.AnyAllConditions) (bool, error) {
 	for _, condition := range condition.AllConditions {
 		if passed, err := checkCondition(logger, ctx, condition); err != nil {
 			return false, err
@@ -29,7 +29,7 @@ func CheckAnyAllConditions(logger logr.Logger, ctx enginecontext.Interface, cond
 	return len(condition.AnyConditions) == 0, nil
 }
 
-func checkCondition(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2beta1.Condition) (bool, error) {
+func checkCondition(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2.Condition) (bool, error) {
 	key, err := variables.SubstituteAllInPreconditions(logger, ctx, condition.GetKey())
 	if err != nil {
 		return false, fmt.Errorf("failed to substitute variables in condition key: %w", err)

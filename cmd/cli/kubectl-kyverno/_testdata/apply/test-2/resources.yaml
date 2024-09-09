@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: lol
+  name: i-will-fail-the-policy-check
+spec:
+  selector:
+    matchLabels:
+      app: lol
+  template:
+    metadata:
+      labels:
+        app: lol
+      annotations:
+        lol: not much
+    spec:
+      containers:
+      - image: woot
+        name: woot

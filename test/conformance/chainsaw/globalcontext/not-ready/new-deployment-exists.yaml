@@ -1,0 +1,7 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: new-deployment
+  namespace: test-globalcontext-not-ready
+  labels:
+    app: new-deployment

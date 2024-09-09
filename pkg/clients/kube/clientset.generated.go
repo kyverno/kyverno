@@ -23,6 +23,7 @@ import (
 	certificatesv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/certificatesv1alpha1"
 	certificatesv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/certificatesv1beta1"
 	coordinationv1 "github.com/kyverno/kyverno/pkg/clients/kube/coordinationv1"
+	coordinationv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/coordinationv1alpha1"
 	coordinationv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/coordinationv1beta1"
 	corev1 "github.com/kyverno/kyverno/pkg/clients/kube/corev1"
 	discovery "github.com/kyverno/kyverno/pkg/clients/kube/discovery"
@@ -47,10 +48,11 @@ import (
 	rbacv1 "github.com/kyverno/kyverno/pkg/clients/kube/rbacv1"
 	rbacv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/rbacv1alpha1"
 	rbacv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/rbacv1beta1"
-	resourcev1alpha2 "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha2"
+	resourcev1alpha3 "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha3"
 	schedulingv1 "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1"
 	schedulingv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1alpha1"
 	schedulingv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1beta1"
+	storagemigrationv1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/storagemigrationv1alpha1"
 	storagev1 "github.com/kyverno/kyverno/pkg/clients/kube/storagev1"
 	storagev1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/storagev1alpha1"
 	storagev1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/storagev1beta1"
@@ -79,6 +81,7 @@ import (
 	k8s_io_client_go_kubernetes_typed_certificates_v1alpha1 "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_certificates_v1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	k8s_io_client_go_kubernetes_typed_coordination_v1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
+	k8s_io_client_go_kubernetes_typed_coordination_v1alpha1 "k8s.io/client-go/kubernetes/typed/coordination/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_coordination_v1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
 	k8s_io_client_go_kubernetes_typed_core_v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	k8s_io_client_go_kubernetes_typed_discovery_v1 "k8s.io/client-go/kubernetes/typed/discovery/v1"
@@ -101,13 +104,14 @@ import (
 	k8s_io_client_go_kubernetes_typed_rbac_v1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	k8s_io_client_go_kubernetes_typed_rbac_v1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_rbac_v1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
-	k8s_io_client_go_kubernetes_typed_resource_v1alpha2 "k8s.io/client-go/kubernetes/typed/resource/v1alpha2"
+	k8s_io_client_go_kubernetes_typed_resource_v1alpha3 "k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
 	k8s_io_client_go_kubernetes_typed_scheduling_v1 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
 	k8s_io_client_go_kubernetes_typed_scheduling_v1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_scheduling_v1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
 	k8s_io_client_go_kubernetes_typed_storage_v1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	k8s_io_client_go_kubernetes_typed_storage_v1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_storage_v1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	k8s_io_client_go_kubernetes_typed_storagemigration_v1alpha1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
 )
 
 type clientset struct {
@@ -133,6 +137,7 @@ type clientset struct {
 	certificatesv1alpha1          k8s_io_client_go_kubernetes_typed_certificates_v1alpha1.CertificatesV1alpha1Interface
 	certificatesv1beta1           k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificatesV1beta1Interface
 	coordinationv1                k8s_io_client_go_kubernetes_typed_coordination_v1.CoordinationV1Interface
+	coordinationv1alpha1          k8s_io_client_go_kubernetes_typed_coordination_v1alpha1.CoordinationV1alpha1Interface
 	coordinationv1beta1           k8s_io_client_go_kubernetes_typed_coordination_v1beta1.CoordinationV1beta1Interface
 	corev1                        k8s_io_client_go_kubernetes_typed_core_v1.CoreV1Interface
 	discoveryv1                   k8s_io_client_go_kubernetes_typed_discovery_v1.DiscoveryV1Interface
@@ -156,13 +161,14 @@ type clientset struct {
 	rbacv1                        k8s_io_client_go_kubernetes_typed_rbac_v1.RbacV1Interface
 	rbacv1alpha1                  k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RbacV1alpha1Interface
 	rbacv1beta1                   k8s_io_client_go_kubernetes_typed_rbac_v1beta1.RbacV1beta1Interface
-	resourcev1alpha2              k8s_io_client_go_kubernetes_typed_resource_v1alpha2.ResourceV1alpha2Interface
+	resourcev1alpha3              k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourceV1alpha3Interface
 	schedulingv1                  k8s_io_client_go_kubernetes_typed_scheduling_v1.SchedulingV1Interface
 	schedulingv1alpha1            k8s_io_client_go_kubernetes_typed_scheduling_v1alpha1.SchedulingV1alpha1Interface
 	schedulingv1beta1             k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.SchedulingV1beta1Interface
 	storagev1                     k8s_io_client_go_kubernetes_typed_storage_v1.StorageV1Interface
 	storagev1alpha1               k8s_io_client_go_kubernetes_typed_storage_v1alpha1.StorageV1alpha1Interface
 	storagev1beta1                k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface
+	storagemigrationv1alpha1      k8s_io_client_go_kubernetes_typed_storagemigration_v1alpha1.StoragemigrationV1alpha1Interface
 }
 
 func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
@@ -230,6 +236,9 @@ func (c *clientset) CertificatesV1beta1() k8s_io_client_go_kubernetes_typed_cert
 }
 func (c *clientset) CoordinationV1() k8s_io_client_go_kubernetes_typed_coordination_v1.CoordinationV1Interface {
 	return c.coordinationv1
+}
+func (c *clientset) CoordinationV1alpha1() k8s_io_client_go_kubernetes_typed_coordination_v1alpha1.CoordinationV1alpha1Interface {
+	return c.coordinationv1alpha1
 }
 func (c *clientset) CoordinationV1beta1() k8s_io_client_go_kubernetes_typed_coordination_v1beta1.CoordinationV1beta1Interface {
 	return c.coordinationv1beta1
@@ -300,8 +309,8 @@ func (c *clientset) RbacV1alpha1() k8s_io_client_go_kubernetes_typed_rbac_v1alph
 func (c *clientset) RbacV1beta1() k8s_io_client_go_kubernetes_typed_rbac_v1beta1.RbacV1beta1Interface {
 	return c.rbacv1beta1
 }
-func (c *clientset) ResourceV1alpha2() k8s_io_client_go_kubernetes_typed_resource_v1alpha2.ResourceV1alpha2Interface {
-	return c.resourcev1alpha2
+func (c *clientset) ResourceV1alpha3() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourceV1alpha3Interface {
+	return c.resourcev1alpha3
 }
 func (c *clientset) SchedulingV1() k8s_io_client_go_kubernetes_typed_scheduling_v1.SchedulingV1Interface {
 	return c.schedulingv1
@@ -320,6 +329,9 @@ func (c *clientset) StorageV1alpha1() k8s_io_client_go_kubernetes_typed_storage_
 }
 func (c *clientset) StorageV1beta1() k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface {
 	return c.storagev1beta1
+}
+func (c *clientset) StoragemigrationV1alpha1() k8s_io_client_go_kubernetes_typed_storagemigration_v1alpha1.StoragemigrationV1alpha1Interface {
+	return c.storagemigrationv1alpha1
 }
 
 func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes.Interface {
@@ -346,6 +358,7 @@ func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.Metr
 		certificatesv1alpha1:          certificatesv1alpha1.WithMetrics(inner.CertificatesV1alpha1(), m, clientType),
 		certificatesv1beta1:           certificatesv1beta1.WithMetrics(inner.CertificatesV1beta1(), m, clientType),
 		coordinationv1:                coordinationv1.WithMetrics(inner.CoordinationV1(), m, clientType),
+		coordinationv1alpha1:          coordinationv1alpha1.WithMetrics(inner.CoordinationV1alpha1(), m, clientType),
 		coordinationv1beta1:           coordinationv1beta1.WithMetrics(inner.CoordinationV1beta1(), m, clientType),
 		corev1:                        corev1.WithMetrics(inner.CoreV1(), m, clientType),
 		discoveryv1:                   discoveryv1.WithMetrics(inner.DiscoveryV1(), m, clientType),
@@ -369,13 +382,14 @@ func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.Metr
 		rbacv1:                        rbacv1.WithMetrics(inner.RbacV1(), m, clientType),
 		rbacv1alpha1:                  rbacv1alpha1.WithMetrics(inner.RbacV1alpha1(), m, clientType),
 		rbacv1beta1:                   rbacv1beta1.WithMetrics(inner.RbacV1beta1(), m, clientType),
-		resourcev1alpha2:              resourcev1alpha2.WithMetrics(inner.ResourceV1alpha2(), m, clientType),
+		resourcev1alpha3:              resourcev1alpha3.WithMetrics(inner.ResourceV1alpha3(), m, clientType),
 		schedulingv1:                  schedulingv1.WithMetrics(inner.SchedulingV1(), m, clientType),
 		schedulingv1alpha1:            schedulingv1alpha1.WithMetrics(inner.SchedulingV1alpha1(), m, clientType),
 		schedulingv1beta1:             schedulingv1beta1.WithMetrics(inner.SchedulingV1beta1(), m, clientType),
 		storagev1:                     storagev1.WithMetrics(inner.StorageV1(), m, clientType),
 		storagev1alpha1:               storagev1alpha1.WithMetrics(inner.StorageV1alpha1(), m, clientType),
 		storagev1beta1:                storagev1beta1.WithMetrics(inner.StorageV1beta1(), m, clientType),
+		storagemigrationv1alpha1:      storagemigrationv1alpha1.WithMetrics(inner.StoragemigrationV1alpha1(), m, clientType),
 	}
 }
 
@@ -403,6 +417,7 @@ func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_
 		certificatesv1alpha1:          certificatesv1alpha1.WithTracing(inner.CertificatesV1alpha1(), "CertificatesV1alpha1"),
 		certificatesv1beta1:           certificatesv1beta1.WithTracing(inner.CertificatesV1beta1(), "CertificatesV1beta1"),
 		coordinationv1:                coordinationv1.WithTracing(inner.CoordinationV1(), "CoordinationV1"),
+		coordinationv1alpha1:          coordinationv1alpha1.WithTracing(inner.CoordinationV1alpha1(), "CoordinationV1alpha1"),
 		coordinationv1beta1:           coordinationv1beta1.WithTracing(inner.CoordinationV1beta1(), "CoordinationV1beta1"),
 		corev1:                        corev1.WithTracing(inner.CoreV1(), "CoreV1"),
 		discoveryv1:                   discoveryv1.WithTracing(inner.DiscoveryV1(), "DiscoveryV1"),
@@ -426,13 +441,14 @@ func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_
 		rbacv1:                        rbacv1.WithTracing(inner.RbacV1(), "RbacV1"),
 		rbacv1alpha1:                  rbacv1alpha1.WithTracing(inner.RbacV1alpha1(), "RbacV1alpha1"),
 		rbacv1beta1:                   rbacv1beta1.WithTracing(inner.RbacV1beta1(), "RbacV1beta1"),
-		resourcev1alpha2:              resourcev1alpha2.WithTracing(inner.ResourceV1alpha2(), "ResourceV1alpha2"),
+		resourcev1alpha3:              resourcev1alpha3.WithTracing(inner.ResourceV1alpha3(), "ResourceV1alpha3"),
 		schedulingv1:                  schedulingv1.WithTracing(inner.SchedulingV1(), "SchedulingV1"),
 		schedulingv1alpha1:            schedulingv1alpha1.WithTracing(inner.SchedulingV1alpha1(), "SchedulingV1alpha1"),
 		schedulingv1beta1:             schedulingv1beta1.WithTracing(inner.SchedulingV1beta1(), "SchedulingV1beta1"),
 		storagev1:                     storagev1.WithTracing(inner.StorageV1(), "StorageV1"),
 		storagev1alpha1:               storagev1alpha1.WithTracing(inner.StorageV1alpha1(), "StorageV1alpha1"),
 		storagev1beta1:                storagev1beta1.WithTracing(inner.StorageV1beta1(), "StorageV1beta1"),
+		storagemigrationv1alpha1:      storagemigrationv1alpha1.WithTracing(inner.StoragemigrationV1alpha1(), "StoragemigrationV1alpha1"),
 	}
 }
 
@@ -460,6 +476,7 @@ func WrapWithLogging(inner k8s_io_client_go_kubernetes.Interface, logger logr.Lo
 		certificatesv1alpha1:          certificatesv1alpha1.WithLogging(inner.CertificatesV1alpha1(), logger.WithValues("group", "CertificatesV1alpha1")),
 		certificatesv1beta1:           certificatesv1beta1.WithLogging(inner.CertificatesV1beta1(), logger.WithValues("group", "CertificatesV1beta1")),
 		coordinationv1:                coordinationv1.WithLogging(inner.CoordinationV1(), logger.WithValues("group", "CoordinationV1")),
+		coordinationv1alpha1:          coordinationv1alpha1.WithLogging(inner.CoordinationV1alpha1(), logger.WithValues("group", "CoordinationV1alpha1")),
 		coordinationv1beta1:           coordinationv1beta1.WithLogging(inner.CoordinationV1beta1(), logger.WithValues("group", "CoordinationV1beta1")),
 		corev1:                        corev1.WithLogging(inner.CoreV1(), logger.WithValues("group", "CoreV1")),
 		discoveryv1:                   discoveryv1.WithLogging(inner.DiscoveryV1(), logger.WithValues("group", "DiscoveryV1")),
@@ -483,12 +500,13 @@ func WrapWithLogging(inner k8s_io_client_go_kubernetes.Interface, logger logr.Lo
 		rbacv1:                        rbacv1.WithLogging(inner.RbacV1(), logger.WithValues("group", "RbacV1")),
 		rbacv1alpha1:                  rbacv1alpha1.WithLogging(inner.RbacV1alpha1(), logger.WithValues("group", "RbacV1alpha1")),
 		rbacv1beta1:                   rbacv1beta1.WithLogging(inner.RbacV1beta1(), logger.WithValues("group", "RbacV1beta1")),
-		resourcev1alpha2:              resourcev1alpha2.WithLogging(inner.ResourceV1alpha2(), logger.WithValues("group", "ResourceV1alpha2")),
+		resourcev1alpha3:              resourcev1alpha3.WithLogging(inner.ResourceV1alpha3(), logger.WithValues("group", "ResourceV1alpha3")),
 		schedulingv1:                  schedulingv1.WithLogging(inner.SchedulingV1(), logger.WithValues("group", "SchedulingV1")),
 		schedulingv1alpha1:            schedulingv1alpha1.WithLogging(inner.SchedulingV1alpha1(), logger.WithValues("group", "SchedulingV1alpha1")),
 		schedulingv1beta1:             schedulingv1beta1.WithLogging(inner.SchedulingV1beta1(), logger.WithValues("group", "SchedulingV1beta1")),
 		storagev1:                     storagev1.WithLogging(inner.StorageV1(), logger.WithValues("group", "StorageV1")),
 		storagev1alpha1:               storagev1alpha1.WithLogging(inner.StorageV1alpha1(), logger.WithValues("group", "StorageV1alpha1")),
 		storagev1beta1:                storagev1beta1.WithLogging(inner.StorageV1beta1(), logger.WithValues("group", "StorageV1beta1")),
+		storagemigrationv1alpha1:      storagemigrationv1alpha1.WithLogging(inner.StoragemigrationV1alpha1(), logger.WithValues("group", "StoragemigrationV1alpha1")),
 	}
 }

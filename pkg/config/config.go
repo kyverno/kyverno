@@ -96,13 +96,18 @@ const (
 	webhookAnnotations            = "webhookAnnotations"
 	webhookLabels                 = "webhookLabels"
 	matchConditions               = "matchConditions"
+	updateRequestThreshold        = "updateRequestThreshold"
 )
+
+const UpdateRequestThreshold = 1000
 
 var (
 	// kyvernoNamespace is the Kyverno namespace
 	kyvernoNamespace = osutils.GetEnvWithFallback("KYVERNO_NAMESPACE", "kyverno")
 	// kyvernoServiceAccountName is the Kyverno service account name
 	kyvernoServiceAccountName = osutils.GetEnvWithFallback("KYVERNO_SERVICEACCOUNT_NAME", "kyverno")
+	// kyvernoRoleName is the Kyverno rbac name
+	kyvernoRoleName = osutils.GetEnvWithFallback("KYVERNO_ROLE_NAME", "kyverno")
 	// kyvernoDeploymentName is the Kyverno deployment name
 	kyvernoDeploymentName = osutils.GetEnvWithFallback("KYVERNO_DEPLOYMENT", "kyverno")
 	// kyvernoServiceName is the Kyverno service name
@@ -127,6 +132,10 @@ func KyvernoDryRunNamespace() string {
 
 func KyvernoServiceAccountName() string {
 	return kyvernoServiceAccountName
+}
+
+func KyvernoRoleName() string {
+	return kyvernoRoleName
 }
 
 func KyvernoDeploymentName() string {
@@ -177,6 +186,8 @@ type Configuration interface {
 	Load(*corev1.ConfigMap)
 	// OnChanged adds a callback to be invoked when the configuration is reloaded
 	OnChanged(func())
+	// GetUpdateRequestThreshold gets the threshold limit for the total number of updaterequests
+	GetUpdateRequestThreshold() int64
 }
 
 // configuration stores the configuration
@@ -194,6 +205,7 @@ type configuration struct {
 	matchConditions               []admissionregistrationv1.MatchCondition
 	mux                           sync.RWMutex
 	callbacks                     []func()
+	updateRequestThreshold        int64
 }
 
 type match struct {
@@ -322,6 +334,12 @@ func (cd *configuration) GetMatchConditions() []admissionregistrationv1.MatchCon
 	return cd.matchConditions
 }
 
+func (cd *configuration) GetUpdateRequestThreshold() int64 {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.updateRequestThreshold
+}
+
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	if cm != nil {
 		cd.load(cm)
@@ -352,6 +370,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.matchConditions = nil
 	// load filters
 	cd.filters = parseKinds(data[resourceFilters])
+	cd.updateRequestThreshold = UpdateRequestThreshold
 	logger.Info("filters configured", "filters", cd.filters)
 	// load defaultRegistry
 	defaultRegistry, ok := data[defaultRegistry]
@@ -480,6 +499,19 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		} else {
 			cd.matchConditions = matchConditions
 			logger.Info("matchConditions configured")
+		}
+	}
+	threshold, ok := data[updateRequestThreshold]
+	if !ok {
+		logger.Info("enableDefaultRegistryMutation not set")
+	} else {
+		logger := logger.WithValues("enableDefaultRegistryMutation", enableDefaultRegistryMutation)
+		urThreshold, err := strconv.ParseInt(threshold, 10, 64)
+		if err != nil {
+			logger.Error(err, "enableDefaultRegistryMutation is not a boolean")
+		} else {
+			cd.updateRequestThreshold = urThreshold
+			logger.Info("enableDefaultRegistryMutation configured")
 		}
 	}
 }

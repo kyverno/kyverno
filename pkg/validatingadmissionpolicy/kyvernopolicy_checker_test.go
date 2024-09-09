@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_Check_Resources(t *testing.T) {
@@ -24,6 +28,40 @@ func Test_Check_Resources(t *testing.T) {
   ],
   "namespaces": [
     "prod"
+  ],
+  "operations": [
+    "CREATE"
+  ]
+}
+`),
+			expected: true,
+		},
+		{
+			name: "namespaces-with-wildcards",
+			resource: []byte(`
+{
+  "kinds": [
+    "Service"
+  ],
+  "namespaces": [
+    "prod-*"
+  ],
+  "operations": [
+    "CREATE"
+  ]
+}
+`),
+			expected: false,
+		},
+		{
+			name: "resource-names-with-wildcards",
+			resource: []byte(`
+{
+  "kinds": [
+    "Service"
+  ],
+  "names": [
+    "svc-*"
   ],
   "operations": [
     "CREATE"
@@ -97,7 +135,233 @@ func Test_Check_Resources(t *testing.T) {
 			var res kyvernov1.ResourceDescription
 			err := json.Unmarshal(test.resource, &res)
 			assert.NilError(t, err)
-			out, _ := checkResources(res)
+			out, _ := checkResources(res, true)
+			assert.Equal(t, out, test.expected)
+		})
+	}
+}
+
+func Test_Check_Exception(t *testing.T) {
+	testCases := []struct {
+		name       string
+		exceptions []kyvernov2.PolicyException
+		expected   bool
+	}{
+		{
+			name: "exception-with-multiple-policies",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
+							},
+							{
+								PolicyName: "test-2",
+								RuleNames:  []string{"rule-2"},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "exception-with-multiple-rules",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1", "rule-2"},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "exception-with-multiple-rules-in-different-exceptions",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1", "rule-2"},
+							},
+							{
+								PolicyName: "test-2",
+								RuleNames:  []string{"rule-1"},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "exception-with-conditions",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
+							},
+						},
+						Conditions: &kyvernov2.AnyAllConditions{
+							AllConditions: []kyvernov2.Condition{
+								{
+									RawKey: &kyverno.Any{
+										Value: "{{ request.object.name }}",
+									},
+									Operator: kyvernov2.ConditionOperators["Equals"],
+									RawValue: &kyverno.Any{
+										Value: "dummy",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "exception-with-multiple-all",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
+							},
+						},
+						Match: kyvernov2beta1.MatchResources{
+							All: kyvernov1.ResourceFilters{
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+									},
+								},
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "exception-with-namespace-selector",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
+							},
+						},
+						Match: kyvernov2beta1.MatchResources{
+							Any: kyvernov1.ResourceFilters{
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+										NamespaceSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app": "critical",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "exception-with-object-selector",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
+							},
+						},
+						Match: kyvernov2beta1.MatchResources{
+							Any: kyvernov1.ResourceFilters{
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+										Selector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												"app": "critical",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "exception-with-multiple-any",
+			exceptions: []kyvernov2.PolicyException{
+				{
+					Spec: kyvernov2.PolicyExceptionSpec{
+						Exceptions: []kyvernov2.Exception{
+							{
+								PolicyName: "test-1",
+								RuleNames:  []string{"rule-1"},
+							},
+						},
+						Match: kyvernov2beta1.MatchResources{
+							Any: kyvernov1.ResourceFilters{
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+									},
+								},
+								kyvernov1.ResourceFilter{
+									ResourceDescription: kyvernov1.ResourceDescription{
+										Kinds:      []string{"Pod"},
+										Operations: []kyvernov1.AdmissionOperation{"CREATE"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			out, _ := checkExceptions(test.exceptions)
 			assert.Equal(t, out, test.expected)
 		})
 	}
@@ -361,6 +625,110 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "policy-with-multiple-validationFailureActionOverrides-in-validate-rule",
+			policy: []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "disallow-host-path"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "host-path",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "validate": {
+          "failureAction": "Enforce",
+          "failureActionOverrides": [
+            {
+              "action": "Enforce",
+              "namespaces": [
+                "default"
+              ]
+            },
+            {
+              "action": "Audit",
+              "namespaces": [
+                "test"
+              ]
+            }
+          ],
+          "cel": {
+            "expressions": [
+              {
+                "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+`),
+			expected: false,
+		},
+		{
+			name: "policy-with-namespace-in-validationFailureActionOverrides-in-validate-rule",
+			policy: []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "disallow-host-path"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "host-path",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Pod"
+                ]
+              }
+            }
+          ]
+        },
+        "validate": {
+          "failureAction": "Enforce",
+          "failureActionOverrides": [
+            {
+              "action": "Enforce",
+              "namespaces": [
+                "test-ns"
+              ]
+            }
+          ],
+          "cel": {
+            "expressions": [
+              {
+                "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+`),
+			expected: false,
+		},
+		{
 			name: "policy-with-subjects-and-clusterroles",
 			policy: []byte(`
 {
@@ -480,7 +848,7 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
 			policies, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
-			out, _ := CanGenerateVAP(policies[0].GetSpec())
+			out, _ := CanGenerateVAP(policies[0].GetSpec(), nil)
 			assert.Equal(t, out, test.expected)
 		})
 	}

@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: restrict-image-registries
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
   - name: validate-registries
@@ -13,6 +12,7 @@ spec:
           kinds:
           - Pod
     validate:
+      failureAction: Enforce
       message: "Unknown image registry."
       pattern:
         spec:

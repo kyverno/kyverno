@@ -6,10 +6,13 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.config.labels" . | nindent 4 }}
-  {{- with .Values.config.annotations }}
   annotations:
+    {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    {{- if .Values.config.preserve }}
+    helm.sh/resource-policy: "keep"
+    {{- end }}
 data:
   enableDefaultRegistryMutation: {{ .Values.config.enableDefaultRegistryMutation | quote }}
   {{- with .Values.config.defaultRegistry }}
@@ -31,6 +34,9 @@ data:
   {{- if .Values.config.resourceFilters }}
   resourceFilters: >-
     {{- include "kyverno.config.resourceFilters" . | trim | nindent 4 }}
+  {{- end -}}
+  {{- with .Values.config.updateRequestThreshold }}
+  updateRequestThreshold: {{ . | quote }}
   {{- end -}}
   {{- if and .Values.config.webhooks .Values.config.excludeKyvernoNamespace }}
   webhooks: {{ include "kyverno.config.webhooks" . | quote }}

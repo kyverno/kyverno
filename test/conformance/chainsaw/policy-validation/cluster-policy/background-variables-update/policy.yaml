@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: background-variables-update
 spec:
-  validationFailureAction: Audit
   background: false
   rules:
   - name: ns-vars-userinfo
@@ -13,6 +12,7 @@ spec:
           kinds:
             - Pod
     validate:
+      failureAction: Audit
       message: The `owner` label is required for all Namespaces.
       pattern:
         metadata:

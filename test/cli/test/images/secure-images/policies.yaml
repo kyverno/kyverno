@@ -23,5 +23,5 @@ spec:
       required: true
       useCache: true
       verifyDigest: false
-  validationFailureAction: Enforce
+      failureAction: Enforce
   webhookTimeoutSeconds: 30

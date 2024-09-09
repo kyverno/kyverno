@@ -23,47 +23,26 @@ var (
 // Evaluate Pod's specified containers only and get PSSCheckResults
 func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
 	checks := policy.DefaultChecks()
-	var latestVersionCheck policy.VersionedCheck
 	for _, check := range checks {
 		if level.Level == api.LevelBaseline && check.Level != level.Level {
 			continue
 		}
 
-		latestVersionCheck = check.Versions[0]
+		selectedCheck := check.Versions[0]
 		for i := 1; i < len(check.Versions); i++ {
-			vc := check.Versions[i]
-			if !vc.MinimumVersion.Older(latestVersionCheck.MinimumVersion) {
-				latestVersionCheck = vc
+			nextCheck := check.Versions[i]
+			if !level.Version.Older(nextCheck.MinimumVersion) && selectedCheck.MinimumVersion.Older(nextCheck.MinimumVersion) {
+				selectedCheck = nextCheck
 			}
 		}
 
-		if level.Version == api.LatestVersion() {
-			checkResult := latestVersionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec, policy.WithFieldErrors())
-			if !checkResult.Allowed {
-				results = append(results, pssutils.PSSCheckResult{
-					ID:               string(check.ID),
-					CheckResult:      checkResult,
-					RestrictedFields: GetRestrictedFields(check),
-				})
-			}
-		}
-
-		for _, versionCheck := range check.Versions {
-			// the latest check returned twice, skip duplicate application
-			if level.Version == api.LatestVersion() {
-				continue
-			} else if level.Version != api.LatestVersion() && level.Version.Older(versionCheck.MinimumVersion) {
-				continue
-			}
-			checkResult := versionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec, policy.WithFieldErrors())
-			// Append only if the checkResult is not already in pssCheckResult
-			if !checkResult.Allowed {
-				results = append(results, pssutils.PSSCheckResult{
-					ID:               string(check.ID),
-					CheckResult:      checkResult,
-					RestrictedFields: GetRestrictedFields(check),
-				})
-			}
+		checkResult := selectedCheck.CheckPod(&pod.ObjectMeta, &pod.Spec, policy.WithFieldErrors())
+		if !checkResult.Allowed {
+			results = append(results, pssutils.PSSCheckResult{
+				ID:               string(check.ID),
+				CheckResult:      checkResult,
+				RestrictedFields: GetRestrictedFields(check),
+			})
 		}
 	}
 	return results
@@ -72,77 +51,74 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSCheckResult, exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod, matching *corev1.Pod, isContainerLevelExclusion bool) ([]pssutils.PSSCheckResult, error) {
 	defaultCheckResultsMap := make(map[string]pssutils.PSSCheckResult, len(defaultCheckResults))
 
-	if err := exclude.Validate(exclude); err != nil {
-		fmt.Print(err)
-		return nil, err
-	}
-
 	for _, result := range defaultCheckResults {
 		defaultCheckResultsMap[result.ID] = result
 	}
 
 	for _, excludeResult := range excludeCheckResults {
-		for _, checkID := range pssutils.PSS_controls_to_check_id[exclude.ControlName] {
+		for _, checkID := range pssutils.PSS_control_name_to_ids[exclude.ControlName] {
 			if excludeResult.ID == checkID {
-				for _, excludeFieldErr := range *excludeResult.CheckResult.ErrList {
-					var excludeField, excludeContainerType string
-					var excludeIndexes []int
-					var isContainerLevelField bool = false
-					var excludeContainer corev1.Container
+				if excludeResult.CheckResult.ErrList != nil {
+					for _, excludeFieldErr := range *excludeResult.CheckResult.ErrList {
+						var excludeField, excludeContainerType string
+						var excludeIndexes []int
+						var isContainerLevelField bool = false
+						var excludeContainer corev1.Container
 
-					if isContainerLevelExclusion {
-						excludeField, excludeIndexes, excludeContainerType, isContainerLevelField = parseField(excludeFieldErr.Field)
-					} else {
-						excludeField = regexIndex.ReplaceAllString(excludeFieldErr.Field, "*")
-					}
+						if isContainerLevelExclusion {
+							excludeField, excludeIndexes, excludeContainerType, isContainerLevelField = parseField(excludeFieldErr.Field)
+						} else {
+							excludeField = regexIndex.ReplaceAllString(excludeFieldErr.Field, "*")
+						}
 
-					if isContainerLevelField {
-						excludeContainer = getContainerInfo(matching, excludeIndexes[0], excludeContainerType)
-					}
-					excludeBadValues := extractBadValues(excludeFieldErr)
+						if isContainerLevelField {
+							excludeContainer = getContainerInfo(matching, excludeIndexes[0], excludeContainerType)
+						}
+						excludeBadValues := extractBadValues(excludeFieldErr)
 
-					if excludeField == exclude.RestrictedField || len(exclude.RestrictedField) == 0 {
-						flag := true
-						if len(exclude.Values) != 0 {
-							for _, badValue := range excludeBadValues {
-								if !wildcard.CheckPatterns(exclude.Values, badValue) {
-									flag = false
-									break
+						if excludeField == exclude.RestrictedField || len(exclude.RestrictedField) == 0 {
+							flag := true
+							if len(exclude.Values) != 0 {
+								for _, badValue := range excludeBadValues {
+									if !wildcard.CheckPatterns(exclude.Values, badValue) {
+										flag = false
+										break
+									}
 								}
 							}
-						}
-						if flag {
-							defaultCheckResult := defaultCheckResultsMap[checkID]
-							if defaultCheckResult.CheckResult.ErrList != nil {
-								for idx, defaultFieldErr := range *defaultCheckResult.CheckResult.ErrList {
-									var defaultField, defaultContainerType string
-									var defaultIndexes []int
-									var isContainerLevelField bool = false
-									var defaultContainer corev1.Container
+							if flag {
+								defaultCheckResult := defaultCheckResultsMap[checkID]
+								if defaultCheckResult.CheckResult.ErrList != nil {
+									for idx, defaultFieldErr := range *defaultCheckResult.CheckResult.ErrList {
+										var defaultField, defaultContainerType string
+										var defaultIndexes []int
+										var isContainerLevelField bool = false
+										var defaultContainer corev1.Container
 
-									if isContainerLevelExclusion {
-										defaultField, defaultIndexes, defaultContainerType, isContainerLevelField = parseField(defaultFieldErr.Field)
-									} else {
-										defaultField = regexIndex.ReplaceAllString(defaultFieldErr.Field, "*")
-									}
+										if isContainerLevelExclusion {
+											defaultField, defaultIndexes, defaultContainerType, isContainerLevelField = parseField(defaultFieldErr.Field)
+										} else {
+											defaultField = regexIndex.ReplaceAllString(defaultFieldErr.Field, "*")
+										}
 
-									if isContainerLevelField {
-										defaultContainer = getContainerInfo(pod, defaultIndexes[0], defaultContainerType)
-										if excludeField == defaultField && excludeContainer.Name == defaultContainer.Name {
-											remove(defaultCheckResult.CheckResult.ErrList, idx)
-											break
-										}
-									} else {
-										if excludeField == defaultField {
-											remove(defaultCheckResult.CheckResult.ErrList, idx)
-											break
+										if isContainerLevelField {
+											defaultContainer = getContainerInfo(pod, defaultIndexes[0], defaultContainerType)
+											if excludeField == defaultField && excludeContainer.Name == defaultContainer.Name {
+												remove(defaultCheckResult.CheckResult.ErrList, idx)
+												break
+											}
+										} else {
+											if excludeField == defaultField {
+												remove(defaultCheckResult.CheckResult.ErrList, idx)
+												break
+											}
 										}
 									}
-								}
-								if len(*defaultCheckResult.CheckResult.ErrList) == 0 {
-									delete(defaultCheckResultsMap, checkID)
-								} else {
-									defaultCheckResultsMap[checkID] = defaultCheckResult
+									if len(*defaultCheckResult.CheckResult.ErrList) == 0 {
+										delete(defaultCheckResultsMap, checkID)
+									} else {
+										defaultCheckResultsMap[checkID] = defaultCheckResult
+									}
 								}
 							}
 						}
@@ -152,7 +128,7 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 		}
 	}
 
-	var newDefaultCheckResults []pssutils.PSSCheckResult
+	newDefaultCheckResults := make([]pssutils.PSSCheckResult, 0, len(defaultCheckResultsMap))
 	for _, result := range defaultCheckResultsMap {
 		newDefaultCheckResults = append(newDefaultCheckResults, result)
 	}
@@ -194,7 +170,7 @@ func parseField(field string) (string, []int, string, bool) {
 	matchesIdx := regexIndex.FindAllStringSubmatch(field, -1)
 	matchesStr := regexStr.FindAllString(field, -1)
 	field = regexIndex.ReplaceAllString(field, "*")
-	var indexes []int
+	indexes := make([]int, 0, len(matchesIdx))
 	for _, match := range matchesIdx {
 		index, _ := strconv.Atoi(match[0])
 		indexes = append(indexes, index)
@@ -318,7 +294,7 @@ func GetPodWithMatchingContainers(exclude kyvernov1.PodSecurityStandard, pod *co
 
 // Get restrictedFields from Check.ID
 func GetRestrictedFields(check policy.Check) []pssutils.RestrictedField {
-	for _, control := range pssutils.PSS_controls_to_check_id {
+	for _, control := range pssutils.PSS_control_name_to_ids {
 		for _, checkID := range control {
 			if string(check.ID) == checkID {
 				return pssutils.PSS_controls[checkID]
@@ -331,7 +307,7 @@ func GetRestrictedFields(check policy.Check) []pssutils.RestrictedField {
 func FormatChecksPrint(checks []pssutils.PSSCheckResult) string {
 	var str string
 	for _, check := range checks {
-		str += fmt.Sprintf("\n(Forbidden reason: %s, field error list: [", check.CheckResult.ForbiddenReason)
+		str += fmt.Sprintf("(Forbidden reason: %s, field error list: [", check.CheckResult.ForbiddenReason)
 		for idx, err := range *check.CheckResult.ErrList {
 			badValueExist := true
 			switch err.BadValue.(type) {
@@ -345,7 +321,7 @@ func FormatChecksPrint(checks []pssutils.PSSCheckResult) string {
 			switch err.Type {
 			case field.ErrorTypeForbidden:
 				if badValueExist {
-					str += fmt.Sprintf("%s is forbidden, don't set the BadValue: %+v", err.Field, err.BadValue)
+					str += fmt.Sprintf("%s is forbidden, forbidden values found: %+v", err.Field, err.BadValue)
 				} else {
 					str += err.Error()
 				}

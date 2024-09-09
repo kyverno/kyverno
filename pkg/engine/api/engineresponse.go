@@ -81,6 +81,11 @@ func (er EngineResponse) WithNamespaceLabels(namespaceLabels map[string]string) 
 	return er
 }
 
+func (er EngineResponse) WithWarning() EngineResponse {
+	er.PolicyResponse.emitWarning = true
+	return er
+}
+
 func (er *EngineResponse) NamespaceLabels() map[string]string {
 	return er.namespaceLabels
 }
@@ -124,9 +129,14 @@ func (er EngineResponse) IsEmpty() bool {
 	return len(er.PolicyResponse.Rules) == 0
 }
 
-// isNil checks if rule is an empty rule
+// IsNil checks if rule is an empty rule
 func (er EngineResponse) IsNil() bool {
 	return datautils.DeepEqual(er, EngineResponse{})
+}
+
+// EmitsWarning checks if policy emits warnings
+func (er EngineResponse) EmitsWarning() bool {
+	return er.PolicyResponse.emitWarning
 }
 
 // GetPatches returns all the patches joined
@@ -199,6 +209,40 @@ func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailur
 		return ""
 	}
 	spec := pol.AsKyvernoPolicy().GetSpec()
+	for _, r := range spec.Rules {
+		if r.HasValidate() {
+			for _, v := range r.Validation.FailureActionOverrides {
+				if !v.Action.IsValid() {
+					continue
+				}
+				if v.Namespaces == nil {
+					hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
+					if err == nil && hasPass {
+						return v.Action
+					}
+				}
+				for _, ns := range v.Namespaces {
+					if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
+						if v.NamespaceSelector == nil {
+							return v.Action
+						}
+						hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
+						if err == nil && hasPass {
+							return v.Action
+						}
+					}
+				}
+			}
+
+			if r.Validation.FailureAction != nil {
+				return *r.Validation.FailureAction
+			}
+		} else if r.HasVerifyImages() {
+			if r.VerifyImages[0].FailureAction != nil {
+				return *r.VerifyImages[0].FailureAction
+			}
+		}
+	}
 	for _, v := range spec.ValidationFailureActionOverrides {
 		if !v.Action.IsValid() {
 			continue

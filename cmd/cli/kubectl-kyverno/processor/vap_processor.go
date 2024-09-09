@@ -4,21 +4,22 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
-	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type ValidatingAdmissionPolicyProcessor struct {
-	Policies     []v1alpha1.ValidatingAdmissionPolicy
-	Bindings     []v1alpha1.ValidatingAdmissionPolicyBinding
-	Resource     *unstructured.Unstructured
-	PolicyReport bool
-	Rc           *ResultCounts
-	Client       dclient.Interface
+	Policies             []admissionregistrationv1beta1.ValidatingAdmissionPolicy
+	Bindings             []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
+	Resource             *unstructured.Unstructured
+	NamespaceSelectorMap map[string]map[string]string
+	PolicyReport         bool
+	Rc                   *ResultCounts
+	Client               dclient.Interface
 }
 
 func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
-	var responses []engineapi.EngineResponse
+	responses := make([]engineapi.EngineResponse, 0, len(p.Policies))
 	for _, policy := range p.Policies {
 		policyData := validatingadmissionpolicy.NewPolicyData(policy)
 		for _, binding := range p.Bindings {
@@ -26,9 +27,9 @@ func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineap
 				policyData.AddBinding(binding)
 			}
 		}
-		response, _ := validatingadmissionpolicy.Validate(policyData, *p.Resource, p.Client)
+		response, _ := validatingadmissionpolicy.Validate(policyData, *p.Resource, p.NamespaceSelectorMap, p.Client)
 		responses = append(responses, response)
-		p.Rc.addValidatingAdmissionResponse(policy, response)
+		p.Rc.addValidatingAdmissionResponse(response)
 	}
 	return responses, nil
 }

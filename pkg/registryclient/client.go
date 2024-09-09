@@ -198,7 +198,11 @@ func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gc
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", imageRef, err)
 	}
-	desc, err := gcrremote.Get(parsedRef, gcrremote.WithAuthFromKeychain(c.keychain), gcrremote.WithContext(ctx))
+	remoteOpts, err := c.Options(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gcr remote opts: %s, error: %v", imageRef, err)
+	}
+	desc, err := gcrremote.Get(parsedRef, remoteOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", imageRef, err)
 	}

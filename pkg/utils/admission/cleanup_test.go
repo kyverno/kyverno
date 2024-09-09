@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,10 +36,10 @@ func TestUnmarshalCleanupPolicy(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			policy, err := UnmarshalCleanupPolicy(test.kind, test.raw)
-			var expectedPolicy kyvernov2alpha1.CleanupPolicyInterface
+			var expectedPolicy kyvernov2.CleanupPolicyInterface
 			switch test.kind {
 			case "CleanupPolicy":
-				var tempPolicy kyvernov2alpha1.CleanupPolicy
+				var tempPolicy kyvernov2.CleanupPolicy
 				expectedPolicy = &tempPolicy
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
@@ -51,7 +51,7 @@ func TestUnmarshalCleanupPolicy(t *testing.T) {
 					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy)
 				}
 			case "ClusterCleanupPolicy":
-				var tempPolicy kyvernov2alpha1.ClusterCleanupPolicy
+				var tempPolicy kyvernov2.ClusterCleanupPolicy
 				expectedPolicy = &tempPolicy
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
@@ -147,7 +147,7 @@ func TestGetCleanupPolicies(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			p1, p2, _ := GetCleanupPolicies(test.args.request)
-			var emptypolicy kyvernov2alpha1.CleanupPolicyInterface
+			var emptypolicy kyvernov2.CleanupPolicyInterface
 			expectedP1, err := UnmarshalCleanupPolicy(test.args.request.Kind.Kind, test.args.request.Object.Raw)
 			if err != nil {
 				expectedP2 := emptypolicy

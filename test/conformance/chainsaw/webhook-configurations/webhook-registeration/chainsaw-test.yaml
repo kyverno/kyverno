@@ -1,0 +1,28 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: webhook-registeration
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: step-02
+    try:
+    - assert:
+        file: webhook.yaml
+  - name: step-03
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: cpol-fine-grained-match-conditions-disallow-latest-image-tag-1
+  - name: step-04
+    try:
+    - error:
+        file: webhook.yaml

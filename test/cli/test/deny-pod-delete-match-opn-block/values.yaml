@@ -6,4 +6,3 @@ policies:
   - name: test-delete
     values:
       request.operation: DELETE
-
