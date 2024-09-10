@@ -65,6 +65,11 @@ jobs:
       - name: Install helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+      - name: Install Kubectl
+        run: |
+          set -e
+          curl -LO "https://dl.k8s.io/release/${{ matrix.k8s-version.version }}/bin/linux/amd64/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
@@ -89,6 +94,12 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
+      - name: Log finalizers from deployments
+        shell: bash
+        run: |
+          set -e
+          kubectl get deploy kyverno-admission-controller -n kyverno --template='{{.metadata.finalizers}}'
+          kubectl get deploy kyverno-cleanup-controller -n kyverno --template='{{.metadata.finalizers}}'
       - name: Uninstall kyverno
         shell: bash
         run: |
