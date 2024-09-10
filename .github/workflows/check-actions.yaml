@@ -5,13 +5,10 @@ name: Check actions
 permissions: {}
 
 on:
-  push:
-    branches:
-      - '*'
   pull_request:
     branches:
-      - 'main'
-      - 'release*'
+      - main
+      - release-*
 
 jobs:
   check:
