@@ -5,7 +5,7 @@
 /docs                   
 /pkg/autogen            @eddycharly
 /pkg/background         @realshuting
-/pkg/engine             @realshuting @MariamFahmy98 @KhaledEmaraDev
+/pkg/engine             @eddycharly @realshuting @MariamFahmy98 @KhaledEmaraDev
 /pkg/event              @KhaledEmaraDev
 /pkg/globalcontext      @KhaledEmaraDev
 /pkg/policy/mutate      @realshuting
