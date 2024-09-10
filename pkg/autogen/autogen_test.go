@@ -159,6 +159,32 @@ func Test_CanAutoGen(t *testing.T) {
 	}
 }
 
+func Test_getActualControllers(t *testing.T) {
+	testCases := []struct {
+		name                string
+		policy              []byte
+		expectedControllers sets.Set[string]
+	}{
+		{
+			name:                "rule-with-gen-custom-resources",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"require-labels","annotations":{"pod-policies.kyverno.io/autogen-controllers":"CloneSet,Deployment"}},"spec":{"validationFailureAction":"Enforce","rules":[{"name":"check-team","match":{"any":[{"resources":{"kinds":["Pod"]}}]},"validate":{"message":"label 'team' is required","pattern":{"metadata":{"labels":{"team":"?*"}}}}}]}}`),
+			expectedControllers: sets.New("CloneSet", "Deployment"),
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			var policy kyvernov1.ClusterPolicy
+			err := json.Unmarshal(test.policy, &policy)
+			assert.NilError(t, err)
+
+			controllers := getActualControllers(&policy)
+			equalityTest := test.expectedControllers.Equal(*controllers)
+			assert.Assert(t, equalityTest, fmt.Sprintf("expected: %v, got: %v", test.expectedControllers, controllers))
+		})
+	}
+}
+
 func Test_GetSupportedControllers(t *testing.T) {
 	testCases := []struct {
 		name                string

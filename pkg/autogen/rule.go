@@ -105,7 +105,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.Mutation = newMutation
 		return rule
 	}
-	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
+	if len(rule.Mutation.ForEachMutation) > 0 {
 		var newForEachMutation []kyvernov1.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			temp := kyvernov1.ForEachMutation{
@@ -193,7 +193,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.Validation.SetAnyPattern(patterns)
 		return rule
 	}
-	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
+	if len(rule.Validation.ForEachValidation) > 0 {
 		newForeachValidate := make([]kyvernov1.ForEachValidation, len(rule.Validation.ForEachValidation))
 		copy(newForeachValidate, rule.Validation.ForEachValidation)
 		failureAction := rule.Validation.FailureAction
@@ -242,7 +242,9 @@ func isAutogenRuleName(name string) bool {
 func getAnyAllAutogenRule(v kyvernov1.ResourceFilters, match string, kinds []string) kyvernov1.ResourceFilters {
 	anyKind := v.DeepCopy()
 	for i, value := range v {
-		if kubeutils.ContainsKind(value.Kinds, match) {
+		if match == "" {
+			anyKind[i].Kinds = kinds
+		} else if kubeutils.ContainsKind(value.Kinds, match) {
 			anyKind[i].Kinds = kinds
 		}
 	}
@@ -261,34 +263,8 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 		return nil
 	}
 	// Support backwards compatibility
-	skipAutoGeneration := false
-	var controllersValidated []string
 	if controllers == "all" {
-		skipAutoGeneration = true
-	} else if controllers != "none" && controllers != "all" {
-		controllersList := map[string]int{
-			"DaemonSet":             1,
-			"Deployment":            1,
-			"Job":                   1,
-			"StatefulSet":           1,
-			"ReplicaSet":            1,
-			"ReplicationController": 1,
-		}
-		for _, value := range splitKinds(controllers, ",") {
-			if _, ok := controllersList[value]; ok {
-				controllersValidated = append(controllersValidated, value)
-			}
-		}
-		if len(controllersValidated) > 0 {
-			skipAutoGeneration = true
-		}
-	}
-	if skipAutoGeneration {
-		if controllers == "all" {
-			controllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController"
-		} else {
-			controllers = strings.Join(controllersValidated, ",")
-		}
+		controllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController"
 	}
 	return generateRule(
 		getAutogenRuleName("autogen", rule.Name),
@@ -321,11 +297,7 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 		"spec/jobTemplate/spec/template",
 		[]string{PodControllerCronJob},
 		func(r kyvernov1.ResourceFilters, kinds []string) kyvernov1.ResourceFilters {
-			anyKind := r.DeepCopy()
-			for i := range anyKind {
-				anyKind[i].Kinds = kinds
-			}
-			return anyKind
+			return getAnyAllAutogenRule(r, "", kinds)
 		},
 	)
 }
