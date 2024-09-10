@@ -13,7 +13,7 @@
 /pkg/utils              @eddycharly
 /pkg/userinfo           @realshuting
 /pkg/validation         @realshuting
-/pkg/webhooks           @realshuting
+/pkg/webhooks           @eddycharly @realshuting
 /test                   @eddycharly @realshuting @MariamFahmy98 @KhaledEmaraDev
 /pkg/cosign             @Vishal-Chdhry
 /pkg/notary             @Vishal-Chdhry
