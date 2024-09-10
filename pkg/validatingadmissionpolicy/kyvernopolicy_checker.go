@@ -72,25 +72,16 @@ func checkPolicy(spec *kyvernov1.Spec) (bool, string) {
 	}
 
 	// check the matched/excluded resources of the CEL rule.
-	match, exclude := rule.MatchResources, rule.ExcludeResources
+	match := rule.MatchResources
 	if ok, msg := checkUserInfo(match.UserInfo); !ok {
 		return false, msg
 	}
-	if ok, msg := checkUserInfo(exclude.UserInfo); !ok {
-		return false, msg
-	}
-
 	if ok, msg := checkResources(match.ResourceDescription, true); !ok {
 		return false, msg
 	}
-	if ok, msg := checkResources(exclude.ResourceDescription, false); !ok {
-		return false, msg
-	}
-
 	if ok, msg := checkResourceFilter(match.Any, true); !ok {
 		return false, msg
 	}
-
 	if len(match.All) > 1 {
 		msg = "skip generating ValidatingAdmissionPolicy: multiple 'all' in the match block is not applicable."
 		return false, msg
@@ -98,17 +89,24 @@ func checkPolicy(spec *kyvernov1.Spec) (bool, string) {
 	if ok, msg := checkResourceFilter(match.All, true); !ok {
 		return false, msg
 	}
-
-	if ok, msg := checkResourceFilter(exclude.Any, false); !ok {
-		return false, msg
-	}
-
-	if len(exclude.All) > 1 {
-		msg = "skip generating ValidatingAdmissionPolicy: multiple 'all' in the exclude block is not applicable."
-		return false, msg
-	}
-	if ok, msg := checkResourceFilter(exclude.All, false); !ok {
-		return false, msg
+	if rule.ExcludeResources != nil {
+		exclude := rule.ExcludeResources
+		if ok, msg := checkUserInfo(exclude.UserInfo); !ok {
+			return false, msg
+		}
+		if ok, msg := checkResources(exclude.ResourceDescription, false); !ok {
+			return false, msg
+		}
+		if ok, msg := checkResourceFilter(exclude.Any, false); !ok {
+			return false, msg
+		}
+		if len(exclude.All) > 1 {
+			msg = "skip generating ValidatingAdmissionPolicy: multiple 'all' in the exclude block is not applicable."
+			return false, msg
+		}
+		if ok, msg := checkResourceFilter(exclude.All, false); !ok {
+			return false, msg
+		}
 	}
 
 	return true, msg

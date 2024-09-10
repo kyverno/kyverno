@@ -41,6 +41,9 @@ func (m *MatchResources) GetKinds() []string {
 
 // ValidateNoUserInfo verifies that no user info is used
 func (m *MatchResources) ValidateNoUserInfo(path *field.Path) (errs field.ErrorList) {
+	if m == nil {
+		return errs
+	}
 	anyPath := path.Child("any")
 	for i, filter := range m.Any {
 		errs = append(errs, filter.UserInfo.ValidateNoUserInfo(anyPath.Index(i))...)
@@ -54,6 +57,9 @@ func (m *MatchResources) ValidateNoUserInfo(path *field.Path) (errs field.ErrorL
 
 // ValidateResourceWithNoUserInfo implements programmatic validation and verifies that no user info is used
 func (m *MatchResources) ValidateResourceWithNoUserInfo(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if m == nil {
+		return errs
+	}
 	if len(m.Any) > 0 && len(m.All) > 0 {
 		errs = append(errs, field.Invalid(path, m, "Can't specify any and all together"))
 	}
@@ -72,6 +78,9 @@ func (m *MatchResources) ValidateResourceWithNoUserInfo(path *field.Path, namesp
 
 // Validate implements programmatic validation
 func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if m == nil {
+		return errs
+	}
 	if len(m.Any) > 0 && len(m.All) > 0 {
 		errs = append(errs, field.Invalid(path, m, "Can't specify any and all together"))
 	}

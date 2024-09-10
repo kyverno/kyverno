@@ -236,7 +236,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 	for i, rule := range rules {
 		match := rule.MatchResources
-		exclude := rule.ExcludeResources
 		for j, value := range match.Any {
 			if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
 				return warnings, fmt.Errorf("path: spec.rules[%d].match.any[%d].kinds: %v", i, j, err)
@@ -247,23 +246,23 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				return warnings, fmt.Errorf("path: spec.rules[%d].match.all[%d].kinds: %v", i, j, err)
 			}
 		}
-		for j, value := range exclude.Any {
-			if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
-				return warnings, fmt.Errorf("path: spec.rules[%d].exclude.any[%d].kinds: %v", i, j, err)
-			}
-		}
-		for j, value := range exclude.All {
-			if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
-				return warnings, fmt.Errorf("path: spec.rules[%d].exclude.all[%d].kinds: %v", i, j, err)
-			}
-		}
-
 		if err := validateKinds(rule.MatchResources.Kinds, rule, mock, background, client); err != nil {
 			return warnings, fmt.Errorf("path: spec.rules[%d].match.kinds: %v", i, err)
 		}
-
-		if err := validateKinds(rule.ExcludeResources.Kinds, rule, mock, background, client); err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %v", i, err)
+		if exclude := rule.ExcludeResources; exclude != nil {
+			for j, value := range exclude.Any {
+				if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
+					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.any[%d].kinds: %v", i, j, err)
+				}
+			}
+			for j, value := range exclude.All {
+				if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
+					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.all[%d].kinds: %v", i, j, err)
+				}
+			}
+			if err := validateKinds(exclude.Kinds, rule, mock, background, client); err != nil {
+				return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %v", i, err)
+			}
 		}
 	}
 
@@ -377,12 +376,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		match := rule.MatchResources
-		exclude := rule.ExcludeResources
 		matchKinds := match.GetKinds()
-		excludeKinds := exclude.GetKinds()
-		allKinds := make([]string, 0, len(matchKinds)+len(excludeKinds))
+		var allKinds []string
 		allKinds = append(allKinds, matchKinds...)
-		allKinds = append(allKinds, excludeKinds...)
+		if exclude := rule.ExcludeResources; exclude != nil {
+			excludeKinds := exclude.GetKinds()
+			allKinds = append(allKinds, excludeKinds...)
+		}
 		if rule.HasValidate() {
 			validationElem := rule.Validation.DeepCopy()
 			if validationElem.Deny != nil {
@@ -691,17 +691,16 @@ func jsonPatchPathHasVariables(patch string) error {
 	return nil
 }
 
-func objectHasVariables(object interface{}) error {
-	var err error
-	objectJSON, err := json.Marshal(object)
-	if err != nil {
-		return err
+func objectHasVariables(object any) error {
+	if object != nil {
+		objectJSON, err := json.Marshal(object)
+		if err != nil {
+			return err
+		}
+		if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+			return fmt.Errorf("invalid variables")
+		}
 	}
-
-	if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
-		return fmt.Errorf("invalid variables")
-	}
-
 	return nil
 }
 
@@ -963,20 +962,20 @@ func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
 
 func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 	// validate userInfo in match and exclude
-	if errs := rule.ExcludeResources.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
-		return "exclude", errs.ToAggregate()
+	if exclude := rule.ExcludeResources; exclude != nil {
+		if errs := exclude.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
+			return "exclude", errs.ToAggregate()
+		}
+		if (len(exclude.Any) > 0 || len(exclude.All) > 0) && !datautils.DeepEqual(exclude.ResourceDescription, kyvernov1.ResourceDescription{}) {
+			return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
+		}
+		if len(exclude.Any) > 0 && len(exclude.All) > 0 {
+			return "match.", fmt.Errorf("can't specify any and all together")
+		}
 	}
 
 	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !datautils.DeepEqual(rule.MatchResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
 		return "match.", fmt.Errorf("can't specify any/all together with match resources")
-	}
-
-	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !datautils.DeepEqual(rule.ExcludeResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
-		return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
-	}
-
-	if len(rule.ExcludeResources.Any) > 0 && len(rule.ExcludeResources.All) > 0 {
-		return "match.", fmt.Errorf("can't specify any and all together")
 	}
 
 	if len(rule.MatchResources.Any) > 0 {
