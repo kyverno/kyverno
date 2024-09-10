@@ -69,8 +69,11 @@ func stripCronJob(controllers string) string {
 func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[string]) {
 	needed := false
 	for _, rule := range spec.Rules {
+		if rule.HasGenerate() {
+			return false, sets.New("none")
+		}
 		if rule.Mutation != nil {
-			if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
+			if rule.Mutation.PatchesJSON6902 != "" {
 				return false, sets.New("none")
 			}
 			for _, foreach := range rule.Mutation.ForEachMutation {

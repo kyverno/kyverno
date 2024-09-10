@@ -268,12 +268,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
-		// check for forward slash
-		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
-			return warnings, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
-		}
-		if err := validateJSONPatch(rule.Mutation.PatchesJSON6902, i); err != nil {
-			return warnings, fmt.Errorf("%s", err)
+		if rule.Mutation != nil {
+			// check for forward slash
+			if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
+				return warnings, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
+			}
+			if err := validateJSONPatch(rule.Mutation.PatchesJSON6902, i); err != nil {
+				return warnings, fmt.Errorf("%s", err)
+			}
 		}
 
 		if jsonPatchOnPod(rule) {
@@ -719,7 +721,9 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 }
 
 func ruleWithoutPattern(ruleCopy *kyvernov1.Rule) *kyvernov1.Rule {
-	withTargetOnly := new(kyvernov1.Rule)
+	withTargetOnly := &kyvernov1.Rule{
+		Mutation: &kyvernov1.Mutation{},
+	}
 	withTargetOnly.Mutation.Targets = make([]kyvernov1.TargetResourceSpec, len(ruleCopy.Mutation.Targets))
 	withTargetOnly.Context = ruleCopy.Context
 	withTargetOnly.RawAnyAllConditions = ruleCopy.RawAnyAllConditions
@@ -737,11 +741,13 @@ func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecon
 	for _, fe := range rule.Validation.ForEachValidation {
 		addContextVariables(fe.Context, ctx)
 	}
-	for _, fe := range rule.Mutation.ForEachMutation {
-		addContextVariables(fe.Context, ctx)
-	}
-	for _, fe := range rule.Mutation.Targets {
-		addContextVariables(fe.Context, ctx)
+	if rule.Mutation != nil {
+		for _, fe := range rule.Mutation.ForEachMutation {
+			addContextVariables(fe.Context, ctx)
+		}
+		for _, fe := range rule.Mutation.Targets {
+			addContextVariables(fe.Context, ctx)
+		}
 	}
 	if rule.HasGenerate() {
 		for _, fe := range rule.Generation.ForEachGeneration {
@@ -918,14 +924,16 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 }
 
 func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
-	patches, _ := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
-	for k := range patches {
-		if k != "metadata" {
-			return false
+	if rule.Mutation != nil {
+		patches, _ := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
+		for k := range patches {
+			if k != "metadata" {
+				return false
+			}
 		}
 	}
 
-	if rule.Mutation.PatchesJSON6902 != "" {
+	if rule.Mutation != nil && rule.Mutation.PatchesJSON6902 != "" {
 		bytes := []byte(rule.Mutation.PatchesJSON6902)
 		jp, _ := jsonpatch.DecodePatch(bytes)
 		for _, o := range jp {
@@ -1027,7 +1035,7 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 		}
 	}
 
-	if len(rule.Mutation.ForEachMutation) != 0 {
+	if rule.Mutation != nil && len(rule.Mutation.ForEachMutation) != 0 {
 		if path, err := validateMutationForEach(rule.Mutation.ForEachMutation, "mutate.foreach"); err != nil {
 			return path, err
 		}
@@ -1480,7 +1488,7 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 		return false
 	}
 
-	if slices.Contains(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
+	if slices.Contains(rule.MatchResources.Kinds, "Pod") && rule.Mutation != nil && rule.Mutation.PatchesJSON6902 != "" {
 		return true
 	}
 
