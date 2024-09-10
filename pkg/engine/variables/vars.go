@@ -376,7 +376,7 @@ func recursivelySubstituteVariables(value string, isDeleteRequest bool, log logr
 
 		if loc[0] > 0 && value[loc[0]-1] == '\\' { // \{{ }} -> {{ }}
 			isEscaped = true
-			// return value[loc[0]:], nil             // Uncomment this if disabling variable interpolation withing \{{}} is desired
+			// return value[loc[0]:], nil             // Uncomment this if disabling variable interpolation within \{{}} is desired
 		}
 
 		prefix := value[:loc[0]]
