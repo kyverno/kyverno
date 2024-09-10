@@ -11,8 +11,8 @@ spec:
         - resources:
             kinds:
               - Deployment
-          annotations:
-            structured-logs: "true"
+            annotations:
+              structured-logs: "true"
       mutate:
         patchStrategicMerge:
           metadata:

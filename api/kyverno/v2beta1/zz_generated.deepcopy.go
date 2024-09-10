@@ -397,6 +397,7 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.Validation.DeepCopyInto(&out.Validation)
 	if in.ImageRegistryCredentials != nil {
 		in, out := &in.ImageRegistryCredentials, &out.ImageRegistryCredentials
 		*out = new(v1.ImageRegistryCredentials)
@@ -711,7 +712,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		}
 	}
 	in.MatchResources.DeepCopyInto(&out.MatchResources)
-	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
+	if in.ExcludeResources != nil {
+		in, out := &in.ExcludeResources, &out.ExcludeResources
+		*out = new(MatchResources)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ImageExtractors != nil {
 		in, out := &in.ImageExtractors, &out.ImageExtractors
 		*out = make(v1.ImageExtractorConfigs, len(*in))
@@ -739,13 +744,22 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 	in.Mutation.DeepCopyInto(&out.Mutation)
 	in.Validation.DeepCopyInto(&out.Validation)
-	in.Generation.DeepCopyInto(&out.Generation)
+	if in.Generation != nil {
+		in, out := &in.Generation, &out.Generation
+		*out = new(v1.Generation)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.VerifyImages != nil {
 		in, out := &in.VerifyImages, &out.VerifyImages
 		*out = make([]ImageVerification, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.SkipBackgroundRequests != nil {
+		in, out := &in.SkipBackgroundRequests, &out.SkipBackgroundRequests
+		*out = new(bool)
+		**out = **in
 	}
 	return
 }

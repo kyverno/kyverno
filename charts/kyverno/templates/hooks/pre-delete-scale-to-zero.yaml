@@ -30,8 +30,8 @@ spec:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       restartPolicy: Never
-      {{- with .Values.webhooksCleanup.imagePullSecrets }}
-      imagePullSecrets: 
+      {{- with .Values.webhooksCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       containers:

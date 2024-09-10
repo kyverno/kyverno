@@ -16,13 +16,14 @@ webhooks:
     - DELETE
     - UPDATE
     resources:
-    - pods/attach
-    - pods/binding
-    - pods/ephemeralcontainers
-    - pods/eviction
-    - pods/exec
-    - pods/log
-    - pods/portforward
-    - pods/proxy
-    - pods/status
+      (contains(@,'pods/status')): true
+      (contains(@,'pods/log')): true
+      (contains(@,'pods/attach')): true
+      (contains(@,'pods/ephemeralcontainers')): true
+      (contains(@,'pods/eviction')): true
+      (contains(@,'pods/exec')): true
+      (contains(@,'pods/portforward')): true
+      (contains(@,'pods/binding')): true
+      (contains(@,'pods/proxy')): true
     scope: 'Namespaced'
+ 

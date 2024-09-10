@@ -89,6 +89,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.GenerationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("GlobalContextEntryReference"):
 		return &kyvernov1.GlobalContextEntryReferenceApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("HTTPHeader"):
+		return &kyvernov1.HTTPHeaderApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ImageExtractorConfig"):
 		return &kyvernov1.ImageExtractorConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ImageRegistry"):
@@ -141,6 +143,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov1.TargetResourceSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("UserInfo"):
 		return &kyvernov1.UserInfoApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ValidateImageVerification"):
+		return &kyvernov1.ValidateImageVerificationApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyStatus"):
 		return &kyvernov1.ValidatingAdmissionPolicyStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Validation"):

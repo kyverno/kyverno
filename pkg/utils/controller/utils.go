@@ -35,8 +35,9 @@ type ObjectClient[T metav1.Object] interface {
 	CreateClient[T]
 	GetClient[T]
 	UpdateClient[T]
-	DeleteClient
 	PatchClient[T]
+	DeleteClient
+	DeleteCollectionClient
 }
 
 type DeleteCollectionClient interface {

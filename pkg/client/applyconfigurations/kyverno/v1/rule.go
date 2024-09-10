@@ -28,6 +28,7 @@ import (
 type RuleApplyConfiguration struct {
 	Name                   *string                               `json:"name,omitempty"`
 	Context                []ContextEntryApplyConfiguration      `json:"context,omitempty"`
+	ReportProperties       map[string]string                     `json:"reportProperties,omitempty"`
 	MatchResources         *MatchResourcesApplyConfiguration     `json:"match,omitempty"`
 	ExcludeResources       *MatchResourcesApplyConfiguration     `json:"exclude,omitempty"`
 	ImageExtractors        *kyvernov1.ImageExtractorConfigs      `json:"imageExtractors,omitempty"`
@@ -63,6 +64,20 @@ func (b *RuleApplyConfiguration) WithContext(values ...*ContextEntryApplyConfigu
 			panic("nil value passed to WithContext")
 		}
 		b.Context = append(b.Context, *values[i])
+	}
+	return b
+}
+
+// WithReportProperties puts the entries into the ReportProperties field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the ReportProperties field,
+// overwriting an existing map entries in ReportProperties field with the same key.
+func (b *RuleApplyConfiguration) WithReportProperties(entries map[string]string) *RuleApplyConfiguration {
+	if b.ReportProperties == nil && len(entries) > 0 {
+		b.ReportProperties = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.ReportProperties[k] = v
 	}
 	return b
 }

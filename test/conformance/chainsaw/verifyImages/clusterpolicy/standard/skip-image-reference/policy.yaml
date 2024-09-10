@@ -62,5 +62,3 @@ spec:
           entries:
           - certificates:
               cert: "{{ keys.data.certificate }}"
-  name: keys
-  namespace: test-verify-images

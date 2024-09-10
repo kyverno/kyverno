@@ -25,5 +25,5 @@ spec:
       command:
         - /bin/sh
         - -c
-        - sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.reports-controller.name" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.reportsController.metricsService.port }}/metrics
+        - sleep {{ .Values.test.sleep }} ; wget -O- -S --no-check-certificate http://{{ template "kyverno.reports-controller.name" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.reportsController.metricsService.port }}/metrics
 {{- end -}}

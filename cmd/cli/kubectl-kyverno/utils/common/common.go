@@ -98,13 +98,15 @@ func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subreso
 			}
 			knownkinds.Insert(k)
 		}
-		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			k, err := getKind(kind, subresources, dClient)
-			if err != nil {
-				fmt.Fprintf(out, "Error: %s", err.Error())
-				continue
+		if rule.ExcludeResources != nil {
+			for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+				k, err := getKind(kind, subresources, dClient)
+				if err != nil {
+					fmt.Fprintf(out, "Error: %s", err.Error())
+					continue
+				}
+				knownkinds.Insert(k)
 			}
-			knownkinds.Insert(k)
 		}
 	}
 	return knownkinds

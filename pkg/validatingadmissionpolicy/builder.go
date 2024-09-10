@@ -57,21 +57,22 @@ func BuildValidatingAdmissionPolicy(
 	}
 
 	// convert the exclude block
-	exclude := rule.ExcludeResources
-	if !exclude.ResourceDescription.IsEmpty() {
-		if err := translateResource(discoveryClient, &matchResources, &excludeRules, exclude.ResourceDescription, false); err != nil {
-			return err
+	if exclude := rule.ExcludeResources; exclude != nil {
+		if !exclude.ResourceDescription.IsEmpty() {
+			if err := translateResource(discoveryClient, &matchResources, &excludeRules, exclude.ResourceDescription, false); err != nil {
+				return err
+			}
 		}
-	}
 
-	if exclude.Any != nil {
-		if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, exclude.Any, false); err != nil {
-			return err
+		if exclude.Any != nil {
+			if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, exclude.Any, false); err != nil {
+				return err
+			}
 		}
-	}
-	if exclude.All != nil {
-		if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, exclude.All, false); err != nil {
-			return err
+		if exclude.All != nil {
+			if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, exclude.All, false); err != nil {
+				return err
+			}
 		}
 	}
 

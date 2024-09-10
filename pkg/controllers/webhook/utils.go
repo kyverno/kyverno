@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"cmp"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -75,30 +76,37 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(wh.rules))
 
 	for gv, resources := range wh.rules {
-		firstResource := sets.List(resources)[0]
-		// if we have pods, we add pods/ephemeralcontainers by default
-		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
-			resources.Insert("pods/ephemeralcontainers")
+		ruleforset := make([]admissionregistrationv1.RuleWithOperations, 0, len(resources))
+		for res := range resources {
+			resource := sets.New(res)
+			// if we have pods, we add pods/ephemeralcontainers by default
+			if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resource.Has("pods") || resource.Has("*")) {
+				resource.Insert("pods/ephemeralcontainers")
+			}
+
+			operations := findKeyContainingSubstring(final, res, defaultOpn)
+			if len(operations) == 0 {
+				continue
+			}
+
+			slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
+				return cmp.Compare(a, b)
+			})
+			var added bool
+			ruleforset, added = appendResourceInRule(resource, operations, ruleforset)
+			if !added {
+				ruleforset = append(ruleforset, admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{gv.Group},
+						APIVersions: []string{gv.Version},
+						Resources:   sets.List(resource),
+						Scope:       ptr.To(gv.scopeType),
+					},
+					Operations: operations,
+				})
+			}
 		}
-
-		operations := findKeyContainingSubstring(final, firstResource, defaultOpn)
-		if len(operations) == 0 {
-			continue
-		}
-
-		slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
-			return cmp.Compare(a, b)
-		})
-
-		rules = append(rules, admissionregistrationv1.RuleWithOperations{
-			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{gv.Group},
-				APIVersions: []string{gv.Version},
-				Resources:   sets.List(resources),
-				Scope:       ptr.To(gv.scopeType),
-			},
-			Operations: operations,
-		})
+		rules = append(rules, ruleforset...)
 	}
 	less := func(a []string, b []string) (int, bool) {
 		if x := cmp.Compare(len(a), len(b)); x != 0 {
@@ -127,6 +135,16 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 		return 0
 	})
 	return rules
+}
+
+func appendResourceInRule(resource sets.Set[string], operations []admissionregistrationv1.OperationType, ruleforset []admissionregistrationv1.RuleWithOperations) ([]admissionregistrationv1.RuleWithOperations, bool) {
+	for i, rule := range ruleforset {
+		if reflect.DeepEqual(rule.Operations, operations) {
+			ruleforset[i].Rule.Resources = append(rule.Rule.Resources, resource.UnsortedList()...)
+			return ruleforset, true
+		}
+	}
+	return ruleforset, false
 }
 
 func scanResourceFilterForResources(resFilter kyvernov1.ResourceFilters) []string {
@@ -245,16 +263,18 @@ func computeOperationsForValidatingWebhookConf(r kyvernov1.Rule, operationStatus
 		operationStatusMap[webhookConnect] = true
 		operationStatusMap[webhookDelete] = true
 	}
-	if r.ExcludeResources.ResourceDescription.Operations != nil {
-		for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-			operationStatusMap[string(o)] = false
+	if r.ExcludeResources != nil {
+		if r.ExcludeResources.ResourceDescription.Operations != nil {
+			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+				operationStatusMap[string(o)] = false
+			}
 		}
-	}
-	if len(r.ExcludeResources.Any) != 0 {
-		_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
-	}
-	if len(r.ExcludeResources.All) != 0 {
-		_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+		if len(r.ExcludeResources.Any) != 0 {
+			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+		}
 	}
 	return operationStatusMap
 }
@@ -289,16 +309,18 @@ func computeOperationsForMutatingWebhookConf(r kyvernov1.Rule, operationStatusMa
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
 		}
-		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-				operationStatusMap[string(o)] = false
+		if r.ExcludeResources != nil {
+			if r.ExcludeResources.ResourceDescription.Operations != nil {
+				for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+					operationStatusMap[string(o)] = false
+				}
 			}
-		}
-		if len(r.ExcludeResources.Any) != 0 {
-			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
-		}
-		if len(r.ExcludeResources.All) != 0 {
-			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+			if len(r.ExcludeResources.Any) != 0 {
+				_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
+			}
+			if len(r.ExcludeResources.All) != 0 {
+				_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+			}
 		}
 	}
 	return operationStatusMap
@@ -357,17 +379,19 @@ func computeResourcesOfRule(r kyvernov1.Rule) []string {
 	if len(r.MatchResources.All) != 0 {
 		resources = scanResourceFilterForResources(r.MatchResources.Any)
 	}
-	if len(r.ExcludeResources.Any) != 0 {
-		resources = scanResourceFilterForResources(r.MatchResources.Any)
-	}
-	if len(r.ExcludeResources.All) != 0 {
-		resources = scanResourceFilterForResources(r.MatchResources.Any)
-	}
 	if r.MatchResources.ResourceDescription.Kinds != nil {
 		resources = append(resources, r.MatchResources.ResourceDescription.Kinds...)
 	}
-	if r.ExcludeResources.ResourceDescription.Kinds != nil {
-		resources = append(resources, r.ExcludeResources.ResourceDescription.Kinds...)
+	if r.ExcludeResources != nil {
+		if len(r.ExcludeResources.Any) != 0 {
+			resources = scanResourceFilterForResources(r.MatchResources.Any)
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			resources = scanResourceFilterForResources(r.MatchResources.Any)
+		}
+		if r.ExcludeResources.ResourceDescription.Kinds != nil {
+			resources = append(resources, r.ExcludeResources.ResourceDescription.Kinds...)
+		}
 	}
 	return resources
 }

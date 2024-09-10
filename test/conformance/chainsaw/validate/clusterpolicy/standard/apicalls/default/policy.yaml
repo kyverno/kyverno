@@ -1,0 +1,42 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default
+spec:
+  rules:
+  - name: default-apicall
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          operations:
+          - CREATE
+    context:
+    - name: testString
+      apiCall:
+        urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
+        jmesPath: metadata.name
+        default: default
+    - name: testJSON
+      apiCall:
+        urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
+        default: '{"metadata": {"name": "default"}}'
+    - name: testInteger
+      apiCall:
+        urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
+        jmesPath: metadata.resourceVersion
+        default: 1     
+    validate:
+      deny:
+        conditions:
+          all:
+          - key: "{{ testString }}"
+            operator: Equals
+            value: "{{ request.namespace }}"
+          - key: "{{ testJSON.metadata.name }}"
+            operator: Equals
+            value: "{{ request.namespace }}"
+          - key: "{{ testInteger }}"
+            operator: GreaterThan
+            value: 2

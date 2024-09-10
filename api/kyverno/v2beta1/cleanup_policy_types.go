@@ -204,13 +204,13 @@ type ClusterCleanupPolicyList struct {
 type CleanupPolicySpec struct {
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
-	Context []kyvernov1.ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+	Context []kyvernov1.ContextEntry `json:"context,omitempty"`
 
 	// MatchResources defines when cleanuppolicy should be applied. The match
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources MatchResources `json:"match,omitempty"`
+	MatchResources MatchResources `json:"match"`
 
 	// ExcludeResources defines when cleanuppolicy should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)

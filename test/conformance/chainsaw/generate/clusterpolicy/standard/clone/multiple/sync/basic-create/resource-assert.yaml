@@ -1,7 +1,7 @@
 apiVersion: v1      
 data:
   gemstone: b3BhbA==
-kind: Secret        
+kind: Secret
 metadata:
   labels:
     allowedToBeCloned: "true"
