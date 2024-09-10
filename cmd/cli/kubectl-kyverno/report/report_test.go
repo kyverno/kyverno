@@ -348,3 +348,31 @@ func TestComputePolicyReportResultsPerPolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestNamespacedPolicyReportGeneration(t *testing.T) {
+	results, err := policy.Load(nil, "", "../_testdata/policies/namespace-policy.yaml")
+	assert.NilError(t, err)
+	assert.Equal(t, len(results.Policies), 1)
+	policy := results.Policies[0]
+
+	er := engineapi.EngineResponse{}
+	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
+	er.PolicyResponse.Add(
+		engineapi.ExecutionStats{},
+		*engineapi.RuleFail(
+			"validate-pod",
+			engineapi.Validation,
+			"validation error: Pods must have a label `app`.",
+			nil,
+		),
+	)
+
+	clustered, namespaced := ComputePolicyReports(false, er)
+
+	assert.Equal(t, len(clustered), 0)
+	assert.Equal(t, len(namespaced), 1)
+
+	report := namespaced[0]
+	assert.Equal(t, report.GetNamespace(), policy.GetNamespace())
+	assert.Equal(t, report.Kind, "PolicyReport")
+}
