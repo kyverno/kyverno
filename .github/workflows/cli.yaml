@@ -5,14 +5,10 @@ name: cli
 permissions: {}
 
 on:
-  push:
-    branches:
-      - 'main'
-      - 'release*'
   pull_request:
     branches:
-      - 'main'
-      - 'release*'
+      - main
+      - release-*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
