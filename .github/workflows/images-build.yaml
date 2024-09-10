@@ -5,9 +5,10 @@ name: Build images
 permissions: {}
 
 on:
-  push:
+  pull_request:
     branches:
-      - '*'
+      - main
+      - release-*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
