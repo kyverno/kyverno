@@ -561,7 +561,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 		}
 
 		mutateTarget := false
-		if ruleCopy.Mutation.Targets != nil {
+		if ruleCopy.Mutation != nil && ruleCopy.Mutation.Targets != nil {
 			mutateTarget = true
 			withTargetOnly := ruleWithoutPattern(ruleCopy)
 			for i := range ruleCopy.Mutation.Targets {
@@ -605,10 +605,11 @@ func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) er
 // for now forbidden sections are match, exclude and
 func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 	var err error
-
-	err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
-	if err != nil && errors.Is(errOperationForbidden, err) {
-		return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
+	if rule.Mutation != nil {
+		err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
+		if err != nil && errors.Is(errOperationForbidden, err) {
+			return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
+		}
 	}
 
 	err = objectHasVariables(rule.ExcludeResources)
