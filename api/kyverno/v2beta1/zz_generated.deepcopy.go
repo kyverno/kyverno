@@ -744,7 +744,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 	in.Mutation.DeepCopyInto(&out.Mutation)
 	in.Validation.DeepCopyInto(&out.Validation)
-	in.Generation.DeepCopyInto(&out.Generation)
+	if in.Generation != nil {
+		in, out := &in.Generation, &out.Generation
+		*out = new(v1.Generation)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.VerifyImages != nil {
 		in, out := &in.VerifyImages, &out.VerifyImages
 		*out = make([]ImageVerification, len(*in))
