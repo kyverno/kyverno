@@ -1491,8 +1491,8 @@ Kubernetes apiextensions/v1.JSON
 </td>
 <td>
 <em>(Optional)</em>
-<p>Default is an optional arbitrary JSON object that the context may take if the apiCall
-returns error</p>
+<p>Default is an optional arbitrary JSON object that the context
+value is set to, if the apiCall returns error.</p>
 </td>
 </tr>
 <tr>
@@ -2329,6 +2329,47 @@ transform the JSON response returned from the server. For example
 a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
 for the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
 of deployments across all namespaces.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.HTTPHeader">HTTPHeader
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Key is the header key</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>value</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Value is the header value</p>
 </td>
 </tr>
 </tbody>
@@ -4200,6 +4241,19 @@ string
 <td>
 <p>URL is the JSON web service URL. A typical form is
 <code>https://{service}.{namespace}:{port}/{path}</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>headers</code><br/>
+<em>
+<a href="#kyverno.io/v1.HTTPHeader">
+[]HTTPHeader
+</a>
+</em>
+</td>
+<td>
+<p>Headers is a list of optional HTTP headers to be included in the request.</p>
 </td>
 </tr>
 <tr>

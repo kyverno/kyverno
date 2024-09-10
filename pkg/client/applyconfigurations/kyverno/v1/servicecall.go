@@ -21,8 +21,9 @@ package v1
 // ServiceCallApplyConfiguration represents an declarative configuration of the ServiceCall type for use
 // with apply.
 type ServiceCallApplyConfiguration struct {
-	URL      *string `json:"url,omitempty"`
-	CABundle *string `json:"caBundle,omitempty"`
+	URL      *string                        `json:"url,omitempty"`
+	Headers  []HTTPHeaderApplyConfiguration `json:"headers,omitempty"`
+	CABundle *string                        `json:"caBundle,omitempty"`
 }
 
 // ServiceCallApplyConfiguration constructs an declarative configuration of the ServiceCall type for use with
@@ -36,6 +37,19 @@ func ServiceCall() *ServiceCallApplyConfiguration {
 // If called multiple times, the URL field is set to the value of the last call.
 func (b *ServiceCallApplyConfiguration) WithURL(value string) *ServiceCallApplyConfiguration {
 	b.URL = &value
+	return b
+}
+
+// WithHeaders adds the given value to the Headers field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Headers field.
+func (b *ServiceCallApplyConfiguration) WithHeaders(values ...*HTTPHeaderApplyConfiguration) *ServiceCallApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithHeaders")
+		}
+		b.Headers = append(b.Headers, *values[i])
+	}
 	return b
 }
 
