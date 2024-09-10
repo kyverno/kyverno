@@ -1963,7 +1963,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 				},
 			},
 		}},
-		ExcludeResources: v1.MatchResources{},
+		ExcludeResources: &v1.MatchResources{},
 	}
 
 	// this is the request info that was also passed with the mocked pod
@@ -1996,7 +1996,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 				},
 			},
 		}},
-		ExcludeResources: v1.MatchResources{Any: v1.ResourceFilters{}},
+		ExcludeResources: &v1.MatchResources{Any: v1.ResourceFilters{}},
 	}
 
 	// Second test: confirm that matching this rule does not create any errors (and raise if err != nil)
@@ -2005,7 +2005,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}
 
 	// Now we extend the previous rule to have an Exclude part. Making it 'not-empty' should make the exclude-code run.
-	rule2.ExcludeResources = v1.MatchResources{Any: v1.ResourceFilters{
+	rule2.ExcludeResources = &v1.MatchResources{Any: v1.ResourceFilters{
 		v1.ResourceFilter{
 			ResourceDescription: v1.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -2461,7 +2461,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 
 	rule := v1.Rule{
 		MatchResources:   v1.MatchResources{ResourceDescription: resourceDescription},
-		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
+		ExcludeResources: &v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
 	}
 
 	if err := MatchesResourceDescription(*resource, rule, v2.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {

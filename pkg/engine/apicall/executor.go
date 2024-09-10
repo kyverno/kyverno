@@ -110,34 +110,49 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 	return body, nil
 }
 
-func (a *executor) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APICall) (req *http.Request, err error) {
+func (a *executor) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APICall) (*http.Request, error) {
 	if apiCall.Service == nil {
 		return nil, fmt.Errorf("missing service")
 	}
 
-	token := a.getToken()
-	defer func() {
-		if token != "" && req != nil {
+	if apiCall.Method != "GET" && apiCall.Method != "POST" {
+		return nil, fmt.Errorf("invalid request type %s for APICall %s", apiCall.Method, a.name)
+	}
+
+	var data io.Reader = nil
+	if apiCall.Method == "POST" {
+		var err error
+		data, err = a.buildRequestData(apiCall.Data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build request data for APICall %s: %w", a.name, err)
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, string(apiCall.Method), apiCall.Service.URL, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build request for APICall %s: %w", a.name, err)
+	}
+
+	if err := a.addHTTPHeaders(req, apiCall.Service.Headers); err != nil {
+		return nil, fmt.Errorf("failed to add headers for APICall %s: %w", a.name, err)
+	}
+
+	return req, nil
+}
+
+func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHeader) error {
+	for _, header := range headers {
+		req.Header.Add(header.Key, header.Value)
+	}
+
+	if req.Header.Get("Authorization") == "" {
+		token := a.getToken()
+		if token != "" {
 			req.Header.Add("Authorization", "Bearer "+token)
 		}
-	}()
-
-	if apiCall.Method == "GET" {
-		req, err = http.NewRequestWithContext(ctx, "GET", apiCall.Service.URL, nil)
-		return
 	}
 
-	if apiCall.Method == "POST" {
-		data, dataErr := a.buildRequestData(apiCall.Data)
-		if dataErr != nil {
-			return nil, dataErr
-		}
-
-		req, err = http.NewRequest("POST", apiCall.Service.URL, data)
-		return
-	}
-
-	return nil, fmt.Errorf("invalid request type %s for APICall %s", apiCall.Method, a.name)
+	return nil
 }
 
 func (a *executor) getToken() string {

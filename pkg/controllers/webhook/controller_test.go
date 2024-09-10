@@ -144,7 +144,7 @@ func TestAddOperationsForValidatingWebhookConf(t *testing.T) {
 							Kinds: []string{"ConfigMap"},
 						},
 					},
-					ExcludeResources: kyverno.MatchResources{
+					ExcludeResources: &kyverno.MatchResources{
 						ResourceDescription: kyverno.ResourceDescription{
 							Operations: []kyverno.AdmissionOperation{"DELETE", "CONNECT", "CREATE"},
 						},
@@ -263,7 +263,7 @@ func TestAddOperationsForMutatingtingWebhookConf(t *testing.T) {
 							Kinds: []string{"Secret"},
 						},
 					},
-					ExcludeResources: kyverno.MatchResources{
+					ExcludeResources: &kyverno.MatchResources{
 						ResourceDescription: kyverno.ResourceDescription{
 							Operations: []kyverno.AdmissionOperation{"UPDATE"},
 						},
@@ -385,7 +385,7 @@ func TestAddOperationsForMutatingtingWebhookConfMultiplePolicies(t *testing.T) {
 					Spec: kyverno.Spec{
 						Rules: []kyverno.Rule{
 							{
-								Generation: kyverno.Generation{},
+								Generation: &kyverno.Generation{},
 								MatchResources: kyverno.MatchResources{
 									ResourceDescription: kyverno.ResourceDescription{
 										Kinds: []string{"Deployments", "StatefulSet", "DaemonSet", "Job"},

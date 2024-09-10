@@ -59,13 +59,13 @@ type Rule struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources MatchResources `json:"match,omitempty"`
+	MatchResources MatchResources `json:"match"`
 
 	// ExcludeResources defines when this policy rule should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources MatchResources `json:"exclude,omitempty"`
+	ExcludeResources *MatchResources `json:"exclude,omitempty"`
 
 	// ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
 	// This config is only valid for verifyImages rules.
@@ -97,7 +97,7 @@ type Rule struct {
 
 	// Generation is used to create new resources.
 	// +optional
-	Generation Generation `json:"generate,omitempty"`
+	Generation *Generation `json:"generate,omitempty"`
 
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
@@ -200,7 +200,7 @@ func (r *Rule) HasValidateAllowExistingViolations() bool {
 
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
-	return !datautils.DeepEqual(r.Generation, Generation{})
+	return r.Generation != nil && !datautils.DeepEqual(*r.Generation, Generation{})
 }
 
 func (r *Rule) IsPodSecurity() bool {
@@ -252,6 +252,9 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 
 // ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
 func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
+	if r.ExcludeResources == nil {
+		return errs
+	}
 	if len(r.ExcludeResources.All) > 0 || len(r.MatchResources.All) > 0 {
 		return errs
 	}
@@ -266,7 +269,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		}
 		return errs
 	}
-	if datautils.DeepEqual(r.ExcludeResources, MatchResources{}) {
+	if datautils.DeepEqual(*r.ExcludeResources, MatchResources{}) {
 		return errs
 	}
 	excludeRoles := sets.New(r.ExcludeResources.Roles...)

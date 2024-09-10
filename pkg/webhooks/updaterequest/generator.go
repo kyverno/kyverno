@@ -43,6 +43,9 @@ func NewGenerator(client versioned.Interface, urInformer kyvernov2informers.Upda
 
 // Apply creates update request resource
 func (g *generator) Apply(ctx context.Context, ur kyvernov2.UpdateRequestSpec) error {
+	if ur.Type == kyvernov2.Generate && len(ur.RuleContext) == 0 {
+		return nil
+	}
 	logger.V(4).Info("apply Update Request", "request", ur)
 	go g.applyResource(context.TODO(), ur)
 	return nil

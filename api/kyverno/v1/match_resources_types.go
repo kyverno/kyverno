@@ -46,6 +46,9 @@ func (m *MatchResources) GetKinds() []string {
 
 // Validate implements programmatic validation
 func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if m == nil {
+		return errs
+	}
 	if len(m.Any) > 0 && len(m.All) > 0 {
 		errs = append(errs, field.Invalid(path, m, "Can't specify any and all together"))
 	}
