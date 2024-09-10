@@ -269,7 +269,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		}
 		return errs
 	}
-	if r.ExcludeResources == nil || datautils.DeepEqual(*r.ExcludeResources, MatchResources{}) {
+	if datautils.DeepEqual(*r.ExcludeResources, MatchResources{}) {
 		return errs
 	}
 	excludeRoles := sets.New(r.ExcludeResources.Roles...)
