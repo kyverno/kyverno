@@ -712,7 +712,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		}
 	}
 	in.MatchResources.DeepCopyInto(&out.MatchResources)
-	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
+	if in.ExcludeResources != nil {
+		in, out := &in.ExcludeResources, &out.ExcludeResources
+		*out = new(MatchResources)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ImageExtractors != nil {
 		in, out := &in.ImageExtractors, &out.ImageExtractors
 		*out = make(v1.ImageExtractorConfigs, len(*in))

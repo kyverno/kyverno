@@ -77,8 +77,8 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[s
 				return false, sets.New("none")
 			}
 		}
-		match, exclude := rule.MatchResources, rule.ExcludeResources
-		if !checkAutogenSupport(&needed, match.ResourceDescription, exclude.ResourceDescription) {
+		match := rule.MatchResources
+		if !checkAutogenSupport(&needed, match.ResourceDescription) {
 			debug.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
 			return false, sets.New[string]()
 		}
@@ -94,16 +94,22 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[s
 				return false, sets.New[string]()
 			}
 		}
-		for _, value := range exclude.Any {
-			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				debug.Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not applicable.", "rule", rule.Name)
+		if exclude := rule.ExcludeResources; exclude != nil {
+			if !checkAutogenSupport(&needed, exclude.ResourceDescription) {
+				debug.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
 				return false, sets.New[string]()
 			}
-		}
-		for _, value := range exclude.All {
-			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				debug.Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not applicable.", "rule", rule.Name)
-				return false, sets.New[string]()
+			for _, value := range exclude.Any {
+				if !checkAutogenSupport(&needed, value.ResourceDescription) {
+					debug.Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not applicable.", "rule", rule.Name)
+					return false, sets.New[string]()
+				}
+			}
+			for _, value := range exclude.All {
+				if !checkAutogenSupport(&needed, value.ResourceDescription) {
+					debug.Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not applicable.", "rule", rule.Name)
+					return false, sets.New[string]()
+				}
 			}
 		}
 	}
@@ -210,7 +216,7 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		out.MatchResources = *rule.MatchResources
 	}
 	if rule.ExcludeResources != nil {
-		out.ExcludeResources = *rule.ExcludeResources
+		out.ExcludeResources = rule.ExcludeResources
 	}
 	if rule.Context != nil {
 		out.Context = *rule.Context
