@@ -1,19 +1,19 @@
-# Areas of code where @marcelmue always wants to be a reviewer/notified.
+# Areas of code where owners always wants to be a reviewer/notified.
 /api                    @eddycharly @realshuting
 /api/kyverno/v1         @eddycharly
 /charts                 @eddycharly
 /docs                   
 /pkg/autogen            @eddycharly
 /pkg/background         @realshuting
-/pkg/engine             @marcelmue @realshuting @MariamFahmy98 @KhaledEmaraDev
+/pkg/engine             @eddycharly @realshuting @MariamFahmy98 @KhaledEmaraDev
 /pkg/event              @KhaledEmaraDev
 /pkg/globalcontext      @KhaledEmaraDev
-/pkg/policy/mutate      @marcelmue
+/pkg/policy/mutate      @realshuting
 /pkg/pss                @realshuting @YTGhost
 /pkg/utils              @eddycharly
 /pkg/userinfo           @realshuting
 /pkg/validation         @realshuting
-/pkg/webhooks           @marcelmue @realshuting
+/pkg/webhooks           @eddycharly @realshuting
 /test                   @eddycharly @realshuting @MariamFahmy98 @KhaledEmaraDev
 /pkg/cosign             @Vishal-Chdhry
 /pkg/notary             @Vishal-Chdhry
