@@ -263,16 +263,18 @@ func computeOperationsForValidatingWebhookConf(r kyvernov1.Rule, operationStatus
 		operationStatusMap[webhookConnect] = true
 		operationStatusMap[webhookDelete] = true
 	}
-	if r.ExcludeResources.ResourceDescription.Operations != nil {
-		for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-			operationStatusMap[string(o)] = false
+	if r.ExcludeResources != nil {
+		if r.ExcludeResources.ResourceDescription.Operations != nil {
+			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+				operationStatusMap[string(o)] = false
+			}
 		}
-	}
-	if len(r.ExcludeResources.Any) != 0 {
-		_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
-	}
-	if len(r.ExcludeResources.All) != 0 {
-		_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+		if len(r.ExcludeResources.Any) != 0 {
+			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+		}
 	}
 	return operationStatusMap
 }
@@ -307,16 +309,18 @@ func computeOperationsForMutatingWebhookConf(r kyvernov1.Rule, operationStatusMa
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
 		}
-		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-				operationStatusMap[string(o)] = false
+		if r.ExcludeResources != nil {
+			if r.ExcludeResources.ResourceDescription.Operations != nil {
+				for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+					operationStatusMap[string(o)] = false
+				}
 			}
-		}
-		if len(r.ExcludeResources.Any) != 0 {
-			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
-		}
-		if len(r.ExcludeResources.All) != 0 {
-			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+			if len(r.ExcludeResources.Any) != 0 {
+				_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
+			}
+			if len(r.ExcludeResources.All) != 0 {
+				_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+			}
 		}
 	}
 	return operationStatusMap
@@ -375,17 +379,19 @@ func computeResourcesOfRule(r kyvernov1.Rule) []string {
 	if len(r.MatchResources.All) != 0 {
 		resources = scanResourceFilterForResources(r.MatchResources.Any)
 	}
-	if len(r.ExcludeResources.Any) != 0 {
-		resources = scanResourceFilterForResources(r.MatchResources.Any)
-	}
-	if len(r.ExcludeResources.All) != 0 {
-		resources = scanResourceFilterForResources(r.MatchResources.Any)
-	}
 	if r.MatchResources.ResourceDescription.Kinds != nil {
 		resources = append(resources, r.MatchResources.ResourceDescription.Kinds...)
 	}
-	if r.ExcludeResources.ResourceDescription.Kinds != nil {
-		resources = append(resources, r.ExcludeResources.ResourceDescription.Kinds...)
+	if r.ExcludeResources != nil {
+		if len(r.ExcludeResources.Any) != 0 {
+			resources = scanResourceFilterForResources(r.MatchResources.Any)
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			resources = scanResourceFilterForResources(r.MatchResources.Any)
+		}
+		if r.ExcludeResources.ResourceDescription.Kinds != nil {
+			resources = append(resources, r.ExcludeResources.ResourceDescription.Kinds...)
+		}
 	}
 	return resources
 }

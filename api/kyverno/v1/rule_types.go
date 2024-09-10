@@ -65,7 +65,7 @@ type Rule struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources MatchResources `json:"exclude,omitempty"`
+	ExcludeResources *MatchResources `json:"exclude,omitempty"`
 
 	// ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
 	// This config is only valid for verifyImages rules.
@@ -252,6 +252,9 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 
 // ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
 func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
+	if r.ExcludeResources == nil {
+		return errs
+	}
 	if len(r.ExcludeResources.All) > 0 || len(r.MatchResources.All) > 0 {
 		return errs
 	}
@@ -266,7 +269,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		}
 		return errs
 	}
-	if datautils.DeepEqual(r.ExcludeResources, MatchResources{}) {
+	if datautils.DeepEqual(*r.ExcludeResources, MatchResources{}) {
 		return errs
 	}
 	excludeRoles := sets.New(r.ExcludeResources.Roles...)
