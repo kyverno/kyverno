@@ -5,13 +5,10 @@ name: Tests
 permissions: {}
 
 on:
-  push:
-    branches:
-      - '*'
   pull_request:
     branches:
-      - 'main'
-      - 'release*'
+      - main
+      - release-*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
