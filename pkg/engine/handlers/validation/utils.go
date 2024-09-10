@@ -25,21 +25,22 @@ func matchResource(resource unstructured.Unstructured, rule kyvernov1.Rule) bool
 			return false
 		}
 	}
-
-	if rule.ExcludeResources.All != nil || rule.ExcludeResources.Any != nil {
-		excluded := match.CheckMatchesResources(
-			resource,
-			kyvernov2beta1.MatchResources{
-				Any: rule.ExcludeResources.Any,
-				All: rule.ExcludeResources.All,
-			},
-			make(map[string]string),
-			kyvernov2.RequestInfo{},
-			resource.GroupVersionKind(),
-			"",
-		)
-		if excluded == nil {
-			return false
+	if rule.ExcludeResources != nil {
+		if rule.ExcludeResources.All != nil || rule.ExcludeResources.Any != nil {
+			excluded := match.CheckMatchesResources(
+				resource,
+				kyvernov2beta1.MatchResources{
+					Any: rule.ExcludeResources.Any,
+					All: rule.ExcludeResources.All,
+				},
+				make(map[string]string),
+				kyvernov2.RequestInfo{},
+				resource.GroupVersionKind(),
+				"",
+			)
+			if excluded == nil {
+				return false
+			}
 		}
 	}
 	return true

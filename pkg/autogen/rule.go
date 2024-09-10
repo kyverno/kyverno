@@ -42,7 +42,7 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !datautils.DeepEqual(rule.MatchResources, kyvernov1.MatchResources{}) {
 		jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
 	}
-	if !datautils.DeepEqual(rule.ExcludeResources, kyvernov1.MatchResources{}) {
+	if rule.ExcludeResources != nil && !datautils.DeepEqual(*rule.ExcludeResources, kyvernov1.MatchResources{}) {
 		jsonFriendlyStruct.ExcludeResources = rule.ExcludeResources.DeepCopy()
 	}
 	if !datautils.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
@@ -84,13 +84,15 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	} else {
 		rule.MatchResources.Kinds = kinds
 	}
-	if len(rule.ExcludeResources.Any) > 0 {
-		rule.ExcludeResources.Any = grf(rule.ExcludeResources.Any, kinds)
-	} else if len(rule.ExcludeResources.All) > 0 {
-		rule.ExcludeResources.All = grf(rule.ExcludeResources.All, kinds)
-	} else {
-		if len(rule.ExcludeResources.Kinds) != 0 {
-			rule.ExcludeResources.Kinds = kinds
+	if rule.ExcludeResources != nil {
+		if len(rule.ExcludeResources.Any) > 0 {
+			rule.ExcludeResources.Any = grf(rule.ExcludeResources.Any, kinds)
+		} else if len(rule.ExcludeResources.All) > 0 {
+			rule.ExcludeResources.All = grf(rule.ExcludeResources.All, kinds)
+		} else {
+			if len(rule.ExcludeResources.Kinds) != 0 {
+				rule.ExcludeResources.Kinds = kinds
+			}
 		}
 	}
 	if target := rule.Mutation.GetPatchStrategicMerge(); target != nil {
@@ -255,8 +257,12 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 		return nil
 	}
 	debug.Info("processing rule", "rulename", rule.Name)
-	match, exclude := rule.MatchResources, rule.ExcludeResources
-	matchKinds, excludeKinds := match.GetKinds(), exclude.GetKinds()
+	match := rule.MatchResources
+	matchKinds := match.GetKinds()
+	var excludeKinds []string
+	if exclude := rule.ExcludeResources; exclude != nil {
+		excludeKinds = exclude.GetKinds()
+	}
 	if !kubeutils.ContainsKind(matchKinds, "Pod") || (len(excludeKinds) != 0 && !kubeutils.ContainsKind(excludeKinds, "Pod")) {
 		return nil
 	}
