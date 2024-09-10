@@ -363,6 +363,7 @@ func TestNamespacedPolicyReportGeneration(t *testing.T) {
 			"validate-pod",
 			engineapi.Validation,
 			"validation error: Pods must have a label `app`.",
+			nil,
 		),
 	)
 
