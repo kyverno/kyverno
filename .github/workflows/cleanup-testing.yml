@@ -105,6 +105,14 @@ jobs:
         run: |
           set -e
           helm uninstall kyverno -n kyverno --wait --no-hooks
+      - name: Check validating webhook count
+        shell: bash
+        run: |
+          set -e
+          if [ `kubectl get validatingwebhookconfigurations -l webhook.kyverno.io/managed-by=kyverno --no-headers | wc -l` -gt 0 ] 
+          then
+          exit 1
+          fi
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
