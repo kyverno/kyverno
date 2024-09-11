@@ -738,8 +738,10 @@ func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecon
 	addContextVariables(rule.Context, ctx)
 	addImageVerifyVariables(rule, ctx)
 
-	for _, fe := range rule.Validation.ForEachValidation {
-		addContextVariables(fe.Context, ctx)
+	if rule.Validation != nil {
+		for _, fe := range rule.Validation.ForEachValidation {
+			addContextVariables(fe.Context, ctx)
+		}
 	}
 	if rule.Mutation != nil {
 		for _, fe := range rule.Mutation.ForEachMutation {
@@ -943,29 +945,27 @@ func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
 			}
 		}
 	}
-
-	patternMap, _ := rule.Validation.GetPattern().(map[string]interface{})
-	for k := range patternMap {
-		if k != "metadata" {
-			return false
-		}
-	}
-
-	anyPatterns, err := rule.Validation.DeserializeAnyPattern()
-	if err != nil {
-		logging.Error(err, "failed to deserialize anyPattern, expect type array")
-		return false
-	}
-
-	for _, pattern := range anyPatterns {
-		patternMap, _ := pattern.(map[string]interface{})
+	if rule.Validation != nil {
+		patternMap, _ := rule.Validation.GetPattern().(map[string]interface{})
 		for k := range patternMap {
 			if k != "metadata" {
 				return false
 			}
 		}
+		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+		if err != nil {
+			logging.Error(err, "failed to deserialize anyPattern, expect type array")
+			return false
+		}
+		for _, pattern := range anyPatterns {
+			patternMap, _ := pattern.(map[string]interface{})
+			for k := range patternMap {
+				if k != "metadata" {
+					return false
+				}
+			}
+		}
 	}
-
 	return true
 }
 
@@ -1018,20 +1018,21 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 		}
 	}
 	// validating the values present under validate.conditions, if they exist
-	if rule.Validation.Deny != nil {
-		if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
-			if path, err := validateConditions(target, "conditions"); err != nil {
-				return fmt.Sprintf("validate.deny.%s", path), err
-			}
-			if path, err := validateRawJSONConditionOperator(target, "conditions"); err != nil {
-				return fmt.Sprintf("validate.deny.%s", path), err
+	if rule.Validation != nil {
+		if rule.Validation.Deny != nil {
+			if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
+				if path, err := validateConditions(target, "conditions"); err != nil {
+					return fmt.Sprintf("validate.deny.%s", path), err
+				}
+				if path, err := validateRawJSONConditionOperator(target, "conditions"); err != nil {
+					return fmt.Sprintf("validate.deny.%s", path), err
+				}
 			}
 		}
-	}
-
-	if len(rule.Validation.ForEachValidation) != 0 {
-		if path, err := validateValidationForEach(rule.Validation.ForEachValidation, "validate.foreach"); err != nil {
-			return path, err
+		if len(rule.Validation.ForEachValidation) != 0 {
+			if path, err := validateValidationForEach(rule.Validation.ForEachValidation, "validate.foreach"); err != nil {
+				return path, err
+			}
 		}
 	}
 
@@ -1292,7 +1293,7 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		}
 		// if it the rule uses kyverno-json we add some constraints on the name of context entries to make
 		// sure we can create the corresponding bindings
-		if rule.Validation.Assert.Value != nil {
+		if rule.Validation != nil && rule.Validation.Assert.Value != nil {
 			if !bindingIdentifier.MatchString(entry.Name) {
 				return fmt.Errorf("context entry name %s is invalid, it must be a single word when the validation rule uses `assert`", entry.Name)
 			}
@@ -1534,7 +1535,7 @@ func validateWildcard(kinds []string, background bool, rule kyvernov1.Rule) erro
 		return fmt.Errorf("wildcard policy can not deal with more than one kind")
 	}
 	if slices.Contains(kinds, "*") {
-		if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
+		if rule.HasGenerate() || rule.HasVerifyImages() || (rule.Validation != nil && rule.Validation.ForEachValidation != nil) {
 			return fmt.Errorf("wildcard policy does not support rule type")
 		}
 
@@ -1737,25 +1738,25 @@ func checkDeprecatedRawJSONConditionOperator(c apiextensions.JSON, warnings *[]s
 }
 
 func checkForDeprecatedOperatorsInRule(rule kyvernov1.Rule, warnings *[]string) {
-	if rule.Validation.Deny != nil {
-		if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
-			checkDeprecatedRawJSONConditionOperator(target, warnings)
-		}
-	}
-
-	if len(rule.Validation.ForEachValidation) != 0 {
-		for _, fe := range rule.Validation.ForEachValidation {
-			if fe.AnyAllConditions != nil {
-				checkDeprecatedAnyAllConditionOperator(*fe.AnyAllConditions, warnings)
+	if rule.Validation != nil {
+		if rule.Validation.Deny != nil {
+			if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
+				checkDeprecatedRawJSONConditionOperator(target, warnings)
 			}
-			if fe.Deny != nil {
-				if target := fe.Deny.GetAnyAllConditions(); target != nil {
-					checkDeprecatedRawJSONConditionOperator(target, warnings)
+		}
+		if len(rule.Validation.ForEachValidation) != 0 {
+			for _, fe := range rule.Validation.ForEachValidation {
+				if fe.AnyAllConditions != nil {
+					checkDeprecatedAnyAllConditionOperator(*fe.AnyAllConditions, warnings)
+				}
+				if fe.Deny != nil {
+					if target := fe.Deny.GetAnyAllConditions(); target != nil {
+						checkDeprecatedRawJSONConditionOperator(target, warnings)
+					}
 				}
 			}
 		}
 	}
-
 	if len(rule.VerifyImages) != 0 {
 		for _, vi := range rule.VerifyImages {
 			for _, att := range vi.Attestations {
