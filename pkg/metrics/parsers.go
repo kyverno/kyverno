@@ -23,7 +23,7 @@ func ParsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroun
 }
 
 func ParseRuleType(rule kyvernov1.Rule) RuleType {
-	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
+	if rule.Validation != nil && !datautils.DeepEqual(*rule.Validation, kyvernov1.Validation{}) {
 		return Validate
 	}
 	if rule.Mutation != nil && !datautils.DeepEqual(*rule.Mutation, kyvernov1.Mutation{}) {

@@ -233,7 +233,7 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		out.Mutation = rule.Mutation
 	}
 	if rule.Validation != nil {
-		out.Validation = *rule.Validation
+		out.Validation = rule.Validation
 	}
 	return &out, nil
 }
