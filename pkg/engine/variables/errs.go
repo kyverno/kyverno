@@ -1,8 +1,8 @@
 package variables
 
 import (
-	jmespath "github.com/kyverno/go-community-jmespath"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
 func CheckNotFoundErr(err error) bool {

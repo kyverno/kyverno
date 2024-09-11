@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kyverno/go-community-jmespath/pkg/functions"
+	"github.com/jmespath-community/go-jmespath/pkg/functions"
 )
 
 var (

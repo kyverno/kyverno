@@ -8,10 +8,10 @@ import (
 
 	"github.com/go-logr/logr"
 	jsoniter "github.com/json-iterator/go"
-	gojmespath "github.com/kyverno/go-community-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
@@ -350,7 +350,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				substitutedVar, err := vr(ctx, variable)
 				if err != nil {
 					switch err.(type) {
-					case context.InvalidVariableError, gojmespath.NotFoundError:
+					case context.InvalidVariableError, jmespath.NotFoundError:
 						return nil, err
 					default:
 						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)

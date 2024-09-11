@@ -1,7 +1,7 @@
 package jmespath
 
 import (
-	"github.com/kyverno/go-community-jmespath/pkg/interpreter"
+	"github.com/jmespath-community/go-jmespath/pkg/interpreter"
 	"github.com/kyverno/kyverno/pkg/config"
 )
 

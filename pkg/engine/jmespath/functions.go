@@ -25,8 +25,8 @@ import (
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
-	gojmespath "github.com/kyverno/go-community-jmespath"
-	"github.com/kyverno/go-community-jmespath/pkg/functions"
+	gojmespath "github.com/jmespath-community/go-jmespath"
+	"github.com/jmespath-community/go-jmespath/pkg/functions"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"

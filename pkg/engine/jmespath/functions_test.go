@@ -761,10 +761,6 @@ func Test_PathCanonicalize(t *testing.T) {
 }
 
 func Test_Truncate(t *testing.T) {
-	// Can't use integer literals due to
-	// https://github.com/jmespath/go-jmespath/issues/27
-	//
-	// TODO: fix this in https://github.com/kyverno/go-jmespath
 	testCases := []struct {
 		jmesPath       string
 		expectedResult string

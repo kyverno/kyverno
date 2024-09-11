@@ -13,8 +13,8 @@ import (
 
 	"github.com/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	jmespath "github.com/jmespath-community/go-jmespath"
 	"github.com/jmoiron/jsonq"
-	jmespath "github.com/kyverno/go-community-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"

@@ -1,9 +1,9 @@
 package jmespath
 
 import (
-	gojmespath "github.com/kyverno/go-community-jmespath"
-	"github.com/kyverno/go-community-jmespath/pkg/functions"
-	"github.com/kyverno/go-community-jmespath/pkg/interpreter"
+	gojmespath "github.com/jmespath-community/go-jmespath"
+	"github.com/jmespath-community/go-jmespath/pkg/functions"
+	"github.com/jmespath-community/go-jmespath/pkg/interpreter"
 	"github.com/kyverno/kyverno/pkg/config"
 )
 
@@ -17,7 +17,7 @@ func (q *QueryProxy) Search(data interface{}) (interface{}, error) {
 }
 
 func newJMESPath(query string, functionCaller interpreter.FunctionCaller) (*QueryProxy, error) {
-	jmesPath, err := gojmespath.Compile(query)
+	jmesPath, err := Compile(query)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func newJMESPath(query string, functionCaller interpreter.FunctionCaller) (*Quer
 
 func newImplementation(configuration config.Configuration) Interface {
 	list := GetFunctions(configuration)
-	entries := make([]functions.FunctionEntry, 0, len(list))
+	entries := functions.GetDefaultFunctions()
 	for _, f := range list {
 		entries = append(entries, f.FunctionEntry)
 	}
@@ -40,5 +40,5 @@ func newImplementation(configuration config.Configuration) Interface {
 }
 
 func newExecution(fCall interpreter.FunctionCaller, query string, data interface{}) (interface{}, error) {
-	return gojmespath.Search(query, data, gojmespath.WithFunctionCaller(fCall))
+	return Search(query, data, gojmespath.WithFunctionCaller(fCall))
 }

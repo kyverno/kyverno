@@ -3,12 +3,12 @@ package jmespath
 import (
 	"testing"
 
-	gojmespath "github.com/kyverno/go-community-jmespath"
+	"github.com/jmespath-community/go-jmespath/pkg/functions"
 )
 
 func TestFunctionEntry_String(t *testing.T) {
 	type fields struct {
-		FunctionEntry gojmespath.FunctionEntry
+		FunctionEntry functions.FunctionEntry
 		Note          string
 		ReturnType    []jpType
 	}
@@ -18,7 +18,7 @@ func TestFunctionEntry_String(t *testing.T) {
 		want   string
 	}{{
 		fields: fields{
-			FunctionEntry: gojmespath.FunctionEntry{
+			FunctionEntry: functions.FunctionEntry{
 				Name: compare,
 				Arguments: []argSpec{
 					{Types: []jpType{jpString}},
@@ -37,7 +37,7 @@ func TestFunctionEntry_String(t *testing.T) {
 		want: "",
 	}, {
 		fields: fields{
-			FunctionEntry: gojmespath.FunctionEntry{
+			FunctionEntry: functions.FunctionEntry{
 				Name: compare,
 				Arguments: []argSpec{
 					{Types: []jpType{jpString}},
