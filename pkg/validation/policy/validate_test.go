@@ -1693,7 +1693,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Mutation: kyverno.Mutation{
+						Mutation: &kyverno.Mutation{
 							RawPatchStrategicMerge: &apiextv1.JSON{Raw: []byte(`"metadata": {"labels": {"app-name": "{{request.object.metadata.name}}"}}`)},
 						},
 					},

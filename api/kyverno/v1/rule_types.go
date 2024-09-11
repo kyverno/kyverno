@@ -89,7 +89,7 @@ type Rule struct {
 
 	// Mutation is used to modify matching resources.
 	// +optional
-	Mutation Mutation `json:"mutate,omitempty"`
+	Mutation *Mutation `json:"mutate,omitempty"`
 
 	// Validation is used to validate matching resources.
 	// +optional
@@ -113,7 +113,7 @@ type Rule struct {
 
 // HasMutate checks for mutate rule
 func (r *Rule) HasMutate() bool {
-	return !datautils.DeepEqual(r.Mutation, Mutation{})
+	return r.Mutation != nil && !datautils.DeepEqual(*r.Mutation, Mutation{})
 }
 
 // HasMutateStandard checks for standard admission mutate rule
@@ -121,12 +121,12 @@ func (r *Rule) HasMutateStandard() bool {
 	if r.HasMutateExisting() {
 		return false
 	}
-	return !datautils.DeepEqual(r.Mutation, Mutation{})
+	return r.HasMutate()
 }
 
 // HasMutateExisting checks if the mutate rule applies to existing resources
 func (r *Rule) HasMutateExisting() bool {
-	return r.Mutation.Targets != nil
+	return r.Mutation != nil && r.Mutation.Targets != nil
 }
 
 // HasVerifyImages checks for verifyImages rule
