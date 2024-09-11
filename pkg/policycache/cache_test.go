@@ -894,7 +894,8 @@ func Test_Ns_All(t *testing.T) {
 	//add
 	setPolicy(t, pCache, policy, finder)
 	nspace := policy.GetNamespace()
-	for _, rule := range autogen.ComputeRules(policy, "") {
+	rules := autogen.ComputeRules(policy, "")
+	for _, rule := range rules {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)

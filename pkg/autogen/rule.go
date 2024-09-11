@@ -45,7 +45,7 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if rule.ExcludeResources != nil && !datautils.DeepEqual(*rule.ExcludeResources, kyvernov1.MatchResources{}) {
 		jsonFriendlyStruct.ExcludeResources = rule.ExcludeResources.DeepCopy()
 	}
-	if !datautils.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
+	if rule.Mutation != nil && !datautils.DeepEqual(*rule.Mutation, kyvernov1.Mutation{}) {
 		jsonFriendlyStruct.Mutation = rule.Mutation.DeepCopy()
 	}
 	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
@@ -95,39 +95,41 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			}
 		}
 	}
-	if target := rule.Mutation.GetPatchStrategicMerge(); target != nil {
-		newMutation := kyvernov1.Mutation{}
-		newMutation.SetPatchStrategicMerge(
-			map[string]interface{}{
-				"spec": map[string]interface{}{
-					tplKey: target,
-				},
-			},
-		)
-		rule.Mutation = newMutation
-		return rule
-	}
-	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
-		var newForEachMutation []kyvernov1.ForEachMutation
-		for _, foreach := range rule.Mutation.ForEachMutation {
-			temp := kyvernov1.ForEachMutation{
-				List:             foreach.List,
-				Context:          foreach.Context,
-				AnyAllConditions: foreach.AnyAllConditions,
-			}
-			temp.SetPatchStrategicMerge(
+	if rule.Mutation != nil {
+		if target := rule.Mutation.GetPatchStrategicMerge(); target != nil {
+			newMutation := &kyvernov1.Mutation{}
+			newMutation.SetPatchStrategicMerge(
 				map[string]interface{}{
 					"spec": map[string]interface{}{
-						tplKey: foreach.GetPatchStrategicMerge(),
+						tplKey: target,
 					},
 				},
 			)
-			newForEachMutation = append(newForEachMutation, temp)
+			rule.Mutation = newMutation
+			return rule
 		}
-		rule.Mutation = kyvernov1.Mutation{
-			ForEachMutation: newForEachMutation,
+		if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
+			var newForEachMutation []kyvernov1.ForEachMutation
+			for _, foreach := range rule.Mutation.ForEachMutation {
+				temp := kyvernov1.ForEachMutation{
+					List:             foreach.List,
+					Context:          foreach.Context,
+					AnyAllConditions: foreach.AnyAllConditions,
+				}
+				temp.SetPatchStrategicMerge(
+					map[string]interface{}{
+						"spec": map[string]interface{}{
+							tplKey: foreach.GetPatchStrategicMerge(),
+						},
+					},
+				)
+				newForEachMutation = append(newForEachMutation, temp)
+			}
+			rule.Mutation = &kyvernov1.Mutation{
+				ForEachMutation: newForEachMutation,
+			}
+			return rule
 		}
-		return rule
 	}
 	if target := rule.Validation.GetPattern(); target != nil {
 		newValidate := kyvernov1.Validation{

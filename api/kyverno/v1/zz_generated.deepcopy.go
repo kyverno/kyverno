@@ -1425,7 +1425,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		*out = make([]v1beta1.MatchCondition, len(*in))
 		copy(*out, *in)
 	}
-	in.Mutation.DeepCopyInto(&out.Mutation)
+	if in.Mutation != nil {
+		in, out := &in.Mutation, &out.Mutation
+		*out = new(Mutation)
+		(*in).DeepCopyInto(*out)
+	}
 	in.Validation.DeepCopyInto(&out.Validation)
 	if in.Generation != nil {
 		in, out := &in.Generation, &out.Generation
