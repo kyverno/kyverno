@@ -35,7 +35,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 
 	// Mutate
 	if rule.HasMutate() {
-		checker = mutate.NewMutateFactory(rule.Mutation, client, mock, backgroundSA)
+		checker = mutate.NewMutateFactory(*rule.Mutation, client, mock, backgroundSA)
 		if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].mutate.%s.: %v", idx, path, err)
 		} else if w != nil {

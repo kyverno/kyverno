@@ -26,7 +26,7 @@ func ParseRuleType(rule kyvernov1.Rule) RuleType {
 	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		return Validate
 	}
-	if !datautils.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
+	if rule.Mutation != nil && !datautils.DeepEqual(*rule.Mutation, kyvernov1.Mutation{}) {
 		return Mutate
 	}
 	if rule.Generation != nil && !datautils.DeepEqual(*rule.Generation, kyvernov1.Generation{}) {
