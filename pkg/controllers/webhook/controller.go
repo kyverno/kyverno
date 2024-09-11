@@ -249,8 +249,10 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	if err := c.webhookCleanupSetup(ctx, logger); err != nil {
-		logger.Error(err, "failed to setup webhook cleanup")
+	if c.autoDeleteWebhooks {
+		if err := c.webhookCleanupSetup(ctx, logger); err != nil {
+			logger.Error(err, "failed to setup webhook cleanup")
+		}
 	}
 	// add our known webhooks to the queue
 	c.enqueueAll()
