@@ -93,7 +93,7 @@ type Rule struct {
 
 	// Validation is used to validate matching resources.
 	// +optional
-	Validation Validation `json:"validate,omitempty"`
+	Validation *Validation `json:"validate,omitempty"`
 
 	// Generation is used to create new resources.
 	// +optional
@@ -164,35 +164,33 @@ func (r *Rule) HasVerifyImageChecks() bool {
 
 // HasVerifyManifests checks for validate.manifests rule
 func (r Rule) HasVerifyManifests() bool {
-	return r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
+	return r.Validation != nil && r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
 }
 
 // HasValidatePodSecurity checks for validate.podSecurity rule
 func (r Rule) HasValidatePodSecurity() bool {
-	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &PodSecurity{})
+	return r.Validation != nil && r.Validation.PodSecurity != nil && !datautils.DeepEqual(*r.Validation.PodSecurity, PodSecurity{})
 }
 
 // HasValidateCEL checks for validate.cel rule
 func (r *Rule) HasValidateCEL() bool {
-	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &CEL{})
+	return r.Validation != nil && r.Validation.CEL != nil && !datautils.DeepEqual(*r.Validation.CEL, CEL{})
 }
 
 // HasValidateAssert checks for validate.assert rule
 func (r *Rule) HasValidateAssert() bool {
-	return !datautils.DeepEqual(r.Validation.Assert, AssertionTree{})
+	return r.Validation != nil && !datautils.DeepEqual(r.Validation.Assert, AssertionTree{})
 }
 
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
-	return !datautils.DeepEqual(r.Validation, Validation{})
+	return r.Validation != nil && !datautils.DeepEqual(*r.Validation, Validation{})
 }
 
 // HasValidateAllowExistingViolations() checks for allowExisitingViolations under validate rule
 func (r *Rule) HasValidateAllowExistingViolations() bool {
-	var allowExisitingViolations bool
-	if r.Validation.AllowExistingViolations == nil {
-		allowExisitingViolations = true
-	} else {
+	allowExisitingViolations := true
+	if r.Validation != nil && r.Validation.AllowExistingViolations != nil {
 		allowExisitingViolations = *r.Validation.AllowExistingViolations
 	}
 	return allowExisitingViolations
@@ -204,7 +202,7 @@ func (r *Rule) HasGenerate() bool {
 }
 
 func (r *Rule) IsPodSecurity() bool {
-	return r.Validation.PodSecurity != nil
+	return r.Validation != nil && r.Validation.PodSecurity != nil
 }
 
 func (r *Rule) GetSyncAndOrphanDownstream() (sync bool, orphanDownstream bool) {
@@ -243,7 +241,6 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 	} else if count != 1 {
 		errs = append(errs, field.Invalid(path, r, fmt.Sprintf("Multiple operations defined in the rule '%s', only one operation (mutate,validate,generate,verifyImages) is allowed per rule", r.Name)))
 	}
-
 	if r.ImageExtractors != nil && !r.HasVerifyImages() {
 		errs = append(errs, field.Invalid(path.Child("imageExtractors"), r, fmt.Sprintf("Invalid rule spec for rule '%s', imageExtractors can only be defined for verifyImages rule", r.Name)))
 	}

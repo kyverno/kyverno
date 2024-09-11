@@ -32,7 +32,7 @@ func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock boo
 
 	return &Validate{
 		rule:           rule,
-		validationRule: &rule.Validation,
+		validationRule: rule.Validation,
 		authChecker:    authChecker,
 	}
 }
@@ -40,7 +40,7 @@ func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock boo
 func NewMockValidateFactory(rule *kyvernov1.Rule) *Validate {
 	return &Validate{
 		rule:           rule,
-		validationRule: &rule.Validation,
+		validationRule: rule.Validation,
 		authChecker:    fake.NewFakeAuth(),
 	}
 }

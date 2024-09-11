@@ -233,7 +233,7 @@ func createRule(f *fuzz.ConsumeFuzzer) (*kyvernov1.Rule, error) {
 		if err != nil {
 			return rule, err
 		}
-		rule.Validation = *v
+		rule.Validation = v
 	}
 
 	setGeneration, err := f.GetBool()
