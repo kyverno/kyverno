@@ -31,7 +31,7 @@ func Test_Validate_OverlayPattern_Nil_PatternAnypattern(t *testing.T) {
 	var validation kyverno.Validation
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-	checker := NewMockValidateFactory(&kyverno.Rule{Validation: validation})
+	checker := NewMockValidateFactory(&kyverno.Rule{Validation: &validation})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
@@ -69,7 +69,7 @@ func Test_Validate_OverlayPattern_Exist_PatternAnypattern(t *testing.T) {
 	var validation kyverno.Validation
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-	checker := NewMockValidateFactory(&kyverno.Rule{Validation: validation})
+	checker := NewMockValidateFactory(&kyverno.Rule{Validation: &validation})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
@@ -107,7 +107,7 @@ func Test_Validate_OverlayPattern_Valid(t *testing.T) {
 	var validation kyverno.Validation
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-	checker := NewMockValidateFactory(&kyverno.Rule{Validation: validation})
+	checker := NewMockValidateFactory(&kyverno.Rule{Validation: &validation})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.NilError(t, err)
 	}
@@ -140,7 +140,7 @@ func Test_Validate_ExistingAnchor_AnchorOnMap(t *testing.T) {
 	var validation kyverno.Validation
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-	checker := NewMockValidateFactory(&kyverno.Rule{Validation: validation})
+	checker := NewMockValidateFactory(&kyverno.Rule{Validation: &validation})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
@@ -170,7 +170,7 @@ func Test_Validate_ExistingAnchor_AnchorOnString(t *testing.T) {
 	var validation kyverno.Validation
 	err := json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-	checker := NewMockValidateFactory(&kyverno.Rule{Validation: validation})
+	checker := NewMockValidateFactory(&kyverno.Rule{Validation: &validation})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
@@ -203,7 +203,7 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 
 	err = json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-	checker := NewMockValidateFactory(&kyverno.Rule{Validation: validation})
+	checker := NewMockValidateFactory(&kyverno.Rule{Validation: &validation})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
@@ -228,7 +228,7 @@ func Test_Validate_ExistingAnchor_Valid(t *testing.T) {
 	 }	`)
 	err = json.Unmarshal(rawValidation, &validation)
 	assert.NilError(t, err)
-	checker = NewMockValidateFactory(&kyverno.Rule{Validation: validation})
+	checker = NewMockValidateFactory(&kyverno.Rule{Validation: &validation})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
@@ -269,7 +269,7 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 	err = json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	checker := NewMockValidateFactory(&kyverno.Rule{Validation: validate})
+	checker := NewMockValidateFactory(&kyverno.Rule{Validation: &validate})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.NilError(t, err)
 	}
@@ -291,7 +291,7 @@ func Test_Validate_Validate_ValidAnchor(t *testing.T) {
 	err = json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	checker = NewMockValidateFactory(&kyverno.Rule{Validation: validate})
+	checker = NewMockValidateFactory(&kyverno.Rule{Validation: &validate})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.NilError(t, err)
 	}
@@ -318,7 +318,7 @@ func Test_Validate_Validate_Mismatched(t *testing.T) {
 	var validate kyverno.Validation
 	err := json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
-	checker := NewMockValidateFactory(&kyverno.Rule{Validation: validate})
+	checker := NewMockValidateFactory(&kyverno.Rule{Validation: &validate})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
@@ -348,7 +348,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 
 	err = json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
-	checker := NewMockValidateFactory(&kyverno.Rule{Validation: validate})
+	checker := NewMockValidateFactory(&kyverno.Rule{Validation: &validate})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}
@@ -374,7 +374,7 @@ func Test_Validate_Validate_Unsupported(t *testing.T) {
 	err = json.Unmarshal(rawValidate, &validate)
 	assert.NilError(t, err)
 
-	checker = NewMockValidateFactory(&kyverno.Rule{Validation: validate})
+	checker = NewMockValidateFactory(&kyverno.Rule{Validation: &validate})
 	if _, _, err := checker.Validate(context.TODO(), nil); err != nil {
 		assert.Assert(t, err != nil)
 	}

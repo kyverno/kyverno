@@ -37,7 +37,7 @@ func Test_PolicyValidationWithInvalidVariable(t *testing.T) {
 							},
 						},
 					},
-					Validation: kyverno.Validation{
+					Validation: &kyverno.Validation{
 						Message: "{{ bar }} world!",
 						Deny:    &kyverno.Deny{},
 					},
@@ -1661,7 +1661,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -1693,7 +1693,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Mutation: kyverno.Mutation{
+						Mutation: &kyverno.Mutation{
 							RawPatchStrategicMerge: &apiextv1.JSON{Raw: []byte(`"metadata": {"labels": {"app-name": "{{request.object.metadata.name}}"}}`)},
 						},
 					},
@@ -1724,7 +1724,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -1756,7 +1756,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -1788,7 +1788,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -1820,7 +1820,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -1852,7 +1852,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -1883,7 +1883,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -1916,7 +1916,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -1948,7 +1948,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -1980,7 +1980,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -2011,7 +2011,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
@@ -2041,7 +2041,7 @@ func Test_ValidateNamespace(t *testing.T) {
 					{
 						Name:           "require-labels",
 						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
-						Validation: kyverno.Validation{
+						Validation: &kyverno.Validation{
 							Message:    "label 'app.kubernetes.io/name' is required",
 							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
 						},
