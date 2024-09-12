@@ -83,6 +83,8 @@ func verifyBundles(bundles []*Bundle, desc *v1.Descriptor, trustedRoot *root.Tru
 		result, err := verifier.Verify(bundle.ProtoBundle, policy)
 		if err == nil {
 			verificationResults = append(verificationResults, &VerificationResult{Bundle: bundle, Result: result, Desc: desc})
+		} else {
+			logger.V(4).Info("failed to verify sigstore bundle", "err", err.Error(), "bundle", bundle)
 		}
 	}
 
