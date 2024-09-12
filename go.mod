@@ -1,6 +1,7 @@
 module github.com/kyverno/kyverno
 
 go 1.22.6
+toolchain go1.23.1
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -89,7 +90,7 @@ require (
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20240827210056-ce13d95db263
 	sigs.k8s.io/kustomize/api v0.17.3
 	sigs.k8s.io/kustomize/kyaml v0.17.2
-	sigs.k8s.io/release-utils v0.8.4
+	sigs.k8s.io/release-utils v0.8.5
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
 )
