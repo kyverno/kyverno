@@ -87,6 +87,9 @@
   {{- with .root -}}
     {{- $flags = append $flags (print "--tufRoot=" .) -}}
   {{- end -}}
+  {{- with .rootRaw -}}
+    {{- $flags = append $flags (print "--tufRootRaw=" .) -}}
+  {{- end -}}
 {{- end -}}
 {{- with $flags -}}
   {{- toYaml . -}}

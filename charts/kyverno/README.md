@@ -348,7 +348,8 @@ The chart values are organised per component.
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.enabled | bool | `false` | Enables the feature |
-| features.tuf.root | string | `nil` | Tuf root |
+| features.tuf.root | string | `nil` | Path to Tuf root |
+| features.tuf.rootRaw | string | `nil` | Raw Tuf root |
 | features.tuf.mirror | string | `nil` | Tuf mirror |
 
 ### Admission controller

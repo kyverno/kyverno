@@ -41,9 +41,10 @@ var (
 	exceptionNamespace     string
 	enableConfigMapCaching bool
 	// cosign
-	enableTUF bool
-	tufMirror string
-	tufRoot   string
+	enableTUF  bool
+	tufMirror  string
+	tufRoot    string
+	tufRootRaw string
 	// registry client
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
@@ -112,7 +113,8 @@ func initDeferredLoadingFlags() {
 func initCosignFlags() {
 	flag.BoolVar(&enableTUF, "enableTuf", false, "enable tuf for private sigstore deployments")
 	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification.")
-	flag.StringVar(&tufRoot, "tufRoot", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
+	flag.StringVar(&tufRoot, "tufRoot", "", "Path to alternate TUF root.json for sigstore (url or env). If left blank, public sigstore one is used for cosign verification.")
+	flag.StringVar(&tufRootRaw, "tufRootRaw", "", "The raw body of alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
 }
 
 func initRegistryClientFlags() {
