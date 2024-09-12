@@ -563,6 +563,26 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           chainsaw-tests: ${{ matrix.tests }}
 
+  sigstore-custom-tuf:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).sigstore-custom-tuf }}
+    needs: [ prepare-images, define-matrix ]
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: ./.github/actions/run-tests
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+          kyverno-configs: standard,sigstore-custom-tuf
+          token: ${{ secrets.GITHUB_TOKEN }}
+          chainsaw-tests: ${{ matrix.tests }}
+
   custom-sigstore:
     runs-on: ubuntu-latest
     permissions:
