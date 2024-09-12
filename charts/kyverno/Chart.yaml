@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: v0.0.0
-appVersion: latest
+version: 3.3.0-beta.1
+appVersion: v1.13.0-beta.1
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -43,8 +43,8 @@ annotations:
       description: Deprecated configuration `features.reports.chunkSize` was removed
 dependencies:
   - name: grafana
-    version: v0.0.0
+    version: 3.3.0-beta.1
     condition: grafana.enabled
   - name: crds
-    version: v0.0.0
+    version: 3.3.0-beta.1
     condition: crds.install
