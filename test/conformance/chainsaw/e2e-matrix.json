@@ -106,6 +106,9 @@
   "reports": [
     "^reports$"
   ],
+  "sigstore-custom-tuf": [
+    "^sigstore-custom-tuf$"
+  ],
   "ttl": [
     "^ttl$"
   ],
