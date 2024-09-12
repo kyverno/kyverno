@@ -14,7 +14,7 @@ func setupSigstoreTUF(ctx context.Context, logger logr.Logger) {
 		return
 	}
 
-	logger = logger.WithName("sigstore-tuf").WithValues("tufroot", tufRoot, "tufmirror", tufMirror)
+	logger = logger.WithName("sigstore-tuf").WithValues("tufRoot", tufRoot, "tufRootRaw", tufRootRaw, "tufMirror", tufMirror)
 	logger.Info("setup tuf client for sigstore...")
 	var tufRootBytes []byte
 	var err error
@@ -23,7 +23,10 @@ func setupSigstoreTUF(ctx context.Context, logger logr.Logger) {
 		if err != nil {
 			checkError(logger, err, fmt.Sprintf("Failed to read alternate TUF root file %s : %v", tufRoot, err))
 		}
+	} else if tufRootRaw != "" {
+		tufRootBytes = []byte(tufRootRaw)
 	}
+
 	logger.Info("Initializing TUF root")
 	if err := tuf.Initialize(ctx, tufMirror, tufRootBytes); err != nil {
 		checkError(logger, err, fmt.Sprintf("Failed to initialize TUF client from %s : %v", tufRoot, err))
