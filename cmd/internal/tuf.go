@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -24,7 +25,11 @@ func setupSigstoreTUF(ctx context.Context, logger logr.Logger) {
 			checkError(logger, err, fmt.Sprintf("Failed to read alternate TUF root file %s : %v", tufRoot, err))
 		}
 	} else if tufRootRaw != "" {
-		tufRootBytes = []byte(tufRootRaw)
+		root, err := base64.StdEncoding.DecodeString(tufRootRaw)
+		if err != nil {
+			checkError(logger, err, fmt.Sprintf("Failed to base64 decode TUF root  %s : %v", tufRootRaw, err))
+		}
+		tufRootBytes = root
 	}
 
 	logger.Info("Initializing TUF root")
