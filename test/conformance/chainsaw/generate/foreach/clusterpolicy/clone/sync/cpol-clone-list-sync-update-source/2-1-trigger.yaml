@@ -2,12 +2,12 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: foreach-cpol-clone-list-sync-delete-source-trigger-ns
+  name: foreach-cpol-clone-list-sync-update-source-trigger-ns
 ---
 kind: ConfigMap
 apiVersion: v1
 metadata:
   name: default-deny
-  namespace: foreach-cpol-clone-list-sync-delete-source-trigger-ns
+  namespace: foreach-cpol-clone-list-sync-update-source-trigger-ns
 data:
-  namespaces: foreach-cpol-clone-list-sync-delete-source-target-ns-1,foreach-cpol-clone-list-sync-delete-source-target-ns-2
+  namespaces: foreach-cpol-clone-list-sync-update-source-target-ns-1,foreach-cpol-clone-list-sync-update-source-target-ns-2

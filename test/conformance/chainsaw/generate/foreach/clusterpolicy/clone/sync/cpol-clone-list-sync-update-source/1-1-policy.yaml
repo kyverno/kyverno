@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: foreach-cpol-clone-list-sync-delete-source
+  name: foreach-cpol-clone-list-sync-update-source
 spec:
   rules:
   - match:
@@ -33,12 +33,12 @@ spec:
             - key: '{{ ns }}'
               operator: AnyIn
               value:
-              - foreach-cpol-clone-list-sync-delete-source-target-ns-1
+              - foreach-cpol-clone-list-sync-update-source-target-ns-1
           namespace: '{{ ns }}'
           cloneList:
             kinds:
             - v1/Secret
-            namespace: foreach-cpol-clone-list-sync-delete-source-existing-ns
+            namespace: foreach-cpol-clone-list-sync-update-source-existing-ns
             selector:
               matchLabels:
                 allowedToBeCloned: "true"

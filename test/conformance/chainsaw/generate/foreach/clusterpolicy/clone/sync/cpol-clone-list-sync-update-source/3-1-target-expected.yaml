@@ -7,5 +7,5 @@ metadata:
     allowedToBeCloned: "true"
     location: europe
   name: mysecret-1
-  namespace: foreach-cpol-clone-list-sync-delete-source-target-ns-1
+  namespace: foreach-cpol-clone-list-sync-update-source-target-ns-1
 type: Opaque

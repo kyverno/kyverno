@@ -20,7 +20,7 @@ rules:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: foreach-cpol-clone-list-sync-delete-source-existing-ns
+  name: foreach-cpol-clone-list-sync-update-source-existing-ns
 ---
 apiVersion: v1
 data:
@@ -31,7 +31,7 @@ metadata:
     allowedToBeCloned: "true"
     location: europe
   name: mysecret-1
-  namespace: foreach-cpol-clone-list-sync-delete-source-existing-ns
+  namespace: foreach-cpol-clone-list-sync-update-source-existing-ns
 type: Opaque
 ---
 apiVersion: v1
@@ -43,16 +43,16 @@ metadata:
     allowedToBeCloned: "false"
     location: europe
   name: mysecret-2
-  namespace: foreach-cpol-clone-list-sync-delete-source-existing-ns
+  namespace: foreach-cpol-clone-list-sync-update-source-existing-ns
 type: Opaque
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: foreach-cpol-clone-list-sync-delete-source-target-ns-1
+  name: foreach-cpol-clone-list-sync-update-source-target-ns-1
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: foreach-cpol-clone-list-sync-delete-source-target-ns-2
+  name: foreach-cpol-clone-list-sync-update-source-target-ns-2
 
