@@ -146,8 +146,8 @@ github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFI
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be/go.mod h1:ySMOLuWl6zY27l47sB3qLNK6tF2fkHG55UZxx8oIVo4=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
-github.com/aptible/supercronic v0.2.30 h1:NlKD4fU9HM3MsT4NqMJsTt4dpuJRSoZnPK3cmZwvp6U=
-github.com/aptible/supercronic v0.2.30/go.mod h1:4mywElPusGmnm0H+F2QdVj5qbh/U43qKN+BkNkTYIcs=
+github.com/aptible/supercronic v0.2.32 h1:FcSDgVWVoAY0C2tjbeFcvs1PGh4ZzsDXV3/FW4QuE/s=
+github.com/aptible/supercronic v0.2.32/go.mod h1:J8BM7d73Y5Mmm2ILW1rMh3MndDPiFXpBkmL273elYpw=
 github.com/aquilax/truncate v1.0.0 h1:UgIGS8U/aZ4JyOJ2h3xcF5cSQ06+gGBnjxH2RUHJe0U=
 github.com/aquilax/truncate v1.0.0/go.mod h1:BeMESIDMlvlS3bmg4BVvBbbZUNwWtS8uzYPAKXwwhLw=
 github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0 h1:jfIu9sQUG6Ig+0+Ap1h4unLjW6YQJpKZVmUzxsD4E/Q=
