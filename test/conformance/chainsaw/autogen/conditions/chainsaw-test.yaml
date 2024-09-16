@@ -8,3 +8,9 @@ spec:
   steps:
   - use:
       template: ../../_step-templates/apply-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+        - name: assertFile
+          value: policy-assert.yaml
