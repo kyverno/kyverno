@@ -57,6 +57,7 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		informer: metainformer.Informer(),
 		logger:   logger,
 		metrics:  newTTLMetrics(logger),
+		gvr:      gvr,
 	}
 	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
 	registration, err := controllerutils.AddEventHandlers(
@@ -144,7 +145,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		attribute.String("resource_namespace", metaObj.GetNamespace()),
 		attribute.String("resource_group", c.gvr.Group),
 		attribute.String("resource_version", c.gvr.Version),
-		attribute.String("resource", c.gvr.Resource),
+		attribute.String("resource_resource", c.gvr.Resource),
 	}
 	// if the object is being deleted, return early
 	if metaObj.GetDeletionTimestamp() != nil {
