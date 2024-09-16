@@ -1,10 +1,8 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: StepTemplate
 metadata:
-  name: apply-policy
+  name: create-policy
 spec:
   try:
-  - apply:
+  - create:
       file: ($file)
-  - assert:
-      file: ($assertFile)
