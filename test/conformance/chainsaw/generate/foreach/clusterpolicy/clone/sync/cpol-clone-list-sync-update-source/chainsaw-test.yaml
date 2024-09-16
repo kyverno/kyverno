@@ -28,4 +28,4 @@ spec:
     - apply:
         file: 4-1-update-source.yaml
     - assert:
-        file: 3-1-target-expected.yaml
+        file: 4-2-updated-target.yaml
