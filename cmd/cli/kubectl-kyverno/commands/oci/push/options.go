@@ -41,7 +41,7 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	}
 	for _, policy := range results.Policies {
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		if _, err := policyvalidation.Validate(policy, nil, nil, nil, true, sa, sa); err != nil {
+		if _, err := policyvalidation.Validate(policy, nil, nil, true, sa, sa); err != nil {
 			return fmt.Errorf("validating policy %s: %v", policy.GetName(), err)
 		}
 	}

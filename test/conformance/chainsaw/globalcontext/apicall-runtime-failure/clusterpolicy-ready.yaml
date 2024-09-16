@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: cpol-not-ready
+  name: cpol-apicall-runtime-failure
 status:
   conditions:
   - reason: Succeeded

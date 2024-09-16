@@ -14,6 +14,6 @@ func FuzzValidatePolicy(f *testing.F) {
 		p := &kyverno.ClusterPolicy{}
 		ff.GenerateStruct(p)
 
-		Validate(p, nil, nil, nil, true, "admin", "admin")
+		Validate(p, nil, nil, true, "admin", "admin")
 	})
 }

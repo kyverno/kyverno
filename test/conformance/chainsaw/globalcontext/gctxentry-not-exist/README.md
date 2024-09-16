@@ -1,10 +1,10 @@
 ## Description
 
-This test verifies that policies cannot be created if referenced Global Context Entries don't exist.
+This test verifies that Global Context Entry refereces that don't exist are handled correctly.
 
 ## Expected Behavior
 
-The clusterpolicy ` cpol-gctxentry-not-exist` should not be created because the globalcontextentry does not exist.
+`new-deployment` shouldn't be created.
 
 ## Reference Issues
 

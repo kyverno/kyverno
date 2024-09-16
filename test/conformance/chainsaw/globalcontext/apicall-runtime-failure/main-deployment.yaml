@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: new-deployment
-  namespace: test-globalcontext-not-ready
+  name: main-deployment
+  namespace: test-globalcontext-apicall-runtime-failure
   labels:
-    app: new-deployment
+    app: main-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: new-deployment
+      app: main-deployment
   template:
     metadata:
       labels:
-        app: new-deployment
+        app: main-deployment
     spec:
       containers:
         - name: pause
