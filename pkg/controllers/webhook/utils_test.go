@@ -35,7 +35,6 @@ var policy = `
         "name": "disallow-unsigned-images"
     },
     "spec": {
-        "validationFailureAction": "enforce",
         "background": false,
         "rules": [
             {
@@ -377,12 +376,6 @@ func TestBuildRulesWithOperations(t *testing.T) {
 			rules: map[groupVersionScope]sets.Set[string]{
 				groupVersionScope{
 					GroupVersion: corev1.SchemeGroupVersion,
-					scopeType:    admissionregistrationv1.AllScopes,
-				}: {
-					"namespaces": sets.Empty{},
-				},
-				groupVersionScope{
-					GroupVersion: corev1.SchemeGroupVersion,
 					scopeType:    admissionregistrationv1.NamespacedScope,
 				}: {
 					"pods":       sets.Empty{},
@@ -390,16 +383,24 @@ func TestBuildRulesWithOperations(t *testing.T) {
 				},
 			},
 			mapResourceToOpnType: map[string][]admissionregistrationv1.OperationType{
-				"Namespace": {},
-				"Pod":       {webhookCreate, webhookUpdate},
+				"Pod":        {webhookCreate, webhookUpdate},
+				"ConfigMaps": {webhookCreate},
 			},
 			expectedResult: []admissionregistrationv1.RuleWithOperations{
 				{
+					Operations: []admissionregistrationv1.OperationType{webhookCreate},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"configmaps"},
+						Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+					},
+				}, {
 					Operations: []admissionregistrationv1.OperationType{webhookCreate, webhookUpdate},
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{""},
 						APIVersions: []string{"v1"},
-						Resources:   []string{"configmaps", "pods", "pods/ephemeralcontainers"},
+						Resources:   []string{"pods", "pods/ephemeralcontainers"},
 						Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
 					},
 				},
