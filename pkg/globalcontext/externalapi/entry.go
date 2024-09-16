@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 )
@@ -71,19 +70,13 @@ func New(
 					Namespace:  gce.Namespace,
 					UID:        gce.UID,
 				}, err))
-
-				if shouldUpdateStatus {
-					if updateErr := updateStatus(ctx, gce.Name, kyvernoClient, false, entryevent.ReasonAPICallFailure); updateErr != nil {
-						logger.Error(updateErr, "failed to update status")
-					}
-				}
 			} else {
 				e.setData(data, nil)
 
 				logger.V(4).Info("api call success", "data", data)
 
 				if shouldUpdateStatus {
-					if updateErr := updateStatus(ctx, gce.Name, kyvernoClient, true, "APICallSuccess"); updateErr != nil {
+					if updateErr := updateStatus(ctx, gce, kyvernoClient); updateErr != nil {
 						logger.Error(updateErr, "failed to update status")
 					}
 				}
@@ -147,21 +140,13 @@ func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall
 	return result, retryError
 }
 
-func updateStatus(ctx context.Context, gceName string, kyvernoClient versioned.Interface, ready bool, reason string) error {
+func updateStatus(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry, kyvernoClient versioned.Interface) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		latestGCE, getErr := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().Get(ctx, gceName, metav1.GetOptions{})
-		if getErr != nil {
-			return getErr
-		}
-
-		_, updateErr := controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+		_, updateErr := controllerutils.UpdateStatus(ctx, gce, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
 			if latest == nil {
-				return fmt.Errorf("failed to update status: %s", latestGCE.Name)
+				return fmt.Errorf("failed to update status: %s", gce.GetName())
 			}
-			latest.Status.SetReady(ready, reason)
-			if ready {
-				latest.Status.UpdateRefreshTime()
-			}
+			latest.Status.UpdateRefreshTime()
 			return nil
 		})
 

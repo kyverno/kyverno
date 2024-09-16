@@ -25,9 +25,6 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: READY
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date

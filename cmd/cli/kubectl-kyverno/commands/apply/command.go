@@ -309,7 +309,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
+		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)

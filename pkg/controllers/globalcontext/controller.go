@@ -142,11 +142,9 @@ func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2alpha1.Gl
 			gce,
 			c.eventGen,
 			c.dclient.GetDynamicInterface(),
-			c.kyvernoClient,
 			logger,
 			gvr,
 			gce.Spec.KubernetesResource.Namespace,
-			c.shouldUpdateStatus,
 		)
 	}
 	return externalapi.New(

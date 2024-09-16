@@ -389,7 +389,7 @@ func Test_Validate_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.Nil(t, err)
 }
 
@@ -536,7 +536,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.NotNil(t, err)
 }
 
@@ -1009,7 +1009,7 @@ func Test_Validate_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.NotNil(t, err)
 }
 
@@ -1057,7 +1057,7 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.NotNil(t, err)
 }
 
@@ -1101,7 +1101,7 @@ func Test_Wildcards_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.NotNil(t, err)
 }
 
@@ -1150,7 +1150,7 @@ func Test_Namespced_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.NotNil(t, err)
 }
 
@@ -1197,7 +1197,7 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.Nil(t, err)
 }
 
@@ -1244,7 +1244,7 @@ func Test_deny_exec(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.Nil(t, err)
 }
 
@@ -1391,7 +1391,7 @@ func Test_SignatureAlgorithm(t *testing.T) {
 		err := json.Unmarshal(testcase.policy, &policy)
 		assert.Nil(t, err)
 
-		_, err = Validate(policy, nil, nil, nil, true, "", "")
+		_, err = Validate(policy, nil, nil, true, "", "")
 		if testcase.expectedOutput {
 			assert.Nil(t, err)
 		} else {
@@ -1440,7 +1440,7 @@ func Test_existing_resource_policy(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.Nil(t, err)
 }
 
@@ -1495,7 +1495,7 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	res, err := Validate(policy, nil, nil, nil, true, "", "")
+	res, err := Validate(policy, nil, nil, true, "", "")
 	assert.Nil(t, err)
 	assert.Nil(t, res)
 }
@@ -1551,7 +1551,7 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	warnings, err := Validate(policy, nil, nil, nil, true, "", "")
+	warnings, err := Validate(policy, nil, nil, true, "", "")
 	assert.NotNil(t, warnings)
 	assert.Nil(t, err)
 }
@@ -1607,7 +1607,7 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	warnings, err := Validate(policy, nil, nil, nil, true, "", "")
+	warnings, err := Validate(policy, nil, nil, true, "", "")
 	assert.Nil(t, warnings)
 	assert.Nil(t, err)
 }
@@ -2148,7 +2148,7 @@ func Test_Any_wildcard_policy(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
-	_, err = Validate(policy, nil, nil, nil, true, "", "")
+	_, err = Validate(policy, nil, nil, true, "", "")
 	assert.NotNil(t, err)
 }
 
@@ -2205,7 +2205,7 @@ func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
 
 	expectedErr := fmt.Errorf("path: spec.rules[0]: jmespath may not be used in an image extractor when mutating digests with verify images")
 
-	_, actualErr := Validate(policy, nil, nil, nil, true, "", "")
+	_, actualErr := Validate(policy, nil, nil, true, "", "")
 	assert.Equal(t, expectedErr.Error(), actualErr.Error())
 }
 

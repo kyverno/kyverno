@@ -5,17 +5,20 @@ metadata:
   name: gctxentry-not-exist
 spec:
   steps:
-  - name: setup
+  - name: scenario
     try:
     - apply:
         file: namespace.yaml
     - apply:
         file: main-deployment.yaml
-  - name: negative
-    try:
     - apply:
         file: clusterpolicy.yaml
     - sleep:
         duration: 3s
     - assert:
-        file: clusterpolicy-assert.yaml
+        file: clusterpolicy-ready.yaml
+    - apply:
+        expect:
+            - check:
+                ($error != null): true
+        file: new-deployment.yaml

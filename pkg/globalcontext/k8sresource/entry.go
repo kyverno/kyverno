@@ -6,11 +6,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
-	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -28,17 +26,14 @@ type entry struct {
 	eventGen event.Interface
 }
 
-// TODO: Handle Kyverno Pod Ready State
 func New(
 	ctx context.Context,
 	gce *kyvernov2alpha1.GlobalContextEntry,
 	eventGen event.Interface,
 	client dynamic.Interface,
-	kyvernoClient versioned.Interface,
 	logger logr.Logger,
 	gvr schema.GroupVersionResource,
 	namespace string,
-	shouldUpdateStatus bool,
 ) (store.Entry, error) {
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
@@ -56,12 +51,6 @@ func New(
 		group.Wait()
 	}
 	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-		if shouldUpdateStatus {
-			if err := updateStatus(ctx, gce, kyvernoClient, false, "CacheSyncFailure"); err != nil {
-				logger.Error(err, "failed to update status")
-			}
-		}
-
 		eventErr := fmt.Errorf("failed to run informer for %s", gvr)
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,
@@ -84,12 +73,6 @@ func New(
 	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		stop()
 
-		if shouldUpdateStatus {
-			if err := updateStatus(ctx, gce, kyvernoClient, false, "CacheSyncFailure"); err != nil {
-				logger.Error(err, "failed to update status")
-			}
-		}
-
 		err := fmt.Errorf("failed to sync cache for %s", gvr)
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,
@@ -100,12 +83,6 @@ func New(
 		}, err))
 
 		return nil, err
-	}
-
-	if shouldUpdateStatus {
-		if err := updateStatus(ctx, gce, kyvernoClient, true, "CacheSyncSuccess"); err != nil {
-			logger.Error(err, "failed to update status")
-		}
 	}
 
 	return &entry{
@@ -132,15 +109,4 @@ func (e *entry) Get() (any, error) {
 
 func (e *entry) Stop() {
 	e.stop()
-}
-
-func updateStatus(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry, kyvernoClient versioned.Interface, ready bool, reason string) error {
-	_, err := controllerutils.UpdateStatus(ctx, gce, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
-		if latest == nil {
-			return fmt.Errorf("failed to update status: %s", gce.Name)
-		}
-		latest.Status.SetReady(ready, reason)
-		return nil
-	})
-	return err
 }

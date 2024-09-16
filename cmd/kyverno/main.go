@@ -151,7 +151,6 @@ func createrLeaderControllers(
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
-		kyvernoInformer.Kyverno().V2alpha1().GlobalContextEntries(),
 		serverIP,
 		int32(webhookTimeout), //nolint:gosec
 		servicePort,
@@ -542,7 +541,6 @@ func main() {
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
 			setup.KyvernoDynamicClient,
-			setup.KyvernoClient,
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
