@@ -609,10 +609,9 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@b2f61a8d0459a65c476ac802514d88e1612b3396 # v0.2.9
+        uses: kyverno/action-install-chainsaw@d1a61148c0437a66760d11d8575332305c2234cb # v0.2.10
         with:
           verify: true
-          release: v0.2.10-beta.1
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@8a33f8e91551bf910bb5cb7b5b70db87c1c2087a # v0.7.9
@@ -728,10 +727,9 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0  
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@b2f61a8d0459a65c476ac802514d88e1612b3396 # v0.2.9
+        uses: kyverno/action-install-chainsaw@d1a61148c0437a66760d11d8575332305c2234cb # v0.2.10
         with:
           verify: true
-          release: v0.2.10-beta.1
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
@@ -857,10 +855,9 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       - name: Install chainsaw
-        uses: kyverno/action-install-chainsaw@b2f61a8d0459a65c476ac802514d88e1612b3396 # v0.2.9
+        uses: kyverno/action-install-chainsaw@d1a61148c0437a66760d11d8575332305c2234cb # v0.2.10
         with:
           verify: true
-          release: v0.2.10-beta.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0

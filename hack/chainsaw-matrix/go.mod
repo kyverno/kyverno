@@ -2,7 +2,7 @@ module github.com/kyverno/kyverno/hack/chainsaw-matrix
 
 go 1.23.0
 
-require github.com/kyverno/chainsaw v0.2.10-beta.1
+require github.com/kyverno/chainsaw v0.2.10
 
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3 // indirect
