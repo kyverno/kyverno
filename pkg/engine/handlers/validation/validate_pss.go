@@ -148,7 +148,6 @@ func (h validatePssHandler) validateOldObject(
 // - "pod or container \"nginx\" must set securityContext.seccompProfile.type to \"RuntimeDefault\" or \"Localhost\""
 // - "container \"nginx\" must set securityContext.allowPrivilegeEscalation=false"
 
-
 func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
 	kind := resource.GetKind()
 
