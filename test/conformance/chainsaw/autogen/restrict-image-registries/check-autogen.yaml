@@ -2,24 +2,6 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: restrict-image-registries
-spec:
-  admission: true
-  background: true
-  rules:
-  - match:
-      any:
-      - resources:
-          kinds:
-          - Pod
-    name: validate-registries
-    skipBackgroundRequests: true
-    validate:
-      message: Images may only come from our internal enterprise registry.
-      pattern:
-        spec:
-          containers:
-          - image: registry.domain.com/*
-      failureAction: Enforce
 status:
   autogen:
     rules:
@@ -62,8 +44,3 @@ status:
                     containers:
                     - image: registry.domain.com/*
         failureAction: Enforce
-  conditions:
-  - message: Ready
-    reason: Succeeded
-    status: "True"
-    type: Ready
