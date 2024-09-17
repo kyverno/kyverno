@@ -3,6 +3,7 @@ package exceptions
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"slices"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/policy"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,9 +38,9 @@ type controller struct {
 	queue workqueue.TypedRateLimitingInterface[any]
 
 	// state
-	lock      sync.RWMutex
-	index     policyIndex
-	namespace string
+	lock       sync.RWMutex
+	index      policyIndex
+	namespaces policy.StringSlice
 }
 
 const (
@@ -51,7 +53,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
-	namespace string,
+	namespaces policy.StringSlice,
 ) *controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), queue); err != nil {
@@ -66,7 +68,7 @@ func NewController(
 		polexLister: polexInformer.Lister(),
 		queue:       queue,
 		index:       policyIndex{},
-		namespace:   namespace,
+		namespaces:  namespaces,
 	}
 	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addPolex, c.updatePolex, c.deletePolex); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -133,11 +135,18 @@ func (c *controller) getPolicy(namespace, name string) (kyvernov1.PolicyInterfac
 	}
 }
 
-func (c *controller) listExceptions() ([]*kyvernov2.PolicyException, error) {
-	if c.namespace == "" {
+func (c *controller) listExceptions() (exceptions []*kyvernov2.PolicyException, err error) {
+	if len(c.namespaces) == 0 {
 		return c.polexLister.List(labels.Everything())
 	}
-	return c.polexLister.PolicyExceptions(c.namespace).List(labels.Everything())
+	for _, ns := range c.namespaces {
+		exception, err := c.polexLister.PolicyExceptions(ns).List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		exceptions = append(exceptions, exception...)
+	}
+	return exceptions, nil
 }
 
 func (c *controller) buildRuleIndex(key string, policy kyvernov1.PolicyInterface) (ruleIndex, error) {

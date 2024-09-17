@@ -2,6 +2,7 @@ package exception
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -24,7 +25,7 @@ func Test_Validate(t *testing.T) {
 			args: args{
 				opts: ValidationOptions{
 					Enabled:   false,
-					Namespace: "kyverno",
+					Namespace: []string{"kyverno"},
 				},
 				resource: []byte(`{"apiVersion":"kyverno.io/v2","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"delta"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			},
@@ -35,7 +36,7 @@ func Test_Validate(t *testing.T) {
 			args: args{
 				opts: ValidationOptions{
 					Enabled:   true,
-					Namespace: "kyverno",
+					Namespace: []string{"kyverno"},
 				},
 				resource: []byte(`{"apiVersion":"kyverno.io/v2","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"delta"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			},
@@ -46,7 +47,7 @@ func Test_Validate(t *testing.T) {
 			args: args{
 				opts: ValidationOptions{
 					Enabled:   true,
-					Namespace: "kyverno",
+					Namespace: []string{"kyverno"},
 				},
 				resource: []byte(`{"apiVersion":"kyverno.io/v2","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"kyverno"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			},
@@ -57,7 +58,7 @@ func Test_Validate(t *testing.T) {
 			args: args{
 				opts: ValidationOptions{
 					Enabled:   true,
-					Namespace: "",
+					Namespace: []string{},
 				},
 				resource: []byte(`{"apiVersion":"kyverno.io/v2","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"kyverno"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			},
@@ -69,7 +70,10 @@ func Test_Validate(t *testing.T) {
 			polex, err := admissionutils.UnmarshalPolicyException(c.args.resource)
 			assert.NilError(t, err)
 			warnings, err := Validate(context.Background(), logging.GlobalLogger(), polex, c.args.opts)
+			fmt.Println(err)
 			assert.NilError(t, err)
+			fmt.Println(c.name)
+			fmt.Println(warnings)
 			assert.Assert(t, len(warnings) == c.want)
 		})
 	}

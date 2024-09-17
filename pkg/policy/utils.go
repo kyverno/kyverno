@@ -1,10 +1,38 @@
 package policy
 
 import (
+	"fmt"
+	"strings"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+type StringSlice []string
+
+func (s *StringSlice) String() string {
+	return fmt.Sprintf("%v", *s)
+}
+
+func (s *StringSlice) Set(value string) error {
+	// Split the input string by commas
+	parts := strings.Split(value, ",")
+	for _, part := range parts {
+		// Trim spaces and append to the slice
+		*s = append(*s, strings.TrimSpace(part))
+	}
+	return nil
+}
+
+func (s StringSlice) Contains(value string) bool {
+	for _, v := range s {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
 
 func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstructured, isNamespacedPolicy bool) bool {
 	if match.Name != "" && !wildcard.Match(match.Name, res.GetName()) {

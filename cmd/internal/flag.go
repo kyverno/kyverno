@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
@@ -38,7 +39,7 @@ var (
 	eventsRateLimitBurst int
 	// engine
 	enablePolicyException  bool
-	exceptionNamespace     string
+	exceptionNamespaces    policy.StringSlice
 	enableConfigMapCaching bool
 	// cosign
 	enableTUF  bool
@@ -98,7 +99,7 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 }
 
 func initPolicyExceptionsFlags() {
-	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flag.Var(&exceptionNamespaces, "exceptionNamespace", "Configure the namespace to accept PolicyExceptions. (comma-separated).")
 	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
 }
 
@@ -236,8 +237,8 @@ func ParseFlags(config Configuration, opts ...Option) {
 	flag.Parse()
 }
 
-func ExceptionNamespace() string {
-	return exceptionNamespace
+func ExceptionNamespace() policy.StringSlice {
+	return exceptionNamespaces
 }
 
 func PolicyExceptionEnabled() bool {

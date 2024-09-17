@@ -60,7 +60,7 @@ func NewExceptionSelector(
 	logger logr.Logger,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 ) (engineapi.PolicyExceptionSelector, Controller) {
-	logger = logger.WithName("exception-selector").WithValues("enablePolicyException", enablePolicyException, "exceptionNamespace", exceptionNamespace)
+	logger = logger.WithName("exception-selector").WithValues("enablePolicyException", enablePolicyException, "exceptionNamespace", exceptionNamespaces)
 	logger.Info("setup exception selector...")
 	if !enablePolicyException {
 		return nil, nil
@@ -69,7 +69,7 @@ func NewExceptionSelector(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V2().PolicyExceptions(),
-		exceptionNamespace,
+		exceptionNamespaces,
 	)
 	polexController := NewController(
 		exceptioncontroller.ControllerName,
