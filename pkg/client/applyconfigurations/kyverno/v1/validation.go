@@ -25,14 +25,15 @@ import (
 // ValidationApplyConfiguration represents an declarative configuration of the Validation type for use
 // with apply.
 type ValidationApplyConfiguration struct {
-	Message           *string                               `json:"message,omitempty"`
-	Manifests         *ManifestsApplyConfiguration          `json:"manifests,omitempty"`
-	ForEachValidation []ForEachValidationApplyConfiguration `json:"foreach,omitempty"`
-	RawPattern        *apiextensionsv1.JSON                 `json:"pattern,omitempty"`
-	RawAnyPattern     *apiextensionsv1.JSON                 `json:"anyPattern,omitempty"`
-	Deny              *DenyApplyConfiguration               `json:"deny,omitempty"`
-	PodSecurity       *PodSecurityApplyConfiguration        `json:"podSecurity,omitempty"`
-	CEL               *CELApplyConfiguration                `json:"cel,omitempty"`
+	Message                 *string                               `json:"message,omitempty"`
+	Manifests               *ManifestsApplyConfiguration          `json:"manifests,omitempty"`
+	ForEachValidation       []ForEachValidationApplyConfiguration `json:"foreach,omitempty"`
+	RawPattern              *apiextensionsv1.JSON                 `json:"pattern,omitempty"`
+	RawAnyPattern           *apiextensionsv1.JSON                 `json:"anyPattern,omitempty"`
+	Deny                    *DenyApplyConfiguration               `json:"deny,omitempty"`
+	PodSecurity             *PodSecurityApplyConfiguration        `json:"podSecurity,omitempty"`
+	CEL                     *CELApplyConfiguration                `json:"cel,omitempty"`
+	AllowExistingViolations *bool                                 `json:"allowExistingViolations,omitempty"`
 }
 
 // ValidationApplyConfiguration constructs an declarative configuration of the Validation type for use with
@@ -107,5 +108,13 @@ func (b *ValidationApplyConfiguration) WithPodSecurity(value *PodSecurityApplyCo
 // If called multiple times, the CEL field is set to the value of the last call.
 func (b *ValidationApplyConfiguration) WithCEL(value *CELApplyConfiguration) *ValidationApplyConfiguration {
 	b.CEL = value
+	return b
+}
+
+// WithAllowExistingViolations sets the AllowExistingViolations field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AllowExistingViolations field is set to the value of the last call.
+func (b *ValidationApplyConfiguration) WithAllowExistingViolations(value bool) *ValidationApplyConfiguration {
+	b.AllowExistingViolations = &value
 	return b
 }

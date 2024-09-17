@@ -138,6 +138,26 @@ func (c PolicyContext) Copy() engineapi.PolicyContext {
 	return c.copy()
 }
 
+func (c *PolicyContext) SetOperation(op kyvernov1.AdmissionOperation) error {
+	c.operation = op
+	if err := c.jsonContext.AddOperation(string(op)); err != nil {
+		return errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+	return nil
+}
+
+func (c *PolicyContext) SetResources(oldResource, newResource unstructured.Unstructured) error {
+	c.newResource = newResource
+	if err := c.jsonContext.AddResource(c.newResource.Object); err != nil {
+		return errors.Wrapf(err, "failed to replace object in the JSON context")
+	}
+	c.oldResource = oldResource
+	if err := c.jsonContext.AddOldResource(c.oldResource.Object); err != nil {
+		return errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+	return nil
+}
+
 // Mutators
 
 func (c *PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {

@@ -396,6 +396,11 @@ type Validation struct {
 	// CEL allows validation checks using the Common Expression Language (https://kubernetes.io/docs/reference/using-api/cel/).
 	// +optional
 	CEL *CEL `json:"cel,omitempty" yaml:"cel,omitempty"`
+
+	// AllowExistingViolations allows prexisting violating resources to continue violating a policy.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=true
+	AllowExistingViolations *bool `json:"allowExistingViolations,omitempty" yaml:"allowExistingViolations,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission

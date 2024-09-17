@@ -1,0 +1,34 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: check-old-object
+spec:
+  steps:
+    - name: step-01
+      try:
+        - create:
+            file: ns.yaml
+        - assert:
+            file: ns-ready.yaml
+    - name: step-02
+      try:
+        - create:
+            file: policy.yaml
+        - assert:
+            file: policy-ready.yaml
+    - name: step-03
+      try:
+        - update:
+            file: ns-update.yaml
+    - name: step-04
+      try:
+        - update:
+            file: ns-update-good.yaml
+    - name: step-05
+      try:
+        - update:
+            file: ns-update-bad.yaml
+            expect:
+            - check:
+                ($error != null): true

@@ -13,7 +13,7 @@ import (
 )
 
 // Evaluate Pod's specified containers only and get PSSCheckResults
-func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
+func EvaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
 	checks := policy.DefaultChecks()
 	var latestVersionCheck policy.VersionedCheck
 	for _, check := range checks {
@@ -84,7 +84,7 @@ func exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults []pssutils.
 	return newDefaultCheckResults
 }
 
-func parseVersion(rule *kyvernov1.PodSecurity) (*api.LevelVersion, error) {
+func ParseVersion(rule *kyvernov1.PodSecurity) (*api.LevelVersion, error) {
 	// Get pod security admission version
 	var apiVersion api.Version
 
@@ -106,12 +106,12 @@ func parseVersion(rule *kyvernov1.PodSecurity) (*api.LevelVersion, error) {
 
 // EvaluatePod applies PSS checks to the pod and exempts controls specified in the rule
 func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils.PSSCheckResult, error) {
-	levelVersion, err := parseVersion(rule)
+	levelVersion, err := ParseVersion(rule)
 	if err != nil {
 		return false, nil, err
 	}
 
-	defaultCheckResults := evaluatePSS(levelVersion, *pod)
+	defaultCheckResults := EvaluatePSS(levelVersion, *pod)
 
 	for _, exclude := range rule.Exclude {
 		spec, matching := GetPodWithMatchingContainers(exclude, pod)
@@ -119,12 +119,12 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils
 		switch {
 		// exclude pod level checks
 		case spec != nil:
-			excludeCheckResults := evaluatePSS(levelVersion, *spec)
+			excludeCheckResults := EvaluatePSS(levelVersion, *spec)
 			defaultCheckResults = exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults, exclude)
 
 		// exclude container level checks
 		default:
-			excludeCheckResults := evaluatePSS(levelVersion, *matching)
+			excludeCheckResults := EvaluatePSS(levelVersion, *matching)
 			defaultCheckResults = exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults, exclude)
 		}
 	}

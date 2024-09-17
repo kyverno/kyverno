@@ -152,6 +152,17 @@ func (r *Rule) HasValidate() bool {
 	return !datautils.DeepEqual(r.Validation, Validation{})
 }
 
+// HasValidateAllowExistingViolations() checks for allowExisitingViolations under validate rule
+func (r *Rule) HasValidateAllowExistingViolations() bool {
+	var allowExisitingViolations bool
+	if r.Validation.AllowExistingViolations == nil {
+		allowExisitingViolations = true
+	} else {
+		allowExisitingViolations = *r.Validation.AllowExistingViolations
+	}
+	return allowExisitingViolations
+}
+
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
 	return !datautils.DeepEqual(r.Generation, Generation{})
