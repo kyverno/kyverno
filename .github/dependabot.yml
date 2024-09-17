@@ -1,10 +1,20 @@
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: /
+    directories:
+      - /
+      - /hack/chainsaw-matrix/
+      - /hack/controller-gen/
     schedule:
       interval: daily
     rebase-strategy: disabled
+    groups:
+      kubernetes:
+        patterns:
+          - k8s.io/*
+      otel:
+        patterns:
+          - go.opentelemetry.io/*
   - package-ecosystem: github-actions
     directories:
       - /

@@ -2,7 +2,6 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: allowed-annotations
-spec: {}
 status:
   autogen:
     rules:
@@ -27,6 +26,7 @@ status:
               - fluxcd.io/cow
               - fluxcd.io/dog
         message: The only approved FluxCD annotations are `fluxcd.io/cow` and `fluxcd.io/dog`.
+        failureAction: Enforce
     - match:
         any:
         - resources:
@@ -43,7 +43,4 @@ status:
               - fluxcd.io/cow
               - fluxcd.io/dog
         message: The only approved FluxCD annotations are `fluxcd.io/cow` and `fluxcd.io/dog`.
-  conditions:
-  - reason: Succeeded
-    status: "True"
-    type: Ready
+        failureAction: Enforce

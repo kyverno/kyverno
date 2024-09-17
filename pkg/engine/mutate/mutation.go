@@ -40,8 +40,11 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	if err != nil {
 		return NewErrorResponse("variable substitution failed", err)
 	}
-	m := updatedRule.Mutation
-	patcher := NewPatcher(m.GetPatchStrategicMerge(), m.PatchesJSON6902)
+	mutation := updatedRule.Mutation
+	if mutation == nil {
+		return NewErrorResponse("empty mutate rule", nil)
+	}
+	patcher := NewPatcher(mutation.GetPatchStrategicMerge(), mutation.PatchesJSON6902)
 	if patcher == nil {
 		return NewErrorResponse("empty mutate rule", nil)
 	}

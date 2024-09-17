@@ -1,0 +1,6 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-pod-require-non-root-user
+status:
+  autogen: {}

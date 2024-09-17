@@ -696,8 +696,10 @@ features:
   tuf:
     # -- Enables the feature
     enabled: false
-    # -- (string) Tuf root
+    # -- (string) Path to Tuf root
     root: ~
+    # -- (string) Raw Tuf root
+    rootRaw: ~
     # -- (string) Tuf mirror
     mirror: ~
 

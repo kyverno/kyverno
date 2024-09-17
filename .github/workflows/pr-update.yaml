@@ -7,8 +7,8 @@ permissions: {}
 on:
   push:
     branches:
-      - 'main'
-      - 'release-*'
+      - main
+      - release-*
 
 jobs:
   autoupdate:

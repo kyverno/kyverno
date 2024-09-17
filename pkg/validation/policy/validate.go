@@ -236,7 +236,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 	for i, rule := range rules {
 		match := rule.MatchResources
-		exclude := rule.ExcludeResources
 		for j, value := range match.Any {
 			if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
 				return warnings, fmt.Errorf("path: spec.rules[%d].match.any[%d].kinds: %v", i, j, err)
@@ -247,34 +246,36 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				return warnings, fmt.Errorf("path: spec.rules[%d].match.all[%d].kinds: %v", i, j, err)
 			}
 		}
-		for j, value := range exclude.Any {
-			if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
-				return warnings, fmt.Errorf("path: spec.rules[%d].exclude.any[%d].kinds: %v", i, j, err)
-			}
-		}
-		for j, value := range exclude.All {
-			if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
-				return warnings, fmt.Errorf("path: spec.rules[%d].exclude.all[%d].kinds: %v", i, j, err)
-			}
-		}
-
 		if err := validateKinds(rule.MatchResources.Kinds, rule, mock, background, client); err != nil {
 			return warnings, fmt.Errorf("path: spec.rules[%d].match.kinds: %v", i, err)
 		}
-
-		if err := validateKinds(rule.ExcludeResources.Kinds, rule, mock, background, client); err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %v", i, err)
+		if exclude := rule.ExcludeResources; exclude != nil {
+			for j, value := range exclude.Any {
+				if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
+					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.any[%d].kinds: %v", i, j, err)
+				}
+			}
+			for j, value := range exclude.All {
+				if err := validateKinds(value.ResourceDescription.Kinds, rule, mock, background, client); err != nil {
+					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.all[%d].kinds: %v", i, j, err)
+				}
+			}
+			if err := validateKinds(exclude.Kinds, rule, mock, background, client); err != nil {
+				return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %v", i, err)
+			}
 		}
 	}
 
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
-		// check for forward slash
-		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
-			return warnings, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
-		}
-		if err := validateJSONPatch(rule.Mutation.PatchesJSON6902, i); err != nil {
-			return warnings, fmt.Errorf("%s", err)
+		if rule.Mutation != nil {
+			// check for forward slash
+			if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
+				return warnings, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
+			}
+			if err := validateJSONPatch(rule.Mutation.PatchesJSON6902, i); err != nil {
+				return warnings, fmt.Errorf("%s", err)
+			}
 		}
 
 		if jsonPatchOnPod(rule) {
@@ -377,12 +378,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		match := rule.MatchResources
-		exclude := rule.ExcludeResources
 		matchKinds := match.GetKinds()
-		excludeKinds := exclude.GetKinds()
-		allKinds := make([]string, 0, len(matchKinds)+len(excludeKinds))
+		var allKinds []string
 		allKinds = append(allKinds, matchKinds...)
-		allKinds = append(allKinds, excludeKinds...)
+		if exclude := rule.ExcludeResources; exclude != nil {
+			excludeKinds := exclude.GetKinds()
+			allKinds = append(allKinds, excludeKinds...)
+		}
 		if rule.HasValidate() {
 			validationElem := rule.Validation.DeepCopy()
 			if validationElem.Deny != nil {
@@ -561,7 +563,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 		}
 
 		mutateTarget := false
-		if ruleCopy.Mutation.Targets != nil {
+		if ruleCopy.Mutation != nil && ruleCopy.Mutation.Targets != nil {
 			mutateTarget = true
 			withTargetOnly := ruleWithoutPattern(ruleCopy)
 			for i := range ruleCopy.Mutation.Targets {
@@ -605,10 +607,11 @@ func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) er
 // for now forbidden sections are match, exclude and
 func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 	var err error
-
-	err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
-	if err != nil && errors.Is(errOperationForbidden, err) {
-		return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
+	if rule.Mutation != nil {
+		err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
+		if err != nil && errors.Is(errOperationForbidden, err) {
+			return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
+		}
 	}
 
 	err = objectHasVariables(rule.ExcludeResources)
@@ -691,17 +694,16 @@ func jsonPatchPathHasVariables(patch string) error {
 	return nil
 }
 
-func objectHasVariables(object interface{}) error {
-	var err error
-	objectJSON, err := json.Marshal(object)
-	if err != nil {
-		return err
+func objectHasVariables(object any) error {
+	if object != nil {
+		objectJSON, err := json.Marshal(object)
+		if err != nil {
+			return err
+		}
+		if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+			return fmt.Errorf("invalid variables")
+		}
 	}
-
-	if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
-		return fmt.Errorf("invalid variables")
-	}
-
 	return nil
 }
 
@@ -719,7 +721,9 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 }
 
 func ruleWithoutPattern(ruleCopy *kyvernov1.Rule) *kyvernov1.Rule {
-	withTargetOnly := new(kyvernov1.Rule)
+	withTargetOnly := &kyvernov1.Rule{
+		Mutation: &kyvernov1.Mutation{},
+	}
 	withTargetOnly.Mutation.Targets = make([]kyvernov1.TargetResourceSpec, len(ruleCopy.Mutation.Targets))
 	withTargetOnly.Context = ruleCopy.Context
 	withTargetOnly.RawAnyAllConditions = ruleCopy.RawAnyAllConditions
@@ -734,14 +738,18 @@ func buildContext(rule *kyvernov1.Rule, background bool, target bool) *enginecon
 	addContextVariables(rule.Context, ctx)
 	addImageVerifyVariables(rule, ctx)
 
-	for _, fe := range rule.Validation.ForEachValidation {
-		addContextVariables(fe.Context, ctx)
+	if rule.Validation != nil {
+		for _, fe := range rule.Validation.ForEachValidation {
+			addContextVariables(fe.Context, ctx)
+		}
 	}
-	for _, fe := range rule.Mutation.ForEachMutation {
-		addContextVariables(fe.Context, ctx)
-	}
-	for _, fe := range rule.Mutation.Targets {
-		addContextVariables(fe.Context, ctx)
+	if rule.Mutation != nil {
+		for _, fe := range rule.Mutation.ForEachMutation {
+			addContextVariables(fe.Context, ctx)
+		}
+		for _, fe := range rule.Mutation.Targets {
+			addContextVariables(fe.Context, ctx)
+		}
 	}
 	if rule.HasGenerate() {
 		for _, fe := range rule.Generation.ForEachGeneration {
@@ -918,14 +926,16 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 }
 
 func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
-	patches, _ := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
-	for k := range patches {
-		if k != "metadata" {
-			return false
+	if rule.Mutation != nil {
+		patches, _ := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
+		for k := range patches {
+			if k != "metadata" {
+				return false
+			}
 		}
 	}
 
-	if rule.Mutation.PatchesJSON6902 != "" {
+	if rule.Mutation != nil && rule.Mutation.PatchesJSON6902 != "" {
 		bytes := []byte(rule.Mutation.PatchesJSON6902)
 		jp, _ := jsonpatch.DecodePatch(bytes)
 		for _, o := range jp {
@@ -935,48 +945,46 @@ func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
 			}
 		}
 	}
-
-	patternMap, _ := rule.Validation.GetPattern().(map[string]interface{})
-	for k := range patternMap {
-		if k != "metadata" {
-			return false
-		}
-	}
-
-	anyPatterns, err := rule.Validation.DeserializeAnyPattern()
-	if err != nil {
-		logging.Error(err, "failed to deserialize anyPattern, expect type array")
-		return false
-	}
-
-	for _, pattern := range anyPatterns {
-		patternMap, _ := pattern.(map[string]interface{})
+	if rule.Validation != nil {
+		patternMap, _ := rule.Validation.GetPattern().(map[string]interface{})
 		for k := range patternMap {
 			if k != "metadata" {
 				return false
 			}
 		}
+		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+		if err != nil {
+			logging.Error(err, "failed to deserialize anyPattern, expect type array")
+			return false
+		}
+		for _, pattern := range anyPatterns {
+			patternMap, _ := pattern.(map[string]interface{})
+			for k := range patternMap {
+				if k != "metadata" {
+					return false
+				}
+			}
+		}
 	}
-
 	return true
 }
 
 func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 	// validate userInfo in match and exclude
-	if errs := rule.ExcludeResources.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
-		return "exclude", errs.ToAggregate()
+	if exclude := rule.ExcludeResources; exclude != nil {
+		if errs := exclude.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
+			return "exclude", errs.ToAggregate()
+		}
+		if (len(exclude.Any) > 0 || len(exclude.All) > 0) && !datautils.DeepEqual(exclude.ResourceDescription, kyvernov1.ResourceDescription{}) {
+			return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
+		}
+		if len(exclude.Any) > 0 && len(exclude.All) > 0 {
+			return "match.", fmt.Errorf("can't specify any and all together")
+		}
 	}
 
 	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !datautils.DeepEqual(rule.MatchResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
 		return "match.", fmt.Errorf("can't specify any/all together with match resources")
-	}
-
-	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !datautils.DeepEqual(rule.ExcludeResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
-		return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
-	}
-
-	if len(rule.ExcludeResources.Any) > 0 && len(rule.ExcludeResources.All) > 0 {
-		return "match.", fmt.Errorf("can't specify any and all together")
 	}
 
 	if len(rule.MatchResources.Any) > 0 {
@@ -1010,24 +1018,25 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 		}
 	}
 	// validating the values present under validate.conditions, if they exist
-	if rule.Validation.Deny != nil {
-		if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
-			if path, err := validateConditions(target, "conditions"); err != nil {
-				return fmt.Sprintf("validate.deny.%s", path), err
+	if rule.Validation != nil {
+		if rule.Validation.Deny != nil {
+			if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
+				if path, err := validateConditions(target, "conditions"); err != nil {
+					return fmt.Sprintf("validate.deny.%s", path), err
+				}
+				if path, err := validateRawJSONConditionOperator(target, "conditions"); err != nil {
+					return fmt.Sprintf("validate.deny.%s", path), err
+				}
 			}
-			if path, err := validateRawJSONConditionOperator(target, "conditions"); err != nil {
-				return fmt.Sprintf("validate.deny.%s", path), err
+		}
+		if len(rule.Validation.ForEachValidation) != 0 {
+			if path, err := validateValidationForEach(rule.Validation.ForEachValidation, "validate.foreach"); err != nil {
+				return path, err
 			}
 		}
 	}
 
-	if len(rule.Validation.ForEachValidation) != 0 {
-		if path, err := validateValidationForEach(rule.Validation.ForEachValidation, "validate.foreach"); err != nil {
-			return path, err
-		}
-	}
-
-	if len(rule.Mutation.ForEachMutation) != 0 {
+	if rule.Mutation != nil && len(rule.Mutation.ForEachMutation) != 0 {
 		if path, err := validateMutationForEach(rule.Mutation.ForEachMutation, "mutate.foreach"); err != nil {
 			return path, err
 		}
@@ -1284,7 +1293,7 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		}
 		// if it the rule uses kyverno-json we add some constraints on the name of context entries to make
 		// sure we can create the corresponding bindings
-		if rule.Validation.Assert.Value != nil {
+		if rule.Validation != nil && rule.Validation.Assert.Value != nil {
 			if !bindingIdentifier.MatchString(entry.Name) {
 				return fmt.Errorf("context entry name %s is invalid, it must be a single word when the validation rule uses `assert`", entry.Name)
 			}
@@ -1480,7 +1489,7 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 		return false
 	}
 
-	if slices.Contains(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
+	if slices.Contains(rule.MatchResources.Kinds, "Pod") && rule.Mutation != nil && rule.Mutation.PatchesJSON6902 != "" {
 		return true
 	}
 
@@ -1526,7 +1535,7 @@ func validateWildcard(kinds []string, background bool, rule kyvernov1.Rule) erro
 		return fmt.Errorf("wildcard policy can not deal with more than one kind")
 	}
 	if slices.Contains(kinds, "*") {
-		if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
+		if rule.HasGenerate() || rule.HasVerifyImages() || (rule.Validation != nil && rule.Validation.ForEachValidation != nil) {
 			return fmt.Errorf("wildcard policy does not support rule type")
 		}
 
@@ -1729,25 +1738,25 @@ func checkDeprecatedRawJSONConditionOperator(c apiextensions.JSON, warnings *[]s
 }
 
 func checkForDeprecatedOperatorsInRule(rule kyvernov1.Rule, warnings *[]string) {
-	if rule.Validation.Deny != nil {
-		if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
-			checkDeprecatedRawJSONConditionOperator(target, warnings)
-		}
-	}
-
-	if len(rule.Validation.ForEachValidation) != 0 {
-		for _, fe := range rule.Validation.ForEachValidation {
-			if fe.AnyAllConditions != nil {
-				checkDeprecatedAnyAllConditionOperator(*fe.AnyAllConditions, warnings)
+	if rule.Validation != nil {
+		if rule.Validation.Deny != nil {
+			if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
+				checkDeprecatedRawJSONConditionOperator(target, warnings)
 			}
-			if fe.Deny != nil {
-				if target := fe.Deny.GetAnyAllConditions(); target != nil {
-					checkDeprecatedRawJSONConditionOperator(target, warnings)
+		}
+		if len(rule.Validation.ForEachValidation) != 0 {
+			for _, fe := range rule.Validation.ForEachValidation {
+				if fe.AnyAllConditions != nil {
+					checkDeprecatedAnyAllConditionOperator(*fe.AnyAllConditions, warnings)
+				}
+				if fe.Deny != nil {
+					if target := fe.Deny.GetAnyAllConditions(); target != nil {
+						checkDeprecatedRawJSONConditionOperator(target, warnings)
+					}
 				}
 			}
 		}
 	}
-
 	if len(rule.VerifyImages) != 0 {
 		for _, vi := range rule.VerifyImages {
 			for _, att := range vi.Attestations {

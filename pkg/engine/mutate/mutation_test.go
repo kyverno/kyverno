@@ -79,8 +79,7 @@ func makeRuleWithPatches(t *testing.T, patches []jsonPatch) *types.Rule {
 	if err != nil {
 		t.Errorf("failed to marshal patch: %v", err)
 	}
-
-	mutation := types.Mutation{
+	mutation := &types.Mutation{
 		PatchesJSON6902: string(jsonPatches),
 	}
 	return &types.Rule{
