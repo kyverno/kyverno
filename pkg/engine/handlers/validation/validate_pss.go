@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -149,38 +148,7 @@ func (h validatePssHandler) validateOldObject(
 // - "pod or containers \"nginx\", \"busybox\" must set securityContext.seccompProfile.type to \"RuntimeDefault\" or \"Localhost\""
 // - "pod or container \"nginx\" must set securityContext.seccompProfile.type to \"RuntimeDefault\" or \"Localhost\""
 // - "container \"nginx\" must set securityContext.allowPrivilegeEscalation=false"
-var regexContainerNames = regexp.MustCompile(`container(?:s)?\s*(.*?)\s*must`)
 
-// return image references for containers
-func getImages(containerNames []string, imageInfos map[string]map[string]api.ImageInfo) []string {
-	images := make([]string, 0, len(containerNames))
-	for _, cn := range containerNames {
-		image := getImageReference(cn, imageInfos)
-		images = append(images, image)
-	}
-	return images
-}
-
-// return an image references for a container name
-// if the image is not found, the name is returned
-func getImageReference(name string, imageInfos map[string]map[string]api.ImageInfo) string {
-	if containers, ok := imageInfos["containers"]; ok {
-		if imageInfo, ok := containers[name]; ok {
-			return imageInfo.String()
-		}
-	}
-	if initContainers, ok := imageInfos["initContainers"]; ok {
-		if imageInfo, ok := initContainers[name]; ok {
-			return imageInfo.String()
-		}
-	}
-	if ephemeralContainers, ok := imageInfos["ephemeralContainers"]; ok {
-		if imageInfo, ok := ephemeralContainers[name]; ok {
-			return imageInfo.String()
-		}
-	}
-	return name
-}
 
 func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
 	kind := resource.GetKind()
