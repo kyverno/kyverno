@@ -1,0 +1,18 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: StepTemplate
+metadata:
+  name: cluster-policy-ready
+spec:
+  try:
+  - assert:
+      template: true
+      resource:
+        apiVersion: kyverno.io/v1
+        kind: ClusterPolicy
+        metadata:
+          name: ($name)
+        status:
+          conditions:
+          - reason: Succeeded
+            status: "True"
+            type: Ready
