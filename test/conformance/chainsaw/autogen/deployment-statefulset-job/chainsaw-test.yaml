@@ -1,13 +1,24 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: deployment-statefulset-job
 spec:
   steps:
-  - name: step-01
+  - name: create policy
+    use:
+      template: ../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-latest-tag
+  - name: check autogen
     try:
-    - apply:
-        file: policy.yaml
     - assert:
-        file: policy-assert.yaml
+        file: check-autogen.yaml
