@@ -4,6 +4,7 @@ metadata:
   name: check-labels-allow-existing
 spec:
   background: true
+  validationFailureAction: Enforce
   rules:
     - name: check-labels
       match:
@@ -12,7 +13,6 @@ spec:
             kinds:
               - Pod
       validate:
-        failureAction: Enforce
         allowExistingViolations: false
         deny:
           conditions:
