@@ -3,6 +3,6 @@ data:
   foo: bm90LWJhcg==
 kind: Secret
 metadata:
-  name: source-secret
-  namespace: default
+  name: cloned-secret-0-foreach-ns-1
+  namespace: foreach-ns-1
 type: Opaque
