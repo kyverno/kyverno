@@ -585,6 +585,76 @@ jobs:
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
+  
+  chainsaw:
+      runs-on: ubuntu-latest
+      permissions:
+        packages: read
+      strategy:
+        fail-fast: false
+        matrix:
+          k8s-version:
+            - name: v1.25
+              version: v1.25.x
+            - name: v1.26
+              version: v1.26.x
+            - name: v1.27
+              version: v1.27.x
+            - name: v1.28
+              version: v1.28.x
+          tests:
+            - chainsaw
+      needs: prepare-images
+      name: ${{ matrix.k8s-version.name }} - ${{ matrix.tests }}
+      steps:
+        - name: Checkout
+          uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        # install tools
+        - name: Install helm
+          id: helm
+          uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+          with:
+            token: ${{ secrets.GITHUB_TOKEN }}
+        - name: Install chainsaw
+          uses: kyverno/action-install-chainsaw@dd64b5d7b2b7d36fdf701d48ac8b216aa94414db # v0.2.4
+        # create cluster
+        - name: Create kind cluster
+          uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+          with:
+            node_image: kindest/node:${{ matrix.k8s-version.version }}
+            cluster_name: kind
+            config: ./scripts/config/kind/default.yaml
+        # deploy kyverno
+        - name: Download kyverno images archive
+          uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+          with:
+            name: kyverno.tar
+        - name: Load kyverno images archive in kind cluster
+          shell: bash
+          run: |
+            set -e
+            kind load image-archive kyverno.tar --name kind
+        - name: Install kyverno
+          shell: bash
+          run: |
+            set -e
+            export HELM=${{ steps.helm.outputs.helm-path }}
+            export USE_CONFIG=${{ join(matrix.config.values, ',') }}
+            make kind-install-kyverno
+        - name: Wait for kyverno ready
+          uses: ./.github/actions/kyverno-wait-ready
+        # run tests
+        - name: Test with Chainsaw
+          shell: bash
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          run: |
+            set -e
+            cd ./test/conformance/chainsaw/${{ matrix.config.name }} && chainsaw test --config ../../../.chainsaw.yaml
+        # debug
+        - name: Debug failure
+          if: failure()
+          uses: ./.github/actions/kyverno-logs
 
   # runs conformance test suites with configuration:
   default:
