@@ -644,7 +644,7 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           run: |
             set -e
-            cd ./test/conformance/chainsaw/${{ matrix.config.name }} && chainsaw test --config ../../../.chainsaw.yaml
+            cd ./test/conformance/chainsaw/ && chainsaw test --config ../../../.chainsaw.yaml
         # debug
         - name: Debug failure
           if: failure()
