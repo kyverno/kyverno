@@ -24,7 +24,6 @@ import (
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -35,9 +34,9 @@ type FakeClusterCleanupPolicies struct {
 	Fake *FakeKyvernoV2alpha1
 }
 
-var clustercleanuppoliciesResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v2alpha1", Resource: "clustercleanuppolicies"}
+var clustercleanuppoliciesResource = v2alpha1.SchemeGroupVersion.WithResource("clustercleanuppolicies")
 
-var clustercleanuppoliciesKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v2alpha1", Kind: "ClusterCleanupPolicy"}
+var clustercleanuppoliciesKind = v2alpha1.SchemeGroupVersion.WithKind("ClusterCleanupPolicy")
 
 // Get takes name of the clusterCleanupPolicy, and returns the corresponding clusterCleanupPolicy object, and an error if there is any.
 func (c *FakeClusterCleanupPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.ClusterCleanupPolicy, err error) {

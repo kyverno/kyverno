@@ -24,7 +24,6 @@ import (
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakeUpdateRequests struct {
 	ns   string
 }
 
-var updaterequestsResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v1beta1", Resource: "updaterequests"}
+var updaterequestsResource = v1beta1.SchemeGroupVersion.WithResource("updaterequests")
 
-var updaterequestsKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1beta1", Kind: "UpdateRequest"}
+var updaterequestsKind = v1beta1.SchemeGroupVersion.WithKind("UpdateRequest")
 
 // Get takes name of the updateRequest, and returns the corresponding updateRequest object, and an error if there is any.
 func (c *FakeUpdateRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.UpdateRequest, err error) {
