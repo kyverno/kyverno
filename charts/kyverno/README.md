@@ -728,6 +728,7 @@ The chart values are organised per component.
 | test.image.repository | string | `"busybox"` | Image repository |
 | test.image.tag | string | `"1.35"` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| test.imagePullSecrets | list | `[]` | Image pull secrets |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
