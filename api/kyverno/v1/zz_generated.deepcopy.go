@@ -1558,6 +1558,11 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 		*out = new(CEL)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.AllowExistingViolations != nil {
+		in, out := &in.AllowExistingViolations, &out.AllowExistingViolations
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

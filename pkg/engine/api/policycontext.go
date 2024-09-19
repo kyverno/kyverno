@@ -24,7 +24,8 @@ type PolicyContext interface {
 	AdmissionOperation() bool
 	Element() unstructured.Unstructured
 	SetElement(element unstructured.Unstructured)
-
+	SetOperation(op kyvernov1.AdmissionOperation) error
+	SetResources(oldObj, newObj unstructured.Unstructured) error
 	OldPolicyContext() (PolicyContext, error)
 	JSONContext() enginecontext.Interface
 	Copy() PolicyContext

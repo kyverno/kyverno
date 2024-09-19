@@ -46,7 +46,7 @@ type validator struct {
 	policyContext    engineapi.PolicyContext
 	rule             kyvernov1.Rule
 	contextEntries   []kyvernov1.ContextEntry
-	anyAllConditions apiextensions.JSON
+	anyAllConditions any
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
 	deny             *kyvernov1.Deny
@@ -114,54 +114,70 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, s)
 	}
 
+	var ruleResponse *engineapi.RuleResponse
 	if v.deny != nil {
-		return v.validateDeny()
-	}
-
-	if v.pattern != nil || v.anyPattern != nil {
+		ruleResponse = v.validateDeny()
+	} else if v.pattern != nil || v.anyPattern != nil {
 		if err = v.substitutePatterns(); err != nil {
 			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "variable substitution failed", err)
 		}
 
-		ruleResponse := v.validateResourceWithRule()
+		ruleResponse = v.validateResourceWithRule()
+	} else if v.forEach != nil {
+		ruleResponse = v.validateForEach(ctx)
+	} else {
+		v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
+	}
 
-		if engineutils.IsUpdateRequest(v.policyContext) {
-			priorResp, err := v.validateOldObject(ctx)
-			if err != nil {
-				return engineapi.RuleError(v.rule.Name, engineapi.Validation, "failed to validate old object", err)
-			}
-
-			if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
-				v.log.V(3).Info("skipping modified resource as validation results have not changed")
-				if ruleResponse.Status() == engineapi.RuleStatusPass {
-					return ruleResponse
-				}
-				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
-			}
+	allowExisitingViolations := v.rule.HasValidateAllowExistingViolations()
+	if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
+		priorResp, err := v.validateOldObject(ctx)
+		if err != nil {
+			v.log.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", v.rule.Name, "error", err.Error())
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed")
 		}
 
-		return ruleResponse
+		if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
+			v.log.V(3).Info("skipping modified resource as validation results have not changed")
+			if ruleResponse.Status() == engineapi.RuleStatusPass {
+				return ruleResponse
+			}
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
+		}
 	}
 
-	if v.forEach != nil {
-		ruleResponse := v.validateForEach(ctx)
-		return ruleResponse
-	}
-
-	v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
-	return nil
+	return ruleResponse
 }
 
 func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
-	pc := v.policyContext
-	oldPc, err := v.policyContext.OldPolicyContext()
-	if err != nil {
-		return nil, errors.Wrapf(err, "cannot get old policy context")
+	if v.policyContext.Operation() != kyvernov1.Update {
+		return nil, errors.New("invalid operation")
 	}
 
-	v.policyContext = oldPc
+	newResource := v.policyContext.NewResource()
+	oldResource := v.policyContext.OldResource()
+	emptyResource := unstructured.Unstructured{}
+
+	if ok := matchResource(oldResource, v.rule); !ok {
+		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched"), nil
+	}
+
+	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to set resources")
+	}
+	if err := v.policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
+		return nil, errors.Wrapf(err, "failed to set operation")
+	}
+
 	resp := v.validate(ctx)
-	v.policyContext = pc
+
+	if err := v.policyContext.SetResources(oldResource, newResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to reset resources")
+	}
+
+	if err := v.policyContext.SetOperation(kyvernov1.Update); err != nil {
+		return nil, errors.Wrapf(err, "failed to reset operation")
+	}
 
 	return resp, nil
 }
@@ -181,10 +197,7 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 		applyCount += count
 	}
 	if applyCount == 0 {
-		if v.forEach == nil {
-			return nil
-		}
-		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "rule skipped")
+		return nil
 	}
 	return engineapi.RulePass(v.rule.Name, engineapi.Validation, "rule passed")
 }
@@ -375,7 +388,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 			}
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", v.rule.Name, errorStr))
-			msg := buildAnyPatternErrorMessage(v.rule, errorStr)
+			msg := v.buildAnyPatternErrorMessage(errorStr)
 			return engineapi.RuleFail(v.rule.Name, engineapi.Validation, msg)
 		}
 	}
@@ -426,17 +439,22 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	}
 }
 
-func buildAnyPatternErrorMessage(rule kyvernov1.Rule, errors []string) string {
+func (v *validator) buildAnyPatternErrorMessage(errors []string) string {
 	errStr := strings.Join(errors, " ")
-	if rule.Validation.Message == "" {
+	if v.rule.Validation.Message == "" {
 		return fmt.Sprintf("validation error: %s", errStr)
 	}
-
-	if strings.HasSuffix(rule.Validation.Message, ".") {
-		return fmt.Sprintf("validation error: %s %s", rule.Validation.Message, errStr)
+	msgRaw, sErr := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.rule.Validation.Message)
+	if sErr != nil {
+		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
+		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, errStr)
+	} else {
+		msg := msgRaw.(string)
+		if strings.HasSuffix(msg, ".") {
+			return fmt.Sprintf("validation error: %s %s", msg, errStr)
+		}
+		return fmt.Sprintf("validation error: %s. %s", msg, errStr)
 	}
-
-	return fmt.Sprintf("validation error: %s. %s", rule.Validation.Message, errStr)
 }
 
 func (v *validator) substitutePatterns() error {
