@@ -443,6 +443,10 @@ test:
     # Defaults to image.pullPolicy if omitted
     pullPolicy: ~
 
+  # -- Image pull secrets
+  imagePullSecrets: []
+  # - name: secretName
+
   resources:
     # -- Pod resource limits
     limits:
