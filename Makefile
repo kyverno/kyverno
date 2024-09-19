@@ -488,12 +488,12 @@ codegen-client-all: codegen-register codegen-defaulters codegen-applyconfigurati
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	@echo Generate kyverno crds... >&2
-	@$(CONTROLLER_GEN) paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/kyverno
+	@$(CONTROLLER_GEN) paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
 .PHONY: codegen-crds-report
 codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
-	@$(CONTROLLER_GEN) paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)/policyreport
+	@$(CONTROLLER_GEN) paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
 .PHONY: codegen-crds-cli
 codegen-crds-cli: $(CONTROLLER_GEN) ## Generate CLI CRDs
