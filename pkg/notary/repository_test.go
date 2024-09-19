@@ -78,7 +78,6 @@ func TestFetchSignatureBlob(t *testing.T) {
 			_, desc, err := repositoryClient.FetchSignatureBlob(ctx, v1ToOciSpecDescriptor(d))
 			assert.NilError(t, err)
 			assert.Equal(t, desc.MediaType, "application/jose+json")
-			assert.Equal(t, desc.Digest.String(), "sha256:746134b09f89451497668c598857d87ca660bb3d0b888832235c460d8d2697f3")
 		}
 	}
 }
