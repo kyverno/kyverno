@@ -150,9 +150,9 @@ var (
         },
         "name": "check-image",
         "validate": {
-    			"failureAction": "Audit",
-					"allowExistingViolations": true,
-          "foreach": [
+    	    "failureAction": "Enforce",
+		    "allowExistingViolations": true,
+            "foreach": [
             {
               "deny": {
                 "conditions": {
