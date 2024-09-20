@@ -3,6 +3,7 @@ package v1
 import (
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -19,16 +20,20 @@ type ResourceSpec struct {
 	// Name specifies the resource name.
 	// +optional
 	Name string `json:"name,omitempty"`
+	// Selector allows you to select with labels
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 	// UID specifies the resource uid.
 	// +optional
 	UID types.UID `json:"uid,omitempty"`
 }
 
-func (s ResourceSpec) GetName() string       { return s.Name }
-func (s ResourceSpec) GetNamespace() string  { return s.Namespace }
-func (s ResourceSpec) GetKind() string       { return s.Kind }
-func (s ResourceSpec) GetAPIVersion() string { return s.APIVersion }
-func (s ResourceSpec) GetUID() types.UID     { return s.UID }
+func (s ResourceSpec) GetName() string                    { return s.Name }
+func (s ResourceSpec) GetNamespace() string               { return s.Namespace }
+func (s ResourceSpec) GetKind() string                    { return s.Kind }
+func (s ResourceSpec) GetAPIVersion() string              { return s.APIVersion }
+func (s ResourceSpec) GetUID() types.UID                  { return s.UID }
+func (s ResourceSpec) GetSelector() *metav1.LabelSelector { return s.Selector }
 func (s ResourceSpec) GetGroupVersion() (schema.GroupVersion, error) {
 	return schema.ParseGroupVersion(s.APIVersion)
 }
