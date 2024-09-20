@@ -11,7 +11,7 @@ spec:
       any:
       - resources:
           kinds:
-          - 
+          - ConfigMap
     generate:
       namespace: default
       synchronize : true

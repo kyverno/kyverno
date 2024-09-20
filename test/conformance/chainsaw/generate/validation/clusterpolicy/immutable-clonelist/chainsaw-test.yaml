@@ -12,18 +12,12 @@ spec:
         file: cluster-policy-ready.yaml
   - name: step-02
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: update-ns.yaml
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: update-kinds.yaml
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: update-selector.yaml
+    - script:
+        content: > 
+          kubectl apply -f update-ns.yaml 2>&1 | grep -q "Warning: no synchronization will be performed to the old target resource upon policy updates"
+    - script:
+        content: > 
+          kubectl apply -f update-kinds.yaml 2>&1 | grep -q "Warning: no synchronization will be performed to the old target resource upon policy updates"
+    - script:
+        content: > 
+          kubectl apply -f update-selector.yaml 2>&1 | grep -q "Warning: no synchronization will be performed to the old target resource upon policy updates"
