@@ -147,16 +147,16 @@ func (h validatePssHandler) validate(
 				logger.V(4).Info("is update request")
 				priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
 				if err != nil {
-					logger.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name, "error", err.Error())
-					return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed", rule.ReportProperties)
+					logger.V(2).Info("warning: failed to validate old object", "rule", rule.Name, "error", err.Error())
+					return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object", rule.ReportProperties)
 				}
 
 				if ruleResponse.Status() == priorResp.Status() {
-					logger.V(3).Info("skipping modified resource as validation results have not changed", "oldResp", priorResp, "newResp", ruleResponse)
+					logger.V(3).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "oldResp", priorResp, "newResp", ruleResponse)
 					if ruleResponse.Status() == engineapi.RuleStatusPass {
 						return resource, ruleResponse
 					}
-					return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed", rule.ReportProperties)
+					return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", rule.ReportProperties)
 				}
 				logger.V(4).Info("old object response is different", "oldResp", priorResp, "newResp", ruleResponse)
 			}

@@ -125,14 +125,14 @@ func (h validateAssertHandler) Process(
 			if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
 				errs, err := validateOldObject(ctx, policyContext, rule, payload, bindings)
 				if err != nil {
-					logger.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name, "error", err.Error())
-					return resource, handlers.WithSkip(rule, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed")
+					logger.V(2).Info("warning: failed to validate old object", "rule", rule.Name, "error", err.Error())
+					return resource, handlers.WithSkip(rule, engineapi.Validation, "failed to validate old object")
 				}
 
 				logger.V(3).Info("old object verification", "errors", errs)
 				if len(errs) != 0 {
-					logger.V(3).Info("skipping modified resource as validation results have not changed")
-					return resource, handlers.WithSkip(rule, engineapi.Validation, "skipping modified resource as validation results have not changed")
+					logger.V(3).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name)
+					return resource, handlers.WithSkip(rule, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed")
 				}
 			}
 		}
