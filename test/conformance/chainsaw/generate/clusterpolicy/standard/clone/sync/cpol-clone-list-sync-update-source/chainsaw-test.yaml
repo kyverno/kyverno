@@ -20,12 +20,6 @@ spec:
         file: ns.yaml
     - assert:
         file: resource-assert.yaml
-  - name: step-02
-    try:
-    - apply:
-        file: ns.yaml
-    - assert:
-        file: resource-assert.yaml
   - name: step-03
     try:
     - apply:
