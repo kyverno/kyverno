@@ -1,35 +1,25 @@
-## kyverno create
+## kyverno create permission
 
-Helps with the creation of various Kyverno resources.
+Create an aggregated role for a given resource type
 
 ### Synopsis
 
-Helps with the creation of various Kyverno resources.
+This command generates a Kubernetes ClusterRole and ClusterRoleBinding for a specified resource type.
+The generated files will be saved in the user's home directory under the "aggregated-role" folder.
+Required flags include 'api-group' and 'verbs'.
 
 ```
-kyverno create [flags]
-```
-
-### Examples
-
-```
-  # Create metrics config file
-  kyverno create metrics-config -i ns-included-1 -i ns-included-2 -e ns-excluded
-
-  # Create test file
-  kyverno create test -p policy.yaml -r resource.yaml -f values.yaml --pass policy-name,rule-name,resource-name,resource-namespace,resource-kind
-
-  # Create user info file
-  kyverno create user-info -u molybdenum@somecorp.com -g basic-user -c admin
-
-  # Create values file
-  kyverno create values -g request.mode=dev -n prod,env=prod --rule policy,rule,env=demo --resource policy,resource,env=demo
+kyverno create permission [resource-type] [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for create
+  -g, --api-group string    API group for the resource (required)
+  -c, --controller string   Controller for the ClusterRole
+  -h, --help                help for permission
+  -n, --namespace string    Namespace for the ClusterRoleBinding (default is 'default') (default "default")
+      --verbs stringArray   List of verbs for the ClusterRole or all
 ```
 
 ### Options inherited from parent commands
@@ -52,11 +42,5 @@ kyverno create [flags]
 
 ### SEE ALSO
 
-* [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
-* [kyverno create exception](kyverno_create_exception.md)	 - Create a Kyverno policy exception file.
-* [kyverno create metrics-config](kyverno_create_metrics-config.md)	 - Create a Kyverno metrics-config file.
-* [kyverno create permission](kyverno_create_permission.md)	 - Create an aggregated role for a given resource type
-* [kyverno create test](kyverno_create_test.md)	 - Create a Kyverno test file.
-* [kyverno create user-info](kyverno_create_user-info.md)	 - Create a Kyverno user-info file.
-* [kyverno create values](kyverno_create_values.md)	 - Create a Kyverno values file.
+* [kyverno create](kyverno_create.md)	 - Helps with the creation of various Kyverno resources.
 
