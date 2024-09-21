@@ -27,15 +27,16 @@ const (
 )
 
 type controller struct {
-	name         string
-	client       metadata.Getter
-	queue        workqueue.TypedRateLimitingInterface[any]
-	lister       cache.GenericLister
-	informer     cache.SharedIndexInformer
-	registration cache.ResourceEventHandlerRegistration
-	logger       logr.Logger
-	metrics      ttlMetrics
-	gvr          schema.GroupVersionResource
+	name              string
+	client            metadata.Getter
+	queue             workqueue.TypedRateLimitingInterface[any]
+	lister            cache.GenericLister
+	informer          cache.SharedIndexInformer
+	registration      cache.ResourceEventHandlerRegistration
+	logger            logr.Logger
+	metrics           ttlMetrics
+	gvr               schema.GroupVersionResource
+	propagationPolicy metav1.DeletionPropagation
 }
 
 type ttlMetrics struct {
@@ -50,13 +51,14 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	}
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: name})
 	c := &controller{
-		name:     name,
-		client:   client,
-		queue:    queue,
-		lister:   metainformer.Lister(),
-		informer: metainformer.Informer(),
-		logger:   logger,
-		metrics:  newTTLMetrics(logger),
+		name:              name,
+		client:            client,
+		queue:             queue,
+		lister:            metainformer.Lister(),
+		informer:          metainformer.Informer(),
+		logger:            logger,
+		metrics:           newTTLMetrics(logger),
+		propagationPolicy: metav1.DeletePropagationForeground,
 	}
 	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
 	registration, err := controllerutils.AddEventHandlers(
@@ -163,7 +165,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		return nil
 	}
 	if time.Now().After(deletionTime) {
-		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
+			propagationPolicy := metav1.DeletePropagationForeground // or Background/Orphan, based on your needs
+			deleteOptions := metav1.DeleteOptions{
+				PropagationPolicy: &propagationPolicy, 
+			}
+		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
 		if err != nil {
 			logger.Error(err, "failed to delete resource")
 			if c.metrics.ttlFailureTotal != nil {
