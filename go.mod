@@ -71,7 +71,7 @@ require (
 	golang.org/x/crypto v0.27.0
 	golang.org/x/text v0.18.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
-	google.golang.org/grpc v1.66.2
+	google.golang.org/grpc v1.67.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -296,7 +296,7 @@ require (
 	github.com/oleiade/reflections v1.1.0 // indirect
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852 // indirect
 	github.com/open-policy-agent/gatekeeper/v3 v3.17.0 // indirect
-	github.com/open-policy-agent/opa v0.67.1 // indirect
+	github.com/open-policy-agent/opa v0.68.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
