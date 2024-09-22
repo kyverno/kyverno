@@ -4,7 +4,9 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/exception"
 	metricsconfig "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/metrics-config"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/permission"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/test"
+
 	userinfo "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/user-info"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/values"
 	"github.com/spf13/cobra"
@@ -28,6 +30,7 @@ func Command() *cobra.Command {
 		test.Command(),
 		userinfo.Command(),
 		values.Command(),
+		permission.Command(),
 	)
 	return cmd
 }

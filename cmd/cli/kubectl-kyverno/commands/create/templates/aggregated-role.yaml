@@ -1,0 +1,26 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-{{.ResourceType}}-permission
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-kyverno: "true"
+rules:
+  - apiGroups: ["{{.ApiGroup}}"]
+    resources: ["{{.ResourceType}}"]
+    verbs: [{{range .Verbs}}"{{.}}" ,{{end}}]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{.ResourceType}}-binding
+subjects:
+{{- range .Controllers }}
+- kind: ServiceAccount
+  name: {{ . }}
+  namespace: kyverno
+{{- end }}
+roleRef:
+  kind: ClusterRole
+  name: kyverno-{{ .ResourceType }}-permission
+  apiGroup: rbac.authorization.k8s.io
