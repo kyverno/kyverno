@@ -36,7 +36,7 @@ type controller struct {
 	logger            logr.Logger
 	metrics           ttlMetrics
 	gvr               schema.GroupVersionResource
-	propagationPolicy metav1.DeletionPropagation
+	propagationPolicy *metav1.DeletionPropagation
 }
 
 type ttlMetrics struct {
@@ -58,7 +58,7 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		informer:          metainformer.Informer(),
 		logger:            logger,
 		metrics:           newTTLMetrics(logger),
-		propagationPolicy: metav1.DeletePropagationForeground,
+		propagationPolicy: nil,
 	}
 	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
 	registration, err := controllerutils.AddEventHandlers(
@@ -148,6 +148,29 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		attribute.String("resource_version", c.gvr.Version),
 		attribute.String("resource", c.gvr.Resource),
 	}
+	// Will check if the object has a custon propagation policy set via annotations
+	annotations := metaObj.GetAnnotations()
+	var policy *metav1.DeletionPropagation
+	if annotationPolicy, ok := annotations["propagationPolicy"]; ok {
+		switch annotationPolicy {
+		case "Foreground":
+			fg := metav1.DeletePropagationForeground
+			policy = &fg
+		case "Background":
+			bg := metav1.DeletePropagationBackground
+			policy = &bg
+		case "Orphan":
+			orphan := metav1.DeletePropagationOrphan
+			policy = &orphan
+		default:
+			logger.Info("Unknown propagationPolicy annotation, falling back to global policy", "policy", annotationPolicy)
+			policy = c.propagationPolicy
+		}
+	} else{
+		// No annotation, use the global default if provided
+		policy = c.propagationPolicy
+	}
+
 	// if the object is being deleted, return early
 	if metaObj.GetDeletionTimestamp() != nil {
 		return nil
@@ -165,10 +188,9 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		return nil
 	}
 	if time.Now().After(deletionTime) {
-			propagationPolicy := metav1.DeletePropagationForeground // or Background/Orphan, based on your needs
-			deleteOptions := metav1.DeleteOptions{
-				PropagationPolicy: &propagationPolicy, 
-			}
+		deleteOptions := metav1.DeleteOptions{
+			PropagationPolicy: policy,
+		}
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
 		if err != nil {
 			logger.Error(err, "failed to delete resource")
