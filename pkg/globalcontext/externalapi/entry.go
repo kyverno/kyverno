@@ -163,7 +163,7 @@ func updateStatus(ctx context.Context, gceName string, kyvernoClient versioned.I
 				latest.Status.UpdateRefreshTime()
 			}
 			return nil
-		})
+		}, nil)
 
 		return updateErr
 	})

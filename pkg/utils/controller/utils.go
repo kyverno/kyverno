@@ -150,7 +150,12 @@ func Update[T interface {
 func UpdateStatus[T interface {
 	metav1.Object
 	DeepCopy[T]
-}, S ObjectStatusClient[T]](ctx context.Context, obj T, setter S, build func(T) error,
+}, S ObjectStatusClient[T]](
+	ctx context.Context,
+	obj T,
+	setter S,
+	build func(T) error,
+	cmp func(T, T) bool,
 ) (T, error) {
 	var objNew T
 	objNew, err := setter.Get(ctx, obj.GetName(), metav1.GetOptions{})
@@ -162,7 +167,10 @@ func UpdateStatus[T interface {
 		var d T
 		return d, err
 	} else {
-		if datautils.DeepEqual(obj, mutated) {
+		if cmp == nil {
+			cmp = datautils.DeepEqual[T]
+		}
+		if cmp(obj, mutated) {
 			return mutated, nil
 		} else {
 			return setter.UpdateStatus(ctx, mutated, metav1.UpdateOptions{})

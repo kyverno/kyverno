@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -583,6 +584,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				func(policy *kyvernov1.ClusterPolicy) error {
 					return updateStatusFunc(policy)
 				},
+				func(a *kyvernov1.ClusterPolicy, b *kyvernov1.ClusterPolicy) bool {
+					return datautils.DeepEqual(a.Status, b.Status)
+				},
 			)
 			if err != nil {
 				logger.Error(err, "failed to update clusterpolicy status", "policy", policy.GetName())
@@ -595,6 +599,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
 				func(policy *kyvernov1.Policy) error {
 					return updateStatusFunc(policy)
+				},
+				func(a *kyvernov1.Policy, b *kyvernov1.Policy) bool {
+					return datautils.DeepEqual(a.Status, b.Status)
 				},
 			)
 			if err != nil {

@@ -141,6 +141,6 @@ func updateStatus(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry, 
 		}
 		latest.Status.SetReady(ready, reason)
 		return nil
-	})
+	}, nil)
 	return err
 }
