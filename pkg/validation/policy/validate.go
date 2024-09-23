@@ -227,9 +227,9 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 	}
 
-	if err := immutableGenerateFields(policy, oldPolicy); err != nil {
-		warnings = append(warnings, fmt.Sprintf("no synchronization will be performed to the old target resource upon policy updates: %s", err.Error()))
-		return warnings, nil
+	if warning, err := immutableGenerateFields(policy, oldPolicy); warning != "" || err != nil {
+		warnings = append(warnings, fmt.Sprintf("no synchronization will be performed to the old target resource upon policy updates: %s", warning))
+		return warnings, err
 	}
 
 	rules := autogen.ComputeRules(policy, "")
