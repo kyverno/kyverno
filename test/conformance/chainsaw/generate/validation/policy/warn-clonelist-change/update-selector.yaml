@@ -16,10 +16,10 @@ spec:
       namespace: default
       synchronize : true
       cloneList:
-        namespace: update-clonelist-ns
+        namespace: default
         kinds:
           - v1/Secret
           - v1/ConfigMap
         selector:
           matchLabels:
-            allowedToBeCloned: "true"
+            foo: "bar"
