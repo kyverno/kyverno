@@ -21,14 +21,15 @@ import (
 // https://github.com/kyverno/kyverno/issues/568
 
 type kyvernoRule struct {
-	Name             string                        `json:"name"`
-	MatchResources   *kyvernov1.MatchResources     `json:"match"`
-	ExcludeResources *kyvernov1.MatchResources     `json:"exclude,omitempty"`
-	Context          *[]kyvernov1.ContextEntry     `json:"context,omitempty"`
-	AnyAllConditions *kyvernov1.ConditionsWrapper  `json:"preconditions,omitempty"`
-	Mutation         *kyvernov1.Mutation           `json:"mutate,omitempty"`
-	Validation       *kyvernov1.Validation         `json:"validate,omitempty"`
-	VerifyImages     []kyvernov1.ImageVerification `json:"verifyImages,omitempty"`
+	Name                   string                        `json:"name"`
+	MatchResources         *kyvernov1.MatchResources     `json:"match"`
+	ExcludeResources       *kyvernov1.MatchResources     `json:"exclude,omitempty"`
+	Context                *[]kyvernov1.ContextEntry     `json:"context,omitempty"`
+	AnyAllConditions       *kyvernov1.ConditionsWrapper  `json:"preconditions,omitempty"`
+	Mutation               *kyvernov1.Mutation           `json:"mutate,omitempty"`
+	Validation             *kyvernov1.Validation         `json:"validate,omitempty"`
+	VerifyImages           []kyvernov1.ImageVerification `json:"verifyImages,omitempty"`
+	SkipBackgroundRequests *bool                         `json:"skipBackgroundRequests,omitempty"`
 }
 
 func createRule(rule *kyvernov1.Rule) *kyvernoRule {
@@ -36,8 +37,9 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 		return nil
 	}
 	jsonFriendlyStruct := kyvernoRule{
-		Name:         rule.Name,
-		VerifyImages: rule.VerifyImages,
+		Name:                   rule.Name,
+		VerifyImages:           rule.VerifyImages,
+		SkipBackgroundRequests: rule.SkipBackgroundRequests,
 	}
 	if !datautils.DeepEqual(rule.MatchResources, kyvernov1.MatchResources{}) {
 		jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
@@ -134,9 +136,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	if rule.Validation != nil {
 		if target := rule.Validation.GetPattern(); target != nil {
 			newValidate := &kyvernov1.Validation{
-				Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
-				FailureAction:          rule.Validation.FailureAction,
-				FailureActionOverrides: rule.Validation.FailureActionOverrides,
+				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+				FailureAction:           rule.Validation.FailureAction,
+				FailureActionOverrides:  rule.Validation.FailureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			newValidate.SetPattern(
 				map[string]interface{}{
