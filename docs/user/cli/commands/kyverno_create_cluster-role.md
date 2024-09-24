@@ -1,25 +1,26 @@
-## kyverno create permission
+## kyverno create cluster-role
 
-Create an aggregated role for a given resource type
+Create an aggregated role for given resource types
 
 ### Synopsis
 
-This command generates a Kubernetes ClusterRole for a specified resource type.
+This command generates a Kubernetes ClusterRole for specified resource types.
 The output is printed to stdout by default or saved to a specified file.
-Required flags include 'api-group' and 'verbs'.
+Required flags include 'api-groups', 'verbs', and 'resources'.
 
 ```
-kyverno create permission [resource-type] [flags]
+kyverno create cluster-role [name]  [flags]
 ```
 
 ### Options
 
 ```
-  -g, --api-group string          API group for the resource (required)
-      --controllers stringArray   List of controllers for the ClusterRole
-  -h, --help                      help for permission
+  -g, --api-groups string         API group for the resource (required)
+      --controllers stringArray   List of controllers for the ClusterRole (default = background-controller) (default [background-controller])
+  -h, --help                      help for cluster-role
   -o, --output string             Output file path (prints to console if not set)
-      --verbs stringArray         List of verbs for the ClusterRole or 'all' for all verbs
+      --resources stringArray     A comma separated list of resources (required)
+      --verbs stringArray         A comma separated list of verbs or 'all' for all verbs
 ```
 
 ### Options inherited from parent commands
