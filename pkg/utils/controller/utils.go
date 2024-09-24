@@ -156,24 +156,19 @@ func UpdateStatus[T interface {
 	setter S,
 	build func(T) error,
 	cmp func(T, T) bool,
-) (T, error) {
-	var objNew T
-	objNew, err := setter.Get(ctx, obj.GetName(), metav1.GetOptions{})
-	if err != nil {
-		return objNew, err
-	}
-	mutated := objNew.DeepCopy()
+) error {
+	mutated := obj.DeepCopy()
 	if err := build(mutated); err != nil {
-		var d T
-		return d, err
+		return err
 	} else {
 		if cmp == nil {
 			cmp = datautils.DeepEqual[T]
 		}
 		if cmp(obj, mutated) {
-			return mutated, nil
+			return nil
 		} else {
-			return setter.UpdateStatus(ctx, mutated, metav1.UpdateOptions{})
+			_, err := setter.UpdateStatus(ctx, mutated, metav1.UpdateOptions{})
+			return err
 		}
 	}
 }
