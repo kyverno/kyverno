@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -45,6 +46,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -576,30 +578,74 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 	}
 	for _, policy := range policies {
 		if policy.GetNamespace() == "" {
-			_, err = controllerutils.UpdateStatus(
+			err := controllerutils.UpdateStatus(
 				ctx,
 				policy.(*kyvernov1.ClusterPolicy),
 				c.kyvernoClient.KyvernoV1().ClusterPolicies(),
 				func(policy *kyvernov1.ClusterPolicy) error {
 					return updateStatusFunc(policy)
 				},
+				func(a *kyvernov1.ClusterPolicy, b *kyvernov1.ClusterPolicy) bool {
+					return datautils.DeepEqual(a.Status, b.Status)
+				},
 			)
 			if err != nil {
-				logger.Error(err, "failed to update clusterpolicy status", "policy", policy.GetName())
-				continue
+				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					objNew, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policy.GetName(), metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					return controllerutils.UpdateStatus(
+						ctx,
+						objNew,
+						c.kyvernoClient.KyvernoV1().ClusterPolicies(),
+						func(policy *kyvernov1.ClusterPolicy) error {
+							return updateStatusFunc(policy)
+						},
+						func(a *kyvernov1.ClusterPolicy, b *kyvernov1.ClusterPolicy) bool {
+							return datautils.DeepEqual(a.Status, b.Status)
+						},
+					)
+				})
+				if retryErr != nil {
+					logger.Error(err, "failed to update clusterpolicy status", "policy", policy.GetName())
+					continue
+				}
 			}
 		} else {
-			_, err = controllerutils.UpdateStatus(
+			err := controllerutils.UpdateStatus(
 				ctx,
 				policy.(*kyvernov1.Policy),
 				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
 				func(policy *kyvernov1.Policy) error {
 					return updateStatusFunc(policy)
 				},
+				func(a *kyvernov1.Policy, b *kyvernov1.Policy) bool {
+					return datautils.DeepEqual(a.Status, b.Status)
+				},
 			)
 			if err != nil {
-				logger.Error(err, "failed to update policy status", "namespace", policy.GetNamespace(), "policy", policy.GetName())
-				continue
+				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					objNew, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).Get(ctx, policy.GetName(), metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					return controllerutils.UpdateStatus(
+						ctx,
+						objNew,
+						c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
+						func(policy *kyvernov1.Policy) error {
+							return updateStatusFunc(policy)
+						},
+						func(a *kyvernov1.Policy, b *kyvernov1.Policy) bool {
+							return datautils.DeepEqual(a.Status, b.Status)
+						},
+					)
+				})
+				if retryErr != nil {
+					logger.Error(err, "failed to update policy status", "namespace", policy.GetNamespace(), "policy", policy.GetName())
+					continue
+				}
 			}
 		}
 	}
