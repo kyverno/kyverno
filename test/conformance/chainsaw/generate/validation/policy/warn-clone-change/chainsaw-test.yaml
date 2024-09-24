@@ -12,13 +12,6 @@ spec:
         file: policy-ready.yaml
   - name: step-02
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: update-namespace.yaml
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: update-name.yaml
+    - script:
+        content: > 
+          kubectl apply -f update-name.yaml 2>&1 | grep -q "Warning: no synchronization will be performed to the old target resource upon policy updates"

@@ -2209,12 +2209,13 @@ func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
 	assert.Equal(t, expectedErr.Error(), actualErr.Error())
 }
 
-func Test_ImmutableGenerateFields(t *testing.T) {
+func Test_GenerateFieldsUpdates(t *testing.T) {
 	tests := []struct {
-		name        string
-		oldPolicy   []byte
-		newPolicy   []byte
-		expectedErr bool
+		name          string
+		oldPolicy     []byte
+		newPolicy     []byte
+		expectedErr   bool
+		expectWarning bool
 	}{
 		{
 			name: "update-apiVersion",
@@ -2292,7 +2293,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-kind",
@@ -2370,7 +2372,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
         ]
     }
 }`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-namespace",
@@ -2448,7 +2451,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-name",
@@ -2526,7 +2530,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-sync-flag",
@@ -2604,7 +2609,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: false,
+			expectedErr:   false,
+			expectWarning: false,
 		},
 		{
 			name: "update-clone-name",
@@ -2682,7 +2688,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-clone-namespace",
@@ -2760,7 +2767,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-clone-namespace-unset-new",
@@ -2837,7 +2845,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-cloneList-kinds",
@@ -2916,7 +2925,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-cloneList-namespace",
@@ -2995,7 +3005,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-cloneList-selector",
@@ -3085,7 +3096,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-clone-List-selector-unset",
@@ -3170,7 +3182,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: true,
+			expectedErr:   false,
+			expectWarning: true,
 		},
 		{
 			name: "update-cloneList-selector-nochange",
@@ -3260,7 +3273,8 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					]
 				}
 			}`),
-			expectedErr: false,
+			expectedErr:   false,
+			expectWarning: false,
 		},
 	}
 
@@ -3271,8 +3285,10 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 		err = json.Unmarshal(test.newPolicy, &new)
 		assert.Nil(t, err)
 
-		err = immutableGenerateFields(new, old)
+		warning, err := immutableGenerateFields(new, old)
+		golangassert.Assert(t, (warning != "") == test.expectWarning, test.name, err)
 		golangassert.Assert(t, (err != nil) == test.expectedErr, test.name, err)
+
 	}
 }
 
