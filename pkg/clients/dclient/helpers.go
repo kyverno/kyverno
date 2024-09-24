@@ -47,7 +47,10 @@ func GetResources(ctx context.Context, c Interface, group, version, kind, subres
 			// we can use `LIST`
 			var labelSelector string
 			if lselector != nil {
-				selector, _ := metav1.LabelSelectorAsSelector(lselector)
+				selector, err := metav1.LabelSelectorAsSelector(lselector)
+				if err != nil {
+					return nil, err
+				}
 				labelSelector = selector.String()
 			}
 
