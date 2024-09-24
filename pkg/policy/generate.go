@@ -239,7 +239,6 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 				},
 			},
 			)
-
 			if err != nil {
 				utilruntime.HandleError(fmt.Errorf("failed to list old targets: %v", err))
 				continue
