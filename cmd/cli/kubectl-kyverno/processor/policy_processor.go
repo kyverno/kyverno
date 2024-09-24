@@ -83,6 +83,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		policyExceptionLister,
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
+	resourceKind := resource.GetKind()
+	resourceName := resource.GetName()
+	resourceNamespace := resource.GetNamespace()
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
 	if p.Client == nil {
 		for _, s := range p.Subresources {
@@ -101,8 +104,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				subresource = parts[1]
 			}
 		}
+	} else {
+		if len(namespaceLabels) == 0 && resourceKind != "Namespace" && resourceNamespace != "" {
+			ns, err := p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resourceNamespace)
+			if err != nil {
+				log.Log.Error(err, "failed to get the resource's namespace")
+				return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
+			}
+			namespaceLabels = ns.GetLabels()
+		}
 	}
-	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
+	resPath := fmt.Sprintf("%s/%s/%s", resourceNamespace, resourceKind, resourceName)
 	responses := make([]engineapi.EngineResponse, 0, len(p.Policies))
 	// mutate
 	for _, policy := range p.Policies {

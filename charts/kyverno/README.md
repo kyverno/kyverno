@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: 3.2.5](https://img.shields.io/badge/Version-3.2.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.12.4](https://img.shields.io/badge/AppVersion-v1.12.4-informational?style=flat-square)
+![Version: 3.2.7-rc.2](https://img.shields.io/badge/Version-3.2.7--rc.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.12.6-rc.2](https://img.shields.io/badge/AppVersion-v1.12.6--rc.2-informational?style=flat-square)
 
 ## About
 
@@ -284,6 +284,7 @@ The chart values are organised per component.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | config.create | bool | `true` | Create the configmap. |
+| config.preserve | bool | `true` | Preserve the configmap settings during upgrade. |
 | config.name | string | `nil` | The configmap name (required if `create` is `false`). |
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
@@ -354,7 +355,8 @@ The chart values are organised per component.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| admissionController.featuresOverride | object | `{}` | Overrides features defined at the root level |
+| admissionController.featuresOverride | object | `{"admissionReports":{"backPressureThreshold":1000}}` | Overrides features defined at the root level |
+| admissionController.featuresOverride.admissionReports.backPressureThreshold | int | `1000` | Max number of admission reports allowed in flight until the admission controller stops creating new ones |
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
@@ -767,7 +769,7 @@ The chart values are organised per component.
 | cleanupJobs.clusterAdmissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | cleanupJobs.clusterAdmissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
 | cleanupJobs.clusterAdmissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
-| cleanupJobs.updateRequests.enabled | bool | `true` | Enable cleanup cronjob |
+| cleanupJobs.updateRequests.enabled | bool | `false` | Enable cleanup cronjob |
 | cleanupJobs.updateRequests.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
 | cleanupJobs.updateRequests.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
 | cleanupJobs.updateRequests.image.registry | string | `nil` | Image registry |
@@ -925,8 +927,8 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | 3.2.5 |
-|  | grafana | 3.2.5 |
+|  | crds | 3.2.7-rc.2 |
+|  | grafana | 3.2.7-rc.2 |
 
 ## Maintainers
 

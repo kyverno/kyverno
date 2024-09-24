@@ -5,6 +5,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 )
 
 func hasPermissions(resource schema.GroupVersionResource, s checker.AuthChecker) bool {
@@ -27,4 +28,13 @@ func HasValidatingAdmissionPolicyPermission(s checker.AuthChecker) bool {
 func HasValidatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
 	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "validatingadmissionpolicybindings"}
 	return hasPermissions(gvr, s)
+}
+
+// IsValidatingAdmissionPolicyRegistered checks if ValidatingAdmissionPolicies are registered in the API Server
+func IsValidatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
+	groupVersion := schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}
+	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(groupVersion.String()); err != nil {
+		return false, err
+	}
+	return true, nil
 }

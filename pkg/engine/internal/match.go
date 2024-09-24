@@ -31,7 +31,7 @@ func MatchPolicyContext(logger logr.Logger, client engineapi.Client, policyConte
 	}
 
 	if policy.GetSpec().GetMatchConditions() != nil {
-		if !checkMatchConditions(logger, client, policyContext, gvk, subresource) {
+		if !checkMatchConditions(logger, policyContext, gvk, subresource) {
 			logger.V(4).Info("webhookConfiguration.matchConditions doesn't match request")
 			return false
 		}
@@ -66,7 +66,7 @@ func checkNamespacedPolicy(policy kyvernov1.PolicyInterface, resources ...unstru
 	return true
 }
 
-func checkMatchConditions(logger logr.Logger, client engineapi.Client, policyContext engineapi.PolicyContext, gvk schema.GroupVersionKind, subresource string) bool {
+func checkMatchConditions(logger logr.Logger, policyContext engineapi.PolicyContext, gvk schema.GroupVersionKind, subresource string) bool {
 	policy := policyContext.Policy()
 	old := policyContext.OldResource()
 	new := policyContext.NewResource()
