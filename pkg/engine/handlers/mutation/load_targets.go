@@ -90,10 +90,11 @@ func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.R
 		namespace = policy.GetNamespace()
 	}
 	group, version, kind, subresource := kubeutils.ParseKindSelector(target.APIVersion + "/" + target.Kind)
-	resources, err := client.GetResources(ctx, group, version, kind, subresource, namespace, name)
+	resources, err := client.GetResources(ctx, group, version, kind, subresource, namespace, name, target.Selector)
 	if err != nil {
 		return nil, err
 	}
+
 	targetObjects := make([]resourceInfo, 0, len(resources))
 	for _, resource := range resources {
 		targetObjects = append(targetObjects, resourceInfo{
