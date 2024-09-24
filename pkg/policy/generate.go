@@ -237,7 +237,8 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 					backgroundcommon.GeneratePolicyNamespaceLabel: selector.policyNamespace,
 					backgroundcommon.GenerateRuleLabel:            ruleSelector.rule,
 				},
-			})
+			},
+			)
 
 			if err != nil {
 				utilruntime.HandleError(fmt.Errorf("failed to list old targets: %v", err))
