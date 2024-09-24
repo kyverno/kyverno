@@ -104,7 +104,7 @@ type Rule struct {
 	// generate and mutateExisting rules to those requests.
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
-	SkipBackgroundRequests bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
+	SkipBackgroundRequests *bool `json:"skipBackgroundRequests,omitempty"`
 }
 
 // HasMutate checks for mutate rule
