@@ -151,24 +151,26 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 	// Will check if the object has a custon propagation policy set via annotations
 	annotations := metaObj.GetAnnotations()
 	var policy *metav1.DeletionPropagation
-	if annotationPolicy, ok := annotations["propagationPolicy"]; ok {
-		switch annotationPolicy {
-		case "Foreground":
-			fg := metav1.DeletePropagationForeground
-			policy = &fg
-		case "Background":
-			bg := metav1.DeletePropagationBackground
-			policy = &bg
-		case "Orphan":
-			orphan := metav1.DeletePropagationOrphan
-			policy = &orphan
-		default:
-			logger.Info("Unknown propagationPolicy annotation, falling back to global policy", "policy", annotationPolicy)
+	if annotations != nil {
+		if annotationPolicy, ok := annotations["propagationPolicy"]; ok {
+			switch annotationPolicy {
+			case "Foreground":
+				fg := metav1.DeletePropagationForeground
+				policy = &fg
+			case "Background":
+				bg := metav1.DeletePropagationBackground
+				policy = &bg
+			case "Orphan":
+				orphan := metav1.DeletePropagationOrphan
+				policy = &orphan
+			default:
+				logger.Info("Unknown propagationPolicy annotation, falling back to global policy", "policy", annotationPolicy)
+				policy = c.propagationPolicy
+			}
+		} else {
+			// No annotation, use the global default if provided
 			policy = c.propagationPolicy
 		}
-	} else{
-		// No annotation, use the global default if provided
-		policy = c.propagationPolicy
 	}
 
 	// if the object is being deleted, return early
