@@ -661,6 +661,9 @@ features:
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: false
+  dumpPatches:
+    # -- Enables the feature
+    enabled: false
   globalContext:
     # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
     maxApiCallResponseLength: 2000000
