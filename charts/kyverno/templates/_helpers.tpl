@@ -49,6 +49,9 @@
 {{- with .generateValidatingAdmissionPolicy -}}
   {{- $flags = append $flags (print "--generateValidatingAdmissionPolicy=" .enabled) -}}
 {{- end -}}
+{{- with .dumpPatches -}}
+  {{- $flags = append $flags (print "--dumpPatches=" .enabled) -}}
+{{- end -}}
 {{- with .globalContext -}}
   {{- $flags = append $flags (print "--maxAPICallResponseLength=" (int .maxApiCallResponseLength)) -}}
 {{- end -}}
