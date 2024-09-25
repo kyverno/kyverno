@@ -548,7 +548,7 @@ func main() {
 		)
 		ephrs, err := StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
-			setup.Logger.Error(errors.New("failed to start admission reports watcher"), "failed to start admission reports watcher")
+			setup.Logger.Error(err, "failed to start admission reports watcher")
 			os.Exit(1)
 		}
 		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
