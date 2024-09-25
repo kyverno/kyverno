@@ -870,7 +870,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 }
 
 func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.MutatingWebhook {
-	mutatingWebhooks := make([]admissionregistrationv1.MutatingWebhook, 0, len(webhooks))
+	var mutatingWebhooks []admissionregistrationv1.MutatingWebhook //nolint:prealloc
 	for _, webhook := range webhooks {
 		if webhook.isEmpty() {
 			continue
@@ -1046,7 +1046,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 }
 
 func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.ValidatingWebhook {
-	validatingWebhooks := make([]admissionregistrationv1.ValidatingWebhook, 0, len(webhooks))
+	var validatingWebhooks []admissionregistrationv1.ValidatingWebhook //nolint:prealloc
 	for _, webhook := range webhooks {
 		if webhook.isEmpty() {
 			continue
