@@ -519,7 +519,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 					)
 				})
 				if retryErr != nil {
-					logger.Error(err, "failed to update clusterpolicy status", "policy", p.GetName())
+					logger.Error(retryErr, "failed to update clusterpolicy status", "policy", p.GetName())
 					continue
 				}
 			}
@@ -554,7 +554,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 					)
 				})
 				if retryErr != nil {
-					logger.Error(err, "failed to update policy status", "namespace", p.GetNamespace(), "policy", p.GetName())
+					logger.Error(retryErr, "failed to update policy status", "namespace", p.GetNamespace(), "policy", p.GetName())
 					continue
 				}
 			}
