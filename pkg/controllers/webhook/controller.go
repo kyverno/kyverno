@@ -478,7 +478,9 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 		w.Labels = desired.Labels
 		w.Annotations = desired.Annotations
 		w.OwnerReferences = desired.OwnerReferences
-		w.Webhooks = desired.Webhooks
+		if len(desired.Webhooks) > 0 {
+			w.Webhooks = desired.Webhooks
+		}
 		return nil
 	})
 	return err
@@ -508,7 +510,9 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 		w.Labels = desired.Labels
 		w.Annotations = desired.Annotations
 		w.OwnerReferences = desired.OwnerReferences
-		w.Webhooks = desired.Webhooks
+		if len(desired.Webhooks) > 0 {
+			w.Webhooks = desired.Webhooks
+		}
 		return nil
 	})
 	return err
