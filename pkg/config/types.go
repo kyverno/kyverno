@@ -18,7 +18,7 @@ type WebhookConfig struct {
 }
 
 func parseWebhooks(in string) ([]WebhookConfig, error) {
-	webhookCfgs := make([]WebhookConfig, 0, 10)
+	var webhookCfgs []WebhookConfig
 	if err := json.Unmarshal([]byte(in), &webhookCfgs); err != nil {
 		return nil, err
 	}
