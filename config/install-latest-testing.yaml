@@ -50712,6 +50712,7 @@ spec:
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
+            - --dumpPatches=false
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
