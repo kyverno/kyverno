@@ -36,7 +36,6 @@ type controller struct {
 	logger            logr.Logger
 	metrics           ttlMetrics
 	gvr               schema.GroupVersionResource
-	propagationPolicy *metav1.DeletionPropagation
 }
 
 type ttlMetrics struct {
@@ -58,7 +57,6 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		informer:          metainformer.Informer(),
 		logger:            logger,
 		metrics:           newTTLMetrics(logger),
-		propagationPolicy: nil,
 	}
 	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
 	registration, err := controllerutils.AddEventHandlers(
@@ -119,6 +117,31 @@ func (c *controller) deregisterEventHandlers() {
 	c.logger.V(3).Info("deregistered event handlers")
 }
 
+// Function to determine the deletion propagation policy
+func (c *controller) determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *metav1.DeletionPropagation {
+	annotations := metaObj.GetAnnotations()
+	var policy *metav1.DeletionPropagation
+
+	if annotations != nil {
+		if annotationPolicy, ok := annotations["propagationPolicy"]; ok {
+			switch annotationPolicy {
+			case "Foreground":
+				fg := metav1.DeletePropagationForeground
+				policy = &fg
+			case "Background":
+				bg := metav1.DeletePropagationBackground
+				policy = &bg
+			case "Orphan":
+				orphan := metav1.DeletePropagationOrphan
+				policy = &orphan
+			default:
+				logger.Info("Unknown propagationPolicy annotation, no global policy found", "policy", annotationPolicy)
+			}
+		}
+	}
+	return policy
+}
+
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey string, _, _ string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
 	if err != nil {
@@ -148,30 +171,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		attribute.String("resource_version", c.gvr.Version),
 		attribute.String("resource", c.gvr.Resource),
 	}
-	// Will check if the object has a custon propagation policy set via annotations
-	annotations := metaObj.GetAnnotations()
-	var policy *metav1.DeletionPropagation
-	if annotations != nil {
-		if annotationPolicy, ok := annotations["propagationPolicy"]; ok {
-			switch annotationPolicy {
-			case "Foreground":
-				fg := metav1.DeletePropagationForeground
-				policy = &fg
-			case "Background":
-				bg := metav1.DeletePropagationBackground
-				policy = &bg
-			case "Orphan":
-				orphan := metav1.DeletePropagationOrphan
-				policy = &orphan
-			default:
-				logger.Info("Unknown propagationPolicy annotation, falling back to global policy", "policy", annotationPolicy)
-				policy = c.propagationPolicy
-			}
-		} else {
-			// No annotation, use the global default if provided
-			policy = c.propagationPolicy
-		}
-	}
+
+	policy := c.determinePropagationPolicy(metaObj, logger)
 
 	// if the object is being deleted, return early
 	if metaObj.GetDeletionTimestamp() != nil {
