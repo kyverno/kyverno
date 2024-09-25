@@ -1,6 +1,7 @@
 package role
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -141,6 +142,10 @@ rules:
 			cmd := Command()
 			cmd.SetArgs(tc.args)
 
+			// Prepare a buffer to capture stdout
+			var stdoutBuffer bytes.Buffer
+			cmd.SetOut(&stdoutBuffer)
+
 			// Execute the command and handle errors
 			err = cmd.Execute()
 			if tc.errorMsg != "" {
@@ -151,11 +156,7 @@ rules:
 
 			// Check the output based on expected result
 			if tc.expectedFile == "stdout" {
-				// Capture stdout
-				output, err := captureStdout(func() {
-					cmd.Execute()
-				})
-				assert.NoError(t, err)
+				output := stdoutBuffer.String()
 				assert.Contains(t, output, fmt.Sprintf("name: kyverno-%s-permission", tc.args[0]))
 			} else {
 				expectedFilePath := filepath.Join(tempDir, tc.expectedFile)
@@ -167,24 +168,4 @@ rules:
 			}
 		})
 	}
-}
-
-// Helper function to capture stdout
-func captureStdout(f func()) (string, error) {
-	r, w, _ := os.Pipe()
-	old := os.Stdout
-	os.Stdout = w
-
-	f()
-
-	w.Close()
-	os.Stdout = old
-
-	var buf [4096]byte
-	n, err := r.Read(buf[:])
-	if err != nil {
-		return "", err
-	}
-
-	return string(buf[:n]), nil
 }
