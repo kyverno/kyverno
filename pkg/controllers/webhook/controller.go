@@ -45,6 +45,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -619,6 +620,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(_ context.Context, 
 						"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 					},
 				},
+				MatchPolicy: ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -642,6 +644,7 @@ func (c *controller) buildPolicyMutatingWebhookConfiguration(_ context.Context, 
 				SideEffects:             &noneOnDryRun,
 				ReinvocationPolicy:      &ifNeeded,
 				AdmissionReviewVersions: []string{"v1"},
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -664,6 +667,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 				TimeoutSeconds:          &c.defaultTimeout,
 				SideEffects:             &none,
 				AdmissionReviewVersions: []string{"v1"},
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -691,6 +695,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				ReinvocationPolicy:      &ifNeeded,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}, {
 				Name:         config.MutatingWebhookName + "-fail",
 				ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
@@ -710,6 +715,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				ReinvocationPolicy:      &ifNeeded,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -776,6 +782,10 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 
 func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.MutatingWebhook {
 	var mutatingWebhooks []admissionregistrationv1.MutatingWebhook //nolint:prealloc
+	objectSelector := webhookCfg.ObjectSelector
+	if objectSelector == nil {
+		objectSelector = &metav1.LabelSelector{}
+	}
 	for _, webhook := range webhooks {
 		if webhook.isEmpty() {
 			continue
@@ -793,10 +803,11 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				NamespaceSelector:       webhookCfg.NamespaceSelector,
-				ObjectSelector:          webhookCfg.ObjectSelector,
+				ObjectSelector:          objectSelector,
 				TimeoutSeconds:          &timeout,
 				ReinvocationPolicy:      &ifNeeded,
 				MatchConditions:         webhook.matchConditions,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			},
 		)
 	}
@@ -830,6 +841,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}, {
 				Name:         config.ValidatingWebhookName + "-fail",
 				ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
@@ -850,6 +862,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -952,6 +965,10 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 
 func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.ValidatingWebhook {
 	var validatingWebhooks []admissionregistrationv1.ValidatingWebhook //nolint:prealloc
+	objectSelector := webhookCfg.ObjectSelector
+	if objectSelector == nil {
+		objectSelector = &metav1.LabelSelector{}
+	}
 	for _, webhook := range webhooks {
 		if webhook.isEmpty() {
 			continue
@@ -969,9 +986,10 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				NamespaceSelector:       webhookCfg.NamespaceSelector,
-				ObjectSelector:          webhookCfg.ObjectSelector,
+				ObjectSelector:          objectSelector,
 				TimeoutSeconds:          &timeout,
 				MatchConditions:         webhook.matchConditions,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			},
 		)
 	}
