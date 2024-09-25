@@ -153,10 +153,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		}
 		if rule.Validation.Deny != nil {
 			deny := &kyvernov1.Validation{
-				Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
-				Deny:                   rule.Validation.Deny,
-				FailureAction:          rule.Validation.FailureAction,
-				FailureActionOverrides: rule.Validation.FailureActionOverrides,
+				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
+				Deny:                    rule.Validation.Deny,
+				FailureAction:           rule.Validation.FailureAction,
+				FailureActionOverrides:  rule.Validation.FailureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			rule.Validation = deny
 			return rule
@@ -171,8 +172,9 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 					Version: rule.Validation.PodSecurity.Version,
 					Exclude: newExclude,
 				},
-				FailureAction:          rule.Validation.FailureAction,
-				FailureActionOverrides: rule.Validation.FailureActionOverrides,
+				FailureAction:           rule.Validation.FailureAction,
+				FailureActionOverrides:  rule.Validation.FailureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			rule.Validation = podSecurity
 			return rule
@@ -194,9 +196,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			failureAction := rule.Validation.FailureAction
 			failureActionOverrides := rule.Validation.FailureActionOverrides
 			rule.Validation = &kyvernov1.Validation{
-				Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
-				FailureAction:          failureAction,
-				FailureActionOverrides: failureActionOverrides,
+				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
+				FailureAction:           failureAction,
+				FailureActionOverrides:  failureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			rule.Validation.SetAnyPattern(patterns)
 			return rule
@@ -207,10 +210,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			failureAction := rule.Validation.FailureAction
 			failureActionOverrides := rule.Validation.FailureActionOverrides
 			rule.Validation = &kyvernov1.Validation{
-				Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
-				ForEachValidation:      newForeachValidate,
-				FailureAction:          failureAction,
-				FailureActionOverrides: failureActionOverrides,
+				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+				ForEachValidation:       newForeachValidate,
+				FailureAction:           failureAction,
+				FailureActionOverrides:  failureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			return rule
 		}
