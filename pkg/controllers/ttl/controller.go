@@ -27,15 +27,15 @@ const (
 )
 
 type controller struct {
-	name              string
-	client            metadata.Getter
-	queue             workqueue.TypedRateLimitingInterface[any]
-	lister            cache.GenericLister
-	informer          cache.SharedIndexInformer
-	registration      cache.ResourceEventHandlerRegistration
-	logger            logr.Logger
-	metrics           ttlMetrics
-	gvr               schema.GroupVersionResource
+	name         string
+	client       metadata.Getter
+	queue        workqueue.TypedRateLimitingInterface[any]
+	lister       cache.GenericLister
+	informer     cache.SharedIndexInformer
+	registration cache.ResourceEventHandlerRegistration
+	logger       logr.Logger
+	metrics      ttlMetrics
+	gvr          schema.GroupVersionResource
 }
 
 type ttlMetrics struct {
@@ -50,13 +50,14 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	}
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: name})
 	c := &controller{
-		name:              name,
-		client:            client,
-		queue:             queue,
-		lister:            metainformer.Lister(),
-		informer:          metainformer.Informer(),
-		logger:            logger,
-		metrics:           newTTLMetrics(logger),
+		name:     name,
+		client:   client,
+		queue:    queue,
+		lister:   metainformer.Lister(),
+		informer: metainformer.Informer(),
+		logger:   logger,
+		metrics:  newTTLMetrics(logger),
+		gvr: 			gvr,
 	}
 	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
 	registration, err := controllerutils.AddEventHandlers(
@@ -123,7 +124,8 @@ func (c *controller) determinePropagationPolicy(metaObj metav1.Object, logger lo
 	var policy *metav1.DeletionPropagation
 
 	if annotations != nil {
-		if annotationPolicy, ok := annotations["propagationPolicy"]; ok {
+		annotationPolicy := annotations["kyverno.AnnotationCleanupPropagationPolicy"]
+		if annotationPolicy == "" {
 			switch annotationPolicy {
 			case "Foreground":
 				fg := metav1.DeletePropagationForeground
@@ -172,8 +174,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		attribute.String("resource", c.gvr.Resource),
 	}
 
-	policy := c.determinePropagationPolicy(metaObj, logger)
-
 	// if the object is being deleted, return early
 	if metaObj.GetDeletionTimestamp() != nil {
 		return nil
@@ -191,6 +191,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		return nil
 	}
 	if time.Now().After(deletionTime) {
+		policy := c.determinePropagationPolicy(metaObj, logger)
 		deleteOptions := metav1.DeleteOptions{
 			PropagationPolicy: policy,
 		}
