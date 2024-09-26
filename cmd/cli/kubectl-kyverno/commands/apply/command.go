@@ -347,12 +347,17 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
 			if c.ContinueOnFail {
-				fmt.Printf("failed to apply policies on resource %v (%v)\n", resource.GetName(), err)
+				log.Log.Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
 				continue
 			}
-			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
+			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
+	}
+	for _, policy := range validPolicies {
+		if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
+			log.Log.Info(fmt.Sprintf("Policy %s has no namespace detected. Ensure that namespaced policies are correctly loaded.", policy.GetNamespace()))
+		}
 	}
 	return &rc, resources, responses, nil
 }
@@ -415,8 +420,12 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 			}
 		}
+		for _, policy := range policies {
+			if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
+				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s. This might cause incorrect report generation.", policy.GetNamespace()))
+			}
+		}
 	}
-
 	return nil, nil, skipInvalidPolicies, nil, policies, vaps, vapBindings, nil
 }
 

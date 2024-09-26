@@ -108,6 +108,9 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 		}
 		rules = append(rules, ruleforset...)
 	}
+	for _, rule := range rules {
+		slices.Sort(rule.Resources)
+	}
 	less := func(a []string, b []string) (int, bool) {
 		if x := cmp.Compare(len(a), len(b)); x != 0 {
 			return x, true
@@ -140,7 +143,7 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 func appendResourceInRule(resource sets.Set[string], operations []admissionregistrationv1.OperationType, ruleforset []admissionregistrationv1.RuleWithOperations) ([]admissionregistrationv1.RuleWithOperations, bool) {
 	for i, rule := range ruleforset {
 		if reflect.DeepEqual(rule.Operations, operations) {
-			ruleforset[i].Rule.Resources = append(rule.Rule.Resources, resource.UnsortedList()...)
+			ruleforset[i].Rule.Resources = append(rule.Rule.Resources, sets.List(resource)...)
 			return ruleforset, true
 		}
 	}
@@ -263,16 +266,18 @@ func computeOperationsForValidatingWebhookConf(r kyvernov1.Rule, operationStatus
 		operationStatusMap[webhookConnect] = true
 		operationStatusMap[webhookDelete] = true
 	}
-	if r.ExcludeResources.ResourceDescription.Operations != nil {
-		for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-			operationStatusMap[string(o)] = false
+	if r.ExcludeResources != nil {
+		if r.ExcludeResources.ResourceDescription.Operations != nil {
+			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+				operationStatusMap[string(o)] = false
+			}
 		}
-	}
-	if len(r.ExcludeResources.Any) != 0 {
-		_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
-	}
-	if len(r.ExcludeResources.All) != 0 {
-		_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+		if len(r.ExcludeResources.Any) != 0 {
+			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+		}
 	}
 	return operationStatusMap
 }
@@ -307,16 +312,18 @@ func computeOperationsForMutatingWebhookConf(r kyvernov1.Rule, operationStatusMa
 			operationStatusMap[webhookCreate] = true
 			operationStatusMap[webhookUpdate] = true
 		}
-		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-				operationStatusMap[string(o)] = false
+		if r.ExcludeResources != nil {
+			if r.ExcludeResources.ResourceDescription.Operations != nil {
+				for _, o := range r.ExcludeResources.ResourceDescription.Operations {
+					operationStatusMap[string(o)] = false
+				}
 			}
-		}
-		if len(r.ExcludeResources.Any) != 0 {
-			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
-		}
-		if len(r.ExcludeResources.All) != 0 {
-			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+			if len(r.ExcludeResources.Any) != 0 {
+				_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
+			}
+			if len(r.ExcludeResources.All) != 0 {
+				_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
+			}
 		}
 	}
 	return operationStatusMap
@@ -331,7 +338,7 @@ func mergeOperations(operationStatusMap map[string]bool, currentOps []admissionr
 		}
 	}
 	result := sets.New(currentOps...).Insert(operationReq...)
-	return result.UnsortedList()
+	return sets.List(result)
 }
 
 func getOperationStatusMap() map[string]bool {
@@ -375,17 +382,19 @@ func computeResourcesOfRule(r kyvernov1.Rule) []string {
 	if len(r.MatchResources.All) != 0 {
 		resources = scanResourceFilterForResources(r.MatchResources.Any)
 	}
-	if len(r.ExcludeResources.Any) != 0 {
-		resources = scanResourceFilterForResources(r.MatchResources.Any)
-	}
-	if len(r.ExcludeResources.All) != 0 {
-		resources = scanResourceFilterForResources(r.MatchResources.Any)
-	}
 	if r.MatchResources.ResourceDescription.Kinds != nil {
 		resources = append(resources, r.MatchResources.ResourceDescription.Kinds...)
 	}
-	if r.ExcludeResources.ResourceDescription.Kinds != nil {
-		resources = append(resources, r.ExcludeResources.ResourceDescription.Kinds...)
+	if r.ExcludeResources != nil {
+		if len(r.ExcludeResources.Any) != 0 {
+			resources = scanResourceFilterForResources(r.MatchResources.Any)
+		}
+		if len(r.ExcludeResources.All) != 0 {
+			resources = scanResourceFilterForResources(r.MatchResources.Any)
+		}
+		if r.ExcludeResources.ResourceDescription.Kinds != nil {
+			resources = append(resources, r.ExcludeResources.ResourceDescription.Kinds...)
+		}
 	}
 	return resources
 }

@@ -1396,7 +1396,11 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		}
 	}
 	in.MatchResources.DeepCopyInto(&out.MatchResources)
-	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
+	if in.ExcludeResources != nil {
+		in, out := &in.ExcludeResources, &out.ExcludeResources
+		*out = new(MatchResources)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ImageExtractors != nil {
 		in, out := &in.ImageExtractors, &out.ImageExtractors
 		*out = make(ImageExtractorConfigs, len(*in))
@@ -1421,8 +1425,16 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		*out = make([]v1beta1.MatchCondition, len(*in))
 		copy(*out, *in)
 	}
-	in.Mutation.DeepCopyInto(&out.Mutation)
-	in.Validation.DeepCopyInto(&out.Validation)
+	if in.Mutation != nil {
+		in, out := &in.Mutation, &out.Mutation
+		*out = new(Mutation)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Validation != nil {
+		in, out := &in.Validation, &out.Validation
+		*out = new(Validation)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Generation != nil {
 		in, out := &in.Generation, &out.Generation
 		*out = new(Generation)

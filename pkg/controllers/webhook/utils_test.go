@@ -219,7 +219,7 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 			name: "Test Case 1",
 			rules: []kyvernov1.Rule{
 				{
-					Mutation: kyvernov1.Mutation{
+					Mutation: &kyvernov1.Mutation{
 						PatchesJSON6902: "add",
 					},
 					MatchResources: kyvernov1.MatchResources{
@@ -237,18 +237,18 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 			name: "Test Case 2",
 			rules: []kyvernov1.Rule{
 				{
-					Mutation: kyvernov1.Mutation{
+					Mutation: &kyvernov1.Mutation{
 						PatchesJSON6902: "add",
 					},
 					MatchResources:   kyvernov1.MatchResources{},
-					ExcludeResources: kyvernov1.MatchResources{},
+					ExcludeResources: &kyvernov1.MatchResources{},
 				},
 				{
-					Mutation: kyvernov1.Mutation{
+					Mutation: &kyvernov1.Mutation{
 						PatchesJSON6902: "add",
 					},
 					MatchResources:   kyvernov1.MatchResources{},
-					ExcludeResources: kyvernov1.MatchResources{},
+					ExcludeResources: &kyvernov1.MatchResources{},
 				},
 			},
 			expectedResult: map[string]bool{
@@ -260,11 +260,11 @@ func TestComputeOperationsForMutatingWebhookConf(t *testing.T) {
 			name: "Test Case 2",
 			rules: []kyvernov1.Rule{
 				{
-					Mutation: kyvernov1.Mutation{
+					Mutation: &kyvernov1.Mutation{
 						PatchesJSON6902: "add",
 					},
 					MatchResources: kyvernov1.MatchResources{},
-					ExcludeResources: kyvernov1.MatchResources{
+					ExcludeResources: &kyvernov1.MatchResources{
 						ResourceDescription: kyvernov1.ResourceDescription{
 							Operations: []kyvernov1.AdmissionOperation{webhookCreate},
 						},
@@ -317,7 +317,7 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 			rules: []kyvernov1.Rule{
 				{
 					MatchResources:   kyvernov1.MatchResources{},
-					ExcludeResources: kyvernov1.MatchResources{},
+					ExcludeResources: &kyvernov1.MatchResources{},
 				},
 			},
 			expectedResult: map[string]bool{
@@ -336,7 +336,7 @@ func TestComputeOperationsForValidatingWebhookConf(t *testing.T) {
 							Operations: []kyvernov1.AdmissionOperation{webhookCreate, webhookUpdate},
 						},
 					},
-					ExcludeResources: kyvernov1.MatchResources{
+					ExcludeResources: &kyvernov1.MatchResources{
 						ResourceDescription: kyvernov1.ResourceDescription{
 							Operations: []kyvernov1.AdmissionOperation{webhookDelete},
 						},
