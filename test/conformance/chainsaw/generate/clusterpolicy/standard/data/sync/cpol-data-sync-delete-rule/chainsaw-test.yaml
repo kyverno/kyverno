@@ -7,34 +7,42 @@ spec:
   - name: step-01
     try:
     - apply:
-        file: permissions.yaml
+        file: 1-1-permissions.yaml
     - apply:
-        file: policy.yaml
+        file: 1-2-policy.yaml
     - assert:
-        file: policy-ready.yaml
+        file: 1-3-policy-ready.yaml
   - name: step-02
     try:
     - apply:
-        file: chainsaw-step-02-apply-1-1.yaml
+        file: 2-1-namespace.yaml
   - name: step-03
     try:
     - assert:
-        file: secret.yaml
+        file: 3-1-secret.yaml
     - assert:
-        file: configmap.yaml
+        file: 3-2-configmap.yaml
   - name: step-04
     try:
     - apply:
-        file: delete-rule.yaml
+        file: 4-1-rule-update.yaml
     - assert:
-        file: policy-ready.yaml
+        file: 1-3-policy-ready.yaml
   - name: step-05
     try:
-    - sleep:
-        duration: 3s
+    - apply:
+        file: 5-1-namespace-update.yaml
+    - assert:
+        file: 5-2-configmap-new.yaml
   - name: step-06
     try:
+    - apply:
+        file: 6-1-delete-rule.yaml
     - assert:
-        file: secret.yaml
+        file: 1-3-policy-ready.yaml
+  - name: step-07
+    try:
+    - assert:
+        file: 3-2-configmap.yaml
     - error:
-        file: configmap.yaml
+        file: 5-2-configmap-new.yaml

@@ -4,7 +4,8 @@ This test verifies the synchronize behavior of generated resource, if the select
 
 ## Expected Behavior
 
-This test ensures that update of source resource(ConfigMap) match selected using `allowedToBeCloned:  "true"` label get synchronized with target resource created by a ClusterPolicy `generate.cloneList` rule, otherwise the test fails. 
+1. update source resource (configmap) match selected using `allowedToBeCloned:  "true"` label, the change should be synced to the target configmap.
+2. remove configmap from the `cloneList.kinds` in the policy, update the source configmap, the change should not be synced to the previous cloned configmap
 
 ## Reference Issue(s)
 

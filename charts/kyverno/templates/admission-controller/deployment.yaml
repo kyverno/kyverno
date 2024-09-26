@@ -181,6 +181,7 @@ spec:
               "dumpPayload"
               "forceFailurePolicyIgnore"
               "generateValidatingAdmissionPolicy"
+              "dumpPatches"
               "globalContext"
               "logging"
               "omitEvents"
