@@ -320,7 +320,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 		for len(vars) > 0 {
 			originalPattern := value
 			shallowSubstitution := false
-			variable := ""
+			var variable string
 			for _, v := range vars {
 				initial := len(regex.RegexVariableInit.FindAllString(v, -1)) > 0
 				old := v
