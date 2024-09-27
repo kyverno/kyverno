@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.2.7-rc.3
-appVersion: v1.12.6-rc.3
+version: 3.2.7
+appVersion: v1.12.6
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -39,8 +39,8 @@ annotations:
       description: Make admission reports breaker threshold configurable
 dependencies:
   - name: grafana
-    version: 3.2.7-rc.3
+    version: 3.2.7
     condition: grafana.enabled
   - name: crds
-    version: 3.2.7-rc.3
+    version: 3.2.7
     condition: crds.install
