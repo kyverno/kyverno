@@ -972,8 +972,6 @@ go.opentelemetry.io/otel/trace v1.30.0 h1:7UBkkYzeg3C7kQX8VAidWh2biiQbtAKjyIML8d
 go.opentelemetry.io/otel/trace v1.30.0/go.mod h1:5EyKqTzzmyqB9bwtCCq6pDLktPK6fmGf/Dph+8VI02o=
 go.opentelemetry.io/proto/otlp v1.3.1 h1:TrMUixzpM0yuc/znrFTP9MMRh8trP93mkCiDVeXrui0=
 go.opentelemetry.io/proto/otlp v1.3.1/go.mod h1:0X1WI4de4ZsLrrJNLAQbFeLCm3T7yBkR0XqQ7niQU+8=
-go.starlark.net v0.0.0-20240725214946-42030a7cedce h1:YyGqCjZtGZJ+mRPaenEiB87afEO2MFRzLiJNZ0Z0bPw=
-go.starlark.net v0.0.0-20240725214946-42030a7cedce/go.mod h1:YKMCv9b1WrfWmeqdV5MAuEHWsu5iC+fe6kYl2sQjdI8=
 go.step.sm/crypto v0.51.1 h1:ktUg/2hetEMiBAqgz502ktZDGoDoGrcHFg3XpkmkvvA=
 go.step.sm/crypto v0.51.1/go.mod h1:PdrhttNU/tG9/YsVd4fdlysBN+UV503p0o2irFZQlAw=
 go.uber.org/automaxprocs v1.6.0 h1:O3y2/QNTOdbF+e/dpXNNW7Rx2hZ4sTIPyybbxyNqTUs=
@@ -1255,8 +1253,8 @@ sigs.k8s.io/kubectl-validate v0.0.5-0.20240827210056-ce13d95db263 h1:ju7xWt2VnWu
 sigs.k8s.io/kubectl-validate v0.0.5-0.20240827210056-ce13d95db263/go.mod h1:ex3aZREdgXoEH7+v6azT7Xm0J9rpWIDr1micQCzdomY=
 sigs.k8s.io/kustomize/api v0.17.3 h1:6GCuHSsxq7fN5yhF2XrC+AAr8gxQwhexgHflOAD/JJU=
 sigs.k8s.io/kustomize/api v0.17.3/go.mod h1:TuDH4mdx7jTfK61SQ/j1QZM/QWR+5rmEiNjvYlhzFhc=
-sigs.k8s.io/kustomize/kyaml v0.17.2 h1:+AzvoJUY0kq4QAhH/ydPHHMRLijtUKiyVyh7fOSshr0=
-sigs.k8s.io/kustomize/kyaml v0.17.2/go.mod h1:9V0mCjIEYjlXuCdYsSXvyoy2BTsLESH7TlGV81S282U=
+sigs.k8s.io/kustomize/kyaml v0.18.0 h1:OAsBL2NzDLu3X7t4HmdIB7GdRTePai4whzaoOJw+C/E=
+sigs.k8s.io/kustomize/kyaml v0.18.0/go.mod h1:C3L2BFVU1jgcddNBE1TxuVLgS46TjObMwW5FT9FcjYo=
 sigs.k8s.io/release-utils v0.8.4 h1:4QVr3UgbyY/d9p74LBhg0njSVQofUsAZqYOzVZBhdBw=
 sigs.k8s.io/release-utils v0.8.4/go.mod h1:m1bHfscTemQp+z+pLCZnkXih9n0+WukIUU70n6nFnU0=
 sigs.k8s.io/structured-merge-diff/v4 v4.4.1 h1:150L+0vs/8DA78h1u02ooW1/fFq/Lwr+sGiqlzvrtq4=
