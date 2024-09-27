@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -66,7 +67,9 @@ func (h *mutationHandler) HandleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-	h.log.V(6).Info("", "generated patches", string(mutatePatches))
+	if toggle.FromContext(ctx).DumpMutatePatches() {
+		h.log.V(2).Info("", "generated patches", string(mutatePatches))
+	}
 	return mutatePatches, webhookutils.GetWarningMessages(mutateEngineResponses), nil
 }
 
