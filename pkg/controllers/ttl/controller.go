@@ -137,7 +137,7 @@ func (c *controller) determinePropagationPolicy(metaObj metav1.Object, logger lo
 				orphan := metav1.DeletePropagationOrphan
 				policy = &orphan
 			case "":
-				return nil	
+				return nil
 			default:
 				logger.Info("Unknown propagationPolicy annotation, no global policy found", "policy", annotationPolicy)
 			}
