@@ -92,6 +92,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | background | bool | `true` | Policies background mode |
 | skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
 | kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment |
+| kubernetesVersion | string | `"1.28-1.31"` | Kubernetes version Against which the policy should work. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes |
 
 ## Source Code
 
