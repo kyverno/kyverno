@@ -7,9 +7,9 @@ const (
 	LabelCacheEnabled     = "cache.kyverno.io/enabled"
 	LabelCertManagedBy    = "cert.kyverno.io/managed-by"
 	LabelCleanupTtl       = "cleanup.kyverno.io/ttl"
-	AnnotationCleanupPropagationPolicy = "cleanup.kyverno.io/propagation-policy"
 	LabelWebhookManagedBy = "webhook.kyverno.io/managed-by"
 	// Well known annotations
+	AnnotationCleanupPropagationPolicy = "cleanup.kyverno.io/propagation-policy"
 	AnnotationAutogenControllers = "pod-policies.kyverno.io/autogen-controllers"
 	AnnotationImageVerify        = "kyverno.io/verify-images"
 	AnnotationPolicyCategory     = "policies.kyverno.io/category"

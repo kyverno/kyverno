@@ -57,7 +57,7 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		informer: metainformer.Informer(),
 		logger:   logger,
 		metrics:  newTTLMetrics(logger),
-		gvr: 			gvr,
+		gvr:      gvr,
 	}
 	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
 	registration, err := controllerutils.AddEventHandlers(
@@ -136,6 +136,8 @@ func (c *controller) determinePropagationPolicy(metaObj metav1.Object, logger lo
 			case "Orphan":
 				orphan := metav1.DeletePropagationOrphan
 				policy = &orphan
+			case "":
+				return nil	
 			default:
 				logger.Info("Unknown propagationPolicy annotation, no global policy found", "policy", annotationPolicy)
 			}
@@ -173,7 +175,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		attribute.String("resource_version", c.gvr.Version),
 		attribute.String("resource", c.gvr.Resource),
 	}
-
 	// if the object is being deleted, return early
 	if metaObj.GetDeletionTimestamp() != nil {
 		return nil
@@ -191,9 +192,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		return nil
 	}
 	if time.Now().After(deletionTime) {
-		policy := c.determinePropagationPolicy(metaObj, logger)
 		deleteOptions := metav1.DeleteOptions{
-			PropagationPolicy: policy,
+			PropagationPolicy: c.determinePropagationPolicy(metaObj, logger),
 		}
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
 		if err != nil {
