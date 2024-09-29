@@ -15,7 +15,7 @@ const (
 
 type ValidationOptions struct {
 	Enabled   bool
-	Namespace policy.StringSlice
+	Namespace []string
 }
 
 // Validate checks policy exception is valid
@@ -23,7 +23,7 @@ func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2.PolicyEx
 	var warnings []string
 	if !opts.Enabled {
 		warnings = append(warnings, disabledPolex)
-	} else if len(opts.Namespace) != 0 && !opts.Namespace.Contains(polex.Namespace) {
+	} else if len(opts.Namespace) != 0 && !policy.Contains(opts.Namespace, polex.Namespace) {
 		warnings = append(warnings, namespacesDontMatch)
 	}
 	errs := polex.Validate()

@@ -2,12 +2,12 @@ package internal
 
 import (
 	"flag"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
@@ -39,7 +39,7 @@ var (
 	eventsRateLimitBurst int
 	// engine
 	enablePolicyException  bool
-	exceptionNamespaces    policy.StringSlice
+	exceptionNamespaces    string
 	enableConfigMapCaching bool
 	// cosign
 	enableTUF  bool
@@ -99,7 +99,7 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 }
 
 func initPolicyExceptionsFlags() {
-	flag.Var(&exceptionNamespaces, "exceptionNamespace", "Configure the namespace to accept PolicyExceptions. (comma-separated).")
+	flag.StringVar(&exceptionNamespaces, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions. (comma-separated).")
 	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
 }
 
@@ -237,8 +237,14 @@ func ParseFlags(config Configuration, opts ...Option) {
 	flag.Parse()
 }
 
-func ExceptionNamespace() policy.StringSlice {
-	return exceptionNamespaces
+func ExceptionNamespace() []string {
+	// Split the input string by commas
+	parts := strings.Split(exceptionNamespaces, ",")
+	// Trim Spaces
+	for i, part := range parts {
+		parts[i] = strings.TrimSpace(part)
+	}
+	return parts
 }
 
 func PolicyExceptionEnabled() bool {

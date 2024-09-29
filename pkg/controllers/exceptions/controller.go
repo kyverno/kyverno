@@ -3,7 +3,6 @@ package exceptions
 import (
 	"cmp"
 	"context"
-	"fmt"
 	"slices"
 	"sync"
 	"time"
@@ -16,7 +15,6 @@ import (
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	"github.com/kyverno/kyverno/pkg/policy"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -40,7 +38,7 @@ type controller struct {
 	// state
 	lock       sync.RWMutex
 	index      policyIndex
-	namespaces policy.StringSlice
+	namespaces []string
 }
 
 const (
@@ -53,7 +51,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
-	namespaces policy.StringSlice,
+	namespaces []string,
 ) *controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), queue); err != nil {

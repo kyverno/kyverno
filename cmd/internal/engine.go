@@ -69,7 +69,7 @@ func NewExceptionSelector(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V2().PolicyExceptions(),
-		exceptionNamespaces,
+		ExceptionNamespace(),
 	)
 	polexController := NewController(
 		exceptioncontroller.ControllerName,
