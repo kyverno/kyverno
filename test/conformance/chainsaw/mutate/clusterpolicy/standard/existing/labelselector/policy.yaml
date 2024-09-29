@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-existing-configmap
+spec:
+  rules:
+    - name: mutate-configmap-on-secret-event
+      match:
+        any:
+        - resources:
+            kinds:
+            - Secret
+      mutate:
+        targets:
+        - apiVersion: v1
+          kind: ConfigMap
+          selector:
+            matchLabels:
+              should-match: 'yes'
+        patchStrategicMerge:
+          metadata:
+            labels:
+              foo: bar
+ 
