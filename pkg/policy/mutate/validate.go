@@ -19,7 +19,6 @@ import (
 // Mutate provides implementation to validate 'mutate' rule
 type Mutate struct {
 	rule                  *kyvernov1.Rule
-	mutation              kyvernov1.Mutation
 	authCheckerBackground auth.AuthChecks
 	authCheckerReports    auth.AuthChecks
 }
@@ -37,7 +36,6 @@ func NewMutateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool,
 
 	return &Mutate{
 		rule:                  rule,
-		mutation:              *rule.Mutation,
 		authCheckerBackground: authCheckBackground,
 		authCheckerReports:    authCheckerReports,
 	}
@@ -50,15 +48,15 @@ func (m *Mutate) Validate(ctx context.Context, _ []string) (warnings []string, p
 			return nil, "foreach", fmt.Errorf("only one of `foreach`, `patchStrategicMerge`, or `patchesJson6902` is allowed")
 		}
 
-		return m.validateForEach("", m.mutation.ForEachMutation)
+		return m.validateForEach("", m.rule.Mutation.ForEachMutation)
 	}
 
 	if m.hasPatchesJSON6902() && m.hasPatchStrategicMerge() {
 		return nil, "foreach", fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 	}
 
-	if m.mutation.Targets != nil {
-		if err := m.validateAuth(ctx, m.mutation.Targets); err != nil {
+	if m.rule.Mutation.Targets != nil {
+		if err := m.validateAuth(ctx, m.rule.Mutation.Targets); err != nil {
 			return nil, "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.authCheckerBackground.User(), err)
 		}
 	}
@@ -100,15 +98,15 @@ func (m *Mutate) validateNestedForEach(tag string, j []kyvernov1.ForEachMutation
 }
 
 func (m *Mutate) hasForEach() bool {
-	return len(m.mutation.ForEachMutation) > 0
+	return len(m.rule.Mutation.ForEachMutation) > 0
 }
 
 func (m *Mutate) hasPatchStrategicMerge() bool {
-	return m.mutation.GetPatchStrategicMerge() != nil
+	return m.rule.Mutation.GetPatchStrategicMerge() != nil
 }
 
 func (m *Mutate) hasPatchesJSON6902() bool {
-	return m.mutation.PatchesJSON6902 != ""
+	return m.rule.Mutation.PatchesJSON6902 != ""
 }
 
 func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetResourceSpec) error {
