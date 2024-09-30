@@ -50,7 +50,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		if policyNew == nil {
 			continue
 		}
-		logger.V(4).Info("update request for mutateExisting policy")
+		logger.V(2).Info("update request for mutateExisting policy")
 
 		// skip rules that don't specify the DELETE operation in case the admission request is of type DELETE
 		var skipped []string

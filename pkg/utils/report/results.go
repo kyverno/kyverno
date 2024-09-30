@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -201,7 +202,7 @@ func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
 		if target, _, _ := ruleResult.PatchedTarget(); target != nil {
-			addProperty("patched target", target.GroupVersionKind().String()+" Name="+target.GetName(), &result)
+			addProperty("patched-target", getResourceInfo(target.GroupVersionKind(), target.GetName(), target.GetNamespace()), &result)
 		}
 		results = append(results, result)
 	}
@@ -219,7 +220,7 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
 		if generatedResource := ruleResult.GeneratedResource(); generatedResource.Object != nil {
-			addProperty("generated resource", generatedResource.GroupVersionKind().String()+" Name="+generatedResource.GetName(), &result)
+			addProperty("generated-resource", getResourceInfo(generatedResource.GroupVersionKind(), generatedResource.GetName(), generatedResource.GetNamespace()), &result)
 		}
 		results = append(results, result)
 	}
@@ -285,4 +286,12 @@ func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ..
 		ruleResults = append(ruleResults, GenerationEngineResponseToReportResults(result)...)
 	}
 	SetResults(report, ruleResults...)
+}
+
+func getResourceInfo(gvk schema.GroupVersionKind, name, namespace string) string {
+	info := gvk.String() + " Name=" + name
+	if len(namespace) != 0 {
+		info = info + " Namespace=" + namespace
+	}
+	return info
 }

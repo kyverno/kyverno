@@ -14,6 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
@@ -56,6 +57,8 @@ type GenerateController struct {
 
 	log logr.Logger
 	jp  jmespath.Interface
+
+	reportsBreaker breaker.Breaker
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
@@ -72,20 +75,22 @@ func NewGenerateController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
+	reportsBreaker breaker.Breaker,
 ) *GenerateController {
 	c := GenerateController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		statusControl: statusControl,
-		engine:        engine,
-		policyLister:  policyLister,
-		npolicyLister: npolicyLister,
-		urLister:      urLister,
-		nsLister:      nsLister,
-		configuration: dynamicConfig,
-		eventGen:      eventGen,
-		log:           log,
-		jp:            jp,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		statusControl:  statusControl,
+		engine:         engine,
+		policyLister:   policyLister,
+		npolicyLister:  npolicyLister,
+		urLister:       urLister,
+		nsLister:       nsLister,
+		configuration:  dynamicConfig,
+		eventGen:       eventGen,
+		log:            log,
+		jp:             jp,
+		reportsBreaker: reportsBreaker,
 	}
 	return &c
 }
@@ -229,7 +234,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		return nil, errors.New(doesNotApply)
 	}
 	if c.needsReports(*admissionRequest) {
-		if err := c.createReports(context.TODO(), policyContext.NewResource(), *admissionRequest, engineResponse); err != nil {
+		if err := c.createReports(context.TODO(), policyContext.NewResource(), engineResponse); err != nil {
 			c.log.Error(err, "failed to create report")
 		}
 	}
@@ -385,12 +390,14 @@ func (c *GenerateController) needsReports(request admissionv1.AdmissionRequest) 
 func (c *GenerateController) createReports(
 	ctx context.Context,
 	resource unstructured.Unstructured,
-	request admissionv1.AdmissionRequest,
 	engineResponses ...engineapi.EngineResponse,
 ) error {
-	report := reportutils.BuildGenerateReport(resource, request, engineResponses...)
+	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GetName(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
-		_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+			return err
+		})
 		if err != nil {
 			return err
 		}

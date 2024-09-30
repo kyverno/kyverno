@@ -56,10 +56,8 @@ func (m *Mutate) Validate(ctx context.Context, _ []string) (warnings []string, p
 	}
 
 	if m.rule.Mutation.Targets != nil {
-		if w, err := m.validateAuth(ctx, m.rule.Mutation.Targets); err != nil {
+		if err := m.validateAuth(ctx, m.rule.Mutation.Targets); err != nil {
 			return nil, "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.authCheckerBackground.User(), err)
-		} else if len(w) > 0 {
-			warnings = append(warnings, w...)
 		}
 	}
 	if w, err := m.validateAuthReports(ctx); err != nil {
@@ -111,7 +109,7 @@ func (m *Mutate) hasPatchesJSON6902() bool {
 	return m.rule.Mutation.PatchesJSON6902 != ""
 }
 
-func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetResourceSpec) (warnings []string, err error) {
+func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetResourceSpec) (err error) {
 	var errs []error
 	for _, target := range targets {
 		if regex.IsVariable(target.Kind) {
@@ -122,23 +120,14 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 		verbs := []string{"get", "update"}
 		ok, msg, err := m.authCheckerBackground.CanI(ctx, verbs, gvk, target.Namespace, target.Name, sub)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if !ok {
 			errs = append(errs, fmt.Errorf(msg)) //nolint:all
 		}
-
-		verbs = []string{"get", "list", "watch"}
-		ok, msg, err = m.authCheckerReports.CanI(ctx, verbs, k, "", "", "")
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			warnings = append(warnings, msg)
-		}
 	}
 
-	return warnings, multierr.Combine(errs...)
+	return multierr.Combine(errs...)
 }
 
 func (m *Mutate) validateAuthReports(ctx context.Context) (warnings []string, err error) {
