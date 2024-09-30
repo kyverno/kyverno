@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -157,6 +158,11 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 		}
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
+		if c.needsReports(*admissionRequest) {
+			if err := c.createReports(context.TODO(), policyContext.NewResource(), *admissionRequest, er); err != nil {
+				c.log.Error(err, "failed to create report")
+			}
+		}
 		for _, r := range er.PolicyResponse.Rules {
 			patched, parentGVR, patchedSubresource := r.PatchedTarget()
 			switch r.Status() {
@@ -241,6 +247,39 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 	}
 
 	c.eventGen.Add(events...)
+}
+
+func (c *mutateExistingController) needsReports(request admissionv1.AdmissionRequest) bool {
+	createReport := true
+	if admissionutils.IsDryRun(request) {
+		createReport = false
+	}
+	// we don't need reports for deletions
+	if request.Operation == admissionv1.Delete {
+		createReport = false
+	}
+	// check if the resource supports reporting
+	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
+		createReport = false
+	}
+
+	return createReport
+}
+
+func (c *mutateExistingController) createReports(
+	ctx context.Context,
+	resource unstructured.Unstructured,
+	request admissionv1.AdmissionRequest,
+	engineResponses ...engineapi.EngineResponse,
+) error {
+	report := reportutils.BuildMutationReport(resource, request, engineResponses...)
+	if len(report.GetResults()) > 0 {
+		_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error) error {

@@ -27,6 +27,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	validationpolicy "github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -227,6 +228,11 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		logger.V(4).Info(doesNotApply)
 		return nil, errors.New(doesNotApply)
 	}
+	if c.needsReports(*admissionRequest) {
+		if err := c.createReports(context.TODO(), policyContext.NewResource(), *admissionRequest, engineResponse); err != nil {
+			c.log.Error(err, "failed to create report")
+		}
+	}
 
 	var applicableRules []string
 	for _, r := range engineResponse.PolicyResponse.Rules {
@@ -357,6 +363,39 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 		return nil, err
 	}
 	return resource, nil
+}
+
+func (c *GenerateController) needsReports(request admissionv1.AdmissionRequest) bool {
+	createReport := true
+	if admissionutils.IsDryRun(request) {
+		createReport = false
+	}
+	// we don't need reports for deletions
+	if request.Operation == admissionv1.Delete {
+		createReport = false
+	}
+	// check if the resource supports reporting
+	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
+		createReport = false
+	}
+
+	return createReport
+}
+
+func (c *GenerateController) createReports(
+	ctx context.Context,
+	resource unstructured.Unstructured,
+	request admissionv1.AdmissionRequest,
+	engineResponses ...engineapi.EngineResponse,
+) error {
+	report := reportutils.BuildGenerateReport(resource, request, engineResponses...)
+	if len(report.GetResults()) > 0 {
+		_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func updateStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {

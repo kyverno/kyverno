@@ -60,6 +60,12 @@ func BuildMutationReport(resource unstructured.Unstructured, request admissionv1
 	return report
 }
 
+func BuildGenerateReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), schema.GroupVersionKind(request.Kind), resource)
+	SetGenerationResponses(report, responses...)
+	return report
+}
+
 func NewPolicyReport(namespace, name string, scope *corev1.ObjectReference, results ...policyreportv1alpha2.PolicyReportResult) reportsv1.ReportInterface {
 	var report reportsv1.ReportInterface
 	if namespace == "" {

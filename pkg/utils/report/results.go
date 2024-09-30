@@ -209,6 +209,24 @@ func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []
 	return results
 }
 
+func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	pol := response.Policy()
+	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	policyType := pol.GetType()
+	annotations := pol.GetAnnotations()
+
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
+	for _, ruleResult := range response.PolicyResponse.Rules {
+		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
+		if generatedResource := ruleResult.GeneratedResource(); generatedResource.Object != nil {
+			addProperty("generated resource", generatedResource.GroupVersionKind().String()+" Name="+generatedResource.GetName(), &result)
+		}
+		results = append(results, result)
+	}
+
+	return results
+}
+
 func SplitResultsByPolicy(logger logr.Logger, results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
 	resultsMap := map[string][]policyreportv1alpha2.PolicyReportResult{}
 	keysMap := map[string]string{}
@@ -255,6 +273,16 @@ func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...e
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
 		ruleResults = append(ruleResults, MutationEngineResponseToReportResults(result)...)
+	}
+	SetResults(report, ruleResults...)
+}
+
+func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
+	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	for _, result := range engineResponses {
+		pol := result.Policy()
+		SetPolicyLabel(report, pol)
+		ruleResults = append(ruleResults, GenerationEngineResponseToReportResults(result)...)
 	}
 	SetResults(report, ruleResults...)
 }
