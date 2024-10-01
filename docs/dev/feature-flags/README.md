@@ -7,7 +7,7 @@ There are several ways to enable/disable features in Golang:
 2. Container arguments
 
 ## Feature Flags
-The `toggle` package exists in pkg/toggle can be used to define and manage a feature toggle for a new feature in Kyverno. Lets say we need to introduce a new feature toggle to enable/disable deferred loading. We can do it as follows:
+The `toggle` package exists in pkg/toggle can be used to define and manage a feature toggle for a new feature in Kyverno. Let's say we need to introduce a new feature toggle to enable/disable deferred loading. We can do it as follows:
 1. Define a flag name, description, environment variable and a default value for this new feature in the `toggle` package:
     ```
     EnableDeferredLoadingFlagName    = "enableDeferredLoading"
@@ -46,7 +46,7 @@ The `toggle` package exists in pkg/toggle can be used to define and manage a fea
 environment variable `FLAG_ENABLE_DEFERRED_LOADING=0`
 
 ## Container Arguments
-Container arguments can be used directly in the controller. Lets say we want to add a new container flag `--enable-feature`, we can do it as follows:
+Container arguments can be used directly in the controller. Let's say we want to add a new container flag `--enable-feature`, we can do it as follows:
 1. Create a variable for this new flag:
 ```
 var(
