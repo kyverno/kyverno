@@ -20,7 +20,7 @@ func (m *mockMetaObject) GetAnnotations() map[string]string {
 
 // Function to test the determinePropagationPolicy function
 func TestDeterminePropagationPolicy(t *testing.T) {
-	// Set up a mock logger (you can use logr.Discard() for no-op logging)
+	// Set up a mock logger
 	logger := logr.Discard()
 
 	// Test cases
