@@ -200,8 +200,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).exceptions }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       - uses: ./.github/actions/run-tests
@@ -209,7 +208,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          chainsaw-tests: ${{ matrix.tests }}
+          tests-path: exceptions
 
   filter:
     runs-on: ubuntu-latest
@@ -349,8 +348,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).policy-validation }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       - uses: ./.github/actions/run-tests
@@ -358,7 +356,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          chainsaw-tests: ${{ matrix.tests }}
+          tests-path: policy-validation
 
   rangeoperators:
     runs-on: ubuntu-latest
@@ -554,8 +552,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).sigstore-custom-tuf }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       - uses: ./.github/actions/run-tests
@@ -564,7 +561,7 @@ jobs:
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,sigstore-custom-tuf
           token: ${{ secrets.GITHUB_TOKEN }}
-          chainsaw-tests: ${{ matrix.tests }}
+          tests-path: sigstore-custom-tuf
 
   custom-sigstore:
     runs-on: ubuntu-latest
