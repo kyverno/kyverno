@@ -1,4 +1,4 @@
-apiVersion: wgpolicyk8s.io/v1alpha2
+apiVersion: wgpolicyk8s.io/v1beta1
 kind: ClusterPolicyReport
 metadata:
   ownerReferences:
@@ -6,7 +6,7 @@ metadata:
     kind: Namespace
     name: bad-ns-1
 ---
-apiVersion: wgpolicyk8s.io/v1alpha2
+apiVersion: wgpolicyk8s.io/v1beta1
 kind: ClusterPolicyReport
 metadata:
   ownerReferences:

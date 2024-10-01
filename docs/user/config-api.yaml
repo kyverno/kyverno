@@ -49,9 +49,9 @@ apis:
     path: api/kyverno/v2beta1
 
   - name: kyverno_policyreport
-    title: kyverno policy report (v1alpha2)
+    title: kyverno policy report (v1beta1)
     package: github.com/kyverno/kyverno
-    path: api/policyreport/v1alpha2
+    path: api/policyreport/v1beta1
 
   - name: kyverno_reports
     title: kyverno reports (v1)

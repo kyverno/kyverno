@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1beta1 "github.com/kyverno/kyverno/api/policyreport/v1beta1"
 )
 
 // TestResultBase declares a test result base fields
@@ -21,7 +21,7 @@ type TestResultBase struct {
 
 	// Result mentions the result that the user is expecting.
 	// Possible values are pass, fail and skip.
-	Result policyreportv1alpha2.PolicyResult `json:"result"`
+	Result policyreportv1beta1.PolicyResult `json:"result"`
 
 	// Kind mentions the kind of the resource on which the policy is to be applied.
 	Kind string `json:"kind"`
@@ -44,7 +44,7 @@ type TestResultDeprecated struct {
 	// Status mentions the status that the user is expecting.
 	// Possible values are pass, fail and skip.
 	// This is DEPRECATED, use `Result` instead.
-	Status policyreportv1alpha2.PolicyResult `json:"status,omitempty"`
+	Status policyreportv1beta1.PolicyResult `json:"status,omitempty"`
 
 	// Resource mentions the name of the resource on which the policy is to be applied.
 	// This is DEPRECATED, use `Resources` instead.

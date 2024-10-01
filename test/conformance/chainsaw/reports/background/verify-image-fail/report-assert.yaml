@@ -1,4 +1,4 @@
-apiVersion: wgpolicyk8s.io/v1alpha2
+apiVersion: wgpolicyk8s.io/v1beta1
 kind: PolicyReport
 metadata:
   ownerReferences:
@@ -16,7 +16,7 @@ summary:
   skip: 0
   warn: 0
 ---
-apiVersion: wgpolicyk8s.io/v1alpha2
+apiVersion: wgpolicyk8s.io/v1beta1
 kind: PolicyReport
 metadata:
   ownerReferences:

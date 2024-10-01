@@ -26,8 +26,8 @@ import (
 	fakekyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2/fake"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	fakekyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1/fake"
-	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
-	fakewgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2/fake"
+	wgpolicyk8sv1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1beta1"
+	fakewgpolicyk8sv1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1beta1/fake"
 	reportsv1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/reports/v1"
 	fakereportsv1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/reports/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -102,9 +102,9 @@ func (c *Clientset) KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface {
 	return &fakekyvernov2alpha1.FakeKyvernoV2alpha1{Fake: &c.Fake}
 }
 
-// Wgpolicyk8sV1alpha2 retrieves the Wgpolicyk8sV1alpha2Client
-func (c *Clientset) Wgpolicyk8sV1alpha2() wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface {
-	return &fakewgpolicyk8sv1alpha2.FakeWgpolicyk8sV1alpha2{Fake: &c.Fake}
+// Wgpolicyk8sV1beta1 retrieves the Wgpolicyk8sV1beta1Client
+func (c *Clientset) Wgpolicyk8sV1beta1() wgpolicyk8sv1beta1.Wgpolicyk8sV1beta1Interface {
+	return &fakewgpolicyk8sv1beta1.FakeWgpolicyk8sV1beta1{Fake: &c.Fake}
 }
 
 // ReportsV1 retrieves the ReportsV1Client

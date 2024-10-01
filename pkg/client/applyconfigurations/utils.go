@@ -24,14 +24,14 @@ import (
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	v1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1beta1 "github.com/kyverno/kyverno/api/policyreport/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/policyreport/v1alpha2"
+	applyconfigurationspolicyreportv1beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/policyreport/v1beta1"
 	applyconfigurationsreportsv1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/reports/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -260,15 +260,19 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	case reportsv1.SchemeGroupVersion.WithKind("EphemeralReportSpec"):
 		return &applyconfigurationsreportsv1.EphemeralReportSpecApplyConfiguration{}
 
-		// Group=wgpolicyk8s.io, Version=v1alpha2
-	case v1alpha2.SchemeGroupVersion.WithKind("ClusterPolicyReport"):
-		return &policyreportv1alpha2.ClusterPolicyReportApplyConfiguration{}
-	case v1alpha2.SchemeGroupVersion.WithKind("PolicyReport"):
-		return &policyreportv1alpha2.PolicyReportApplyConfiguration{}
-	case v1alpha2.SchemeGroupVersion.WithKind("PolicyReportResult"):
-		return &policyreportv1alpha2.PolicyReportResultApplyConfiguration{}
-	case v1alpha2.SchemeGroupVersion.WithKind("PolicyReportSummary"):
-		return &policyreportv1alpha2.PolicyReportSummaryApplyConfiguration{}
+		// Group=wgpolicyk8s.io, Version=v1beta1
+	case policyreportv1beta1.SchemeGroupVersion.WithKind("ClusterPolicyReport"):
+		return &applyconfigurationspolicyreportv1beta1.ClusterPolicyReportApplyConfiguration{}
+	case policyreportv1beta1.SchemeGroupVersion.WithKind("Limits"):
+		return &applyconfigurationspolicyreportv1beta1.LimitsApplyConfiguration{}
+	case policyreportv1beta1.SchemeGroupVersion.WithKind("PolicyReport"):
+		return &applyconfigurationspolicyreportv1beta1.PolicyReportApplyConfiguration{}
+	case policyreportv1beta1.SchemeGroupVersion.WithKind("PolicyReportConfiguration"):
+		return &applyconfigurationspolicyreportv1beta1.PolicyReportConfigurationApplyConfiguration{}
+	case policyreportv1beta1.SchemeGroupVersion.WithKind("PolicyReportResult"):
+		return &applyconfigurationspolicyreportv1beta1.PolicyReportResultApplyConfiguration{}
+	case policyreportv1beta1.SchemeGroupVersion.WithKind("PolicyReportSummary"):
+		return &applyconfigurationspolicyreportv1beta1.PolicyReportSummaryApplyConfiguration{}
 
 	}
 	return nil

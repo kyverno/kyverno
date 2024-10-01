@@ -36,7 +36,7 @@ background-color: #1589dd;
 <a href="#reports.kyverno.io%2fv1"><b style="color: white">reports.kyverno.io/v1</b></a>
 </li>
 <li>
-<a href="#wgpolicyk8s.io%2fv1alpha2"><b style="color: white">wgpolicyk8s.io/v1alpha2</b></a>
+<a href="#wgpolicyk8s.io%2fv1beta1"><b style="color: white">wgpolicyk8s.io/v1beta1</b></a>
 </li>
 </ul>
 </nav>
@@ -9988,7 +9988,7 @@ Kubernetes meta/v1.OwnerReference
 <td>
 <code>summary</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportSummary">
 PolicyReportSummary
 </a>
 </em>
@@ -10002,7 +10002,7 @@ PolicyReportSummary
 <td>
 <code>results</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportResult">
 []PolicyReportResult
 </a>
 </em>
@@ -10092,7 +10092,7 @@ Kubernetes meta/v1.OwnerReference
 <td>
 <code>summary</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportSummary">
 PolicyReportSummary
 </a>
 </em>
@@ -10106,7 +10106,7 @@ PolicyReportSummary
 <td>
 <code>results</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportResult">
 []PolicyReportResult
 </a>
 </em>
@@ -10156,7 +10156,7 @@ Kubernetes meta/v1.OwnerReference
 <td>
 <code>summary</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportSummary">
 PolicyReportSummary
 </a>
 </em>
@@ -10170,7 +10170,7 @@ PolicyReportSummary
 <td>
 <code>results</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportResult">
 []PolicyReportResult
 </a>
 </em>
@@ -10188,15 +10188,18 @@ PolicyReportSummary
 <p>
 <p>ReportInterface abstracts the concrete report change request type</p>
 </p>
-<h2 id="wgpolicyk8s.io/v1alpha2">wgpolicyk8s.io/v1alpha2</h2>
+<h2 id="wgpolicyk8s.io/v1beta1">wgpolicyk8s.io/v1beta1</h2>
+<p>
+<p>Package v1beta1 contains API Schema definitions for the policy v1beta1 API group</p>
+</p>
 Resource Types:
 <ul><li>
-<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>
+<a href="#wgpolicyk8s.io/v1beta1.ClusterPolicyReport">ClusterPolicyReport</a>
 </li><li>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReport">PolicyReport</a>
 </li></ul>
 <hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport
+<h3 id="wgpolicyk8s.io/v1beta1.ClusterPolicyReport">ClusterPolicyReport
 </h3>
 <p>
 <p>ClusterPolicyReport is the Schema for the clusterpolicyreports API</p>
@@ -10215,7 +10218,7 @@ Resource Types:
 string</td>
 <td>
 <code>
-wgpolicyk8s.io/v1alpha2
+wgpolicyk8s.io/v1beta1
 </code>
 </td>
 </tr>
@@ -10242,6 +10245,21 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
+<code>source</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Source is an identifier for the source e.g. a policy engine that manages this report.
+Use this field if all the results are produced by a single policy engine.
+If the results are produced by multiple sources e.g. different engines or scanners,
+then use the Source field at the PolicyReportResult level.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>scope</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectreference-v1-core">
@@ -10271,9 +10289,24 @@ Either one of, or none of, but not both of, Scope or ScopeSelector should be spe
 </tr>
 <tr>
 <td>
+<code>configuration</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportConfiguration">
+PolicyReportConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Configuration is an optional field which can be used to specify
+a contract between PolicyReport generators and consumers</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>summary</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportSummary">
 PolicyReportSummary
 </a>
 </em>
@@ -10287,7 +10320,7 @@ PolicyReportSummary
 <td>
 <code>results</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportResult">
 []PolicyReportResult
 </a>
 </em>
@@ -10300,7 +10333,7 @@ PolicyReportSummary
 </tbody>
 </table>
 <hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport
+<h3 id="wgpolicyk8s.io/v1beta1.PolicyReport">PolicyReport
 </h3>
 <p>
 <p>PolicyReport is the Schema for the policyreports API</p>
@@ -10319,7 +10352,7 @@ PolicyReportSummary
 string</td>
 <td>
 <code>
-wgpolicyk8s.io/v1alpha2
+wgpolicyk8s.io/v1beta1
 </code>
 </td>
 </tr>
@@ -10346,6 +10379,21 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
+<code>source</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Source is an identifier for the source e.g. a policy engine that manages this report.
+Use this field if all the results are produced by a single policy engine.
+If the results are produced by multiple sources e.g. different engines or scanners,
+then use the Source field at the PolicyReportResult level.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>scope</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectreference-v1-core">
@@ -10375,9 +10423,24 @@ Either one of, or none of, but not both of, Scope or ScopeSelector should be spe
 </tr>
 <tr>
 <td>
+<code>configuration</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportConfiguration">
+PolicyReportConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Configuration is an optional field which can be used to specify
+a contract between PolicyReport generators and consumers</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>summary</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportSummary">
 PolicyReportSummary
 </a>
 </em>
@@ -10391,7 +10454,7 @@ PolicyReportSummary
 <td>
 <code>results</code><br/>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportResult">
 []PolicyReportResult
 </a>
 </em>
@@ -10404,12 +10467,89 @@ PolicyReportSummary
 </tbody>
 </table>
 <hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicyReportResult">PolicyReportResult
+<h3 id="wgpolicyk8s.io/v1beta1.Limits">Limits
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportConfiguration">PolicyReportConfiguration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>maxResults</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MaxResults is the maximum number of results contained in the report</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>statusFilter</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1beta1.StatusFilter">
+[]StatusFilter
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StatusFilter indicates that the PolicyReport contains only those reports with statuses specified in this list</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="wgpolicyk8s.io/v1beta1.PolicyReportConfiguration">PolicyReportConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#wgpolicyk8s.io/v1beta1.ClusterPolicyReport">ClusterPolicyReport</a>, 
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReport">PolicyReport</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>limits</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1beta1.Limits">
+Limits
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="wgpolicyk8s.io/v1beta1.PolicyReportResult">PolicyReportResult
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#wgpolicyk8s.io/v1beta1.ClusterPolicyReport">ClusterPolicyReport</a>, 
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReport">PolicyReport</a>, 
 <a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
 </p>
 <p>
@@ -10432,7 +10572,9 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Source is an identifier for the policy engine that manages this report</p>
+<p>Source is an identifier for the policy engine that manages this report
+If the Source is specified at this level, it will override the Source
+field set at the PolicyReport level</p>
 </td>
 </tr>
 <tr>
@@ -10460,6 +10602,69 @@ string
 </tr>
 <tr>
 <td>
+<code>category</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Category indicates policy category</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>severity</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1beta1.PolicyResultSeverity">
+PolicyResultSeverity
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Severity indicates policy check result criticality</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>timestamp</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#timestamp-v1-meta">
+Kubernetes meta/v1.Timestamp
+</a>
+</em>
+</td>
+<td>
+<p>Timestamp indicates the time the result was found</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>result</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1beta1.PolicyResult">
+PolicyResult
+</a>
+</em>
+</td>
+<td>
+<p>Result indicates the outcome of the policy rule execution</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>scored</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Scored indicates if this result is scored</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>resources</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectreference-v1-core">
@@ -10483,10 +10688,10 @@ Kubernetes meta/v1.LabelSelector
 </td>
 <td>
 <em>(Optional)</em>
-<p>SubjectSelector is an optional label selector for checked Kubernetes resources.
+<p>ResourceSelector is an optional label selector for checked Kubernetes resources.
 For example, a policy result may apply to all pods that match a label.
-Either a Subject or a SubjectSelector can be specified.
-If neither are provided, the result is assumed to be for the policy report scope.</p>
+Either a Subject or a ResourceSelector can be specified. If neither are provided, the
+result is assumed to be for the policy report scope.</p>
 </td>
 </tr>
 <tr>
@@ -10502,30 +10707,6 @@ string
 </tr>
 <tr>
 <td>
-<code>result</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyResult">
-PolicyResult
-</a>
-</em>
-</td>
-<td>
-<p>Result indicates the outcome of the policy rule execution</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>scored</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>Scored indicates if this result is scored</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>properties</code><br/>
 <em>
 map[string]string
@@ -10535,54 +10716,15 @@ map[string]string
 <p>Properties provides additional information for the policy rule</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>timestamp</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#timestamp-v1-meta">
-Kubernetes meta/v1.Timestamp
-</a>
-</em>
-</td>
-<td>
-<p>Timestamp indicates the time the result was found</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>category</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Category indicates policy category</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>severity</code><br/>
-<em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicySeverity">
-PolicySeverity
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Severity indicates policy check result criticality</p>
-</td>
-</tr>
 </tbody>
 </table>
 <hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicyReportSummary">PolicyReportSummary
+<h3 id="wgpolicyk8s.io/v1beta1.PolicyReportSummary">PolicyReportSummary
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
+<a href="#wgpolicyk8s.io/v1beta1.ClusterPolicyReport">ClusterPolicyReport</a>, 
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReport">PolicyReport</a>, 
 <a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
 </p>
 <p>
@@ -10659,33 +10801,42 @@ int
 </tbody>
 </table>
 <hr />
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicyResult">PolicyResult
+<h3 id="wgpolicyk8s.io/v1beta1.PolicyResult">PolicyResult
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">PolicyReportResult</a>)
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportResult">PolicyReportResult</a>)
 </p>
 <p>
 <p>PolicyResult has one of the following values:
-- pass: indicates that the policy requirements are met
-- fail: indicates that the policy requirements are not met
-- warn: indicates that the policy requirements and not met, and the policy is not scored
-- error: indicates that the policy could not be evaluated
-- skip: indicates that the policy was not selected based on user inputs or applicability</p>
+- pass: the policy requirements are met
+- fail: the policy requirements are not met
+- warn: the policy requirements are not met and the policy is not scored
+- error: the policy could not be evaluated
+- skip: the policy was not selected based on user inputs or applicability</p>
 </p>
-<h3 id="wgpolicyk8s.io/v1alpha2.PolicySeverity">PolicySeverity
+<h3 id="wgpolicyk8s.io/v1beta1.PolicyResultSeverity">PolicyResultSeverity
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">PolicyReportResult</a>)
+<a href="#wgpolicyk8s.io/v1beta1.PolicyReportResult">PolicyReportResult</a>)
 </p>
 <p>
-<p>PolicySeverity has one of the following values:
+<p>PolicyResultSeverity has one of the following values:
 - critical
 - high
 - low
 - medium
 - info</p>
+</p>
+<h3 id="wgpolicyk8s.io/v1beta1.StatusFilter">StatusFilter
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#wgpolicyk8s.io/v1beta1.Limits">Limits</a>)
+</p>
+<p>
+<p>StatusFilter is used by PolicyReport generators to write only those reports whose status is specified by the filters</p>
 </p>
 </div>
 <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
