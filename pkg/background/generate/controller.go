@@ -233,7 +233,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		logger.V(4).Info(doesNotApply)
 		return nil, errors.New(doesNotApply)
 	}
-	if c.needsReports(*admissionRequest) {
+	if c.needsReports(trigger) {
 		if err := c.createReports(context.TODO(), policyContext.NewResource(), engineResponse); err != nil {
 			c.log.Error(err, "failed to create report")
 		}
@@ -370,17 +370,10 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 	return resource, nil
 }
 
-func (c *GenerateController) needsReports(request admissionv1.AdmissionRequest) bool {
+func (c *GenerateController) needsReports(trigger unstructured.Unstructured) bool {
 	createReport := true
-	if admissionutils.IsDryRun(request) {
-		createReport = false
-	}
-	// we don't need reports for deletions
-	if request.Operation == admissionv1.Delete {
-		createReport = false
-	}
 	// check if the resource supports reporting
-	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
+	if !reportutils.IsGvkSupported(schema.GroupVersionKind(trigger.GroupVersionKind())) {
 		createReport = false
 	}
 

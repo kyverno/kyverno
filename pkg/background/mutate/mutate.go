@@ -164,7 +164,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 		}
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
-		if c.needsReports(*admissionRequest) {
+		if c.needsReports(trigger) {
 			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
@@ -256,17 +256,12 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 	c.eventGen.Add(events...)
 }
 
-func (c *mutateExistingController) needsReports(request admissionv1.AdmissionRequest) bool {
+func (c *mutateExistingController) needsReports(trigger *unstructured.Unstructured) bool {
 	createReport := true
-	if admissionutils.IsDryRun(request) {
-		createReport = false
+	if trigger == nil {
+		return createReport
 	}
-	// we don't need reports for deletions
-	if request.Operation == admissionv1.Delete {
-		createReport = false
-	}
-	// check if the resource supports reporting
-	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
+	if !reportutils.IsGvkSupported(schema.GroupVersionKind(trigger.GroupVersionKind())) {
 		createReport = false
 	}
 

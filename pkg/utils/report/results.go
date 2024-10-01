@@ -219,7 +219,7 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
 	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
-		if generatedResource := ruleResult.GeneratedResource(); generatedResource.Object != nil {
+		if generatedResource := ruleResult.GeneratedResource(); generatedResource.GetName() != "" {
 			addProperty("generated-resource", getResourceInfo(generatedResource.GroupVersionKind(), generatedResource.GetName(), generatedResource.GetNamespace()), &result)
 		}
 		results = append(results, result)
