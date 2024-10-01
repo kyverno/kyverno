@@ -373,7 +373,7 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 func (c *GenerateController) needsReports(trigger unstructured.Unstructured) bool {
 	createReport := true
 	// check if the resource supports reporting
-	if !reportutils.IsGvkSupported(schema.GroupVersionKind(trigger.GroupVersionKind())) {
+	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
 		createReport = false
 	}
 

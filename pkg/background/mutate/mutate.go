@@ -261,7 +261,7 @@ func (c *mutateExistingController) needsReports(trigger *unstructured.Unstructur
 	if trigger == nil {
 		return createReport
 	}
-	if !reportutils.IsGvkSupported(schema.GroupVersionKind(trigger.GroupVersionKind())) {
+	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
 		createReport = false
 	}
 
