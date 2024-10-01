@@ -205,10 +205,10 @@ func main() {
 		)
 		ephrs, err := breaker.StartBackgroundReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
-			setup.Logger.Error(err, "failed to start admission reports watcher")
+			setup.Logger.Error(err, "failed to start background-scan reports watcher")
 			os.Exit(1)
 		}
-		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
+		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
 			count, isRunning := ephrs.Count()
 			if !isRunning {
 				return true

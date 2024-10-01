@@ -221,7 +221,6 @@ func (c *controller) updateUR(_, cur interface{}) {
 }
 
 func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
-	logger.Info("processing UR")
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.GetRequestType() {
 	case kyvernov2.Mutate:

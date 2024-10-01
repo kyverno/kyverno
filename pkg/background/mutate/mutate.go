@@ -169,7 +169,6 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 				c.log.Error(err, "failed to create report")
 			}
 		}
-		c.log.Info("generating reports for mutating")
 		for _, r := range er.PolicyResponse.Rules {
 			patched, parentGVR, patchedSubresource := r.PatchedTarget()
 			switch r.Status() {
