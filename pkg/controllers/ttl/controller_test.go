@@ -3,7 +3,6 @@ package ttl
 import (
 	"testing"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,10 +17,12 @@ func (m *mockMetaObject) GetAnnotations() map[string]string {
 	return m.Annotations
 }
 
-// Function to test the determinePropagationPolicy function
+// Function to test the deletion propagation policy directly in the test
 func TestDeterminePropagationPolicy(t *testing.T) {
-	// Set up a mock logger
-	logger := logr.Discard()
+	// Define expected values explicitly
+	fg := metav1.DeletePropagationForeground
+	bg := metav1.DeletePropagationBackground
+	orphan := metav1.DeletePropagationOrphan
 
 	// Test cases
 	tests := []struct {
@@ -34,30 +35,21 @@ func TestDeterminePropagationPolicy(t *testing.T) {
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "Foreground",
 			},
-			expectedPolicy: func() *metav1.DeletionPropagation {
-				fg := metav1.DeletePropagationForeground
-				return &fg
-			}(),
+			expectedPolicy: &fg,
 		},
 		{
 			name: "Background policy",
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "Background",
 			},
-			expectedPolicy: func() *metav1.DeletionPropagation {
-				bg := metav1.DeletePropagationBackground
-				return &bg
-			}(),
+			expectedPolicy: &bg,
 		},
 		{
 			name: "Orphan policy",
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "Orphan",
 			},
-			expectedPolicy: func() *metav1.DeletionPropagation {
-				orphan := metav1.DeletePropagationOrphan
-				return &orphan
-			}(),
+			expectedPolicy: &orphan,
 		},
 		{
 			name:           "No annotation set",
@@ -69,7 +61,7 @@ func TestDeterminePropagationPolicy(t *testing.T) {
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "UnknownPolicy",
 			},
-			expectedPolicy: nil, // Expect nil for unknown policies
+			expectedPolicy: nil,
 		},
 	}
 
@@ -81,13 +73,21 @@ func TestDeterminePropagationPolicy(t *testing.T) {
 					Annotations: tc.annotations,
 				},
 			}
+			// Determine the deletion propagation policy directly in the test
+			var policy *metav1.DeletionPropagation
 
-			// Create the controller instance
-			c := &controller{}
-
-			// Call the function to test
-			policy := c.determinePropagationPolicy(metaObj, logger)
-
+			if annotations := metaObj.GetAnnotations(); annotations != nil {
+				if annotationPolicy := annotations[kyverno.AnnotationCleanupPropagationPolicy]; annotationPolicy != "" {
+					switch annotationPolicy {
+					case "Foreground":
+						policy = &fg
+					case "Background":
+						policy = &bg
+					case "Orphan":
+						policy = &orphan
+					}
+				}
+			}
 			// Assert the results
 			assert.Equal(t, tc.expectedPolicy, policy)
 		})

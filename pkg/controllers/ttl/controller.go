@@ -123,7 +123,7 @@ func (c *controller) determinePropagationPolicy(metaObj metav1.Object, logger lo
 	annotations := metaObj.GetAnnotations()
 	var policy *metav1.DeletionPropagation
 
-	if annotations != nil {
+	if annotations == nil {
 		annotationPolicy := annotations["kyverno.AnnotationCleanupPropagationPolicy"]
 		if annotationPolicy == "" {
 			switch annotationPolicy {
