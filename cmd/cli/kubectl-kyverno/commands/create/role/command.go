@@ -77,7 +77,8 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 
 			// Execute template with name and options
 			return tmpl.Execute(output, opts)
-		}}
+		},
+	}
 
 	// Define flags
 	cmd.Flags().StringArrayVar(&opts.Controllers, "controllers", []string{"background-controller"}, "List of controllers for the ClusterRole (default = background-controller)")

@@ -4,9 +4,9 @@ This document contains scripts to help troubleshooting reports issues.
 
 ## Getting reports detailed information
 
-When querying reports you can add `-o wide` to get a more detailed output.
+When querying reports, you can add `-o wide` to get a more detailed output.
 
-This will show infos about the resource associated with the report.
+This will show information about the resource associated with the report.
 
 It can be useful to determine if a particular resource kind is responsible for creating too many reports.
 
@@ -99,7 +99,7 @@ Listing existing reports can take a long time when there is a high number of rep
 
 With `--watch-only` you only get an output for reports that are created, updated or deleted.
 
-This is useful to determine if particular resource kind is reponsible for creating too many reports.
+This is useful to determine if a particular resource kind is responsible for creating too many reports.
 
 ```console
 # watch changing cluster admission reports
