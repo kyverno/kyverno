@@ -189,6 +189,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        shard-index: [0,1]
     needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
@@ -198,6 +199,8 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: exceptions
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 2
 
   filter:
     runs-on: ubuntu-latest
@@ -243,7 +246,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        shard-index: [0,1,2,3,4,5]
+        shard-index: [0,1,2,3,4,5,6,7]
     needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
@@ -254,7 +257,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate
           shard-index: ${{ matrix.shard-index }}
-          shard-count: 6
+          shard-count: 8
 
   generate-validating-admission-policy:
     runs-on: ubuntu-latest
@@ -319,7 +322,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        shard-index: [0,1,2,3,4,5]
+        shard-index: [0,1,2]
     needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
@@ -330,7 +333,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutate
           shard-index: ${{ matrix.shard-index }}
-          shard-count: 6
+          shard-count: 3
 
   policy-validation:
     runs-on: ubuntu-latest
@@ -395,6 +398,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        shard-index: [0,1]
     needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
@@ -404,6 +408,8 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: reports
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 2
 
   ttl:
     runs-on: ubuntu-latest
@@ -431,6 +437,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        shard-index: [0,1,2,3,4,5]
     needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
@@ -440,6 +447,8 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validate
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 6
 
   validating-admission-policy-reports:
     runs-on: ubuntu-latest
@@ -486,6 +495,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
+        shard-index: [0,1]
     needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
@@ -495,6 +505,8 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: verifyImages
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 2
 
   webhook-configurations:
     runs-on: ubuntu-latest
@@ -646,7 +658,7 @@ jobs:
           - v1.29.8
           - v1.30.4
           - v1.31.0
-        shard-index: [0,1,2,3,4,5,6]
+        shard-index: [0,1,2,3,4,5,6,7,8,9,10,11]
     needs:
       - prepare-images
       - prepare-cli
@@ -717,7 +729,7 @@ jobs:
           cd policies
           chainsaw test . \
             --shard-index ${{ matrix.shard-index }} \
-            --shard-count 7 \
+            --shard-count 12 \
             --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' \
             --no-color=false
       - name: Debug failure
