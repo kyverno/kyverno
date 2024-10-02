@@ -104,7 +104,8 @@
     "^rbac$"
   ],
   "reports": [
-    "^reports$"
+    "^reports$/^admission$/^(exception|mutation|namespaceselector|namespaceselector-assert|test-report-admission-mode|test-report-audit-warn|test-report-properties|two-rules-with-different-modes|update|update-deployment)\\[.*\\]$",
+    "^reports$/^background$/^(exception|exception-assert|exception-with-conditions|exception-with-podsecurity|generate|multiple-exceptions-with-pod-security|mutate-existing|report-deletion|test-report-background-mode|two-rules-with-different-modes|verify-image-fail|verify-image-pass)\\[.*\\]$"
   ],
   "sigstore-custom-tuf": [
     "^sigstore-custom-tuf$"
