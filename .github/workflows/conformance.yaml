@@ -15,17 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  define-matrix:
-    runs-on: ubuntu-latest
-    outputs:
-      tests: ${{ steps.tests.outputs.tests }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
-      - name: Set matrix data
-        id: tests
-        run: echo "tests=$(jq -c . < ./test/conformance/chainsaw/e2e-matrix.json)" >> $GITHUB_OUTPUT
-
   prepare-images:
     runs-on: ubuntu-latest
     steps:
@@ -254,8 +243,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).generate }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       - uses: ./.github/actions/run-tests
@@ -263,7 +251,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          chainsaw-tests: ${{ matrix.tests }}
+          tests-path: generate
 
   generate-validating-admission-policy:
     runs-on: ubuntu-latest
@@ -273,8 +261,8 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).generate-validating-admission-policy }}
-    needs: [ prepare-images, define-matrix ]
+        shard-index: [0,1]
+    needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       - uses: ./.github/actions/run-tests
@@ -283,7 +271,9 @@ jobs:
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,generate-validating-admission-policy
           token: ${{ secrets.GITHUB_TOKEN }}
-          chainsaw-tests: ${{ matrix.tests }}
+          tests-path: generate-validating-admission-policy
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 2
 
   globalcontext:
     runs-on: ubuntu-latest
@@ -329,8 +319,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).mutate }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       - uses: ./.github/actions/run-tests
@@ -338,7 +327,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          chainsaw-tests: ${{ matrix.tests }}
+          tests-path: mutate
 
   policy-validation:
     runs-on: ubuntu-latest
@@ -439,8 +428,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).validate }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       - uses: ./.github/actions/run-tests
@@ -448,7 +436,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          chainsaw-tests: ${{ matrix.tests }}
+          tests-path: validate
 
   validating-admission-policy-reports:
     runs-on: ubuntu-latest
@@ -458,8 +446,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).validating-admission-policy-reports }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       - uses: ./.github/actions/run-tests
@@ -468,7 +455,7 @@ jobs:
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,validating-admission-policy-reports
           token: ${{ secrets.GITHUB_TOKEN }}
-          chainsaw-tests: ${{ matrix.tests }}
+          tests-path: validating-admission-policy-reports
 
   verify-manifests:
     runs-on: ubuntu-latest
@@ -496,8 +483,7 @@ jobs:
       fail-fast: false
       matrix:
         k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
-        tests: ${{ fromJSON(needs.define-matrix.outputs.tests).verifyImages }}
-    needs: [ prepare-images, define-matrix ]
+    needs: [ prepare-images ]
     steps:
       - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       - uses: ./.github/actions/run-tests
@@ -505,7 +491,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          chainsaw-tests: ${{ matrix.tests }}
+          tests-path: verifyImages
 
   webhook-configurations:
     runs-on: ubuntu-latest
@@ -657,38 +643,7 @@ jobs:
           - v1.29.8
           - v1.30.4
           - v1.31.0
-        # tests:
-        #   - ^argo$
-        #   - ^aws$
-        #   - ^best-practices$
-        #   - ^castai$
-        #   - ^cert-manager$
-        #   - ^consul$
-        #   - ^external-secret-operator$
-        #   - ^flux$
-        #   - ^istio$
-        #   - ^karpenter$
-        #   - ^kasten$
-        #   - ^kubecost$
-        #   - ^kubeops$
-        #   - ^kubevirt$
-        #   - ^linkerd$
-        #   - ^nginx-ingress$
-        #   - ^openshift$
-        #   - ^other$/^a
-        #   - ^other$/^[b-d]
-        #   - ^other$/^[e-l]
-        #   - ^other$/^[m-q]
-        #   - ^other$/^re[c-q]
-        #   - ^other$/^res
-        #   - ^other$/^[s-z]
-        #   - ^pod-security$
-        #   - ^pod-security-cel$
-        #   - ^psa$
-        #   - ^psp-migration$
-        #   # - ^tekton
-        #   # - ^traefik
-        #   # - ^velero
+        shard-index: [0,1,2,3,4,5,6]
     needs:
       - prepare-images
       - prepare-cli
@@ -757,7 +712,11 @@ jobs:
         run: |
           set -e
           cd policies
-          chainsaw test --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' --no-color=false
+          chainsaw test . \
+            --shard-index ${{ matrix.shard-index }} \
+            --shard-count 7 \
+            --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' \
+            --no-color=false
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
