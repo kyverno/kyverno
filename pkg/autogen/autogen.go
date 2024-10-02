@@ -214,8 +214,9 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 	}
 
 	out := kyvernov1.Rule{
-		Name:         rule.Name,
-		VerifyImages: rule.VerifyImages,
+		Name:                   rule.Name,
+		VerifyImages:           rule.VerifyImages,
+		SkipBackgroundRequests: rule.SkipBackgroundRequests,
 	}
 	if rule.MatchResources != nil {
 		out.MatchResources = *rule.MatchResources

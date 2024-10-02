@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: foreach-cpol-data-sync-update-policy
+spec:
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    name: k-kafka-address
+    generate:
+      generateExisting: false
+      synchronize: true
+      orphanDownstreamOnPolicyDelete: false
+      foreach:
+        - list: request.object.data.namespaces | split(@, ',')
+          context:
+          - name: ns
+            variable:
+              jmesPath: element
+          preconditions:
+            any:
+            - key: '{{ ns }}'
+              operator: AnyIn
+              value:
+              - foreach-ns-1
+          apiVersion: networking.k8s.io/v1
+          kind: NetworkPolicy
+          name: my-networkpolicy-{{ elementIndex }}-{{ ns }}
+          namespace: '{{ ns }}'
+          data:
+            metadata:
+              labels:
+                request.namespace: '{{ request.object.metadata.name }}'
+                element.namespace: '{{ ns }}'
+                element.name: '{{ element }}'
+                elementIndex: '{{ elementIndex }}'
+            spec:
+              podSelector: {}
+              policyTypes:
+              - Ingress
+              - Egress

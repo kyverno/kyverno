@@ -1,0 +1,40 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cpol-clone-list-sync-update
+spec:
+  steps:
+  - name: step-00
+    try:
+    - apply:
+        file: 0-0-permissions.yaml
+    - apply:
+        file: 0-1-manifests.yaml
+    - apply:
+        file: 0-2-cluster-policy.yaml
+    - assert:
+        file: 0-3-cluster-policy-ready.yaml
+  - name: step-01
+    try:
+    - apply:
+        file: 1-0-ns.yaml
+    - assert:
+        file: 1-1-resource-assert.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: 2-0-update-source.yaml
+    - assert:
+        file: 2-1-synchronized-target.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: 3-0-update-cluster-policy.yaml
+    - assert:
+        file: 0-3-cluster-policy-ready.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: 4-0-update-source.yaml
+    - assert:
+        file: 2-1-synchronized-target.yaml
