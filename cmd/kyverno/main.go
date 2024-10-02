@@ -547,7 +547,7 @@ func main() {
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
-		ephrs, err := StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
 			setup.Logger.Error(err, "failed to start admission reports watcher")
 			os.Exit(1)
