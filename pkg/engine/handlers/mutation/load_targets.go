@@ -78,6 +78,7 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 		Kind:       kind.(string),
 		Namespace:  namespace.(string),
 		Name:       name.(string),
+		Selector:   target.Selector,
 	}, nil
 }
 
