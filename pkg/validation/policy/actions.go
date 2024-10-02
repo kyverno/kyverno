@@ -35,7 +35,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 
 	// Mutate
 	if rule.HasMutate() {
-		checker = mutate.NewMutateFactory(*rule.Mutation, client, mock, backgroundSA)
+		checker = mutate.NewMutateFactory(rule, client, mock, backgroundSA, reportsSA)
 		if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].mutate.%s.: %v", idx, path, err)
 		} else if w != nil {
@@ -79,14 +79,14 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		} else {
 			if rule.Generation.Synchronize {
 				admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
-				checker = generate.NewGenerateFactory(client, *rule.Generation, admissionSA, logging.GlobalLogger())
+				checker = generate.NewGenerateFactory(client, rule, admissionSA, reportsSA, logging.GlobalLogger())
 				if w, path, err := checker.Validate(context.TODO(), []string{"list", "get"}); err != nil {
 					return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 				} else if warnings != nil {
 					warnings = append(warnings, w...)
 				}
 			}
-			checker = generate.NewGenerateFactory(client, *rule.Generation, backgroundSA, logging.GlobalLogger())
+			checker = generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger())
 			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			} else if warnings != nil {
