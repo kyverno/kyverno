@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -191,6 +192,42 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 	return results
 }
 
+func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	pol := response.Policy()
+	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	policyType := pol.GetType()
+	annotations := pol.GetAnnotations()
+
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
+	for _, ruleResult := range response.PolicyResponse.Rules {
+		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
+		if target, _, _ := ruleResult.PatchedTarget(); target != nil {
+			addProperty("patched-target", getResourceInfo(target.GroupVersionKind(), target.GetName(), target.GetNamespace()), &result)
+		}
+		results = append(results, result)
+	}
+
+	return results
+}
+
+func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	pol := response.Policy()
+	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	policyType := pol.GetType()
+	annotations := pol.GetAnnotations()
+
+	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
+	for _, ruleResult := range response.PolicyResponse.Rules {
+		result := ToPolicyReportResult(policyType, policyName, ruleResult, annotations, nil)
+		if generatedResource := ruleResult.GeneratedResource(); generatedResource.GetName() != "" {
+			addProperty("generated-resource", getResourceInfo(generatedResource.GroupVersionKind(), generatedResource.GetName(), generatedResource.GetNamespace()), &result)
+		}
+		results = append(results, result)
+	}
+
+	return results
+}
+
 func SplitResultsByPolicy(logger logr.Logger, results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
 	resultsMap := map[string][]policyreportv1alpha2.PolicyReportResult{}
 	keysMap := map[string]string{}
@@ -229,4 +266,32 @@ func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi
 		ruleResults = append(ruleResults, EngineResponseToReportResults(result)...)
 	}
 	SetResults(report, ruleResults...)
+}
+
+func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
+	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	for _, result := range engineResponses {
+		pol := result.Policy()
+		SetPolicyLabel(report, pol)
+		ruleResults = append(ruleResults, MutationEngineResponseToReportResults(result)...)
+	}
+	SetResults(report, ruleResults...)
+}
+
+func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
+	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	for _, result := range engineResponses {
+		pol := result.Policy()
+		SetPolicyLabel(report, pol)
+		ruleResults = append(ruleResults, GenerationEngineResponseToReportResults(result)...)
+	}
+	SetResults(report, ruleResults...)
+}
+
+func getResourceInfo(gvk schema.GroupVersionKind, name, namespace string) string {
+	info := gvk.String() + " Name=" + name
+	if len(namespace) != 0 {
+		info = info + " Namespace=" + namespace
+	}
+	return info
 }
