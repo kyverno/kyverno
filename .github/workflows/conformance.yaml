@@ -592,7 +592,6 @@ jobs:
         uses: kyverno/action-install-chainsaw@d311eacde764f806c9658574ff64c9c3b21f8397 # v0.2.11
         with:
           verify: true
-          release: v0.2.11-beta.1
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@3c79cb2714d1c724551ae859bcbde1a3204ff8ac # v0.7.11
@@ -711,7 +710,6 @@ jobs:
         uses: kyverno/action-install-chainsaw@d311eacde764f806c9658574ff64c9c3b21f8397 # v0.2.11
         with:
           verify: true
-          release: v0.2.11-beta.1
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
@@ -840,7 +838,6 @@ jobs:
         uses: kyverno/action-install-chainsaw@d311eacde764f806c9658574ff64c9c3b21f8397 # v0.2.11
         with:
           verify: true
-          release: v0.2.11-beta.1
       # create cluster
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
