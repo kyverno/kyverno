@@ -108,6 +108,23 @@ func StartAdmissionReportsCounter(ctx context.Context, client metadataclient.Int
 	}, nil
 }
 
+func StartBackgroundReportsCounter(ctx context.Context, client metadataclient.Interface) (Counter, error) {
+	tweakListOptions := func(lo *metav1.ListOptions) {
+		lo.LabelSelector = "audit.kyverno.io/source==background-scan"
+	}
+	ephrs, err := StartResourceCounter(ctx, client, reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"), tweakListOptions)
+	if err != nil {
+		return nil, err
+	}
+	cephrs, err := StartResourceCounter(ctx, client, reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"), tweakListOptions)
+	if err != nil {
+		return nil, err
+	}
+	return composite{
+		inner: []Counter{ephrs, cephrs},
+	}, nil
+}
+
 type composite struct {
 	inner []Counter
 }
