@@ -13,7 +13,7 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20240909191326-0ee4ec5d16bf
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/cyphar/filepath-securejoin v0.3.2
+	github.com/cyphar/filepath-securejoin v0.3.3
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/distribution/reference v0.6.0
 	github.com/evanphx/json-patch/v5 v5.9.0
@@ -71,7 +71,7 @@ require (
 	golang.org/x/crypto v0.27.0
 	golang.org/x/text v0.18.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
-	google.golang.org/grpc v1.67.0
+	google.golang.org/grpc v1.67.1
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
@@ -341,7 +341,7 @@ require (
 	github.com/tektoncd/chains v0.22.0 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
-	github.com/theupdateframework/go-tuf/v2 v2.0.0 // indirect
+	github.com/theupdateframework/go-tuf/v2 v2.0.1 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
