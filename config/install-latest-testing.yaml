@@ -49623,6 +49623,20 @@ rules:
       - update
       - watch
   - apiGroups:
+      - reports.kyverno.io
+    resources:
+      - ephemeralreports
+      - clusterephemeralreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
     - networking.k8s.io
     resources:
     - ingresses

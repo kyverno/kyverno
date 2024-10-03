@@ -1,4 +1,4 @@
-package main
+package breaker
 
 import (
 	"context"
@@ -94,6 +94,23 @@ func StartResourceCounter(ctx context.Context, client metadataclient.Interface, 
 func StartAdmissionReportsCounter(ctx context.Context, client metadataclient.Interface) (Counter, error) {
 	tweakListOptions := func(lo *metav1.ListOptions) {
 		lo.LabelSelector = "audit.kyverno.io/source==admission"
+	}
+	ephrs, err := StartResourceCounter(ctx, client, reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"), tweakListOptions)
+	if err != nil {
+		return nil, err
+	}
+	cephrs, err := StartResourceCounter(ctx, client, reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"), tweakListOptions)
+	if err != nil {
+		return nil, err
+	}
+	return composite{
+		inner: []Counter{ephrs, cephrs},
+	}, nil
+}
+
+func StartBackgroundReportsCounter(ctx context.Context, client metadataclient.Interface) (Counter, error) {
+	tweakListOptions := func(lo *metav1.ListOptions) {
+		lo.LabelSelector = "audit.kyverno.io/source==background-scan"
 	}
 	ephrs, err := StartResourceCounter(ctx, client, reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"), tweakListOptions)
 	if err != nil {
