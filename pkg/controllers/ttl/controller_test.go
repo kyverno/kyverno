@@ -7,7 +7,6 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	
 )
 
 // TestDeterminePropagationPolicy tests the determinePropagationPolicy function
@@ -20,8 +19,8 @@ func TestDeterminePropagationPolicy(t *testing.T) {
 		expectedPolicy *metav1.DeletionPropagation
 	}{
 		{
-			name:        "No annotations",
-			annotations: nil,
+			name:           "No annotations",
+			annotations:    nil,
 			expectedPolicy: nil,
 		},
 		{
