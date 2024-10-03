@@ -7,76 +7,80 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	
 )
 
-// Mock metav1.Object for testing
-type mockMetaObject struct {
-	metav1.ObjectMeta
-}
-
-func (m *mockMetaObject) GetAnnotations() map[string]string {
-	return m.Annotations
-}
-
-// Function to test the deletion propagation policy in the test
+// TestDeterminePropagationPolicy tests the determinePropagationPolicy function
 func TestDeterminePropagationPolicy(t *testing.T) {
-	// Define expected values explicitly
-	fg := metav1.DeletePropagationForeground
-	bg := metav1.DeletePropagationBackground
-	orphan := metav1.DeletePropagationOrphan
+	logger := logr.Discard() // Use a no-op logger
 
-	// Test cases
-	tests := []struct {
+	testCases := []struct {
 		name           string
 		annotations    map[string]string
 		expectedPolicy *metav1.DeletionPropagation
 	}{
 		{
+			name:        "No annotations",
+			annotations: nil,
+			expectedPolicy: nil,
+		},
+		{
 			name: "Foreground policy",
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "Foreground",
 			},
-			expectedPolicy: &fg,
+			expectedPolicy: func() *metav1.DeletionPropagation {
+				fg := metav1.DeletePropagationForeground
+				return &fg
+			}(),
 		},
 		{
 			name: "Background policy",
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "Background",
 			},
-			expectedPolicy: &bg,
+			expectedPolicy: func() *metav1.DeletionPropagation {
+				bg := metav1.DeletePropagationBackground
+				return &bg
+			}(),
 		},
 		{
 			name: "Orphan policy",
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "Orphan",
 			},
-			expectedPolicy: &orphan,
+			expectedPolicy: func() *metav1.DeletionPropagation {
+				orphan := metav1.DeletePropagationOrphan
+				return &orphan
+			}(),
 		},
 		{
-			name:           "No annotation set",
-			annotations:    map[string]string{},
+			name: "Empty annotation",
+			annotations: map[string]string{
+				kyverno.AnnotationCleanupPropagationPolicy: "",
+			},
 			expectedPolicy: nil,
 		},
 		{
-			name: "Unknown annotation",
+			name: "Unknown policy",
 			annotations: map[string]string{
-				kyverno.AnnotationCleanupPropagationPolicy: "UnknownPolicy",
+				kyverno.AnnotationCleanupPropagationPolicy: "Unknown",
 			},
 			expectedPolicy: nil,
 		},
 	}
 
-	for _, tc := range tests {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create a mock meta object with the annotations
-			metaObj := &mockMetaObject{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: tc.annotations,
-				},
+			// Mock metadata object with annotations
+			metaObj := &metav1.ObjectMeta{
+				Annotations: tc.annotations,
 			}
-			// Calling the function from the controller
-			policy := determinePropagationPolicy(metaObj, logr.Discard())
-			// Assert the results
+
+			// Call the function
+			policy := determinePropagationPolicy(metaObj, logger)
+
+			// Assert the result
 			assert.Equal(t, tc.expectedPolicy, policy)
 		})
 	}

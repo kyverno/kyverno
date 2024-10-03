@@ -125,7 +125,7 @@ func determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *meta
 
 	if annotations != nil {
 		annotationPolicy := annotations[kyverno.AnnotationCleanupPropagationPolicy]
-		if annotationPolicy == "" {
+		if annotationPolicy != "" {
 			switch annotationPolicy {
 			case "Foreground":
 				fg := metav1.DeletePropagationForeground
