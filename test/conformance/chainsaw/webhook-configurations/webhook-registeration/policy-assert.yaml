@@ -1,9 +1,0 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: cpol-fine-grained-match-conditions-disallow-latest-image-tag-1
-status:
-  conditions:
-    - reason: Succeeded
-      status: "True"
-      type: Ready

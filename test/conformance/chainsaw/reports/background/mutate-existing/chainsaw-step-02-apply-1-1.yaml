@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  namespace: staging
+  labels:
+    app: myapp
+spec: 
+  containers:
+  - name: nginx
+    image: nginx:latest

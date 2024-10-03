@@ -54,6 +54,24 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	return report
 }
 
+func BuildMutationReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), schema.GroupVersionKind(request.Kind), resource)
+	SetMutationResponses(report, responses...)
+	return report
+}
+
+func BuildMutateExistingReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewBackgroundScanReport(namespace, name, gvk, owner, uid)
+	SetMutationResponses(report, responses...)
+	return report
+}
+
+func BuildGenerateReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewBackgroundScanReport(namespace, name, gvk, owner, uid)
+	SetGenerationResponses(report, responses...)
+	return report
+}
+
 func NewPolicyReport(namespace, name string, scope *corev1.ObjectReference, results ...policyreportv1alpha2.PolicyReportResult) reportsv1.ReportInterface {
 	var report reportsv1.ReportInterface
 	if namespace == "" {

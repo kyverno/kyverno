@@ -11,6 +11,7 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -54,6 +55,7 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	backgroundScanInterval time.Duration,
 	urGenerator generator.UpdateRequestGenerator,
+	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -85,6 +87,7 @@ func createrLeaderControllers(
 		eventGenerator,
 		configuration,
 		jp,
+		reportsBreaker,
 	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
@@ -98,12 +101,14 @@ func main() {
 		maxQueuedEvents          int
 		omitEvents               string
 		maxAPICallResponseLength int64
+		maxBackgroundReports     int
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
+	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of background reports before we stop creating new ones")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -131,7 +136,7 @@ func main() {
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
 		defer sdown()
 		var err error
-		bgscanInterval := time.Hour
+		bgscanInterval := 30 * time.Second
 		val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
 		if val != "" {
 			if bgscanInterval, err = time.ParseDuration(val); err != nil {
@@ -198,6 +203,18 @@ func main() {
 			polexCache,
 			gcstore,
 		)
+		ephrs, err := breaker.StartBackgroundReportsCounter(signalCtx, setup.MetadataClient)
+		if err != nil {
+			setup.Logger.Error(err, "failed to start background-scan reports watcher")
+			os.Exit(1)
+		}
+		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
+			count, isRunning := ephrs.Count()
+			if !isRunning {
+				return true
+			}
+			return count > maxBackgroundReports
+		})
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
@@ -230,6 +247,7 @@ func main() {
 					setup.Jp,
 					bgscanInterval,
 					urGenerator,
+					reportsBreaker,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")

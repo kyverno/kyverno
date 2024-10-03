@@ -1,0 +1,53 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: with-mutation-img
+spec:
+  background: false
+  failurePolicy: Fail
+  rules:
+    - match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      name: with-mutation-rule
+      verifyImages:
+        - attestors:
+            - entries:
+                - keys:
+                    publicKeys: |-
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+                      5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+                      -----END PUBLIC KEY-----
+                    rekor:
+                      ignoreTlog: true
+                      url: https://rekor.sigstore.dev
+          imageReferences:
+            - ghcr.io/kyverno/test-verify-image:*
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: with-mutation-mut
+spec:
+  background: false
+  failurePolicy: Fail
+  rules:
+    - match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      name: with-mutation-rule
+      mutate:
+        patchStrategicMerge:
+          spec:
+            containers:
+              - (name): test-secret
+                image: "ghcr.io/kyverno/test-verify-image:signed"
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30

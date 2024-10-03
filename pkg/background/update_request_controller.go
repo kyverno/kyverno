@@ -10,6 +10,7 @@ import (
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/background/mutate"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
@@ -57,9 +58,10 @@ type controller struct {
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
 
-	eventGen      event.Interface
-	configuration config.Configuration
-	jp            jmespath.Interface
+	eventGen       event.Interface
+	configuration  config.Configuration
+	jp             jmespath.Interface
+	reportsBreaker breaker.Breaker
 }
 
 // NewController returns an instance of the Generate-Request Controller
@@ -74,20 +76,22 @@ func NewController(
 	eventGen event.Interface,
 	configuration config.Configuration,
 	jp jmespath.Interface,
+	reportsBreaker breaker.Breaker,
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		engine:        engine,
-		cpolLister:    cpolInformer.Lister(),
-		polLister:     polInformer.Lister(),
-		urLister:      urLister,
-		nsLister:      namespaceInformer.Lister(),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), "background"),
-		eventGen:      eventGen,
-		configuration: configuration,
-		jp:            jp,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		engine:         engine,
+		cpolLister:     cpolInformer.Lister(),
+		polLister:      polInformer.Lister(),
+		urLister:       urLister,
+		nsLister:       namespaceInformer.Lister(),
+		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), "background"),
+		eventGen:       eventGen,
+		configuration:  configuration,
+		jp:             jp,
+		reportsBreaker: reportsBreaker,
 	}
 	_, _ = urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
@@ -220,10 +224,10 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.GetRequestType() {
 	case kyvernov2.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp)
+		ctrl := mutate.NewMutateExistingController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp, c.reportsBreaker)
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp, c.reportsBreaker)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil

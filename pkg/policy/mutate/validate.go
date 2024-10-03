@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -17,22 +18,26 @@ import (
 
 // Mutate provides implementation to validate 'mutate' rule
 type Mutate struct {
-	mutation    kyvernov1.Mutation
-	authChecker auth.AuthChecks
+	rule                  *kyvernov1.Rule
+	authCheckerBackground auth.AuthChecks
+	authCheckerReports    auth.AuthChecks
 }
 
 // NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface, mock bool, backgroundSA string) *Mutate {
-	var authCheck auth.AuthChecks
+func NewMutateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string) *Mutate {
+	var authCheckBackground, authCheckerReports auth.AuthChecks
 	if mock {
-		authCheck = fake.NewFakeAuth()
+		authCheckBackground = fake.NewFakeAuth()
+		authCheckerReports = fake.NewFakeAuth()
 	} else {
-		authCheck = auth.NewAuth(client, backgroundSA, logging.GlobalLogger())
+		authCheckBackground = auth.NewAuth(client, backgroundSA, logging.GlobalLogger())
+		authCheckerReports = auth.NewAuth(client, reportsSA, logging.GlobalLogger())
 	}
 
 	return &Mutate{
-		mutation:    m,
-		authChecker: authCheck,
+		rule:                  rule,
+		authCheckerBackground: authCheckBackground,
+		authCheckerReports:    authCheckerReports,
 	}
 }
 
@@ -43,19 +48,24 @@ func (m *Mutate) Validate(ctx context.Context, _ []string) (warnings []string, p
 			return nil, "foreach", fmt.Errorf("only one of `foreach`, `patchStrategicMerge`, or `patchesJson6902` is allowed")
 		}
 
-		return m.validateForEach("", m.mutation.ForEachMutation)
+		return m.validateForEach("", m.rule.Mutation.ForEachMutation)
 	}
 
 	if m.hasPatchesJSON6902() && m.hasPatchStrategicMerge() {
 		return nil, "foreach", fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 	}
 
-	if m.mutation.Targets != nil {
-		if err := m.validateAuth(ctx, m.mutation.Targets); err != nil {
-			return nil, "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.authChecker.User(), err)
+	if m.rule.Mutation.Targets != nil {
+		if err := m.validateAuth(ctx, m.rule.Mutation.Targets); err != nil {
+			return nil, "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.authCheckerBackground.User(), err)
 		}
 	}
-	return nil, "", nil
+	if w, err := m.validateAuthReports(ctx); err != nil {
+		return nil, "", err
+	} else if len(w) > 0 {
+		warnings = append(warnings, w...)
+	}
+	return warnings, "", nil
 }
 
 func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation) (warnings []string, path string, err error) {
@@ -88,18 +98,18 @@ func (m *Mutate) validateNestedForEach(tag string, j []kyvernov1.ForEachMutation
 }
 
 func (m *Mutate) hasForEach() bool {
-	return len(m.mutation.ForEachMutation) > 0
+	return len(m.rule.Mutation.ForEachMutation) > 0
 }
 
 func (m *Mutate) hasPatchStrategicMerge() bool {
-	return m.mutation.GetPatchStrategicMerge() != nil
+	return m.rule.Mutation.GetPatchStrategicMerge() != nil
 }
 
 func (m *Mutate) hasPatchesJSON6902() bool {
-	return m.mutation.PatchesJSON6902 != ""
+	return m.rule.Mutation.PatchesJSON6902 != ""
 }
 
-func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetResourceSpec) error {
+func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetResourceSpec) (err error) {
 	var errs []error
 	for _, target := range targets {
 		if regex.IsVariable(target.Kind) {
@@ -108,7 +118,7 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 		_, _, k, sub := kubeutils.ParseKindSelector(target.Kind)
 		gvk := strings.Join([]string{target.APIVersion, k}, "/")
 		verbs := []string{"get", "update"}
-		ok, msg, err := m.authChecker.CanI(ctx, verbs, gvk, target.Namespace, target.Name, sub)
+		ok, msg, err := m.authCheckerBackground.CanI(ctx, verbs, gvk, target.Namespace, target.Name, sub)
 		if err != nil {
 			return err
 		}
@@ -118,4 +128,24 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetRes
 	}
 
 	return multierr.Combine(errs...)
+}
+
+func (m *Mutate) validateAuthReports(ctx context.Context) (warnings []string, err error) {
+	kinds := m.rule.MatchResources.GetKinds()
+	for _, k := range kinds {
+		if wildcard.ContainsWildcard(k) {
+			return nil, nil
+		}
+
+		verbs := []string{"get", "list", "watch"}
+		ok, msg, err := m.authCheckerReports.CanI(ctx, verbs, k, "", "", "")
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			warnings = append(warnings, msg)
+		}
+	}
+
+	return warnings, nil
 }

@@ -330,27 +330,30 @@ func (c *controller) findResource(ctx context.Context, reportMeta *metav1.Partia
 	return resource, nil
 }
 
-func (c *controller) adopt(ctx context.Context, reportMeta *metav1.PartialObjectMetadata) bool {
+func (c *controller) adopt(ctx context.Context, reportMeta *metav1.PartialObjectMetadata) (bool, bool) {
 	resource, err := c.findResource(ctx, reportMeta)
 	if err != nil {
-		return false
+		if apierrors.IsForbidden(err) {
+			return false, true
+		}
+		return false, false
 	}
 	if resource == nil {
-		return false
+		return false, false
 	}
 	report, err := c.getEphemeralReport(ctx, reportMeta.GetNamespace(), reportMeta.GetName())
 	if err != nil {
-		return false
+		return false, false
 	}
 	if report == nil {
-		return false
+		return false, false
 	}
 	controllerutils.SetOwner(report, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
 	reportutils.SetResourceUid(report, resource.GetUID())
 	if _, err := updateReport(ctx, report, c.client); err != nil {
-		return false
+		return false, false
 	}
-	return true
+	return true, false
 }
 
 func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
@@ -371,8 +374,11 @@ func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, 
 		return nil
 	}
 	// try to find the owner
-	if c.adopt(ctx, reportMeta) {
+	if adopted, forbidden := c.adopt(ctx, reportMeta); adopted {
 		return nil
+	} else if forbidden {
+		logger.Info("deleting because insufficient permission to fetch resource")
+		return c.deleteEphemeralReport(ctx, reportMeta.GetNamespace(), reportMeta.GetName())
 	}
 	// if not found and too old, forget about it
 	if isTooOld(reportMeta) {

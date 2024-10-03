@@ -20,3 +20,26 @@ spec:
           metadata:
             labels:
               team: '?*'
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+    - name: require-team
+      match:
+        any:
+          - resources:
+              kinds:
+                - '*'
+      validate:
+        failureAction: Audit
+        message: 'The label `team` is required.'
+        pattern:
+          metadata:
+            labels:
+              team: '?*'

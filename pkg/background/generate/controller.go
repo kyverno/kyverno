@@ -14,6 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
@@ -27,6 +28,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	validationpolicy "github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -55,6 +57,8 @@ type GenerateController struct {
 
 	log logr.Logger
 	jp  jmespath.Interface
+
+	reportsBreaker breaker.Breaker
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
@@ -71,20 +75,22 @@ func NewGenerateController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
+	reportsBreaker breaker.Breaker,
 ) *GenerateController {
 	c := GenerateController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		statusControl: statusControl,
-		engine:        engine,
-		policyLister:  policyLister,
-		npolicyLister: npolicyLister,
-		urLister:      urLister,
-		nsLister:      nsLister,
-		configuration: dynamicConfig,
-		eventGen:      eventGen,
-		log:           log,
-		jp:            jp,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		statusControl:  statusControl,
+		engine:         engine,
+		policyLister:   policyLister,
+		npolicyLister:  npolicyLister,
+		urLister:       urLister,
+		nsLister:       nsLister,
+		configuration:  dynamicConfig,
+		eventGen:       eventGen,
+		log:            log,
+		jp:             jp,
+		reportsBreaker: reportsBreaker,
 	}
 	return &c
 }
@@ -227,6 +233,11 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		logger.V(4).Info(doesNotApply)
 		return nil, errors.New(doesNotApply)
 	}
+	if c.needsReports(trigger) {
+		if err := c.createReports(context.TODO(), policyContext.NewResource(), engineResponse); err != nil {
+			c.log.Error(err, "failed to create report")
+		}
+	}
 
 	var applicableRules []string
 	for _, r := range engineResponse.PolicyResponse.Rules {
@@ -357,6 +368,34 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 		return nil, err
 	}
 	return resource, nil
+}
+
+func (c *GenerateController) needsReports(trigger unstructured.Unstructured) bool {
+	createReport := true
+	// check if the resource supports reporting
+	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
+		createReport = false
+	}
+
+	return createReport
+}
+
+func (c *GenerateController) createReports(
+	ctx context.Context,
+	resource unstructured.Unstructured,
+	engineResponses ...engineapi.EngineResponse,
+) error {
+	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GetName(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
+	if len(report.GetResults()) > 0 {
+		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func updateStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {

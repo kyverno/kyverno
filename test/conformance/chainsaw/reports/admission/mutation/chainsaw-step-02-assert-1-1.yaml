@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+  namespace: default
+  labels:
+    foo: bar
