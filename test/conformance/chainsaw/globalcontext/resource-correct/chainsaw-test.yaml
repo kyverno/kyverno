@@ -27,7 +27,7 @@ spec:
       with:
         bindings:
         - name: name
-          value: cpol-not-ready
+          value: cpol-resource-correct
   - try:
     - apply:
         file: new-deployment.yaml
