@@ -697,11 +697,6 @@ codegen-helm-update-versions: ## Update helm charts versions
 	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 
-.PHONY: codegen-e2e-matrix
-codegen-e2e-matrix: ## Generate e2e tests matrix
-	@echo Generating e2e tests matrix... >&2
-	@(cd hack/chainsaw-matrix && go run . > ../../test/conformance/chainsaw/e2e-matrix.json)
-
 .PHONY: codegen-quick
 codegen-quick: ## Generate all generated code except client
 codegen-quick: codegen-deepcopy
@@ -709,7 +704,6 @@ codegen-quick: codegen-crds-all
 codegen-quick: codegen-docs-all
 codegen-quick: codegen-helm-all
 codegen-quick: codegen-manifest-all
-codegen-quick: codegen-e2e-matrix
 
 .PHONY: codegen-slow
 codegen-slow: ## Generate client code
@@ -799,15 +793,6 @@ verify-cli-tests: ## Check CLI test files are up to date
 	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code test/cli
 
-.PHONY: verify-e2e-matrix
-verify-e2e-matrix: ## Check e2e tests matrix is up to date
-verify-e2e-matrix: codegen-e2e-matrix
-	@echo Checking e2e tests matrix is up to date... >&2
-	@git --no-pager diff test/conformance/chainsaw
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-e2e-matrix".' >&2
-	@echo 'To correct this, locally run "make codegen-e2e-matrix", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code test/conformance/chainsaw
-
 .PHONY: verify-codegen
 verify-codegen: ## Verify all generated code and docs are up to date
 verify-codegen: verify-crds
@@ -817,7 +802,6 @@ verify-codegen: verify-docs
 verify-codegen: verify-helm
 verify-codegen: verify-manifests
 verify-codegen: verify-cli-crds
-verify-codegen: verify-e2e-matrix
 
 ##############
 # UNIT TESTS #
