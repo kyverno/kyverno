@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -17,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,6 +46,8 @@ type mutateExistingController struct {
 
 	log logr.Logger
 	jp  jmespath.Interface
+
+	reportsBreaker breaker.Breaker
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -59,19 +63,21 @@ func NewMutateExistingController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
+	reportsBreaker breaker.Breaker,
 ) *mutateExistingController {
 	c := mutateExistingController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		statusControl: statusControl,
-		engine:        engine,
-		policyLister:  policyLister,
-		npolicyLister: npolicyLister,
-		nsLister:      nsLister,
-		configuration: dynamicConfig,
-		eventGen:      eventGen,
-		log:           log,
-		jp:            jp,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		statusControl:  statusControl,
+		engine:         engine,
+		policyLister:   policyLister,
+		npolicyLister:  npolicyLister,
+		nsLister:       nsLister,
+		configuration:  dynamicConfig,
+		eventGen:       eventGen,
+		log:            log,
+		jp:             jp,
+		reportsBreaker: reportsBreaker,
 	}
 	return &c
 }
@@ -80,6 +86,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
+	logger.Info("processing mutate existing")
 	policy, err := c.getPolicy(ur)
 	if err != nil {
 		logger.Error(err, "failed to get policy")
@@ -157,6 +164,11 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 		}
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
+		if c.needsReports(trigger) {
+			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
+				c.log.Error(err, "failed to create report")
+			}
+		}
 		for _, r := range er.PolicyResponse.Rules {
 			patched, parentGVR, patchedSubresource := r.PatchedTarget()
 			switch r.Status() {
@@ -241,6 +253,36 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 	}
 
 	c.eventGen.Add(events...)
+}
+
+func (c *mutateExistingController) needsReports(trigger *unstructured.Unstructured) bool {
+	createReport := true
+	if trigger == nil {
+		return createReport
+	}
+	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
+		createReport = false
+	}
+
+	return createReport
+}
+
+func (c *mutateExistingController) createReports(
+	ctx context.Context,
+	resource unstructured.Unstructured,
+	engineResponses ...engineapi.EngineResponse,
+) error {
+	report := reportutils.BuildMutateExistingReport(resource.GetNamespace(), resource.GetName(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
+	if len(report.GetResults()) > 0 {
+		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error) error {
