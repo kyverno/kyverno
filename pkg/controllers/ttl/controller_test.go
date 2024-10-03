@@ -3,6 +3,7 @@ package ttl
 import (
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,21 +74,8 @@ func TestDeterminePropagationPolicy(t *testing.T) {
 					Annotations: tc.annotations,
 				},
 			}
-			// Determine the deletion propagation policy directly in the test
-			var policy *metav1.DeletionPropagation
-
-			if annotations := metaObj.GetAnnotations(); annotations != nil {
-				if annotationPolicy := annotations[kyverno.AnnotationCleanupPropagationPolicy]; annotationPolicy != "" {
-					switch annotationPolicy {
-					case "Foreground":
-						policy = &fg
-					case "Background":
-						policy = &bg
-					case "Orphan":
-						policy = &orphan
-					}
-				}
-			}
+			// Calling the function from the controller
+			policy := determinePropagationPolicy(metaObj, logr.Discard())
 			// Assert the results
 			assert.Equal(t, tc.expectedPolicy, policy)
 		})
