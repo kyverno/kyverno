@@ -17,7 +17,7 @@ func (m *mockMetaObject) GetAnnotations() map[string]string {
 	return m.Annotations
 }
 
-// Function to test the deletion propagation policy directly in the test
+// Function to test the deletion propagation policy in the test
 func TestDeterminePropagationPolicy(t *testing.T) {
 	// Define expected values explicitly
 	fg := metav1.DeletePropagationForeground
