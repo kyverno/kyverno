@@ -16,12 +16,20 @@ spec:
         file: configmap.yaml
     - assert:
         file: configmap-assert.yaml
-  - name: step-03
-    try:
-    - apply:
-        file: policy.yaml
-    - assert:
-        file: policy-assert.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: trigger-deployment-restarts
   - name: step-04
     try:
     - apply:
