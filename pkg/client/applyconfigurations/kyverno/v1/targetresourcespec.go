@@ -20,6 +20,7 @@ package v1
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 )
 
@@ -70,6 +71,15 @@ func (b *TargetResourceSpecApplyConfiguration) WithNamespace(value string) *Targ
 func (b *TargetResourceSpecApplyConfiguration) WithName(value string) *TargetResourceSpecApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.Name = &value
+	return b
+}
+
+// WithSelector sets the Selector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Selector field is set to the value of the last call.
+func (b *TargetResourceSpecApplyConfiguration) WithSelector(value metav1.LabelSelector) *TargetResourceSpecApplyConfiguration {
+	b.ensureResourceSpecApplyConfigurationExists()
+	b.Selector = &value
 	return b
 }
 
