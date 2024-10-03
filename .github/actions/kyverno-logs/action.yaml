@@ -7,16 +7,37 @@ runs:
   steps:
     - shell: bash
       run: |
+        set -e
         kubectl get mutatingwebhookconfigurations
+    - shell: bash
+      run: |
+        set -e
         kubectl get validatingwebhookconfigurations
+    - shell: bash
+      run: |
+        set -e
         kubectl auth can-i --list --as system:serviceaccount:kyverno:kyverno-background-controller 
     - shell: bash
       run: |
+        set -e
         kubectl -n kyverno get pod
+    - shell: bash
+      run: |
+        set -e
         kubectl -n kyverno describe pod | grep -i events -A10
     - shell: bash
       run: |
+        set -e
         kubectl -n kyverno logs deploy/kyverno-admission-controller --all-containers
+    - shell: bash
+      run: |
+        set -e
         kubectl -n kyverno logs deploy/kyverno-background-controller --all-containers
+    - shell: bash
+      run: |
+        set -e
         kubectl -n kyverno logs deploy/kyverno-reports-controller --all-containers
+    - shell: bash
+      run: |
+        set -e
         kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers
