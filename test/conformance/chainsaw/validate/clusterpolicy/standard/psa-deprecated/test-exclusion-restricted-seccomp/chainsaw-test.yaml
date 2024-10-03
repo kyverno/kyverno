@@ -4,12 +4,20 @@ metadata:
   name: test-exclusion-restricted-seccomp
 spec:
   steps:
-  - name: step-01
-    try:
-    - apply:
-        file: policy.yaml
-    - assert:
-        file: policy-assert.yaml
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-exclusion-restricted-seccomp
   - name: step-02
     try:
     - apply:
