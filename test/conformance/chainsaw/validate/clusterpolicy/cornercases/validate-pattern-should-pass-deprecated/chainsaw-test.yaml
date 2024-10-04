@@ -4,27 +4,35 @@ metadata:
   name: validate-pattern-should-pass
 spec:
   steps:
-    - name: step-01
-      try:
-      - script:
-          content: kubectl patch configmap kyverno -p '{"data":{"generateSuccessEvents":"true"}}' -n kyverno
+  - name: step-01
+    try:
+    - script:
+        content: kubectl patch configmap kyverno -p '{"data":{"generateSuccessEvents":"true"}}' -n kyverno
+    - assert:
+        file: kyverno-configmap-assert.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: priv
+  - name: step-03
+    try:
+      - apply:
+          file: resource.yaml
+  - name: step-04
+    try:
       - assert:
-          file: kyverno-configmap-assert.yaml
-    - name: step-02
-      try:
-        - apply:
-            file: policy.yaml
-        - assert:
-            file: policy-assert.yaml
-    - name: step-03
-      try:
-        - apply:
-            file: resource.yaml
-    - name: step-04
-      try:
-        - assert:
-            file: event-assert.yaml
-    - name: step-05
-      try:
-        - assert:
-            file: report-pass-assert.yaml
+          file: event-assert.yaml
+  - name: step-05
+    try:
+      - assert:
+          file: report-pass-assert.yaml
