@@ -8,9 +8,17 @@ spec:
     try:
     - apply:
         file: chainsaw-step-00-apply-1-1.yaml
-  - name: step-01
-    try:
-    - apply:
-        file: policy.yaml
-    - assert:
-        file: policy-assert.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: generate-cm-for-kube-state-metrics-crds
