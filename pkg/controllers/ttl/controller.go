@@ -118,34 +118,6 @@ func (c *controller) deregisterEventHandlers() {
 	c.logger.V(3).Info("deregistered event handlers")
 }
 
-// Function to determine the deletion propagation policy
-func (c *controller) determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *metav1.DeletionPropagation {
-	annotations := metaObj.GetAnnotations()
-	var policy *metav1.DeletionPropagation
-
-	if annotations != nil {
-		annotationPolicy := annotations["kyverno.AnnotationCleanupPropagationPolicy"]
-		if annotationPolicy == "" {
-			switch annotationPolicy {
-			case "Foreground":
-				fg := metav1.DeletePropagationForeground
-				policy = &fg
-			case "Background":
-				bg := metav1.DeletePropagationBackground
-				policy = &bg
-			case "Orphan":
-				orphan := metav1.DeletePropagationOrphan
-				policy = &orphan
-			case "":
-				return nil
-			default:
-				logger.Info("Unknown propagationPolicy annotation, no global policy found", "policy", annotationPolicy)
-			}
-		}
-	}
-	return policy
-}
-
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey string, _, _ string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
 	if err != nil {
@@ -192,10 +164,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		return nil
 	}
 	if time.Now().After(deletionTime) {
-		deleteOptions := metav1.DeleteOptions{
-			PropagationPolicy: c.determinePropagationPolicy(metaObj, logger),
-		}
-		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
+		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to delete resource")
 			if c.metrics.ttlFailureTotal != nil {
