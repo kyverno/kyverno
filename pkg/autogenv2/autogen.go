@@ -172,6 +172,28 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []
 	return requested.UnsortedList(), supported.UnsortedList(), activated
 }
 
+// GetRuleNames returns the rule names.
+func GetRuleNames(rules []kyvernov1.Rule) []string {
+	ruleNames := make([]string, 0, len(rules))
+
+	// Collect existing rule names
+	for _, rule := range rules {
+		ruleNames = append(ruleNames, rule.Name)
+	}
+
+	return ruleNames
+}
+
+// GetRelevantKinds extracts the resource kinds from the match.resources field of the rules.
+func GetRelevantKinds(rules []kyvernov1.Rule) []string {
+	kinds := []string{}
+	for _, rule := range rules {
+		kinds = append(kinds, rule.MatchResources.ResourceDescription.Kinds...)
+	}
+
+	return kinds
+}
+
 // ExtractPodSpec extracts the PodSpec from an unstructured resource if the controller supports autogen.
 func (a *ImplAutogenV2) ExtractPodSpec(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	kind := resource.GetKind()
