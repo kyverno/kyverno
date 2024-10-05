@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-foreground
+  annotations:
+    "kyverno.io/cleanup-policy": "Foreground"
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: propagate-foreground-policy
+spec:
+  rules:
+    - name: cleanup-policy-foreground
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "The cleanup policy should be Foreground"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Foreground"

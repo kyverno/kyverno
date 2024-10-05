@@ -1,0 +1,59 @@
+# Orphan Policy Test
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-orphan
+  annotations:
+    "kyverno.io/cleanup-policy": "Orphan"
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: propagate-orphan-policy
+spec:
+  rules:
+    - name: cleanup-policy-orphan
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "The cleanup policy should be Orphan"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Orphan"
+---
+# Unknown Policy Test
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-unknown
+  annotations:
+    "kyverno.io/cleanup-policy": "Unknown"
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: propagate-unknown-policy
+spec:
+  rules:
+    - name: cleanup-policy-unknown
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "Unknown cleanup policies should not be applied"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Unknown"
