@@ -172,6 +172,54 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []
 	return requested.UnsortedList(), supported.UnsortedList(), activated
 }
 
+// GetRuleNames returns the rule names including autogen ones.
+func GetRuleNames(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) []string {
+	initialCapacity := len(spec.Rules) * 2
+	ruleNames := make([]string, 0, initialCapacity)
+
+	// Collect existing rule names
+	for _, rule := range spec.Rules {
+		ruleNames = append(ruleNames, rule.Name)
+	}
+
+	// Check for supported controllers for autogen
+	_, _, activated := GetControllers(meta, spec)
+	for _, controller := range activated {
+		for _, rule := range spec.Rules {
+			autogenRuleName := fmt.Sprintf("autogen-%s-%s", controller, rule.Name)
+			ruleNames = append(ruleNames, autogenRuleName)
+		}
+	}
+
+	return ruleNames
+}
+
+// GetRelevantKinds returns relevant kinds including autogen ones.
+func GetRelevantKinds(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) []string {
+	var kinds sets.Set[string] = sets.New[string]()
+
+	// Collect existing kinds
+	for _, rule := range spec.Rules {
+		kinds.Insert(rule.MatchResources.Kinds...)
+		for _, anyMatch := range rule.MatchResources.Any {
+			kinds.Insert(anyMatch.Kinds...)
+		}
+		for _, allMatch := range rule.MatchResources.All {
+			kinds.Insert(allMatch.Kinds...)
+		}
+	}
+
+	// Check for supported controllers for autogen
+	_, supported, activated := GetControllers(meta, spec)
+	if len(activated) > 0 {
+		for _, controller := range supported {
+			kinds.Insert(controller)
+		}
+	}
+
+	return kinds.UnsortedList()
+}
+
 // ExtractPodSpec extracts the PodSpec from an unstructured resource if the controller supports autogen.
 func (a *ImplAutogenV2) ExtractPodSpec(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	kind := resource.GetKind()
