@@ -71,6 +71,9 @@ data:
   excludeGroups: "system:nodes"
   resourceFilters: >-
     [*/*,kyverno,*]
+    [EphemeralReport,*,*]
+    [ClusterEphemeralReport,*,*]
+    [SelfSubjectAccessReview,*,*]
     [Event,*,*]
     [*/*,kube-system,*]
     [*/*,kube-public,*]
