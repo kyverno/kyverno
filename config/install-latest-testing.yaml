@@ -71,9 +71,6 @@ data:
   excludeGroups: "system:nodes"
   resourceFilters: >-
     [*/*,kyverno,*]
-    [EphemeralReport,*,*]
-    [ClusterEphemeralReport,*,*]
-    [SelfSubjectAccessReview,*,*]
     [Event,*,*]
     [*/*,kube-system,*]
     [*/*,kube-public,*]
@@ -89,6 +86,8 @@ data:
     [Pod/binding,*,*]
     [ReplicaSet,*,*]
     [ReplicaSet/*,*,*]
+    [EphemeralReport,*,*]
+    [ClusterEphemeralReport,*,*]
     [ClusterRole,*,kyverno:admission-controller]
     [ClusterRole,*,kyverno:admission-controller:core]
     [ClusterRole,*,kyverno:admission-controller:additional]
