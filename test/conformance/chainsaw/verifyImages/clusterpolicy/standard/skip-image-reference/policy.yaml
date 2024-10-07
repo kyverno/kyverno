@@ -55,7 +55,7 @@ spec:
         imageReferences:
         - "ghcr.io/*"
         skipImageReferences:
-        - "ghcr.io/chipzoller*"
+        - "ghcr.io/kyverno*"
         failureAction: Enforce
         attestors:
         - count: 1
