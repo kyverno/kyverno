@@ -12,7 +12,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	autogenv2 "github.com/kyverno/kyverno/pkg/autogenv2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
@@ -568,13 +568,20 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		status := policy.GetStatus()
 		status.SetReady(ready, message)
 		status.Autogen.Rules = nil
-		rules := autogen.ComputeRules(policy, "")
-		setRuleCount(rules, status)
-		for _, rule := range rules {
-			if strings.HasPrefix(rule.Name, "autogen-") {
-				status.Autogen.Rules = append(status.Autogen.Rules, rule)
+
+		var autogenRules []kyvernov1.Rule
+
+		ruleNames := autogenv2.GetRuleNames(policy.GetSpec().Rules)
+
+		for _, ruleName := range ruleNames {
+			if strings.HasPrefix(ruleName, "autogen-") {
+				autogenRule := kyvernov1.Rule{Name: ruleName}
+				autogenRules = append(autogenRules, autogenRule)
+				status.Autogen.Rules = append(status.Autogen.Rules, autogenRule)
 			}
 		}
+		setRuleCount(autogenRules, status)
+
 		return nil
 	}
 	for _, policy := range policies {
@@ -1128,7 +1135,27 @@ func (gvs GroupVersionResourceScope) String() string {
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
 	var matchedGVK []string
-	for _, rule := range autogen.ComputeRules(policy, "") {
+	// Get rule names using the GetRuleNames function
+	ruleNames := autogenv2.GetRuleNames(policy.GetSpec().Rules)
+
+	for _, ruleName := range ruleNames {
+		var rule *kyvernov1.Rule
+		// Find the corresponding rule by name
+		for _, r := range policy.GetSpec().Rules {
+			if r.Name == ruleName {
+				ruleCopy := r
+				rule = &ruleCopy
+				break
+			}
+		}
+
+		if rule == nil {
+			continue // Skip if the rule was not found
+		}
+
+		relevantKinds := autogenv2.GetRelevantKinds(policy.GetSpec().Rules)
+		matchedGVK = append(matchedGVK, relevantKinds...)
+
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)

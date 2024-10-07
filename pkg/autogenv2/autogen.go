@@ -172,52 +172,26 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []
 	return requested.UnsortedList(), supported.UnsortedList(), activated
 }
 
-// GetRuleNames returns the rule names including autogen ones.
-func GetRuleNames(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) []string {
-	initialCapacity := len(spec.Rules) * 2
-	ruleNames := make([]string, 0, initialCapacity)
+// GetRuleNames returns the rule names.
+func GetRuleNames(rules []kyvernov1.Rule) []string {
+	ruleNames := make([]string, 0, len(rules))
 
 	// Collect existing rule names
-	for _, rule := range spec.Rules {
+	for _, rule := range rules {
 		ruleNames = append(ruleNames, rule.Name)
-	}
-
-	// Check for supported controllers for autogen
-	_, _, activated := GetControllers(meta, spec)
-	for _, controller := range activated {
-		for _, rule := range spec.Rules {
-			autogenRuleName := fmt.Sprintf("autogen-%s-%s", controller, rule.Name)
-			ruleNames = append(ruleNames, autogenRuleName)
-		}
 	}
 
 	return ruleNames
 }
 
-// GetRelevantKinds returns relevant kinds including autogen ones.
-func GetRelevantKinds(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) []string {
-	var kinds sets.Set[string] = sets.New[string]()
-
-	// Collect existing kinds
-	for _, rule := range spec.Rules {
-		kinds.Insert(rule.MatchResources.Kinds...)
-		for _, anyMatch := range rule.MatchResources.Any {
-			kinds.Insert(anyMatch.Kinds...)
-		}
-		for _, allMatch := range rule.MatchResources.All {
-			kinds.Insert(allMatch.Kinds...)
-		}
+// GetRelevantKinds extracts the resource kinds from the match.resources field of the rules.
+func GetRelevantKinds(rules []kyvernov1.Rule) []string {
+	kinds := []string{}
+	for _, rule := range rules {
+		kinds = append(kinds, rule.MatchResources.ResourceDescription.Kinds...)
 	}
 
-	// Check for supported controllers for autogen
-	_, supported, activated := GetControllers(meta, spec)
-	if len(activated) > 0 {
-		for _, controller := range supported {
-			kinds.Insert(controller)
-		}
-	}
-
-	return kinds.UnsortedList()
+	return kinds
 }
 
 // ExtractPodSpec extracts the PodSpec from an unstructured resource if the controller supports autogen.
