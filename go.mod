@@ -95,6 +95,7 @@ require (
 )
 
 require github.com/jmespath/go-jmespath v0.4.0 // indirect
+
 require github.com/AliyunContainerService/ack-ram-tool/pkg/credentials/provider v0.14.0 // indirect
 
 require (
