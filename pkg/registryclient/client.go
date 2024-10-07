@@ -214,7 +214,7 @@ func (c *client) NameOptions() []name.Option {
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef
 // and provides access to metadata about remote artifact.
 func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gcrremote.Descriptor, error) {
-	nameOpts := []name.Option{}
+	nameOpts := c.NameOptions()
 	parsedRef, err := name.ParseReference(imageRef, nameOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", imageRef, err)
