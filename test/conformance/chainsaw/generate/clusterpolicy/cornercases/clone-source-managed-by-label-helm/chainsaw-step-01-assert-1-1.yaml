@@ -1,9 +1,0 @@
-apiVersion: kyverno.io/v2beta1
-kind: ClusterPolicy
-metadata:
-  name: sync-image-pull-secrets
-status:
-  conditions:
-  - reason: Succeeded
-    status: "True"
-    type: Ready
