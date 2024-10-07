@@ -18,5 +18,5 @@ spec:
             status: "True"
             type: Ready
   - sleep:
-      duration: 2s
+      duration: 1s
 
