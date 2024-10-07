@@ -42,6 +42,10 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+        env:
+          # Trivy is returning TOOMANYREQUESTS
+          # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
+          TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
       - name: Install Cosign
         uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       - name: Publish kyverno
