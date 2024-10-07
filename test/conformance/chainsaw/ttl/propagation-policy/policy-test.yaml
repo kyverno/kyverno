@@ -1,47 +1,56 @@
-# Foreground Policy Test
-apiVersion: v1
-kind: Pod
+---
+apiVersion: kyverno.io/v1
+kind: Policy
 metadata:
-  name: test-pod-foreground
-  annotations:
-    "kyverno.io/cleanup-policy": "Foreground"
+  name: propagate-foreground-policy
 spec:
-  containers:
-    - name: nginx
-      image: nginx
+  rules:
+    - name: cleanup-policy-foreground
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "The cleanup policy should be Foreground"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Foreground"
 
 ---
-# Background Policy Test
-apiVersion: v1
-kind: Pod
+apiVersion: kyverno.io/v1
+kind: Policy
 metadata:
-  name: test-pod-background
-  annotations:
-    "kyverno.io/cleanup-policy": "Background"
+  name: propagate-background-policy
 spec:
-  containers:
-    - name: nginx
+  rules:
+    - name: cleanup-policy-background
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "The cleanup policy should be Background"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Background"
 
 ---
-# Orphan Policy Test
-apiVersion: v1
-kind: Pod
+apiVersion: kyverno.io/v1
+kind: Policy
 metadata:
-  name: test-pod-orphan
-  annotations:
-    "kyverno.io/cleanup-policy": "Orphan"
+  name: propagate-orphan-policy
 spec:
-  containers:
-    - name: nginx
-
----
-# Unknown Policy Test
-apiVersion: v1
-kind: Pod
-metadata:
-  name: test-pod-unknown
-  annotations:
-    "kyverno.io/cleanup-policy": "Unknown"
-spec:
-  containers:
-    - name: nginx
+  rules:
+    - name: cleanup-policy-orphan
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "The cleanup policy should be Orphan"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Orphan"

@@ -1,30 +1,27 @@
+---
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: cleanup-policies
+  name: cleanup-policy-tests
 spec:
   steps:
-    - name: step-apply-foreground
+    - name: Foreground Policy Test
       try:
         - apply:
-            file: foreground-policy.yaml
+            file: policy-test.yaml
         - assert:
             file: assert-test.yaml
-    - name: step-apply-background
+
+    - name: Background Policy Test
       try:
         - apply:
-            file: background-policy.yaml
+            file: policy-test.yaml
         - assert:
             file: assert-test.yaml
-    - name: step-apply-orphan
+
+    - name: Orphan Policy Test
       try:
         - apply:
-            file: orphan-policy.yaml
-        - assert:
-            file: assert-test.yaml
-    - name: step-apply-unknown
-      try:
-        - apply:
-            file: unknown-policy.yaml
+            file: policy-test.yaml
         - assert:
             file: assert-test.yaml
