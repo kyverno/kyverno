@@ -8,11 +8,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
-
-func boolPtr(b bool) *bool {
-	return &b
-}
 
 func Test_metricsConfig_load(t *testing.T) {
 	tests := []struct {
@@ -47,8 +44,8 @@ func Test_metricsConfig_load(t *testing.T) {
 				namespaces:             namespacesConfig{IncludeNamespaces: []string{"namespace1"}, ExcludeNamespaces: []string{"namespace2"}},
 				bucketBoundaries:       []float64{0.005, 0.01, 0.025, 0.05},
 				metricsExposure: map[string]metricExposureConfig{
-					"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05}},
-					"metric2": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1", "dim2"}, BucketBoundaries: []float64{0.025, 0.05}},
+					"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05}},
+					"metric2": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1", "dim2"}, BucketBoundaries: []float64{0.025, 0.05}},
 				},
 			},
 		},
@@ -65,8 +62,8 @@ func Test_metricsConfig_load(t *testing.T) {
 				namespaces:             namespacesConfig{IncludeNamespaces: []string{"namespace1"}, ExcludeNamespaces: []string{"namespace2"}},
 				bucketBoundaries:       []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30},
 				metricsExposure: map[string]metricExposureConfig{
-					"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
-					"metric2": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1", "dim2"}, BucketBoundaries: []float64{0.025, 0.05}},
+					"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
+					"metric2": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1", "dim2"}, BucketBoundaries: []float64{0.025, 0.05}},
 				},
 			},
 		},
@@ -107,7 +104,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 		{
 			name: "Case 2: there is no matching entry on the exposure config",
 			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
+				"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
 			},
 			expectedSize: 1,
 			validateFunc: func(views []sdkmetric.View) bool {
@@ -120,7 +117,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 		{
 			name: "Case 3: metrics enabled, no transformation configured",
 			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: boolPtr(true)},
+				"metric1": {Enabled: ptr.To(true)},
 			},
 			expectedSize: 1,
 			validateFunc: func(views []sdkmetric.View) bool {
@@ -133,7 +130,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 		{
 			name: "Case 4: metrics enabled, histogram metric",
 			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
+				"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
 			},
 			expectedSize: 1,
 			validateFunc: func(views []sdkmetric.View) bool {
@@ -150,7 +147,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 		{
 			name: "Case 5: metrics enabled, non histogram metric",
 			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
+				"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
 			},
 			expectedSize: 1,
 			validateFunc: func(views []sdkmetric.View) bool {
@@ -164,7 +161,7 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 		{
 			name: "Case 6: metrics disabled",
 			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: boolPtr(false)},
+				"metric1": {Enabled: ptr.To(false)},
 			},
 			expectedSize: 1,
 			validateFunc: func(views []sdkmetric.View) bool {

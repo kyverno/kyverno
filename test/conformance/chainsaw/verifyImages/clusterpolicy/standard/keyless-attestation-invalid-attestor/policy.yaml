@@ -18,7 +18,7 @@ spec:
       verifyImages:
       - failureAction: Enforce
         imageReferences:
-        - "ghcr.io/chipzoller/zulu*"
+        - "ghcr.io/kyverno/zulu*"
         attestations:
         - type: https://slsa.dev/provenance/v0.2
           attestors: 
