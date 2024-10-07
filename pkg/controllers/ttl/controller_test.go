@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 // TestDeterminePropagationPolicy tests the determinePropagationPolicy function
@@ -28,30 +29,21 @@ func TestDeterminePropagationPolicy(t *testing.T) {
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "Foreground",
 			},
-			expectedPolicy: func() *metav1.DeletionPropagation {
-				fg := metav1.DeletePropagationForeground
-				return &fg
-			}(),
+			expectedPolicy: ptr.To(metav1.DeletePropagationForeground),
 		},
 		{
 			name: "Background policy",
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "Background",
 			},
-			expectedPolicy: func() *metav1.DeletionPropagation {
-				bg := metav1.DeletePropagationBackground
-				return &bg
-			}(),
+			expectedPolicy: ptr.To(metav1.DeletePropagationBackground),
 		},
 		{
 			name: "Orphan policy",
 			annotations: map[string]string{
 				kyverno.AnnotationCleanupPropagationPolicy: "Orphan",
 			},
-			expectedPolicy: func() *metav1.DeletionPropagation {
-				orphan := metav1.DeletePropagationOrphan
-				return &orphan
-			}(),
+			expectedPolicy: ptr.To(metav1.DeletePropagationOrphan),
 		},
 		{
 			name: "Empty annotation",
@@ -75,10 +67,8 @@ func TestDeterminePropagationPolicy(t *testing.T) {
 			metaObj := &metav1.ObjectMeta{
 				Annotations: tc.annotations,
 			}
-
 			// Call the function
 			policy := determinePropagationPolicy(metaObj, logger)
-
 			// Assert the result
 			assert.Equal(t, tc.expectedPolicy, policy)
 		})
