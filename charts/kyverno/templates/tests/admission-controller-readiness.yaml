@@ -10,6 +10,10 @@ metadata:
     {{- include "kyverno.test.annotations" . | nindent 4 }}
 spec:
   restartPolicy: Never
+  {{- with .Values.test.imagePullSecrets | default .Values.global.imagePullSecrets }}
+  imagePullSecrets:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
   containers:
     - name: test
       image: {{ template "kyverno.test.image" . }}
