@@ -7,7 +7,7 @@ metadata:
   namespace: exclude-refs
 spec:
   containers:
-  - image: ghcr.io/chipzoller/zulu:v0.0.14@sha256:476b21f1a75dc90fac3579ee757f4607bb5546f476195cf645c54badf558c0db
+  - image: ghcr.io/kyverno/zulu:v0.0.14@sha256:476b21f1a75dc90fac3579ee757f4607bb5546f476195cf645c54badf558c0db
     name: test
     resources: {}
   dnsPolicy: ClusterFirst
