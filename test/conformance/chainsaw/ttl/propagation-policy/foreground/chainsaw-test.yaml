@@ -18,5 +18,5 @@ spec:
         file: job.yaml
   - name: Assert pod is no longer running
     try:
-    - assert:
+    - error:
         file: pod-assert.yaml
