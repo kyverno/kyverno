@@ -39,3 +39,7 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+        env:
+          # Trivy is returning TOOMANYREQUESTS
+          # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
+          TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
