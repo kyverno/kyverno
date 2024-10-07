@@ -120,7 +120,7 @@ func (c *controller) deregisterEventHandlers() {
 }
 
 // Function to determine the deletion propagation policy
-func (c *controller) determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *metav1.DeletionPropagation {
+func determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *metav1.DeletionPropagation {
 	annotations := metaObj.GetAnnotations()
 	if annotations == nil {
 		return nil
@@ -187,7 +187,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 	}
 	if time.Now().After(deletionTime) {
 		deleteOptions := metav1.DeleteOptions{
-			PropagationPolicy: c.determinePropagationPolicy(metaObj, logger),
+			PropagationPolicy: determinePropagationPolicy(metaObj, logger),
 		}
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
 		if err != nil {
