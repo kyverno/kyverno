@@ -12,7 +12,7 @@ spec:
     try:
     - assert:
         file: pod-assert.yaml
-  - name: Create job with orphan deletion policy
+  - name: Delete job
     try:
     - delete:
         file: job.yaml
