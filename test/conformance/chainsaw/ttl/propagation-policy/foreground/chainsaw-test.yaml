@@ -19,4 +19,4 @@ spec:
   - name: Assert pod is no longer running
     try:
     - assert:
-        file: pod-deleted-assert.yaml
+        file: pod-assert.yaml
