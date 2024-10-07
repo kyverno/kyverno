@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,6 +63,7 @@ type KeychainClient interface {
 
 type RemoteClient interface {
 	Options(context.Context) ([]gcrremote.Option, error)
+	NameOptions() []name.Option
 }
 
 type RegistryClient interface {
