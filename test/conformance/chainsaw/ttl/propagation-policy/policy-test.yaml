@@ -1,0 +1,47 @@
+# Foreground Policy Test
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-foreground
+  annotations:
+    "kyverno.io/cleanup-policy": "Foreground"
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+
+---
+# Background Policy Test
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-background
+  annotations:
+    "kyverno.io/cleanup-policy": "Background"
+spec:
+  containers:
+    - name: nginx
+
+---
+# Orphan Policy Test
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-orphan
+  annotations:
+    "kyverno.io/cleanup-policy": "Orphan"
+spec:
+  containers:
+    - name: nginx
+
+---
+# Unknown Policy Test
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-unknown
+  annotations:
+    "kyverno.io/cleanup-policy": "Unknown"
+spec:
+  containers:
+    - name: nginx

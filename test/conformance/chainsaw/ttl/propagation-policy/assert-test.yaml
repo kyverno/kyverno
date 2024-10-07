@@ -1,0 +1,78 @@
+# Assert for Foreground Policy Test
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: propagate-foreground-policy
+spec:
+  rules:
+    - name: cleanup-policy-foreground
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "The cleanup policy should be Foreground"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Foreground"
+
+---
+# Assert for Background Policy Test
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: propagate-background-policy
+spec:
+  rules:
+    - name: cleanup-policy-background
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "The cleanup policy should be Background"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Background"
+
+---
+# Assert for Orphan Policy Test
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: propagate-orphan-policy
+spec:
+  rules:
+    - name: cleanup-policy-orphan
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "The cleanup policy should be Orphan"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Orphan"
+
+---
+# Assert for Unknown Policy Test
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: propagate-unknown-policy
+spec:
+  rules:
+    - name: cleanup-policy-unknown
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: "Unknown cleanup policies should not be applied"
+        pattern:
+          metadata:
+            annotations:
+              "kyverno.io/cleanup-policy": "Unknown"
