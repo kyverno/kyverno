@@ -16,7 +16,7 @@ spec:
     try:
     - delete:
         file: job.yaml
-  - name: Assert pod is still running
+  - name: Assert pod is no longer running
     try:
     - assert:
         file: pod-assert.yaml
