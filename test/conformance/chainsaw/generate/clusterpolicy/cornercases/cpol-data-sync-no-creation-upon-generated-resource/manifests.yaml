@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/component: background-controller
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
-  name: kyverno:background-controller:additional
+  name: kyverno:background-controller:additional-2
 rules:
 - apiGroups:
   - ""
