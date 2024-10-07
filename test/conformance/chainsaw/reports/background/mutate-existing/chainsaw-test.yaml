@@ -4,6 +4,10 @@ metadata:
   name: basic-create
 spec:
   steps:
+  - name: add permisssions
+    try:
+    - apply:
+        file: permissions.yaml
   - name: step-01
     try:
     - apply:

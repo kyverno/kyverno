@@ -25,7 +25,8 @@ func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.Ima
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
 	}
-	parsedRef, err := name.ParseReference(ref)
+	nameOpts := a.Client.NameOptions()
+	parsedRef, err := name.ParseReference(ref, nameOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
 	}
