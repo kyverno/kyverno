@@ -10,12 +10,20 @@ spec:
         file: manifests.yaml
     - apply:
         file: cluster-role.yaml
-  - name: step-02
-    try:
-    - apply:
-        file: policy.yaml
-    - assert:
-        file: policy-ready.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: generate-cm-for-kube-state-metrics-crds
   - name: step-03
     try:
     - script:
