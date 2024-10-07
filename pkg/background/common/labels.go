@@ -1,14 +1,12 @@
 package common
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -63,20 +61,7 @@ func GenerateLabelsSet(policyKey string) pkglabels.Set {
 }
 
 func managedBy(labels map[string]string) {
-	// ManagedBy label
-	key := kyverno.LabelAppManagedBy
-	value := kyverno.ValueKyvernoApp
-	val, ok := labels[key]
-	if ok {
-		if val != value {
-			logging.V(2).Info(fmt.Sprintf("resource managed by %s, kyverno wont over-ride the label", val))
-			return
-		}
-	}
-	if !ok {
-		// add label
-		labels[key] = value
-	}
+	labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
 }
 
 func PolicyInfo(labels map[string]string, policy kyvernov1.PolicyInterface, ruleName string) {

@@ -12,12 +12,20 @@ spec:
         file: permissions.yaml
     - assert:
         file: crd-assert.yaml
-  - name: step-02
-    try:
-    - apply:
-        file: policy.yaml
-    - assert:
-        file: policy-assert.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: rbac-policy
   - name: step-03
     try:
     - apply:
