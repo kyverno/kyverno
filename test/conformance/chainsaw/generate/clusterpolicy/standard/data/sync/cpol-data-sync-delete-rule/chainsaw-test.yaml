@@ -8,10 +8,20 @@ spec:
     try:
     - apply:
         file: 1-1-permissions.yaml
-    - apply:
-        file: 1-2-policy.yaml
-    - assert:
-        file: 1-3-policy-ready.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: 1-2-policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: multiple-gens
   - name: step-02
     try:
     - apply:
@@ -26,8 +36,13 @@ spec:
     try:
     - apply:
         file: 4-1-rule-update.yaml
-    - assert:
-        file: 1-3-policy-ready.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: multiple-gens
   - name: step-05
     try:
     - apply:
@@ -38,8 +53,13 @@ spec:
     try:
     - apply:
         file: 6-1-delete-rule.yaml
-    - assert:
-        file: 1-3-policy-ready.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: multiple-gens
   - name: step-07
     try:
     - assert:

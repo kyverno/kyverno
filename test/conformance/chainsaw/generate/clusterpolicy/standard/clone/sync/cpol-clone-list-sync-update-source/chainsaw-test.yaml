@@ -10,10 +10,20 @@ spec:
         file: 0-0-permissions.yaml
     - apply:
         file: 0-1-manifests.yaml
-    - apply:
-        file: 0-2-cluster-policy.yaml
-    - assert:
-        file: 0-3-cluster-policy-ready.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-with-multi-clone-update
   - name: step-01
     try:
     - apply:
@@ -30,8 +40,13 @@ spec:
     try:
     - apply:
         file: 3-0-update-cluster-policy.yaml
-    - assert:
-        file: 0-3-cluster-policy-ready.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-with-multi-clone-update
   - name: step-04
     try:
     - apply:
