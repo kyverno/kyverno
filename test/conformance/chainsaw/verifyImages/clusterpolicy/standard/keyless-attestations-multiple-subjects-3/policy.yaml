@@ -32,6 +32,6 @@ spec:
             value: true
         predicateType: cosign.sigstore.dev/attestation/vuln/v1
       imageReferences:
-      - ghcr.io/chipzoller/zulu*
+      - ghcr.io/kyverno/zulu*
       failureAction: Enforce
   webhookTimeoutSeconds: 30
