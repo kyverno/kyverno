@@ -4,14 +4,25 @@ metadata:
   name: generate-on-subresource-trigger
 spec:
   steps:
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
   - name: step-01
     try:
     - apply:
-        file: policy.yaml
-    - apply:
         file: namespace.yaml
-    - assert:
-        file: policy-ready.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: zk-kafka-address
+  - try:
     - assert:
         file: namespace-ready.yaml
   - name: step-02

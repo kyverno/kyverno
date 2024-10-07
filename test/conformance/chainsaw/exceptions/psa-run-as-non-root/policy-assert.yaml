@@ -1,9 +1,0 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: psp-restricted-limited
-status:
-  conditions:
-  - reason: Succeeded
-    status: "True"
-    type: Ready
