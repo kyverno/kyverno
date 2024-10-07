@@ -23,5 +23,5 @@ spec:
             value: true
         predicateType: https://slsa.dev/provenance/v0.2
       imageReferences:
-      - ghcr.io/chipzoller/zulu*
+      - ghcr.io/kyverno/zulu*
       failureAction: Enforce

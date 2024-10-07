@@ -21,7 +21,7 @@ spec:
               url: https://rekor.sigstore.dev
             subject: https://github.com/chipzoller/zulu/.github/workflows/slsa-generic-keyless.yaml@refs/tags/v*
       imageReferences:
-      - ghcr.io/chipzoller/zulu*
+      - ghcr.io/kyverno/zulu*
       mutateDigest: false
       required: false
       verifyDigest: false
