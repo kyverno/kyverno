@@ -8,7 +8,9 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,7 +55,7 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 
 func findKeyContainingSubstring(m map[string][]admissionregistrationv1.OperationType, substring string, defaultOpn []admissionregistrationv1.OperationType) []admissionregistrationv1.OperationType {
 	for key, value := range m {
-		if key == "Pod/exec" || strings.Contains(strings.ToLower(key), strings.ToLower(substring)) || strings.Contains(strings.ToLower(substring), strings.ToLower(key)) {
+		if strings.Contains(strings.ToLower(key), strings.ToLower(substring)) || strings.Contains(strings.ToLower(substring), strings.ToLower(key)) {
 			return value
 		}
 	}
@@ -443,4 +445,40 @@ func webhookNameAndPath(wh webhook, baseName, basePath string) (name string, pat
 		path = path + config.FineGrainedWebhookPath + "/" + wh.key("/")
 	}
 	return name, path
+}
+
+func gvkToGvrs(gvk string, discoveryClient dclient.IDiscovery, namespaced bool) []GroupVersionResourceScope {
+	var gvrsList []GroupVersionResourceScope
+
+	// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
+	group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+
+	// if kind or group is `*` we use the scope of the policy
+	policyScope := admissionregistrationv1.AllScopes
+	if namespaced {
+		policyScope = admissionregistrationv1.NamespacedScope
+	}
+
+	// if kind is `*` no need to lookup resources
+	if kind == "*" && subresource == "*" {
+		gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"}, Scope: policyScope})
+	} else if kind == "*" && subresource == "" {
+		gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"}, Scope: policyScope})
+	} else if kind == "*" && subresource != "" {
+		gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource}, Scope: policyScope})
+	} else {
+		gvrss, err := discoveryClient.FindResources(group, version, kind, subresource)
+		if err != nil {
+			logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+		}
+		for gvrs, resource := range gvrss {
+			resourceScope := admissionregistrationv1.AllScopes
+			if resource.Namespaced {
+				resourceScope = admissionregistrationv1.NamespacedScope
+			}
+			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()), Scope: resourceScope})
+		}
+	}
+
+	return gvrsList
 }

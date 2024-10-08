@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestAddOperationsForValidatingWebhookConfMultiplePolicies(t *testing.T) {
@@ -50,7 +52,7 @@ func TestAddOperationsForValidatingWebhookConfMultiplePolicies(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"ConfigMap": {"CREATE", "UPDATE", "DELETE", "CONNECT"},
+				"configmaps": {"CREATE", "UPDATE", "DELETE", "CONNECT"},
 			},
 		}, {
 			name: "test-2",
@@ -75,7 +77,7 @@ func TestAddOperationsForValidatingWebhookConfMultiplePolicies(t *testing.T) {
 							{
 								MatchResources: kyverno.MatchResources{
 									ResourceDescription: kyverno.ResourceDescription{
-										Kinds:      []string{"Secrets"},
+										Kinds:      []string{"Secret"},
 										Operations: []kyverno.AdmissionOperation{"CONNECT"},
 									},
 								},
@@ -85,8 +87,8 @@ func TestAddOperationsForValidatingWebhookConfMultiplePolicies(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"Role":    {"DELETE"},
-				"Secrets": {"CONNECT"},
+				"roles":   {"DELETE"},
+				"secrets": {"CONNECT"},
 			},
 		},
 	}
@@ -95,7 +97,14 @@ func TestAddOperationsForValidatingWebhookConfMultiplePolicies(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			for _, p := range test.policies {
-				mapResourceToOpnType = addOpnForValidatingWebhookConf(p.GetSpec().Rules, mapResourceToOpnType)
+				c := controller{
+					discoveryClient: dclient.NewFakeDiscoveryClient(
+						[]schema.GroupVersionResource{
+							{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "roles"},
+						},
+					),
+				}
+				mapResourceToOpnType = c.addOpnForValidatingWebhookConf(p.GetSpec().Rules, mapResourceToOpnType)
 			}
 			for key, expectedValue := range test.expectedResult {
 				slices.SortFunc(expectedValue, func(a, b admissionregistrationv1.OperationType) int {
@@ -132,7 +141,7 @@ func TestAddOperationsForValidatingWebhookConf(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"ConfigMap": {"CREATE"},
+				"configmaps": {"CREATE"},
 			},
 		},
 		{
@@ -152,7 +161,7 @@ func TestAddOperationsForValidatingWebhookConf(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"ConfigMap": {"UPDATE"},
+				"configmaps": {"UPDATE"},
 			},
 		},
 		{
@@ -175,7 +184,7 @@ func TestAddOperationsForValidatingWebhookConf(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"ConfigMap": {"CREATE", "UPDATE", "DELETE", "CONNECT"},
+				"configmaps": {"CREATE", "UPDATE", "DELETE", "CONNECT"},
 			},
 		},
 		{
@@ -199,7 +208,7 @@ func TestAddOperationsForValidatingWebhookConf(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"ConfigMap": {"CREATE", "UPDATE"},
+				"configmaps": {"CREATE", "UPDATE"},
 			},
 		},
 	}
@@ -208,7 +217,10 @@ func TestAddOperationsForValidatingWebhookConf(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			var result map[string][]admissionregistrationv1.OperationType
 			var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
-			result = addOpnForValidatingWebhookConf(testCase.rules, mapResourceToOpnType)
+			c := controller{
+				discoveryClient: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{}),
+			}
+			result = c.addOpnForValidatingWebhookConf(testCase.rules, mapResourceToOpnType)
 
 			for key, expectedValue := range testCase.expectedResult {
 				slices.SortFunc(expectedValue, func(a, b admissionregistrationv1.OperationType) int {
@@ -248,7 +260,7 @@ func TestAddOperationsForMutatingtingWebhookConf(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"ConfigMap": {"CREATE"},
+				"configmaps": {"CREATE"},
 			},
 		},
 		{
@@ -271,7 +283,7 @@ func TestAddOperationsForMutatingtingWebhookConf(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"Secret": {"CREATE"},
+				"secrets": {"CREATE"},
 			},
 		},
 		{
@@ -301,7 +313,7 @@ func TestAddOperationsForMutatingtingWebhookConf(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"Secret": {"CREATE", "UPDATE"},
+				"secrets": {"CREATE", "UPDATE"},
 			},
 		},
 		{
@@ -330,7 +342,7 @@ func TestAddOperationsForMutatingtingWebhookConf(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"Secret": {"CREATE", "UPDATE"},
+				"secrets": {"CREATE", "UPDATE"},
 			},
 		},
 	}
@@ -339,7 +351,12 @@ func TestAddOperationsForMutatingtingWebhookConf(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			var result map[string][]admissionregistrationv1.OperationType
 			var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
-			result = addOpnForMutatingWebhookConf(testCase.rules, mapResourceToOpnType)
+			c := controller{
+				discoveryClient: dclient.NewFakeDiscoveryClient(
+					[]schema.GroupVersionResource{},
+				),
+			}
+			result = c.addOpnForMutatingWebhookConf(testCase.rules, mapResourceToOpnType)
 
 			for key, expectedValue := range testCase.expectedResult {
 				slices.SortFunc(expectedValue, func(a, b admissionregistrationv1.OperationType) int {
@@ -389,7 +406,7 @@ func TestAddOperationsForMutatingtingWebhookConfMultiplePolicies(t *testing.T) {
 								Generation: &kyverno.Generation{},
 								MatchResources: kyverno.MatchResources{
 									ResourceDescription: kyverno.ResourceDescription{
-										Kinds: []string{"Deployments", "StatefulSet", "DaemonSet", "Job"},
+										Kinds: []string{"Deployment", "StatefulSet", "DaemonSet", "Job"},
 									},
 								},
 							},
@@ -398,7 +415,7 @@ func TestAddOperationsForMutatingtingWebhookConfMultiplePolicies(t *testing.T) {
 				},
 			},
 			expectedResult: map[string][]admissionregistrationv1.OperationType{
-				"Pod": {"CREATE", "UPDATE"},
+				"pods": {"CREATE", "UPDATE"},
 			},
 		},
 	}
@@ -407,7 +424,14 @@ func TestAddOperationsForMutatingtingWebhookConfMultiplePolicies(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			for _, p := range test.policies {
-				mapResourceToOpnType = addOpnForMutatingWebhookConf(p.GetSpec().Rules, mapResourceToOpnType)
+				c := controller{
+					discoveryClient: dclient.NewFakeDiscoveryClient(
+						[]schema.GroupVersionResource{
+							{Version: "v1", Resource: "pods"},
+						},
+					),
+				}
+				mapResourceToOpnType = c.addOpnForMutatingWebhookConf(p.GetSpec().Rules, mapResourceToOpnType)
 			}
 			if !compareMaps(mapResourceToOpnType, test.expectedResult) {
 				t.Errorf("Expected %v, but got %v", test.expectedResult, mapResourceToOpnType)

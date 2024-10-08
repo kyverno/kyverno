@@ -24,7 +24,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -860,7 +859,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 						c.mergeWebhook(failWebhook, p, false)
 					}
 					rules := p.GetSpec().Rules
-					mapResourceToOpnType = addOpnForMutatingWebhookConf(rules, mapResourceToOpnType)
+					mapResourceToOpnType = c.addOpnForMutatingWebhookConf(rules, mapResourceToOpnType)
 				}
 			}
 		}
@@ -963,7 +962,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 		nil
 }
 
-func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
+func (c *controller) addOpnForMutatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
 	var mapResourceToOpn map[string]map[string]bool
 	for _, r := range rules {
 		if r.HasMutate() || r.HasVerifyImages() {
@@ -972,14 +971,17 @@ func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType m
 			operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
 			resources = computeResourcesOfRule(r)
 			for _, r := range resources {
-				mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+				gvrss := gvkToGvrs(r, c.discoveryClient, false)
+				for _, gvrs := range gvrss {
+					mapResourceToOpn, mapResourceToOpnType = appendResource(gvrs.Resource, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+				}
 			}
 		}
 	}
 	return mapResourceToOpnType
 }
 
-func addOpnForValidatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
+func (c *controller) addOpnForValidatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
 	var mapResourceToOpn map[string]map[string]bool
 	for _, r := range rules {
 		var resources []string
@@ -987,7 +989,10 @@ func addOpnForValidatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType
 		operationStatusMap = computeOperationsForValidatingWebhookConf(r, operationStatusMap)
 		resources = computeResourcesOfRule(r)
 		for _, r := range resources {
-			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+			gvrss := gvkToGvrs(r, c.discoveryClient, false)
+			for _, gvrs := range gvrss {
+				mapResourceToOpn, mapResourceToOpnType = appendResource(gvrs.Resource, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+			}
 		}
 	}
 	return mapResourceToOpnType
@@ -1040,7 +1045,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				}
 			}
 			rules := p.GetSpec().Rules
-			mapResourceToOpnType = addOpnForValidatingWebhookConf(rules, mapResourceToOpnType)
+			mapResourceToOpnType = c.addOpnForValidatingWebhookConf(rules, mapResourceToOpnType)
 		}
 
 		sideEffects := &none
@@ -1155,36 +1160,7 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 	}
 	var gvrsList []GroupVersionResourceScope
 	for _, gvk := range matchedGVK {
-		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
-		group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-
-		// if kind or group is `*` we use the scope of the policy
-		policyScope := admissionregistrationv1.AllScopes
-		if policy.IsNamespaced() {
-			policyScope = admissionregistrationv1.NamespacedScope
-		}
-
-		// if kind is `*` no need to lookup resources
-		if kind == "*" && subresource == "*" {
-			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"}, Scope: policyScope})
-		} else if kind == "*" && subresource == "" {
-			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"}, Scope: policyScope})
-		} else if kind == "*" && subresource != "" {
-			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource}, Scope: policyScope})
-		} else {
-			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
-			if err != nil {
-				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
-				continue
-			}
-			for gvrs, resource := range gvrss {
-				resourceScope := admissionregistrationv1.AllScopes
-				if resource.Namespaced {
-					resourceScope = admissionregistrationv1.NamespacedScope
-				}
-				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()), Scope: resourceScope})
-			}
-		}
+		gvrsList = append(gvrsList, gvkToGvrs(gvk, c.discoveryClient, policy.IsNamespaced())...)
 	}
 	for _, gvrs := range gvrsList {
 		dst.set(gvrs)
