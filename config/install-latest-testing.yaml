@@ -86,6 +86,8 @@ data:
     [Pod/binding,*,*]
     [ReplicaSet,*,*]
     [ReplicaSet/*,*,*]
+    [EphemeralReport,*,*]
+    [ClusterEphemeralReport,*,*]
     [ClusterRole,*,kyverno:admission-controller]
     [ClusterRole,*,kyverno:admission-controller:core]
     [ClusterRole,*,kyverno:admission-controller:additional]
