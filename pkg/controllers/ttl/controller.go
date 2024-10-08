@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -119,31 +120,24 @@ func (c *controller) deregisterEventHandlers() {
 }
 
 // Function to determine the deletion propagation policy
-func (c *controller) determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *metav1.DeletionPropagation {
+func determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *metav1.DeletionPropagation {
 	annotations := metaObj.GetAnnotations()
-	var policy *metav1.DeletionPropagation
-
-	if annotations != nil {
-		annotationPolicy := annotations["kyverno.AnnotationCleanupPropagationPolicy"]
-		if annotationPolicy == "" {
-			switch annotationPolicy {
-			case "Foreground":
-				fg := metav1.DeletePropagationForeground
-				policy = &fg
-			case "Background":
-				bg := metav1.DeletePropagationBackground
-				policy = &bg
-			case "Orphan":
-				orphan := metav1.DeletePropagationOrphan
-				policy = &orphan
-			case "":
-				return nil
-			default:
-				logger.Info("Unknown propagationPolicy annotation, no global policy found", "policy", annotationPolicy)
-			}
-		}
+	if annotations == nil {
+		return nil
 	}
-	return policy
+	switch annotations[kyverno.AnnotationCleanupPropagationPolicy] {
+	case "Foreground":
+		return ptr.To(metav1.DeletePropagationForeground)
+	case "Background":
+		return ptr.To(metav1.DeletePropagationBackground)
+	case "Orphan":
+		return ptr.To(metav1.DeletePropagationOrphan)
+	case "":
+		return nil
+	default:
+		logger.Info("Unknown propagationPolicy annotation, no global policy found", "policy", annotations[kyverno.AnnotationCleanupPropagationPolicy])
+		return nil
+	}
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey string, _, _ string) error {
@@ -193,7 +187,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 	}
 	if time.Now().After(deletionTime) {
 		deleteOptions := metav1.DeleteOptions{
-			PropagationPolicy: c.determinePropagationPolicy(metaObj, logger),
+			PropagationPolicy: determinePropagationPolicy(metaObj, logger),
 		}
 		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
 		if err != nil {

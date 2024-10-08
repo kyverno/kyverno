@@ -8,10 +8,22 @@ spec:
     try:
     - apply:
         file: permissions.yaml
-    - apply:
-        file: manifests.yaml
-    - assert:
-        file: policy-ready.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: manifests.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: pol-clone-nosync-modify-downstream
+        - name: namespace
+          value: pol-clone-nosync-modify-downstream-ns
   - name: step-02
     try:
     - apply:

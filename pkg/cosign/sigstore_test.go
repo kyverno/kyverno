@@ -48,7 +48,8 @@ func TestSigstoreBundleSignatureResponse(t *testing.T) {
 	response, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 
-	ref, err := name.ParseReference(opts.ImageRef)
+	nameOpts := rc.NameOptions()
+	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 	assert.NilError(t, err)
 
 	desc, err := remote.Head(ref)
@@ -74,7 +75,8 @@ func TestSigstoreBundleAttestation(t *testing.T) {
 	response, err := verifier.FetchAttestations(context.TODO(), opts)
 	assert.NilError(t, err)
 
-	ref, err := name.ParseReference(opts.ImageRef)
+	nameOpts := rc.NameOptions()
+	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 	assert.NilError(t, err)
 
 	desc, err := remote.Head(ref)
