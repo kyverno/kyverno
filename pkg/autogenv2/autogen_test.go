@@ -410,12 +410,11 @@ func TestExtractPodSpec(t *testing.T) {
 	}
 }
 
-func Test_GetRuleNamesAndRelevantKinds(t *testing.T) {
+func Test_GetAutogenRuleNames(t *testing.T) {
 	testCases := []struct {
-		name              string
-		policy            string
-		expectedRuleNames []string
-		expectedKinds     []string
+		name          string
+		policy        string
+		expectedRules []string
 	}{
 		{
 			name: "rule-with-match-name",
@@ -464,126 +463,26 @@ spec:
                 FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
                 kA==
                 -----END CERTIFICATE-----`,
-			expectedRuleNames: []string{"check-image"},
-			expectedKinds:     []string{"Pod"},
+			expectedRules: []string{"check-image", "autogen-check-image", "autogen-cronjob-check-image"},
 		},
 		{
-			name: "rule-with-match-name-for-deployment",
+			name: "rule-with-match-name",
 			policy: `
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-deployment
+  name: check-image
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: Deployment,Job,StatefulSet
 spec:
   background: false
   webhookTimeoutSeconds: 30
   failurePolicy: Fail
   rules:
-    - name: check-deployment
+    - name: check-image
       match:
         resources:
           kinds:
-            - Deployment
-      verifyImages:
-      - imageReferences: 
-        - "*"
-        attestors:
-        - count: 1
-          entries:
-          - keyless:
-              roots: |-
-                -----BEGIN CERTIFICATE-----
-                MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
-                MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt
-                bzEmMCQGA1UEAxMddmVuYWZpZGVtby1FQzJBTUFaLVFOSVI4OUktQ0EwHhcNMjAx
-                MjE0MjEzNzAzWhcNMjUxMjE0MjE0NzAzWjBZMRMwEQYKCZImiZPyLGQBGRYDY29t
-                MRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVtbzEmMCQGA1UEAxMddmVuYWZpZGVt
-                by1FQzJBTUFaLVFOSVI4OUktQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-                AoIBAQC5CTVQczGnh77yNxq+BGh5ff0qNcRTkFll+y8lJbMPHevebF7JLWBQTGS7
-                9aHIqUQLjy9sPOkdMrDh/vOZNVhVrHon9uwepF81dUMJ9lMbfQSI/tytp78f0z6b
-                DVRHYZr/taYSkqNPT2FuHOijc7Y+oB3Q1DzPSoBc3a6I5DM6ET6O2GZWo3mqpImG
-                J8+dNllYgjVKEuxuPqQjT7VD4fB2GqJbwwL0E8bSyfsgMV9Y+qHdznkm8v+TbYoc
-                9uS83f1fjjp98D7VtWpSC4O/27JWgEED/BB58sOipUQHiECr6dD5VWGJ9fnVOV2i
-                vHqj9cKS6BGMkAh99ss0Bu/3DEBxAgMBAAGjUTBPMAsGA1UdDwQEAwIBhjAPBgNV
-                HRMBAf8EBTADAQH/MB0GA1UdDgQWBBTuZecNgrj3Gdv9XpekFZuIkYtu9jAQBgkr
-                BgEEAYI3FQEEAwIBADANBgkqhkiG9w0BAQsFAAOCAQEADPNrGypaKliXJ+H7gt6b
-                NJSBdWB9EV63CdvxjLOuqvp3IUu8KIV2mMsulEjxjAb5kya0SURJVFvr9rrLVxvR
-                e6B2SJUGUKJkX1Cq4nIthwGfJTEnypYhqMKkfUYjqfszU+1CerRD2ZTJHeKZsc7M
-                GdxLXeocztZ220idf6uDYeNLnGLBfkodEgFV0RmrlnHQYQdRqj3hjClLAkNqKVrz
-                rxNyyQvgaswK+4kHAPQhv+ipx4Q0eeROpp3prJ+dD0hhk8niQSKWQWZHyElhzIKv
-                FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
-                kA==
-                -----END CERTIFICATE-----`,
-			expectedRuleNames: []string{"check-deployment"},
-			expectedKinds:     []string{"Deployment"},
-		},
-		{
-			name: "rule-with-match-name-for-cronjob",
-			policy: `
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: check-cronjob
-spec:
-  background: false
-  webhookTimeoutSeconds: 30
-  failurePolicy: Fail
-  rules:
-    - name: check-cronjob
-      match:
-        resources:
-          kinds:
-            - CronJob
-      verifyImages:
-      - imageReferences: 
-        - "*"
-        attestors:
-        - count: 1
-          entries:
-          - keyless:
-              roots: |-
-                -----BEGIN CERTIFICATE-----
-                MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
-                MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt
-                bzEmMCQGA1UEAxMddmVuYWZpZGVtby1FQzJBTUFaLVFOSVI4OUktQ0EwHhcNMjAx
-                MjE0MjEzNzAzWhcNMjUxMjE0MjE0NzAzWjBZMRMwEQYKCZImiZPyLGQBGRYDY29t
-                MRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVtbzEmMCQGA1UEAxMddmVuYWZpZGVt
-                by1FQzJBTUFaLVFOSVI4OUktQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-                AoIBAQC5CTVQczGnh77yNxq+BGh5ff0qNcRTkFll+y8lJbMPHevebF7JLWBQTGS7
-                9aHIqUQLjy9sPOkdMrDh/vOZNVhVrHon9uwepF81dUMJ9lMbfQSI/tytp78f0z6b
-                DVRHYZr/taYSkqNPT2FuHOijc7Y+oB3Q1DzPSoBc3a6I5DM6ET6O2GZWo3mqpImG
-                J8+dNllYgjVKEuxuPqQjT7VD4fB2GqJbwwL0E8bSyfsgMV9Y+qHdznkm8v+TbYoc
-                9uS83f1fjjp98D7VtWpSC4O/27JWgEED/BB58sOipUQHiECr6dD5VWGJ9fnVOV2i
-                vHqj9cKS6BGMkAh99ss0Bu/3DEBxAgMBAAGjUTBPMAsGA1UdDwQEAwIBhjAPBgNV
-                HRMBAf8EBTADAQH/MB0GA1UdDgQWBBTuZecNgrj3Gdv9XpekFZuIkYtu9jAQBgkr
-                BgEEAYI3FQEEAwIBADANBgkqhkiG9w0BAQsFAAOCAQEADPNrGypaKliXJ+H7gt6b
-                NJSBdWB9EV63CdvxjLOuqvp3IUu8KIV2mMsulEjxjAb5kya0SURJVFvr9rrLVxvR
-                e6B2SJUGUKJkX1Cq4nIthwGfJTEnypYhqMKkfUYjqfszU+1CerRD2ZTJHeKZsc7M
-                GdxLXeocztZ220idf6uDYeNLnGLBfkodEgFV0RmrlnHQYQdRqj3hjClLAkNqKVrz
-                rxNyyQvgaswK+4kHAPQhv+ipx4Q0eeROpp3prJ+dD0hhk8niQSKWQWZHyElhzIKv
-                FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
-                kA==
-                -----END CERTIFICATE-----`,
-			expectedRuleNames: []string{"check-cronjob"},
-			expectedKinds:     []string{"CronJob"},
-		},
-		{
-			name: "rule-with-match-multiple-kinds",
-			policy: `
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: check-multiple-kinds
-spec:
-  background: false
-  webhookTimeoutSeconds: 30
-  failurePolicy: Fail
-  rules:
-    - name: check-cronjob-and-pod
-      match:
-        resources:
-          kinds:
-            - CronJob
             - Pod
       verifyImages:
       - imageReferences: 
@@ -615,28 +514,107 @@ spec:
                 FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
                 kA==
                 -----END CERTIFICATE-----`,
-			expectedRuleNames: []string{"check-cronjob-and-pod"},
-			expectedKinds:     []string{"CronJob", "Pod"},
+			expectedRules: []string{"check-image", "autogen-check-image"},
+		},
+		{
+			name: "rule-with-match-name",
+			policy: `
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-image
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: Deployment,CronJob,Job
+spec:
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: check-image
+      match:
+        resources:
+          kinds:
+            - Pod
+      verifyImages:
+      - imageReferences: 
+        - "*"
+        attestors:
+        - count: 1
+          entries:
+          - keyless:
+              roots: |-
+                -----BEGIN CERTIFICATE-----
+                MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
+                MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt
+                bzEmMCQGA1UEAxMddmVuYWZpZGVtby1FQzJBTUFaLVFOSVI4OUktQ0EwHhcNMjAx
+                MjE0MjEzNzAzWhcNMjUxMjE0MjE0NzAzWjBZMRMwEQYKCZImiZPyLGQBGRYDY29t
+                MRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVtbzEmMCQGA1UEAxMddmVuYWZpZGVt
+                by1FQzJBTUFaLVFOSVI4OUktQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+                AoIBAQC5CTVQczGnh77yNxq+BGh5ff0qNcRTkFll+y8lJbMPHevebF7JLWBQTGS7
+                9aHIqUQLjy9sPOkdMrDh/vOZNVhVrHon9uwepF81dUMJ9lMbfQSI/tytp78f0z6b
+                DVRHYZr/taYSkqNPT2FuHOijc7Y+oB3Q1DzPSoBc3a6I5DM6ET6O2GZWo3mqpImG
+                J8+dNllYgjVKEuxuPqQjT7VD4fB2GqJbwwL0E8bSyfsgMV9Y+qHdznkm8v+TbYoc
+                9uS83f1fjjp98D7VtWpSC4O/27JWgEED/BB58sOipUQHiECr6dD5VWGJ9fnVOV2i
+                vHqj9cKS6BGMkAh99ss0Bu/3DEBxAgMBAAGjUTBPMAsGA1UdDwQEAwIBhjAPBgNV
+                HRMBAf8EBTADAQH/MB0GA1UdDgQWBBTuZecNgrj3Gdv9XpekFZuIkYtu9jAQBgkr
+                BgEEAYI3FQEEAwIBADANBgkqhkiG9w0BAQsFAAOCAQEADPNrGypaKliXJ+H7gt6b
+                NJSBdWB9EV63CdvxjLOuqvp3IUu8KIV2mMsulEjxjAb5kya0SURJVFvr9rrLVxvR
+                e6B2SJUGUKJkX1Cq4nIthwGfJTEnypYhqMKkfUYjqfszU+1CerRD2ZTJHeKZsc7M
+                GdxLXeocztZ220idf6uDYeNLnGLBfkodEgFV0RmrlnHQYQdRqj3hjClLAkNqKVrz
+                rxNyyQvgaswK+4kHAPQhv+ipx4Q0eeROpp3prJ+dD0hhk8niQSKWQWZHyElhzIKv
+                FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
+                kA==
+                -----END CERTIFICATE-----`,
+			expectedRules: []string{"check-image", "autogen-check-image", "autogen-cronjob-check-image"},
+		},
+		{
+			name: "rule-with-match-name",
+			policy: `
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: Deployment,CronJob
+spec:
+  rules:
+  - match:
+      any:
+        - resources:
+            kinds:
+            - Pod
+    name: require-image-tag
+    validate:
+      failureAction: Audit
+      message: An image tag is required.
+      pattern:
+        spec:
+          containers:
+          - image: '*:*'
+  - match:
+      any:
+        - resources:
+            kinds:
+            - Pod
+    name: validate-image-tag
+    validate:
+      failureAction: Audit
+      message: Using a mutable image tag e.g. 'latest' is not allowed.
+      pattern:
+        spec:
+          containers:
+          - image: '!*:latest' `,
+			expectedRules: []string{"require-image-tag", "autogen-require-image-tag", "autogen-cronjob-require-image-tag", "validate-image-tag", "autogen-validate-image-tag", "autogen-cronjob-validate-image-tag"},
 		},
 	}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			// Load the policy from YAML
 			policies, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
-
-			// Extract the rules from the policy
-			rules := policies[0].GetSpec().Rules
-
-			// Validate GetRuleNames function
-			ruleNames := GetRuleNames(rules)
-			assert.DeepEqual(t, test.expectedRuleNames, ruleNames)
-
-			// Validate GetRelevantKinds function
-			relevantKinds := GetRelevantKinds(rules)
-			assert.DeepEqual(t, test.expectedKinds, relevantKinds)
+			rules := GetAutogenRuleNames(policies[0])
+			assert.DeepEqual(t, test.expectedRules, rules)
 		})
 	}
 }
