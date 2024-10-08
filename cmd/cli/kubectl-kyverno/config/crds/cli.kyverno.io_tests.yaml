@@ -123,8 +123,15 @@ spec:
                   type: string
                 patchedResource:
                   description: |-
+                    Deprecated. Use `patchedResources` instead.
                     PatchedResource takes a resource configuration file in yaml format from
                     the user to compare it against the Kyverno mutated resource configuration.
+                  type: string
+                patchedResources:
+                  description: |-
+                    PatchedResource takes a resource configuration file in yaml format from
+                    the user to compare it against the Kyverno mutated resource configuration.
+                    Multiple resources can be passed in the same file
                   type: string
                 policy:
                   description: Policy mentions the name of the policy.
