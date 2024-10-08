@@ -569,19 +569,22 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		status.SetReady(ready, message)
 		status.Autogen.Rules = nil
 
-		var autogenRules []kyvernov1.Rule
+		ruleNames := autogenv2.GetAutogenRuleNames(policy)
 
-		ruleNames := autogenv2.GetRuleNames(policy.GetSpec().Rules)
+		var rules []kyvernov1.Rule
+		for _, name := range ruleNames {
+			rules = append(rules, kyvernov1.Rule{Name: name}) // Adjust this line based on your Rule struct
+		}
 
-		for _, ruleName := range ruleNames {
-			if strings.HasPrefix(ruleName, "autogen-") {
-				autogenRule := kyvernov1.Rule{Name: ruleName}
-				autogenRules = append(autogenRules, autogenRule)
-				status.Autogen.Rules = append(status.Autogen.Rules, autogenRule)
+		setRuleCount(rules, status)
+
+		status.Autogen.Rules = []kyvernov1.Rule{}
+
+		for _, rule := range ruleNames {
+			if strings.HasPrefix(rule, "autogen-") {
+				status.Autogen.Rules = append(status.Autogen.Rules, kyvernov1.Rule{Name: rule})
 			}
 		}
-		setRuleCount(autogenRules, status)
-
 		return nil
 	}
 	for _, policy := range policies {
@@ -1135,27 +1138,8 @@ func (gvs GroupVersionResourceScope) String() string {
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
 	var matchedGVK []string
-	// Get rule names using the GetRuleNames function
-	ruleNames := autogenv2.GetRuleNames(policy.GetSpec().Rules)
-
-	for _, ruleName := range ruleNames {
-		var rule *kyvernov1.Rule
-		// Find the corresponding rule by name
-		for _, r := range policy.GetSpec().Rules {
-			if r.Name == ruleName {
-				ruleCopy := r
-				rule = &ruleCopy
-				break
-			}
-		}
-
-		if rule == nil {
-			continue // Skip if the rule was not found
-		}
-
-		relevantKinds := autogenv2.GetRelevantKinds(policy.GetSpec().Rules)
-		matchedGVK = append(matchedGVK, relevantKinds...)
-
+	matchedGVK = append(matchedGVK, autogenv2.GetAutogenKinds(policy)...)
+	for _, rule := range policy.GetSpec().Rules {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
