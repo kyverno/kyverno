@@ -135,7 +135,9 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 	}
 
 	for k, v := range valMap {
-		result[k] = v.(string)
+		if s, ok := v.(string); ok {
+			result[k] = s
+		}
 	}
 
 	return patternKey, result

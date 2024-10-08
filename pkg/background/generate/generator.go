@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -279,7 +279,7 @@ func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elemen
 
 func (g *generator) loadContext(ctx context.Context) error {
 	if err := g.contextLoader(ctx, g.contextEntries, g.policyContext.JSONContext()); err != nil {
-		if _, ok := err.(gojmespath.NotFoundError); ok {
+		if _, ok := err.(jmespath.NotFoundError); ok {
 			g.logger.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
 			g.logger.Error(err, "failed to load context")
