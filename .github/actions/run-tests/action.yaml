@@ -16,9 +16,18 @@ inputs:
   chainsaw-config:
     description: Chainsaw config
     default: ../../../.chainsaw.yaml
+  tests-path:
+    description: Tests path
+    default: '.'
   chainsaw-tests:
     description: Test regex
-    required: true
+    default: ''
+  shard-index:
+    description: Shard index
+    default: '0'
+  shard-count:
+    description: Shard count
+    default: '0'
 runs:
   using: composite
   steps:
@@ -27,9 +36,9 @@ runs:
       id: helm
       uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
     - name: Install Cosign
-      uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
+      uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
     - name: Install chainsaw
-      uses: kyverno/action-install-chainsaw@b2f61a8d0459a65c476ac802514d88e1612b3396 # v0.2.9
+      uses: kyverno/action-install-chainsaw@d311eacde764f806c9658574ff64c9c3b21f8397 # v0.2.11
       with:
         verify: true
     # create cluster
@@ -65,7 +74,12 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -e
-        cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' --config ${{ inputs.chainsaw-config }}
+        cd ./test/conformance/chainsaw
+        chainsaw test ${{ inputs.tests-path }} \
+          --config ${{ inputs.chainsaw-config }} \
+          --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
+          --shard-index ${{ inputs.shard-index }} \
+          --shard-count ${{ inputs.shard-count }}
     # debug
     - name: Debug failure
       if: failure()

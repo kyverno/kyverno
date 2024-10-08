@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -45,7 +46,9 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -576,30 +579,74 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 	}
 	for _, policy := range policies {
 		if policy.GetNamespace() == "" {
-			_, err = controllerutils.UpdateStatus(
+			err := controllerutils.UpdateStatus(
 				ctx,
 				policy.(*kyvernov1.ClusterPolicy),
 				c.kyvernoClient.KyvernoV1().ClusterPolicies(),
 				func(policy *kyvernov1.ClusterPolicy) error {
 					return updateStatusFunc(policy)
 				},
+				func(a *kyvernov1.ClusterPolicy, b *kyvernov1.ClusterPolicy) bool {
+					return datautils.DeepEqual(a.Status, b.Status)
+				},
 			)
 			if err != nil {
-				logger.Error(err, "failed to update clusterpolicy status", "policy", policy.GetName())
-				continue
+				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					objNew, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policy.GetName(), metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					return controllerutils.UpdateStatus(
+						ctx,
+						objNew,
+						c.kyvernoClient.KyvernoV1().ClusterPolicies(),
+						func(policy *kyvernov1.ClusterPolicy) error {
+							return updateStatusFunc(policy)
+						},
+						func(a *kyvernov1.ClusterPolicy, b *kyvernov1.ClusterPolicy) bool {
+							return datautils.DeepEqual(a.Status, b.Status)
+						},
+					)
+				})
+				if retryErr != nil {
+					logger.Error(retryErr, "failed to update clusterpolicy status", "policy", policy.GetName())
+					continue
+				}
 			}
 		} else {
-			_, err = controllerutils.UpdateStatus(
+			err := controllerutils.UpdateStatus(
 				ctx,
 				policy.(*kyvernov1.Policy),
 				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
 				func(policy *kyvernov1.Policy) error {
 					return updateStatusFunc(policy)
 				},
+				func(a *kyvernov1.Policy, b *kyvernov1.Policy) bool {
+					return datautils.DeepEqual(a.Status, b.Status)
+				},
 			)
 			if err != nil {
-				logger.Error(err, "failed to update policy status", "namespace", policy.GetNamespace(), "policy", policy.GetName())
-				continue
+				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					objNew, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).Get(ctx, policy.GetName(), metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					return controllerutils.UpdateStatus(
+						ctx,
+						objNew,
+						c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
+						func(policy *kyvernov1.Policy) error {
+							return updateStatusFunc(policy)
+						},
+						func(a *kyvernov1.Policy, b *kyvernov1.Policy) bool {
+							return datautils.DeepEqual(a.Status, b.Status)
+						},
+					)
+				})
+				if retryErr != nil {
+					logger.Error(retryErr, "failed to update policy status", "namespace", policy.GetNamespace(), "policy", policy.GetName())
+					continue
+				}
 			}
 		}
 	}
@@ -668,6 +715,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(_ context.Context, 
 						"app.kubernetes.io/name": kyverno.ValueKyvernoApp,
 					},
 				},
+				MatchPolicy: ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -691,6 +739,7 @@ func (c *controller) buildPolicyMutatingWebhookConfiguration(_ context.Context, 
 				SideEffects:             &noneOnDryRun,
 				ReinvocationPolicy:      &ifNeeded,
 				AdmissionReviewVersions: []string{"v1"},
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -713,6 +762,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 				TimeoutSeconds:          &c.defaultTimeout,
 				SideEffects:             &none,
 				AdmissionReviewVersions: []string{"v1"},
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -740,6 +790,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				ReinvocationPolicy:      &ifNeeded,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}, {
 				Name:         config.MutatingWebhookName + "-fail",
 				ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
@@ -759,6 +810,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				ReinvocationPolicy:      &ifNeeded,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -824,7 +876,11 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 }
 
 func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.MutatingWebhook {
-	mutatingWebhooks := make([]admissionregistrationv1.MutatingWebhook, 0, len(webhooks))
+	var mutatingWebhooks []admissionregistrationv1.MutatingWebhook //nolint:prealloc
+	objectSelector := webhookCfg.ObjectSelector
+	if objectSelector == nil {
+		objectSelector = &metav1.LabelSelector{}
+	}
 	for _, webhook := range webhooks {
 		if webhook.isEmpty() {
 			continue
@@ -842,10 +898,11 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				NamespaceSelector:       webhookCfg.NamespaceSelector,
-				ObjectSelector:          webhookCfg.ObjectSelector,
+				ObjectSelector:          objectSelector,
 				TimeoutSeconds:          &timeout,
 				ReinvocationPolicy:      &ifNeeded,
 				MatchConditions:         webhook.matchConditions,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			},
 		)
 	}
@@ -879,6 +936,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}, {
 				Name:         config.ValidatingWebhookName + "-fail",
 				ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
@@ -899,6 +957,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}},
 		},
 		nil
@@ -1000,7 +1059,11 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 }
 
 func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.ValidatingWebhook {
-	validatingWebhooks := make([]admissionregistrationv1.ValidatingWebhook, 0, len(webhooks))
+	var validatingWebhooks []admissionregistrationv1.ValidatingWebhook //nolint:prealloc
+	objectSelector := webhookCfg.ObjectSelector
+	if objectSelector == nil {
+		objectSelector = &metav1.LabelSelector{}
+	}
 	for _, webhook := range webhooks {
 		if webhook.isEmpty() {
 			continue
@@ -1018,9 +1081,10 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				NamespaceSelector:       webhookCfg.NamespaceSelector,
-				ObjectSelector:          webhookCfg.ObjectSelector,
+				ObjectSelector:          objectSelector,
 				TimeoutSeconds:          &timeout,
 				MatchConditions:         webhook.matchConditions,
+				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			},
 		)
 	}

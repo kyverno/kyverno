@@ -1,0 +1,4 @@
+apiVersion: v1
+kind: Pod
+status:
+  phase: Running

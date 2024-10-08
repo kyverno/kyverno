@@ -1,7 +1,9 @@
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: /
+    directories:
+      - /
+      - /hack/controller-gen/
     schedule:
       interval: daily
     rebase-strategy: disabled
