@@ -35,7 +35,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
-        uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
+        uses: actions/upload-artifact@84480863f228bb9747b473957fcc9e309aa96097 # v4.4.2
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -121,19 +121,19 @@ jobs:
           kubectl -n kyverno get vpa goldilocks-kyverno-admission-controller -o jsonpath='{.status.recommendation.containerRecommendations[*]}'
       - name: Archive load test results
         if: failure()
-        uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
+        uses: actions/upload-artifact@84480863f228bb9747b473957fcc9e309aa96097 # v4.4.2
         with:
           name: load-test-reports
           path: load-testing/k6/${{ matrix.test }}.js-${{ matrix.k6-config.vus }}vu-${{ matrix.k6-config.iterations }}it-logs.txt
       - name: Archive pprof CPU profiles
         if: failure()
-        uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
+        uses: actions/upload-artifact@84480863f228bb9747b473957fcc9e309aa96097 # v4.4.2
         with:
           name: pprof-cpu-profiles
           path: cpu.pprof
       - name: Archive pprof HEAP profiles
         if: failure()
-        uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
+        uses: actions/upload-artifact@84480863f228bb9747b473957fcc9e309aa96097 # v4.4.2
         with:
           name: pprof-heap-profiles
           path: heap.pprof
