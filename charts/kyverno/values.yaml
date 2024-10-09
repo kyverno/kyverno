@@ -634,6 +634,9 @@ features:
   validatingAdmissionPolicyReports:
     # -- Enables the feature
     enabled: false
+  backgroundReports:
+    # -- Enables the feature
+    enabled: true
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true
