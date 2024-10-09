@@ -20,20 +20,16 @@ type ResourceSpec struct {
 	// Name specifies the resource name.
 	// +optional
 	Name string `json:"name,omitempty"`
-	// Selector allows you to select with labels
-	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 	// UID specifies the resource uid.
 	// +optional
 	UID types.UID `json:"uid,omitempty"`
 }
 
-func (s ResourceSpec) GetName() string                    { return s.Name }
-func (s ResourceSpec) GetNamespace() string               { return s.Namespace }
-func (s ResourceSpec) GetKind() string                    { return s.Kind }
-func (s ResourceSpec) GetAPIVersion() string              { return s.APIVersion }
-func (s ResourceSpec) GetUID() types.UID                  { return s.UID }
-func (s ResourceSpec) GetSelector() *metav1.LabelSelector { return s.Selector }
+func (s ResourceSpec) GetName() string       { return s.Name }
+func (s ResourceSpec) GetNamespace() string  { return s.Namespace }
+func (s ResourceSpec) GetKind() string       { return s.Kind }
+func (s ResourceSpec) GetAPIVersion() string { return s.APIVersion }
+func (s ResourceSpec) GetUID() types.UID     { return s.UID }
 func (s ResourceSpec) GetGroupVersion() (schema.GroupVersion, error) {
 	return schema.ParseGroupVersion(s.APIVersion)
 }
@@ -44,8 +40,8 @@ func (s ResourceSpec) String() string {
 
 // TargetResourceSpec defines targets for mutating existing resources.
 type TargetResourceSpec struct {
-	// ResourceSpec contains the target resources to load when mutating existing resources.
-	ResourceSpec `json:",omitempty"`
+	// TargetSelector contains the ResourceSpec and a label selector to support selecting with labels.
+	TargetSelector `json:",omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
@@ -62,9 +58,19 @@ type TargetResourceSpec struct {
 	RawAnyAllConditions *ConditionsWrapper `json:"preconditions,omitempty"`
 }
 
+type TargetSelector struct {
+	// ResourceSpec contains the target resources to load when mutating existing resources.
+	ResourceSpec `json:",omitempty"`
+	// Selector allows you to select target resources with their labels.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+}
+
 func (r *TargetResourceSpec) GetAnyAllConditions() any {
 	if r.RawAnyAllConditions == nil {
 		return nil
 	}
 	return r.RawAnyAllConditions.Conditions
 }
+
+func (r *TargetResourceSpec) GetSelector() *metav1.LabelSelector { return r.Selector }
