@@ -327,6 +327,7 @@ The chart values are organised per component.
 | features.aggregateReports.enabled | bool | `true` | Enables the feature |
 | features.policyReports.enabled | bool | `true` | Enables the feature |
 | features.validatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
+| features.backgroundReports.enabled | bool | `true` | Enables the feature |
 | features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.backgroundScanWorkers | int | `2` | Number of background scan workers |
