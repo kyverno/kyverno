@@ -13,7 +13,7 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20240909191326-0ee4ec5d16bf
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/cyphar/filepath-securejoin v0.3.3
+	github.com/cyphar/filepath-securejoin v0.3.4
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/distribution/reference v0.6.0
 	github.com/evanphx/json-patch/v5 v5.9.0
