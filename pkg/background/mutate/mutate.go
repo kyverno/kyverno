@@ -47,7 +47,8 @@ type mutateExistingController struct {
 	log logr.Logger
 	jp  jmespath.Interface
 
-	reportsBreaker breaker.Breaker
+	backgroundReports bool
+	reportsBreaker    breaker.Breaker
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -63,21 +64,23 @@ func NewMutateExistingController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
+	backgroundReports bool,
 	reportsBreaker breaker.Breaker,
 ) *mutateExistingController {
 	c := mutateExistingController{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		statusControl:  statusControl,
-		engine:         engine,
-		policyLister:   policyLister,
-		npolicyLister:  npolicyLister,
-		nsLister:       nsLister,
-		configuration:  dynamicConfig,
-		eventGen:       eventGen,
-		log:            log,
-		jp:             jp,
-		reportsBreaker: reportsBreaker,
+		client:            client,
+		kyvernoClient:     kyvernoClient,
+		statusControl:     statusControl,
+		engine:            engine,
+		policyLister:      policyLister,
+		npolicyLister:     npolicyLister,
+		nsLister:          nsLister,
+		configuration:     dynamicConfig,
+		eventGen:          eventGen,
+		log:               log,
+		jp:                jp,
+		backgroundReports: backgroundReports,
+		reportsBreaker:    reportsBreaker,
 	}
 	return &c
 }
@@ -164,7 +167,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 		}
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
-		if c.needsReports(trigger) {
+		if c.needsReports(trigger, c.backgroundReports) {
 			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
@@ -255,8 +258,8 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 	c.eventGen.Add(events...)
 }
 
-func (c *mutateExistingController) needsReports(trigger *unstructured.Unstructured) bool {
-	createReport := true
+func (c *mutateExistingController) needsReports(trigger *unstructured.Unstructured, backgroundReports bool) bool {
+	createReport := backgroundReports
 	if trigger == nil {
 		return createReport
 	}
