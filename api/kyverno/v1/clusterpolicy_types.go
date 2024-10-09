@@ -38,6 +38,8 @@ type ClusterPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status PolicyStatus `json:"status,omitempty"`
+	// DeletionPropagationPolicy defines the deletion policy for the resources
+	DeletionPropagationPolicy metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -54,7 +56,7 @@ func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
 		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
-			return true
+			return true 
 		}
 	}
 	return false
