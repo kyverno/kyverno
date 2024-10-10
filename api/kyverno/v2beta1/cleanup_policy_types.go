@@ -37,6 +37,14 @@ import (
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:deprecatedversion
 
+type DeletionPropagationPolicyType string
+
+const (
+    DeletePropagationPolicyForeground DeletionPropagationPolicyType = "Foreground"
+    DeletePropagationPolicyBackground DeletionPropagationPolicyType = "Background"
+    DeletePropagationPolicyOrphan     DeletionPropagationPolicyType = "Orphan"
+) 
+
 // CleanupPolicy defines a rule for resource cleanup.
 type CleanupPolicy struct {
 	metav1.TypeMeta   `json:",inline,omitempty"`
@@ -44,9 +52,6 @@ type CleanupPolicy struct {
 
 	// Spec declares policy behaviors.
 	Spec CleanupPolicySpec `json:"spec"`
-
-	// DeletionPropagationPolicy defines the deletion policy for the resources
-	DeletionPropagationPolicy metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
 
 	// Status contains policy runtime data.
 	// +optional
