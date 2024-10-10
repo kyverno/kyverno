@@ -196,8 +196,6 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	); err != nil {
 		return err
 	}
-	// get the deletion propagation policy
-	deletionPropagationPolicy := policy.GetSpec().DeletionPropagationPolicy
 
 	for kind := range kinds {
 		commonLabels := []attribute.KeyValue{
@@ -221,8 +219,6 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				namespace := resource.GetNamespace()
 				name := resource.GetName()
 				debug := debug.WithValues("name", name, "namespace", namespace)
-				
-				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 				// check if the resource is owned by Kyverno
 				if controllerutils.IsManagedByKyverno(&resource) && toggle.FromContext(ctx).ProtectManagedResources() {
 					continue
@@ -303,11 +299,11 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 						continue
 					}
 				}
-				var labels []attribute.KeyValue
+				var labels []attribute.KeyValue	
 				labels = append(labels, commonLabels...)
 				labels = append(labels, attribute.String("resource_namespace", namespace))
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, (deletionPropagationPolicy)); err != nil {
+				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 					if c.metrics.cleanupFailuresTotal != nil {
 						c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 					}

@@ -38,14 +38,6 @@ import (
 // +kubebuilder:storageversion
 
 // CleanupPolicy defines a rule for resource cleanup.
-type DeletionPropagationPolicyType
-
-const (
-    DeletePropagationPolicyForeground DeletionPropagationPolicyType = "Foreground"
-    DeletePropagationPolicyBackground DeletionPropagationPolicyType = "Background"
-    DeletePropagationPolicyOrphan     DeletionPropagationPolicyType = "Orphan"
-)
-// CleanupPolicy defines a rule for resource cleanup.
 type CleanupPolicy struct {
 	metav1.TypeMeta   `json:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -232,10 +224,6 @@ type CleanupPolicySpec struct {
 	// Conditions defines the conditions used to select the resources which will be cleaned up.
 	// +optional
 	Conditions *AnyAllConditions `json:"conditions,omitempty"`
-
-	// DeletionPropagationPolicy defines how to handle the deletion of dependent resources.
-	// +optional
-	DeletionPropagationPolicy DeletionPropagationPolicyType `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // CleanupPolicyStatus stores the status of the policy.
