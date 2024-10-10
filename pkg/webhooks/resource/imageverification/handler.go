@@ -40,6 +40,7 @@ type imageVerificationHandler struct {
 	admissionReports bool
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
+	reportConfig     reportutils.ReportingConfiguration
 	reportsBreaker   breaker.Breaker
 }
 
@@ -51,6 +52,7 @@ func NewImageVerificationHandler(
 	admissionReports bool,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
+	reportConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
@@ -61,6 +63,7 @@ func NewImageVerificationHandler(
 		admissionReports: admissionReports,
 		cfg:              cfg,
 		nsLister:         nsLister,
+		reportConfig:     reportConfig,
 		reportsBreaker:   reportsBreaker,
 	}
 }
@@ -161,6 +164,9 @@ func (v *imageVerificationHandler) handleAudit(
 	engineResponses ...engineapi.EngineResponse,
 ) {
 	createReport := v.admissionReports
+	if !v.reportConfig.ImageVerificationReportsEnabled() {
+		createReport = false
+	}
 	if admissionutils.IsDryRun(request) {
 		createReport = false
 	}

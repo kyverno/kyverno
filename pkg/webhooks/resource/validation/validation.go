@@ -46,6 +46,7 @@ func NewValidationHandler(
 	metrics metrics.MetricsConfigManager,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
+	reportConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) ValidationHandler {
 	return &validationHandler{
@@ -59,6 +60,7 @@ func NewValidationHandler(
 		metrics:          metrics,
 		cfg:              cfg,
 		nsLister:         nsLister,
+		reportConfig:     reportConfig,
 		reportsBreaker:   reportsBreaker,
 	}
 }
@@ -74,6 +76,7 @@ type validationHandler struct {
 	metrics          metrics.MetricsConfigManager
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
+	reportConfig     reportutils.ReportingConfiguration
 	reportsBreaker   breaker.Breaker
 }
 
@@ -159,7 +162,7 @@ func (v *validationHandler) HandleValidationEnforce(
 	}
 
 	go func() {
-		if needsReports(request, policyContext.NewResource(), v.admissionReports) {
+		if needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
@@ -188,7 +191,7 @@ func (v *validationHandler) HandleValidationAudit(
 	}
 
 	var responses []engineapi.EngineResponse
-	needsReport := needsReports(request, policyContext.NewResource(), v.admissionReports)
+	needsReport := needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig)
 	tracing.Span(
 		context.Background(),
 		"",

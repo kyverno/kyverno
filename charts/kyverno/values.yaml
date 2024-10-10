@@ -636,9 +636,17 @@ features:
   validatingAdmissionPolicyReports:
     # -- Enables the feature
     enabled: false
-  backgroundReports:
+  reporting:
     # -- Enables the feature
-    enabled: true
+    validate: true
+    # -- Enables the feature
+    mutate: true
+    # -- Enables the feature
+    mutateExisting: true
+    # -- Enables the feature
+    imageVerify: true
+    # -- Enables the feature
+    generate: true
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true

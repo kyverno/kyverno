@@ -27,6 +27,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
@@ -65,6 +66,7 @@ type resourceHandlers struct {
 	backgroundServiceAccountName string
 	reportsServiceAccountName    string
 	auditPool                    *pond.WorkerPool
+	reportingConfig              reportutils.ReportingConfiguration
 	reportsBreaker               breaker.Breaker
 }
 
@@ -87,6 +89,7 @@ func NewHandlers(
 	jp jmespath.Interface,
 	maxAuditWorkers int,
 	maxAuditCapacity int,
+	reportingConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
@@ -107,6 +110,7 @@ func NewHandlers(
 		backgroundServiceAccountName: backgroundServiceAccountName,
 		reportsServiceAccountName:    reportsServiceAccountName,
 		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
+		reportingConfig:              reportingConfig,
 		reportsBreaker:               reportsBreaker,
 	}
 }
@@ -138,6 +142,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.metricsConfig,
 		h.configuration,
 		h.nsLister,
+		h.reportingConfig,
 		h.reportsBreaker,
 	)
 	var wg sync.WaitGroup
@@ -200,7 +205,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports, h.reportsBreaker)
+	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports, h.reportingConfig, h.reportsBreaker)
 	patches, warnings, err := mh.HandleMutation(ctx, request, mutatePolicies, policyContext, startTime, h.configuration)
 	if err != nil {
 		logger.Error(err, "mutation failed")
@@ -222,6 +227,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 			h.admissionReports,
 			h.configuration,
 			h.nsLister,
+			h.reportingConfig,
 			h.reportsBreaker,
 		)
 		imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
