@@ -105,7 +105,7 @@
   {{- with .mutateExisting -}}
     {{- $reportingConfig = append $reportingConfig "mutateExisting" -}}
   {{- end -}}
-  {{- with .imageVerification -}}
+  {{- with .imageVerify -}}
     {{- $reportingConfig = append $reportingConfig "imageVerify" -}}
   {{- end -}}
   {{- with .generate -}}

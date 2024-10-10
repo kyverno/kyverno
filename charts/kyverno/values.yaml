@@ -644,7 +644,7 @@ features:
     # -- Enables the feature
     mutateExisting: true
     # -- Enables the feature
-    imageVerification: true
+    imageVerify: true
     # -- Enables the feature
     generate: true
   autoUpdateWebhooks:
