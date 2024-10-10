@@ -7599,7 +7599,7 @@ does not match an empty label set.</p>
     <p>
       (<em>Appears in:</em>
         <a href="#kyverno-io-v1-GeneratePattern">GeneratePattern</a>, 
-        <a href="#kyverno-io-v1-TargetResourceSpec">TargetResourceSpec</a>)
+        <a href="#kyverno-io-v1-TargetSelector">TargetSelector</a>)
     </p>
   
 
@@ -9298,7 +9298,7 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
     
     
       <tr>
-        <td><code>ResourceSpec</code>
+        <td><code>TargetSelector</code>
           
           <span style="color:blue;"> *</span>
           
@@ -9307,8 +9307,8 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
           
           
             
-              <a href="#kyverno-io-v1-ResourceSpec">
-                <span style="font-family: monospace">ResourceSpec</span>
+              <a href="#kyverno-io-v1-TargetSelector">
+                <span style="font-family: monospace">TargetSelector</span>
               </a>
             
           
@@ -9316,7 +9316,7 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
         <td>
           
 
-          <p>ResourceSpec contains the target resources to load when mutating existing resources.</p>
+          <p>TargetSelector contains the ResourceSpec and a label selector to support selecting with labels.</p>
 
 
           
@@ -9379,6 +9379,99 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 will be deprecated in the next major release.
 See: https://kyverno.io/docs/writing-policies/preconditions/</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1-TargetSelector">TargetSelector
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-TargetResourceSpec">TargetResourceSpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>ResourceSpec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ResourceSpec">
+                <span style="font-family: monospace">ResourceSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ResourceSpec contains the target resources to load when mutating existing resources.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>selector</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.LabelSelector</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Selector allows you to select target resources with their labels.</p>
 
 
           

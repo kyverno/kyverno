@@ -40,7 +40,7 @@ func loadTargets(ctx context.Context, client engineapi.Client, targets []kyverno
 			errors = append(errors, err)
 			continue
 		}
-		objs, err := getTargets(ctx, client, spec, policyCtx)
+		objs, err := getTargets(ctx, client, spec.ResourceSpec, policyCtx, spec.Selector)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -56,32 +56,35 @@ func loadTargets(ctx context.Context, client engineapi.Client, targets []kyverno
 	return targetObjects, multierr.Combine(errors...)
 }
 
-func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyvernov1.ResourceSpec, error) {
+func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyvernov1.TargetSelector, error) {
 	kind, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Kind)
 	if err != nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s, value: %v, err: %v", i, target.Kind, kind, err)
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s, value: %v, err: %v", i, target.Kind, kind, err)
 	}
 	apiversion, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.APIVersion)
 	if err != nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s, value: %v, err: %v", i, target.APIVersion, apiversion, err)
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s, value: %v, err: %v", i, target.APIVersion, apiversion, err)
 	}
 	namespace, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Namespace)
 	if err != nil || namespace == nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s, value: %v, err: %v", i, target.Namespace, namespace, err)
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s, value: %v, err: %v", i, target.Namespace, namespace, err)
 	}
 	name, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Name)
 	if err != nil || name == nil {
-		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s, value: %v, err: %v", i, target.Name, name, err)
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s, value: %v, err: %v", i, target.Name, name, err)
 	}
-	return kyvernov1.ResourceSpec{
-		APIVersion: apiversion.(string),
-		Kind:       kind.(string),
-		Namespace:  namespace.(string),
-		Name:       name.(string),
+	return kyvernov1.TargetSelector{
+		ResourceSpec: kyvernov1.ResourceSpec{
+			APIVersion: apiversion.(string),
+			Kind:       kind.(string),
+			Namespace:  namespace.(string),
+			Name:       name.(string),
+		},
+		Selector: target.Selector,
 	}, nil
 }
 
-func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.ResourceSpec, policyCtx engineapi.PolicyContext) ([]resourceInfo, error) {
+func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.ResourceSpec, policyCtx engineapi.PolicyContext, lselector *metav1.LabelSelector) ([]resourceInfo, error) {
 	namespace := target.Namespace
 	name := target.Name
 	policy := policyCtx.Policy()
@@ -90,10 +93,11 @@ func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.R
 		namespace = policy.GetNamespace()
 	}
 	group, version, kind, subresource := kubeutils.ParseKindSelector(target.APIVersion + "/" + target.Kind)
-	resources, err := client.GetResources(ctx, group, version, kind, subresource, namespace, name)
+	resources, err := client.GetResources(ctx, group, version, kind, subresource, namespace, name, lselector)
 	if err != nil {
 		return nil, err
 	}
+
 	targetObjects := make([]resourceInfo, 0, len(resources))
 	for _, resource := range resources {
 		targetObjects = append(targetObjects, resourceInfo{

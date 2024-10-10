@@ -16,7 +16,7 @@ type Resource struct {
 	Unstructured unstructured.Unstructured
 }
 
-func GetResources(ctx context.Context, c Interface, group, version, kind, subresource, namespace, name string) ([]Resource, error) {
+func GetResources(ctx context.Context, c Interface, group, version, kind, subresource, namespace, name string, lselector *metav1.LabelSelector) ([]Resource, error) {
 	var resources []Resource
 	gvrss, err := c.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
@@ -45,8 +45,14 @@ func GetResources(ctx context.Context, c Interface, group, version, kind, subres
 			})
 		} else {
 			// we can use `LIST`
+			var labelSelector string
+			if lselector != nil {
+				selector, _ := metav1.LabelSelectorAsSelector(lselector)
+				labelSelector = selector.String()
+			}
+
 			if gvrs.SubResource == "" {
-				list, err := dyn.List(ctx, metav1.ListOptions{})
+				list, err := dyn.List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 				if err != nil {
 					return nil, err
 				}
@@ -63,7 +69,7 @@ func GetResources(ctx context.Context, c Interface, group, version, kind, subres
 				}
 			} else {
 				// we need to use `LIST` / `GET`
-				list, err := dyn.List(ctx, metav1.ListOptions{})
+				list, err := dyn.List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 				if err != nil {
 					return nil, err
 				}

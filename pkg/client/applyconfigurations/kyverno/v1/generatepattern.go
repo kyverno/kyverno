@@ -20,6 +20,7 @@ package v1
 
 import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 )
 
@@ -71,6 +72,15 @@ func (b *GeneratePatternApplyConfiguration) WithNamespace(value string) *Generat
 func (b *GeneratePatternApplyConfiguration) WithName(value string) *GeneratePatternApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.Name = &value
+	return b
+}
+
+// WithSelector sets the Selector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Selector field is set to the value of the last call.
+func (b *GeneratePatternApplyConfiguration) WithSelector(value metav1.LabelSelector) *GeneratePatternApplyConfiguration {
+	b.ensureResourceSpecApplyConfigurationExists()
+	b.Selector = &value
 	return b
 }
 
