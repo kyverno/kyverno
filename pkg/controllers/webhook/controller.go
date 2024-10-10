@@ -12,7 +12,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	autogenv2 "github.com/kyverno/kyverno/pkg/autogenv2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
@@ -568,11 +568,21 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		status := policy.GetStatus()
 		status.SetReady(ready, message)
 		status.Autogen.Rules = nil
-		rules := autogen.ComputeRules(policy, "")
+
+		ruleNames := autogenv2.GetAutogenRuleNames(policy)
+
+		var rules []kyvernov1.Rule
+		for _, name := range ruleNames {
+			rules = append(rules, kyvernov1.Rule{Name: name}) // Adjust this line based on your Rule struct
+		}
+
 		setRuleCount(rules, status)
-		for _, rule := range rules {
-			if strings.HasPrefix(rule.Name, "autogen-") {
-				status.Autogen.Rules = append(status.Autogen.Rules, rule)
+
+		status.Autogen.Rules = []kyvernov1.Rule{}
+
+		for _, rule := range ruleNames {
+			if strings.HasPrefix(rule, "autogen-") {
+				status.Autogen.Rules = append(status.Autogen.Rules, kyvernov1.Rule{Name: rule})
 			}
 		}
 		return nil
@@ -1128,7 +1138,8 @@ func (gvs GroupVersionResourceScope) String() string {
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
 	var matchedGVK []string
-	for _, rule := range autogen.ComputeRules(policy, "") {
+	matchedGVK = append(matchedGVK, autogenv2.GetAutogenKinds(policy)...)
+	for _, rule := range policy.GetSpec().Rules {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
