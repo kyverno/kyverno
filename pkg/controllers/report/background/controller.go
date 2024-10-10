@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1beta1 "github.com/kyverno/kyverno/api/policyreport/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -346,7 +346,7 @@ func (c *controller) reconcileReport(
 			actual[key] = value
 		}
 	}
-	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	var ruleResults []policyreportv1beta1.PolicyReportResult
 	if !full {
 		policyNameToLabel := map[string]string{}
 		for _, policy := range policies {

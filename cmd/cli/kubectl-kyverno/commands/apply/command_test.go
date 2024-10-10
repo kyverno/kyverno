@@ -10,14 +10,14 @@ import (
 	"strings"
 	"testing"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1beta1 "github.com/kyverno/kyverno/api/policyreport/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
-		expectedPolicyReports []policyreportv1alpha2.PolicyReport
+		expectedPolicyReports []policyreportv1beta1.PolicyReport
 		config                ApplyCommandConfig
 		stdinFile             string
 	}
@@ -33,8 +33,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  2,
 					Fail:  0,
 					Skip:  0,
@@ -49,8 +49,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  2,
 					Fail:  0,
 					Skip:  0,
@@ -65,8 +65,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -81,8 +81,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/apply/resource"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -98,8 +98,8 @@ func Test_Apply(t *testing.T) {
 				PolicyReport:  true,
 				AuditWarn:     true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -117,8 +117,8 @@ func Test_Apply(t *testing.T) {
 				warnExitCode:  3,
 			},
 			stdinFile: "../../../../../test/best_practices/disallow_latest_tag.yaml",
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -135,8 +135,8 @@ func Test_Apply(t *testing.T) {
 				AuditWarn:     true,
 			},
 			stdinFile: "../../../../../test/resources/pod_with_latest_tag.yaml",
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -153,8 +153,8 @@ func Test_Apply(t *testing.T) {
 		// 		GitBranch:     "main",
 		// 		PolicyReport:  true,
 		// 	},
-		// 	expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-		// 		Summary: policyreportv1alpha2.PolicyReportSummary{
+		// 	expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+		// 		Summary: policyreportv1beta1.PolicyReportSummary{
 		// 			Pass:  2,
 		// 			Fail:  0,
 		// 			Skip:  0,
@@ -170,8 +170,8 @@ func Test_Apply(t *testing.T) {
 				Variables:     []string{"request.operation=UPDATE"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  2,
 					Fail:  0,
 					Skip:  0,
@@ -186,8 +186,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -202,8 +202,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -218,8 +218,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -234,8 +234,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -250,8 +250,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment1.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  1,
 					Fail:  0,
 					Skip:  0,
@@ -266,8 +266,8 @@ func Test_Apply(t *testing.T) {
 				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment2.yaml"},
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -285,8 +285,8 @@ func Test_Apply(t *testing.T) {
 				},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -304,8 +304,8 @@ func Test_Apply(t *testing.T) {
 				},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  0,
 					Fail:  1,
 					Skip:  0,
@@ -325,8 +325,8 @@ func Test_Apply(t *testing.T) {
 				ValuesFile:   "../../../../../test/cli/test-validating-admission-policy/with-bindings-3/values.yaml",
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  2,
 					Fail:  2,
 					Skip:  0,
@@ -344,8 +344,8 @@ func Test_Apply(t *testing.T) {
 				},
 				PolicyReport: true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  1,
 					Fail:  1,
 					Skip:  0,
@@ -361,8 +361,8 @@ func Test_Apply(t *testing.T) {
 				GitBranch:     "main",
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  2,
 					Fail:  1,
 					Skip:  0,
@@ -379,8 +379,8 @@ func Test_Apply(t *testing.T) {
 				GitBranch:     "main",
 				PolicyReport:  true,
 			},
-			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
-				Summary: policyreportv1alpha2.PolicyReportSummary{
+			expectedPolicyReports: []policyreportv1beta1.PolicyReport{{
+				Summary: policyreportv1beta1.PolicyReportSummary{
 					Pass:  2,
 					Fail:  1,
 					Skip:  0,
@@ -391,7 +391,7 @@ func Test_Apply(t *testing.T) {
 		},
 	}
 
-	compareSummary := func(expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
+	compareSummary := func(expected policyreportv1beta1.PolicyReportSummary, actual policyreportv1beta1.PolicyReportSummary, desc string) {
 		assert.Equal(t, actual.Pass, expected.Pass, desc)
 		assert.Equal(t, actual.Fail, expected.Fail, desc)
 		assert.Equal(t, actual.Skip, expected.Skip, desc)
@@ -399,7 +399,7 @@ func Test_Apply(t *testing.T) {
 		assert.Equal(t, actual.Error, expected.Error, desc)
 	}
 
-	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(policyreportv1alpha2.PolicyReportSummary, policyreportv1alpha2.PolicyReportSummary, string)) {
+	verifyTestcase := func(t *testing.T, tc *TestCase, compareSummary func(policyreportv1beta1.PolicyReportSummary, policyreportv1beta1.PolicyReportSummary, string)) {
 		if tc.stdinFile != "" {
 			oldStdin := os.Stdin
 			input, err := os.OpenFile(tc.stdinFile, os.O_RDONLY, 0)
@@ -418,7 +418,7 @@ func Test_Apply(t *testing.T) {
 
 		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
 		assert.Greater(t, len(clustered), 0, "policy reports should not be empty: %s", desc)
-		combined := []policyreportv1alpha2.ClusterPolicyReport{
+		combined := []policyreportv1beta1.ClusterPolicyReport{
 			report.MergeClusterReports(clustered),
 		}
 		assert.Equal(t, len(combined), len(tc.expectedPolicyReports))

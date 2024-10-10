@@ -17,7 +17,7 @@ limitations under the License.
 package v1
 
 import (
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1beta1 "github.com/kyverno/kyverno/api/policyreport/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,7 +26,7 @@ import (
 // ReportInterface abstracts the concrete report change request type
 type ReportInterface interface {
 	metav1.Object
-	GetResults() []policyreportv1alpha2.PolicyReportResult
-	SetResults([]policyreportv1alpha2.PolicyReportResult)
-	SetSummary(policyreportv1alpha2.PolicyReportSummary)
+	GetResults() []policyreportv1beta1.PolicyReportResult
+	SetResults([]policyreportv1beta1.PolicyReportResult)
+	SetSummary(policyreportv1beta1.PolicyReportSummary)
 }
