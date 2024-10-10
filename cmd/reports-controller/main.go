@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
@@ -65,6 +66,7 @@ func createReportControllers(
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
+	reportsConfig reportutils.ReportingConfiguration,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -124,6 +126,7 @@ func createReportControllers(
 				jp,
 				eventGenerator,
 				policyReports,
+				reportsConfig,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -146,6 +149,7 @@ func createrLeaderControllers(
 	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
+	reportsConfig reportutils.ReportingConfiguration,
 	aggregateReports bool,
 	policyReports bool,
 	validatingAdmissionPolicyReports bool,
@@ -179,6 +183,7 @@ func createrLeaderControllers(
 		configuration,
 		jp,
 		eventGenerator,
+		reportsConfig,
 	)
 	return reportControllers, warmup, nil
 }
@@ -231,6 +236,7 @@ func main() {
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
+		internal.WithReporting(),
 	)
 	// parse flags
 	internal.ParseFlags(
@@ -329,6 +335,7 @@ func main() {
 					engine,
 					backgroundScan,
 					admissionReports,
+					setup.ReportingConfiguration,
 					aggregateReports,
 					policyReports,
 					validatingAdmissionPolicyReports,
