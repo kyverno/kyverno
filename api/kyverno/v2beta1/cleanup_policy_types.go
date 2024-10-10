@@ -37,7 +37,7 @@ import (
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:deprecatedversion
 
-type DeletionPropagationPolicyType string
+type DeletionPropagationPolicyType 
 
 const (
     DeletePropagationPolicyForeground DeletionPropagationPolicyType = "Foreground"
