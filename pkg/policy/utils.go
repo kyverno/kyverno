@@ -6,6 +6,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// Contains checks if a slice contains a specific string
+func Contains(slice []string, item string) bool {
+	for _, element := range slice {
+		if element == item {
+			return true
+		}
+	}
+	return false
+}
+
 func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstructured, isNamespacedPolicy bool) bool {
 	if match.Name != "" && !wildcard.Match(match.Name, res.GetName()) {
 		return false
