@@ -38,8 +38,6 @@ type ClusterPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status kyvernov1.PolicyStatus `json:"status,omitempty"`
-	// DeletionPropagationPolicy defines the deletion policy for the resources
-	DeletionPropagationPolicy metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation

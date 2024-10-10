@@ -45,11 +45,12 @@ type CleanupPolicy struct {
 	// Spec declares policy behaviors.
 	Spec CleanupPolicySpec `json:"spec"`
 
+	// DeletionPropagationPolicy defines the deletion policy for the resources
+	DeletionPropagationPolicy metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
+
 	// Status contains policy runtime data.
 	// +optional
 	Status CleanupPolicyStatus `json:"status,omitempty"`
-	// DeletionPropagationPolicy defines the deletion policy for the resources
-	DeletionPropagationPolicy metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // GetSpec returns the policy spec
@@ -135,7 +136,7 @@ type ClusterCleanupPolicy struct {
 
 	// Status contains policy runtime data.
 	// +optional
-	Status CleanupPolicyStatus `json:"status,omitempty"`
+	Status CleanupPolicyStatus `json:"status,omitempty"` 
 }
 
 // GetSpec returns the policy spec
@@ -226,6 +227,10 @@ type CleanupPolicySpec struct {
 	// Conditions defines the conditions used to select the resources which will be cleaned up.
 	// +optional
 	Conditions *AnyAllConditions `json:"conditions,omitempty"`
+
+	// DeletionPropagationPolicy defines how to handle the deletion of dependent resources.
+	// +optional
+	DeletionPropagationPolicy DeletionPropagationPolicyType `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // CleanupPolicyStatus stores the status of the policy.
