@@ -140,7 +140,7 @@ func initCleanupFlags() {
 }
 
 func initReportingFlags() {
-	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma seperated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
+	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
 }
 
 type options struct {
