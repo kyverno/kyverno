@@ -1,8 +1,10 @@
 {{/* vim: set filetype=mustache: */}}
 
-{{- define "kyverno.chartVersion" -}}
+{{- define "kyverno.appVersion" -}}
 {{- if .Values.templating.enabled -}}
   {{- required "templating.version is required when templating.enabled is true" .Values.templating.version | replace "+" "_" -}}
+{{- else if .Chart.AppVersion -}}
+  {{- .Chart.AppVersion | replace "+" "_" -}}
 {{- else -}}
   {{- .Chart.Version | replace "+" "_" -}}
 {{- end -}}
