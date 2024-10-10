@@ -1,0 +1,12 @@
+# resources.yaml
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-pass
+spec:
+  template:
+    spec:
+      containers:
+        - name: test
+          image: test/test:latest
