@@ -38,7 +38,7 @@ import (
 // +kubebuilder:storageversion
 
 // CleanupPolicy defines a rule for resource cleanup.
-type DeletionPropagationPolicyType string
+type DeletionPropagationPolicyType
 
 const (
     DeletePropagationPolicyForeground DeletionPropagationPolicyType = "Foreground"
