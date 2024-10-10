@@ -182,6 +182,12 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	debug := logger.V(4)
 	var errs []error
 
+	// get the deletion policy
+	deletionPolicy := spec.DeletionPropagationPolicy
+
+	// Log the deletion policy for debugging
+	debug.Info("Deletion Propagation Policy", "policy", deletionPolicy)
+
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
 
@@ -203,6 +209,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 			attribute.String("policy_namespace", policy.GetNamespace()),
 			attribute.String("policy_name", policy.GetName()),
 			attribute.String("resource_kind", kind),
+			attribute.String("deletion_policy", deletionPolicy),
 		}
 		debug := debug.WithValues("kind", kind)
 		debug.Info("processing...")
@@ -303,7 +310,24 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				labels = append(labels, commonLabels...)
 				labels = append(labels, attribute.String("resource_namespace", namespace))
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
+
+				// Set the deletion options including the propagation policy
+				var propagationPolicy metav1.DeletionPropagation
+				switch deletionPolicy {
+				case "Foreground":
+						propagationPolicy = metav1.DeletePropagationForeground
+				case "Background":
+						propagationPolicy = metav1.DeletePropagationBackground
+				default:
+						propagationPolicy = metav1.DeletePropagationBackground
+				}
+
+				deleteOptions := &metav1.DeleteOptions{
+						PropagationPolicy: &propagationPolicy,
+				}
+
+				// Delete the resource with the specified propagation policy
+				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, deleteOptions); err != nil {
 					if c.metrics.cleanupFailuresTotal != nil {
 						c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 					}
