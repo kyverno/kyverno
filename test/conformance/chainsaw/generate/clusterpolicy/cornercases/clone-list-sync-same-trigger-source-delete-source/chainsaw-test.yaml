@@ -1,13 +1,12 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: clone-list-sync-same-trigger-source-delete-source
 spec:
   steps:
   - name: step-01
     try:
-    - apply:
-        file: permissions.yaml
     - apply:
         file: chainsaw-step-01-apply-1-1.yaml
     - apply:
@@ -20,15 +19,9 @@ spec:
     try:
     - apply:
         file: trigger.yaml
-  - name: step-03
-    try:
-    - sleep:
-        duration: 2s
-  - name: step-04
-    try:
     - assert:
         file: target.yaml
-  - name: step-05
+  - name: step-03
     try:
     - delete:
         ref:
@@ -36,11 +29,11 @@ spec:
           kind: Secret
           name: mysecret
           namespace: clone-list-sync-same-trigger-source-trigger-ns
-  - name: step-06
+  - name: step-04
     try:
     - sleep:
         duration: 3s
-  - name: step-07
+  - name: step-05
     try:
     - error:
         file: target.yaml

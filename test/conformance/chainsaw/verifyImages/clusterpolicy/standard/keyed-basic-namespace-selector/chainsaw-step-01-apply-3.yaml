@@ -32,5 +32,5 @@ spec:
               url: https://rekor.sigstore.dev
       imageReferences:
       - ghcr.io/kyverno/test-verify-image:*
-      failureAction: Enforce
+  validationFailureAction: Enforce
   webhookTimeoutSeconds: 30

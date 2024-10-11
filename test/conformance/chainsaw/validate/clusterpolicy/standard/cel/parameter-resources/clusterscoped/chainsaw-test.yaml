@@ -1,6 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: clusterscoped
 spec:
   steps:
@@ -10,8 +11,6 @@ spec:
         file: crd.yaml
     - assert:
         file: crd-assert.yaml
-    - apply:
-        file: permissions.yaml
   - name: step-02
     try:
     - apply:

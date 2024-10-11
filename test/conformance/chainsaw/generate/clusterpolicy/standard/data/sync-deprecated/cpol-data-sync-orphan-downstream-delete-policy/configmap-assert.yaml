@@ -1,5 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: zk-kafka-address
-  namespace: cpol-data-sync-delete-policy-ns

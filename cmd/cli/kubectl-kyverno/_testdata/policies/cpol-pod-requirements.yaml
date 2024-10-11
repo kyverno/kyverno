@@ -18,7 +18,6 @@ spec:
           - Pod
     name: pods-require-account
     validate:
-      failureAction: Audit
       message: User pods must include an account for charging
       pattern:
         metadata:
@@ -42,4 +41,4 @@ spec:
               requests:
                 cpu: ?*
                 memory: ?*
-      failureAction: Audit
+  validationFailureAction: Audit

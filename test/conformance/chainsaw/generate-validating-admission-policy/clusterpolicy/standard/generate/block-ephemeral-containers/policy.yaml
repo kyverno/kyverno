@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: block-ephemeral-containers
 spec:
+  validationFailureAction: Enforce
   background: true
   rules:
   - name: block-ephemeral-containers
@@ -11,11 +12,7 @@ spec:
       - resources:
           kinds:
             - Pod
-          operations:
-            - CREATE
-            - UPDATE
     validate:
-      failureAction: Enforce
       cel:
         expressions:
           - expression: "!has(object.spec.ephemeralContainers)"

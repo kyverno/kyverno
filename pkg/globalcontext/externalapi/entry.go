@@ -56,10 +56,10 @@ func New(
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		config := apicall.NewAPICallConfiguration(maxResponseLength)
-		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
+		caller := apicall.NewCaller(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
-			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {
+			if data, err := doCall(ctx, caller, call); err != nil {
 				e.setData(nil, err)
 
 				logger.Error(err, "failed to get data from api caller")
@@ -127,24 +127,8 @@ func (e *entry) setData(data any, err error) {
 	}
 }
 
-func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall, retryLimit int) (any, error) {
-	var result any
-	backoff := wait.Backoff{
-		Duration: retry.DefaultBackoff.Duration,
-		Factor:   retry.DefaultBackoff.Factor,
-		Jitter:   retry.DefaultBackoff.Jitter,
-		Steps:    retryLimit,
-	}
-
-	retryError := retry.OnError(backoff, func(err error) bool {
-		return err != nil
-	}, func() error {
-		var exeErr error
-		result, exeErr = caller.Execute(ctx, &call)
-		return exeErr
-	})
-
-	return result, retryError
+func doCall(ctx context.Context, caller apicall.Caller, call kyvernov1.APICall) (any, error) {
+	return caller.Execute(ctx, &call)
 }
 
 func updateStatus(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry, kyvernoClient versioned.Interface, ready bool, reason string) error {

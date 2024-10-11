@@ -1,6 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: not-ready
 spec:
   steps:
@@ -13,11 +14,9 @@ spec:
     - apply:
         file: gctxentry.yaml
     - sleep:
-        duration: 3s
+        duration: 15s
     - apply:
         file: clusterpolicy.yaml
-    - sleep:
-        duration: 3s
     - assert:
         file: clusterpolicy-ready.yaml
     - delete:
@@ -26,7 +25,7 @@ spec:
           kind: GlobalContextEntry
           name: gctx-not-ready
     - sleep:
-        duration: 3s
+        duration: 5s
     - assert:
         file: clusterpolicy-failed.yaml
     - apply:

@@ -28,7 +28,11 @@ import (
 
 type KyvernoV2Interface interface {
 	RESTClient() rest.Interface
+	AdmissionReportsGetter
+	BackgroundScanReportsGetter
 	CleanupPoliciesGetter
+	ClusterAdmissionReportsGetter
+	ClusterBackgroundScanReportsGetter
 	ClusterCleanupPoliciesGetter
 	PolicyExceptionsGetter
 	UpdateRequestsGetter
@@ -39,8 +43,24 @@ type KyvernoV2Client struct {
 	restClient rest.Interface
 }
 
+func (c *KyvernoV2Client) AdmissionReports(namespace string) AdmissionReportInterface {
+	return newAdmissionReports(c, namespace)
+}
+
+func (c *KyvernoV2Client) BackgroundScanReports(namespace string) BackgroundScanReportInterface {
+	return newBackgroundScanReports(c, namespace)
+}
+
 func (c *KyvernoV2Client) CleanupPolicies(namespace string) CleanupPolicyInterface {
 	return newCleanupPolicies(c, namespace)
+}
+
+func (c *KyvernoV2Client) ClusterAdmissionReports() ClusterAdmissionReportInterface {
+	return newClusterAdmissionReports(c)
+}
+
+func (c *KyvernoV2Client) ClusterBackgroundScanReports() ClusterBackgroundScanReportInterface {
+	return newClusterBackgroundScanReports(c)
 }
 
 func (c *KyvernoV2Client) ClusterCleanupPolicies() ClusterCleanupPolicyInterface {

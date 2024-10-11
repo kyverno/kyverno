@@ -2,6 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: dyn-op-validate-multiple
 spec:
   steps:

@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: mutate-existing-secret
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
   - match:
       any:
@@ -14,7 +15,6 @@ spec:
           namespaces:
           - staging
     mutate:
-      mutateExistingOnPolicyUpdate: false
       patchStrategicMerge:
         metadata:
           labels:

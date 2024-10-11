@@ -63,7 +63,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 	}
 }
 
-func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
+func (rc *ResultCounts) addGenerateResponse(auditWarn bool, response engineapi.EngineResponse) {
 	genericPolicy := response.Policy()
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return
@@ -75,7 +75,11 @@ func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 				if ruleResponse.Status() == engineapi.RuleStatusPass {
 					rc.Pass++
 				} else {
-					rc.Fail++
+					if auditWarn && response.GetValidationFailureAction().Audit() {
+						rc.Warn++
+					} else {
+						rc.Fail++
+					}
 				}
 				continue
 			}

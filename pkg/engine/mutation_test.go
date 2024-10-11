@@ -655,6 +655,7 @@ func Test_foreach_element_mutation(t *testing.T) {
     "name": "mutate-privileged"
   },
   "spec": {
+	"validationFailureAction": "audit",
     "background": false,
 	"webhookTimeoutSeconds": 10,
 	"failurePolicy": "Fail",
@@ -1624,6 +1625,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 				            "name": "sync-cms"
 				        },
 				        "spec": {
+				            "mutateExistingOnPolicyUpdate": false,
 				            "rules": [
 				                {
 				                    "name": "concat-cm",
@@ -1645,7 +1647,6 @@ func Test_mutate_existing_resources(t *testing.T) {
 				                        ]
 				                    },
 				                    "mutate": {
-                                "mutateExistingOnPolicyUpdate": false,
 				                        "targets": [
 				                            {
 				                                "apiVersion": "v1",
@@ -1716,6 +1717,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 		            "name": "sync-cms"
 		        },
 		        "spec": {
+		            "mutateExistingOnPolicyUpdate": false,
 		            "rules": [
 		                {
 		                    "name": "concat-cm",
@@ -1737,7 +1739,6 @@ func Test_mutate_existing_resources(t *testing.T) {
 		                        ]
 		                    },
 		                    "mutate": {
-                            "mutateExistingOnPolicyUpdate": false,
 		                        "targets": [
 		                            {
 		                                "apiVersion": "v1",

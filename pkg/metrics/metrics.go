@@ -106,7 +106,8 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 	}
 	res, err := resource.Merge(
 		resource.Default(),
-		resource.NewSchemaless(
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
 			semconv.ServiceNameKey.String(MeterName),
 			semconv.ServiceVersionKey.String(version.Version()),
 		),
@@ -131,7 +132,8 @@ func NewOTLPGRPCConfig(ctx context.Context, endpoint string, certs string, kubeC
 func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kconfig.MetricsConfiguration) (metric.MeterProvider, *http.ServeMux, error) {
 	res, err := resource.Merge(
 		resource.Default(),
-		resource.NewSchemaless(
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
 			semconv.ServiceNameKey.String("kyverno-svc-metrics"),
 			semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace()),
 			semconv.ServiceVersionKey.String(version.Version()),

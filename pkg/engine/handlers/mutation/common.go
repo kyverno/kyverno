@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -69,7 +70,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 	reverse := false
 	// if it's a patch strategic merge, reverse by default
-	if foreach.GetPatchStrategicMerge() != nil {
+	if foreach.RawPatchStrategicMerge != nil {
 		reverse = true
 	}
 	if foreach.Order != nil {
@@ -109,14 +110,18 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		}
 
 		var mutateResp *mutate.Response
-		fem := foreach.GetForEachMutation()
-		if len(fem) > 0 {
+		if foreach.ForEachMutation != nil {
+			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](foreach.ForEachMutation)
+			if err != nil {
+				return mutate.NewErrorResponse("failed to deserialize foreach", err)
+			}
+
 			m := &forEachMutator{
 				rule:          f.rule,
 				policyContext: f.policyContext,
 				resource:      patchedResource,
 				logger:        f.logger,
-				foreach:       fem,
+				foreach:       nestedForEach,
 				nesting:       f.nesting + 1,
 				contextLoader: f.contextLoader,
 			}
@@ -152,7 +157,6 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 		engineapi.Mutation,
 		message,
 		mutateResp.Status,
-		rule.ReportProperties,
 	)
 	if mutateResp.Status == engineapi.RuleStatusPass {
 		if len(rule.Mutation.Targets) != 0 {

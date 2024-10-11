@@ -242,7 +242,7 @@ func Test_GetSupportedControllers(t *testing.T) {
 		},
 		{
 			name:                "rule-with-validate-podsecurity",
-			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"failureAction":"enforce","podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`),
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`),
 			expectedControllers: PodControllers,
 		},
 	}
@@ -343,7 +343,7 @@ func TestUpdateGenRuleByte(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		got := updateFields(tt.pbyte, tt.kind, false)
+		got := updateGenRuleByte(tt.pbyte, tt.kind)
 		if !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("updateGenRuleByte() = %v, want %v", string(got), string(tt.want))
 		}
@@ -384,7 +384,7 @@ func TestUpdateCELFields(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		got := updateFields(tt.pbyte, tt.kind, true)
+		got := updateCELFields(tt.pbyte, tt.kind)
 		if !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("updateCELFields() = %v, want %v", string(got), string(tt.want))
 		}
@@ -406,6 +406,7 @@ kind: ClusterPolicy
 metadata:
   name: check-image
 spec:
+  validationFailureAction: enforce
   background: false
   webhookTimeoutSeconds: 30
   failurePolicy: Fail
@@ -539,7 +540,7 @@ kA==
 }
 
 func Test_PodSecurityWithNoExceptions(t *testing.T) {
-	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"failureAction":"enforce","podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
+	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
 	policies, _, _, err := yamlutils.GetPolicy([]byte(policy))
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(policies))
@@ -557,6 +558,7 @@ func Test_ValidateWithCELExpressions(t *testing.T) {
 		  "name": "disallow-host-path"
 		},
 		"spec": {
+		  "validationFailureAction": "Enforce",
 		  "background": false,
 		  "rules": [
 			{
@@ -573,7 +575,6 @@ func Test_ValidateWithCELExpressions(t *testing.T) {
 				]
 			  },
 			  "validate": {
-			    "failureAction": "Enforce",
 				"cel": {
 				  "expressions": [
 					{
@@ -594,51 +595,4 @@ func Test_ValidateWithCELExpressions(t *testing.T) {
 
 	rules := computeRules(policies[0], "DaemonSet")
 	assert.Equal(t, 2, len(rules))
-}
-
-func Test_ValidateWithAssertion(t *testing.T) {
-	policy := []byte(`
-	{
-		"apiVersion": "kyverno.io/v1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		  "name": "disallow-default-sa"
-		},
-		"spec": {
-		  "validationFailureAction": "Enforce",
-		  "background": false,
-		  "rules": [
-			{
-			  "name": "default-sa",
-			  "match": {
-				"any": [
-				  {
-					"resources": {
-					  "kinds": [
-						"Pod"
-					  ]
-					}
-				  }
-				]
-			  },
-			  "validate": {
-			    "assert": {
-				  "object": {
-					"spec": {
-					  "(serviceAccountName == 'default')": false
-				    }
-				  }
-				}
-			  }
-			}
-		  ]
-		}
-	  }
-`)
-	policies, _, _, err := yamlutils.GetPolicy([]byte(policy))
-	assert.NilError(t, err)
-	assert.Equal(t, 1, len(policies))
-
-	rules := computeRules(policies[0], "")
-	assert.Equal(t, 3, len(rules))
 }

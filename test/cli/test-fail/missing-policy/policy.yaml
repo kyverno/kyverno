@@ -21,7 +21,6 @@ spec:
           - test
     name: require-image-tag
     validate:
-      failureAction: Audit
       message: An image tag is required.
       pattern:
         spec:
@@ -41,4 +40,4 @@ spec:
         spec:
           containers:
           - image: '!*:latest'
-      failureAction: Audit
+  validationFailureAction: Audit

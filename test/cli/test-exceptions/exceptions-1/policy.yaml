@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-host-namespaces
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
     - name: host-namespaces
@@ -12,7 +13,6 @@ spec:
             kinds:
               - Pod
       validate:
-        failureAction: Enforce
         message: >-
           Sharing the host namespaces is disallowed. The fields spec.hostNetwork,
           spec.hostIPC, and spec.hostPID must be unset or set to `false`.          

@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: check-namespace-name-01
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
     - name: namespace-name-01
@@ -15,7 +16,6 @@ spec:
               - CREATE
               - UPDATE
       validate:
-        failureAction: Enforce
         cel:
           paramKind: 
             apiVersion: rules.example.com/v1

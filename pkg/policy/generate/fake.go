@@ -17,7 +17,7 @@ type FakeGenerate struct {
 func NewFakeGenerate(rule kyvernov1.Generation) *FakeGenerate {
 	g := FakeGenerate{}
 	g.rule = rule
-	g.authChecker = fake.NewFakeAuth()
+	g.authCheck = fake.NewFakeAuth()
 	g.log = logging.GlobalLogger()
 	return &g
 }

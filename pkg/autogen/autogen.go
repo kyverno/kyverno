@@ -1,9 +1,9 @@
 package autogen
 
 import (
-	"encoding/json"
 	"strings"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -19,7 +19,6 @@ const (
 var (
 	PodControllers         = sets.New("DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController", "CronJob")
 	podControllersKindsSet = PodControllers.Union(sets.New("Pod"))
-	assertAutogenNodes     = []string{"object", "oldObject"}
 )
 
 func isKindOtherthanPod(kinds []string) bool {
@@ -69,21 +68,16 @@ func stripCronJob(controllers string) string {
 func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[string]) {
 	needed := false
 	for _, rule := range spec.Rules {
-		if rule.HasGenerate() {
+		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
 			return false, sets.New("none")
 		}
-		if rule.Mutation != nil {
-			if rule.Mutation.PatchesJSON6902 != "" {
+		for _, foreach := range rule.Mutation.ForEachMutation {
+			if foreach.PatchesJSON6902 != "" {
 				return false, sets.New("none")
 			}
-			for _, foreach := range rule.Mutation.ForEachMutation {
-				if foreach.PatchesJSON6902 != "" {
-					return false, sets.New("none")
-				}
-			}
 		}
-		match := rule.MatchResources
-		if !checkAutogenSupport(&needed, match.ResourceDescription) {
+		match, exclude := rule.MatchResources, rule.ExcludeResources
+		if !checkAutogenSupport(&needed, match.ResourceDescription, exclude.ResourceDescription) {
 			debug.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
 			return false, sets.New[string]()
 		}
@@ -99,22 +93,16 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[s
 				return false, sets.New[string]()
 			}
 		}
-		if exclude := rule.ExcludeResources; exclude != nil {
-			if !checkAutogenSupport(&needed, exclude.ResourceDescription) {
-				debug.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
+		for _, value := range exclude.Any {
+			if !checkAutogenSupport(&needed, value.ResourceDescription) {
+				debug.Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not applicable.", "rule", rule.Name)
 				return false, sets.New[string]()
 			}
-			for _, value := range exclude.Any {
-				if !checkAutogenSupport(&needed, value.ResourceDescription) {
-					debug.Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not applicable.", "rule", rule.Name)
-					return false, sets.New[string]()
-				}
-			}
-			for _, value := range exclude.All {
-				if !checkAutogenSupport(&needed, value.ResourceDescription) {
-					debug.Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not applicable.", "rule", rule.Name)
-					return false, sets.New[string]()
-				}
+		}
+		for _, value := range exclude.All {
+			if !checkAutogenSupport(&needed, value.ResourceDescription) {
+				debug.Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not applicable.", "rule", rule.Name)
+				return false, sets.New[string]()
 			}
 		}
 	}
@@ -202,14 +190,23 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 }
 
 func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
+
 	if bytes, err := json.Marshal(rule); err != nil {
 		return nil, err
 	} else {
-		// CEL variables are object, oldObject, request, params and authorizer.
-		// Therefore CEL expressions can be either written as object.spec or request.object.spec
-		bytes = updateFields(bytes, kind, rule.Validation != nil && rule.Validation.CEL != nil)
+		bytes = updateGenRuleByte(bytes, kind)
 		if err := json.Unmarshal(bytes, &rule); err != nil {
 			return nil, err
+		}
+
+		// CEL variables are object, oldObject, request, params and authorizer.
+		// Therefore CEL expressions can be either written as object.spec or request.object.spec
+		if rule.Validation != nil && rule.Validation.CEL != nil {
+			bytes = updateCELFields(bytes, kind)
+			if err := json.Unmarshal(bytes, &rule); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -222,19 +219,19 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		out.MatchResources = *rule.MatchResources
 	}
 	if rule.ExcludeResources != nil {
-		out.ExcludeResources = rule.ExcludeResources
+		out.ExcludeResources = *rule.ExcludeResources
 	}
 	if rule.Context != nil {
 		out.Context = *rule.Context
 	}
 	if rule.AnyAllConditions != nil {
-		out.SetAnyAllConditions(rule.AnyAllConditions.Conditions)
+		out.SetAnyAllConditions(*rule.AnyAllConditions)
 	}
 	if rule.Mutation != nil {
-		out.Mutation = rule.Mutation
+		out.Mutation = *rule.Mutation
 	}
 	if rule.Validation != nil {
-		out.Validation = rule.Validation
+		out.Validation = *rule.Validation
 	}
 	return &out, nil
 }
@@ -287,39 +284,4 @@ func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	}
 	out = append(out, genRules...)
 	return out
-}
-
-func copyMap(m map[string]any) map[string]any {
-	newMap := make(map[string]any, len(m))
-	for k, v := range m {
-		newMap[k] = v
-	}
-
-	return newMap
-}
-
-func createAutogenAssertion(tree kyvernov1.AssertionTree, tplKey string) kyvernov1.AssertionTree {
-	v, ok := tree.Value.(map[string]any)
-	if !ok {
-		return tree
-	}
-
-	value := copyMap(v)
-
-	for _, n := range assertAutogenNodes {
-		object, ok := v[n].(map[string]any)
-		if !ok {
-			continue
-		}
-
-		value[n] = map[string]any{
-			"spec": map[string]any{
-				tplKey: copyMap(object),
-			},
-		}
-	}
-
-	return kyvernov1.AssertionTree{
-		Value: value,
-	}
 }

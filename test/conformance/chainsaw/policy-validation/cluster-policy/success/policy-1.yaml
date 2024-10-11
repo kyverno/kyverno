@@ -6,6 +6,7 @@ metadata:
     policies.kyverno.io/title: Inject vault init Container
 spec:
   background: false
+  validationFailureAction: Audit
   rules:
   - name: inject-vault-sidecar
     match:

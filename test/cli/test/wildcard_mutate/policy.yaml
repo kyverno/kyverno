@@ -19,3 +19,4 @@ spec:
           annotations:
             test: app
     name: mutate-wildcard
+  validationFailureAction: Audit

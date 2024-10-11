@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: test-post-mutation
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
   - match:
       any:
@@ -14,7 +15,6 @@ spec:
           namespaces:
           - staging-4
     mutate:
-      mutateExistingOnPolicyUpdate: false
       patchesJson6902: "- op: add\n  path: \"/metadata/labels/env\"\n  value: \"{{
         request.object.metadata.namespace }}\"  "
       targets:

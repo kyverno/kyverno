@@ -1,9 +1,0 @@
-apiVersion: kyverno.io/v2beta1
-kind: ClusterPolicy
-metadata:
-  name: foreach-existing-cpol-clone-list-sync-create
-status:
-  conditions:
-  - reason: Succeeded
-    status: "True"
-    type: Ready

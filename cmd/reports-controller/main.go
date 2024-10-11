@@ -29,7 +29,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
-	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -42,8 +42,8 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsInstalled(apiserverClient,
 		"clusterpolicyreports.wgpolicyk8s.io",
 		"policyreports.wgpolicyk8s.io",
-		"ephemeralreports.reports.kyverno.io",
-		"clusterephemeralreports.reports.kyverno.io",
+		"clusterbackgroundscanreports.kyverno.io",
+		"backgroundscanreports.kyverno.io",
 	)
 }
 
@@ -68,15 +68,15 @@ func createReportControllers(
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
-	var vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer
-	var vapBindingInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyBindingInformer
+	var vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer
+	var vapBindingInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyBindingInformer
 	// check if validating admission policies are registered in the API server
 	if validatingAdmissionPolicyReports {
-		vapInformer = kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicies()
-		vapBindingInformer = kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicyBindings()
+		vapInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies()
+		vapBindingInformer = kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings()
 	}
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV2 := kyvernoInformer.Kyverno().V2()
+	kyvernoV2beta1 := kyvernoInformer.Kyverno().V2beta1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
@@ -114,7 +114,7 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
-				kyvernoV2.PolicyExceptions(),
+				kyvernoV2beta1.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
 				kubeInformer.Core().V1().Namespaces(),
@@ -190,6 +190,7 @@ func main() {
 		aggregateReports                 bool
 		policyReports                    bool
 		validatingAdmissionPolicyReports bool
+		reportsChunkSize                 int
 		backgroundScanWorkers            int
 		backgroundScanInterval           time.Duration
 		aggregationWorkers               int
@@ -204,6 +205,7 @@ func main() {
 	flagset.BoolVar(&aggregateReports, "aggregateReports", true, "Enable or disable aggregated policy reports.")
 	flagset.BoolVar(&policyReports, "policyReports", true, "Enable or disable policy reports.")
 	flagset.BoolVar(&validatingAdmissionPolicyReports, "validatingAdmissionPolicyReports", false, "Enable or disable validating admission policy reports.")
+	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 0, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&aggregationWorkers, "aggregationWorkers", aggregatereportcontroller.Workers, "Configure the number of ephemeral reports aggregation workers.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
@@ -243,6 +245,11 @@ func main() {
 		// setup
 		ctx, setup, sdown := internal.Setup(appConfig, "kyverno-reports-controller", skipResourceFilters)
 		defer sdown()
+		// show warnings
+		if reportsChunkSize != 0 {
+			logger := setup.Logger.WithName("wanings")
+			logger.Info("Warning: reportsChunkSize is deprecated and will be removed in 1.13.")
+		}
 		// THIS IS AN UGLY FIX
 		// ELSE KYAML IS NOT THREAD SAFE
 		kyamlopenapi.Schema()
@@ -261,7 +268,6 @@ func main() {
 		}
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -301,7 +307,6 @@ func main() {
 			setup.KyvernoClient,
 			setup.RegistrySecretLister,
 			apicall.NewAPICallConfiguration(maxAPICallResponseLength),
-			polexCache,
 			gcstore,
 		)
 		// start informers and wait for cache sync
@@ -379,9 +384,6 @@ func main() {
 		// start non leader controllers
 		eventController.Run(ctx, setup.Logger, &wg)
 		gceController.Run(ctx, setup.Logger, &wg)
-		if polexController != nil {
-			polexController.Run(ctx, setup.Logger, &wg)
-		}
 		// start leader election
 		le.Run(ctx)
 	}()

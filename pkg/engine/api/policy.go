@@ -2,7 +2,7 @@ package api
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -22,7 +22,7 @@ type GenericPolicy interface {
 	// AsKyvernoPolicy returns the kyverno policy
 	AsKyvernoPolicy() kyvernov1.PolicyInterface
 	// AsValidatingAdmissionPolicy returns the validating admission policy
-	AsValidatingAdmissionPolicy() *admissionregistrationv1beta1.ValidatingAdmissionPolicy
+	AsValidatingAdmissionPolicy() *v1alpha1.ValidatingAdmissionPolicy
 	// GetType returns policy type
 	GetType() PolicyType
 	// GetAPIVersion returns policy API version
@@ -51,7 +51,7 @@ func (p *KyvernoPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 	return p.policy
 }
 
-func (p *KyvernoPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+func (p *KyvernoPolicy) AsValidatingAdmissionPolicy() *v1alpha1.ValidatingAdmissionPolicy {
 	return nil
 }
 
@@ -98,14 +98,14 @@ func NewKyvernoPolicy(pol kyvernov1.PolicyInterface) GenericPolicy {
 }
 
 type ValidatingAdmissionPolicy struct {
-	policy admissionregistrationv1beta1.ValidatingAdmissionPolicy
+	policy v1alpha1.ValidatingAdmissionPolicy
 }
 
 func (p *ValidatingAdmissionPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 	return nil
 }
 
-func (p *ValidatingAdmissionPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1beta1.ValidatingAdmissionPolicy {
+func (p *ValidatingAdmissionPolicy) AsValidatingAdmissionPolicy() *v1alpha1.ValidatingAdmissionPolicy {
 	return &p.policy
 }
 
@@ -114,7 +114,7 @@ func (p *ValidatingAdmissionPolicy) GetType() PolicyType {
 }
 
 func (p *ValidatingAdmissionPolicy) GetAPIVersion() string {
-	return "admissionregistration.k8s.io/v1beta1"
+	return "admissionregistration.k8s.io/v1alpha1"
 }
 
 func (p *ValidatingAdmissionPolicy) GetName() string {
@@ -145,7 +145,7 @@ func (p *ValidatingAdmissionPolicy) MetaObject() metav1.Object {
 	return &p.policy
 }
 
-func NewValidatingAdmissionPolicy(pol admissionregistrationv1beta1.ValidatingAdmissionPolicy) GenericPolicy {
+func NewValidatingAdmissionPolicy(pol v1alpha1.ValidatingAdmissionPolicy) GenericPolicy {
 	return &ValidatingAdmissionPolicy{
 		policy: pol,
 	}

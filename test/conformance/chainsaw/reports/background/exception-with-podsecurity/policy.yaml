@@ -6,6 +6,7 @@ metadata:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
   background: true
+  validationFailureAction: Enforce
   rules:
   - name: restricted
     match:
@@ -14,7 +15,6 @@ spec:
           kinds:
           - Pod
     validate:
-      failureAction: Enforce
       podSecurity:
         level: restricted
         version: latest

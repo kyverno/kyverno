@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: require-ns-purpose-label
 spec:
+  validationFailureAction: Enforce
   rules:
   - name: require-ns-purpose-label
     match:
@@ -11,7 +12,6 @@ spec:
           kinds:
           - Namespace
     validate:
-      failureAction: Enforce
       message: "You must have label `purpose` with value `production` set on all new namespaces."
       pattern:
         metadata:

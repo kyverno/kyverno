@@ -40,11 +40,16 @@ type GlobalContextEntry struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
-	Spec GlobalContextEntrySpec `json:"spec"`
+	Spec GlobalContextEntrySpec `json:"spec" yaml:"spec"`
 
 	// Status contains globalcontextentry runtime data.
 	// +optional
 	Status GlobalContextEntryStatus `json:"status,omitempty"`
+}
+
+// GetStatus returns the globalcontextentry status
+func (p *GlobalContextEntry) GetStatus() *GlobalContextEntryStatus {
+	return &p.Status
 }
 
 // Validate implements programmatic validation
@@ -53,9 +58,12 @@ func (c *GlobalContextEntry) Validate() (errs field.ErrorList) {
 	return errs
 }
 
+// IsNamespaced indicates if the policy is namespace scoped
+func (c *GlobalContextEntry) IsNamespaced() bool {
+	return false
+}
+
 // GlobalContextEntrySpec stores policy exception spec
-// +kubebuilder:oneOf:={required:{kubernetesResource}}
-// +kubebuilder:oneOf:={required:{apiCall}}
 type GlobalContextEntrySpec struct {
 	// Stores a list of Kubernetes resources which will be cached.
 	// Mutually exclusive with APICall.
@@ -110,15 +118,15 @@ type GlobalContextEntryList struct {
 // KubernetesResource stores infos about kubernetes resource that should be cached
 type KubernetesResource struct {
 	// Group defines the group of the resource.
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	Group string `json:"group,omitempty"`
 	// Version defines the version of the resource.
 	// +kubebuilder:validation:Required
-	Version string `json:"version"`
+	Version string `json:"version,omitempty"`
 	// Resource defines the type of the resource.
 	// Requires the pluralized form of the resource kind in lowercase. (Ex., "deployments")
 	// +kubebuilder:validation:Required
-	Resource string `json:"resource"`
+	Resource string `json:"resource,omitempty"`
 	// Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 	// If left empty for namespaced resources, all resources from all namespaces will be cached.
 	// +kubebuilder:validation:Optional
@@ -128,8 +136,7 @@ type KubernetesResource struct {
 
 // Validate implements programmatic validation
 func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
-	isCoreGroup := k.Group == "" && k.Version == "v1"
-	if k.Group == "" && !isCoreGroup {
+	if k.Group == "" {
 		errs = append(errs, field.Required(path.Child("group"), "A Resource entry requires a group"))
 	}
 	if k.Version == "" {
@@ -149,12 +156,6 @@ type ExternalAPICall struct {
 	// +kubebuilder:validation:Format=duration
 	// +kubebuilder:default=`10m`
 	RefreshInterval *metav1.Duration `json:"refreshInterval,omitempty"`
-	// RetryLimit defines the number of times the APICall should be retried in case of failure.
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:default=3
-	// +kubebuilder:validation:Optional
-	// +optional
-	RetryLimit int `json:"retryLimit,omitempty"`
 }
 
 // Validate implements programmatic validation
@@ -162,11 +163,14 @@ func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
 	if e.RefreshInterval.Duration == 0*time.Second {
 		errs = append(errs, field.Required(path.Child("refreshIntervalSeconds"), "A Resource entry requires a refresh interval greater than 0 seconds"))
 	}
+
 	if (e.Service == nil && e.URLPath == "") || (e.Service != nil && e.URLPath != "") {
 		errs = append(errs, field.Forbidden(path.Child("service"), "An External API call should either have Service or URLPath"))
 	}
+
 	if e.Data != nil && e.Method != "POST" {
 		errs = append(errs, field.Forbidden(path.Child("method"), "An External API call with data should have method as POST"))
 	}
+
 	return errs
 }

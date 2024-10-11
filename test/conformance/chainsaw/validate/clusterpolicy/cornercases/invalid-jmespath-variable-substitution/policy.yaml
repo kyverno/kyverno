@@ -2,7 +2,8 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: test-panic
-spec: 
+spec:
+  validationFailureAction: Enforce 
   background: true 
   rules:
     - name: test-panic
@@ -16,7 +17,6 @@ spec:
         variable:
           jmesPath: '{{ request.object.spec.[containers,initContainers, ephemeralContainers][].image[] }}'
       validate:
-        failureAction: Enforce
         deny:
           conditions:
             all:

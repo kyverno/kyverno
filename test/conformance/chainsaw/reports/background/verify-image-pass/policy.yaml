@@ -3,6 +3,7 @@ kind: Policy
 metadata:
   name: keyed-basic-policy
 spec:
+  validationFailureAction: Audit
   background: true
   webhookTimeoutSeconds: 30
   rules:
@@ -13,8 +14,7 @@ spec:
           kinds:
           - Pod
     verifyImages:
-    - failureAction: Audit
-      imageReferences:
+    - imageReferences:
       - ghcr.io/kyverno/test-verify-image:*
       verifyDigest: false
       mutateDigest: false

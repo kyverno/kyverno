@@ -56,69 +56,67 @@ func exemptExclusions(defaultCheckResults, excludeCheckResults []pssutils.PSSChe
 	}
 
 	for _, excludeResult := range excludeCheckResults {
-		for _, checkID := range pssutils.PSS_control_name_to_ids[exclude.ControlName] {
+		for _, checkID := range pssutils.PSS_controls_to_check_id[exclude.ControlName] {
 			if excludeResult.ID == checkID {
-				if excludeResult.CheckResult.ErrList != nil {
-					for _, excludeFieldErr := range *excludeResult.CheckResult.ErrList {
-						var excludeField, excludeContainerType string
-						var excludeIndexes []int
-						var isContainerLevelField bool = false
-						var excludeContainer corev1.Container
+				for _, excludeFieldErr := range *excludeResult.CheckResult.ErrList {
+					var excludeField, excludeContainerType string
+					var excludeIndexes []int
+					var isContainerLevelField bool = false
+					var excludeContainer corev1.Container
 
-						if isContainerLevelExclusion {
-							excludeField, excludeIndexes, excludeContainerType, isContainerLevelField = parseField(excludeFieldErr.Field)
-						} else {
-							excludeField = regexIndex.ReplaceAllString(excludeFieldErr.Field, "*")
-						}
+					if isContainerLevelExclusion {
+						excludeField, excludeIndexes, excludeContainerType, isContainerLevelField = parseField(excludeFieldErr.Field)
+					} else {
+						excludeField = regexIndex.ReplaceAllString(excludeFieldErr.Field, "*")
+					}
 
-						if isContainerLevelField {
-							excludeContainer = getContainerInfo(matching, excludeIndexes[0], excludeContainerType)
-						}
-						excludeBadValues := extractBadValues(excludeFieldErr)
+					if isContainerLevelField {
+						excludeContainer = getContainerInfo(matching, excludeIndexes[0], excludeContainerType)
+					}
+					excludeBadValues := extractBadValues(excludeFieldErr)
 
-						if excludeField == exclude.RestrictedField || len(exclude.RestrictedField) == 0 {
-							flag := true
-							if len(exclude.Values) != 0 {
-								for _, badValue := range excludeBadValues {
-									if !wildcard.CheckPatterns(exclude.Values, badValue) {
-										flag = false
-										break
-									}
+					if excludeField == exclude.RestrictedField || len(exclude.RestrictedField) == 0 {
+						flag := true
+						if len(exclude.Values) != 0 {
+							for _, badValue := range excludeBadValues {
+								if !wildcard.CheckPatterns(exclude.Values, badValue) {
+									flag = false
+									break
 								}
 							}
-							if flag {
-								defaultCheckResult := defaultCheckResultsMap[checkID]
-								if defaultCheckResult.CheckResult.ErrList != nil {
-									for idx, defaultFieldErr := range *defaultCheckResult.CheckResult.ErrList {
-										var defaultField, defaultContainerType string
-										var defaultIndexes []int
-										var isContainerLevelField bool = false
-										var defaultContainer corev1.Container
+						}
+						if flag {
+							defaultCheckResult := defaultCheckResultsMap[checkID]
+							if defaultCheckResult.CheckResult.ErrList != nil {
+								for idx, defaultFieldErr := range *defaultCheckResult.CheckResult.ErrList {
+									var defaultField, defaultContainerType string
+									var defaultIndexes []int
+									var isContainerLevelField bool = false
+									var defaultContainer corev1.Container
 
-										if isContainerLevelExclusion {
-											defaultField, defaultIndexes, defaultContainerType, isContainerLevelField = parseField(defaultFieldErr.Field)
-										} else {
-											defaultField = regexIndex.ReplaceAllString(defaultFieldErr.Field, "*")
-										}
-
-										if isContainerLevelField {
-											defaultContainer = getContainerInfo(pod, defaultIndexes[0], defaultContainerType)
-											if excludeField == defaultField && excludeContainer.Name == defaultContainer.Name {
-												remove(defaultCheckResult.CheckResult.ErrList, idx)
-												break
-											}
-										} else {
-											if excludeField == defaultField {
-												remove(defaultCheckResult.CheckResult.ErrList, idx)
-												break
-											}
-										}
-									}
-									if len(*defaultCheckResult.CheckResult.ErrList) == 0 {
-										delete(defaultCheckResultsMap, checkID)
+									if isContainerLevelExclusion {
+										defaultField, defaultIndexes, defaultContainerType, isContainerLevelField = parseField(defaultFieldErr.Field)
 									} else {
-										defaultCheckResultsMap[checkID] = defaultCheckResult
+										defaultField = regexIndex.ReplaceAllString(defaultFieldErr.Field, "*")
 									}
+
+									if isContainerLevelField {
+										defaultContainer = getContainerInfo(pod, defaultIndexes[0], defaultContainerType)
+										if excludeField == defaultField && excludeContainer.Name == defaultContainer.Name {
+											remove(defaultCheckResult.CheckResult.ErrList, idx)
+											break
+										}
+									} else {
+										if excludeField == defaultField {
+											remove(defaultCheckResult.CheckResult.ErrList, idx)
+											break
+										}
+									}
+								}
+								if len(*defaultCheckResult.CheckResult.ErrList) == 0 {
+									delete(defaultCheckResultsMap, checkID)
+								} else {
+									defaultCheckResultsMap[checkID] = defaultCheckResult
 								}
 							}
 						}
@@ -294,7 +292,7 @@ func GetPodWithMatchingContainers(exclude kyvernov1.PodSecurityStandard, pod *co
 
 // Get restrictedFields from Check.ID
 func GetRestrictedFields(check policy.Check) []pssutils.RestrictedField {
-	for _, control := range pssutils.PSS_control_name_to_ids {
+	for _, control := range pssutils.PSS_controls_to_check_id {
 		for _, checkID := range control {
 			if string(check.ID) == checkID {
 				return pssutils.PSS_controls[checkID]

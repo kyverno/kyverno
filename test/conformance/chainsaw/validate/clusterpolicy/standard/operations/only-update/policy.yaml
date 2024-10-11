@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: test
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
   - name: test
@@ -14,5 +15,4 @@ spec:
           operations:
           - UPDATE
     validate:
-      failureAction: Enforce
       deny: {}

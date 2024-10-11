@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: check-value
 spec:
+  validationFailureAction: Enforce
   rules:
     - name: check-value
       match:
@@ -11,7 +12,6 @@ spec:
             kinds:
             - ConfigMap
       validate:
-        failureAction: Enforce
         message: "All data values must be in the specified range."
         pattern:
           data:

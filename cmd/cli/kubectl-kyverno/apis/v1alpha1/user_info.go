@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -15,5 +15,5 @@ type UserInfo struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// RequestInfo declares user infos
-	kyvernov2.RequestInfo `json:",inline"`
+	kyvernov1beta1.RequestInfo `json:",inline"`
 }

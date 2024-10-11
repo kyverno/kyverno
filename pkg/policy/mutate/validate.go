@@ -6,85 +6,79 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policy/auth"
-	"github.com/kyverno/kyverno/pkg/policy/auth/fake"
+	"github.com/kyverno/kyverno/pkg/utils/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // Mutate provides implementation to validate 'mutate' rule
 type Mutate struct {
 	mutation    kyvernov1.Mutation
-	authChecker auth.AuthChecks
+	user        string
+	authChecker auth.Operations
 }
 
 // NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface, mock bool, backgroundSA string) *Mutate {
-	var authCheck auth.AuthChecks
-	if mock {
-		authCheck = fake.NewFakeAuth()
-	} else {
-		authCheck = auth.NewAuth(client, backgroundSA, logging.GlobalLogger())
-	}
-
+func NewMutateFactory(m kyvernov1.Mutation, authChecker auth.Operations, user string) *Mutate {
 	return &Mutate{
 		mutation:    m,
-		authChecker: authCheck,
+		user:        user,
+		authChecker: authChecker,
 	}
 }
 
 // Validate validates the 'mutate' rule
-func (m *Mutate) Validate(ctx context.Context, _ []string) (warnings []string, path string, err error) {
+func (m *Mutate) Validate(ctx context.Context) (string, error) {
 	if m.hasForEach() {
 		if m.hasPatchStrategicMerge() || m.hasPatchesJSON6902() {
-			return nil, "foreach", fmt.Errorf("only one of `foreach`, `patchStrategicMerge`, or `patchesJson6902` is allowed")
+			return "foreach", fmt.Errorf("only one of `foreach`, `patchStrategicMerge`, or `patchesJson6902` is allowed")
 		}
 
 		return m.validateForEach("", m.mutation.ForEachMutation)
 	}
 
 	if m.hasPatchesJSON6902() && m.hasPatchStrategicMerge() {
-		return nil, "foreach", fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
+		return "foreach", fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 	}
 
 	if m.mutation.Targets != nil {
 		if err := m.validateAuth(ctx, m.mutation.Targets); err != nil {
-			return nil, "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.authChecker.User(), err)
+			return "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.user, err)
 		}
 	}
-	return nil, "", nil
+	return "", nil
 }
 
-func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation) (warnings []string, path string, err error) {
+func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation) (string, error) {
 	for i, fe := range foreach {
 		tag = tag + fmt.Sprintf("foreach[%d]", i)
-		fem := fe.GetForEachMutation()
-		if len(fem) > 0 {
+		if fe.ForEachMutation != nil {
 			if fe.Context != nil || fe.AnyAllConditions != nil || fe.PatchesJSON6902 != "" || fe.RawPatchStrategicMerge != nil {
-				return nil, tag, fmt.Errorf("a nested foreach cannot contain other declarations")
+				return tag, fmt.Errorf("a nested foreach cannot contain other declarations")
 			}
 
-			return m.validateNestedForEach(tag, fem)
+			return m.validateNestedForEach(tag, fe.ForEachMutation)
 		}
 
 		psm := fe.GetPatchStrategicMerge()
 		if (fe.PatchesJSON6902 == "" && psm == nil) || (fe.PatchesJSON6902 != "" && psm != nil) {
-			return nil, tag, fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
+			return tag, fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 		}
 	}
 
-	return nil, "", nil
+	return "", nil
 }
 
-func (m *Mutate) validateNestedForEach(tag string, j []kyvernov1.ForEachMutation) (warnings []string, path string, err error) {
-	if j != nil {
-		return m.validateForEach(tag, j)
+func (m *Mutate) validateNestedForEach(tag string, j *v1.JSON) (string, error) {
+	nestedForeach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](j)
+	if err != nil {
+		return tag, fmt.Errorf("invalid foreach syntax: %w", err)
 	}
 
-	return nil, "", nil
+	return m.validateForEach(tag, nestedForeach)
 }
 
 func (m *Mutate) hasForEach() bool {
@@ -102,20 +96,25 @@ func (m *Mutate) hasPatchesJSON6902() bool {
 func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetResourceSpec) error {
 	var errs []error
 	for _, target := range targets {
-		if regex.IsVariable(target.Kind) {
-			continue
-		}
-		_, _, k, sub := kubeutils.ParseKindSelector(target.Kind)
-		gvk := strings.Join([]string{target.APIVersion, k}, "/")
-		verbs := []string{"get", "update"}
-		ok, msg, err := m.authChecker.CanI(ctx, verbs, gvk, target.Namespace, target.Name, sub)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			errs = append(errs, fmt.Errorf(msg)) //nolint:all
+		if !regex.IsVariable(target.Kind) {
+			_, _, k, sub := kubeutils.ParseKindSelector(target.Kind)
+			srcKey := k
+			if sub != "" {
+				srcKey = srcKey + "/" + sub
+			}
+
+			if ok, err := m.authChecker.CanIUpdate(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, sub); err != nil {
+				errs = append(errs, err)
+			} else if !ok {
+				errs = append(errs, fmt.Errorf("cannot %s/%s/%s in namespace %s", "update", target.APIVersion, srcKey, target.Namespace))
+			}
+
+			if ok, err := m.authChecker.CanIGet(ctx, strings.Join([]string{target.APIVersion, k}, "/"), target.Namespace, sub); err != nil {
+				errs = append(errs, err)
+			} else if !ok {
+				errs = append(errs, fmt.Errorf("cannot %s/%s/%s in namespace %s", "get", target.APIVersion, srcKey, target.Namespace))
+			}
 		}
 	}
-
 	return multierr.Combine(errs...)
 }

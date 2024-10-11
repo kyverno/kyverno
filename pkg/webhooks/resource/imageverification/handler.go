@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/d4f"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
@@ -40,7 +40,7 @@ type imageVerificationHandler struct {
 	admissionReports bool
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
-	reportsBreaker   breaker.Breaker
+	reportsBreaker   d4f.Breaker
 }
 
 func NewImageVerificationHandler(
@@ -51,7 +51,7 @@ func NewImageVerificationHandler(
 	admissionReports bool,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
-	reportsBreaker breaker.Breaker,
+	reportsBreaker d4f.Breaker,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
@@ -71,7 +71,7 @@ func (h *imageVerificationHandler) Handle(
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) ([]byte, []string, error) {
-	ok, message, imagePatches, warnings := h.handleVerifyImages(ctx, h.log, request, policyContext, policies, h.cfg)
+	ok, message, imagePatches, warnings := h.handleVerifyImages(ctx, h.log, request, policyContext, policies)
 	if !ok {
 		return nil, nil, errors.New(message)
 	}
@@ -85,7 +85,6 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	request admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
 	policies []kyvernov1.PolicyInterface,
-	cfg config.Configuration,
 ) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
 		return true, "", nil, nil
@@ -122,7 +121,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	}
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
-	events := webhookutils.GenerateEvents(engineResponses, blocked, cfg)
+	events := webhookutils.GenerateEvents(engineResponses, blocked)
 	h.eventGen.Add(events...)
 
 	if blocked {

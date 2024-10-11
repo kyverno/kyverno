@@ -39,7 +39,7 @@ type controller struct {
 	polLister  kyvernov1listers.PolicyLister
 
 	// queue
-	queue workqueue.TypedRateLimitingInterface[any]
+	queue workqueue.RateLimitingInterface
 
 	// client
 	client dclient.Interface
@@ -50,7 +50,7 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 		cache:      pcache,
 		cpolLister: cpolInformer.Lister(),
 		polLister:  polInformer.Lister(),
-		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
+		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		client:     client,
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
@@ -113,7 +113,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookMatchConditions() {
+	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookConfiguration() {
 		if policy.IsReady() {
 			return c.cache.Set(key, policy, c.client.Discovery())
 		} else {

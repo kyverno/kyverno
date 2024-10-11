@@ -1,4 +1,4 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1alpha1
 kind: ValidatingAdmissionPolicy
 metadata:
   labels:
@@ -11,13 +11,6 @@ metadata:
 spec:
   failurePolicy: Fail
   matchConstraints:
-    namespaceSelector:
-      matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: In
-        values:
-        - production
-        - staging
     resourceRules:
     - apiGroups:
       - '*'
@@ -26,8 +19,6 @@ spec:
       operations:
       - CREATE
       - UPDATE
-      - CONNECT
-      - DELETE
       resources:
       - '*'
   validations:

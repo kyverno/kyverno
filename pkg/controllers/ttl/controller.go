@@ -29,7 +29,7 @@ const (
 type controller struct {
 	name         string
 	client       metadata.Getter
-	queue        workqueue.TypedRateLimitingInterface[any]
+	queue        workqueue.RateLimitingInterface
 	lister       cache.GenericLister
 	informer     cache.SharedIndexInformer
 	registration cache.ResourceEventHandlerRegistration
@@ -48,7 +48,7 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 	if gvr.Group != "" {
 		name = gvr.Group + "/" + name
 	}
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: name})
+	queue := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: name})
 	c := &controller{
 		name:     name,
 		client:   client,
@@ -57,7 +57,6 @@ func newController(client metadata.Getter, metainformer informers.GenericInforme
 		informer: metainformer.Informer(),
 		logger:   logger,
 		metrics:  newTTLMetrics(logger),
-		gvr:      gvr,
 	}
 	enqueue := controllerutils.LogError(logger, controllerutils.Parse(controllerutils.MetaNamespaceKey, controllerutils.Queue(queue)))
 	registration, err := controllerutils.AddEventHandlers(
@@ -118,34 +117,6 @@ func (c *controller) deregisterEventHandlers() {
 	c.logger.V(3).Info("deregistered event handlers")
 }
 
-// Function to determine the deletion propagation policy
-func (c *controller) determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *metav1.DeletionPropagation {
-	annotations := metaObj.GetAnnotations()
-	var policy *metav1.DeletionPropagation
-
-	if annotations != nil {
-		annotationPolicy := annotations["kyverno.AnnotationCleanupPropagationPolicy"]
-		if annotationPolicy == "" {
-			switch annotationPolicy {
-			case "Foreground":
-				fg := metav1.DeletePropagationForeground
-				policy = &fg
-			case "Background":
-				bg := metav1.DeletePropagationBackground
-				policy = &bg
-			case "Orphan":
-				orphan := metav1.DeletePropagationOrphan
-				policy = &orphan
-			case "":
-				return nil
-			default:
-				logger.Info("Unknown propagationPolicy annotation, no global policy found", "policy", annotationPolicy)
-			}
-		}
-	}
-	return policy
-}
-
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey string, _, _ string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
 	if err != nil {
@@ -173,7 +144,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		attribute.String("resource_namespace", metaObj.GetNamespace()),
 		attribute.String("resource_group", c.gvr.Group),
 		attribute.String("resource_version", c.gvr.Version),
-		attribute.String("resource_resource", c.gvr.Resource),
+		attribute.String("resource", c.gvr.Resource),
 	}
 	// if the object is being deleted, return early
 	if metaObj.GetDeletionTimestamp() != nil {
@@ -192,10 +163,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		return nil
 	}
 	if time.Now().After(deletionTime) {
-		deleteOptions := metav1.DeleteOptions{
-			PropagationPolicy: c.determinePropagationPolicy(metaObj, logger),
-		}
-		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
+		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to delete resource")
 			if c.metrics.ttlFailureTotal != nil {

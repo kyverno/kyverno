@@ -14,7 +14,6 @@ spec:
           - Pod
     name: block-images
     validate:
-      failureAction: Audit
       foreach:
       - context:
         - imageRegistry:
@@ -27,3 +26,4 @@ spec:
             value: '{{ element.name }}'
         list: request.object.spec.containers
       message: Images containing built-in volumes are prohibited.
+  validationFailureAction: Audit

@@ -1,6 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: cpol-clone-nosync-delete-policy
 spec:
   steps:
@@ -12,8 +13,6 @@ spec:
         file: policy-ready.yaml
   - name: step-02
     try:
-    - apply:
-        file: permissions.yaml
     - apply:
         file: ns.yaml
     - assert:

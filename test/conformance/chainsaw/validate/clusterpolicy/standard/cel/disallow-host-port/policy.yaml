@@ -5,6 +5,7 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
     - name: host-port
@@ -17,7 +18,6 @@ spec:
               - CREATE
               - UPDATE
       validate:
-        failureAction: Enforce
         cel:
           expressions:
             - expression: "object.spec.containers.all(container, !has(container.ports) || container.ports.all(port, !has(port.hostPort) || port.hostPort == 0))"

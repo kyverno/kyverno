@@ -32,3 +32,4 @@ spec:
         value:
         - CREATE
         - UPDATE
+  validationFailureAction: Audit

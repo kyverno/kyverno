@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -16,7 +16,7 @@ import (
 )
 
 type updateRequestResponse struct {
-	ur  kyvernov2.UpdateRequestSpec
+	ur  kyvernov1beta1.UpdateRequestSpec
 	err error
 }
 
@@ -47,13 +47,13 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 func applyUpdateRequest(
 	ctx context.Context,
 	request admissionv1.AdmissionRequest,
-	ruleType kyvernov2.RequestType,
+	ruleType kyvernov1beta1.RequestType,
 	urGenerator updaterequest.Generator,
-	userRequestInfo kyvernov2.RequestInfo,
+	userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation,
 	engineResponses ...*engineapi.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
-	admissionRequestInfo := kyvernov2.AdmissionRequestInfoObject{
+	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
 		AdmissionRequest: &request,
 		Operation:        action,
 	}
@@ -70,7 +70,7 @@ func applyUpdateRequest(
 	return
 }
 
-func transform(admissionRequestInfo kyvernov2.AdmissionRequestInfoObject, userRequestInfo kyvernov2.RequestInfo, er *engineapi.EngineResponse, ruleType kyvernov2.RequestType) (urs []kyvernov2.UpdateRequestSpec) {
+func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *engineapi.EngineResponse, ruleType kyvernov1beta1.RequestType) (urs []kyvernov1beta1.UpdateRequestSpec) {
 	var PolicyNameNamespaceKey string
 	if er.Policy().GetNamespace() != "" {
 		PolicyNameNamespaceKey = er.Policy().GetNamespace() + "/" + er.Policy().GetName()
@@ -79,7 +79,7 @@ func transform(admissionRequestInfo kyvernov2.AdmissionRequestInfoObject, userRe
 	}
 
 	for _, rule := range er.PolicyResponse.Rules {
-		ur := kyvernov2.UpdateRequestSpec{
+		ur := kyvernov1beta1.UpdateRequestSpec{
 			Type:   ruleType,
 			Policy: PolicyNameNamespaceKey,
 			Rule:   rule.Name(),
@@ -90,7 +90,7 @@ func transform(admissionRequestInfo kyvernov2.AdmissionRequestInfoObject, userRe
 				APIVersion: er.Resource.GetAPIVersion(),
 				UID:        er.Resource.GetUID(),
 			},
-			Context: kyvernov2.UpdateRequestSpecContext{
+			Context: kyvernov1beta1.UpdateRequestSpecContext{
 				UserRequestInfo:      userRequestInfo,
 				AdmissionRequestInfo: admissionRequestInfo,
 			},

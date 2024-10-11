@@ -1,6 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: unset-paramref-namespace
 spec:
   steps:
@@ -16,8 +17,6 @@ spec:
         file: crd.yaml
     - assert:
         file: crd-assert.yaml
-    - apply:
-        file: permissions.yaml
   - name: step-03
     try:
     - apply:

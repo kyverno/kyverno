@@ -179,7 +179,7 @@ func (o options) processFile(out io.Writer, path string) {
 			yamlBytes = append(yamlBytes, []byte("---\n")...)
 			yamlBytes = append(yamlBytes, finalBytes...)
 		}
-		if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil { //nolint:gosec
+		if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
 			fmt.Fprintf(out, "    ERROR: saving file (%s): %s", path, err)
 			fmt.Fprintln(out)
 			return

@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: cpol-namespace-variable
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
     - name: apply-flag
       match:
@@ -14,7 +15,6 @@ spec:
                 matchLabels:
                   policy.lan/flag: 'true'
       mutate:
-        mutateExistingOnPolicyUpdate: false
         targets:
           - kind: PersistentVolumeClaim
             apiVersion: v1

@@ -6,6 +6,7 @@ spec:
   background: true
   failurePolicy: Fail
   webhookTimeoutSeconds: 30
+  validationFailureAction: Audit
   rules:
   - match:
       any:
@@ -29,5 +30,4 @@ spec:
       - ghcr.io/kyverno/test-verify-image:*
       mutateDigest: false
       verifyDigest: false
-      failureAction: Audit
 
