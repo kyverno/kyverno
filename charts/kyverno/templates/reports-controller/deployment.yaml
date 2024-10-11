@@ -119,6 +119,7 @@ spec:
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.reportsController.featuresOverride)
+              "reporting"
               "admissionReports"
               "aggregateReports"
               "policyReports"

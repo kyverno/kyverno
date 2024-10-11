@@ -78,6 +78,7 @@ type controller struct {
 	jp            jmespath.Interface
 	eventGen      event.Interface
 	policyReports bool
+	reportsConfig reportutils.ReportingConfiguration
 	breaker       breaker.Breaker
 }
 
@@ -98,6 +99,7 @@ func NewController(
 	jp jmespath.Interface,
 	eventGen event.Interface,
 	policyReports bool,
+	reportsConfig reportutils.ReportingConfiguration,
 	breaker breaker.Breaker,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
@@ -120,6 +122,7 @@ func NewController(
 		jp:             jp,
 		eventGen:       eventGen,
 		policyReports:  policyReports,
+		reportsConfig:  reportsConfig,
 		breaker:        breaker,
 	}
 	if vapInformer != nil {
@@ -422,7 +425,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client)
+			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, bindings, policy) {
 				if result.Error != nil {
 					return result.Error
