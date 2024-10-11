@@ -6,10 +6,10 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/validation/field"	
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// +genclient	
+// +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
