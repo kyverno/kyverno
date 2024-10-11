@@ -10,6 +10,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
@@ -77,6 +78,7 @@ type controller struct {
 	jp            jmespath.Interface
 	eventGen      event.Interface
 	policyReports bool
+	breaker       breaker.Breaker
 }
 
 func NewController(
@@ -96,6 +98,7 @@ func NewController(
 	jp jmespath.Interface,
 	eventGen event.Interface,
 	policyReports bool,
+	breaker breaker.Breaker,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -117,6 +120,7 @@ func NewController(
 		jp:             jp,
 		eventGen:       eventGen,
 		policyReports:  policyReports,
+		breaker:        breaker,
 	}
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
@@ -462,7 +466,13 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 	if !hasReport && !wantsReport {
 		return nil
 	} else if !hasReport && wantsReport {
-		_, err = reportutils.CreateReport(ctx, desired, c.kyvernoClient)
+		err = c.breaker.Do(ctx, func(context.Context) error {
+			_, err := reportutils.CreateReport(ctx, desired, c.kyvernoClient)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 		return err
 	} else if hasReport && !wantsReport {
 		if observed.GetNamespace() == "" {
