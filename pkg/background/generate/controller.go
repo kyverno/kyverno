@@ -58,8 +58,8 @@ type GenerateController struct {
 	log logr.Logger
 	jp  jmespath.Interface
 
-	backgroundReports bool
-	reportsBreaker    breaker.Breaker
+	reportsConfig  reportutils.ReportingConfiguration
+	reportsBreaker breaker.Breaker
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
@@ -76,24 +76,24 @@ func NewGenerateController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
-	backgroundReports bool,
+	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) *GenerateController {
 	c := GenerateController{
-		client:            client,
-		kyvernoClient:     kyvernoClient,
-		statusControl:     statusControl,
-		engine:            engine,
-		policyLister:      policyLister,
-		npolicyLister:     npolicyLister,
-		urLister:          urLister,
-		nsLister:          nsLister,
-		configuration:     dynamicConfig,
-		eventGen:          eventGen,
-		log:               log,
-		jp:                jp,
-		backgroundReports: backgroundReports,
-		reportsBreaker:    reportsBreaker,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		statusControl:  statusControl,
+		engine:         engine,
+		policyLister:   policyLister,
+		npolicyLister:  npolicyLister,
+		urLister:       urLister,
+		nsLister:       nsLister,
+		configuration:  dynamicConfig,
+		eventGen:       eventGen,
+		log:            log,
+		jp:             jp,
+		reportsConfig:  reportsConfig,
+		reportsBreaker: reportsBreaker,
 	}
 	return &c
 }
@@ -236,7 +236,7 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 		logger.V(4).Info(doesNotApply)
 		return nil, errors.New(doesNotApply)
 	}
-	if c.needsReports(trigger, c.backgroundReports) {
+	if c.needsReports(trigger) {
 		if err := c.createReports(context.TODO(), policyContext.NewResource(), engineResponse); err != nil {
 			c.log.Error(err, "failed to create report")
 		}
@@ -373,8 +373,8 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 	return resource, nil
 }
 
-func (c *GenerateController) needsReports(trigger unstructured.Unstructured, backgroundReports bool) bool {
-	createReport := backgroundReports
+func (c *GenerateController) needsReports(trigger unstructured.Unstructured) bool {
+	createReport := c.reportsConfig.GenerateReportsEnabled()
 	// check if the resource supports reporting
 	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
 		createReport = false
