@@ -22,7 +22,7 @@ type breaker struct {
 }
 
 func NewBreaker(name string, open func(context.Context) bool) *breaker {
-	logger := logging.WithName("cricuit-breaker")
+	logger := logging.WithName("circuit-breaker")
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	drops, err := meter.Int64Counter(
 		"kyverno_breaker_drops",
