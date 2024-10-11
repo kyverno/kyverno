@@ -30,7 +30,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -189,13 +188,13 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	logger = logger.WithValues("policy", policy.GetName(), "deletionPolicy", deletionPolicy)
 
 	// Add delete options based on the deletion policy
-	deleteOptions := &v1.DeleteOptions{}
+	deleteOptions := &metav1.DeleteOptions{}
 	if deletionPolicy != nil {
 		if *deletionPolicy == "foreground" {
-			dp := v1.DeletePropagationForeground
+			dp := metav1.DeletePropagationForeground
 			deleteOptions.PropagationPolicy = &dp
 		} else if *deletionPolicy == "background" {
-			dp := v1.DeletePropagationBackground
+			dp := metav1.DeletePropagationBackground
 			deleteOptions.PropagationPolicy = &dp
 		}
 	}

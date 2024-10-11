@@ -227,7 +227,7 @@ type CleanupPolicySpec struct {
 
 	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background).
 	// +optional
-  DeletionPropagationPolicy *string `json:"deletionPropagationPolicy,omitempty"`
+	DeletionPropagationPolicy *string `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // CleanupPolicyStatus stores the status of the policy.q
