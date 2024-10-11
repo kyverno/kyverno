@@ -133,7 +133,7 @@ type ClusterCleanupPolicy struct {
 
 	// Status contains policy runtime data.
 	// +optional
-	Status CleanupPolicyStatus `json:"status,omitempty"` 
+	Status CleanupPolicyStatus `json:"status,omitempty"`
 }
 
 // GetSpec returns the policy spec
@@ -225,7 +225,7 @@ type CleanupPolicySpec struct {
 	// +optional
 	Conditions *AnyAllConditions `json:"conditions,omitempty"`
 
-	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).
+	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background).
   // +optional
   DeletionPropagationPolicy string `json:"deletionPropagationPolicy,omitempty"`
 }

@@ -31,6 +31,7 @@ import (
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/workqueue"
@@ -184,9 +185,18 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 
 	// get the deletion policy
 	deletionPolicy := spec.DeletionPropagationPolicy
-
 	// Log the deletion policy for debugging
-	debug.Info("Deletion Propagation Policy", "policy", deletionPolicy)
+	debug.Info("Using Deletion Propagation Policy", "policy", deletionPolicy)
+
+	// Add delete options based on the deletion policy
+	deleteOptions := &v1.DeleteOptions{}
+		if deletionPolicy == "foreground" {
+			dp := v1.DeletePropagationForeground
+			deleteOptions.PropagationPolicy = &dp
+		}else if deletionPolicy == "background" {
+			dp := v1.DeletePropagationBackground
+			deleteOptions.PropagationPolicy = &dp
+		}
 
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
@@ -275,7 +285,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 						continue
 					} else {
 						debug.Info("resource/exclude didn't match", "result", excluded)
-					}
+					}	
 				}
 				// check conditions
 				if spec.Conditions != nil {
@@ -306,28 +316,22 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 						continue
 					}
 				}
+				// Create delete options based on the deletion policy
+				var deleteOptions metav1.DeleteOptions
+				if deletionPolicy == "foreground" {
+						dp := metav1.DeletePropagationForeground
+						deleteOptions.PropagationPolicy = &dp
+				} else if deletionPolicy == "background" {
+						dp := metav1.DeletePropagationBackground
+						deleteOptions.PropagationPolicy = &dp
+				}
 				var labels []attribute.KeyValue	
 				labels = append(labels, commonLabels...)
 				labels = append(labels, attribute.String("resource_namespace", namespace))
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 
-				// Set the deletion options including the propagation policy
-				var propagationPolicy metav1.DeletionPropagation
-				switch deletionPolicy {
-				case "Foreground":
-						propagationPolicy = metav1.DeletePropagationForeground
-				case "Background":
-						propagationPolicy = metav1.DeletePropagationBackground
-				default:
-						propagationPolicy = metav1.DeletePropagationBackground
-				}
-
-				deleteOptions := &metav1.DeleteOptions{
-						PropagationPolicy: &propagationPolicy,
-				}
-
 				// Delete the resource with the specified propagation policy
-				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, deleteOptions); err != nil {
+				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 					if c.metrics.cleanupFailuresTotal != nil {
 						c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 					}

@@ -225,7 +225,7 @@ type CleanupPolicySpec struct {
 	// +optional
 	Conditions *AnyAllConditions `json:"conditions,omitempty"`
 
-	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).
+	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background).
 	// +optional
 	DeletionPropagationPolicy string `json:"deletionPropagationPolicy,omitempty"`
 }
