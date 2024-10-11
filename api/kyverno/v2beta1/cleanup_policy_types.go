@@ -226,11 +226,11 @@ type CleanupPolicySpec struct {
 	Conditions *AnyAllConditions `json:"conditions,omitempty"`
 
 	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background).
-  // +optional
+	// +optional
   DeletionPropagationPolicy *string `json:"deletionPropagationPolicy,omitempty"`
 }
 
-// CleanupPolicyStatus stores the status of the policy.
+// CleanupPolicyStatus stores the status of the policy.q
 type CleanupPolicyStatus struct {
 	Conditions        []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 	LastExecutionTime metav1.Time        `json:"lastExecutionTime,omitempty"`

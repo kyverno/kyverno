@@ -30,8 +30,8 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/workqueue"
@@ -187,10 +187,10 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	deletionPolicy := spec.DeletionPropagationPolicy
 	// log the deletion policy
 	logger = logger.WithValues("policy", policy.GetName(), "deletionPolicy", deletionPolicy)
-	
+
 	// Add delete options based on the deletion policy
 	deleteOptions := &v1.DeleteOptions{}
-	if deletionPolicy != nil {  
+	if deletionPolicy != nil {
 		if *deletionPolicy == "foreground" {
 			dp := v1.DeletePropagationForeground
 			deleteOptions.PropagationPolicy = &dp
@@ -217,7 +217,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 
 	var deletionPolicyValue string
 	if deletionPolicy != nil {
-    deletionPolicyValue = *deletionPolicy 
+		deletionPolicyValue = *deletionPolicy
 	}
 
 	for kind := range kinds {
@@ -292,7 +292,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 						continue
 					} else {
 						debug.Info("resource/exclude didn't match", "result", excluded)
-					}	
+					}
 				}
 				// check conditions
 				if spec.Conditions != nil {
@@ -323,7 +323,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 						continue
 					}
 				}
-				var labels []attribute.KeyValue	
+				var labels []attribute.KeyValue
 				labels = append(labels, commonLabels...)
 				labels = append(labels, attribute.String("resource_namespace", namespace))
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")

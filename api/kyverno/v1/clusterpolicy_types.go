@@ -54,7 +54,7 @@ func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
 		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
-			return true 
+			return true
 		}
 	}
 	return false
