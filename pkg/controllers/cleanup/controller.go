@@ -185,18 +185,20 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 
 	// get the deletion policy
 	deletionPolicy := spec.DeletionPropagationPolicy
-	// Log the deletion policy for debugging
-	debug.Info("Using Deletion Propagation Policy", "policy", deletionPolicy)
-
+	// log the deletion policy
+	logger = logger.WithValues("policy", policy.GetName(), "deletionPolicy", deletionPolicy)
+	
 	// Add delete options based on the deletion policy
 	deleteOptions := &v1.DeleteOptions{}
-		if deletionPolicy == "foreground" {
+	if deletionPolicy != nil {  
+		if *deletionPolicy == "foreground" {
 			dp := v1.DeletePropagationForeground
 			deleteOptions.PropagationPolicy = &dp
-		}else if deletionPolicy == "background" {
+		} else if *deletionPolicy == "background" {
 			dp := v1.DeletePropagationBackground
 			deleteOptions.PropagationPolicy = &dp
 		}
+	}
 
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
@@ -213,13 +215,18 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 		return err
 	}
 
+	var deletionPolicyValue string
+	if deletionPolicy != nil {
+    deletionPolicyValue = *deletionPolicy 
+	}
+
 	for kind := range kinds {
 		commonLabels := []attribute.KeyValue{
 			attribute.String("policy_type", policy.GetKind()),
 			attribute.String("policy_namespace", policy.GetNamespace()),
 			attribute.String("policy_name", policy.GetName()),
 			attribute.String("resource_kind", kind),
-			attribute.String("deletion_policy", deletionPolicy),
+			attribute.String("deletion_policy", deletionPolicyValue),
 		}
 		debug := debug.WithValues("kind", kind)
 		debug.Info("processing...")
@@ -315,15 +322,6 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 						debug.Info("conditions did not pass")
 						continue
 					}
-				}
-				// Create delete options based on the deletion policy
-				var deleteOptions metav1.DeleteOptions
-				if deletionPolicy == "foreground" {
-						dp := metav1.DeletePropagationForeground
-						deleteOptions.PropagationPolicy = &dp
-				} else if deletionPolicy == "background" {
-						dp := metav1.DeletePropagationBackground
-						deleteOptions.PropagationPolicy = &dp
 				}
 				var labels []attribute.KeyValue	
 				labels = append(labels, commonLabels...)

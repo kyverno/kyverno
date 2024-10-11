@@ -227,7 +227,7 @@ type CleanupPolicySpec struct {
 
 	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background).
 	// +optional
-	DeletionPropagationPolicy string `json:"deletionPropagationPolicy,omitempty"`
+	DeletionPropagationPolicy *string `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // CleanupPolicyStatus stores the status of the policy.
@@ -298,9 +298,8 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 	}
 
 	// Check if DeletionPropagationPolicy is set appropriately
-	if spec.DeletionPropagationPolicy == "" {
+	if spec.DeletionPropagationPolicy == nil || *spec.DeletionPropagationPolicy == "" {
 		return append(errs, field.Required(path.Child("DeletionPropagationPolicy"), "DeletionPropagationPolicy is required"))
 	}
-
 	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
 }
