@@ -111,8 +111,9 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
+	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
 	flagset.BoolVar(&backgroundReports, "backgroundReports", true, "Enables or disables reports for mutate existing and generate rules.")
-	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of background reports before we stop creating new ones")
+
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
