@@ -53,6 +53,7 @@ kyverno create [flags]
 ### SEE ALSO
 
 * [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
+* [kyverno create cluster-role](kyverno_create_cluster-role.md)	 - Create an aggregated role for given resource types
 * [kyverno create exception](kyverno_create_exception.md)	 - Create a Kyverno policy exception file.
 * [kyverno create metrics-config](kyverno_create_metrics-config.md)	 - Create a Kyverno metrics-config file.
 * [kyverno create test](kyverno_create_test.md)	 - Create a Kyverno test file.

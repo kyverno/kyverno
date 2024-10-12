@@ -60,7 +60,8 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 		return &images.Response{Digest: results[0].Desc.Digest.String()}, nil
 	}
 
-	ref, err := name.ParseReference(opts.ImageRef)
+	nameOpts := opts.Client.NameOptions()
+	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
 	}
@@ -301,12 +302,13 @@ func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return nil, err
 	}
 
+	nameOpts := opts.Client.NameOptions()
 	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
 		"",
 		"VERIFY IMG ATTESTATIONS",
 		func(ctx context.Context, span trace.Span) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
-			ref, err := name.ParseReference(opts.ImageRef)
+			ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 			if err != nil {
 				return nil, false, fmt.Errorf("failed to parse image: %w", err)
 			}

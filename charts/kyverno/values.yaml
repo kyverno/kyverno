@@ -224,6 +224,8 @@ config:
     - '[Pod/binding,*,*]'
     - '[ReplicaSet,*,*]'
     - '[ReplicaSet/*,*,*]'
+    - '[EphemeralReport,*,*]'
+    - '[ClusterEphemeralReport,*,*]'
     # exclude resources from the chart
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}]'
     - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:core]'
@@ -634,6 +636,17 @@ features:
   validatingAdmissionPolicyReports:
     # -- Enables the feature
     enabled: false
+  reporting:
+    # -- Enables the feature
+    validate: true
+    # -- Enables the feature
+    mutate: true
+    # -- Enables the feature
+    mutateExisting: true
+    # -- Enables the feature
+    imageVerify: true
+    # -- Enables the feature
+    generate: true
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true
