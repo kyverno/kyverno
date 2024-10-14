@@ -1,21 +1,23 @@
 package jmespath
 
 import (
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/jmespath-community/go-jmespath"
+	"github.com/jmespath-community/go-jmespath/pkg/functions"
+	"github.com/jmespath-community/go-jmespath/pkg/interpreter"
 	"github.com/kyverno/kyverno/pkg/config"
 )
 
 type QueryProxy struct {
-	jmesPath       *gojmespath.JMESPath
-	functionCaller *gojmespath.FunctionCaller
+	jmesPath       gojmespath.JMESPath
+	functionCaller interpreter.FunctionCaller
 }
 
 func (q *QueryProxy) Search(data interface{}) (interface{}, error) {
 	return q.jmesPath.Search(data, gojmespath.WithFunctionCaller(q.functionCaller))
 }
 
-func newJMESPath(query string, functionCaller *gojmespath.FunctionCaller) (*QueryProxy, error) {
-	jmesPath, err := gojmespath.Compile(query)
+func newJMESPath(query string, functionCaller interpreter.FunctionCaller) (*QueryProxy, error) {
+	jmesPath, err := Compile(query)
 	if err != nil {
 		return nil, err
 	}
@@ -26,17 +28,17 @@ func newJMESPath(query string, functionCaller *gojmespath.FunctionCaller) (*Quer
 }
 
 func newImplementation(configuration config.Configuration) Interface {
-	functionCaller := gojmespath.NewFunctionCaller()
-	functions := GetFunctions(configuration)
-	for _, f := range functions {
-		functionCaller.Register(f.FunctionEntry)
+	list := GetFunctions(configuration)
+	entries := functions.GetDefaultFunctions()
+	for _, f := range list {
+		entries = append(entries, f.FunctionEntry)
 	}
 
 	return implementation{
-		functionCaller,
+		functionCaller: interpreter.NewFunctionCaller(entries...),
 	}
 }
 
-func newExecution(fCall *gojmespath.FunctionCaller, query string, data interface{}) (interface{}, error) {
-	return gojmespath.Search(query, data, gojmespath.WithFunctionCaller(fCall))
+func newExecution(fCall interpreter.FunctionCaller, query string, data interface{}) (interface{}, error) {
+	return Search(query, data, gojmespath.WithFunctionCaller(fCall))
 }
