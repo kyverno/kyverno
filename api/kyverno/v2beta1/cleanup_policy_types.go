@@ -227,7 +227,8 @@ type CleanupPolicySpec struct {
 
 	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background).
 	// +optional
-	DeletionPropagationPolicy *string `json:"deletionPropagationPolicy,omitempty"`
+	// +kubebuilder:validation:Enum=Foreground;Background;Orphan
+	DeletionPropagationPolicy *metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // CleanupPolicyStatus stores the status of the policy.

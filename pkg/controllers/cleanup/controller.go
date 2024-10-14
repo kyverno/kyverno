@@ -184,25 +184,16 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 
 	// get the deletion policy
 	deletionPolicy := spec.DeletionPropagationPolicy
-	// log the deletion policy
 	logger = logger.WithValues("policy", policy.GetName(), "deletionPolicy", deletionPolicy)
 
 	// Add delete options based on the deletion policy
 	deleteOptions := &metav1.DeleteOptions{}
 	if deletionPolicy != nil {
-		switch *deletionPolicy {
-		case "foreground":
-			dp := metav1.DeletePropagationForeground
-			deleteOptions.PropagationPolicy = &dp
-		case "background":
-			dp := metav1.DeletePropagationBackground
-			deleteOptions.PropagationPolicy = &dp
-		case "":
-			logger.Info("DeletionPropagationPolicy is empty string, setting as default")
-		default:
-			logger.Info("Unknown deletion policy, setting as default")
-		}
+		deleteOptions.PropagationPolicy = deletionPolicy
+		logger.Info("Using specified deletion propagation policy", "policy", *deletionPolicy)
 	} else {
+		defaultPolicy := metav1.DeletePropagationForeground
+		deleteOptions.PropagationPolicy = &defaultPolicy
 		logger.Info("DeletionPropagationPolicy is nil, setting as default")
 	}
 
@@ -223,12 +214,12 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 
 	var deletionPolicyValue string
 	if deletionPolicy != nil {
-		deletionPolicyValue = *deletionPolicy
+		deletionPolicyValue = string(*deletionPolicy)
 	}
 
 	for kind := range kinds {
 		commonLabels := []attribute.KeyValue{
-			attribute.String("policy_type", policy.GetKind()),
+			attribute.String("policy_type", policy.GetKind()),	
 			attribute.String("policy_namespace", policy.GetNamespace()),
 			attribute.String("policy_name", policy.GetName()),
 			attribute.String("resource_kind", kind),
