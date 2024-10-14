@@ -29,6 +29,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -55,6 +56,7 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	backgroundScanInterval time.Duration,
 	urGenerator generator.UpdateRequestGenerator,
+	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
@@ -87,6 +89,7 @@ func createrLeaderControllers(
 		eventGenerator,
 		configuration,
 		jp,
+		reportsConfig,
 		reportsBreaker,
 	)
 	return []internal.Controller{
@@ -108,7 +111,8 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
-	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of background reports before we stop creating new ones")
+	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
+
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -127,6 +131,7 @@ func main() {
 		internal.WithApiServerClient(),
 		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
+		internal.WithReporting(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -247,6 +252,7 @@ func main() {
 					setup.Jp,
 					bgscanInterval,
 					urGenerator,
+					setup.ReportingConfiguration,
 					reportsBreaker,
 				)
 				if err != nil {

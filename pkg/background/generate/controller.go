@@ -58,6 +58,7 @@ type GenerateController struct {
 	log logr.Logger
 	jp  jmespath.Interface
 
+	reportsConfig  reportutils.ReportingConfiguration
 	reportsBreaker breaker.Breaker
 }
 
@@ -75,6 +76,7 @@ func NewGenerateController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
+	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) *GenerateController {
 	c := GenerateController{
@@ -90,6 +92,7 @@ func NewGenerateController(
 		eventGen:       eventGen,
 		log:            log,
 		jp:             jp,
+		reportsConfig:  reportsConfig,
 		reportsBreaker: reportsBreaker,
 	}
 	return &c
@@ -371,7 +374,7 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 }
 
 func (c *GenerateController) needsReports(trigger unstructured.Unstructured) bool {
-	createReport := true
+	createReport := c.reportsConfig.GenerateReportsEnabled()
 	// check if the resource supports reporting
 	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
 		createReport = false

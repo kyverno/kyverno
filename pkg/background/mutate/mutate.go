@@ -47,6 +47,7 @@ type mutateExistingController struct {
 	log logr.Logger
 	jp  jmespath.Interface
 
+	reportsConfig  reportutils.ReportingConfiguration
 	reportsBreaker breaker.Breaker
 }
 
@@ -63,6 +64,7 @@ func NewMutateExistingController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
+	reportsConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) *mutateExistingController {
 	c := mutateExistingController{
@@ -77,6 +79,7 @@ func NewMutateExistingController(
 		eventGen:       eventGen,
 		log:            log,
 		jp:             jp,
+		reportsConfig:  reportsConfig,
 		reportsBreaker: reportsBreaker,
 	}
 	return &c
@@ -256,7 +259,7 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 }
 
 func (c *mutateExistingController) needsReports(trigger *unstructured.Unstructured) bool {
-	createReport := true
+	createReport := c.reportsConfig.MutateExistingReportsEnabled()
 	if trigger == nil {
 		return createReport
 	}

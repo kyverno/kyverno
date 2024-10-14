@@ -86,6 +86,8 @@ data:
     [Pod/binding,*,*]
     [ReplicaSet,*,*]
     [ReplicaSet/*,*,*]
+    [EphemeralReport,*,*]
+    [ClusterEphemeralReport,*,*]
     [ClusterRole,*,kyverno:admission-controller]
     [ClusterRole,*,kyverno:admission-controller:core]
     [ClusterRole,*,kyverno:admission-controller:additional]
@@ -50735,6 +50737,7 @@ spec:
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           resources:
             limits:
@@ -50886,6 +50889,7 @@ spec:
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=true
+            - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
@@ -51139,6 +51143,7 @@ spec:
             - --enablePolicyException=true
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME

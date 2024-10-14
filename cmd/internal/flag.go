@@ -60,6 +60,8 @@ var (
 	imageVerifyCacheMaxSize     int64
 	// global context
 	enableGlobalContext bool
+	// reporting
+	enableReporting string
 )
 
 func initLoggingFlags() {
@@ -136,6 +138,10 @@ func initLeaderElectionFlags() {
 
 func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
+}
+
+func initReportingFlags() {
+	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
 }
 
 type options struct {
@@ -221,6 +227,11 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
+	// reporting
+	if config.UsesReporting() {
+		initReportingFlags()
+	}
+
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {
