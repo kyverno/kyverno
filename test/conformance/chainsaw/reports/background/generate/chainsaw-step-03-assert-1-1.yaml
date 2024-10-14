@@ -13,6 +13,8 @@ results:
   rule: clone-secret
   scored: true
   source: kyverno
+  properties:
+    generated_resources: 'v1/Secret/cpol-clone-nosync-create-ns/regcred'
 scope:
   apiVersion: v1
   kind: Namespace

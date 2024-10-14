@@ -128,6 +128,11 @@ func (r RuleResponse) WithEmitWarning(emitWarning bool) *RuleResponse {
 	return &r
 }
 
+func (r RuleResponse) WithProperties(m map[string]string) *RuleResponse {
+	r.properties = m
+	return &r
+}
+
 func (r *RuleResponse) Stats() ExecutionStats {
 	return r.stats
 }

@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -81,13 +82,17 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		genResource, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, []string{rule.Name()})
+		genResourceMap, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, []string{rule.Name()})
 		if err != nil {
 			return nil, err
 		}
+		generatedResources := []kyvernov1.ResourceSpec{}
+		for _, v := range genResourceMap {
+			generatedResources = append(generatedResources, v...)
+		}
 
-		if genResource != nil {
-			unstrGenResource, err := c.GetUnstrResource(genResource[0])
+		if len(generatedResources) > 0 {
+			unstrGenResource, err := c.GetUnstrResource(generatedResources[0])
 			if err != nil {
 				return nil, err
 			}
