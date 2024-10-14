@@ -200,7 +200,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 		case "":
 			logger.Info("DeletionPropagationPolicy is empty string, setting as default")
 		default:
-			logger.Info("Unknown deletion policy, setting as default")	
+			logger.Info("Unknown deletion policy, setting as default")
 		}
 	} else {
 		logger.Info("DeletionPropagationPolicy is nil, setting as default")
