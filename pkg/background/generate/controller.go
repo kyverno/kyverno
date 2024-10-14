@@ -252,11 +252,11 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 
 	for i, v := range engineResponse.PolicyResponse.Rules {
 		if resources, ok := genResourcesMap[v.Name()]; ok {
-			var property []string
-			for _, v := range resources {
-				property = append(property, v.String())
+			unstResources, err := c.GetUnstrResources(resources)
+			if err != nil {
+				c.log.Error(err, "failed to get unst resource names report")
 			}
-			engineResponse.PolicyResponse.Rules[i] = *v.WithProperties(map[string]string{"generated_resources": strings.Join(property, "; ")})
+			engineResponse.PolicyResponse.Rules[i] = *v.WithGeneratedResources(unstResources)
 		}
 	}
 
@@ -384,12 +384,16 @@ func NewGenerateControllerWithOnlyClient(client dclient.Interface, engine engine
 }
 
 // GetUnstrResource converts ResourceSpec object to type Unstructured
-func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.ResourceSpec) (*unstructured.Unstructured, error) {
-	resource, err := c.client.GetResource(context.TODO(), genResourceSpec.APIVersion, genResourceSpec.Kind, genResourceSpec.Namespace, genResourceSpec.Name)
-	if err != nil {
-		return nil, err
+func (c *GenerateController) GetUnstrResources(genResourceSpecs []kyvernov1.ResourceSpec) ([]*unstructured.Unstructured, error) {
+	resources := []*unstructured.Unstructured{}
+	for _, genResourceSpec := range genResourceSpecs {
+		resource, err := c.client.GetResource(context.TODO(), genResourceSpec.APIVersion, genResourceSpec.Kind, genResourceSpec.Namespace, genResourceSpec.Name)
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, resource)
 	}
-	return resource, nil
+	return resources, nil
 }
 
 func (c *GenerateController) needsReports(trigger unstructured.Unstructured) bool {

@@ -90,14 +90,11 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 		for _, v := range genResourceMap {
 			generatedResources = append(generatedResources, v...)
 		}
-
-		if len(generatedResources) > 0 {
-			unstrGenResource, err := c.GetUnstrResource(generatedResources[0])
-			if err != nil {
-				return nil, err
-			}
-			newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResource(*unstrGenResource))
+		unstrGenResources, err := c.GetUnstrResources(generatedResources)
+		if err != nil {
+			return nil, err
 		}
+		newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResources(unstrGenResources))
 	}
 
 	return newRuleResponse, nil
