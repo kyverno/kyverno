@@ -16,12 +16,18 @@ func getAndCompareResource(actualResources []*unstructured.Unstructured, fs bill
 
 	expectedResourcesMap := map[string]unstructured.Unstructured{}
 	for _, expectedResource := range expectedResources {
+		if expectedResource == nil {
+			continue
+		}
 		r := *expectedResource
 		resource.FixupGenerateLabels(r)
 		expectedResourcesMap[expectedResource.GetNamespace()+"/"+expectedResource.GetName()] = r
 	}
 
 	for _, actualResource := range actualResources {
+		if actualResource == nil {
+			continue
+		}
 		r := *actualResource
 		resource.FixupGenerateLabels(r)
 		equals, err := resource.Compare(r, expectedResourcesMap[r.GetNamespace()+"/"+r.GetName()], true)
