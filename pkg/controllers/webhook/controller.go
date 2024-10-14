@@ -12,6 +12,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	autogenv2 "github.com/kyverno/kyverno/pkg/autogenv2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -568,21 +569,11 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		status := policy.GetStatus()
 		status.SetReady(ready, message)
 		status.Autogen.Rules = nil
-
-		ruleNames := autogenv2.GetAutogenRuleNames(policy)
-
-		var rules []kyvernov1.Rule
-		for _, name := range ruleNames {
-			rules = append(rules, kyvernov1.Rule{Name: name}) // Adjust this line based on your Rule struct
-		}
-
+		rules := autogen.ComputeRules(policy, "")
 		setRuleCount(rules, status)
-
-		status.Autogen.Rules = []kyvernov1.Rule{}
-
-		for _, rule := range ruleNames {
-			if strings.HasPrefix(rule, "autogen-") {
-				status.Autogen.Rules = append(status.Autogen.Rules, kyvernov1.Rule{Name: rule})
+		for _, rule := range rules {
+			if strings.HasPrefix(rule.Name, "autogen-") {
+				status.Autogen.Rules = append(status.Autogen.Rules, rule)
 			}
 		}
 		return nil
