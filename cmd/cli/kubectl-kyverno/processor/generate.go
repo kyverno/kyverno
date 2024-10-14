@@ -79,7 +79,7 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 		return nil, err
 	}
 
-	var newRuleResponse []engineapi.RuleResponse
+	newRuleResponse := []engineapi.RuleResponse{}
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		genResourceMap, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, []string{rule.Name()})
