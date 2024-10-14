@@ -354,6 +354,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 			Stdin:                c.Stdin,
 			Rc:                   &rc,
 			PrintPatchResource:   true,
+			Cluster:              c.Cluster,
 			Client:               dClient,
 			AuditWarn:            c.AuditWarn,
 			Subresources:         vars.Subresources(),
@@ -477,6 +478,7 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, skipI
 		}
 
 		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targets...)
+		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 		if err != nil {
 			return nil, nil, skipInvalidPolicies, nil, nil, err
 		}
