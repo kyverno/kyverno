@@ -84,7 +84,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string) ([]*unstructured.Unst
 		return nil, err
 	}
 	if len(resources) == 0 {
-		return nil, fmt.Errorf("exactly one resource expected, found %d", len(resources))
+		return nil, fmt.Errorf("no resources found")
 	}
 	return resources, nil
 }
