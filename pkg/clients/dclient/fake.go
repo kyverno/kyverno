@@ -7,6 +7,7 @@ import (
 
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -16,7 +17,32 @@ import (
 
 // NewFakeClient ---testing utilities
 func NewFakeClient(scheme *runtime.Scheme, gvrToListKind map[schema.GroupVersionResource]string, objects ...runtime.Object) (Interface, error) {
-	c := fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...)
+	unstructuredScheme := runtime.NewScheme()
+	for gvk := range scheme.AllKnownTypes() {
+		if unstructuredScheme.Recognizes(gvk) {
+			continue
+		}
+		if strings.HasSuffix(gvk.Kind, "List") {
+			unstructuredScheme.AddKnownTypeWithName(gvk, &unstructured.UnstructuredList{})
+			continue
+		}
+		unstructuredScheme.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+	}
+	objects, err := convertObjectsToUnstructured(scheme, objects)
+	if err != nil {
+		panic(err)
+	}
+	for _, obj := range objects {
+		gvk := obj.GetObjectKind().GroupVersionKind()
+		if !unstructuredScheme.Recognizes(gvk) {
+			unstructuredScheme.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+		}
+		gvk.Kind += "List"
+		if !unstructuredScheme.Recognizes(gvk) {
+			unstructuredScheme.AddKnownTypeWithName(gvk, &unstructured.UnstructuredList{})
+		}
+	}
+	c := fake.NewSimpleDynamicClientWithCustomListKinds(unstructuredScheme, gvrToListKind, objects...)
 	// the typed and dynamic client are initialized with similar resources
 	kclient := kubefake.NewSimpleClientset(objects...)
 	return &client{
@@ -100,4 +126,38 @@ func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
 
 func (c *fakeDiscoveryClient) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
 	return nil
+}
+
+func convertObjectsToUnstructured(s *runtime.Scheme, objs []runtime.Object) ([]runtime.Object, error) {
+	ul := make([]runtime.Object, 0, len(objs))
+	for _, obj := range objs {
+		u, err := convertToUnstructured(s, obj)
+		if err != nil {
+			return nil, err
+		}
+		ul = append(ul, u)
+	}
+	return ul, nil
+}
+
+func convertToUnstructured(s *runtime.Scheme, obj runtime.Object) (runtime.Object, error) {
+	var (
+		err error
+		u   unstructured.Unstructured
+	)
+	u.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert to unstructured: %w", err)
+	}
+	gvk := u.GroupVersionKind()
+	if gvk.Group == "" || gvk.Kind == "" {
+		gvks, _, err := s.ObjectKinds(obj)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert to unstructured - unable to get GVK %w", err)
+		}
+		apiv, k := gvks[0].ToAPIVersionAndKind()
+		u.SetAPIVersion(apiv)
+		u.SetKind(k)
+	}
+	return &u, nil
 }
