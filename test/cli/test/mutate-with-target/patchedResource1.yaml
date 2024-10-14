@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    foo.io/foo: bar
+    vault.hashicorp.com/agent-inject: "true"
+  labels:
+    app: busybox
+  name: deployment01
+  namespace: update-image-tag-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      containers:
+        - image: vault:1.6.0
+          name: vault-agent
+        - image: busybox:1.35
+          name: busybox
