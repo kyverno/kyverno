@@ -225,7 +225,7 @@ type CleanupPolicySpec struct {
 	// +optional
 	Conditions *AnyAllConditions `json:"conditions,omitempty"`
 
-	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background).
+	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).
 	// +optional
 	// +kubebuilder:validation:Enum=Foreground;Background;Orphan
 	DeletionPropagationPolicy *metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
@@ -297,8 +297,8 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 		return errs
 	}
 	// Check if DeletionPropagationPolicy is set appropriately
-	if spec.DeletionPropagationPolicy == nil || *spec.DeletionPropagationPolicy == "" {
-		return append(errs, field.Required(path.Child("DeletionPropagationPolicy"), "DeletionPropagationPolicy is required"))
+	if spec.DeletionPropagationPolicy != nil && *spec.DeletionPropagationPolicy == "" {
+		return append(errs, field.Invalid(path.Child("DeletionPropagationPolicy"), spec.DeletionPropagationPolicy, "Invalid DeletionPropagationPolicy value"))
 	}
 	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
 }
