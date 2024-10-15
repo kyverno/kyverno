@@ -43,6 +43,7 @@ type PolicyProcessor struct {
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 *variables.Variables
+	Cluster                   bool
 	UserInfo                  *kyvernov2.RequestInfo
 	PolicyReport              bool
 	NamespaceSelectorMap      map[string]map[string]string
@@ -87,7 +88,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	resourceName := resource.GetName()
 	resourceNamespace := resource.GetNamespace()
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
-	if p.Client == nil {
+	if !p.Cluster {
 		for _, s := range p.Subresources {
 			subgvk := schema.GroupVersionKind{
 				Group:   s.Subresource.Group,
@@ -350,6 +351,21 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 			return fmt.Errorf("failed to marshal (%w)", err)
 		}
 
+		var yamlEncodedTargetResources [][]byte
+		for _, ruleResponese := range response.PolicyResponse.Rules {
+			patchedTarget, _, _ := ruleResponese.PatchedTarget()
+
+			if patchedTarget != nil {
+				yamlEncodedResource, err := yamlv2.Marshal(patchedTarget.Object)
+				if err != nil {
+					return fmt.Errorf("failed to marshal (%w)", err)
+				}
+
+				yamlEncodedResource = append(yamlEncodedResource, []byte("\n---")...)
+				yamlEncodedTargetResources = append(yamlEncodedTargetResources, yamlEncodedResource)
+			}
+		}
+
 		if p.MutateLogPath == "" {
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
@@ -357,6 +373,12 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 					fmt.Fprintf(p.Out, "\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
 				}
 				fmt.Fprintf(p.Out, "\n"+mutatedResource+"\n") //nolint:govet
+				if len(yamlEncodedTargetResources) > 0 {
+					fmt.Fprintf(p.Out, "patched targets: \n")
+					for _, patchedTarget := range yamlEncodedTargetResources {
+						fmt.Fprintf(p.Out, "\n"+string(patchedTarget)+"\n")
+					}
+				}
 			}
 		} else {
 			err := p.printMutatedOutput(string(yamlEncodedResource))
