@@ -361,6 +361,10 @@ spec:
               deletionPropagationPolicy:
                 description: DeletionPropagationPolicy defines how resources will
                   be deleted (Foreground, Background).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
                 type: string
               exclude:
                 description: |-
@@ -1650,6 +1654,10 @@ spec:
               deletionPropagationPolicy:
                 description: DeletionPropagationPolicy defines how resources will
                   be deleted (Foreground, Background).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
                 type: string
               exclude:
                 description: |-

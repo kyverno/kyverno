@@ -219,7 +219,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 
 	for kind := range kinds {
 		commonLabels := []attribute.KeyValue{
-			attribute.String("policy_type", policy.GetKind()),	
+			attribute.String("policy_type", policy.GetKind()),
 			attribute.String("policy_namespace", policy.GetNamespace()),
 			attribute.String("policy_name", policy.GetName()),
 			attribute.String("resource_kind", kind),
