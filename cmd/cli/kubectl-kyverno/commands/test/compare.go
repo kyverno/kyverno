@@ -8,16 +8,35 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func getAndCompareResource(actualResource unstructured.Unstructured, fs billy.Filesystem, path string) (bool, error) {
-	expectedResource, err := resource.GetResourceFromPath(fs, path)
+func getAndCompareResource(actualResources []*unstructured.Unstructured, fs billy.Filesystem, path string) (bool, error) {
+	expectedResources, err := resource.GetResourceFromPath(fs, path)
 	if err != nil {
 		return false, fmt.Errorf("error: failed to load resource (%s)", err)
 	}
-	resource.FixupGenerateLabels(actualResource)
-	resource.FixupGenerateLabels(*expectedResource)
-	equals, err := resource.Compare(actualResource, *expectedResource, true)
-	if err != nil {
-		return false, fmt.Errorf("error: failed to compare resources (%s)", err)
+
+	expectedResourcesMap := map[string]unstructured.Unstructured{}
+	for _, expectedResource := range expectedResources {
+		if expectedResource == nil {
+			continue
+		}
+		r := *expectedResource
+		resource.FixupGenerateLabels(r)
+		expectedResourcesMap[expectedResource.GetNamespace()+"/"+expectedResource.GetName()] = r
 	}
-	return equals, nil
+
+	for _, actualResource := range actualResources {
+		if actualResource == nil {
+			continue
+		}
+		r := *actualResource
+		resource.FixupGenerateLabels(r)
+		equals, err := resource.Compare(r, expectedResourcesMap[r.GetNamespace()+"/"+r.GetName()], true)
+		if err != nil {
+			return false, fmt.Errorf("error: failed to compare resources (%s)", err)
+		}
+		if !equals {
+			return false, nil
+		}
+	}
+	return true, nil
 }
