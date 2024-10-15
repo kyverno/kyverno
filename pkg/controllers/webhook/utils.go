@@ -2,7 +2,6 @@ package webhook
 
 import (
 	"cmp"
-	"reflect"
 	"slices"
 	"strings"
 
@@ -12,7 +11,6 @@ import (
 	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	objectmeta "k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
@@ -27,37 +25,17 @@ type webhook struct {
 
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
-	rules             map[groupVersionScope]sets.Set[string]
+	rules             sets.Set[GroupVersionResourceScopeOperation]
 	matchConditions   []admissionregistrationv1.MatchCondition
-}
-
-// groupVersionScope contains the GV and scopeType of a resource
-type groupVersionScope struct {
-	schema.GroupVersion
-	scopeType admissionregistrationv1.ScopeType
-}
-
-// String puts / between group/version and scope
-func (gvs groupVersionScope) String() string {
-	return gvs.GroupVersion.String() + "/" + string(gvs.scopeType)
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition) *webhook {
 	return &webhook{
 		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
-		rules:             map[groupVersionScope]sets.Set[string]{},
+		rules:             sets.New[GroupVersionResourceScopeOperation](),
 		matchConditions:   matchConditions,
 	}
-}
-
-func findKeyContainingSubstring(m map[string][]admissionregistrationv1.OperationType, substring string, defaultOpn []admissionregistrationv1.OperationType) []admissionregistrationv1.OperationType {
-	for key, value := range m {
-		if key == "Pod/exec" || strings.Contains(strings.ToLower(key), strings.ToLower(substring)) || strings.Contains(strings.ToLower(substring), strings.ToLower(key)) {
-			return value
-		}
-	}
-	return defaultOpn
 }
 
 func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition, policy kyvernov1.PolicyInterface) *webhook {
@@ -72,43 +50,58 @@ func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.Fa
 	return webhook
 }
 
-func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistrationv1.OperationType, defaultOpn []admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
-	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(wh.rules))
+func (wh *webhook) buildRules() []admissionregistrationv1.RuleWithOperations {
+	// Group By GroupVersionResourceScope
+	gvrsGroupedRules := make(map[string]*admissionregistrationv1.RuleWithOperations)
+	for gvrso := range wh.rules {
+		key := gvrso.GroupVersion().String() + "/" + gvrso.Resource + "/" + string(gvrso.Scope)
 
-	for gv, resources := range wh.rules {
-		ruleforset := make([]admissionregistrationv1.RuleWithOperations, 0, len(resources))
-		for res := range resources {
-			resource := sets.New(res)
+		if rule, exists := gvrsGroupedRules[key]; exists {
+			rule.Operations = append(rule.Operations, gvrso.Operation)
+		} else {
+			resources := []string{gvrso.Resource}
 			// if we have pods, we add pods/ephemeralcontainers by default
-			if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resource.Has("pods") || resource.Has("*")) {
-				resource.Insert("pods/ephemeralcontainers")
+			if (gvrso.Group == "" || gvrso.Group == "*") && (gvrso.Version == "v1" || gvrso.Version == "*") && (gvrso.Resource == "pods" || gvrso.Resource == "*") {
+				resources = append(resources, "pods/ephemeralcontainers")
 			}
 
-			operations := findKeyContainingSubstring(final, res, defaultOpn)
-			if len(operations) == 0 {
-				continue
-			}
-
-			slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
-				return cmp.Compare(a, b)
-			})
-			var added bool
-			ruleforset, added = appendResourceInRule(resource, operations, ruleforset)
-			if !added {
-				ruleforset = append(ruleforset, admissionregistrationv1.RuleWithOperations{
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{gv.Group},
-						APIVersions: []string{gv.Version},
-						Resources:   sets.List(resource),
-						Scope:       ptr.To(gv.scopeType),
-					},
-					Operations: operations,
-				})
+			gvrsGroupedRules[key] = &admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{gvrso.Operation},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{gvrso.Group},
+					APIVersions: []string{gvrso.Version},
+					Resources:   resources,
+					Scope:       ptr.To(gvrso.Scope),
+				},
 			}
 		}
-		rules = append(rules, ruleforset...)
 	}
-	for _, rule := range rules {
+
+	// Group By GroupVersionScopeOperations
+	gvsoGroupedRules := make(map[string]*admissionregistrationv1.RuleWithOperations)
+	for _, rule := range gvrsGroupedRules {
+		slices.SortFunc(rule.Operations, func(a, b admissionregistrationv1.OperationType) int {
+			return cmp.Compare(a, b)
+		})
+		operations := make([]string, len(rule.Operations))
+		for i, op := range rule.Operations {
+			operations[i] = string(op)
+		}
+		key := rule.APIGroups[0] + "/" + rule.APIVersions[0] + "/" + string(*rule.Scope) + "/" + strings.Join(operations, ",")
+
+		if groupedRule, exists := gvsoGroupedRules[key]; exists {
+			groupedRule.Resources = append(groupedRule.Resources, rule.Resources...)
+		} else {
+			gvsoGroupedRules[key] = rule
+		}
+	}
+
+	result := make([]admissionregistrationv1.RuleWithOperations, 0, len(gvrsGroupedRules))
+	for _, rule := range gvsoGroupedRules {
+		result = append(result, *rule)
+	}
+
+	for _, rule := range result {
 		slices.Sort(rule.Resources)
 	}
 	less := func(a []string, b []string) (int, bool) {
@@ -122,7 +115,7 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 		}
 		return 0, false
 	}
-	slices.SortFunc(rules, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
+	slices.SortFunc(result, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
 		if x, match := less(a.APIGroups, b.APIGroups); match {
 			return x
 		}
@@ -137,82 +130,106 @@ func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistra
 		}
 		return 0
 	})
-	return rules
+
+	return result
 }
 
-func appendResourceInRule(resource sets.Set[string], operations []admissionregistrationv1.OperationType, ruleforset []admissionregistrationv1.RuleWithOperations) ([]admissionregistrationv1.RuleWithOperations, bool) {
-	for i, rule := range ruleforset {
-		if reflect.DeepEqual(rule.Operations, operations) {
-			ruleforset[i].Rule.Resources = append(rule.Rule.Resources, sets.List(resource)...)
-			return ruleforset, true
+type RuleKey struct {
+	Kind string
+	Op   admissionregistrationv1.OperationType
+}
+
+// ExtractKindOpFromRule extracts kinds and operations from the rule
+func ExtractKindOpFromRule(
+	r *kyvernov1.Rule,
+	kindOpSet sets.Set[RuleKey],
+	defaultOps ...admissionregistrationv1.OperationType,
+) {
+	InsertKindOpusingResDescription(&r.MatchResources.ResourceDescription, kindOpSet, defaultOps...)
+	for _, resFilter := range r.MatchResources.Any {
+		InsertKindOpusingResDescription(&resFilter.ResourceDescription, kindOpSet, defaultOps...)
+	}
+	for _, resFilter := range r.MatchResources.All {
+		InsertKindOpusingResDescription(&resFilter.ResourceDescription, kindOpSet, defaultOps...)
+	}
+
+	if r.ExcludeResources != nil {
+		DeleteKindOpUsingResDescription(&r.ExcludeResources.ResourceDescription, kindOpSet)
+		for _, resFilter := range r.ExcludeResources.Any {
+			DeleteKindOpUsingResDescription(&resFilter.ResourceDescription, kindOpSet)
+		}
+		for _, resFilter := range r.ExcludeResources.All {
+			DeleteKindOpUsingResDescription(&resFilter.ResourceDescription, kindOpSet)
 		}
 	}
-	return ruleforset, false
 }
 
-func scanResourceFilterForResources(resFilter kyvernov1.ResourceFilters) []string {
-	var resources []string
-	for _, rf := range resFilter {
-		if rf.ResourceDescription.Kinds != nil {
-			resources = append(resources, rf.ResourceDescription.Kinds...)
+// InsertKindOpusingResDescription adds kinds and operations from the resource description
+func InsertKindOpusingResDescription(
+	d *kyvernov1.ResourceDescription,
+	kindOpSet sets.Set[RuleKey],
+	defaultOps ...admissionregistrationv1.OperationType,
+) {
+	for _, kind := range d.Kinds {
+		if len(d.Operations) > 0 {
+			for _, op := range d.Operations {
+				kindOpSet.Insert(RuleKey{Kind: kind, Op: admissionregistrationv1.OperationType(op)})
+			}
+		} else {
+			InsertKindWithDefaultOperations([]string{kind}, kindOpSet, defaultOps...)
 		}
 	}
-	return resources
 }
 
-func scanResourceFilter(resFilter kyvernov1.ResourceFilters, operationStatusMap map[string]bool) (bool, map[string]bool) {
-	opFound := false
-	for _, rf := range resFilter {
-		if rf.ResourceDescription.Operations != nil {
-			for _, o := range rf.ResourceDescription.Operations {
-				opFound = true
-				operationStatusMap[string(o)] = true
+func InsertKindWithDefaultOperations(
+	kinds []string,
+	kindOpSet sets.Set[RuleKey],
+	defaultOps ...admissionregistrationv1.OperationType,
+) {
+	for _, kind := range kinds {
+		for _, op := range defaultOps {
+			kindOpSet.Insert(RuleKey{Kind: kind, Op: op})
+		}
+	}
+}
+
+// DeleteKindOpUsingResDescription removes kinds and operations using the resource description
+func DeleteKindOpUsingResDescription(
+	d *kyvernov1.ResourceDescription,
+	kindOpSet sets.Set[RuleKey],
+) {
+	if len(d.Kinds) == 0 {
+		for gvko := range kindOpSet {
+			for _, op := range d.Operations {
+				if gvko.Op == admissionregistrationv1.OperationType(op) {
+					kindOpSet.Delete(gvko)
+				}
 			}
 		}
 	}
-	return opFound, operationStatusMap
-}
-
-func scanResourceFilterForExclude(resFilter kyvernov1.ResourceFilters, operationStatusMap map[string]bool) (bool, map[string]bool) {
-	opFound := false
-	for _, rf := range resFilter {
-		if rf.ResourceDescription.Operations != nil {
-			for _, o := range rf.ResourceDescription.Operations {
-				opFound = true
-				operationStatusMap[string(o)] = false
-			}
+	for _, kind := range d.Kinds {
+		for _, op := range d.Operations {
+			kindOpSet.Delete(RuleKey{Kind: kind, Op: admissionregistrationv1.OperationType(op)})
 		}
 	}
-	return opFound, operationStatusMap
 }
 
-func (wh *webhook) set(gvrs GroupVersionResourceScope) {
-	gvs := groupVersionScope{
-		GroupVersion: gvrs.GroupVersion(),
-		scopeType:    gvrs.Scope,
-	}
-
+func (wh *webhook) set(gvrso GroupVersionResourceScopeOperation) {
 	// check if the resource contains wildcard and is already added as all scope
 	// in that case, we do not need to add it again as namespaced scope
-	if (gvrs.Resource == "*" || gvrs.Group == "*") && gvs.scopeType == admissionregistrationv1.NamespacedScope {
-		allScopeResource := groupVersionScope{
-			GroupVersion: gvs.GroupVersion,
-			scopeType:    admissionregistrationv1.AllScopes,
+	if (gvrso.Resource == "*" || gvrso.Group == "*") && gvrso.Scope == admissionregistrationv1.NamespacedScope {
+		allScopeResource := GroupVersionResourceScopeOperation{
+			GroupVersionResource: gvrso.GroupVersionResource,
+			Scope:                admissionregistrationv1.AllScopes,
+			Operation:            gvrso.Operation,
 		}
-		resources := wh.rules[allScopeResource]
-		if resources != nil {
+		if wh.rules.Has(allScopeResource) {
 			// explicitly do nothing as the resource is already added as all scope
 			return
 		}
 	}
 
-	// check if the resource is already added
-	resources := wh.rules[gvs]
-	if resources == nil {
-		wh.rules[gvs] = sets.New(gvrs.Resource)
-	} else {
-		resources.Insert(gvrs.Resource)
-	}
+	wh.rules.Insert(gvrso)
 }
 
 func (wh *webhook) isEmpty() bool {
@@ -240,163 +257,6 @@ func objectMeta(name string, annotations map[string]string, labels map[string]st
 		Annotations:     annotations,
 		OwnerReferences: owner,
 	}
-}
-
-func computeOperationsForValidatingWebhookConf(r kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
-	var opFound bool
-	opFoundCount := 0
-	if len(r.MatchResources.Any) != 0 {
-		opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
-		opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-	}
-	if len(r.MatchResources.All) != 0 {
-		opFound, operationStatusMap = scanResourceFilter(r.MatchResources.All, operationStatusMap)
-		opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-	}
-	if r.MatchResources.ResourceDescription.Operations != nil {
-		for _, o := range r.MatchResources.ResourceDescription.Operations {
-			opFound = true
-			operationStatusMap[string(o)] = true
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-	}
-	if !opFound {
-		operationStatusMap[webhookCreate] = true
-		operationStatusMap[webhookUpdate] = true
-		operationStatusMap[webhookConnect] = true
-		operationStatusMap[webhookDelete] = true
-	}
-	if r.ExcludeResources != nil {
-		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-				operationStatusMap[string(o)] = false
-			}
-		}
-		if len(r.ExcludeResources.Any) != 0 {
-			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
-		}
-		if len(r.ExcludeResources.All) != 0 {
-			_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
-		}
-	}
-	return operationStatusMap
-}
-
-func opFoundCountIncrement(opFound bool, opFoundCount int) int {
-	if opFound {
-		opFoundCount++
-	}
-	return opFoundCount
-}
-
-func computeOperationsForMutatingWebhookConf(r kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
-	if r.HasMutate() || r.HasVerifyImages() {
-		var opFound bool
-		opFoundCount := 0
-		if len(r.MatchResources.Any) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if len(r.MatchResources.All) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.All, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if r.MatchResources.ResourceDescription.Operations != nil {
-			for _, o := range r.MatchResources.ResourceDescription.Operations {
-				opFound = true
-				operationStatusMap[string(o)] = true
-				opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-			}
-		}
-		if opFoundCount == 0 {
-			operationStatusMap[webhookCreate] = true
-			operationStatusMap[webhookUpdate] = true
-		}
-		if r.ExcludeResources != nil {
-			if r.ExcludeResources.ResourceDescription.Operations != nil {
-				for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-					operationStatusMap[string(o)] = false
-				}
-			}
-			if len(r.ExcludeResources.Any) != 0 {
-				_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.Any, operationStatusMap)
-			}
-			if len(r.ExcludeResources.All) != 0 {
-				_, operationStatusMap = scanResourceFilterForExclude(r.ExcludeResources.All, operationStatusMap)
-			}
-		}
-	}
-	return operationStatusMap
-}
-
-func mergeOperations(operationStatusMap map[string]bool, currentOps []admissionregistrationv1.OperationType) []admissionregistrationv1.OperationType {
-	operationReq := make([]admissionregistrationv1.OperationType, 0, 4)
-	for k, v := range operationStatusMap {
-		if v {
-			var oper admissionregistrationv1.OperationType = admissionregistrationv1.OperationType(k)
-			operationReq = append(operationReq, oper)
-		}
-	}
-	result := sets.New(currentOps...).Insert(operationReq...)
-	return sets.List(result)
-}
-
-func getOperationStatusMap() map[string]bool {
-	operationStatusMap := make(map[string]bool)
-	operationStatusMap[webhookCreate] = false
-	operationStatusMap[webhookUpdate] = false
-	operationStatusMap[webhookDelete] = false
-	operationStatusMap[webhookConnect] = false
-	return operationStatusMap
-}
-
-func appendResource(r string, mapResourceToOpn map[string]map[string]bool, opnStatusMap map[string]bool, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) (map[string]map[string]bool, map[string][]admissionregistrationv1.OperationType) {
-	if _, exists := mapResourceToOpn[r]; exists {
-		opnStatMap1 := opnStatusMap
-		opnStatMap2 := mapResourceToOpn[r]
-		for opn := range opnStatusMap {
-			if opnStatMap1[opn] || opnStatMap2[opn] {
-				opnStatusMap[opn] = true
-			}
-		}
-		mapResourceToOpn[r] = opnStatusMap
-		mapResourceToOpnType[r] = mergeOperations(opnStatusMap, mapResourceToOpnType[r])
-	} else {
-		if mapResourceToOpn == nil {
-			mapResourceToOpn = make(map[string]map[string]bool)
-		}
-		mapResourceToOpn[r] = opnStatusMap
-		if mapResourceToOpnType == nil {
-			mapResourceToOpnType = make(map[string][]admissionregistrationv1.OperationType)
-		}
-		mapResourceToOpnType[r] = mergeOperations(opnStatusMap, mapResourceToOpnType[r])
-	}
-	return mapResourceToOpn, mapResourceToOpnType
-}
-
-func computeResourcesOfRule(r kyvernov1.Rule) []string {
-	var resources []string
-	if len(r.MatchResources.Any) != 0 {
-		resources = scanResourceFilterForResources(r.MatchResources.Any)
-	}
-	if len(r.MatchResources.All) != 0 {
-		resources = scanResourceFilterForResources(r.MatchResources.Any)
-	}
-	if r.MatchResources.ResourceDescription.Kinds != nil {
-		resources = append(resources, r.MatchResources.ResourceDescription.Kinds...)
-	}
-	if r.ExcludeResources != nil {
-		if len(r.ExcludeResources.Any) != 0 {
-			resources = scanResourceFilterForResources(r.MatchResources.Any)
-		}
-		if len(r.ExcludeResources.All) != 0 {
-			resources = scanResourceFilterForResources(r.MatchResources.Any)
-		}
-		if r.ExcludeResources.ResourceDescription.Kinds != nil {
-			resources = append(resources, r.ExcludeResources.ResourceDescription.Kinds...)
-		}
-	}
-	return resources
 }
 
 func setRuleCount(rules []kyvernov1.Rule, status *kyvernov1.PolicyStatus) {

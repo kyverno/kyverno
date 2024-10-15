@@ -13,7 +13,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	autogenv2 "github.com/kyverno/kyverno/pkg/autogenv2"
+	"github.com/kyverno/kyverno/pkg/autogenv2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
@@ -822,7 +822,6 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
-	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 	if c.watchdogCheck() {
 		webhookCfg := config.WebhookConfig{}
 		webhookCfgs := cfg.GetWebhooks()
@@ -860,8 +859,6 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					} else {
 						c.mergeWebhook(failWebhook, p, false)
 					}
-					rules := p.GetSpec().Rules
-					mapResourceToOpnType = addOpnForMutatingWebhookConf(rules, mapResourceToOpnType)
 				}
 			}
 		}
@@ -869,14 +866,14 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		webhooks := []*webhook{ignoreWebhook, failWebhook}
 		webhooks = append(webhooks, fineGrainedIgnoreList...)
 		webhooks = append(webhooks, fineGrainedFailList...)
-		result.Webhooks = c.buildResourceMutatingWebhookRules(caBundle, webhookCfg, &noneOnDryRun, webhooks, mapResourceToOpnType)
+		result.Webhooks = c.buildResourceMutatingWebhookRules(caBundle, webhookCfg, &noneOnDryRun, webhooks)
 	} else {
 		c.recordPolicyState(config.MutatingWebhookConfigurationName)
 	}
 	return &result, nil
 }
 
-func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.MutatingWebhook {
+func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.MutatingWebhook {
 	var mutatingWebhooks []admissionregistrationv1.MutatingWebhook //nolint:prealloc
 	objectSelector := webhookCfg.ObjectSelector
 	if objectSelector == nil {
@@ -894,7 +891,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 			admissionregistrationv1.MutatingWebhook{
 				Name:                    name,
 				ClientConfig:            c.clientConfig(caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
+				Rules:                   webhook.buildRules(),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -964,42 +961,11 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 		nil
 }
 
-func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
-	var mapResourceToOpn map[string]map[string]bool
-	for _, r := range rules {
-		if r.HasMutate() || r.HasVerifyImages() {
-			var resources []string
-			operationStatusMap := getOperationStatusMap()
-			operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
-			resources = computeResourcesOfRule(r)
-			for _, r := range resources {
-				mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
-			}
-		}
-	}
-	return mapResourceToOpnType
-}
-
-func addOpnForValidatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
-	var mapResourceToOpn map[string]map[string]bool
-	for _, r := range rules {
-		var resources []string
-		operationStatusMap := getOperationStatusMap()
-		operationStatusMap = computeOperationsForValidatingWebhookConf(r, operationStatusMap)
-		resources = computeResourcesOfRule(r)
-		for _, r := range resources {
-			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
-		}
-	}
-	return mapResourceToOpnType
-}
-
 func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	result := admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
-	var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 	if c.watchdogCheck() {
 		webhookCfg := config.WebhookConfig{}
 		webhookCfgs := cfg.GetWebhooks()
@@ -1040,8 +1006,6 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					}
 				}
 			}
-			rules := p.GetSpec().Rules
-			mapResourceToOpnType = addOpnForValidatingWebhookConf(rules, mapResourceToOpnType)
 		}
 
 		sideEffects := &none
@@ -1052,14 +1016,14 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		webhooks := []*webhook{ignoreWebhook, failWebhook}
 		webhooks = append(webhooks, fineGrainedIgnoreList...)
 		webhooks = append(webhooks, fineGrainedFailList...)
-		result.Webhooks = c.buildResourceValidatingWebhookRules(caBundle, webhookCfg, sideEffects, webhooks, mapResourceToOpnType)
+		result.Webhooks = c.buildResourceValidatingWebhookRules(caBundle, webhookCfg, sideEffects, webhooks)
 	} else {
 		c.recordPolicyState(config.MutatingWebhookConfigurationName)
 	}
 	return &result, nil
 }
 
-func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) []admissionregistrationv1.ValidatingWebhook {
+func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.ValidatingWebhook {
 	var validatingWebhooks []admissionregistrationv1.ValidatingWebhook //nolint:prealloc
 	objectSelector := webhookCfg.ObjectSelector
 	if objectSelector == nil {
@@ -1077,7 +1041,7 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 			admissionregistrationv1.ValidatingWebhook{
 				Name:                    name,
 				ClientConfig:            c.clientConfig(caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
+				Rules:                   webhook.buildRules(),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -1115,36 +1079,38 @@ func (c *controller) getLease() (*coordinationv1.Lease, error) {
 	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno-health")
 }
 
-// GroupVersionResourceScope adds the resource scope to the GVR
-type GroupVersionResourceScope struct {
+// GroupVersionResourceScopeOperation adds the resource scope and operation to the GVR
+type GroupVersionResourceScopeOperation struct {
 	schema.GroupVersionResource
-	Scope admissionregistrationv1.ScopeType
-}
-
-// String puts / between group/version/resource and scope
-func (gvs GroupVersionResourceScope) String() string {
-	return gvs.GroupVersion().String() + "/" + gvs.Resource + "/" + string(gvs.Scope)
+	Scope     admissionregistrationv1.ScopeType
+	Operation admissionregistrationv1.OperationType
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
-	var matchedGVK []string
-	matchedGVK = append(matchedGVK, autogenv2.GetAutogenKinds(policy)...)
+	var defaultOps []admissionregistrationv1.OperationType
+	if updateValidate {
+		defaultOps = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect}
+	} else {
+		defaultOps = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}
+	}
+
+	kindOpSet := sets.New[RuleKey]()
 	for _, rule := range policy.GetSpec().Rules {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
-			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
+			ExtractKindOpFromRule(&rule, kindOpSet, defaultOps...)
 			for _, g := range rule.Generation.ForEachGeneration {
 				if g.GeneratePattern.ResourceSpec.Kind != "" {
-					matchedGVK = append(matchedGVK, g.GeneratePattern.ResourceSpec.Kind)
+					InsertKindWithDefaultOperations([]string{g.GeneratePattern.ResourceSpec.Kind}, kindOpSet, defaultOps...)
 				} else {
-					matchedGVK = append(matchedGVK, g.GeneratePattern.CloneList.Kinds...)
+					InsertKindWithDefaultOperations(g.GeneratePattern.CloneList.Kinds, kindOpSet, defaultOps...)
 				}
 			}
 			if rule.Generation.ResourceSpec.Kind != "" {
-				matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
+				InsertKindWithDefaultOperations([]string{rule.Generation.ResourceSpec.Kind}, kindOpSet, defaultOps...)
 			} else {
-				matchedGVK = append(matchedGVK, rule.Generation.CloneList.Kinds...)
+				InsertKindWithDefaultOperations(rule.Generation.CloneList.Kinds, kindOpSet, defaultOps...)
 				continue
 			}
 		}
@@ -1152,13 +1118,13 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			(updateValidate && rule.HasMutateExisting()) ||
 			(!updateValidate && rule.HasMutateStandard()) ||
 			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
-			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
+			ExtractKindOpFromRule(&rule, kindOpSet, defaultOps...)
 		}
 	}
-	var gvrsList []GroupVersionResourceScope
-	for _, gvk := range matchedGVK {
+	autogenKinds := autogenv2.GetAutogenKinds(policy)
+	for gvko := range kindOpSet {
 		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
-		group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+		group, version, kind, subresource := kubeutils.ParseKindSelector(gvko.Kind)
 
 		// if kind or group is `*` we use the scope of the policy
 		policyScope := admissionregistrationv1.AllScopes
@@ -1168,28 +1134,32 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 
 		// if kind is `*` no need to lookup resources
 		if kind == "*" && subresource == "*" {
-			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"}, Scope: policyScope})
+			dst.set(GroupVersionResourceScopeOperation{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"}, Scope: policyScope, Operation: gvko.Op})
 		} else if kind == "*" && subresource == "" {
-			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"}, Scope: policyScope})
+			dst.set(GroupVersionResourceScopeOperation{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"}, Scope: policyScope, Operation: gvko.Op})
 		} else if kind == "*" && subresource != "" {
-			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource}, Scope: policyScope})
+			dst.set(GroupVersionResourceScopeOperation{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource}, Scope: policyScope, Operation: gvko.Op})
 		} else {
-			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
-			if err != nil {
-				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
-				continue
+			discoveryKinds := []string{kind}
+			if kind == "Pod" {
+				discoveryKinds = append(discoveryKinds, autogenKinds...)
 			}
-			for gvrs, resource := range gvrss {
-				resourceScope := admissionregistrationv1.AllScopes
-				if resource.Namespaced {
-					resourceScope = admissionregistrationv1.NamespacedScope
+			for _, dKind := range discoveryKinds {
+				group, version, kind, _ = kubeutils.ParseKindSelector(dKind)
+				gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
+				if err != nil {
+					logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+					continue
 				}
-				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()), Scope: resourceScope})
+				for gvrs, resource := range gvrss {
+					resourceScope := admissionregistrationv1.AllScopes
+					if resource.Namespaced {
+						resourceScope = admissionregistrationv1.NamespacedScope
+					}
+					dst.set(GroupVersionResourceScopeOperation{GroupVersionResource: gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()), Scope: resourceScope, Operation: gvko.Op})
+				}
 			}
 		}
-	}
-	for _, gvrs := range gvrsList {
-		dst.set(gvrs)
 	}
 
 	spec := policy.GetSpec()
