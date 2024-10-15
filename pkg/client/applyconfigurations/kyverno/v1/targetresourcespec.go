@@ -27,9 +27,9 @@ import (
 // TargetResourceSpecApplyConfiguration represents an declarative configuration of the TargetResourceSpec type for use
 // with apply.
 type TargetResourceSpecApplyConfiguration struct {
-	*ResourceSpecApplyConfiguration `json:"ResourceSpec,omitempty"`
-	Context                         []ContextEntryApplyConfiguration `json:"context,omitempty"`
-	RawAnyAllConditions             *kyvernov1.ConditionsWrapper     `json:"preconditions,omitempty"`
+	*TargetSelectorApplyConfiguration `json:"TargetSelector,omitempty"`
+	Context                           []ContextEntryApplyConfiguration `json:"context,omitempty"`
+	RawAnyAllConditions               *kyvernov1.ConditionsWrapper     `json:"preconditions,omitempty"`
 }
 
 // TargetResourceSpecApplyConfiguration constructs an declarative configuration of the TargetResourceSpec type for use with
@@ -74,15 +74,6 @@ func (b *TargetResourceSpecApplyConfiguration) WithName(value string) *TargetRes
 	return b
 }
 
-// WithSelector sets the Selector field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Selector field is set to the value of the last call.
-func (b *TargetResourceSpecApplyConfiguration) WithSelector(value metav1.LabelSelector) *TargetResourceSpecApplyConfiguration {
-	b.ensureResourceSpecApplyConfigurationExists()
-	b.Selector = &value
-	return b
-}
-
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
@@ -95,6 +86,21 @@ func (b *TargetResourceSpecApplyConfiguration) WithUID(value types.UID) *TargetR
 func (b *TargetResourceSpecApplyConfiguration) ensureResourceSpecApplyConfigurationExists() {
 	if b.ResourceSpecApplyConfiguration == nil {
 		b.ResourceSpecApplyConfiguration = &ResourceSpecApplyConfiguration{}
+	}
+}
+
+// WithSelector sets the Selector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Selector field is set to the value of the last call.
+func (b *TargetResourceSpecApplyConfiguration) WithSelector(value metav1.LabelSelector) *TargetResourceSpecApplyConfiguration {
+	b.ensureTargetSelectorApplyConfigurationExists()
+	b.Selector = &value
+	return b
+}
+
+func (b *TargetResourceSpecApplyConfiguration) ensureTargetSelectorApplyConfigurationExists() {
+	if b.TargetSelectorApplyConfiguration == nil {
+		b.TargetSelectorApplyConfiguration = &TargetSelectorApplyConfiguration{}
 	}
 }
 

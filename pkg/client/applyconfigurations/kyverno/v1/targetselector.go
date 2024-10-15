@@ -19,29 +19,28 @@ limitations under the License.
 package v1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 )
 
-// ResourceSpecApplyConfiguration represents an declarative configuration of the ResourceSpec type for use
+// TargetSelectorApplyConfiguration represents an declarative configuration of the TargetSelector type for use
 // with apply.
-type ResourceSpecApplyConfiguration struct {
-	APIVersion *string    `json:"apiVersion,omitempty"`
-	Kind       *string    `json:"kind,omitempty"`
-	Namespace  *string    `json:"namespace,omitempty"`
-	Name       *string    `json:"name,omitempty"`
-	UID        *types.UID `json:"uid,omitempty"`
+type TargetSelectorApplyConfiguration struct {
+	*ResourceSpecApplyConfiguration `json:"ResourceSpec,omitempty"`
+	Selector                        *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
-// ResourceSpecApplyConfiguration constructs an declarative configuration of the ResourceSpec type for use with
+// TargetSelectorApplyConfiguration constructs an declarative configuration of the TargetSelector type for use with
 // apply.
-func ResourceSpec() *ResourceSpecApplyConfiguration {
-	return &ResourceSpecApplyConfiguration{}
+func TargetSelector() *TargetSelectorApplyConfiguration {
+	return &TargetSelectorApplyConfiguration{}
 }
 
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
-func (b *ResourceSpecApplyConfiguration) WithAPIVersion(value string) *ResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithAPIVersion(value string) *TargetSelectorApplyConfiguration {
+	b.ensureResourceSpecApplyConfigurationExists()
 	b.APIVersion = &value
 	return b
 }
@@ -49,7 +48,8 @@ func (b *ResourceSpecApplyConfiguration) WithAPIVersion(value string) *ResourceS
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
-func (b *ResourceSpecApplyConfiguration) WithKind(value string) *ResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithKind(value string) *TargetSelectorApplyConfiguration {
+	b.ensureResourceSpecApplyConfigurationExists()
 	b.Kind = &value
 	return b
 }
@@ -57,7 +57,8 @@ func (b *ResourceSpecApplyConfiguration) WithKind(value string) *ResourceSpecApp
 // WithNamespace sets the Namespace field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Namespace field is set to the value of the last call.
-func (b *ResourceSpecApplyConfiguration) WithNamespace(value string) *ResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithNamespace(value string) *TargetSelectorApplyConfiguration {
+	b.ensureResourceSpecApplyConfigurationExists()
 	b.Namespace = &value
 	return b
 }
@@ -65,7 +66,8 @@ func (b *ResourceSpecApplyConfiguration) WithNamespace(value string) *ResourceSp
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *ResourceSpecApplyConfiguration) WithName(value string) *ResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithName(value string) *TargetSelectorApplyConfiguration {
+	b.ensureResourceSpecApplyConfigurationExists()
 	b.Name = &value
 	return b
 }
@@ -73,7 +75,22 @@ func (b *ResourceSpecApplyConfiguration) WithName(value string) *ResourceSpecApp
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
-func (b *ResourceSpecApplyConfiguration) WithUID(value types.UID) *ResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithUID(value types.UID) *TargetSelectorApplyConfiguration {
+	b.ensureResourceSpecApplyConfigurationExists()
 	b.UID = &value
+	return b
+}
+
+func (b *TargetSelectorApplyConfiguration) ensureResourceSpecApplyConfigurationExists() {
+	if b.ResourceSpecApplyConfiguration == nil {
+		b.ResourceSpecApplyConfiguration = &ResourceSpecApplyConfiguration{}
+	}
+}
+
+// WithSelector sets the Selector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Selector field is set to the value of the last call.
+func (b *TargetSelectorApplyConfiguration) WithSelector(value metav1.LabelSelector) *TargetSelectorApplyConfiguration {
+	b.Selector = &value
 	return b
 }
