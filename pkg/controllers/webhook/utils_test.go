@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -157,7 +157,7 @@ func Test_RuleCount(t *testing.T) {
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
 	status := cpol.GetStatus()
-	rules := autogenv1.ComputeRules(&cpol, "")
+	rules := autogen.Default.ComputeRules(&cpol, "")
 	setRuleCount(rules, status)
 	assert.Equal(t, status.RuleCount.Validate, 0)
 	assert.Equal(t, status.RuleCount.Generate, 0)

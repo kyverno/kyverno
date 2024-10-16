@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
@@ -28,7 +28,7 @@ func (e *engine) verifyAndPatchImages(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	for _, rule := range autogenv1.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		startTime := time.Now()
 		logger := internal.LoggerWithRule(logger, rule)
 		handlerFactory := func() (handlers.Handler, error) {

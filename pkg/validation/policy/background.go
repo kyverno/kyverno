@@ -5,7 +5,7 @@ import (
 	"regexp"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 )
 
 var ForbiddenUserVariables = []*regexp.Regexp{
@@ -18,7 +18,7 @@ var ForbiddenUserVariables = []*regexp.Regexp{
 
 // containsUserVariables returns error if variable that does not start from request.object
 func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) error {
-	rules := autogenv1.ComputeRules(policy, "")
+	rules := autogen.Default.ComputeRules(policy, "")
 	for idx := range rules {
 		if err := hasUserMatchExclude(idx, &rules[idx]); err != nil {
 			return err

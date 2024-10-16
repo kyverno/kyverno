@@ -9,7 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -54,7 +54,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 
 		// skip rules that don't specify the DELETE operation in case the admission request is of type DELETE
 		var skipped []string
-		for _, rule := range autogenv1.ComputeRules(policy, "") {
+		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			if request.AdmissionRequest.Operation == admissionv1.Delete && !webhookutils.MatchDeleteOperation(rule) {
 				skipped = append(skipped, rule.Name)
 			}
