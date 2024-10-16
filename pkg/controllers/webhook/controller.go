@@ -59,10 +59,6 @@ const (
 	IdleDeadline              = tickerInterval * 10
 	maxRetries                = 10
 	tickerInterval            = 10 * time.Second
-	webhookCreate             = "CREATE"
-	webhookUpdate             = "UPDATE"
-	webhookDelete             = "DELETE"
-	webhookConnect            = "CONNECT"
 )
 
 var (
