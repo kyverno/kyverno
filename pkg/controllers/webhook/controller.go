@@ -33,7 +33,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
@@ -1077,14 +1076,12 @@ func (c *controller) getLease() (*coordinationv1.Lease, error) {
 }
 
 // GroupVersionResourceScope adds the resource scope to the GVR
-type GroupVersionResourceScope struct {
-	schema.GroupVersionResource
-	Scope admissionregistrationv1.ScopeType
-}
-
-// String puts / between group/version/resource and scope
-func (gvs GroupVersionResourceScope) String() string {
-	return gvs.GroupVersion().String() + "/" + gvs.Resource + "/" + string(gvs.Scope)
+type groupVersionResourceSubresourceScope struct {
+	group       string
+	version     string
+	resource    string
+	subresource string
+	scope       admissionregistrationv1.ScopeType
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
@@ -1113,7 +1110,7 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
-		var gvrsList []GroupVersionResourceScope
+		var gvrsList []groupVersionResourceSubresourceScope
 		for _, gvk := range matchedGVK {
 			// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
 			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
@@ -1124,11 +1121,29 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			}
 			// if kind is `*` no need to lookup resources
 			if kind == "*" && subresource == "*" {
-				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"}, Scope: policyScope})
+				gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+					group:       group,
+					version:     version,
+					resource:    kind,
+					subresource: subresource,
+					scope:       policyScope,
+				})
 			} else if kind == "*" && subresource == "" {
-				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"}, Scope: policyScope})
+				gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+					group:       group,
+					version:     version,
+					resource:    kind,
+					subresource: subresource,
+					scope:       policyScope,
+				})
 			} else if kind == "*" && subresource != "" {
-				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource}, Scope: policyScope})
+				gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+					group:       group,
+					version:     version,
+					resource:    kind,
+					subresource: subresource,
+					scope:       policyScope,
+				})
 			} else {
 				gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
 				if err != nil {
@@ -1140,7 +1155,13 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 					if resource.Namespaced {
 						resourceScope = admissionregistrationv1.NamespacedScope
 					}
-					gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()), Scope: resourceScope})
+					gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+						group:       gvrs.GroupVersion.Group,
+						version:     gvrs.GroupVersion.Version,
+						resource:    gvrs.Resource,
+						subresource: gvrs.SubResource,
+						scope:       resourceScope,
+					})
 				}
 			}
 		}
@@ -1152,7 +1173,7 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			operations = []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}
 		}
 		for _, gvrs := range gvrsList {
-			dst.set(gvrs.GroupVersionResource, gvrs.Scope, operations...)
+			dst.set(gvrs.group, gvrs.version, gvrs.resource, gvrs.subresource, gvrs.scope, operations...)
 		}
 	}
 

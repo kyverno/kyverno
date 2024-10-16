@@ -9,7 +9,6 @@ import (
 	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	objectmeta "k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
@@ -30,9 +29,12 @@ type webhook struct {
 
 // groupVersionScope contains the GV and scopeType of a resource
 type ruleEntry struct {
-	schema.GroupVersionResource
-	scope     admissionregistrationv1.ScopeType
-	operation admissionregistrationv1.OperationType
+	group       string
+	version     string
+	resource    string
+	subresource string
+	scope       admissionregistrationv1.ScopeType
+	operation   admissionregistrationv1.OperationType
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition) *webhook {
@@ -66,11 +68,11 @@ func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.Fa
 }
 
 func (wh *webhook) hasRule(
-	group, version, resource string,
+	group, version, resource, subresource string,
 	scope admissionregistrationv1.ScopeType,
 	operation admissionregistrationv1.OperationType,
 ) bool {
-	var groups, versions, resources []string
+	var groups, versions, resources, subresources []string
 	var scopes []admissionregistrationv1.ScopeType
 	var operations []admissionregistrationv1.OperationType
 	if group == "*" {
@@ -88,6 +90,11 @@ func (wh *webhook) hasRule(
 	} else {
 		resources = []string{resource, "*"}
 	}
+	if subresource == "*" {
+		subresources = []string{subresource}
+	} else {
+		subresources = []string{subresource, "*"}
+	}
 	if scope == admissionregistrationv1.AllScopes {
 		scopes = []admissionregistrationv1.ScopeType{scope}
 	} else {
@@ -102,15 +109,20 @@ func (wh *webhook) hasRule(
 		for _, _group := range groups {
 			for _, _version := range versions {
 				for _, _resource := range resources {
-					for _, _operation := range operations {
-						if _scope != scope || _group != group || _version != version || _resource != resource || _operation != operation {
-							test := ruleEntry{
-								GroupVersionResource: schema.GroupVersionResource{Group: _group, Version: _version, Resource: _resource},
-								scope:                _scope,
-								operation:            _operation,
-							}
-							if wh.rules.Has(test) {
-								return true
+					for _, _subresource := range subresources {
+						for _, _operation := range operations {
+							if _scope != scope || _group != group || _version != version || _resource != resource || _subresource != subresource || _operation != operation {
+								test := ruleEntry{
+									group:       _group,
+									version:     _version,
+									resource:    _resource,
+									subresource: _subresource,
+									scope:       _scope,
+									operation:   _operation,
+								}
+								if wh.rules.Has(test) {
+									return true
+								}
 							}
 						}
 					}
@@ -125,7 +137,7 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 	rules := sets.New[ruleEntry]()
 	// keep only the relevant rule
 	for rule := range wh.rules {
-		if !wh.hasRule(rule.Group, rule.Version, rule.Resource, rule.scope, rule.operation) {
+		if !wh.hasRule(rule.group, rule.version, rule.resource, rule.subresource, rule.scope, rule.operation) {
 			rules.Insert(rule)
 		}
 	}
@@ -134,11 +146,15 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 	// build rules
 	out := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
 	for rule := range rules {
+		resource := rule.resource
+		if rule.subresource != "" {
+			resource = rule.resource + "/" + rule.subresource
+		}
 		out = append(out, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{rule.Group},
-				APIVersions: []string{rule.Version},
-				Resources:   []string{rule.Resource},
+				APIGroups:   []string{rule.group},
+				APIVersions: []string{rule.version},
+				Resources:   []string{resource},
 				Scope:       ptr.To(rule.scope),
 			},
 			Operations: []admissionregistrationv1.OperationType{rule.operation},
@@ -257,15 +273,21 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 // }
 
 func (wh *webhook) set(
-	gvr schema.GroupVersionResource,
+	group string,
+	version string,
+	resource string,
+	subresource string,
 	scope admissionregistrationv1.ScopeType,
 	operations ...admissionregistrationv1.OperationType,
 ) {
 	for _, operation := range operations {
 		wh.rules.Insert(ruleEntry{
-			GroupVersionResource: gvr,
-			scope:                scope,
-			operation:            operation,
+			group:       group,
+			version:     version,
+			resource:    resource,
+			subresource: subresource,
+			scope:       scope,
+			operation:   operation,
 		})
 	}
 }
