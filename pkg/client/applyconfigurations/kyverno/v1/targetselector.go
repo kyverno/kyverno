@@ -19,29 +19,27 @@ limitations under the License.
 package v1
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 )
 
-// TargetResourceSpecApplyConfiguration represents an declarative configuration of the TargetResourceSpec type for use
+// TargetSelectorApplyConfiguration represents an declarative configuration of the TargetSelector type for use
 // with apply.
-type TargetResourceSpecApplyConfiguration struct {
-	*TargetSelectorApplyConfiguration `json:"TargetSelector,omitempty"`
-	Context                           []ContextEntryApplyConfiguration `json:"context,omitempty"`
-	RawAnyAllConditions               *kyvernov1.ConditionsWrapper     `json:"preconditions,omitempty"`
+type TargetSelectorApplyConfiguration struct {
+	*ResourceSpecApplyConfiguration `json:"ResourceSpec,omitempty"`
+	Selector                        *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
-// TargetResourceSpecApplyConfiguration constructs an declarative configuration of the TargetResourceSpec type for use with
+// TargetSelectorApplyConfiguration constructs an declarative configuration of the TargetSelector type for use with
 // apply.
-func TargetResourceSpec() *TargetResourceSpecApplyConfiguration {
-	return &TargetResourceSpecApplyConfiguration{}
+func TargetSelector() *TargetSelectorApplyConfiguration {
+	return &TargetSelectorApplyConfiguration{}
 }
 
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
-func (b *TargetResourceSpecApplyConfiguration) WithAPIVersion(value string) *TargetResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithAPIVersion(value string) *TargetSelectorApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.APIVersion = &value
 	return b
@@ -50,7 +48,7 @@ func (b *TargetResourceSpecApplyConfiguration) WithAPIVersion(value string) *Tar
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
-func (b *TargetResourceSpecApplyConfiguration) WithKind(value string) *TargetResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithKind(value string) *TargetSelectorApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.Kind = &value
 	return b
@@ -59,7 +57,7 @@ func (b *TargetResourceSpecApplyConfiguration) WithKind(value string) *TargetRes
 // WithNamespace sets the Namespace field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Namespace field is set to the value of the last call.
-func (b *TargetResourceSpecApplyConfiguration) WithNamespace(value string) *TargetResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithNamespace(value string) *TargetSelectorApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.Namespace = &value
 	return b
@@ -68,7 +66,7 @@ func (b *TargetResourceSpecApplyConfiguration) WithNamespace(value string) *Targ
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *TargetResourceSpecApplyConfiguration) WithName(value string) *TargetResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithName(value string) *TargetSelectorApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.Name = &value
 	return b
@@ -77,13 +75,13 @@ func (b *TargetResourceSpecApplyConfiguration) WithName(value string) *TargetRes
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
-func (b *TargetResourceSpecApplyConfiguration) WithUID(value types.UID) *TargetResourceSpecApplyConfiguration {
+func (b *TargetSelectorApplyConfiguration) WithUID(value types.UID) *TargetSelectorApplyConfiguration {
 	b.ensureResourceSpecApplyConfigurationExists()
 	b.UID = &value
 	return b
 }
 
-func (b *TargetResourceSpecApplyConfiguration) ensureResourceSpecApplyConfigurationExists() {
+func (b *TargetSelectorApplyConfiguration) ensureResourceSpecApplyConfigurationExists() {
 	if b.ResourceSpecApplyConfiguration == nil {
 		b.ResourceSpecApplyConfiguration = &ResourceSpecApplyConfiguration{}
 	}
@@ -92,35 +90,7 @@ func (b *TargetResourceSpecApplyConfiguration) ensureResourceSpecApplyConfigurat
 // WithSelector sets the Selector field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Selector field is set to the value of the last call.
-func (b *TargetResourceSpecApplyConfiguration) WithSelector(value metav1.LabelSelector) *TargetResourceSpecApplyConfiguration {
-	b.ensureTargetSelectorApplyConfigurationExists()
+func (b *TargetSelectorApplyConfiguration) WithSelector(value metav1.LabelSelector) *TargetSelectorApplyConfiguration {
 	b.Selector = &value
-	return b
-}
-
-func (b *TargetResourceSpecApplyConfiguration) ensureTargetSelectorApplyConfigurationExists() {
-	if b.TargetSelectorApplyConfiguration == nil {
-		b.TargetSelectorApplyConfiguration = &TargetSelectorApplyConfiguration{}
-	}
-}
-
-// WithContext adds the given value to the Context field in the declarative configuration
-// and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the Context field.
-func (b *TargetResourceSpecApplyConfiguration) WithContext(values ...*ContextEntryApplyConfiguration) *TargetResourceSpecApplyConfiguration {
-	for i := range values {
-		if values[i] == nil {
-			panic("nil value passed to WithContext")
-		}
-		b.Context = append(b.Context, *values[i])
-	}
-	return b
-}
-
-// WithRawAnyAllConditions sets the RawAnyAllConditions field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the RawAnyAllConditions field is set to the value of the last call.
-func (b *TargetResourceSpecApplyConfiguration) WithRawAnyAllConditions(value kyvernov1.ConditionsWrapper) *TargetResourceSpecApplyConfiguration {
-	b.RawAnyAllConditions = &value
 	return b
 }

@@ -9,7 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
-	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -164,7 +164,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: cpol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogenv1.ComputeRules(cpol, "") {
+		for _, rule := range autogen.Default.ComputeRules(cpol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
@@ -181,7 +181,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: pol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogenv1.ComputeRules(pol, "") {
+		for _, rule := range autogen.Default.ComputeRules(pol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
