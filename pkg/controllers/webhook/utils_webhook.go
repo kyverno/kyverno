@@ -33,12 +33,34 @@ type ruleEntry struct {
 	operation   admissionregistrationv1.OperationType
 }
 
-type aggregatedRuleEntry struct {
-	group       string
-	version     string
-	resource    string
-	subresource string
-	scope       admissionregistrationv1.ScopeType
+type groupVersionScope struct {
+	group   string
+	version string
+	scope   admissionregistrationv1.ScopeType
+}
+
+type resourceOperations struct {
+	create  bool
+	update  bool
+	delete  bool
+	connect bool
+}
+
+func (r resourceOperations) operations() []admissionregistrationv1.OperationType {
+	var ops []admissionregistrationv1.OperationType
+	if r.create {
+		ops = append(ops, admissionregistrationv1.Create)
+	}
+	if r.update {
+		ops = append(ops, admissionregistrationv1.Update)
+	}
+	if r.delete {
+		ops = append(ops, admissionregistrationv1.Delete)
+	}
+	if r.connect {
+		ops = append(ops, admissionregistrationv1.Connect)
+	}
+	return ops
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition) *webhook {
@@ -85,7 +107,7 @@ func (wh *webhook) hasRule(
 	} else {
 		resources = []string{resource, "*"}
 	}
-	// TODO: probably a bit more couple with resource
+	// TODO: probably a bit more coupled with resource
 	if subresource == "*" {
 		subresources = []string{subresource}
 	} else {
@@ -130,46 +152,69 @@ func (wh *webhook) hasRule(
 }
 
 func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWithOperations {
-	rules := map[aggregatedRuleEntry]sets.Set[admissionregistrationv1.OperationType]{}
-	// keep only the relevant rules
+	rules := map[groupVersionScope]map[string]resourceOperations{}
+	// keep only the relevant rules and map operations by [group, version, scope] first, then by [resource]
 	for rule := range wh.rules {
 		if !wh.hasRule(rule.group, rule.version, rule.resource, rule.subresource, rule.scope, rule.operation) {
-			key := aggregatedRuleEntry{rule.group, rule.version, rule.resource, rule.subresource, rule.scope}
-			ops := rules[key]
-			if ops == nil {
-				ops = sets.New[admissionregistrationv1.OperationType]()
+			key := groupVersionScope{rule.group, rule.version, rule.scope}
+			gvs := rules[key]
+			if gvs == nil {
+				gvs = map[string]resourceOperations{}
+				rules[key] = gvs
 			}
-			ops.Insert(rule.operation)
-			rules[key] = ops
+			resource := rule.resource
+			if rule.subresource != "" {
+				resource = rule.resource + "/" + rule.subresource
+			}
+			ops := gvs[resource]
+			switch rule.operation {
+			case admissionregistrationv1.Create:
+				ops.create = true
+			case admissionregistrationv1.Update:
+				ops.update = true
+			case admissionregistrationv1.Delete:
+				ops.delete = true
+			case admissionregistrationv1.Connect:
+				ops.connect = true
+			}
+			gvs[resource] = ops
 		}
 	}
 	// build rules
 	out := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
-	for rule, ops := range rules {
-		resource := rule.resource
-		if rule.subresource != "" {
-			resource = rule.resource + "/" + rule.subresource
+	for gvs, resources := range rules {
+		// invert the resources map
+		opsResources := map[resourceOperations]sets.Set[string]{}
+		for resource, ops := range resources {
+			r := opsResources[ops]
+			if r == nil {
+				r = sets.New[string]()
+				opsResources[ops] = r
+			}
+			r.Insert(resource)
 		}
-		resources := []string{resource}
-		// if we have pods, we add pods/ephemeralcontainers by default
-		if (rule.group == "" || rule.group == "*") && (rule.version == "v1" || rule.version == "*") && (resource == "pods" || resource == "*") {
-			resources = append(resources, "pods/ephemeralcontainers")
+		for ops, resources := range opsResources {
+			// if we have pods, we add pods/ephemeralcontainers by default
+			if (gvs.group == "" || gvs.group == "*") && (gvs.version == "v1" || gvs.version == "*") && (resources.Has("pods") || resources.Has("*")) {
+				resources = resources.Insert("pods/ephemeralcontainers")
+			}
+			out = append(out, admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{gvs.group},
+					APIVersions: []string{gvs.version},
+					Resources:   resources.UnsortedList(),
+					Scope:       ptr.To(gvs.scope),
+				},
+				Operations: ops.operations(),
+			})
 		}
-		out = append(out, admissionregistrationv1.RuleWithOperations{
-			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{rule.group},
-				APIVersions: []string{rule.version},
-				Resources:   resources,
-				Scope:       ptr.To(rule.scope),
-			},
-			Operations: sets.List(ops),
-		})
 	}
 	// sort rules
 	for _, rule := range out {
 		slices.Sort(rule.APIGroups)
 		slices.Sort(rule.APIVersions)
 		slices.Sort(rule.Resources)
+		slices.Sort(rule.Operations)
 	}
 	less := func(a []string, b []string) (int, bool) {
 		if x := cmp.Compare(len(a), len(b)); x != 0 {

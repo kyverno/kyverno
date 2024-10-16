@@ -1091,6 +1091,7 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		// matching kinds in generate policies need to be added to both webhooks
 		if rule.HasGenerate() {
 			matched = collectResourceDescriptions(rule)
+			// TODO
 			// for _, g := range rule.Generation.ForEachGeneration {
 			// 	if g.GeneratePattern.ResourceSpec.Kind != "" {
 			// 		matchedGVK = append(matchedGVK, g.GeneratePattern.ResourceSpec.Kind)
@@ -1165,11 +1166,11 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 						})
 					}
 				}
-				// TODO
 				var operations []admissionregistrationv1.OperationType
 				for _, op := range match.Operations {
 					operations = append(operations, admissionregistrationv1.OperationType(op))
 				}
+				// if no operation specified, we use the default ones
 				if len(operations) == 0 {
 					if updateValidate {
 						operations = []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}
