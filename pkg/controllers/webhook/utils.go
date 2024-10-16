@@ -29,6 +29,7 @@ func collectResourceDescriptions(rule kyvernov1.Rule) []kyvernov1.ResourceDescri
 	for _, value := range rule.MatchResources.Any {
 		out = append(out, value.ResourceDescription)
 	}
+	// TODO: account for exclusions
 	return out
 }
 

@@ -81,6 +81,10 @@ var (
 		APIGroups:   []string{"coordination.k8s.io"},
 		APIVersions: []string{"v1"},
 	}
+	defaultOperations = map[bool][]kyvernov1.AdmissionOperation{
+		true:  {kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect},
+		false: {kyvernov1.Create, kyvernov1.Update},
+	}
 )
 
 type controller struct {
@@ -1090,27 +1094,40 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		var matched []kyvernov1.ResourceDescription
 		// matching kinds in generate policies need to be added to both webhooks
 		if rule.HasGenerate() {
-			matched = collectResourceDescriptions(rule)
+			matched = append(matched, collectResourceDescriptions(rule)...)
 			// TODO
-			// for _, g := range rule.Generation.ForEachGeneration {
-			// 	if g.GeneratePattern.ResourceSpec.Kind != "" {
-			// 		matchedGVK = append(matchedGVK, g.GeneratePattern.ResourceSpec.Kind)
-			// 	} else {
-			// 		matchedGVK = append(matchedGVK, g.GeneratePattern.CloneList.Kinds...)
-			// 	}
-			// }
-			// if rule.Generation.ResourceSpec.Kind != "" {
-			// 	matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
-			// } else {
-			// 	matchedGVK = append(matchedGVK, rule.Generation.CloneList.Kinds...)
-			// }
-		}
-		if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
+			operations := []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete}
+			for _, g := range rule.Generation.ForEachGeneration {
+				if g.GeneratePattern.ResourceSpec.Kind != "" {
+					matched = append(matched, kyvernov1.ResourceDescription{
+						Kinds:      []string{g.GeneratePattern.ResourceSpec.Kind},
+						Operations: operations,
+					})
+				} else {
+					matched = append(matched, kyvernov1.ResourceDescription{
+						Kinds:      g.GeneratePattern.CloneList.Kinds,
+						Operations: operations,
+					})
+				}
+			}
+			if rule.Generation.ResourceSpec.Kind != "" {
+				matched = append(matched, kyvernov1.ResourceDescription{
+					Kinds:      []string{rule.Generation.ResourceSpec.Kind},
+					Operations: operations,
+				})
+			} else {
+				matched = append(matched, kyvernov1.ResourceDescription{
+					Kinds:      rule.Generation.CloneList.Kinds,
+					Operations: operations,
+				})
+			}
+		} else if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
 			(updateValidate && rule.HasMutateExisting()) ||
 			(!updateValidate && rule.HasMutateStandard()) ||
 			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
-			matched = collectResourceDescriptions(rule)
+			matched = append(matched, collectResourceDescriptions(rule)...)
 		}
+		// TODO: do this out of the main loop
 		for _, match := range matched {
 			for _, gvk := range match.Kinds {
 				var gvrsList []groupVersionResourceSubresourceScope
@@ -1169,11 +1186,7 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 				operations := match.Operations
 				// if no operation specified, we use the default ones
 				if len(operations) == 0 {
-					if updateValidate {
-						operations = []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect}
-					} else {
-						operations = []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update}
-					}
+					operations = defaultOperations[updateValidate]
 				}
 				for _, gvrs := range gvrsList {
 					dst.set(gvrs.group, gvrs.version, gvrs.resource, gvrs.subresource, gvrs.scope, operations...)
