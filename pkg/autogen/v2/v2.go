@@ -5,8 +5,7 @@ import (
 	v1 "github.com/kyverno/kyverno/pkg/autogen/v1"
 )
 
-type v2 struct {
-}
+type v2 struct{}
 
 func New() v2 {
 	return v2{}
