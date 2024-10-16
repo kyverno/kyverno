@@ -187,7 +187,6 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 
 	// Add delete options based on the deletion policy
 	deleteOptions := &metav1.DeleteOptions{}
-	
 	if deletionPolicy != nil {
 		// Use the specified deletion policy
 		deleteOptions.PropagationPolicy = deletionPolicy
