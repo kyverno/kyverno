@@ -232,7 +232,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		return warnings, err
 	}
 
-	rules := autogen.ComputeRules(policy, "")
+	rules := autogen.Default.ComputeRules(policy, "")
 	rulesPath := specPath.Child("rules")
 
 	for i, rule := range rules {
@@ -549,7 +549,7 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 
 // hasInvalidVariables - checks for unexpected variables in the policy
 func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) error {
-	for _, r := range autogen.ComputeRules(policy, "") {
+	for _, r := range autogen.Default.ComputeRules(policy, "") {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {

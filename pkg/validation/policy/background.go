@@ -18,7 +18,7 @@ var ForbiddenUserVariables = []*regexp.Regexp{
 
 // containsUserVariables returns error if variable that does not start from request.object
 func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) error {
-	rules := autogen.ComputeRules(policy, "")
+	rules := autogen.Default.ComputeRules(policy, "")
 	for idx := range rules {
 		if err := hasUserMatchExclude(idx, &rules[idx]); err != nil {
 			return err
