@@ -1166,16 +1166,13 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 						})
 					}
 				}
-				var operations []admissionregistrationv1.OperationType
-				for _, op := range match.Operations {
-					operations = append(operations, admissionregistrationv1.OperationType(op))
-				}
+				operations := match.Operations
 				// if no operation specified, we use the default ones
 				if len(operations) == 0 {
 					if updateValidate {
-						operations = []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}
+						operations = []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect}
 					} else {
-						operations = []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}
+						operations = []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update}
 					}
 				}
 				for _, gvrs := range gvrsList {

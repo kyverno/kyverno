@@ -1,7 +1,6 @@
 package webhook
 
 import (
-	"cmp"
 	"slices"
 	"strings"
 
@@ -30,7 +29,7 @@ type ruleEntry struct {
 	resource    string
 	subresource string
 	scope       admissionregistrationv1.ScopeType
-	operation   admissionregistrationv1.OperationType
+	operation   kyvernov1.AdmissionOperation
 }
 
 type groupVersionScope struct {
@@ -47,6 +46,10 @@ type resourceOperations struct {
 }
 
 func (r resourceOperations) operations() []admissionregistrationv1.OperationType {
+	// TODO
+	// if r.create && r.update && r.delete && r.connect {
+	// 	return []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
+	// }
 	var ops []admissionregistrationv1.OperationType
 	if r.create {
 		ops = append(ops, admissionregistrationv1.Create)
@@ -87,11 +90,11 @@ func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.Fa
 func (wh *webhook) hasRule(
 	group, version, resource, subresource string,
 	scope admissionregistrationv1.ScopeType,
-	operation admissionregistrationv1.OperationType,
+	operation kyvernov1.AdmissionOperation,
 ) bool {
 	var groups, versions, resources, subresources []string
 	var scopes []admissionregistrationv1.ScopeType
-	var operations []admissionregistrationv1.OperationType
+	var operations []kyvernov1.AdmissionOperation
 	if group == "*" {
 		groups = []string{group}
 	} else {
@@ -118,11 +121,7 @@ func (wh *webhook) hasRule(
 	} else {
 		scopes = []admissionregistrationv1.ScopeType{scope, admissionregistrationv1.AllScopes}
 	}
-	if operation == admissionregistrationv1.OperationAll {
-		operations = []admissionregistrationv1.OperationType{operation}
-	} else {
-		operations = []admissionregistrationv1.OperationType{operation, admissionregistrationv1.OperationAll}
-	}
+	operations = []kyvernov1.AdmissionOperation{operation}
 	for _, _scope := range scopes {
 		for _, _group := range groups {
 			for _, _version := range versions {
@@ -168,13 +167,13 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 			}
 			ops := gvs[resource]
 			switch rule.operation {
-			case admissionregistrationv1.Create:
+			case kyvernov1.Create:
 				ops.create = true
-			case admissionregistrationv1.Update:
+			case kyvernov1.Update:
 				ops.update = true
-			case admissionregistrationv1.Delete:
+			case kyvernov1.Delete:
 				ops.delete = true
-			case admissionregistrationv1.Connect:
+			case kyvernov1.Connect:
 				ops.connect = true
 			}
 			gvs[resource] = ops
@@ -189,9 +188,8 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 			r := opsResources[ops]
 			if r == nil {
 				r = sets.New[string]()
-				opsResources[ops] = r
 			}
-			r.Insert(resource)
+			opsResources[ops] = r.Insert(resource)
 		}
 		for ops, resources := range opsResources {
 			// if we have pods, we add pods/ephemeralcontainers by default
@@ -216,17 +214,6 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 		slices.Sort(rule.Resources)
 		slices.Sort(rule.Operations)
 	}
-	less := func(a []string, b []string) (int, bool) {
-		if x := cmp.Compare(len(a), len(b)); x != 0 {
-			return x, true
-		}
-		for i := range a {
-			if x := cmp.Compare(a[i], b[i]); x != 0 {
-				return x, true
-			}
-		}
-		return 0, false
-	}
 	slices.SortFunc(out, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
 		if x, match := less(a.APIGroups, b.APIGroups); match {
 			return x
@@ -235,6 +222,9 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 			return x
 		}
 		if x, match := less(a.Resources, b.Resources); match {
+			return x
+		}
+		if x, match := less(a.Operations, b.Operations); match {
 			return x
 		}
 		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
@@ -251,7 +241,7 @@ func (wh *webhook) set(
 	resource string,
 	subresource string,
 	scope admissionregistrationv1.ScopeType,
-	operations ...admissionregistrationv1.OperationType,
+	operations ...kyvernov1.AdmissionOperation,
 ) {
 	for _, operation := range operations {
 		wh.rules.Insert(ruleEntry{

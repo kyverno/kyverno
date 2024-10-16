@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -90,4 +91,16 @@ func webhookNameAndPath(wh webhook, baseName, basePath string) (name string, pat
 		path = path + config.FineGrainedWebhookPath + "/" + wh.key("/")
 	}
 	return name, path
+}
+
+func less[T cmp.Ordered](a []T, b []T) (int, bool) {
+	if x := cmp.Compare(len(a), len(b)); x != 0 {
+		return x, true
+	}
+	for i := range a {
+		if x := cmp.Compare(a[i], b[i]); x != 0 {
+			return x, true
+		}
+	}
+	return 0, false
 }
