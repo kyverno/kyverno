@@ -5,7 +5,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
-	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -33,7 +33,7 @@ func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 func BuildKindSet(logger logr.Logger, policies ...kyvernov1.PolicyInterface) sets.Set[string] {
 	kinds := sets.New[string]()
 	for _, policy := range policies {
-		for _, rule := range autogenv1.ComputeRules(policy, "") {
+		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			if rule.HasValidate() || rule.HasVerifyImages() {
 				kinds.Insert(rule.MatchResources.GetKinds()...)
 			}

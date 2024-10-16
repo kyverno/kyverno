@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
@@ -146,7 +146,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {
 	var errs []error
 	var err error
-	rules := autogenv1.ComputeRules(policy, "")
+	rules := autogen.Default.ComputeRules(policy, "")
 	ur := newGenerateUR(policy)
 	for _, r := range rules {
 		if !r.HasGenerate() {
