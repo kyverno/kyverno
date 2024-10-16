@@ -374,6 +374,7 @@ The chart values are organised per component.
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
 | admissionController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
+| admissionController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
 | admissionController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | admissionController.annotations | object | `{}` | Deployment annotations. |
@@ -477,6 +478,7 @@ The chart values are organised per component.
 | backgroundController.imagePullSecrets | list | `[]` | Image pull secrets |
 | backgroundController.replicas | int | `nil` | Desired number of pods |
 | backgroundController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
+| backgroundController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
 | backgroundController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | backgroundController.annotations | object | `{}` | Deployment annotations. |
@@ -551,6 +553,7 @@ The chart values are organised per component.
 | cleanupController.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupController.replicas | int | `nil` | Desired number of pods |
 | cleanupController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
+| cleanupController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | cleanupController.podLabels | object | `{}` | Additional labels to add to each pod |
 | cleanupController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | cleanupController.annotations | object | `{}` | Deployment annotations. |
@@ -633,6 +636,7 @@ The chart values are organised per component.
 | reportsController.imagePullSecrets | list | `[]` | Image pull secrets |
 | reportsController.replicas | int | `nil` | Desired number of pods |
 | reportsController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
+| reportsController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
 | reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | reportsController.annotations | object | `{}` | Deployment annotations. |
@@ -751,6 +755,7 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | global.image.registry | string | `nil` | Global value that allows to set a single image registry across all deployments. When set, it will override any values set under `.image.registry` across the chart. |
 | global.imagePullSecrets | list | `[]` | Global list of Image pull secrets When set, it will override any values set under `imagePullSecrets` under different components across the chart. |
+| global.resyncPeriod | string | `"15m"` | Resync period for informers |
 | global.caCertificates.data | string | `nil` | Global CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates Individual controller values will override this global value |
 | global.caCertificates.volume | object | `{}` | Global value to set single volume to be mounted for CA certificates for all deployments. Not used when `.Values.global.caCertificates.data` is defined Individual  controller values will override this global value |
 | global.extraEnvVars | list | `[]` | Additional container environment variables to apply to all containers and init containers |
