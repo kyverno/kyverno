@@ -297,10 +297,5 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 	if datautils.DeepEqual(spec.ExcludeResources, &MatchResources{}) {
 		return errs
 	}
-
-	// Check if DeletionPropagationPolicy is set appropriately
-	if spec.DeletionPropagationPolicy == nil || *spec.DeletionPropagationPolicy == "" {
-		return append(errs, field.Required(path.Child("DeletionPropagationPolicy"), "DeletionPropagationPolicy is required"))
-	}
 	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
 }

@@ -360,7 +360,7 @@ spec:
                 type: array
               deletionPropagationPolicy:
                 description: DeletionPropagationPolicy defines how resources will
-                  be deleted (Foreground, Background).
+                  be deleted (Foreground, Background, Orphan).
                 enum:
                 - Foreground
                 - Background
@@ -1653,7 +1653,7 @@ spec:
                 type: array
               deletionPropagationPolicy:
                 description: DeletionPropagationPolicy defines how resources will
-                  be deleted (Foreground, Background).
+                  be deleted (Foreground, Background, Orphan).
                 enum:
                 - Foreground
                 - Background
