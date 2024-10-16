@@ -12,7 +12,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
@@ -130,7 +130,7 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, policies []kyverno
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceTypesMap := make(map[string]bool)
 	for _, policy := range policies {
-		for _, rule := range autogen.ComputeRules(policy, "") {
+		for _, rule := range autogenv1.ComputeRules(policy, "") {
 			for _, kind := range rule.MatchResources.Kinds {
 				resourceTypesMap[kind] = true
 			}
