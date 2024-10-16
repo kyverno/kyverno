@@ -13,7 +13,6 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
-	autogenv2 "github.com/kyverno/kyverno/pkg/autogen/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
@@ -888,9 +887,11 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 		mutatingWebhooks = append(
 			mutatingWebhooks,
 			admissionregistrationv1.MutatingWebhook{
-				Name:                    name,
-				ClientConfig:            c.clientConfig(caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations([]admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
+				Name:         name,
+				ClientConfig: c.clientConfig(caBundle, path),
+				Rules:        webhook.buildRulesWithOperations(
+				// []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}
+				),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -1037,9 +1038,11 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 		validatingWebhooks = append(
 			validatingWebhooks,
 			admissionregistrationv1.ValidatingWebhook{
-				Name:                    name,
-				ClientConfig:            c.clientConfig(caBundle, path),
-				Rules:                   webhook.buildRulesWithOperations([]admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
+				Name:         name,
+				ClientConfig: c.clientConfig(caBundle, path),
+				Rules:        webhook.buildRulesWithOperations(
+				// []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}
+				),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -1090,9 +1093,8 @@ func (gvs GroupVersionResourceScope) String() string {
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
-	var matchedGVK []string
-	matchedGVK = append(matchedGVK, autogenv2.GetAutogenKinds(policy)...)
-	for _, rule := range policy.GetSpec().Rules {
+	for _, rule := range autogenv1.ComputeRules(policy, "") {
+		var matchedGVK []string
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
@@ -1116,42 +1118,42 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
-	}
-	var gvrsList []GroupVersionResourceScope
-	for _, gvk := range matchedGVK {
-		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
-		group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-
-		// if kind or group is `*` we use the scope of the policy
-		policyScope := admissionregistrationv1.AllScopes
-		if policy.IsNamespaced() {
-			policyScope = admissionregistrationv1.NamespacedScope
-		}
-
-		// if kind is `*` no need to lookup resources
-		if kind == "*" && subresource == "*" {
-			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"}, Scope: policyScope})
-		} else if kind == "*" && subresource == "" {
-			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"}, Scope: policyScope})
-		} else if kind == "*" && subresource != "" {
-			gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource}, Scope: policyScope})
-		} else {
-			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
-			if err != nil {
-				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
-				continue
+		var gvrsList []GroupVersionResourceScope
+		for _, gvk := range matchedGVK {
+			// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
+			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+			// if kind or group is `*` we use the scope of the policy
+			policyScope := admissionregistrationv1.AllScopes
+			if policy.IsNamespaced() {
+				policyScope = admissionregistrationv1.NamespacedScope
 			}
-			for gvrs, resource := range gvrss {
-				resourceScope := admissionregistrationv1.AllScopes
-				if resource.Namespaced {
-					resourceScope = admissionregistrationv1.NamespacedScope
+			// if kind is `*` no need to lookup resources
+			if kind == "*" && subresource == "*" {
+				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"}, Scope: policyScope})
+			} else if kind == "*" && subresource == "" {
+				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"}, Scope: policyScope})
+			} else if kind == "*" && subresource != "" {
+				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource}, Scope: policyScope})
+			} else {
+				gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
+				if err != nil {
+					logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+					continue
 				}
-				gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()), Scope: resourceScope})
+				for gvrs, resource := range gvrss {
+					resourceScope := admissionregistrationv1.AllScopes
+					if resource.Namespaced {
+						resourceScope = admissionregistrationv1.NamespacedScope
+					}
+					gvrsList = append(gvrsList, GroupVersionResourceScope{GroupVersionResource: gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()), Scope: resourceScope})
+				}
 			}
 		}
-	}
-	for _, gvrs := range gvrsList {
-		dst.set(gvrs)
+		// TODO
+		var operations []admissionregistrationv1.OperationType
+		for _, gvrs := range gvrsList {
+			dst.set(gvrs.GroupVersionResource, gvrs.Scope, operations...)
+		}
 	}
 
 	spec := policy.GetSpec()
