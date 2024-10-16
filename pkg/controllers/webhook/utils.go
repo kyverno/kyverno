@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	objectmeta "k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 )
 
 // webhook is the instance that aggregates the GVK of existing policies
@@ -31,7 +32,7 @@ type webhook struct {
 type ruleEntry struct {
 	schema.GroupVersionResource
 	scope     admissionregistrationv1.ScopeType
-	opeartion admissionregistrationv1.OperationType
+	operation admissionregistrationv1.OperationType
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition) *webhook {
@@ -64,8 +65,85 @@ func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.Fa
 	return webhook
 }
 
+func (wh *webhook) hasRule(
+	group, version, resource string,
+	scope admissionregistrationv1.ScopeType,
+	operation admissionregistrationv1.OperationType,
+) bool {
+	var groups, versions, resources []string
+	var scopes []admissionregistrationv1.ScopeType
+	var operations []admissionregistrationv1.OperationType
+	if group == "*" {
+		groups = []string{group}
+	} else {
+		groups = []string{group, "*"}
+	}
+	if version == "*" {
+		versions = []string{version}
+	} else {
+		versions = []string{version, "*"}
+	}
+	if resource == "*" {
+		resources = []string{resource}
+	} else {
+		resources = []string{resource, "*"}
+	}
+	if scope == admissionregistrationv1.AllScopes {
+		scopes = []admissionregistrationv1.ScopeType{scope}
+	} else {
+		scopes = []admissionregistrationv1.ScopeType{scope, admissionregistrationv1.AllScopes}
+	}
+	if operation == admissionregistrationv1.OperationAll {
+		operations = []admissionregistrationv1.OperationType{operation}
+	} else {
+		operations = []admissionregistrationv1.OperationType{operation, admissionregistrationv1.OperationAll}
+	}
+	for _, _scope := range scopes {
+		for _, _group := range groups {
+			for _, _version := range versions {
+				for _, _resource := range resources {
+					for _, _operation := range operations {
+						if _scope != scope || _group != group || _version != version || _resource != resource || _operation != operation {
+							test := ruleEntry{
+								GroupVersionResource: schema.GroupVersionResource{Group: _group, Version: _version, Resource: _resource},
+								scope:                _scope,
+								operation:            _operation,
+							}
+							if wh.rules.Has(test) {
+								return true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWithOperations {
-	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(wh.rules))
+	rules := sets.New[ruleEntry]()
+	// keep only the relevant rule
+	for rule := range wh.rules {
+		if !wh.hasRule(rule.Group, rule.Version, rule.Resource, rule.scope, rule.operation) {
+			rules.Insert(rule)
+		}
+	}
+	// aggregate rules
+	// TODO
+	// build rules
+	out := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
+	for rule := range rules {
+		out = append(out, admissionregistrationv1.RuleWithOperations{
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{rule.Group},
+				APIVersions: []string{rule.Version},
+				Resources:   []string{rule.Resource},
+				Scope:       ptr.To(rule.scope),
+			},
+			Operations: []admissionregistrationv1.OperationType{rule.operation},
+		})
+	}
 
 	// for gv, resources := range wh.rules {
 	// 	ruleforset := make([]admissionregistrationv1.RuleWithOperations, 0, len(resources))
@@ -129,7 +207,7 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 	// 	}
 	// 	return 0
 	// })
-	return rules
+	return out
 }
 
 // func appendResourceInRule(resource sets.Set[string], operations []admissionregistrationv1.OperationType, ruleforset []admissionregistrationv1.RuleWithOperations) ([]admissionregistrationv1.RuleWithOperations, bool) {
@@ -187,7 +265,7 @@ func (wh *webhook) set(
 		wh.rules.Insert(ruleEntry{
 			GroupVersionResource: gvr,
 			scope:                scope,
-			opeartion:            operation,
+			operation:            operation,
 		})
 	}
 }
