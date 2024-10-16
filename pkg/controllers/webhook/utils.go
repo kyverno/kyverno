@@ -27,26 +27,27 @@ type webhook struct {
 
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
-	rules             map[groupVersionScope]sets.Set[string]
+	rules             sets.Set[ruleEntry]
 	matchConditions   []admissionregistrationv1.MatchCondition
 }
 
 // groupVersionScope contains the GV and scopeType of a resource
-type groupVersionScope struct {
-	schema.GroupVersion
-	scopeType admissionregistrationv1.ScopeType
+type ruleEntry struct {
+	schema.GroupVersionResource
+	scope     admissionregistrationv1.ScopeType
+	opeartion admissionregistrationv1.OperationType
 }
 
-// String puts / between group/version and scope
-func (gvs groupVersionScope) String() string {
-	return gvs.GroupVersion.String() + "/" + string(gvs.scopeType)
-}
+// // String puts / between group/version and scope
+// func (gvs groupVersionScope) String() string {
+// 	return gvs.GroupVersion.String() + "/" + string(gvs.scopeType)
+// }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition) *webhook {
 	return &webhook{
 		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
-		rules:             map[groupVersionScope]sets.Set[string]{},
+		rules:             sets.New[ruleEntry](),
 		matchConditions:   matchConditions,
 	}
 }
@@ -72,7 +73,7 @@ func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.Fa
 	return webhook
 }
 
-func (wh *webhook) buildRulesWithOperations(final map[string][]admissionregistrationv1.OperationType, defaultOpn []admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
+func (wh *webhook) buildRulesWithOperations(defaultOpn []admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	rules := make([]admissionregistrationv1.RuleWithOperations, 0, len(wh.rules))
 
 	for gv, resources := range wh.rules {
@@ -186,33 +187,39 @@ func scanResourceFilterForExclude(resFilter kyvernov1.ResourceFilters, operation
 	return opFound, operationStatusMap
 }
 
-func (wh *webhook) set(gvrs GroupVersionResourceScope) {
-	gvs := groupVersionScope{
-		GroupVersion: gvrs.GroupVersion(),
-		scopeType:    gvrs.Scope,
-	}
+func (wh *webhook) set(
+	gvr schema.GroupVersionResource,
+	scope admissionregistrationv1.ScopeType,
+	operation admissionregistrationv1.OperationType,
+) {
 
-	// check if the resource contains wildcard and is already added as all scope
-	// in that case, we do not need to add it again as namespaced scope
-	if (gvrs.Resource == "*" || gvrs.Group == "*") && gvs.scopeType == admissionregistrationv1.NamespacedScope {
-		allScopeResource := groupVersionScope{
-			GroupVersion: gvs.GroupVersion,
-			scopeType:    admissionregistrationv1.AllScopes,
-		}
-		resources := wh.rules[allScopeResource]
-		if resources != nil {
-			// explicitly do nothing as the resource is already added as all scope
-			return
-		}
-	}
+	// gvrs GroupVersionResourceScope) {
+	// gvs := groupVersionScope{
+	// 	GroupVersion: gvrs.GroupVersion(),
+	// 	scopeType:    gvrs.Scope,
+	// }
 
-	// check if the resource is already added
-	resources := wh.rules[gvs]
-	if resources == nil {
-		wh.rules[gvs] = sets.New(gvrs.Resource)
-	} else {
-		resources.Insert(gvrs.Resource)
-	}
+	// // check if the resource contains wildcard and is already added as all scope
+	// // in that case, we do not need to add it again as namespaced scope
+	// if (gvrs.Resource == "*" || gvrs.Group == "*") && gvs.scopeType == admissionregistrationv1.NamespacedScope {
+	// 	allScopeResource := groupVersionScope{
+	// 		GroupVersion: gvs.GroupVersion,
+	// 		scopeType:    admissionregistrationv1.AllScopes,
+	// 	}
+	// 	resources := wh.rules[allScopeResource]
+	// 	if resources != nil {
+	// 		// explicitly do nothing as the resource is already added as all scope
+	// 		return
+	// 	}
+	// }
+
+	// // check if the resource is already added
+	// resources := wh.rules[gvs]
+	// if resources == nil {
+	// 	wh.rules[gvs] = sets.New(gvrs.Resource)
+	// } else {
+	// 	resources.Insert(gvrs.Resource)
+	// }
 }
 
 func (wh *webhook) isEmpty() bool {
