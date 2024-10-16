@@ -184,20 +184,16 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 
 	// get the deletion policy
 	deletionPolicy := spec.DeletionPropagationPolicy
-	logger = logger.WithValues("policy", policy.GetName(), "deletionPolicy", deletionPolicy)
 
 	// Add delete options based on the deletion policy
 	deleteOptions := &metav1.DeleteOptions{}
-	if deletionPolicy != nil && *deletionPolicy != metav1.DeletionPropagation("") {
-		// Use the specified deletion policy if it's not explicitly nil
+	
+	if deletionPolicy != nil {
+		// Use the specified deletion policy
 		deleteOptions.PropagationPolicy = deletionPolicy
 		logger.Info("Using specified deletion propagation policy", "policy", *deletionPolicy)
-	} else if deletionPolicy == nil {
-		// If deletionPolicy is nil, use nil for PropagationPolicy
-		deleteOptions.PropagationPolicy = nil
-		logger.Info("DeletionPropagationPolicy explicitly set to nil")
 	} else {
-		// Set default as Foreground if not specified
+		// Set default as Foreground
 		defaultPolicy := metav1.DeletePropagationForeground
 		deleteOptions.PropagationPolicy = &defaultPolicy
 		logger.Info("DeletionPropagationPolicy not provided, setting to default (Foreground)")
