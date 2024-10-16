@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -111,7 +111,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool
 	}
 	kindStates := map[policyKey]state{}
-	for _, rule := range autogenv1.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		if rule.HasValidate() {
 			action := rule.Validation.FailureAction
 			if action != nil && action.Enforce() {

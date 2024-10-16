@@ -246,7 +246,7 @@ func GetAutogenRuleNames(p kyvernov1.PolicyInterface) []string {
 	return out
 }
 
-// GetRelevantKinds extracts the resource kinds from the match.resources field of the rules.
+// GetAutogenKinds extracts the resource kinds from the match.resources field of the rules.
 func GetAutogenKinds(p kyvernov1.PolicyInterface) []string {
 	spec := p.GetSpec()
 	applyAutoGen, desiredControllers := CanAutoGen(spec)

@@ -10,7 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	autogenv2 "github.com/kyverno/kyverno/pkg/autogen/v2"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -155,7 +155,7 @@ func (c *controller) buildRuleIndex(key string, policy kyvernov1.PolicyInterface
 		return 0
 	})
 	index := ruleIndex{}
-	for _, name := range autogenv2.GetAutogenRuleNames(policy) {
+	for _, name := range autogen.Default.GetAutogenRuleNames(policy) {
 		for _, polex := range polexList {
 			if polex.Contains(key, name) {
 				index[name] = append(index[name], polex)
