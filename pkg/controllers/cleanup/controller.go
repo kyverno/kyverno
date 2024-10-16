@@ -189,17 +189,14 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	deleteOptions := &metav1.DeleteOptions{
 		PropagationPolicy: deletionPolicy,
 	}
-	// Check if the deletion policy is not provided, and set to default if needed
+	// Check if the deletion policy is provided
 	if deletionPolicy != nil {
 		// If the user has provided a deletion policy, use it
 		deleteOptions.PropagationPolicy = deletionPolicy
 		logger.Info("Using specified deletion propagation policy", "policy", *deletionPolicy)
 	} else {
-		// If the deletion policy is not provided, you can either
-		// set it to a default value
-		defaultPolicy := metav1.DeletePropagationForeground // Setting default as Foreground
-		deleteOptions.PropagationPolicy = &defaultPolicy
-		logger.Info("DeletionPropagationPolicy not provided, setting to default (Foreground)")
+		// Do not set a default value; let the API server decide
+		logger.Info("DeletionPropagationPolicy not provided, letting the API server decide")
 	}
 
 	enginectx := enginecontext.NewContext(c.jp)
