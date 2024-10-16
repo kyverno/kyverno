@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -89,7 +89,7 @@ func GetResourceAccordingToResourcePath(
 
 func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subresources []v1alpha1.Subresource, dClient dclient.Interface) sets.Set[string] {
 	knownkinds := sets.New[string]()
-	for _, rule := range autogen.ComputeRules(policy, "") {
+	for _, rule := range autogenv1.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
 			if err != nil {

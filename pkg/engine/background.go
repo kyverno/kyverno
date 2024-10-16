@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -33,7 +33,7 @@ func (e *engine) filterRules(
 	policy := policyContext.Policy()
 	resp := engineapi.NewPolicyResponse()
 	applyRules := policy.GetSpec().GetApplyRules()
-	for _, rule := range autogen.ComputeRules(policy, "") {
+	for _, rule := range autogenv1.ComputeRules(policy, "") {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.Rules = append(resp.Rules, *ruleResp)

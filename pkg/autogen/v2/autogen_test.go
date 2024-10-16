@@ -1,9 +1,8 @@
-package autogen
+package v2
 
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -11,49 +10,9 @@ import (
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/utils/ptr"
 )
-
-func Test_getAutogenRuleName(t *testing.T) {
-	testCases := []struct {
-		name     string
-		ruleName string
-		prefix   string
-		expected string
-	}{
-		{"valid", "valid-rule-name", "autogen", "autogen-valid-rule-name"},
-		{"truncated", "too-long-this-rule-name-will-be-truncated-to-63-characters", "autogen", "autogen-too-long-this-rule-name-will-be-truncated-to-63-charact"},
-		{"valid-cronjob", "valid-rule-name", "autogen-cronjob", "autogen-cronjob-valid-rule-name"},
-		{"truncated-cronjob", "too-long-this-rule-name-will-be-truncated-to-63-characters", "autogen-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63"},
-	}
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			res := getAutogenRuleName(test.prefix, test.ruleName)
-			assert.Equal(t, test.expected, res)
-		})
-	}
-}
-
-func Test_isAutogenRule(t *testing.T) {
-	testCases := []struct {
-		name     string
-		ruleName string
-		expected bool
-	}{
-		{"normal", "valid-rule-name", false},
-		{"simple", "autogen-simple", true},
-		{"simple-cronjob", "autogen-cronjob-simple", true},
-		{"truncated", "autogen-too-long-this-rule-name-will-be-truncated-to-63-charact", true},
-		{"truncated-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63", true},
-	}
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			res := isAutogenRuleName(test.ruleName)
-			assert.Equal(t, test.expected, res)
-		})
-	}
-}
 
 func Test_CanAutoGen(t *testing.T) {
 	testCases := []struct {
@@ -310,93 +269,152 @@ func Test_GetRequestedControllers(t *testing.T) {
 	}
 }
 
-func TestUpdateGenRuleByte(t *testing.T) {
-	tests := []struct {
-		pbyte   []byte
-		kind    string
-		want    []byte
-		wantErr bool
+func TestExtractPodSpec(t *testing.T) {
+	testCases := []struct {
+		name        string
+		resource    unstructured.Unstructured  // The input resource
+		expectedPod *unstructured.Unstructured // Expected pod spec
+		expectError bool                       // Whether an error is expected
 	}{
 		{
-			pbyte: []byte("request.object.spec"),
-			kind:  "Pod",
-			want:  []byte("request.object.spec.template.spec"),
+			name: "extract pod spec from deployment",
+			resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "apps/v1",
+					"kind":       "Deployment",
+					"metadata": map[string]interface{}{
+						"name":      "test-deployment",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"template": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "nginx",
+										"image": "nginx",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedPod: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name":  "nginx",
+							"image": "nginx",
+						},
+					},
+				},
+			},
+			expectError: false,
 		},
 		{
-			pbyte: []byte("request.oldObject.spec"),
-			kind:  "Pod",
-			want:  []byte("request.oldObject.spec.template.spec"),
+			name: "extract pod spec from cronjob",
+			resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "batch/v1",
+					"kind":       "CronJob",
+					"metadata": map[string]interface{}{
+						"name":      "test-cronjob",
+						"namespace": "default",
+					},
+					"spec": map[string]interface{}{
+						"schedule": "* * * * *",
+						"jobTemplate": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"template": map[string]interface{}{
+									"spec": map[string]interface{}{
+										"containers": []interface{}{
+											map[string]interface{}{
+												"name":  "nginx",
+												"image": "nginx",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedPod: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name":  "nginx",
+							"image": "nginx",
+						},
+					},
+				},
+			},
+			expectError: false,
 		},
 		{
-			pbyte: []byte("request.object.spec"),
-			kind:  "Cronjob",
-			want:  []byte("request.object.spec.jobTemplate.spec.template.spec"),
+			name: "no pod spec in configmap",
+			resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "test-configmap",
+						"namespace": "default",
+					},
+					"data": map[string]interface{}{
+						"key": "value",
+					},
+				},
+			},
+			expectedPod: nil,
+			expectError: false,
 		},
 		{
-			pbyte: []byte("request.oldObject.spec"),
-			kind:  "Cronjob",
-			want:  []byte("request.oldObject.spec.jobTemplate.spec.template.spec"),
-		},
-		{
-			pbyte: []byte("request.object.metadata"),
-			kind:  "Pod",
-			want:  []byte("request.object.spec.template.metadata"),
+			name: "invalid resource structure",
+			resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "apps/v1",
+					"kind":       "Deployment",
+					"metadata":   nil, // missing metadata
+					"spec":       nil, // missing spec
+				},
+			},
+			expectedPod: nil,
+			expectError: true,
 		},
 	}
-	for _, tt := range tests {
-		got := updateFields(tt.pbyte, tt.kind, false)
-		if !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("updateGenRuleByte() = %v, want %v", string(got), string(tt.want))
-		}
+
+	autogen := NewAutogenV2()
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			// Call the function under test
+			podSpec, err := autogen.ExtractPodSpec(test.resource)
+
+			// Check for errors
+			if test.expectError {
+				assert.ErrorContains(t, err, "error extracting pod spec")
+			} else {
+				assert.NilError(t, err)
+			}
+
+			// Check for pod spec correctness
+			if test.expectedPod != nil {
+				assert.Assert(t, podSpec != nil, "expected pod spec but got nil")
+				assert.DeepEqual(t, test.expectedPod.Object, podSpec.Object)
+			} else {
+				assert.Assert(t, podSpec == nil, "expected nil pod spec but got a non-nil value")
+			}
+		})
 	}
 }
 
-func TestUpdateCELFields(t *testing.T) {
-	tests := []struct {
-		pbyte   []byte
-		kind    string
-		want    []byte
-		wantErr bool
-	}{
-		{
-			pbyte: []byte("object.spec"),
-			kind:  "Pod",
-			want:  []byte("object.spec.template.spec"),
-		},
-		{
-			pbyte: []byte("oldObject.spec"),
-			kind:  "Pod",
-			want:  []byte("oldObject.spec.template.spec"),
-		},
-		{
-			pbyte: []byte("object.spec"),
-			kind:  "Cronjob",
-			want:  []byte("object.spec.jobTemplate.spec.template.spec"),
-		},
-		{
-			pbyte: []byte("oldObject.spec"),
-			kind:  "Cronjob",
-			want:  []byte("oldObject.spec.jobTemplate.spec.template.spec"),
-		},
-		{
-			pbyte: []byte("object.metadata"),
-			kind:  "Pod",
-			want:  []byte("object.spec.template.metadata"),
-		},
-	}
-	for _, tt := range tests {
-		got := updateFields(tt.pbyte, tt.kind, true)
-		if !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("updateCELFields() = %v, want %v", string(got), string(tt.want))
-		}
-	}
-}
-
-func Test_ComputeRules(t *testing.T) {
+func Test_GetAutogenRuleNames(t *testing.T) {
 	testCases := []struct {
 		name          string
 		policy        string
-		expectedRules []kyvernov1.Rule
+		expectedRules []string
 	}{
 		{
 			name: "rule-with-match-name",
@@ -445,85 +463,148 @@ spec:
                 FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
                 kA==
                 -----END CERTIFICATE-----`,
-			expectedRules: []kyvernov1.Rule{{
-				Name: "check-image",
-				MatchResources: kyvernov1.MatchResources{
-					ResourceDescription: kyvernov1.ResourceDescription{
-						Kinds: []string{"Pod"},
-					},
-				},
-				VerifyImages: []kyvernov1.ImageVerification{{
-					ImageReferences: []string{"*"},
-					Attestors: []kyvernov1.AttestorSet{{
-						Count: ptr.To(1),
-						Entries: []kyvernov1.Attestor{{
-							Keyless: &kyvernov1.KeylessAttestor{
-								Roots: `-----BEGIN CERTIFICATE-----
-MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
-MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt
-bzEmMCQGA1UEAxMddmVuYWZpZGVtby1FQzJBTUFaLVFOSVI4OUktQ0EwHhcNMjAx
-MjE0MjEzNzAzWhcNMjUxMjE0MjE0NzAzWjBZMRMwEQYKCZImiZPyLGQBGRYDY29t
-MRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVtbzEmMCQGA1UEAxMddmVuYWZpZGVt
-by1FQzJBTUFaLVFOSVI4OUktQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-AoIBAQC5CTVQczGnh77yNxq+BGh5ff0qNcRTkFll+y8lJbMPHevebF7JLWBQTGS7
-9aHIqUQLjy9sPOkdMrDh/vOZNVhVrHon9uwepF81dUMJ9lMbfQSI/tytp78f0z6b
-DVRHYZr/taYSkqNPT2FuHOijc7Y+oB3Q1DzPSoBc3a6I5DM6ET6O2GZWo3mqpImG
-J8+dNllYgjVKEuxuPqQjT7VD4fB2GqJbwwL0E8bSyfsgMV9Y+qHdznkm8v+TbYoc
-9uS83f1fjjp98D7VtWpSC4O/27JWgEED/BB58sOipUQHiECr6dD5VWGJ9fnVOV2i
-vHqj9cKS6BGMkAh99ss0Bu/3DEBxAgMBAAGjUTBPMAsGA1UdDwQEAwIBhjAPBgNV
-HRMBAf8EBTADAQH/MB0GA1UdDgQWBBTuZecNgrj3Gdv9XpekFZuIkYtu9jAQBgkr
-BgEEAYI3FQEEAwIBADANBgkqhkiG9w0BAQsFAAOCAQEADPNrGypaKliXJ+H7gt6b
-NJSBdWB9EV63CdvxjLOuqvp3IUu8KIV2mMsulEjxjAb5kya0SURJVFvr9rrLVxvR
-e6B2SJUGUKJkX1Cq4nIthwGfJTEnypYhqMKkfUYjqfszU+1CerRD2ZTJHeKZsc7M
-GdxLXeocztZ220idf6uDYeNLnGLBfkodEgFV0RmrlnHQYQdRqj3hjClLAkNqKVrz
-rxNyyQvgaswK+4kHAPQhv+ipx4Q0eeROpp3prJ+dD0hhk8niQSKWQWZHyElhzIKv
-FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
-kA==
------END CERTIFICATE-----`,
-							},
-						}},
-					}},
-				}},
-			}, {
-				Name: "autogen-cronjob-check-image",
-				MatchResources: kyvernov1.MatchResources{
-					ResourceDescription: kyvernov1.ResourceDescription{
-						Kinds: []string{"CronJob"},
-					},
-				},
-				VerifyImages: []kyvernov1.ImageVerification{{
-					ImageReferences: []string{"*"},
-					Attestors: []kyvernov1.AttestorSet{{
-						Count: ptr.To(1),
-						Entries: []kyvernov1.Attestor{{
-							Keyless: &kyvernov1.KeylessAttestor{
-								Roots: `-----BEGIN CERTIFICATE-----
-MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
-MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt
-bzEmMCQGA1UEAxMddmVuYWZpZGVtby1FQzJBTUFaLVFOSVI4OUktQ0EwHhcNMjAx
-MjE0MjEzNzAzWhcNMjUxMjE0MjE0NzAzWjBZMRMwEQYKCZImiZPyLGQBGRYDY29t
-MRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVtbzEmMCQGA1UEAxMddmVuYWZpZGVt
-by1FQzJBTUFaLVFOSVI4OUktQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-AoIBAQC5CTVQczGnh77yNxq+BGh5ff0qNcRTkFll+y8lJbMPHevebF7JLWBQTGS7
-9aHIqUQLjy9sPOkdMrDh/vOZNVhVrHon9uwepF81dUMJ9lMbfQSI/tytp78f0z6b
-DVRHYZr/taYSkqNPT2FuHOijc7Y+oB3Q1DzPSoBc3a6I5DM6ET6O2GZWo3mqpImG
-J8+dNllYgjVKEuxuPqQjT7VD4fB2GqJbwwL0E8bSyfsgMV9Y+qHdznkm8v+TbYoc
-9uS83f1fjjp98D7VtWpSC4O/27JWgEED/BB58sOipUQHiECr6dD5VWGJ9fnVOV2i
-vHqj9cKS6BGMkAh99ss0Bu/3DEBxAgMBAAGjUTBPMAsGA1UdDwQEAwIBhjAPBgNV
-HRMBAf8EBTADAQH/MB0GA1UdDgQWBBTuZecNgrj3Gdv9XpekFZuIkYtu9jAQBgkr
-BgEEAYI3FQEEAwIBADANBgkqhkiG9w0BAQsFAAOCAQEADPNrGypaKliXJ+H7gt6b
-NJSBdWB9EV63CdvxjLOuqvp3IUu8KIV2mMsulEjxjAb5kya0SURJVFvr9rrLVxvR
-e6B2SJUGUKJkX1Cq4nIthwGfJTEnypYhqMKkfUYjqfszU+1CerRD2ZTJHeKZsc7M
-GdxLXeocztZ220idf6uDYeNLnGLBfkodEgFV0RmrlnHQYQdRqj3hjClLAkNqKVrz
-rxNyyQvgaswK+4kHAPQhv+ipx4Q0eeROpp3prJ+dD0hhk8niQSKWQWZHyElhzIKv
-FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
-kA==
------END CERTIFICATE-----`,
-							},
-						}},
-					}},
-				}},
-			}},
+			expectedRules: []string{"check-image", "autogen-check-image", "autogen-cronjob-check-image"},
+		},
+		{
+			name: "rule-with-match-name",
+			policy: `
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-image
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: Deployment,Job,StatefulSet
+spec:
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: check-image
+      match:
+        resources:
+          kinds:
+            - Pod
+      verifyImages:
+      - imageReferences: 
+        - "*"
+        attestors:
+        - count: 1
+          entries:
+          - keyless:
+              roots: |-
+                -----BEGIN CERTIFICATE-----
+                MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
+                MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt
+                bzEmMCQGA1UEAxMddmVuYWZpZGVtby1FQzJBTUFaLVFOSVI4OUktQ0EwHhcNMjAx
+                MjE0MjEzNzAzWhcNMjUxMjE0MjE0NzAzWjBZMRMwEQYKCZImiZPyLGQBGRYDY29t
+                MRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVtbzEmMCQGA1UEAxMddmVuYWZpZGVt
+                by1FQzJBTUFaLVFOSVI4OUktQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+                AoIBAQC5CTVQczGnh77yNxq+BGh5ff0qNcRTkFll+y8lJbMPHevebF7JLWBQTGS7
+                9aHIqUQLjy9sPOkdMrDh/vOZNVhVrHon9uwepF81dUMJ9lMbfQSI/tytp78f0z6b
+                DVRHYZr/taYSkqNPT2FuHOijc7Y+oB3Q1DzPSoBc3a6I5DM6ET6O2GZWo3mqpImG
+                J8+dNllYgjVKEuxuPqQjT7VD4fB2GqJbwwL0E8bSyfsgMV9Y+qHdznkm8v+TbYoc
+                9uS83f1fjjp98D7VtWpSC4O/27JWgEED/BB58sOipUQHiECr6dD5VWGJ9fnVOV2i
+                vHqj9cKS6BGMkAh99ss0Bu/3DEBxAgMBAAGjUTBPMAsGA1UdDwQEAwIBhjAPBgNV
+                HRMBAf8EBTADAQH/MB0GA1UdDgQWBBTuZecNgrj3Gdv9XpekFZuIkYtu9jAQBgkr
+                BgEEAYI3FQEEAwIBADANBgkqhkiG9w0BAQsFAAOCAQEADPNrGypaKliXJ+H7gt6b
+                NJSBdWB9EV63CdvxjLOuqvp3IUu8KIV2mMsulEjxjAb5kya0SURJVFvr9rrLVxvR
+                e6B2SJUGUKJkX1Cq4nIthwGfJTEnypYhqMKkfUYjqfszU+1CerRD2ZTJHeKZsc7M
+                GdxLXeocztZ220idf6uDYeNLnGLBfkodEgFV0RmrlnHQYQdRqj3hjClLAkNqKVrz
+                rxNyyQvgaswK+4kHAPQhv+ipx4Q0eeROpp3prJ+dD0hhk8niQSKWQWZHyElhzIKv
+                FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
+                kA==
+                -----END CERTIFICATE-----`,
+			expectedRules: []string{"check-image", "autogen-check-image"},
+		},
+		{
+			name: "rule-with-match-name",
+			policy: `
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-image
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: Deployment,CronJob,Job
+spec:
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: check-image
+      match:
+        resources:
+          kinds:
+            - Pod
+      verifyImages:
+      - imageReferences: 
+        - "*"
+        attestors:
+        - count: 1
+          entries:
+          - keyless:
+              roots: |-
+                -----BEGIN CERTIFICATE-----
+                MIIDjTCCAnWgAwIBAgIQb8yUrbw3aYZAubIjOJkFBjANBgkqhkiG9w0BAQsFADBZ
+                MRMwEQYKCZImiZPyLGQBGRYDY29tMRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVt
+                bzEmMCQGA1UEAxMddmVuYWZpZGVtby1FQzJBTUFaLVFOSVI4OUktQ0EwHhcNMjAx
+                MjE0MjEzNzAzWhcNMjUxMjE0MjE0NzAzWjBZMRMwEQYKCZImiZPyLGQBGRYDY29t
+                MRowGAYKCZImiZPyLGQBGRYKdmVuYWZpZGVtbzEmMCQGA1UEAxMddmVuYWZpZGVt
+                by1FQzJBTUFaLVFOSVI4OUktQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+                AoIBAQC5CTVQczGnh77yNxq+BGh5ff0qNcRTkFll+y8lJbMPHevebF7JLWBQTGS7
+                9aHIqUQLjy9sPOkdMrDh/vOZNVhVrHon9uwepF81dUMJ9lMbfQSI/tytp78f0z6b
+                DVRHYZr/taYSkqNPT2FuHOijc7Y+oB3Q1DzPSoBc3a6I5DM6ET6O2GZWo3mqpImG
+                J8+dNllYgjVKEuxuPqQjT7VD4fB2GqJbwwL0E8bSyfsgMV9Y+qHdznkm8v+TbYoc
+                9uS83f1fjjp98D7VtWpSC4O/27JWgEED/BB58sOipUQHiECr6dD5VWGJ9fnVOV2i
+                vHqj9cKS6BGMkAh99ss0Bu/3DEBxAgMBAAGjUTBPMAsGA1UdDwQEAwIBhjAPBgNV
+                HRMBAf8EBTADAQH/MB0GA1UdDgQWBBTuZecNgrj3Gdv9XpekFZuIkYtu9jAQBgkr
+                BgEEAYI3FQEEAwIBADANBgkqhkiG9w0BAQsFAAOCAQEADPNrGypaKliXJ+H7gt6b
+                NJSBdWB9EV63CdvxjLOuqvp3IUu8KIV2mMsulEjxjAb5kya0SURJVFvr9rrLVxvR
+                e6B2SJUGUKJkX1Cq4nIthwGfJTEnypYhqMKkfUYjqfszU+1CerRD2ZTJHeKZsc7M
+                GdxLXeocztZ220idf6uDYeNLnGLBfkodEgFV0RmrlnHQYQdRqj3hjClLAkNqKVrz
+                rxNyyQvgaswK+4kHAPQhv+ipx4Q0eeROpp3prJ+dD0hhk8niQSKWQWZHyElhzIKv
+                FlDw3fzPhtberBblY4Y9u525ev999SogMBTXoSkfajRR2ol10xUxY60kVbqoEUln
+                kA==
+                -----END CERTIFICATE-----`,
+			expectedRules: []string{"check-image", "autogen-check-image", "autogen-cronjob-check-image"},
+		},
+		{
+			name: "rule-with-match-name",
+			policy: `
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: Deployment,CronJob
+spec:
+  rules:
+  - match:
+      any:
+        - resources:
+            kinds:
+            - Pod
+    name: require-image-tag
+    validate:
+      failureAction: Audit
+      message: An image tag is required.
+      pattern:
+        spec:
+          containers:
+          - image: '*:*'
+  - match:
+      any:
+        - resources:
+            kinds:
+            - Pod
+    name: validate-image-tag
+    validate:
+      failureAction: Audit
+      message: Using a mutable image tag e.g. 'latest' is not allowed.
+      pattern:
+        spec:
+          containers:
+          - image: '!*:latest' `,
+			expectedRules: []string{"require-image-tag", "autogen-require-image-tag", "autogen-cronjob-require-image-tag", "validate-image-tag", "autogen-validate-image-tag", "autogen-cronjob-validate-image-tag"},
 		},
 	}
 
@@ -532,113 +613,8 @@ kA==
 			policies, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
-			rules := computeRules(policies[0], "CronJob")
+			rules := GetAutogenRuleNames(policies[0])
 			assert.DeepEqual(t, test.expectedRules, rules)
 		})
 	}
-}
-
-func Test_PodSecurityWithNoExceptions(t *testing.T) {
-	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"failureAction":"enforce","podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
-	policies, _, _, err := yamlutils.GetPolicy([]byte(policy))
-	assert.NilError(t, err)
-	assert.Equal(t, 1, len(policies))
-
-	rules := computeRules(policies[0], "Deployment")
-	assert.Equal(t, 2, len(rules))
-}
-
-func Test_ValidateWithCELExpressions(t *testing.T) {
-	policy := []byte(`
-	{
-		"apiVersion": "kyverno.io/v1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		  "name": "disallow-host-path"
-		},
-		"spec": {
-		  "background": false,
-		  "rules": [
-			{
-			  "name": "host-path",
-			  "match": {
-				"any": [
-				  {
-					"resources": {
-					  "kinds": [
-						"Pod"
-					  ]
-					}
-				  }
-				]
-			  },
-			  "validate": {
-			    "failureAction": "Enforce",
-				"cel": {
-				  "expressions": [
-					{
-					  "expression": "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))",
-					  "message": "HostPath volumes are forbidden. The field spec.template.spec.volumes[*].hostPath must be unset."
-					}
-				  ]
-				}
-			  }
-			}
-		  ]
-		}
-	  }
-`)
-	policies, _, _, err := yamlutils.GetPolicy([]byte(policy))
-	assert.NilError(t, err)
-	assert.Equal(t, 1, len(policies))
-
-	rules := computeRules(policies[0], "DaemonSet")
-	assert.Equal(t, 2, len(rules))
-}
-
-func Test_ValidateWithAssertion(t *testing.T) {
-	policy := []byte(`
-	{
-		"apiVersion": "kyverno.io/v1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		  "name": "disallow-default-sa"
-		},
-		"spec": {
-		  "validationFailureAction": "Enforce",
-		  "background": false,
-		  "rules": [
-			{
-			  "name": "default-sa",
-			  "match": {
-				"any": [
-				  {
-					"resources": {
-					  "kinds": [
-						"Pod"
-					  ]
-					}
-				  }
-				]
-			  },
-			  "validate": {
-			    "assert": {
-				  "object": {
-					"spec": {
-					  "(serviceAccountName == 'default')": false
-				    }
-				  }
-				}
-			  }
-			}
-		  ]
-		}
-	  }
-`)
-	policies, _, _, err := yamlutils.GetPolicy([]byte(policy))
-	assert.NilError(t, err)
-	assert.Equal(t, 1, len(policies))
-
-	rules := computeRules(policies[0], "")
-	assert.Equal(t, 3, len(rules))
 }
