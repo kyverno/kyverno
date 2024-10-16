@@ -1,15 +1,13 @@
-package autogenv2
+package v1
 
 import (
-	"fmt"
-	"sort"
+	"encoding/json"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -21,26 +19,8 @@ const (
 var (
 	PodControllers         = sets.New("DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController", "CronJob")
 	podControllersKindsSet = PodControllers.Union(sets.New("Pod"))
+	assertAutogenNodes     = []string{"object", "oldObject"}
 )
-
-// AutogenV2 defines the interface for the new autogeneration strategy.
-type AutogenV2 interface {
-	ExtractPodSpec(resource unstructured.Unstructured) (*unstructured.Unstructured, error)
-}
-
-// ImplAutogenV2 is the implementation of the AutogenV2 interface.
-type ImplAutogenV2 struct{}
-
-// NewAutogenV2 creates a new instance of AutogenV2.
-func NewAutogenV2() AutogenV2 {
-	return &ImplAutogenV2{}
-}
-
-func splitKinds(controllers, separator string) []string {
-	kinds := strings.Split(controllers, separator)
-	sort.Strings(kinds)
-	return kinds
-}
 
 func isKindOtherthanPod(kinds []string) bool {
 	if len(kinds) > 1 && kubeutils.ContainsKind(kinds, "Pod") {
@@ -59,6 +39,22 @@ func checkAutogenSupport(needed *bool, subjects ...kyvernov1.ResourceDescription
 		}
 	}
 	return true
+}
+
+// stripCronJob removes CronJob from controllers
+func stripCronJob(controllers string) string {
+	controllerArr := splitKinds(controllers, ",")
+	newControllers := make([]string, 0, len(controllerArr))
+	for _, c := range controllerArr {
+		if c == PodControllerCronJob {
+			continue
+		}
+		newControllers = append(newControllers, c)
+	}
+	if len(newControllers) == 0 {
+		return ""
+	}
+	return strings.Join(newControllers, ",")
 }
 
 // CanAutoGen checks whether the rule(s) (in policy) can be applied to Pod controllers
@@ -128,6 +124,7 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[s
 	return true, PodControllers
 }
 
+// GetSupportedControllers returns the supported autogen controllers for a given spec.
 func GetSupportedControllers(spec *kyvernov1.Spec) sets.Set[string] {
 	apply, controllers := CanAutoGen(spec)
 	if !apply || (controllers.Len() == 1 && controllers.Has("none")) {
@@ -168,91 +165,91 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []
 			activated = append(activated, controller)
 		}
 	}
-
 	return requested.UnsortedList(), supported.UnsortedList(), activated
 }
 
-// getAutogenRuleName generates an auto-gen rule name with the given prefix.
-func getAutogenRuleName(prefix string, name string) string {
-	name = prefix + "-" + name
-	if len(name) > 63 {
-		name = name[:63]
+// podControllersKey annotation could be:
+// scenario A: not exist, set default to "all", which generates on all pod controllers
+//               - if name / selector exist in resource description -> skip
+//                 as these fields may not be applicable to pod controllers
+// scenario B: "none", user explicitly disable this feature -> skip
+// scenario C: some certain controllers that user set -> generate on defined controllers
+//             copy entire match / exclude block, it's users' responsibility to
+//             make sure all fields are applicable to pod controllers
+
+// generateRules generates rule for podControllers based on scenario A and C
+func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
+	var rules []kyvernov1.Rule
+	for i := range spec.Rules {
+		// handle all other controllers other than CronJob
+		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers))); genRule != nil {
+			if convRule, err := convertRule(*genRule, "Pod"); err == nil {
+				rules = append(rules, *convRule)
+			} else {
+				logger.Error(err, "failed to create rule")
+			}
+		}
+		// handle CronJob, it appends an additional rule
+		if genRule := createRule(generateCronJobRule(&spec.Rules[i], controllers)); genRule != nil {
+			if convRule, err := convertRule(*genRule, "Cronjob"); err == nil {
+				rules = append(rules, *convRule)
+			} else {
+				logger.Error(err, "failed to create Cronjob rule")
+			}
+		}
 	}
-	return name
+	return rules
 }
 
-func isAutogenRuleName(name string) bool {
-	return strings.HasPrefix(name, "autogen-")
-}
-
-// GetAutogenRuleNames generates autogen rule names for pod controllers based on the provided policy
-func GetAutogenRuleNames(p kyvernov1.PolicyInterface) []string {
-	spec := p.GetSpec()
-	applyAutoGen, desiredControllers := CanAutoGen(spec)
-
-	// Handle the case where auto-generation is not applicable
-	if !applyAutoGen {
-		desiredControllers = sets.New("none")
-	}
-
-	var actualControllers sets.Set[string]
-	ann := p.GetAnnotations()
-	actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
-
-	// Determine actual controllers based on annotations
-	if !ok || !applyAutoGen {
-		actualControllers = desiredControllers
+func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
+	if bytes, err := json.Marshal(rule); err != nil {
+		return nil, err
 	} else {
-		actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
-	}
-
-	// Determine the kind of controllers we are working with
-	kind := strings.Join(actualControllers.UnsortedList(), ",")
-	if kind == "none" {
-		// If kind is "none", return the original rule names
-		var ruleNames []string
-		for _, rule := range spec.Rules {
-			if !isAutogenRuleName(rule.Name) {
-				ruleNames = append(ruleNames, rule.Name)
-			}
-		}
-		return ruleNames
-	}
-
-	// Prepare a slice for the autogenerated rule names
-	var out []string
-
-	// Iterate over the existing rules to construct the rule names
-	for _, rule := range spec.Rules {
-		// Only consider non-autogenerated rules for original names
-		if !isAutogenRuleName(rule.Name) {
-			out = append(out, rule.Name) // Add the original rule name
-
-			if actualControllers.HasAny("DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController") {
-				if genName := getAutogenRuleName("autogen", rule.Name); genName != "" {
-					out = append(out, genName)
-				}
-			}
-
-			// Generate autogen rule names based on actual controllers
-			if actualControllers.Has("CronJob") {
-				if genName := getAutogenRuleName("autogen-cronjob", rule.Name); genName != "" {
-					out = append(out, genName)
-				}
-			}
+		// CEL variables are object, oldObject, request, params and authorizer.
+		// Therefore CEL expressions can be either written as object.spec or request.object.spec
+		bytes = updateFields(bytes, kind, rule.Validation != nil && rule.Validation.CEL != nil)
+		if err := json.Unmarshal(bytes, &rule); err != nil {
+			return nil, err
 		}
 	}
 
-	return out
+	out := kyvernov1.Rule{
+		Name:                   rule.Name,
+		VerifyImages:           rule.VerifyImages,
+		SkipBackgroundRequests: rule.SkipBackgroundRequests,
+	}
+	if rule.MatchResources != nil {
+		out.MatchResources = *rule.MatchResources
+	}
+	if rule.ExcludeResources != nil {
+		out.ExcludeResources = rule.ExcludeResources
+	}
+	if rule.Context != nil {
+		out.Context = *rule.Context
+	}
+	if rule.AnyAllConditions != nil {
+		out.SetAnyAllConditions(rule.AnyAllConditions.Conditions)
+	}
+	if rule.Mutation != nil {
+		out.Mutation = rule.Mutation
+	}
+	if rule.Validation != nil {
+		out.Validation = rule.Validation
+	}
+	return &out, nil
 }
 
-// GetRelevantKinds extracts the resource kinds from the match.resources field of the rules.
-func GetAutogenKinds(p kyvernov1.PolicyInterface) []string {
+func ComputeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
+	return computeRules(p, kind)
+}
+
+func computeRules(p kyvernov1.PolicyInterface, kind string) []kyvernov1.Rule {
 	spec := p.GetSpec()
 	applyAutoGen, desiredControllers := CanAutoGen(spec)
 	if !applyAutoGen {
 		desiredControllers = sets.New("none")
 	}
+
 	var actualControllers sets.Set[string]
 	ann := p.GetAnnotations()
 	actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
@@ -265,39 +262,64 @@ func GetAutogenKinds(p kyvernov1.PolicyInterface) []string {
 			actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
 		}
 	}
-	list := actualControllers.UnsortedList()
-	var out []string
-	for _, item := range list {
-		if item != "none" {
-			out = append(out, item)
+
+	if kind != "" {
+		if !actualControllers.Has(kind) {
+			return spec.Rules
+		}
+	} else {
+		kind = strings.Join(actualControllers.UnsortedList(), ",")
+	}
+
+	if kind == "none" {
+		return spec.Rules
+	}
+
+	genRules := generateRules(spec.DeepCopy(), kind)
+	if len(genRules) == 0 {
+		return spec.Rules
+	}
+	var out []kyvernov1.Rule
+	for _, rule := range spec.Rules {
+		if !isAutogenRuleName(rule.Name) {
+			out = append(out, rule)
 		}
 	}
+	out = append(out, genRules...)
 	return out
 }
 
-// ExtractPodSpec extracts the PodSpec from an unstructured resource if the controller supports autogen.
-func (a *ImplAutogenV2) ExtractPodSpec(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	kind := resource.GetKind()
-	var podSpec map[string]interface{}
-	var found bool
-	var err error
-	switch kind {
-	case "Deployment", "StatefulSet", "DaemonSet", "Job", "ReplicaSet", "ReplicationController":
-		podSpec, found, err = unstructured.NestedMap(resource.Object, "spec", "template", "spec")
-		if err != nil || !found {
-			return nil, fmt.Errorf("error extracting pod spec: %v", err)
-		}
-
-	case "CronJob":
-		jobTemplate, found, err := unstructured.NestedMap(resource.Object, "spec", "jobTemplate", "spec", "template", "spec")
-		if err != nil || !found {
-			return nil, fmt.Errorf("error extracting pod spec from CronJob: %v", err)
-		}
-		podSpec = jobTemplate
-
-	default:
-		return nil, nil // No pod spec for this kind of resource
+func copyMap(m map[string]any) map[string]any {
+	newMap := make(map[string]any, len(m))
+	for k, v := range m {
+		newMap[k] = v
 	}
 
-	return &unstructured.Unstructured{Object: podSpec}, nil
+	return newMap
+}
+
+func createAutogenAssertion(tree kyvernov1.AssertionTree, tplKey string) kyvernov1.AssertionTree {
+	v, ok := tree.Value.(map[string]any)
+	if !ok {
+		return tree
+	}
+
+	value := copyMap(v)
+
+	for _, n := range assertAutogenNodes {
+		object, ok := v[n].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		value[n] = map[string]any{
+			"spec": map[string]any{
+				tplKey: copyMap(object),
+			},
+		}
+	}
+
+	return kyvernov1.AssertionTree{
+		Value: value,
+	}
 }

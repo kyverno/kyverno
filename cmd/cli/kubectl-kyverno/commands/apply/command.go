@@ -25,7 +25,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -213,7 +213,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
 		var policyRulesCount int
 		for _, policy := range policies {
-			policyRulesCount += len(autogen.ComputeRules(policy, ""))
+			policyRulesCount += len(autogenv1.ComputeRules(policy, ""))
 		}
 		policyRulesCount += len(vaps)
 		if len(exceptions) > 0 {

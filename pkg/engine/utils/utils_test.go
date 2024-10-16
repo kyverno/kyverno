@@ -9,7 +9,7 @@ import (
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -904,7 +904,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		}
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
-		for _, rule := range autogen.ComputeRules(&policy, "") {
+		for _, rule := range autogenv1.ComputeRules(&policy, "") {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
@@ -1809,7 +1809,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 		}
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
-		for _, rule := range autogen.ComputeRules(&policy, "") {
+		for _, rule := range autogenv1.ComputeRules(&policy, "") {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
