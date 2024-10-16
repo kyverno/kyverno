@@ -27,7 +27,6 @@ type webhook struct {
 	matchConditions   []admissionregistrationv1.MatchCondition
 }
 
-// groupVersionScope contains the GV and scopeType of a resource
 type ruleEntry struct {
 	group       string
 	version     string
@@ -35,6 +34,14 @@ type ruleEntry struct {
 	subresource string
 	scope       admissionregistrationv1.ScopeType
 	operation   admissionregistrationv1.OperationType
+}
+
+type aggregatedRuleEntry struct {
+	group       string
+	version     string
+	resource    string
+	subresource string
+	scope       admissionregistrationv1.ScopeType
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition) *webhook {
@@ -90,6 +97,7 @@ func (wh *webhook) hasRule(
 	} else {
 		resources = []string{resource, "*"}
 	}
+	// TODO: probably a bit more couple with resource
 	if subresource == "*" {
 		subresources = []string{subresource}
 	} else {
@@ -134,18 +142,22 @@ func (wh *webhook) hasRule(
 }
 
 func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWithOperations {
-	rules := sets.New[ruleEntry]()
-	// keep only the relevant rule
+	rules := map[aggregatedRuleEntry]sets.Set[admissionregistrationv1.OperationType]{}
+	// keep only the relevant rules
 	for rule := range wh.rules {
 		if !wh.hasRule(rule.group, rule.version, rule.resource, rule.subresource, rule.scope, rule.operation) {
-			rules.Insert(rule)
+			key := aggregatedRuleEntry{rule.group, rule.version, rule.resource, rule.subresource, rule.scope}
+			ops := rules[key]
+			if ops == nil {
+				ops = sets.New[admissionregistrationv1.OperationType]()
+			}
+			ops.Insert(rule.operation)
+			rules[key] = ops
 		}
 	}
-	// aggregate rules
-	// TODO
 	// build rules
 	out := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
-	for rule := range rules {
+	for rule, ops := range rules {
 		resource := rule.resource
 		if rule.subresource != "" {
 			resource = rule.resource + "/" + rule.subresource
@@ -157,9 +169,10 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 				Resources:   []string{resource},
 				Scope:       ptr.To(rule.scope),
 			},
-			Operations: []admissionregistrationv1.OperationType{rule.operation},
+			Operations: sets.List(ops),
 		})
 	}
+	// sort rules
 
 	// for gv, resources := range wh.rules {
 	// 	ruleforset := make([]admissionregistrationv1.RuleWithOperations, 0, len(resources))
