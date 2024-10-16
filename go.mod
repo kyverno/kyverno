@@ -1,7 +1,6 @@
 module github.com/kyverno/kyverno
 
 go 1.22.7
-
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/AdamKorcz/go-fuzz-headers-1 v0.0.0-20230919221257-8b5d3ce2d11d
@@ -50,7 +49,7 @@ require (
 	github.com/sigstore/sigstore v1.8.9
 	github.com/sigstore/sigstore-go v0.6.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.9
-	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.9
+	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.10
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.9
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.9
 	github.com/spf13/cobra v1.8.1
@@ -109,8 +108,8 @@ require (
 	dario.cat/mergo v1.0.1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.15.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.1.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.0.1 // indirect
