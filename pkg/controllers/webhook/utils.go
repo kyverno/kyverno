@@ -1,6 +1,8 @@
 package webhook
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -19,8 +21,7 @@ import (
 // a fine-grained webhook is created per policy with a unique path
 type webhook struct {
 	// policyMeta is set for fine-grained webhooks
-	policyMeta objectmeta.ObjectName
-
+	policyMeta        objectmeta.ObjectName
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
 	rules             sets.Set[ruleEntry]
@@ -173,69 +174,37 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 		})
 	}
 	// sort rules
-
-	// for gv, resources := range wh.rules {
-	// 	ruleforset := make([]admissionregistrationv1.RuleWithOperations, 0, len(resources))
-	// 	for res := range resources {
-	// 		resource := sets.New(res)
-	// 		// if we have pods, we add pods/ephemeralcontainers by default
-	// 		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resource.Has("pods") || resource.Has("*")) {
-	// 			resource.Insert("pods/ephemeralcontainers")
-	// 		}
-
-	// 		operations := findKeyContainingSubstring(final, res, defaultOpn)
-	// 		if len(operations) == 0 {
-	// 			continue
-	// 		}
-
-	// 		slices.SortFunc(operations, func(a, b admissionregistrationv1.OperationType) int {
-	// 			return cmp.Compare(a, b)
-	// 		})
-	// 		var added bool
-	// 		ruleforset, added = appendResourceInRule(resource, operations, ruleforset)
-	// 		if !added {
-	// 			ruleforset = append(ruleforset, admissionregistrationv1.RuleWithOperations{
-	// 				Rule: admissionregistrationv1.Rule{
-	// 					APIGroups:   []string{gv.Group},
-	// 					APIVersions: []string{gv.Version},
-	// 					Resources:   sets.List(resource),
-	// 					Scope:       ptr.To(gv.scopeType),
-	// 				},
-	// 				Operations: operations,
-	// 			})
-	// 		}
-	// 	}
-	// 	rules = append(rules, ruleforset...)
-	// }
-	// for _, rule := range rules {
-	// 	slices.Sort(rule.Resources)
-	// }
-	// less := func(a []string, b []string) (int, bool) {
-	// 	if x := cmp.Compare(len(a), len(b)); x != 0 {
-	// 		return x, true
-	// 	}
-	// 	for i := range a {
-	// 		if x := cmp.Compare(a[i], b[i]); x != 0 {
-	// 			return x, true
-	// 		}
-	// 	}
-	// 	return 0, false
-	// }
-	// slices.SortFunc(rules, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
-	// 	if x, match := less(a.APIGroups, b.APIGroups); match {
-	// 		return x
-	// 	}
-	// 	if x, match := less(a.APIVersions, b.APIVersions); match {
-	// 		return x
-	// 	}
-	// 	if x, match := less(a.Resources, b.Resources); match {
-	// 		return x
-	// 	}
-	// 	if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
-	// 		return x
-	// 	}
-	// 	return 0
-	// })
+	for _, rule := range out {
+		slices.Sort(rule.APIGroups)
+		slices.Sort(rule.APIVersions)
+		slices.Sort(rule.Resources)
+	}
+	less := func(a []string, b []string) (int, bool) {
+		if x := cmp.Compare(len(a), len(b)); x != 0 {
+			return x, true
+		}
+		for i := range a {
+			if x := cmp.Compare(a[i], b[i]); x != 0 {
+				return x, true
+			}
+		}
+		return 0, false
+	}
+	slices.SortFunc(out, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
+		if x, match := less(a.APIGroups, b.APIGroups); match {
+			return x
+		}
+		if x, match := less(a.APIVersions, b.APIVersions); match {
+			return x
+		}
+		if x, match := less(a.Resources, b.Resources); match {
+			return x
+		}
+		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
+			return x
+		}
+		return 0
+	})
 	return out
 }
 
