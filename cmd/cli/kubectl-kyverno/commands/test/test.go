@@ -19,7 +19,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/ext/output/pluralize"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -109,7 +109,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range results.Policies {
-		for _, rule := range autogen.ComputeRules(policy, "") {
+		for _, rule := range autogenv1.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
 				if res.IsValidatingAdmissionPolicy {
 					continue
