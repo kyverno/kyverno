@@ -840,27 +840,25 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 				spec := p.GetSpec()
 				if spec.HasMutateStandard() || spec.HasVerifyImages() {
 					if spec.CustomWebhookMatchConditions() {
-						fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-						fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
+							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
 							c.mergeWebhook(fineGrainedIgnore, p, false)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
+							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
 							c.mergeWebhook(fineGrainedFail, p, false)
 							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
 						}
-						continue
-					}
-
-					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-						c.mergeWebhook(ignoreWebhook, p, false)
 					} else {
-						c.mergeWebhook(failWebhook, p, false)
+						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
+							c.mergeWebhook(ignoreWebhook, p, false)
+						} else {
+							c.mergeWebhook(failWebhook, p, false)
+						}
 					}
 				}
 			}
 		}
-
 		webhooks := []*webhook{ignoreWebhook, failWebhook}
 		webhooks = append(webhooks, fineGrainedIgnoreList...)
 		webhooks = append(webhooks, fineGrainedFailList...)
@@ -987,22 +985,21 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				spec := p.GetSpec()
 				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutateExisting() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
 					if spec.CustomWebhookMatchConditions() {
-						fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-						fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
+							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
 							c.mergeWebhook(fineGrainedIgnore, p, true)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
+							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
 							c.mergeWebhook(fineGrainedFail, p, true)
 							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
 						}
-						continue
-					}
-
-					if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-						c.mergeWebhook(ignoreWebhook, p, true)
 					} else {
-						c.mergeWebhook(failWebhook, p, true)
+						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
+							c.mergeWebhook(ignoreWebhook, p, true)
+						} else {
+							c.mergeWebhook(failWebhook, p, true)
+						}
 					}
 				}
 			}
@@ -1011,7 +1008,6 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		if c.admissionReports {
 			sideEffects = &noneOnDryRun
 		}
-
 		webhooks := []*webhook{ignoreWebhook, failWebhook}
 		webhooks = append(webhooks, fineGrainedIgnoreList...)
 		webhooks = append(webhooks, fineGrainedFailList...)
@@ -1095,7 +1091,7 @@ func (gvs GroupVersionResourceScope) String() string {
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
 	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		var matchedGVK []string
-		// matching kinds in generate policies need to be added to both webhook
+		// matching kinds in generate policies need to be added to both webhooks
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 			for _, g := range rule.Generation.ForEachGeneration {
@@ -1109,7 +1105,6 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 				matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
 			} else {
 				matchedGVK = append(matchedGVK, rule.Generation.CloneList.Kinds...)
-				continue
 			}
 		}
 		if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
@@ -1151,6 +1146,11 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		}
 		// TODO
 		var operations []admissionregistrationv1.OperationType
+		if updateValidate {
+			operations = []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}
+		} else {
+			operations = []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}
+		}
 		for _, gvrs := range gvrsList {
 			dst.set(gvrs.GroupVersionResource, gvrs.Scope, operations...)
 		}
