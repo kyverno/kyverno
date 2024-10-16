@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -111,7 +111,7 @@ func (c *controller) reportPolicy(ctx context.Context, policy kyvernov1.PolicyIn
 			attribute.String("policy_type", string(policyType)),
 			attribute.String("policy_background_mode", string(backgroundMode)),
 		}
-		for _, rule := range autogen.ComputeRules(policy, "") {
+		for _, rule := range autogenv1.ComputeRules(policy, "") {
 			ruleType := metrics.ParseRuleType(rule)
 			ruleAttributes := []attribute.KeyValue{
 				attribute.String("rule_name", rule.Name),
