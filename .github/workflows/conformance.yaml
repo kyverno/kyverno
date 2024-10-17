@@ -196,7 +196,7 @@ jobs:
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,exceptions-enabled
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: exceptions
           shard-index: ${{ matrix.shard-index }}
@@ -274,7 +274,7 @@ jobs:
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,generate-validating-admission-policy
+          kyverno-configs: standard,generate-validating-admission-policy,exceptions-enabled
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-validating-admission-policy
 
@@ -349,7 +349,7 @@ jobs:
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,exceptions-enabled
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: policy-validation
 
@@ -405,7 +405,7 @@ jobs:
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,exceptions-enabled
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: reports
           shard-index: ${{ matrix.shard-index }}
@@ -446,7 +446,7 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: validate
+          tests-path: validate,exceptions-enabled
           shard-index: ${{ matrix.shard-index }}
           shard-count: 6
 
