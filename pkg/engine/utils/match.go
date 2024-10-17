@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/logging"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -267,6 +268,7 @@ func matchesResourceDescriptionMatchHelper(
 	// checking if resource matches the rule
 	if !datautils.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!datautils.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
+		logging.GlobalLogger().Info("runs it")
 		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource, operation)
 		errs = append(errs, matchErrs...)
 	} else {

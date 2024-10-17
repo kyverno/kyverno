@@ -156,7 +156,7 @@ func validateOldObject(ctx context.Context, policyContext engineapi.PolicyContex
 
 	oldResource := policyContext.OldResource()
 
-	if ok := matchResource(oldResource, rule, policyContext.AdmissionInfo(), policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
+	if ok := matchResource(oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
 		return nil, nil
 	}
 
