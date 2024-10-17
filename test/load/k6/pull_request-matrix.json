@@ -1,0 +1,79 @@
+[
+  {
+    "name": "kyverno-pss",
+    "scenario": "",
+    "replicas": 1,
+    "cpu_request": "100m",
+    "memory_request": "128Mi",
+    "memory_limit": "384Mi",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": "--no-teardown"
+  },
+  {
+    "name": "kyverno-pss",
+    "scenario": "",
+    "replicas": 1,
+    "cpu_request": "100m",
+    "memory_request": "128Mi",
+    "memory_limit": "384Mi",
+    "concurrent_connections": 20,
+    "total_iterations": 5000,
+    "extra_options": "--no-teardown"
+  },
+  {
+    "name": "kyverno-pss",
+    "scenario": "",
+    "replicas": 1,
+    "cpu_request": "100m",
+    "memory_request": "128Mi",
+    "memory_limit": "384Mi",
+    "concurrent_connections": 50,
+    "total_iterations": 10000,
+    "extra_options": "--no-teardown"
+  },
+  {
+    "name": "kyverno-pss",
+    "scenario": "",
+    "replicas": 3,
+    "cpu_request": "100m",
+    "memory_request": "128Mi",
+    "memory_limit": "384Mi",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": "--no-teardown"
+  },
+  {
+    "name": "kyverno-pss",
+    "scenario": "",
+    "replicas": 3,
+    "cpu_request": "100m",
+    "memory_request": "128Mi",
+    "memory_limit": "384Mi",
+    "concurrent_connections": 20,
+    "total_iterations": 5000,
+    "extra_options": "--no-teardown"
+  },
+  {
+    "name": "kyverno-pss",
+    "scenario": "",
+    "replicas": 3,
+    "cpu_request": "100m",
+    "memory_request": "128Mi",
+    "memory_limit": "384Mi",
+    "concurrent_connections": 50,
+    "total_iterations": 10000,
+    "extra_options": "--no-teardown"
+  },
+  {
+    "name": "kyverno-generate",
+    "scenario": "",
+    "replicas": 1,
+    "cpu_request": "100m",
+    "memory_request": "128Mi",
+    "memory_limit": "384Mi",
+    "concurrent_connections": 10,
+    "total_iterations": 1000,
+    "extra_options": ""
+  }
+]
