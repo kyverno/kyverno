@@ -1091,8 +1091,9 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		// matching kinds in generate policies need to be added to both webhooks
 		if rule.HasGenerate() {
 			matched = append(matched, collectResourceDescriptions(rule)...)
-			// TODO
-			operations := []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete}
+			// all four operations including CONNECT are needed for generate.
+			// for example https://kyverno.io/policies/other/audit-event-on-exec/audit-event-on-exec/
+			operations := []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect}
 			for _, g := range rule.Generation.ForEachGeneration {
 				if g.GeneratePattern.ResourceSpec.Kind != "" {
 					matched = append(matched, kyvernov1.ResourceDescription{
