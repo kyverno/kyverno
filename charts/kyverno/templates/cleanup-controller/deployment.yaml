@@ -108,6 +108,7 @@ spec:
             - --servicePort={{ .Values.cleanupController.service.port }}
             - --cleanupServerPort={{ .Values.cleanupController.server.port }}
             - --webhookServerPort={{ .Values.cleanupController.webhookServer.port }}
+            - --resyncPeriod={{ .Values.cleanupController.resyncPeriod | default .Values.global.resyncPeriod }}
             {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
             - --autoDeleteWebhooks
             {{- end }}

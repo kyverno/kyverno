@@ -164,7 +164,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: cpol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogen.ComputeRules(cpol, "") {
+		for _, rule := range autogen.Default.ComputeRules(cpol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
@@ -181,7 +181,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: pol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogen.ComputeRules(pol, "") {
+		for _, rule := range autogen.Default.ComputeRules(pol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
