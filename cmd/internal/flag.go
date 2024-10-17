@@ -103,8 +103,8 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 }
 
 func initPolicyExceptionsFlags() {
-	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
-	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
+	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions. If it is set to '*', exceptions are allowed in all namespaces.")
+	flag.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 }
 
 func initConfigMapCachingFlags() {
