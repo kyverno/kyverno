@@ -18,8 +18,5 @@ func matchResource(resource unstructured.Unstructured, rule kyvernov1.Rule, admi
 		"",
 		operation,
 	)
-	if err == nil {
-		return true
-	}
-	return false
+	return err == nil
 }
