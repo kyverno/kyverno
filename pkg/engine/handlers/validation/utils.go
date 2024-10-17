@@ -16,7 +16,7 @@ func matchResource(resource unstructured.Unstructured, rule kyvernov1.Rule, name
 		AdmissionUserInfo: authenticationv1.UserInfo{
 			Username: "kyverno:kyverno-invalid-controller",
 			UID:      "kyverno:invaliduid",
-			Groups:   []string{"kyverno:invalid-group"},
+			Groups:   []string{"kyverno:invalidgroup"},
 		},
 	}
 
