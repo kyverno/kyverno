@@ -123,12 +123,20 @@ func (idl *imageDataLoader) fetchImageDataMap(client engineapi.ImageDataClient, 
 		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
 	}
 
+	var manifestList interface{}
+	if desc.ManifestList != nil {
+		if err := json.Unmarshal(desc.ManifestList, &manifestList); err != nil {
+			return nil, fmt.Errorf("failed to decode image index for image reference: %s, error: %v", ref, err)
+		}
+	}
+
 	data := map[string]interface{}{
 		"image":         desc.Image,
 		"resolvedImage": desc.ResolvedImage,
 		"registry":      desc.Registry,
 		"repository":    desc.Repository,
 		"identifier":    desc.Identifier,
+		"manifestList":  manifestList,
 		"manifest":      manifest,
 		"configData":    configData,
 	}
