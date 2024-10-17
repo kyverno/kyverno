@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"golang.org/x/exp/maps"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // TODO: what is this ?
@@ -21,14 +22,41 @@ import (
 //		return defaultOpn
 //	}
 
-func collectResourceDescriptions(rule kyvernov1.Rule) []kyvernov1.ResourceDescription {
-	var out []kyvernov1.ResourceDescription //nolint:prealloc
-	out = append(out, rule.MatchResources.ResourceDescription)
+func collectResourceDescriptions(rule kyvernov1.Rule, defaultOps ...kyvernov1.AdmissionOperation) webhookConfig {
+	out := map[string]sets.Set[kyvernov1.AdmissionOperation]{}
+	for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
+		if out[kind] == nil {
+			out[kind] = sets.New[kyvernov1.AdmissionOperation]()
+		}
+		ops := rule.MatchResources.ResourceDescription.Operations
+		if len(ops) == 0 {
+			ops = defaultOps
+		}
+		out[kind].Insert(ops...)
+	}
 	for _, value := range rule.MatchResources.All {
-		out = append(out, value.ResourceDescription)
+		for _, kind := range value.Kinds {
+			if out[kind] == nil {
+				out[kind] = sets.New[kyvernov1.AdmissionOperation]()
+			}
+			ops := value.Operations
+			if len(ops) == 0 {
+				ops = defaultOps
+			}
+			out[kind].Insert(ops...)
+		}
 	}
 	for _, value := range rule.MatchResources.Any {
-		out = append(out, value.ResourceDescription)
+		for _, kind := range value.Kinds {
+			if out[kind] == nil {
+				out[kind] = sets.New[kyvernov1.AdmissionOperation]()
+			}
+			ops := value.Operations
+			if len(ops) == 0 {
+				ops = defaultOps
+			}
+			out[kind].Insert(ops...)
+		}
 	}
 	// TODO: account for exclusions
 	return out

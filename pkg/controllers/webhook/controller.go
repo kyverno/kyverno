@@ -1071,7 +1071,6 @@ func (c *controller) getLease() (*coordinationv1.Lease, error) {
 	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno-health")
 }
 
-// GroupVersionResourceScope adds the resource scope to the GVR
 type groupVersionResourceSubresourceScope struct {
 	group       string
 	version     string
@@ -1080,111 +1079,115 @@ type groupVersionResourceSubresourceScope struct {
 	scope       admissionregistrationv1.ScopeType
 }
 
+type webhookConfig map[string]sets.Set[kyvernov1.AdmissionOperation]
+
+func (w webhookConfig) merge(other webhookConfig) {
+	for key, value := range other {
+		if w[key] == nil {
+			w[key] = value
+		} else {
+			w[key] = w[key].Union(value)
+		}
+	}
+}
+
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
+	matched := webhookConfig{}
 	for _, rule := range autogen.Default.ComputeRules(policy, "") {
-		var matched []kyvernov1.ResourceDescription
 		// matching kinds in generate policies need to be added to both webhooks
 		if rule.HasGenerate() {
-			matched = append(matched, collectResourceDescriptions(rule)...)
 			// all four operations including CONNECT are needed for generate.
 			// for example https://kyverno.io/policies/other/audit-event-on-exec/audit-event-on-exec/
 			operations := []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect}
-			for _, g := range rule.Generation.ForEachGeneration {
-				if g.GeneratePattern.ResourceSpec.Kind != "" {
-					matched = append(matched, kyvernov1.ResourceDescription{
-						Kinds:      []string{g.GeneratePattern.ResourceSpec.Kind},
-						Operations: operations,
-					})
-				} else {
-					matched = append(matched, kyvernov1.ResourceDescription{
-						Kinds:      g.GeneratePattern.CloneList.Kinds,
-						Operations: operations,
-					})
-				}
-			}
-			if rule.Generation.ResourceSpec.Kind != "" {
-				matched = append(matched, kyvernov1.ResourceDescription{
-					Kinds:      []string{rule.Generation.ResourceSpec.Kind},
-					Operations: operations,
-				})
-			} else {
-				matched = append(matched, kyvernov1.ResourceDescription{
-					Kinds:      rule.Generation.CloneList.Kinds,
-					Operations: operations,
-				})
-			}
+			matched.merge(collectResourceDescriptions(rule, operations...))
+			// for _, g := range rule.Generation.ForEachGeneration {
+			// 	if g.GeneratePattern.ResourceSpec.Kind != "" {
+			// 		matched = append(matched, kyvernov1.ResourceDescription{
+			// 			Kinds:      []string{g.GeneratePattern.ResourceSpec.Kind},
+			// 			Operations: operations,
+			// 		})
+			// 	} else {
+			// 		matched = append(matched, kyvernov1.ResourceDescription{
+			// 			Kinds:      g.GeneratePattern.CloneList.Kinds,
+			// 			Operations: operations,
+			// 		})
+			// 	}
+			// }
+			// if rule.Generation.ResourceSpec.Kind != "" {
+			// 	matched = append(matched, kyvernov1.ResourceDescription{
+			// 		Kinds:      []string{rule.Generation.ResourceSpec.Kind},
+			// 		Operations: operations,
+			// 	})
+			// } else {
+			// 	matched = append(matched, kyvernov1.ResourceDescription{
+			// 		Kinds:      rule.Generation.CloneList.Kinds,
+			// 		Operations: operations,
+			// 	})
+			// }
 		} else if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
 			(updateValidate && rule.HasMutateExisting()) ||
 			(!updateValidate && rule.HasMutateStandard()) ||
 			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
-			matched = append(matched, collectResourceDescriptions(rule)...)
+			matched.merge(collectResourceDescriptions(rule, defaultOperations[updateValidate]...))
 		}
-		// TODO: do this out of the main loop
-		for _, match := range matched {
-			for _, gvk := range match.Kinds {
-				var gvrsList []groupVersionResourceSubresourceScope
-				// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
-				group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-				// if kind or group is `*` we use the scope of the policy
-				policyScope := admissionregistrationv1.AllScopes
-				if policy.IsNamespaced() {
-					policyScope = admissionregistrationv1.NamespacedScope
-				}
-				// if kind is `*` no need to lookup resources
-				if kind == "*" && subresource == "*" {
-					gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
-						group:       group,
-						version:     version,
-						resource:    kind,
-						subresource: subresource,
-						scope:       policyScope,
-					})
-				} else if kind == "*" && subresource == "" {
-					gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
-						group:       group,
-						version:     version,
-						resource:    kind,
-						subresource: subresource,
-						scope:       policyScope,
-					})
-				} else if kind == "*" && subresource != "" {
-					gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
-						group:       group,
-						version:     version,
-						resource:    kind,
-						subresource: subresource,
-						scope:       policyScope,
-					})
-				} else {
-					gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
-					if err != nil {
-						logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
-						continue
-					}
-					for gvrs, resource := range gvrss {
-						resourceScope := admissionregistrationv1.AllScopes
-						if resource.Namespaced {
-							resourceScope = admissionregistrationv1.NamespacedScope
-						}
-						gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
-							group:       gvrs.GroupVersion.Group,
-							version:     gvrs.GroupVersion.Version,
-							resource:    gvrs.Resource,
-							subresource: gvrs.SubResource,
-							scope:       resourceScope,
-						})
-					}
-				}
-				operations := match.Operations
-				// if no operation specified, we use the default ones
-				if len(operations) == 0 {
-					operations = defaultOperations[updateValidate]
-				}
-				for _, gvrs := range gvrsList {
-					dst.set(gvrs.group, gvrs.version, gvrs.resource, gvrs.subresource, gvrs.scope, operations...)
-				}
+	}
+	for kind, ops := range matched {
+		var gvrsList []groupVersionResourceSubresourceScope
+		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
+		group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+		// if kind or group is `*` we use the scope of the policy
+		policyScope := admissionregistrationv1.AllScopes
+		if policy.IsNamespaced() {
+			policyScope = admissionregistrationv1.NamespacedScope
+		}
+		// if kind is `*` no need to lookup resources
+		if kind == "*" && subresource == "*" {
+			gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+				group:       group,
+				version:     version,
+				resource:    kind,
+				subresource: subresource,
+				scope:       policyScope,
+			})
+		} else if kind == "*" && subresource == "" {
+			gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+				group:       group,
+				version:     version,
+				resource:    kind,
+				subresource: subresource,
+				scope:       policyScope,
+			})
+		} else if kind == "*" && subresource != "" {
+			gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+				group:       group,
+				version:     version,
+				resource:    kind,
+				subresource: subresource,
+				scope:       policyScope,
+			})
+		} else {
+			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
+			if err != nil {
+				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				continue
 			}
+			for gvrs, resource := range gvrss {
+				resourceScope := admissionregistrationv1.AllScopes
+				if resource.Namespaced {
+					resourceScope = admissionregistrationv1.NamespacedScope
+				}
+				gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
+					group:       gvrs.GroupVersion.Group,
+					version:     gvrs.GroupVersion.Version,
+					resource:    gvrs.Resource,
+					subresource: gvrs.SubResource,
+					scope:       resourceScope,
+				})
+			}
+		}
+		for _, gvrs := range gvrsList {
+			dst.set(gvrs.group, gvrs.version, gvrs.resource, gvrs.subresource, gvrs.scope, ops.UnsortedList()...)
 		}
 	}
 	spec := policy.GetSpec()
