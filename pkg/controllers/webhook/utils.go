@@ -58,7 +58,36 @@ func collectResourceDescriptions(rule kyvernov1.Rule, defaultOps ...kyvernov1.Ad
 			out[kind].Insert(ops...)
 		}
 	}
-	// TODO: account for exclusions
+	// we consider only `exclude.any` elements and only if `kinds` is empty or if there's a corresponding kind in the match statement
+	// nothing else than `kinds` and `operations` must be set
+	if rule.ExcludeResources != nil {
+		for _, value := range rule.ExcludeResources.Any {
+			if !value.UserInfo.IsEmpty() {
+				continue
+			}
+			if value.Name != "" ||
+				len(value.Names) != 0 ||
+				len(value.Namespaces) != 0 ||
+				len(value.Annotations) != 0 ||
+				value.Selector != nil ||
+				value.NamespaceSelector != nil {
+				continue
+			}
+			kinds := value.Kinds
+			if len(kinds) == 0 {
+				kinds = maps.Keys(out)
+			}
+			ops := value.Operations
+			if len(ops) == 0 {
+				ops = defaultOps
+			}
+			for _, kind := range kinds {
+				if out[kind] != nil {
+					out[kind] = out[kind].Delete(ops...)
+				}
+			}
+		}
+	}
 	return out
 }
 

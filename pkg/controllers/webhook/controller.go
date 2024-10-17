@@ -77,8 +77,10 @@ var (
 		APIGroups:   []string{"coordination.k8s.io"},
 		APIVersions: []string{"v1"},
 	}
-	defaultOperations = map[bool][]kyvernov1.AdmissionOperation{
-		true:  {kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect},
+	createUpdateDelete = []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete}
+	allOperations      = []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect}
+	defaultOperations  = map[bool][]kyvernov1.AdmissionOperation{
+		true:  allOperations,
 		false: {kyvernov1.Create, kyvernov1.Update},
 	}
 )
@@ -1081,6 +1083,15 @@ type groupVersionResourceSubresourceScope struct {
 
 type webhookConfig map[string]sets.Set[kyvernov1.AdmissionOperation]
 
+func (w webhookConfig) add(kind string, ops ...kyvernov1.AdmissionOperation) {
+	if len(ops) != 0 {
+		if w[kind] == nil {
+			w[kind] = sets.New[kyvernov1.AdmissionOperation]()
+		}
+		w[kind].Insert(ops...)
+	}
+}
+
 func (w webhookConfig) merge(other webhookConfig) {
 	for key, value := range other {
 		if w[key] == nil {
@@ -1099,32 +1110,23 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		if rule.HasGenerate() {
 			// all four operations including CONNECT are needed for generate.
 			// for example https://kyverno.io/policies/other/audit-event-on-exec/audit-event-on-exec/
-			operations := []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect}
-			matched.merge(collectResourceDescriptions(rule, operations...))
-			// for _, g := range rule.Generation.ForEachGeneration {
-			// 	if g.GeneratePattern.ResourceSpec.Kind != "" {
-			// 		matched = append(matched, kyvernov1.ResourceDescription{
-			// 			Kinds:      []string{g.GeneratePattern.ResourceSpec.Kind},
-			// 			Operations: operations,
-			// 		})
-			// 	} else {
-			// 		matched = append(matched, kyvernov1.ResourceDescription{
-			// 			Kinds:      g.GeneratePattern.CloneList.Kinds,
-			// 			Operations: operations,
-			// 		})
-			// 	}
-			// }
-			// if rule.Generation.ResourceSpec.Kind != "" {
-			// 	matched = append(matched, kyvernov1.ResourceDescription{
-			// 		Kinds:      []string{rule.Generation.ResourceSpec.Kind},
-			// 		Operations: operations,
-			// 	})
-			// } else {
-			// 	matched = append(matched, kyvernov1.ResourceDescription{
-			// 		Kinds:      rule.Generation.CloneList.Kinds,
-			// 		Operations: operations,
-			// 	})
-			// }
+			matched.merge(collectResourceDescriptions(rule, allOperations...))
+			for _, g := range rule.Generation.ForEachGeneration {
+				if g.GeneratePattern.ResourceSpec.Kind != "" {
+					matched.add(g.GeneratePattern.ResourceSpec.Kind, createUpdateDelete...)
+				} else {
+					for _, kind := range g.GeneratePattern.CloneList.Kinds {
+						matched.add(kind, createUpdateDelete...)
+					}
+				}
+			}
+			if rule.Generation.ResourceSpec.Kind != "" {
+				matched.add(rule.Generation.ResourceSpec.Kind, createUpdateDelete...)
+			} else {
+				for _, kind := range rule.Generation.CloneList.Kinds {
+					matched.add(kind, createUpdateDelete...)
+				}
+			}
 		} else if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
 			(updateValidate && rule.HasMutateExisting()) ||
 			(!updateValidate && rule.HasMutateStandard()) ||
