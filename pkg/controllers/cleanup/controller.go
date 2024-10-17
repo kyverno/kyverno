@@ -182,6 +182,23 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	debug := logger.V(4)
 	var errs []error
 
+	// get the deletion policy
+	deletionPolicy := spec.DeletionPropagationPolicy
+
+	// Add delete options based on the deletion policy
+	deleteOptions := &metav1.DeleteOptions{
+		PropagationPolicy: deletionPolicy,
+	}
+	// Check if the deletion policy is provided
+	if deletionPolicy != nil {
+		// If the user has provided a deletion policy, use it
+		deleteOptions.PropagationPolicy = deletionPolicy
+		logger.Info("Using specified deletion propagation policy", "policy", *deletionPolicy)
+	} else {
+		// Do not set a default value; let the API server decide
+		logger.Info("DeletionPropagationPolicy not provided, letting the API server decide")
+	}
+
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
 
@@ -197,12 +214,18 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 		return err
 	}
 
+	var deletionPolicyValue string
+	if deletionPolicy != nil {
+		deletionPolicyValue = string(*deletionPolicy)
+	}
+
 	for kind := range kinds {
 		commonLabels := []attribute.KeyValue{
 			attribute.String("policy_type", policy.GetKind()),
 			attribute.String("policy_namespace", policy.GetNamespace()),
 			attribute.String("policy_name", policy.GetName()),
 			attribute.String("resource_kind", kind),
+			attribute.String("deletion_policy", deletionPolicyValue),
 		}
 		debug := debug.WithValues("kind", kind)
 		debug.Info("processing...")
@@ -303,6 +326,8 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				labels = append(labels, commonLabels...)
 				labels = append(labels, attribute.String("resource_namespace", namespace))
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
+
+				// Delete the resource with the specified propagation policy
 				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 					if c.metrics.cleanupFailuresTotal != nil {
 						c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
@@ -315,7 +340,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 					if c.metrics.deletedObjectsTotal != nil {
 						c.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 					}
-					debug.Info("deleted")
+					debug.Info("resource deleted")
 					e := event.NewCleanupPolicyEvent(policy, resource, nil)
 					c.eventGen.Add(e)
 				}
