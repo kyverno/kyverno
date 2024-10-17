@@ -884,11 +884,9 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 		mutatingWebhooks = append(
 			mutatingWebhooks,
 			admissionregistrationv1.MutatingWebhook{
-				Name:         name,
-				ClientConfig: c.clientConfig(caBundle, path),
-				Rules:        webhook.buildRulesWithOperations(
-				// []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}
-				),
+				Name:                    name,
+				ClientConfig:            c.clientConfig(caBundle, path),
+				Rules:                   webhook.buildRulesWithOperations(),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
@@ -1033,11 +1031,9 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 		validatingWebhooks = append(
 			validatingWebhooks,
 			admissionregistrationv1.ValidatingWebhook{
-				Name:         name,
-				ClientConfig: c.clientConfig(caBundle, path),
-				Rules:        webhook.buildRulesWithOperations(
-				// []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}
-				),
+				Name:                    name,
+				ClientConfig:            c.clientConfig(caBundle, path),
+				Rules:                   webhook.buildRulesWithOperations(),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1"},

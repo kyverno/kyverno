@@ -46,7 +46,6 @@ type resourceOperations struct {
 }
 
 func (r resourceOperations) operations() []admissionregistrationv1.OperationType {
-	// TODO
 	// if r.create && r.update && r.delete && r.connect {
 	// 	return []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
 	// }
@@ -92,9 +91,13 @@ func (wh *webhook) hasRule(
 	scope admissionregistrationv1.ScopeType,
 	operation kyvernov1.AdmissionOperation,
 ) bool {
-	var groups, versions, resources, subresources []string
 	var scopes []admissionregistrationv1.ScopeType
-	var operations []kyvernov1.AdmissionOperation
+	if scope == admissionregistrationv1.AllScopes {
+		scopes = []admissionregistrationv1.ScopeType{scope}
+	} else {
+		scopes = []admissionregistrationv1.ScopeType{scope, admissionregistrationv1.AllScopes}
+	}
+	var groups, versions []string
 	if group == "*" {
 		groups = []string{group}
 	} else {
@@ -105,42 +108,50 @@ func (wh *webhook) hasRule(
 	} else {
 		versions = []string{version, "*"}
 	}
-	if resource == "*" {
-		resources = []string{resource}
-	} else {
-		resources = []string{resource, "*"}
+	type resourceAndSub struct {
+		resource, sub string
 	}
-	// TODO: probably a bit more coupled with resource
-	if subresource == "*" {
-		subresources = []string{subresource}
+	var resources []resourceAndSub
+	// */* -> */*
+	// pods/* -> pods/*, */*
+	// */scale -> */scale, */*
+	// pods/scale -> pods/scale, pods/*, */scale, */*
+	// * -> *, */*
+	// pods -> pods, *, */* (but not pods/*)
+	if subresource == "" {
+		if resource == "*" {
+			resources = []resourceAndSub{{"*", ""}, {"*", "*"}}
+		} else {
+			resources = []resourceAndSub{{resource, ""}, {"*", ""}, {"*", "*"}}
+		}
+	} else if subresource == "*" {
+		if resource == "*" {
+			resources = []resourceAndSub{{"*", "*"}}
+		} else {
+			resources = []resourceAndSub{{resource, "*"}, {"*", "*"}}
+		}
 	} else {
-		subresources = []string{subresource, "*"}
+		if resource == "*" {
+			resources = []resourceAndSub{{"*", subresource}, {"*", "*"}}
+		} else {
+			resources = []resourceAndSub{{resource, subresource}, {resource, "*"}, {"*", subresource}, {"*", "*"}}
+		}
 	}
-	if scope == admissionregistrationv1.AllScopes {
-		scopes = []admissionregistrationv1.ScopeType{scope}
-	} else {
-		scopes = []admissionregistrationv1.ScopeType{scope, admissionregistrationv1.AllScopes}
-	}
-	operations = []kyvernov1.AdmissionOperation{operation}
 	for _, _scope := range scopes {
 		for _, _group := range groups {
 			for _, _version := range versions {
 				for _, _resource := range resources {
-					for _, _subresource := range subresources {
-						for _, _operation := range operations {
-							if _scope != scope || _group != group || _version != version || _resource != resource || _subresource != subresource || _operation != operation {
-								test := ruleEntry{
-									group:       _group,
-									version:     _version,
-									resource:    _resource,
-									subresource: _subresource,
-									scope:       _scope,
-									operation:   _operation,
-								}
-								if wh.rules.Has(test) {
-									return true
-								}
-							}
+					if _scope != scope || _group != group || _version != version || _resource.resource != resource || _resource.sub != subresource {
+						test := ruleEntry{
+							group:       _group,
+							version:     _version,
+							resource:    _resource.resource,
+							subresource: _resource.sub,
+							scope:       _scope,
+							operation:   operation,
+						}
+						if wh.rules.Has(test) {
+							return true
 						}
 					}
 				}
