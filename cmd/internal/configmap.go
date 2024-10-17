@@ -2,17 +2,12 @@ package internal
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	genericconfigmapcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/configmap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-)
-
-const (
-	resyncPeriod = 15 * time.Minute
 )
 
 func startConfigController(ctx context.Context, logger logr.Logger, client kubernetes.Interface, skipResourceFilters bool) config.Configuration {
