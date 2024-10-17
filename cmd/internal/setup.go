@@ -50,6 +50,7 @@ type SetupResult struct {
 	KyvernoDynamicClient   dclient.Interface
 	EventsClient           eventsv1.EventsV1Interface
 	ReportingConfiguration reportutils.ReportingConfiguration
+	ResyncPeriod           time.Duration
 }
 
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
@@ -97,7 +98,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	}
 	var dClient dclient.Interface
 	if config.UsesKyvernoDynamicClient() {
-		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, 15*time.Minute)
+		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, resyncPeriod)
 	}
 	var eventsClient eventsv1.EventsV1Interface
 	if config.UsesEventsClient() {
@@ -130,6 +131,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			KyvernoDynamicClient:   dClient,
 			EventsClient:           eventsClient,
 			ReportingConfiguration: reportingConfig,
+			ResyncPeriod:           resyncPeriod,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }
