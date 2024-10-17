@@ -12,16 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// TODO: what is this ?
-//	func findKeyContainingSubstring(m map[string][]admissionregistrationv1.OperationType, substring string, defaultOpn []admissionregistrationv1.OperationType) []admissionregistrationv1.OperationType {
-//		for key, value := range m {
-//			if key == "Pod/exec" || strings.Contains(strings.ToLower(key), strings.ToLower(substring)) || strings.Contains(strings.ToLower(substring), strings.ToLower(key)) {
-//				return value
-//			}
-//		}
-//		return defaultOpn
-//	}
-
 func collectResourceDescriptions(rule kyvernov1.Rule, defaultOps ...kyvernov1.AdmissionOperation) webhookConfig {
 	out := map[string]sets.Set[kyvernov1.AdmissionOperation]{}
 	for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
