@@ -3,45 +3,32 @@ package validation
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"github.com/kyverno/kyverno/pkg/utils/match"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func matchResource(resource unstructured.Unstructured, rule kyvernov1.Rule) bool {
-	if rule.MatchResources.All != nil || rule.MatchResources.Any != nil {
-		matched := match.CheckMatchesResources(
-			resource,
-			kyvernov2beta1.MatchResources{
-				Any: rule.MatchResources.Any,
-				All: rule.MatchResources.All,
-			},
-			make(map[string]string),
-			kyvernov2.RequestInfo{},
-			resource.GroupVersionKind(),
-			"",
-		)
-		if matched != nil {
-			return false
-		}
+func matchResource(resource unstructured.Unstructured, rule kyvernov1.Rule, namespaceLabels map[string]string, policyNamespace string, operation kyvernov1.AdmissionOperation) bool {
+	// cannot use admission info from the current request as the user can be different, if the rule matches on old request user info, it should skip
+	admissionInfo := kyvernov2.RequestInfo{
+		Roles:        []string{"kyverno:invalidrole"},
+		ClusterRoles: []string{"kyverno:invalidrole"},
+		AdmissionUserInfo: authenticationv1.UserInfo{
+			Username: "kyverno:kyverno-invalid-controller",
+			UID:      "kyverno:invaliduid",
+			Groups:   []string{"kyverno:invalidgroup"},
+		},
 	}
-	if rule.ExcludeResources != nil {
-		if rule.ExcludeResources.All != nil || rule.ExcludeResources.Any != nil {
-			excluded := match.CheckMatchesResources(
-				resource,
-				kyvernov2beta1.MatchResources{
-					Any: rule.ExcludeResources.Any,
-					All: rule.ExcludeResources.All,
-				},
-				make(map[string]string),
-				kyvernov2.RequestInfo{},
-				resource.GroupVersionKind(),
-				"",
-			)
-			if excluded == nil {
-				return false
-			}
-		}
-	}
-	return true
+
+	err := engineutils.MatchesResourceDescription(
+		resource,
+		rule,
+		admissionInfo,
+		namespaceLabels,
+		policyNamespace,
+		resource.GroupVersionKind(),
+		"",
+		operation,
+	)
+	return err == nil
 }
