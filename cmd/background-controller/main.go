@@ -35,10 +35,6 @@ import (
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
-const (
-	resyncPeriod = 15 * time.Minute
-)
-
 func sanityChecks(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsInstalled(apiserverClient, "updaterequests.kyverno.io")
 }
@@ -158,7 +154,7 @@ func main() {
 			os.Exit(1)
 		}
 		// informer factories
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
@@ -236,8 +232,8 @@ func main() {
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
 				// create leader factories
-				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
+				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				// create leader controllers
 				leaderControllers, err := createrLeaderControllers(
 					engine,
