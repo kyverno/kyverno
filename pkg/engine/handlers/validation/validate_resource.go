@@ -185,7 +185,7 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if ok := matchResource(oldResource, v.rule); !ok {
+	if ok := matchResource(oldResource, v.rule, v.policyContext.AdmissionInfo(), v.policyContext.NamespaceLabels(), v.policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
 		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", v.rule.ReportProperties), nil
 	}
 

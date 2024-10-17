@@ -181,7 +181,7 @@ func (h validatePssHandler) validateOldObject(
 	oldResource := policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if ok := matchResource(oldResource, rule); !ok {
+	if ok := matchResource(oldResource, rule, policyContext.AdmissionInfo(), policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
 		return nil, nil
 	}
 	if err := policyContext.SetResources(emptyResource, oldResource); err != nil {
