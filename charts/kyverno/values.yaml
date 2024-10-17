@@ -697,8 +697,9 @@ features:
       # - PolicyError
   policyExceptions:
     # -- Enables the feature
-    enabled: true
+    enabled: false
     # -- Restrict policy exceptions to a single namespace
+    # Set to "*" to allow exceptions in all namespaces
     namespace: ''
   protectManagedResources:
     # -- Enables the feature

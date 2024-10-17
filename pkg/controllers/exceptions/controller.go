@@ -134,7 +134,7 @@ func (c *controller) getPolicy(namespace, name string) (kyvernov1.PolicyInterfac
 }
 
 func (c *controller) listExceptions() ([]*kyvernov2.PolicyException, error) {
-	if c.namespace == "" {
+	if c.namespace == "*" {
 		return c.polexLister.List(labels.Everything())
 	}
 	return c.polexLister.PolicyExceptions(c.namespace).List(labels.Everything())

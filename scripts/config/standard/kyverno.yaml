@@ -1,6 +1,7 @@
 features:
   policyExceptions:
     enabled: true
+    namespace: "*"
   omitEvents:
     eventTypes: []
 

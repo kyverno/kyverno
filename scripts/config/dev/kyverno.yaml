@@ -4,6 +4,7 @@ grafana:
 features:
   policyExceptions:
     enabled: true
+    namespace: "*"
 
 admissionController:
   serviceMonitor:
