@@ -40,7 +40,6 @@ import (
 )
 
 const (
-	resyncPeriod                         = 15 * time.Minute
 	webhookWorkers                       = 2
 	policyWebhookControllerName          = "policy-webhook-controller"
 	ttlWebhookControllerName             = "ttl-webhook-controller"
@@ -133,17 +132,17 @@ func main() {
 			os.Exit(1)
 		}
 		// certificates informers
-		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
-		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
-		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), resyncPeriod)
+		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
+		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
+		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), setup.ResyncPeriod)
 		if !informers.StartInformersAndWaitForCacheSync(ctx, setup.Logger, caSecret, tlsSecret, kyvernoDeployment) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
 		checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 		// informer factories
-		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
+		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		// listers
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 		// log policy changes
@@ -204,10 +203,10 @@ func main() {
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
 				// informer factories
-				kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod)
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+				kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
+				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 
-				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, resyncPeriod)
+				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
 
 				// controllers
 				renewer := tls.NewCertRenewer(
@@ -344,6 +343,7 @@ func main() {
 						setup.KubeClient.Discovery(),
 						checker,
 						interval,
+						setup.ResyncPeriod,
 					),
 					ttlcontroller.Workers,
 				)

@@ -41,7 +41,7 @@ func NewEngine(
 	exceptionsSelector engineapi.PolicyExceptionSelector,
 	gctxStore loaders.Store,
 ) engineapi.Engine {
-	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
+	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, resyncPeriod)
 	logger = logger.WithName("engine")
 	logger.Info("setup engine...")
 	return engine.NewEngine(

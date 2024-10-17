@@ -50717,6 +50717,7 @@ spec:
             - --reportsServiceAccountName=system:serviceaccount:kyverno:kyverno-reports-controller
             - --servicePort=443
             - --webhookServerPort=9443
+            - --resyncPeriod=15m
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -50882,6 +50883,7 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --resyncPeriod=15m
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --maxAPICallResponseLength=2000000
@@ -50988,6 +50990,7 @@ spec:
             - --servicePort=443
             - --cleanupServerPort=9443
             - --webhookServerPort=9443
+            - --resyncPeriod=15m
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -51126,6 +51129,7 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --resyncPeriod=15m
             - --admissionReports=true
             - --aggregateReports=true
             - --policyReports=true
