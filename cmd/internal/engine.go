@@ -65,6 +65,10 @@ func NewExceptionSelector(
 	if !enablePolicyException {
 		return nil, nil
 	}
+	if exceptionNamespace == "" {
+		logger.Error(errors.New("the flag --exceptionNamespace cannot be empty"), "the flag --exceptionNamespace cannot be empty")
+		return nil, nil
+	}
 	polexCache := exceptioncontroller.NewController(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
