@@ -27,6 +27,7 @@ REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
 REPO_REPORTS         := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE)
 REPO_BACKGROUND      := $(REGISTRY)/$(REPO)/$(BACKGROUND_IMAGE)
 USE_CONFIG           ?= standard
+INSTALL_VERSION	     ?= 3.2.6
 
 #########
 # TOOLS #
@@ -1033,7 +1034,17 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
 		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
 		--set crds.migration.image.tag=$(GIT_SHA) \
-		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
+		$(EXPLICIT_INSTALL_SETTINGS)
+
+.PHONY: kind-install-kyverno-from-repo
+kind-install-kyverno-from-repo: $(HELM) ## Install Kyverno Helm Chart from the Kyverno repo
+	@echo Install kyverno chart... >&2
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait \
+		--repo https://kyverno.github.io/kyverno/ kyverno \
+		--version $(INSTALL_VERSION) \
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
+		$(EXPLICIT_INSTALL_SETTINGS)
 
 .PHONY: kind-install-goldilocks
 kind-install-goldilocks: $(HELM) ## Install goldilocks helm chart
@@ -1064,6 +1075,10 @@ kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/standard/kyverno-reporter.yaml
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
+
+.PHONY: kind-admission-controller-image-name
+kind-admission-controller-image-name: ## Print admission controller image name
+	@echo -n $(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA)
 
 ###########
 # ROLLOUT #
