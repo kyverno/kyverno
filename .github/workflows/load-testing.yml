@@ -1,18 +1,33 @@
-name: Baseline Load Tests
+name: Load Tests
 
 permissions: {}
 
 on:
+  release:
+    types: [published]
   pull_request:
     branches:
       - "main"
       - "release*"
+  schedule:
+    - cron: "27 0 * * 0"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  define-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.set-tests.outputs.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      - name: Set Tests
+        id: set-tests
+        run: echo "tests=$(jq -c . < ./test/load/k6/${{ github.event_name }}-matrix.json)" >> $GITHUB_OUTPUT
+
   prepare-images:
     runs-on: ubuntu-latest
     steps:
@@ -42,34 +57,19 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  load-test:
+  old-load-test:
+    if: github.event_name == 'pull_request'
+    needs:
+      - prepare-images
+    outputs:
+      p95: ${{ steps.extract-p95.outputs.p95 }}
     runs-on: ubuntu-latest
     permissions:
       packages: read
     strategy:
       fail-fast: false
       matrix:
-        k8s-version:
-          - name: v1.30
-            version: v1.31.0
-        kyverno-config:
-          - name: default
-            values:
-              - default-with-profiling
-          - name: stress
-            values:
-              - stress-with-profiling
-        test:
-          - kyverno-pss
-          - kyverno-mutate
-        k6-config:
-          - vus: 5
-            iterations: 100
-          - vus: 10
-            iterations: 200
-    needs:
-      - prepare-images
-    name: ${{ matrix.kyverno-config.name }} - ${{ matrix.test }} - ${{ matrix.k6-config.vus }} vus - ${{ matrix.k6-config.iterations }} iterations
+        k8s-version: [v1.31.0]
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -78,65 +78,249 @@ jobs:
         with:
           repository: kyverno/load-testing
           path: load-testing
-      - name: Install helm
+      - name: Install Helm
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
-      - name: Create kind cluster
+      - name: Create Kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version.version }}
+          node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
+      - name: Load Kyverno images archive in Kind cluster
         shell: bash
         run: |
           set -e
           kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
+      - name: Install Kyverno
         shell: bash
         run: |
           set -e
           export HELM=${{ steps.helm.outputs.helm-path }}
-          export USE_CONFIG=${{ join(matrix.kyverno-config.values, ',') }}
-          make kind-install-kyverno
-          bash load-testing/k8s/metrics-server/hack.sh
-          make kind-install-goldilocks
+          export USE_CONFIG=default-with-profiling
+          $HELM repo add kyverno https://kyverno.github.io/kyverno/
+          $HELM repo update
+          export INSTALL_VERSION=$($HELM search repo kyverno/kyverno -o json | jq -r '.[0].version')
+          export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=1 --set admissionController.resources.requests.cpu=100m --set admissionController.resources.limits.cpu=1500m --set admissionController.resources.requests.memory=128Mi --set admissionController.resources.limits.memory=384Mi'
+          make kind-install-kyverno-from-repo
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
+      - name: Install K6
+        shell: bash
+        run: |
+          set -e
+          go install go.k6.io/xk6/cmd/xk6@latest
+          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
+          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Run load tests using K6
         shell: bash
         run: |
           set -e
+          mkdir -p report
           KYVERNO_NODE_IP=$(kubectl get nodes -o jsonpath='{.items[?(@.metadata.labels.kubernetes\.io/hostname=="kind-control-plane")].status.addresses[?(@.type=="InternalIP")].address}')
-          curl http://$KYVERNO_NODE_IP:30950/debug/pprof/heap > heap.pprof
-          curl "http://$KYVERNO_NODE_IP:30950/debug/pprof/profile?seconds=30" > cpu.pprof 2> curl.tmp &
-          cd load-testing/k6
-          ./start.sh tests/${{ matrix.test }}.js ${{ matrix.k6-config.vus }} ${{ matrix.k6-config.iterations }}
+          curl -s "http://$KYVERNO_NODE_IP:30950/debug/pprof/profile?seconds=90" > report/cpu.pprof &
+          cd load-testing
+          ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
           wait %1 || true
-          # TODO: wait for VPA to stabilize and recommend
-          kubectl -n kyverno get vpa goldilocks-kyverno-admission-controller -o jsonpath='{.status.recommendation.containerRecommendations[*]}'
-      - name: Archive load test results
-        if: failure()
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: load-test-reports
-          path: load-testing/k6/${{ matrix.test }}.js-${{ matrix.k6-config.vus }}vu-${{ matrix.k6-config.iterations }}it-logs.txt
-      - name: Archive pprof CPU profiles
-        if: failure()
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: pprof-cpu-profiles
-          path: cpu.pprof
-      - name: Archive pprof HEAP profiles
-        if: failure()
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: pprof-heap-profiles
-          path: heap.pprof
+          mv load-report.html ../report
+      - name: Extract P(95)
+        id: extract-p95
+        shell: bash
+        run: |
+          set -e
+          echo "p95=$(grep http_req_duration load-testing/test-output.log | awk -F 'p\\(95\\)=' '{split($2,a,\"ms\"); print a[1]}')" >> $GITHUB_OUTPUT
+          echo $GITHUB_OUTPUT
       - name: Debug failure
         if: failure()
+        uses: ./.github/actions/kyverno-logs
+
+  load-test:
+    if: github.event_name == 'pull_request'
+    needs:
+      - prepare-images
+      - old-load-test
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.31.0]
+    steps:
+      - name: Checkout kyverno/kyverno
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      - name: Checkout kyverno/load-testing
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        with:
+          repository: kyverno/load-testing
+          path: load-testing
+      - name: Install Helm
+        id: helm
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+      - name: Create Kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: kyverno.tar
+      - name: Load Kyverno images archive in Kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install Kyverno
+        shell: bash
+        run: |
+          set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
+          export USE_CONFIG=default-with-profiling
+          export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=1 --set admissionController.resources.requests.cpu=100m --set admissionController.resources.limits.cpu=1500m --set admissionController.resources.requests.memory=128Mi --set admissionController.resources.limits.memory=384Mi'
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Install K6
+        shell: bash
+        run: |
+          set -e
+          go install go.k6.io/xk6/cmd/xk6@latest
+          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
+          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Run load tests using K6
+        shell: bash
+        run: |
+          set -e
+          mkdir -p report
+          KYVERNO_NODE_IP=$(kubectl get nodes -o jsonpath='{.items[?(@.metadata.labels.kubernetes\.io/hostname=="kind-control-plane")].status.addresses[?(@.type=="InternalIP")].address}')
+          curl -s "http://$KYVERNO_NODE_IP:30950/debug/pprof/profile?seconds=90" > report/cpu.pprof &
+          cd load-testing
+          ./k6/run.sh k6/tests/kyverno-pss.js -e SCENARIO=average --out dashboard=export=load-report.html
+          wait %1 || true
+          mv load-report.html ../report
+      - name: Compare P(95)
+        shell: bash
+        run: |
+          set -e
+          echo "Old P(95): ${{ needs.old-load-test.outputs.p95 }}"
+          OLD_NUM=${{ needs.old-load-test.outputs.p95 }}
+          NEW_NUM=$(grep http_req_duration load-testing/test-output.log | awk -F 'p\\(95\\)=' '{split($2,a,"ms"); print a[1]}')
+          echo "$OLD_NUM to $NEW_NUM"
+          if [ $(echo "$OLD_NUM < $NEW_NUM" | bc) -eq 1 ]; then
+            echo "P(95) increased from $OLD_NUM to $NEW_NUM"
+            exit 1
+          fi
+      - name: Archive Report
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: load-test-report.html
+          path: report
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
+
+  scale-test:
+    if: github.event_name == 'pull_request'
+    needs:
+      - define-matrix
+      - prepare-images
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.31.0]
+        test: ${{ fromJson(needs.define-matrix.outputs.tests) }}
+    steps:
+      - name: Checkout kyverno/kyverno
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      - name: Checkout kyverno/load-testing
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        with:
+          repository: kyverno/load-testing
+          path: load-testing
+      - name: Install Helm
+        id: helm
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+      - name: Create Kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      - name: Download kyverno images archive
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: kyverno.tar
+      - name: Load Kyverno images archive in Kind cluster
+        shell: bash
+        run: |
+          set -e
+          kind load image-archive kyverno.tar --name kind
+      - name: Install Metrics Server and Prometheus
+        shell: bash
+        run: |
+          set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
+          make dev-lab-metrics-server dev-lab-prometheus
+      - name: Install Kyverno
+        shell: bash
+        run: |
+          set -e
+          export HELM=${{ steps.helm.outputs.helm-path }}
+          export USE_CONFIG=default-with-profiling
+          export EXPLICIT_INSTALL_SETTINGS='--set admissionController.replicas=${{ matrix.test.replicas }} --set admissionController.serviceMonitor.enabled=true --set reportsController.serviceMonitor.enabled=true --set admissionController.container.resources.requests.cpu=${{ matrix.test.cpu_request }} --set admissionController.container.resources.requests.memory=${{ matrix.test.memory_request }} --set admissionController.container.resources.limits.memory=${{ matrix.test.memory_limit }} --set reportsController.resources.limits.memory=10Gi'
+          make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
+      - name: Install K6
+        shell: bash
+        run: |
+          set -e
+          go install go.k6.io/xk6/cmd/xk6@latest
+          $(go env GOPATH)/bin/xk6 build --with github.com/grafana/xk6-dashboard@latest
+          mkdir -p $HOME/.local/bin && mv ./k6 $HOME/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Run load tests using K6
+        shell: bash
+        run: |
+          set -e
+          mkdir -p report
+          KYVERNO_NODE_IP=$(kubectl get nodes -o jsonpath='{.items[?(@.metadata.labels.kubernetes\.io/hostname=="kind-control-plane")].status.addresses[?(@.type=="InternalIP")].address}')
+          curl -s "http://$KYVERNO_NODE_IP:30950/debug/pprof/profile?seconds=30" > report/cpu.pprof &
+          cd load-testing
+          ./k6/run.sh k6/tests/${{ matrix.test.name }}.js -e SCENARIO=${{ matrix.test.scenario }} --vus ${{ matrix.test.concurrent_connections }} --iterations ${{ matrix.test.total_iterations }} ${{ matrix.test.extra_options }} --out dashboard=export=load-report.html
+          wait %1 || true
+          mv load-report.html ../report
+      - name: Collect Resource Metrics
+        shell: bash
+        run: |
+          set -e
+          kubectl port-forward --address 127.0.0.1 svc/kube-prometheus-stack-prometheus 9090:9090 -n monitoring &
+          sleep 3
+          curl -s "http://127.0.0.1:9090/prometheus/api/v1/query?query=$(echo -n "rate(container_cpu_usage_seconds_total{image=\"$(make kind-admission-controller-image-name)\"}[1m])" | jq -sRr @uri)" > report/cpu-usage.json
+          curl -s "http://127.0.0.1:9090/prometheus/api/v1/query?query=$(echo -n "max_over_time(container_memory_working_set_bytes{image=\"$(make kind-admission-controller-image-name)\"}[1m])/(2^20)" | jq -sRr @uri)" > report/memory-usage.json
+          kill %1 || true
+      - name: Collect Report Metrics
+        shell: bash
+        run: |
+          set -e
+          sleep 60
+          ./test/load/k6/reports-size-in-etcd.sh > report/reports-size-in-etcd.txt
+      - name: Archive Report
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: report-${{ matrix.k8s-version }}-${{ matrix.test.name }}-${{ matrix.test.scenario }}-${{ matrix.test.replicas }}-${{ matrix.test.cpu_request }}-${{ matrix.test.memory_request }}-${{ matrix.test.memory_limit }}-${{ matrix.test.concurrent_connections }}
+          path: report
+      - name: Debug failure
+        # if: failure()
         uses: ./.github/actions/kyverno-logs
