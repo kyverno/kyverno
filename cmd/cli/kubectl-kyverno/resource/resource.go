@@ -119,3 +119,37 @@ func GetFileBytes(path string) ([]byte, error) {
 		return file, nil
 	}
 }
+
+func WriteResourceToPath(fs billy.Filesystem, obj *unstructured.Unstructured, path string) error {
+     bytes, err := kubeutils.UnstructuredToBytes(obj)
+     if err != nil {
+        return err
+     }
+     return WriteBytesToPath(fs, bytes, path)
+}
+
+func WriteBytesToPath(fs billy.Filesystem, resourceBytes []byte, path string) error {
+	if fs == nil {
+		if source.IsHttp(path) {
+			return fmt.Errorf("Unable to write resource as source is http: %s", path)
+		}
+
+		path = filepath.Clean(path)
+		return os.WriteFile(path, resourceBytes, 0644)
+	} else {
+		path = filepath.Clean(path)
+		// Create or open the file
+		file, err := fs.Create(path)
+		if err != nil {
+			return fmt.Errorf("failed to create file: %w", err)
+		}
+		defer file.Close()
+
+		// Write the byte array to the file
+		_, err = file.Write(resourceBytes)
+		if err != nil {
+			return fmt.Errorf("failed to write data to file: %w", err)
+		}
+		return nil
+	}
+}
