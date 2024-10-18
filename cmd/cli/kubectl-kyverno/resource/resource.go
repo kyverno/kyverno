@@ -121,11 +121,11 @@ func GetFileBytes(path string) ([]byte, error) {
 }
 
 func WriteResourceToPath(fs billy.Filesystem, obj *unstructured.Unstructured, path string) error {
-     bytes, err := kubeutils.UnstructuredToBytes(obj)
-     if err != nil {
-        return err
-     }
-     return WriteBytesToPath(fs, bytes, path)
+	bytes, err := kubeutils.UnstructuredToBytes(obj)
+	if err != nil {
+		return err
+	}
+	return WriteBytesToPath(fs, bytes, path)
 }
 
 func WriteBytesToPath(fs billy.Filesystem, resourceBytes []byte, path string) error {

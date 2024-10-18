@@ -35,8 +35,8 @@ func getAndCompareResource(actualResources []*unstructured.Unstructured, fs bill
 			return false, fmt.Errorf("error: failed to compare resources (%s)", err)
 		}
 		if !equals {
-                        rejectPath := path + ".reject"
-                        resource.WriteResourceToPath(fs, actualResource, rejectPath)
+			rejectPath := path + ".reject"
+			resource.WriteResourceToPath(fs, actualResource, rejectPath)
 			return false, nil
 		}
 	}
