@@ -69,7 +69,8 @@ func collectResourceDescriptions(rule kyvernov1.Rule, defaultOps ...kyvernov1.Ad
 			}
 			ops := value.Operations
 			if len(ops) == 0 {
-				ops = defaultOps
+				// if only kind was specified, clear all operations
+				ops = allOperations
 			}
 			for _, kind := range kinds {
 				if out[kind] != nil {
