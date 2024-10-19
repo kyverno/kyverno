@@ -143,14 +143,14 @@ func webhookNameAndPath(wh webhook, baseName, basePath string) (name string, pat
 	return name, path
 }
 
-func less[T cmp.Ordered](a []T, b []T) (int, bool) {
+func less[T cmp.Ordered](a []T, b []T) int {
 	if x := cmp.Compare(len(a), len(b)); x != 0 {
-		return x, true
+		return x
 	}
 	for i := range a {
 		if x := cmp.Compare(a[i], b[i]); x != 0 {
-			return x, true
+			return x
 		}
 	}
-	return 0, false
+	return 0
 }

@@ -226,16 +226,16 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 		slices.Sort(rule.Operations)
 	}
 	slices.SortFunc(out, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
-		if x, match := less(a.APIGroups, b.APIGroups); match {
+		if x := less(a.APIGroups, b.APIGroups); x != 0 {
 			return x
 		}
-		if x, match := less(a.APIVersions, b.APIVersions); match {
+		if x := less(a.APIVersions, b.APIVersions); x != 0 {
 			return x
 		}
-		if x, match := less(a.Resources, b.Resources); match {
+		if x := less(a.Resources, b.Resources); x != 0 {
 			return x
 		}
-		if x, match := less(a.Operations, b.Operations); match {
+		if x := less(a.Operations, b.Operations); x != 0 {
 			return x
 		}
 		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
