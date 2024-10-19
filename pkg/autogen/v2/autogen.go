@@ -301,3 +301,47 @@ func (a *ImplAutogenV2) ExtractPodSpec(resource unstructured.Unstructured) (*uns
 
 	return &unstructured.Unstructured{Object: podSpec}, nil
 }
+
+type ExtractPodFunc func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error)
+
+func GetPodExtractor(kind string) ExtractPodFunc {
+	return func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+		autogen := &ImplAutogenV2{}
+		return autogen.ExtractPodSpec(*resource)
+	}
+}
+
+func ComputeRules(p kyvernov1.PolicyInterface, kind string) ([]kyvernov1.Rule, ExtractPodFunc) {
+	spec := p.GetSpec()
+	applyAutoGen, desiredControllers := CanAutoGen(spec)
+	if !applyAutoGen {
+		desiredControllers = sets.New("none")
+	}
+
+	var actualControllers sets.Set[string]
+	ann := p.GetAnnotations()
+	actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
+	if !ok || !applyAutoGen {
+		actualControllers = desiredControllers
+	} else {
+		if !applyAutoGen {
+			actualControllers = desiredControllers
+		} else {
+			actualControllers = sets.New(strings.Split(actualControllersString, ",")...)
+		}
+	}
+
+	if kind != "" {
+		if !actualControllers.Has(kind) {
+			return spec.Rules, nil
+		}
+	} else {
+		kind = strings.Join(actualControllers.UnsortedList(), ",")
+	}
+
+	if kind == "none" {
+		return spec.Rules, nil
+
+	}
+	return spec.Rules, GetPodExtractor(kind)
+}
