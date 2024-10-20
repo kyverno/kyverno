@@ -182,21 +182,13 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	debug := logger.V(4)
 	var errs []error
 
-	// get the deletion policy
+	// Get the deletion policy
 	deletionPolicy := spec.DeletionPropagationPolicy
-
-	// Add delete options based on the deletion policy
-	deleteOptions := &metav1.DeleteOptions{
-		PropagationPolicy: deletionPolicy,
-	}
-	// Check if the deletion policy is provided
-	if deletionPolicy != nil {
-		// If the user has provided a deletion policy, use it
-		deleteOptions.PropagationPolicy = deletionPolicy
-		logger.Info("Using specified deletion propagation policy", "policy", *deletionPolicy)
-	} else {
-		// Do not set a default value; let the API server decide
-		logger.Info("DeletionPropagationPolicy not provided, letting the API server decide")
+	// Set the propagation policy for the deletion
+	deleteOptions := &metav1.DeleteOptions{}
+	if spec.DeletionPropagationPolicy != nil {
+		propagationPolicy := metav1.DeletionPropagation(*spec.DeletionPropagationPolicy)
+		deleteOptions.PropagationPolicy = &propagationPolicy
 	}
 
 	enginectx := enginecontext.NewContext(c.jp)
@@ -217,6 +209,8 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	var deletionPolicyValue string
 	if deletionPolicy != nil {
 		deletionPolicyValue = string(*deletionPolicy)
+	} else{
+		deletionPolicyValue = "default"
 	}
 
 	for kind := range kinds {
