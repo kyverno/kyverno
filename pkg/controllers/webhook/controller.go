@@ -10,14 +10,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -101,7 +98,6 @@ type controller struct {
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
 	clusterroleLister rbacv1listers.ClusterRoleLister
-	gctxentryLister   kyvernov2alpha1listers.GlobalContextEntryLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -121,8 +117,10 @@ type controller struct {
 	postWebhookCleanup  func(context.Context, logr.Logger) error
 
 	// state
-	lock        sync.Mutex
-	policyState map[string]sets.Set[string]
+	lock              sync.Mutex
+	policyState       map[string]sets.Set[string]
+	mwcReconcileError bool
+	vwcReconcileError bool
 }
 
 func NewController(
@@ -139,7 +137,6 @@ func NewController(
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
 	clusterroleInformer rbacv1informers.ClusterRoleInformer,
-	gctxentryInformer kyvernov2alpha1informers.GlobalContextEntryInformer,
 	server string,
 	defaultTimeout int32,
 	servicePort int32,
@@ -168,7 +165,6 @@ func NewController(
 		secretLister:        secretInformer.Lister(),
 		leaseLister:         leaseInformer.Lister(),
 		clusterroleLister:   clusterroleInformer.Lister(),
-		gctxentryLister:     gctxentryInformer.Lister(),
 		queue:               queue,
 		server:              server,
 		defaultTimeout:      defaultTimeout,
@@ -515,23 +511,10 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	return err
 }
 
-func (c *controller) isGlobalContextEntryReady(name string, gctxentries []*kyvernov2alpha1.GlobalContextEntry) bool {
-	for _, gctxentry := range gctxentries {
-		if gctxentry.Name == name {
-			return gctxentry.Status.IsReady()
-		}
-	}
-	return false
-}
-
 func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	policies, err := c.getAllPolicies()
-	if err != nil {
-		return err
-	}
-	gctxentries, err := c.gctxentryLister.List(labels.Everything())
 	if err != nil {
 		return err
 	}
@@ -543,25 +526,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		ready, message := true, "Ready"
 		if c.autoUpdateWebhooks {
 			for _, set := range c.policyState {
-				if !set.Has(policyKey) {
+				if !set.Has(policyKey) || (c.vwcReconcileError || c.mwcReconcileError) {
 					ready, message = false, "Not Ready"
 					break
-				}
-			}
-		}
-		// If there are global context entries under , check if they are ready
-		if ready {
-			for _, rule := range policy.GetSpec().Rules {
-				if rule.Context == nil {
-					continue
-				}
-				for _, ctxEntry := range rule.Context {
-					if ctxEntry.GlobalReference != nil {
-						if !c.isGlobalContextEntryReady(ctxEntry.GlobalReference.Name, gctxentries) {
-							ready, message = false, "global context entry not ready"
-							break
-						}
-					}
 				}
 			}
 		}
@@ -663,23 +630,29 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if c.runtime.IsRollingUpdate() {
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
-			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
-				return err
+			reconcileError := c.reconcileResourceMutatingWebhookConfiguration(ctx)
+			c.lock.Lock()
+			c.mwcReconcileError = reconcileError != nil
+			c.lock.Unlock()
+			statusError := c.updatePolicyStatuses(ctx)
+			if reconcileError != nil {
+				return reconcileError
 			}
-			if err := c.updatePolicyStatuses(ctx); err != nil {
-				return err
-			}
+			return statusError
 		}
 	case config.ValidatingWebhookConfigurationName:
 		if c.runtime.IsRollingUpdate() {
 			c.enqueueResourceWebhooks(1 * time.Second)
 		} else {
-			if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
-				return err
+			reconcileError := c.reconcileResourceValidatingWebhookConfiguration(ctx)
+			c.lock.Lock()
+			c.vwcReconcileError = reconcileError != nil
+			c.lock.Unlock()
+			statusError := c.updatePolicyStatuses(ctx)
+			if reconcileError != nil {
+				return reconcileError
 			}
-			if err := c.updatePolicyStatuses(ctx); err != nil {
-				return err
-			}
+			return statusError
 		}
 	case config.PolicyValidatingWebhookConfigurationName:
 		return c.reconcilePolicyValidatingWebhookConfiguration(ctx)
