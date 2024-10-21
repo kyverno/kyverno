@@ -327,6 +327,11 @@ The chart values are organised per component.
 | features.aggregateReports.enabled | bool | `true` | Enables the feature |
 | features.policyReports.enabled | bool | `true` | Enables the feature |
 | features.validatingAdmissionPolicyReports.enabled | bool | `false` | Enables the feature |
+| features.reporting.validate | bool | `true` | Enables the feature |
+| features.reporting.mutate | bool | `true` | Enables the feature |
+| features.reporting.mutateExisting | bool | `true` | Enables the feature |
+| features.reporting.imageVerify | bool | `true` | Enables the feature |
+| features.reporting.generate | bool | `true` | Enables the feature |
 | features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.backgroundScanWorkers | int | `2` | Number of background scan workers |
@@ -337,6 +342,7 @@ The chart values are organised per component.
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
 | features.generateValidatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
+| features.dumpPatches.enabled | bool | `false` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |
 | features.logging.format | string | `"text"` | Logging format |
 | features.logging.verbosity | int | `2` | Logging verbosity |
@@ -368,6 +374,7 @@ The chart values are organised per component.
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
 | admissionController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
+| admissionController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
 | admissionController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | admissionController.annotations | object | `{}` | Deployment annotations. |
@@ -471,6 +478,7 @@ The chart values are organised per component.
 | backgroundController.imagePullSecrets | list | `[]` | Image pull secrets |
 | backgroundController.replicas | int | `nil` | Desired number of pods |
 | backgroundController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
+| backgroundController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
 | backgroundController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | backgroundController.annotations | object | `{}` | Deployment annotations. |
@@ -545,6 +553,7 @@ The chart values are organised per component.
 | cleanupController.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupController.replicas | int | `nil` | Desired number of pods |
 | cleanupController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
+| cleanupController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | cleanupController.podLabels | object | `{}` | Additional labels to add to each pod |
 | cleanupController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | cleanupController.annotations | object | `{}` | Deployment annotations. |
@@ -627,6 +636,7 @@ The chart values are organised per component.
 | reportsController.imagePullSecrets | list | `[]` | Image pull secrets |
 | reportsController.replicas | int | `nil` | Desired number of pods |
 | reportsController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
+| reportsController.resyncPeriod | string | `"15m"` | Resync period for informers |
 | reportsController.podLabels | object | `{}` | Additional labels to add to each pod |
 | reportsController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | reportsController.annotations | object | `{}` | Deployment annotations. |
@@ -728,6 +738,7 @@ The chart values are organised per component.
 | test.image.repository | string | `"busybox"` | Image repository |
 | test.image.tag | string | `"1.35"` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| test.imagePullSecrets | list | `[]` | Image pull secrets |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
@@ -738,127 +749,13 @@ The chart values are organised per component.
 |-----|------|---------|-------------|
 | apiVersionOverride.podDisruptionBudget | string | `nil` | Override api version used to create `PodDisruptionBudget`` resources. When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to determine the api version automatically. |
 
-### Cleanup jobs
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| cleanupJobs.admissionReports.enabled | bool | `true` | Enable cleanup cronjob |
-| cleanupJobs.admissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
-| cleanupJobs.admissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
-| cleanupJobs.admissionReports.image.registry | string | `nil` | Image registry |
-| cleanupJobs.admissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.admissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
-| cleanupJobs.admissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| cleanupJobs.admissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
-| cleanupJobs.admissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
-| cleanupJobs.admissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
-| cleanupJobs.admissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
-| cleanupJobs.admissionReports.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupJobs.admissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| cleanupJobs.admissionReports.priorityClassName | string | `""` | Pod PriorityClassName |
-| cleanupJobs.admissionReports.resources | object | `{}` | Job resources |
-| cleanupJobs.admissionReports.tolerations | list | `[]` | List of node taints to tolerate |
-| cleanupJobs.admissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
-| cleanupJobs.admissionReports.podAnnotations | object | `{}` | Pod Annotations |
-| cleanupJobs.admissionReports.podLabels | object | `{}` | Pod labels |
-| cleanupJobs.admissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| cleanupJobs.admissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
-| cleanupJobs.admissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
-| cleanupJobs.clusterAdmissionReports.enabled | bool | `true` | Enable cleanup cronjob |
-| cleanupJobs.clusterAdmissionReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
-| cleanupJobs.clusterAdmissionReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
-| cleanupJobs.clusterAdmissionReports.image.registry | string | `nil` | Image registry |
-| cleanupJobs.clusterAdmissionReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.clusterAdmissionReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
-| cleanupJobs.clusterAdmissionReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| cleanupJobs.clusterAdmissionReports.imagePullSecrets | list | `[]` | Image pull secrets |
-| cleanupJobs.clusterAdmissionReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
-| cleanupJobs.clusterAdmissionReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
-| cleanupJobs.clusterAdmissionReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
-| cleanupJobs.clusterAdmissionReports.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupJobs.clusterAdmissionReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| cleanupJobs.clusterAdmissionReports.priorityClassName | string | `""` | Pod PriorityClassName |
-| cleanupJobs.clusterAdmissionReports.resources | object | `{}` | Job resources |
-| cleanupJobs.clusterAdmissionReports.tolerations | list | `[]` | List of node taints to tolerate |
-| cleanupJobs.clusterAdmissionReports.nodeSelector | object | `{}` | Node labels for pod assignment |
-| cleanupJobs.clusterAdmissionReports.podAnnotations | object | `{}` | Pod Annotations |
-| cleanupJobs.clusterAdmissionReports.podLabels | object | `{}` | Pod Labels |
-| cleanupJobs.clusterAdmissionReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| cleanupJobs.clusterAdmissionReports.podAffinity | object | `{}` | Pod affinity constraints. |
-| cleanupJobs.clusterAdmissionReports.nodeAffinity | object | `{}` | Node affinity constraints. |
-| cleanupJobs.updateRequests.enabled | bool | `true` | Enable cleanup cronjob |
-| cleanupJobs.updateRequests.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
-| cleanupJobs.updateRequests.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
-| cleanupJobs.updateRequests.image.registry | string | `nil` | Image registry |
-| cleanupJobs.updateRequests.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.updateRequests.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
-| cleanupJobs.updateRequests.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| cleanupJobs.updateRequests.imagePullSecrets | list | `[]` | Image pull secrets |
-| cleanupJobs.updateRequests.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
-| cleanupJobs.updateRequests.threshold | int | `10000` | Reports threshold, if number of updateRequests are above this value the cronjob will start deleting them |
-| cleanupJobs.updateRequests.history | object | `{"failure":1,"success":1}` | Cronjob history |
-| cleanupJobs.updateRequests.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupJobs.updateRequests.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| cleanupJobs.updateRequests.priorityClassName | string | `""` | Pod PriorityClassName |
-| cleanupJobs.updateRequests.resources | object | `{}` | Job resources |
-| cleanupJobs.updateRequests.tolerations | list | `[]` | List of node taints to tolerate |
-| cleanupJobs.updateRequests.nodeSelector | object | `{}` | Node labels for pod assignment |
-| cleanupJobs.updateRequests.podAnnotations | object | `{}` | Pod Annotations |
-| cleanupJobs.updateRequests.podLabels | object | `{}` | Pod labels |
-| cleanupJobs.updateRequests.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| cleanupJobs.updateRequests.podAffinity | object | `{}` | Pod affinity constraints. |
-| cleanupJobs.updateRequests.nodeAffinity | object | `{}` | Node affinity constraints. |
-| cleanupJobs.ephemeralReports.enabled | bool | `true` | Enable cleanup cronjob |
-| cleanupJobs.ephemeralReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
-| cleanupJobs.ephemeralReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
-| cleanupJobs.ephemeralReports.image.registry | string | `nil` | Image registry |
-| cleanupJobs.ephemeralReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.ephemeralReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
-| cleanupJobs.ephemeralReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| cleanupJobs.ephemeralReports.imagePullSecrets | list | `[]` | Image pull secrets |
-| cleanupJobs.ephemeralReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
-| cleanupJobs.ephemeralReports.threshold | int | `10000` | Reports threshold, if number of updateRequests are above this value the cronjob will start deleting them |
-| cleanupJobs.ephemeralReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
-| cleanupJobs.ephemeralReports.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupJobs.ephemeralReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| cleanupJobs.ephemeralReports.priorityClassName | string | `""` | Pod PriorityClassName |
-| cleanupJobs.ephemeralReports.resources | object | `{}` | Job resources |
-| cleanupJobs.ephemeralReports.tolerations | list | `[]` | List of node taints to tolerate |
-| cleanupJobs.ephemeralReports.nodeSelector | object | `{}` | Node labels for pod assignment |
-| cleanupJobs.ephemeralReports.podAnnotations | object | `{}` | Pod Annotations |
-| cleanupJobs.ephemeralReports.podLabels | object | `{}` | Pod labels |
-| cleanupJobs.ephemeralReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| cleanupJobs.ephemeralReports.podAffinity | object | `{}` | Pod affinity constraints. |
-| cleanupJobs.ephemeralReports.nodeAffinity | object | `{}` | Node affinity constraints. |
-| cleanupJobs.clusterEphemeralReports.enabled | bool | `true` | Enable cleanup cronjob |
-| cleanupJobs.clusterEphemeralReports.backoffLimit | int | `3` | Maximum number of retries before considering a Job as failed. Defaults to 3. |
-| cleanupJobs.clusterEphemeralReports.ttlSecondsAfterFinished | string | `""` | Time until the pod from the cronjob is deleted |
-| cleanupJobs.clusterEphemeralReports.image.registry | string | `nil` | Image registry |
-| cleanupJobs.clusterEphemeralReports.image.repository | string | `"bitnami/kubectl"` | Image repository |
-| cleanupJobs.clusterEphemeralReports.image.tag | string | `"1.28.5"` | Image tag Defaults to `latest` if omitted |
-| cleanupJobs.clusterEphemeralReports.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| cleanupJobs.clusterEphemeralReports.imagePullSecrets | list | `[]` | Image pull secrets |
-| cleanupJobs.clusterEphemeralReports.schedule | string | `"*/10 * * * *"` | Cronjob schedule |
-| cleanupJobs.clusterEphemeralReports.threshold | int | `10000` | Reports threshold, if number of reports are above this value the cronjob will start deleting them |
-| cleanupJobs.clusterEphemeralReports.history | object | `{"failure":1,"success":1}` | Cronjob history |
-| cleanupJobs.clusterEphemeralReports.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupJobs.clusterEphemeralReports.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| cleanupJobs.clusterEphemeralReports.priorityClassName | string | `""` | Pod PriorityClassName |
-| cleanupJobs.clusterEphemeralReports.resources | object | `{}` | Job resources |
-| cleanupJobs.clusterEphemeralReports.tolerations | list | `[]` | List of node taints to tolerate |
-| cleanupJobs.clusterEphemeralReports.nodeSelector | object | `{}` | Node labels for pod assignment |
-| cleanupJobs.clusterEphemeralReports.podAnnotations | object | `{}` | Pod Annotations |
-| cleanupJobs.clusterEphemeralReports.podLabels | object | `{}` | Pod Labels |
-| cleanupJobs.clusterEphemeralReports.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
-| cleanupJobs.clusterEphemeralReports.podAffinity | object | `{}` | Pod affinity constraints. |
-| cleanupJobs.clusterEphemeralReports.nodeAffinity | object | `{}` | Node affinity constraints. |
-
 ### Other
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | global.image.registry | string | `nil` | Global value that allows to set a single image registry across all deployments. When set, it will override any values set under `.image.registry` across the chart. |
 | global.imagePullSecrets | list | `[]` | Global list of Image pull secrets When set, it will override any values set under `imagePullSecrets` under different components across the chart. |
+| global.resyncPeriod | string | `"15m"` | Resync period for informers |
 | global.caCertificates.data | string | `nil` | Global CA certificates to use with Kyverno deployments This value is expected to be one large string of CA certificates Individual controller values will override this global value |
 | global.caCertificates.volume | object | `{}` | Global value to set single volume to be mounted for CA certificates for all deployments. Not used when `.Values.global.caCertificates.data` is defined Individual  controller values will override this global value |
 | global.extraEnvVars | list | `[]` | Additional container environment variables to apply to all containers and init containers |

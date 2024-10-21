@@ -112,20 +112,31 @@ func (h validateAssertHandler) Process(
 	}
 	// compose a response
 	if len(errs) != 0 {
-		allowExisitingViolations := rule.HasValidateAllowExistingViolations()
-		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
-			errs, err := validateOldObject(ctx, policyContext, rule, payload, bindings)
-			if err != nil {
-				logger.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name, "error", err.Error())
-				return resource, handlers.WithSkip(rule, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed")
-			}
+		var action kyvernov1.ValidationFailureAction
+		if rule.Validation.FailureAction != nil {
+			action = *rule.Validation.FailureAction
+		} else {
+			action = policyContext.Policy().GetSpec().ValidationFailureAction
+		}
 
-			logger.V(3).Info("old object verification", "errors", errs)
-			if len(errs) != 0 {
-				logger.V(3).Info("skipping modified resource as validation results have not changed")
-				return resource, handlers.WithSkip(rule, engineapi.Validation, "skipping modified resource as validation results have not changed")
+		// process the old object for UPDATE admission requests in case of enforce policies
+		if action == kyvernov1.Enforce {
+			allowExisitingViolations := rule.HasValidateAllowExistingViolations()
+			if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
+				errs, err := validateOldObject(ctx, policyContext, rule, payload, bindings)
+				if err != nil {
+					logger.V(4).Info("warning: failed to validate old object", "rule", rule.Name, "error", err.Error())
+					return resource, handlers.WithSkip(rule, engineapi.Validation, "failed to validate old object")
+				}
+
+				logger.V(3).Info("old object verification", "errors", errs)
+				if len(errs) != 0 {
+					logger.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name)
+					return resource, handlers.WithSkip(rule, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed")
+				}
 			}
 		}
+
 		var responses []*engineapi.RuleResponse
 		for _, err := range errs {
 			responses = append(responses, engineapi.RuleFail(rule.Name, engineapi.Validation, err.Error(), rule.ReportProperties))

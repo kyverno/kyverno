@@ -201,11 +201,13 @@ func (pc *policyController) updatePolicy(old, cur interface{}) {
 	}
 
 	logger.V(2).Info("updating policy", "name", oldP.GetName())
-	if deleted, ok := ruleDeletion(oldP, curP); ok {
+	if deleted, ok, selector := ruleChange(oldP, curP); ok {
 		err := pc.createURForDownstreamDeletion(deleted)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("failed to create UR on rule deletion, clean up downstream resource may be failed: %v", err))
 		}
+	} else {
+		pc.unlabelDownstream(selector)
 	}
 
 	pc.enqueuePolicy(curP)

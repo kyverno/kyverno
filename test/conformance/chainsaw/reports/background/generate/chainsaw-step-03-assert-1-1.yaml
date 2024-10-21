@@ -1,0 +1,27 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: v1
+    kind: Namespace
+    name: cpol-clone-nosync-create-ns
+results:
+- policy: cpol-nosync-clone
+  result: pass
+  rule: clone-secret
+  scored: true
+  source: kyverno
+  properties:
+    generated-resources: /v1, Kind=Secret Name=regcred Namespace=cpol-clone-nosync-create-ns
+scope:
+  apiVersion: v1
+  kind: Namespace
+  name: cpol-clone-nosync-create-ns
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

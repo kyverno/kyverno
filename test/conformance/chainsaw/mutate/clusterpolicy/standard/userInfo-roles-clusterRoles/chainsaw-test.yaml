@@ -1,7 +1,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: userinfo-roles-clusterroles
 spec:
   steps:
@@ -17,8 +16,20 @@ spec:
         file: chainsaw-step-01-apply-1-4.yaml
     - apply:
         file: chainsaw-step-01-apply-1-5.yaml
-    - apply:
-        file: chainsaw-step-01-apply-1-6.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: record-creation-details
   - name: step-02
     try:
     - script:

@@ -25,8 +25,8 @@ func (a *dclientAdapter) RawAbsPath(ctx context.Context, path, method string, da
 	return a.client.RawAbsPath(ctx, path, method, dataReader)
 }
 
-func (a *dclientAdapter) GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string) ([]engineapi.Resource, error) {
-	resources, err := dclient.GetResources(ctx, a.client, group, version, kind, subresource, namespace, name)
+func (a *dclientAdapter) GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string, lselector *metav1.LabelSelector) ([]engineapi.Resource, error) {
+	resources, err := dclient.GetResources(ctx, a.client, group, version, kind, subresource, namespace, name, lselector)
 	if err != nil {
 		return nil, err
 	}
