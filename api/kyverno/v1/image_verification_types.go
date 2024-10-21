@@ -389,34 +389,6 @@ func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Pat
 		errs = append(errs, field.Invalid(path.Child("mutateDigest"), iv.MutateDigest, "mutateDigest must be set to false for ‘Audit’ failure action"))
 	}
 
-    if len(iv.SkipImageReferences) > 0 {
-        skipMap := make(map[string]bool)
-        for _, skipRef := range iv.SkipImageReferences {
-            skipMap[skipRef] = true
-        }
-
-        matchFound := false
-        filteredImageReferences := []string{}
-
-        for _, imageRef := range iv.ImageReferences {
-            if skipMap[imageRef] {
-                matchFound = true
-            } else {
-                filteredImageReferences = append(filteredImageReferences, imageRef)
-            }
-        }
-
-        if !matchFound {
-            errs = append(errs, field.Invalid(path.Child("skipImageReferences"), iv.SkipImageReferences, "None of the skipImageReferences matched any image references"))
-        }
-
-        if len(filteredImageReferences) == 0 {
-            errs = append(errs, field.Invalid(path.Child("imageReferences"), iv.ImageReferences, "All image references were skipped, resulting in an empty list"))
-        }
-
-        iv.ImageReferences = filteredImageReferences
-    }
-
 	if len(copy.ImageReferences) == 0 {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
 	}
