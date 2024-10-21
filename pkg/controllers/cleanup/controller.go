@@ -187,8 +187,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	// Set the propagation policy for the deletion
 	deleteOptions := &metav1.DeleteOptions{}
 	if spec.DeletionPropagationPolicy != nil {
-		propagationPolicy := metav1.DeletionPropagation(*spec.DeletionPropagationPolicy)
-		deleteOptions.PropagationPolicy = &propagationPolicy
+		deleteOptions.PropagationPolicy = spec.DeletionPropagationPolicy
 	}
 
 	enginectx := enginecontext.NewContext(c.jp)
@@ -321,7 +320,6 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				labels = append(labels, attribute.String("resource_namespace", namespace))
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 
-				// Delete the resource with the specified propagation policy
 				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 					if c.metrics.cleanupFailuresTotal != nil {
 						c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
