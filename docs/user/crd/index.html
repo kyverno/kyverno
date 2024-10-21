@@ -3819,7 +3819,7 @@ ResourceDescription
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.GeneratePattern">GeneratePattern</a>, 
-<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
+<a href="#kyverno.io/v1.TargetSelector">TargetSelector</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>, 
 <a href="#kyverno.io/v2.RuleContext">RuleContext</a>, 
@@ -4608,15 +4608,15 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
 <tbody>
 <tr>
 <td>
-<code>ResourceSpec</code><br/>
+<code>TargetSelector</code><br/>
 <em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
+<a href="#kyverno.io/v1.TargetSelector">
+TargetSelector
 </a>
 </em>
 </td>
 <td>
-<p>ResourceSpec contains the target resources to load when mutating existing resources.</p>
+<p>TargetSelector contains the ResourceSpec and a label selector to support selecting with labels.</p>
 </td>
 </tr>
 <tr>
@@ -4649,6 +4649,52 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 will be deprecated in the next major release.
 See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.TargetSelector">TargetSelector
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ResourceSpec</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<p>ResourceSpec contains the target resources to load when mutating existing resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>selector</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+Kubernetes meta/v1.LabelSelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Selector allows you to select target resources with their labels.</p>
 </td>
 </tr>
 </tbody>

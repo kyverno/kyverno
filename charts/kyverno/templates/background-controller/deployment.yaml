@@ -118,6 +118,7 @@ spec:
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
+            - --resyncPeriod={{ .Values.backgroundController.resyncPeriod | default .Values.global.resyncPeriod }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.backgroundController.featuresOverride)
               "reporting"
               "configMapCaching"

@@ -31,7 +31,7 @@ type AuthClient interface {
 type ResourceClient interface {
 	GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error)
 	ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error)
-	GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string) ([]Resource, error)
+	GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string, lselector *metav1.LabelSelector) ([]Resource, error)
 	GetNamespace(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Namespace, error)
 	IsNamespaced(group, version, kind string) (bool, error)
 }

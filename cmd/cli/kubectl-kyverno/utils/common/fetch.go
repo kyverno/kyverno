@@ -130,7 +130,7 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, policies []kyverno
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceTypesMap := make(map[string]bool)
 	for _, policy := range policies {
-		for _, rule := range autogen.ComputeRules(policy, "") {
+		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, kind := range rule.MatchResources.Kinds {
 				resourceTypesMap[kind] = true
 			}

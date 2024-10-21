@@ -17,3 +17,6 @@ spec:
           - reason: Succeeded
             status: "True"
             type: Ready
+  - sleep:
+      duration: 1s
+
