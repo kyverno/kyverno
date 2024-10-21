@@ -2,6 +2,7 @@ package internal
 
 import (
 	"flag"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -38,7 +39,7 @@ var (
 	eventsRateLimitBurst int
 	// engine
 	enablePolicyException  bool
-	exceptionNamespace     string
+	exceptionNamespaces    string
 	enableConfigMapCaching bool
 	// cosign
 	enableTUF  bool
@@ -103,7 +104,7 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 }
 
 func initPolicyExceptionsFlags() {
-	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flag.StringVar(&exceptionNamespaces, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions. (comma-separated).")
 	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
 }
 
@@ -250,8 +251,14 @@ func ParseFlags(config Configuration, opts ...Option) {
 	flag.Parse()
 }
 
-func ExceptionNamespace() string {
-	return exceptionNamespace
+func ExceptionNamespace() []string {
+	// Split the input string by commas
+	parts := strings.Split(exceptionNamespaces, ",")
+	// Trim Spaces
+	for i, part := range parts {
+		parts[i] = strings.TrimSpace(part)
+	}
+	return parts
 }
 
 func PolicyExceptionEnabled() bool {

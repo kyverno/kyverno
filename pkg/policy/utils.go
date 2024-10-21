@@ -24,13 +24,13 @@ func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstr
 		}
 	}
 
-	if !isNamespacedPolicy && len(match.Namespaces) > 0 && !contains(match.Namespaces, res.GetNamespace()) {
+	if !isNamespacedPolicy && len(match.Namespaces) > 0 && !Contains(match.Namespaces, res.GetNamespace()) {
 		return false
 	}
 	return true
 }
 
-func contains(slice []string, item string) bool {
+func Contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true
