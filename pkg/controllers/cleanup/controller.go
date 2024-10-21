@@ -209,8 +209,8 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	var deletionPolicyValue string
 	if deletionPolicy != nil {
 		deletionPolicyValue = string(*deletionPolicy)
-	} else{
-		deletionPolicyValue = "default"
+	} else {
+		deletionPolicyValue = "Let the API server decide"
 	}
 
 	for kind := range kinds {
