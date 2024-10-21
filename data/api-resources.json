@@ -2119,7 +2119,7 @@
   {
     "kind": "APIResourceList",
     "apiVersion": "v1",
-    "groupVersion": "wgpolicyk8s.io/v1alpha2",
+    "groupVersion": "wgpolicyk8s.io/v1beta1",
     "resources": [
       {
         "name": "clusterpolicyreports",
