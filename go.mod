@@ -1,7 +1,6 @@
 module github.com/kyverno/kyverno
 
 go 1.22.7
-
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/AdamKorcz/go-fuzz-headers-1 v0.0.0-20230919221257-8b5d3ce2d11d
@@ -51,7 +50,7 @@ require (
 	github.com/sigstore/sigstore-go v0.6.2
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.9
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.9
-	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.9
+	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.10
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.9
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
@@ -98,12 +97,12 @@ require github.com/AliyunContainerService/ack-ram-tool/pkg/credentials/provider 
 
 require (
 	cloud.google.com/go v0.115.1 // indirect
-	cloud.google.com/go/auth v0.9.3 // indirect
+	cloud.google.com/go/auth v0.9.8 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
-	cloud.google.com/go/compute/metadata v0.5.0 // indirect
-	cloud.google.com/go/iam v1.2.0 // indirect
-	cloud.google.com/go/kms v1.19.0 // indirect
-	cloud.google.com/go/longrunning v0.6.0 // indirect
+	cloud.google.com/go/compute/metadata v0.5.2 // indirect
+	cloud.google.com/go/iam v1.2.1 // indirect
+	cloud.google.com/go/kms v1.20.0 // indirect
+	cloud.google.com/go/longrunning v0.6.1 // indirect
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20240807094312-a32ad29eed79 // indirect
 	cuelang.org/go v0.10.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
@@ -237,7 +236,7 @@ require (
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.3 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.13.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
@@ -373,9 +372,9 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/term v0.25.0 // indirect
-	golang.org/x/time v0.6.0 // indirect
-	google.golang.org/api v0.196.0 // indirect
-	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect
+	golang.org/x/time v0.7.0 // indirect
+	google.golang.org/api v0.200.0 // indirect
+	google.golang.org/genproto v0.0.0-20241007155032-5fefd90f89a9 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241007155032-5fefd90f89a9 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241007155032-5fefd90f89a9 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect
