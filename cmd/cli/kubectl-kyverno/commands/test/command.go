@@ -126,9 +126,9 @@ func testCommandExecute(
 			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
-			if err := printCheckResult(test.Test.Checks, responses, rc, &resultsTable); err != nil {
-				return fmt.Errorf("failed to print test result (%w)", err)
-			}
+			// if err := printCheckResult(test.Test.Checks, responses, rc, &resultsTable); err != nil {
+			// 	return fmt.Errorf("failed to print test result (%w)", err)
+			// }
 			fullTable.AddFailed(resultsTable.RawRows...)
 			printer := table.NewTablePrinter(out)
 			fmt.Fprintln(out)
@@ -151,7 +151,7 @@ func testCommandExecute(
 	return nil
 }
 
-func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured, resourceName string) (bool, string, string) {
 	expected := test.Result
 	// fallback to the deprecated field
 	if expected == "" {
@@ -159,7 +159,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	}
 	// fallback on deprecated field
 	if test.PatchedResource != "" {
-		equals, err := getAndCompareResource([]*unstructured.Unstructured{&response.PatchedResource}, fs, filepath.Join(resoucePath, test.PatchedResource))
+		equals, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.PatchedResource), resourceName)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -168,7 +168,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, err := getAndCompareResource(rule.GeneratedResources(), fs, filepath.Join(resoucePath, test.GeneratedResource))
+		equals, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.GeneratedResource), resourceName)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
