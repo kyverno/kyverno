@@ -163,11 +163,9 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "failed to validate old object", ruleResponse.Properties())
 			}
 
-			if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
-				v.log.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed")
-				if ruleResponse.Status() == engineapi.RuleStatusPass {
-					return ruleResponse
-				}
+			// when an existing resource violates, and the updated resource also violates, then skip
+			if ruleResponse.Status() == engineapi.RuleStatusFail && priorResp.Status() == engineapi.RuleStatusFail { //
+				v.log.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "ruleResponse", ruleResponse, "priorResp", priorResp)
 				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", v.rule.ReportProperties)
 			}
 		}
@@ -185,7 +183,7 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if ok := matchResource(oldResource, v.rule); !ok {
+	if ok := matchResource(oldResource, v.rule, v.policyContext.NamespaceLabels(), v.policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
 		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", v.rule.ReportProperties), nil
 	}
 
