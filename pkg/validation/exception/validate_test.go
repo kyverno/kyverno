@@ -53,11 +53,11 @@ func Test_Validate(t *testing.T) {
 			want: 0,
 		},
 		{
-			name: "PolicyExceptions enabled. No namespace defined",
+			name: "PolicyExceptions enabled. All namespaces are enabled",
 			args: args{
 				opts: ValidationOptions{
 					Enabled:   true,
-					Namespace: "",
+					Namespace: "*",
 				},
 				resource: []byte(`{"apiVersion":"kyverno.io/v2","kind":"PolicyException","metadata":{"name":"enforce-label-exception","namespace":"kyverno"},"spec":{"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
 			},
