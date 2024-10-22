@@ -28,6 +28,9 @@ inputs:
   shard-count:
     description: Shard count
     default: '0'
+  upgrade-scenario:
+    description: Determines which version to upgrade from
+    required: true
 runs:
   using: composite
   steps:
@@ -58,17 +61,137 @@ runs:
       run: |
         set -e
         kind load image-archive kyverno.tar --name kind
-    - name: Install kyverno
+    - name: Determine Previous Version
+      id: determine-prev-version
       shell: bash
       run: |
-        set -e
+        set -ex
+        export HELM=${{ steps.helm.outputs.helm-path }}
+
+        $HELM repo add kyverno https://kyverno.github.io/kyverno
+        $HELM repo update
+
+        case "${{ inputs.upgrade-scenario }}" in
+          "patch")
+            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel --versions | awk -F' +' '{print $2}' | awk '{$1=$1};1' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -Vr | awk -F. '!seen[$1"."$2"."$3]++' | head -2 | tail -1)
+            ;;
+          "minor")
+            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel --versions | awk -F' +' '{print $2}' | awk '{$1=$1};1' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -Vr | awk -F. '!seen[$1"."$2]++' | head -2 | tail -1)
+            ;;
+          "latest")
+            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel -o json | jq -r '.[0].version')
+            ;;
+          *)
+            export INSTALL_VERSION=none
+            ;;
+        esac
+
+        echo "::set-output name=prev_version::$INSTALL_VERSION"
+    - name: Checkout Previous Version
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      if: ${{ steps.determine-prev-version.outputs.prev_version != 'none' }}
+      with:
+        repository: kyverno/kyverno
+        ref: kyverno-chart-${{ steps.determine-prev-version.outputs.prev_version }}
+        path: prev-version
+    - name: Install Kyverno from prev-version
+      if: ${{ steps.determine-prev-version.outputs.prev_version != 'none' }}
+      shell: bash
+      run: |
+        set -ex
         export HELM=${{ steps.helm.outputs.helm-path }}
         export USE_CONFIG=${{ inputs.kyverno-configs }}
+
+        cd prev-version
+
+        IFS=',' read -ra CONFIGS <<< "$USE_CONFIG"
+        for config in "${CONFIGS[@]}"; do
+          if [ ! -f ./scripts/config/$config/kyverno.yaml ]; then
+            echo "Skipping installation of Kyverno from prev-version for config: $config"
+            exit 0
+          fi
+        done
+
+        export INSTALL_VERSION=${{ steps.determine-prev-version.outputs.prev_version }}
+        echo "Installing Kyverno using Helm with Chart version $INSTALL_VERSION"
+        make -C .. kind-install-kyverno-from-repo
+    - name: Determine Next Version
+      id: determine-next-version
+      shell: bash
+      run: |
+        set -ex
+        export HELM=${{ steps.helm.outputs.helm-path }}
+
+        $HELM repo add kyverno https://kyverno.github.io/kyverno
+        $HELM repo update
+
+        case "${{ inputs.upgrade-scenario }}" in
+          "patch")
+            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel --versions | awk -F' +' '{print $2}' | awk '{$1=$1};1' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -Vr | awk -F. '!seen[$1"."$2"."$3]++' | head -1)
+            ;;
+          "minor")
+            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel --versions | awk -F' +' '{print $2}' | awk '{$1=$1};1' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -Vr | awk -F. '!seen[$1"."$2]++' | head -1)
+            ;;
+          "latest")
+            export INSTALL_VERSION=main
+            ;;
+          *)
+            export INSTALL_VERSION=main
+            ;;
+        esac
+
+        echo "::set-output name=next_version::$INSTALL_VERSION"
+    - name: Checkout Next Version
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      if: ${{ steps.determine-next-version.outputs.next_version != 'main' }}
+      with:
+        repository: kyverno/kyverno
+        ref: kyverno-chart-${{ steps.determine-next-version.outputs.next_version }}
+        path: next-version
+    - name: Install Kyverno from next-version
+      if: ${{ steps.determine-next-version.outputs.next_version != 'main' }}
+      shell: bash
+      run: |
+        set -ex
+        export HELM=${{ steps.helm.outputs.helm-path }}
+        export USE_CONFIG=${{ inputs.kyverno-configs }}
+
+        cd next-version
+
+        IFS=',' read -ra CONFIGS <<< "$USE_CONFIG"
+        for config in "${CONFIGS[@]}"; do
+          if [ ! -f ./scripts/config/$config/kyverno.yaml ]; then
+            echo "Skipping installation of Kyverno from prev-version for config: $config"
+            exit 0
+          fi
+        done
+
+        export INSTALL_VERSION=${{ steps.determine-next-version.outputs.next_version }}
+        echo "Installing Kyverno using Helm with Chart version $INSTALL_VERSION"
+        make -C .. kind-install-kyverno-from-repo
+    - name: Install Kyverno from main
+      if: ${{ steps.determine-next-version.outputs.next_version == 'main' }}
+      shell: bash
+      run: |
+        set -ex
+        export HELM=${{ steps.helm.outputs.helm-path }}
+        export USE_CONFIG=${{ inputs.kyverno-configs }}
+
+        echo "Installing Kyverno from main"
         make kind-install-kyverno
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno-wait-ready
     # run tests
     - name: Test with Chainsaw
+      if: ${{ steps.determine-next-version.outputs.next_version != 'main' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        set -e
+        cd ./next-version/test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' --config ../${{ inputs.chainsaw-config }}
+    - name: Test with Chainsaw
+      if: ${{ steps.determine-next-version.outputs.next_version == 'main' }}
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
