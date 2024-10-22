@@ -181,10 +181,11 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
-
+	deleteOptions := metav1.DeleteOptions{
+		PropagationPolicy: spec.DeletionPropagationPolicy,
+	}
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
-
 	loader := ctxFactory(nil, kyvernov1.Rule{})
 	if err := loader.Load(
 		ctx,
@@ -196,7 +197,6 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	); err != nil {
 		return err
 	}
-
 	for kind := range kinds {
 		commonLabels := []attribute.KeyValue{
 			attribute.String("policy_type", policy.GetKind()),
@@ -302,6 +302,9 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				var labels []attribute.KeyValue
 				labels = append(labels, commonLabels...)
 				labels = append(labels, attribute.String("resource_namespace", namespace))
+				if deleteOptions.PropagationPolicy != nil {
+					labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
+				}
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 					if c.metrics.cleanupFailuresTotal != nil {
@@ -315,7 +318,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 					if c.metrics.deletedObjectsTotal != nil {
 						c.metrics.deletedObjectsTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 					}
-					debug.Info("deleted")
+					debug.Info("resource deleted")
 					e := event.NewCleanupPolicyEvent(policy, resource, nil)
 					c.eventGen.Add(e)
 				}

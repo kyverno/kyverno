@@ -21,16 +21,18 @@ package v2
 import (
 	v1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v1"
 	v2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CleanupPolicySpecApplyConfiguration represents an declarative configuration of the CleanupPolicySpec type for use
 // with apply.
 type CleanupPolicySpecApplyConfiguration struct {
-	Context          []v1.ContextEntryApplyConfiguration       `json:"context,omitempty"`
-	MatchResources   *v2beta1.MatchResourcesApplyConfiguration `json:"match,omitempty"`
-	ExcludeResources *v2beta1.MatchResourcesApplyConfiguration `json:"exclude,omitempty"`
-	Schedule         *string                                   `json:"schedule,omitempty"`
-	Conditions       *AnyAllConditionsApplyConfiguration       `json:"conditions,omitempty"`
+	Context                   []v1.ContextEntryApplyConfiguration       `json:"context,omitempty"`
+	MatchResources            *v2beta1.MatchResourcesApplyConfiguration `json:"match,omitempty"`
+	ExcludeResources          *v2beta1.MatchResourcesApplyConfiguration `json:"exclude,omitempty"`
+	Schedule                  *string                                   `json:"schedule,omitempty"`
+	Conditions                *AnyAllConditionsApplyConfiguration       `json:"conditions,omitempty"`
+	DeletionPropagationPolicy *metav1.DeletionPropagation               `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // CleanupPolicySpecApplyConfiguration constructs an declarative configuration of the CleanupPolicySpec type for use with
@@ -81,5 +83,13 @@ func (b *CleanupPolicySpecApplyConfiguration) WithSchedule(value string) *Cleanu
 // If called multiple times, the Conditions field is set to the value of the last call.
 func (b *CleanupPolicySpecApplyConfiguration) WithConditions(value *AnyAllConditionsApplyConfiguration) *CleanupPolicySpecApplyConfiguration {
 	b.Conditions = value
+	return b
+}
+
+// WithDeletionPropagationPolicy sets the DeletionPropagationPolicy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the DeletionPropagationPolicy field is set to the value of the last call.
+func (b *CleanupPolicySpecApplyConfiguration) WithDeletionPropagationPolicy(value metav1.DeletionPropagation) *CleanupPolicySpecApplyConfiguration {
+	b.DeletionPropagationPolicy = &value
 	return b
 }

@@ -358,6 +358,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -1643,6 +1651,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
