@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno-json/pkg/engine/assert"
@@ -12,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -160,9 +162,10 @@ func printCheckResult(
 	return nil
 }
 
+// a test that contains a policy that may contain several rules
 func printTestResult(
 	tests []v1alpha1.TestResult,
-	responses []engineapi.EngineResponse,
+	responses *TestResponse,
 	rc *resultCounts,
 	resultsTable *table.Table,
 	fs billy.Filesystem,
@@ -170,73 +173,96 @@ func printTestResult(
 ) error {
 	testCount := 1
 	for _, test := range tests {
-		// lookup matching engine responses (without the resource name)
-		// to reduce the search scope
-		responses := lookupEngineResponses(test, "", responses...)
-		// TODO fix deprecated fields
-		// identify the resources to be looked up
 		var resources []string
-		if test.Resources != nil {
-			resources = append(resources, test.Resources...)
-		} else if test.Resource != "" {
-			resources = append(resources, test.Resource)
+		// The test specifies certain resources to check, results will be checked for those resources only
+		if test.Resource != "" {
+			test.Resources = append(test.Resources, test.Resource)
 		}
-		for _, resource := range resources {
-			var rows []table.Row
-			// lookup matching engine responses (with the resource name this time)
-			for _, response := range lookupEngineResponses(test, resource, responses...) {
-				// lookup matching rule responses
-				for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
-					// perform test checks
-					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
-					// if checks failed but we were expecting a fail it's considered a success
-					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-					row := table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", test.Policy),
-							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(test.Kind, test.Namespace, resource),
-							Reason:    reason,
-							IsFailure: !success,
-						},
-						Message: message,
-					}
-					if success {
-						row.Result = color.ResultPass()
-						if test.Result == policyreportv1alpha2.StatusSkip {
-							rc.Skip++
-						} else {
-							rc.Pass++
+		if test.Resources != nil {
+			// this matching logic will be removed once resources become an array of gvk/name
+			// the problem with this is that it will match resources with the same name but different kinds
+			for _, r := range test.Resources {
+				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
+					for resourceGVKAndName := range m {
+						nameParts := strings.Split(resourceGVKAndName, "/")
+						if nameParts[len(nameParts)-1] == r {
+							resources = append(resources, resourceGVKAndName)
 						}
-					} else {
-						row.Result = color.ResultFail()
-						rc.Fail++
 					}
-					testCount++
-					rows = append(rows, row)
-				}
-
-				// if there are no RuleResponse, the resource has been excluded. This is a pass.
-				if len(rows) == 0 {
-					row := table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", test.Policy),
-							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(test.Kind, test.Namespace, resource),
-							Result:    color.ResultPass(),
-							Reason:    color.Excluded(),
-							IsFailure: false,
-						},
-						Message: color.Excluded(),
-					}
-					rc.Skip++
-					testCount++
-					rows = append(rows, row)
 				}
 			}
-			// if not found
+		}
+
+		// The test specifies no resources, check all results
+		if len(resources) == 0 {
+			for r := range responses.Target {
+				resources = append(resources, r)
+			}
+			for r := range responses.Trigger {
+				resources = append(resources, r)
+			}
+		}
+
+		for _, resource := range resources {
+			var rows []table.Row
+			if _, ok := responses.Trigger[resource]; ok {
+				for _, response := range responses.Trigger[resource] {
+					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
+						var r unstructured.Unstructured
+						switch rule.RuleType() {
+						case "Mutation":
+							r = response.PatchedResource
+						case "Generation":
+							r = rule.GeneratedResource()
+						default:
+							r = response.Resource
+						}
+
+						nameParts := strings.Split(resource, "/")
+						ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, nameParts[len(nameParts)-1])
+
+						success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+						rowss := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
+						rows = append(rows, rowss...)
+					}
+
+					// if there are no RuleResponse, the resource has been excluded. This is a pass.
+					if len(rows) == 0 {
+						row := table.Row{
+							RowCompact: table.RowCompact{
+								ID:        testCount,
+								Policy:    color.Policy("", test.Policy),
+								Rule:      color.Rule(test.Rule),
+								Resource:  color.Resource(test.Kind, test.Namespace, resource),
+								Result:    color.ResultPass(),
+								Reason:    color.Excluded(),
+								IsFailure: false,
+							},
+							Message: color.Excluded(),
+						}
+						rc.Skip++
+						testCount++
+						rows = append(rows, row)
+					}
+				}
+			}
+
+			// Check if the resource specified exists in the targets
+			if _, ok := responses.Target[resource]; ok {
+				for _, response := range responses.Target[resource] {
+					// we are doing this twice which is kinda not nice
+
+					nameParts := strings.Split(resource, "/")
+
+					r, rule := extractPatchedTargetFromEngineResponse(nameParts[len(nameParts)-1], response)
+					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, nameParts[len(nameParts)-1])
+
+					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+					rowss := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
+					rows = append(rows, rowss...)
+				}
+			}
+
 			if len(rows) == 0 {
 				row := table.Row{
 					RowCompact: table.RowCompact{
@@ -259,6 +285,63 @@ func printTestResult(
 		}
 	}
 	return nil
+}
+
+func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter int, success bool, message string, reason string, resourceName string) []table.Row {
+	rows := []table.Row{}
+	row := table.Row{
+		RowCompact: table.RowCompact{
+			ID:        globalTestCounter,
+			Policy:    color.Policy("", test.Policy),
+			Rule:      color.Rule(test.Rule),
+			Resource:  color.Resource(test.Kind, test.Namespace, resourceName),
+			Reason:    reason,
+			IsFailure: !success,
+		},
+		Message: message,
+	}
+	if success {
+		row.Result = color.ResultPass()
+		if test.Result == policyreportv1alpha2.StatusSkip {
+			rc.Skip++
+		} else {
+			rc.Pass++
+		}
+	} else {
+		row.Result = color.ResultFail()
+		rc.Fail++
+	}
+	globalTestCounter++
+	rows = append(rows, row)
+
+	// if there are no RuleResponse, the resource has been excluded. This is a pass.
+	if len(rows) == 0 {
+		row := table.Row{
+			RowCompact: table.RowCompact{
+				ID:        globalTestCounter,
+				Policy:    color.Policy("", test.Policy),
+				Rule:      color.Rule(test.Rule),
+				Resource:  color.Resource(test.Kind, test.Namespace, resourceName),
+				Result:    color.ResultPass(),
+				Reason:    color.Excluded(),
+				IsFailure: false,
+			},
+			Message: color.Excluded(),
+		}
+		rc.Skip++
+		globalTestCounter++
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+func extractPatchedTargetFromEngineResponse(resourceName string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
+	for _, rule := range response.PolicyResponse.Rules {
+		if r, _, _ := rule.PatchedTarget(); r.GetName() == resourceName {
+			return r, &rule
+		}
+	}
+	return nil, nil
 }
 
 func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResults bool) {
