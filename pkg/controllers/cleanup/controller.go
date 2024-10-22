@@ -181,18 +181,11 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
-
-	// Get the deletion policy
-	deletionPolicy := spec.DeletionPropagationPolicy
-	// Set the propagation policy for the deletion
-	deleteOptions := &metav1.DeleteOptions{}
-	if spec.DeletionPropagationPolicy != nil {
-		deleteOptions.PropagationPolicy = spec.DeletionPropagationPolicy
+	deleteOptions := metav1.DeleteOptions{
+		PropagationPolicy: spec.DeletionPropagationPolicy,
 	}
-
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
-
 	loader := ctxFactory(nil, kyvernov1.Rule{})
 	if err := loader.Load(
 		ctx,
@@ -204,21 +197,12 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	); err != nil {
 		return err
 	}
-
-	var deletionPolicyValue string
-	if deletionPolicy != nil {
-		deletionPolicyValue = string(*deletionPolicy)
-	} else {
-		deletionPolicyValue = "Let the API server decide"
-	}
-
 	for kind := range kinds {
 		commonLabels := []attribute.KeyValue{
 			attribute.String("policy_type", policy.GetKind()),
 			attribute.String("policy_namespace", policy.GetNamespace()),
 			attribute.String("policy_name", policy.GetName()),
 			attribute.String("resource_kind", kind),
-			attribute.String("deletion_policy", deletionPolicyValue),
 		}
 		debug := debug.WithValues("kind", kind)
 		debug.Info("processing...")
@@ -318,8 +302,10 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				var labels []attribute.KeyValue
 				labels = append(labels, commonLabels...)
 				labels = append(labels, attribute.String("resource_namespace", namespace))
+				if deleteOptions.PropagationPolicy != nil {
+					labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
+				}
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-
 				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 					if c.metrics.cleanupFailuresTotal != nil {
 						c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
