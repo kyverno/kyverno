@@ -51118,7 +51118,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
@@ -51274,7 +51274,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           env:
@@ -51528,7 +51528,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
