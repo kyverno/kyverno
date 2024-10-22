@@ -24,6 +24,9 @@ type Test struct {
 	// Resources are the resource to be used in the test
 	Resources []string `json:"resources,omitempty"`
 
+	// Target Resources are for policies that have mutate existing
+	TargetResources []string `json:"targetResources,omitempty"`
+
 	// Variables is the values to be used in the test
 	Variables string `json:"variables,omitempty"`
 
