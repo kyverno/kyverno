@@ -105,6 +105,18 @@ spec:
             {{- end }}
           {{- with .Values.crds.migration.securityContext }}
           env:
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.fullname" . }}-migrate-resources
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.admission-controller.name" . }}
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: INIT_CONFIG
+            value: {{ template "kyverno.config.configMapName" . }}
+          - name: METRICS_CONFIG
+            value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
