@@ -341,7 +341,6 @@ func ComputeRules(p kyvernov1.PolicyInterface, kind string) ([]kyvernov1.Rule, E
 
 	if kind == "none" {
 		return spec.Rules, nil
-
 	}
 	return spec.Rules, GetPodExtractor(kind)
 }
