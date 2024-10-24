@@ -1209,7 +1209,18 @@ backgroundController:
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
-      extraResources: []
+      extraResources: 
+
+       - apiGroups:
+            - rbac.authorization.k8s.io
+          resources:
+            - rolebindings
+            - roles
+          verbs:
+            - create
+            - update
+            - patch
+            - delete
       # - apiGroups:
       #     - ''
       #   resources:
