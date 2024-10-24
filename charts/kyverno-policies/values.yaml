@@ -114,3 +114,7 @@ skipBackgroundRequests: ~
 # -- Kyverno version
 # The default of "autodetect" will try to determine the currently installed version from the deployment
 kyvernoVersion: autodetect
+
+# -- Kubernetes version
+# Against which the policy should work. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes
+kubernetesVersion: "1.28-1.31"
