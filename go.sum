@@ -312,8 +312,8 @@ github.com/evanphx/json-patch v5.9.0+incompatible h1:fBXyNpNMuTTDdquAq/uisOr2lSh
 github.com/evanphx/json-patch v5.9.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
 github.com/evanphx/json-patch/v5 v5.9.0 h1:kcBlZQbplgElYIlo/n1hJbls2z/1awpXxpRi0/FOJfg=
 github.com/evanphx/json-patch/v5 v5.9.0/go.mod h1:VNkHZ/282BpEyt/tObQO8s5CMPmYYq14uClGH4abBuQ=
-github.com/fatih/color v1.17.0 h1:GlRw1BRJxkpqUCBKzKOw098ed57fEsKeNjpTe3cSjK4=
-github.com/fatih/color v1.17.0/go.mod h1:YZ7TlrGPkiz6ku9fK3TLD/pl3CpsiFyu8N92HLgmosI=
+github.com/fatih/color v1.18.0 h1:S8gINlzdQ840/4pfAwic/ZE0djQEH3wM94VfqLTZcOM=
+github.com/fatih/color v1.18.0/go.mod h1:4FelSpRwEGDpQ12mAdzqdOukCy4u8WUtOY6lkT/6HfU=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/fluxcd/pkg/oci v0.41.1 h1:MHgQvggB42BCZ0ASC7+3NhQhI1WTEX+wkl+gipZoy+0=
@@ -798,8 +798,6 @@ github.com/sigstore/protobuf-specs v0.3.2 h1:nCVARCN+fHjlNCk3ThNXwrZRqIommIeNKWw
 github.com/sigstore/protobuf-specs v0.3.2/go.mod h1:RZ0uOdJR4OB3tLQeAyWoJFbNCBFrPQdcokntde4zRBA=
 github.com/sigstore/rekor v1.3.6 h1:QvpMMJVWAp69a3CHzdrLelqEqpTM3ByQRt5B5Kspbi8=
 github.com/sigstore/rekor v1.3.6/go.mod h1:JDTSNNMdQ/PxdsS49DJkJ+pRJCO/83nbR5p3aZQteXc=
-github.com/sigstore/sigstore v1.8.9 h1:NiUZIVWywgYuVTxXmRoTT4O4QAGiTEKup4N1wdxFadk=
-github.com/sigstore/sigstore v1.8.9/go.mod h1:d9ZAbNDs8JJfxJrYmulaTazU3Pwr8uLL9+mii4BNR3w=
 github.com/sigstore/sigstore v1.8.10 h1:r4t+TYzJlG9JdFxMy+um9GZhZ2N1hBTyTex0AHEZxFs=
 github.com/sigstore/sigstore v1.8.10/go.mod h1:BekjqxS5ZtHNJC4u3Q3Stvfx2eyisbW/lUZzmPU2u4A=
 github.com/sigstore/sigstore-go v0.6.2 h1:8uiywjt73vzfrGfWYVwVsiB1E1Qmwmpgr1kVpl4fs6A=
