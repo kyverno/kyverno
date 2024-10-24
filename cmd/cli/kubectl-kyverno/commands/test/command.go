@@ -168,12 +168,13 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, err := getAndCompareResource(rule.GeneratedResources(), fs, filepath.Join(resoucePath, test.GeneratedResource))
+		fullpath := filepath.Join(resoucePath, test.GeneratedResource)
+		equals, err := getAndCompareResource(rule.GeneratedResources(), fs, fullpath)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
 		if !equals {
-			return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
+			return false, "Generated resource didn't match the generated resource in the test result: " + fullpath, "Resource diff"
 		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
