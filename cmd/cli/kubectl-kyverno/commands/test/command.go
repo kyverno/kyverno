@@ -123,7 +123,7 @@ func testCommandExecute(
 			}
 			fmt.Fprintln(out, "  Checking results ...")
 			var resultsTable table.Table
-			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
+			if err := printTestResult(out, filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			if err := printCheckResult(test.Test.Checks, responses, rc, &resultsTable); err != nil {
@@ -184,7 +184,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	return true, result.Message, "Ok"
 }
 
-func lookupEngineResponses(test v1alpha1.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
+func lookupEngineResponses(out io.Writer, test v1alpha1.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
 	matches := make([]engineapi.EngineResponse, 0, len(responses))
 	for _, response := range responses {
 		policy := response.Policy()

@@ -31,7 +31,7 @@ func ObjToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 }
 
 func UnstructuredToBytes(obj *unstructured.Unstructured) ([]byte, error) {
-	raw, err := yaml.Marshal(obj)
+	raw, err := yaml.Marshal(obj.Object)
 
 	if err != nil {
 		return nil, err
