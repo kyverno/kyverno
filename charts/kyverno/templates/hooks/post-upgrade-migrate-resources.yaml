@@ -31,6 +31,13 @@ rules:
     - customresourcedefinitions/status
     verbs:
     - update
+  - apiGroups: # Grant permissions to ConfigMaps in all API groups
+    - ""
+    resources:
+    - configmaps
+    verbs:
+    - get
+    - list  
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
