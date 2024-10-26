@@ -19,7 +19,7 @@ import (
 
 func printCheckResult(
 	checks []v1alpha1.CheckResult,
-	responses []engineapi.EngineResponse,
+	responses TestResponse,
 	rc *resultCounts,
 	resultsTable *table.Table,
 ) error {
@@ -27,7 +27,10 @@ func printCheckResult(
 	testCount := 1
 	for _, check := range checks {
 		// filter engine responses
-		matchingEngineResponses := responses
+		var matchingEngineResponses []engineapi.EngineResponse
+		for _, engineresponses := range responses.Trigger {
+			matchingEngineResponses = append(matchingEngineResponses, engineresponses...)
+		}
 		// 1. by resource
 		if check.Match.Resource != nil {
 			var filtered []engineapi.EngineResponse
@@ -214,6 +217,7 @@ func printTestResult(
 							r = response.PatchedResource
 						case "Generation":
 							r = rule.GeneratedResource()
+							resource = r.GetAPIVersion() + "/" + r.GetKind() + "/" + r.GetName()
 						default:
 							r = response.Resource
 						}
@@ -287,14 +291,15 @@ func printTestResult(
 	return nil
 }
 
-func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter int, success bool, message string, reason string, resourceName string) []table.Row {
+func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter int, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
+	resourceParts := strings.Split(resourceGVKAndName, "/")
 	rows := []table.Row{}
 	row := table.Row{
 		RowCompact: table.RowCompact{
 			ID:        globalTestCounter,
 			Policy:    color.Policy("", test.Policy),
 			Rule:      color.Rule(test.Rule),
-			Resource:  color.Resource(test.Kind, test.Namespace, resourceName),
+			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]),
 			Reason:    reason,
 			IsFailure: !success,
 		},
@@ -321,7 +326,7 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 				ID:        globalTestCounter,
 				Policy:    color.Policy("", test.Policy),
 				Rule:      color.Rule(test.Rule),
-				Resource:  color.Resource(test.Kind, test.Namespace, resourceName),
+				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]), // todo: handle namespace
 				Result:    color.ResultPass(),
 				Reason:    color.Excluded(),
 				IsFailure: false,
