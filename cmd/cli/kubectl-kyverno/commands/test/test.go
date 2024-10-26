@@ -217,7 +217,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 		resourceKey := resource.GetAPIVersion() + "/" + resource.GetKind() + "/" + resource.GetName()
 		engineResponses = append(engineResponses, ers...)
-		testResponse.Trigger[resourceKey] = engineResponses
+		testResponse.Trigger[resourceKey] = ers
 	}
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
