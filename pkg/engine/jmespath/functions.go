@@ -13,7 +13,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"math"
+
 	"net"
 	"net/url"
 	"path/filepath"
@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/shopspring/decimal"
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
@@ -920,9 +922,17 @@ func jpRound(arguments []interface{}) (interface{}, error) {
 	if intLength < 0 {
 		return nil, formatError(argOutOfBoundsError, round)
 	}
-	shift := math.Pow(10, float64(intLength))
-	rounded := math.Round(op.Float()*shift) / shift
-	return rounded, nil
+
+	// Convert the input to a decimal.Decimal
+	decimalValue := decimal.NewFromFloat(op.Float())
+
+	// Round the decimal value to the specified number of decimal places
+	roundedValue := decimalValue.Round(int32(intLength))
+
+	// Convert the rounded value back to a float64
+	roundedFloat, _ := roundedValue.Float64()
+
+	return roundedFloat, nil
 }
 
 func jpBase64Decode(arguments []interface{}) (interface{}, error) {
