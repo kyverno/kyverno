@@ -5,14 +5,11 @@ metadata:
 policies:
 - policy.yaml
 resources:
-- tigger-cm.yaml
+- trigger-cm.yaml
 targetResources:
 - raw-secret.yaml
 results:
-- kind: Secret
-  patchedResource: mutated-secret.yaml
+- patchedResource: mutated-secret.yaml
   policy: mutate-existing-secret
-  resources:
-  - secret-1
   result: pass
   rule: mutate-secret-on-configmap-create
