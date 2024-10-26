@@ -211,23 +211,29 @@ func printTestResult(
 			if _, ok := responses.Trigger[resource]; ok {
 				for _, response := range responses.Trigger[resource] {
 					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
-						var r unstructured.Unstructured
-						switch rule.RuleType() {
-						case "Mutation":
-							r = response.PatchedResource
-						case "Generation":
-							r = rule.GeneratedResource()
-							resource = r.GetAPIVersion() + "/" + r.GetKind() + "/" + r.GetName()
-						default:
-							r = response.Resource
+						r := response.Resource
+
+						if rule.RuleType() != "Generation" {
+							if rule.RuleType() == "Mutation" {
+								r = response.PatchedResource
+							}
+							nameParts := strings.Split(resource, "/")
+							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, nameParts[len(nameParts)-1])
+
+							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+							resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
+							rows = append(rows, resourceRows...)
 						}
 
-						nameParts := strings.Split(resource, "/")
-						ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, nameParts[len(nameParts)-1])
+						generatedResources := rule.GeneratedResources()
+						for _, r := range generatedResources {
+							nameParts := strings.Split(resource, "/")
+							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, nameParts[len(nameParts)-1])
 
-						success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-						resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
-						rows = append(rows, resourceRows...)
+							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+							resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
+							rows = append(rows, resourceRows...)
+						}
 					}
 
 					// if there are no RuleResponse, the resource has been excluded. This is a pass.
