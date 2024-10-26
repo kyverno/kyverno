@@ -226,8 +226,8 @@ func printTestResult(
 						ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, nameParts[len(nameParts)-1])
 
 						success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-						rowss := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
-						rows = append(rows, rowss...)
+						resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
+						rows = append(rows, resourceRows...)
 					}
 
 					// if there are no RuleResponse, the resource has been excluded. This is a pass.
@@ -262,8 +262,8 @@ func printTestResult(
 					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, nameParts[len(nameParts)-1])
 
 					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-					rowss := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
-					rows = append(rows, rowss...)
+					resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
+					rows = append(rows, resourceRows...)
 				}
 			}
 
