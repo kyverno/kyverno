@@ -227,11 +227,10 @@ func printTestResult(
 
 						generatedResources := rule.GeneratedResources()
 						for _, r := range generatedResources {
-							nameParts := strings.Split(resource, "/")
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, nameParts[len(nameParts)-1])
+							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, r.GetName())
 
 							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
+							resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, r.GetName())
 							rows = append(rows, resourceRows...)
 						}
 					}
