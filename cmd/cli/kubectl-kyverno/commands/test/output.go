@@ -223,15 +223,15 @@ func printTestResult(
 							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 							resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
 							rows = append(rows, resourceRows...)
-						}
+						} else {
+							generatedResources := rule.GeneratedResources()
+							for _, r := range generatedResources {
+								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, r.GetName())
 
-						generatedResources := rule.GeneratedResources()
-						for _, r := range generatedResources {
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, r.GetName())
-
-							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, r.GetName())
-							rows = append(rows, resourceRows...)
+								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+								resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, r.GetName())
+								rows = append(rows, resourceRows...)
+							}
 						}
 					}
 
