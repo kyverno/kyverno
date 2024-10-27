@@ -184,6 +184,7 @@ func printTestResult(
 		if test.Resources != nil {
 			// this matching logic will be removed once resources become an array of gvk/name
 			// the problem with this is that it will match resources with the same name but different kinds
+			// if the matching was invalid it will iterate over all the resources which may not be valid
 			for _, r := range test.Resources {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
 					for resourceGVKAndName := range m {
@@ -208,6 +209,7 @@ func printTestResult(
 
 		for _, resource := range resources {
 			var rows []table.Row
+			var resourceSkipped bool
 			if _, ok := responses.Trigger[resource]; ok {
 				for _, response := range responses.Trigger[resource] {
 					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
@@ -219,6 +221,10 @@ func printTestResult(
 							}
 							nameParts := strings.Split(resource, "/")
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, nameParts[len(nameParts)-1])
+							if strings.Contains(message, "not found in manifest") {
+								resourceSkipped = true
+								continue
+							}
 
 							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, resource)
@@ -236,7 +242,7 @@ func printTestResult(
 					}
 
 					// if there are no RuleResponse, the resource has been excluded. This is a pass.
-					if len(rows) == 0 {
+					if len(rows) == 0 && !resourceSkipped {
 						row := table.Row{
 							RowCompact: table.RowCompact{
 								ID:        testCount,
@@ -260,7 +266,6 @@ func printTestResult(
 			if _, ok := responses.Target[resource]; ok {
 				for _, response := range responses.Target[resource] {
 					// we are doing this twice which is kinda not nice
-
 					nameParts := strings.Split(resource, "/")
 
 					r, rule := extractPatchedTargetFromEngineResponse(nameParts[len(nameParts)-1], response)
@@ -272,7 +277,7 @@ func printTestResult(
 				}
 			}
 
-			if len(rows) == 0 {
+			if len(rows) == 0 && !resourceSkipped {
 				row := table.Row{
 					RowCompact: table.RowCompact{
 						ID:        testCount,
