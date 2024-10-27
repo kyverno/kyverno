@@ -139,7 +139,7 @@ func (h validateCELHandler) Process(
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		ns = ""
 	}
-	if ns != "" {
+	if ns != "" && ns != "default" {
 		if h.client != nil {
 			namespace, err = h.client.GetNamespace(ctx, ns, metav1.GetOptions{})
 			if err != nil {
