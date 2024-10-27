@@ -221,7 +221,7 @@ func printTestResult(
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, nameParts[len(nameParts)-1])
 
 							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, resource)
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
@@ -229,7 +229,7 @@ func printTestResult(
 								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, r.GetName())
 
 								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
 						}
@@ -267,7 +267,7 @@ func printTestResult(
 					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, nameParts[len(nameParts)-1])
 
 					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-					resourceRows := createRowsAccordingToResults(test, rc, testCount, success, message, reason, resource)
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, resource)
 					rows = append(rows, resourceRows...)
 				}
 			}
@@ -296,12 +296,12 @@ func printTestResult(
 	return nil
 }
 
-func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter int, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
+func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
 	resourceParts := strings.Split(resourceGVKAndName, "/")
 	rows := []table.Row{}
 	row := table.Row{
 		RowCompact: table.RowCompact{
-			ID:        globalTestCounter,
+			ID:        *globalTestCounter,
 			Policy:    color.Policy("", test.Policy),
 			Rule:      color.Rule(test.Rule),
 			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]),
@@ -321,14 +321,14 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 		row.Result = color.ResultFail()
 		rc.Fail++
 	}
-	globalTestCounter++
+	*globalTestCounter++
 	rows = append(rows, row)
 
 	// if there are no RuleResponse, the resource has been excluded. This is a pass.
 	if len(rows) == 0 {
 		row := table.Row{
 			RowCompact: table.RowCompact{
-				ID:        globalTestCounter,
+				ID:        *globalTestCounter,
 				Policy:    color.Policy("", test.Policy),
 				Rule:      color.Rule(test.Rule),
 				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), test.Namespace, resourceParts[len(resourceParts)-1]), // todo: handle namespace
@@ -339,7 +339,7 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 			Message: color.Excluded(),
 		}
 		rc.Skip++
-		globalTestCounter++
+		*globalTestCounter++
 		rows = append(rows, row)
 	}
 	return rows
