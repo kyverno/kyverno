@@ -16,7 +16,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/tools/cache"
 )
 
 func Command() *cobra.Command {
@@ -181,27 +180,6 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		return false, result.Message, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
 	return true, result.Message, "Ok"
-}
-
-func lookupEngineResponses(test v1alpha1.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
-	matches := make([]engineapi.EngineResponse, 0, len(responses))
-	for _, response := range responses {
-		policy := response.Policy()
-		resource := response.Resource
-		pName := cache.MetaObjectToName(policy.MetaObject()).String()
-		rName := cache.MetaObjectToName(&resource).String()
-		if test.Kind != resource.GetKind() {
-			continue
-		}
-		if pName != test.Policy {
-			continue
-		}
-		if resourceName != "" && rName != resourceName && resource.GetName() != resourceName {
-			continue
-		}
-		matches = append(matches, response)
-	}
-	return matches
 }
 
 func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleResponse) []engineapi.RuleResponse {
