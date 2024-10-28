@@ -72,6 +72,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if rclient == nil {
 		rclient = registryclient.NewOrDie()
 	}
+	isCluster := false
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
@@ -81,6 +82,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(p.Store, nil),
 		exceptions.New(policyExceptionLister),
+		&isCluster,
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
 	resourceKind := resource.GetKind()
