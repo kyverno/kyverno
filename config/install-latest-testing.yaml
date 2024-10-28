@@ -559,6 +559,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -1844,6 +1852,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -3155,6 +3171,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -4440,6 +4464,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -51134,7 +51166,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
@@ -51290,7 +51322,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           env:
@@ -51544,7 +51576,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate

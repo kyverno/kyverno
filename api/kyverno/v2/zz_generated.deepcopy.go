@@ -162,6 +162,11 @@ func (in *CleanupPolicySpec) DeepCopyInto(out *CleanupPolicySpec) {
 		*out = new(AnyAllConditions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.DeletionPropagationPolicy != nil {
+		in, out := &in.DeletionPropagationPolicy, &out.DeletionPropagationPolicy
+		*out = new(metav1.DeletionPropagation)
+		**out = **in
+	}
 	return
 }
 
