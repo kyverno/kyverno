@@ -89,13 +89,16 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
 
-	var targets []runtime.Object
+	targets := []runtime.Object{}
 	for _, t := range targetResources {
 		targets = append(targets, t)
 	}
 
 	// this will be a dclient containing all target resources. a policy may not do anything with any targets in these
 	dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targets...)
+	if err != nil {
+		return nil, err
+	}
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 
 	// exceptions

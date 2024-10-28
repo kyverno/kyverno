@@ -142,7 +142,7 @@ func (h validateCELHandler) Process(
 		ns = ""
 	}
 	if ns != "" {
-		if h.client != nil && h.isCluster == true {
+		if h.client != nil && h.isCluster {
 			namespace, err = h.client.GetNamespace(ctx, ns, metav1.GetOptions{})
 			if err != nil {
 				return resource, handlers.WithResponses(
