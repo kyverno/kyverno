@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -92,7 +93,7 @@ func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Log
 	return false
 }
 
-func MatchReferences(imageReferences []string, image string) bool {
+func matchReferences(imageReferences []string, image string) bool {
 	for _, imageRef := range imageReferences {
 		if wildcard.Match(imageRef, image) {
 			return true
@@ -243,6 +244,7 @@ func (iv *ImageVerifier) Verify(
 	imageVerify kyvernov1.ImageVerification,
 	matchedImageInfos []apiutils.ImageInfo,
 	cfg config.Configuration,
+	matchedExceptions []kyvernov2.PolicyException,
 ) ([]jsonpatch.JsonPatchOperation, []*engineapi.RuleResponse) {
 	var responses []*engineapi.RuleResponse
 	var patches []jsonpatch.JsonPatchOperation
@@ -293,7 +295,7 @@ func (iv *ImageVerifier) Verify(
 			digest = imageInfo.Digest
 		} else {
 			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
-			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
+			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg, matchedExceptions)
 			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
 				if iv.ivCache != nil {
 					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
@@ -338,6 +340,7 @@ func (iv *ImageVerifier) verifyImage(
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
 	cfg config.Configuration,
+	matchedExceptions []kyvernov2.PolicyException,
 ) (*engineapi.RuleResponse, string) {
 	if len(imageVerify.Attestors) <= 0 && len(imageVerify.Attestations) <= 0 {
 		return nil, ""
@@ -354,11 +357,21 @@ func (iv *ImageVerifier) verifyImage(
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to add image to context %s", image), err, iv.rule.ReportProperties), ""
 	}
 	if len(imageVerify.Attestors) > 0 {
-		if !MatchReferences(imageVerify.ImageReferences, image) {
+		for _, exception := range matchedExceptions {
+			if exception.Spec.VerifyImages != nil {
+				for _, imageRef := range exception.Spec.VerifyImages {
+					if matchReferences(imageRef.ImageReferences, image) {
+						iv.logger.Info("skipping image verification", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "exception", exception.Name)
+						return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s, exception %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name, exception.Name), iv.rule.ReportProperties), ""
+					}
+				}
+			}
+		}
+		if !matchReferences(imageVerify.ImageReferences, image) {
 			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties), ""
 		}
 
-		if MatchReferences(imageVerify.SkipImageReferences, image) {
+		if matchReferences(imageVerify.SkipImageReferences, image) {
 			iv.logger.Info("skipping image reference", "image", image, "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name)
 			iv.ivm.Add(image, engineapi.ImageVerificationSkip)
 			return engineapi.RuleSkip(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("skipping image reference image %s, policy %s ruleName %s", image, iv.policyContext.Policy().GetName(), iv.rule.Name), iv.rule.ReportProperties).WithEmitWarning(true), ""

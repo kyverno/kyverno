@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -50,7 +49,6 @@ func (h validateImageHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
 	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
-	var imagePatternsToSkip []string
 	if len(matchedExceptions) > 0 {
 		var keys []string
 		for i, exception := range matchedExceptions {
@@ -60,15 +58,6 @@ func (h validateImageHandler) Process(
 				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
 			}
 			keys = append(keys, key)
-
-			// Collect image patterns to skip
-			if exception.Spec.VerifyImages != nil {
-				for _, imageRef := range exception.Spec.VerifyImages {
-					for _, pattern := range imageRef.ImageReferences {
-						imagePatternsToSkip = append(imagePatternsToSkip, pattern)
-					}
-				}
-			}
 		}
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
@@ -84,12 +73,6 @@ func (h validateImageHandler) Process(
 		for _, infoMap := range policyContext.JSONContext().ImageInfo() {
 			for _, imageInfo := range infoMap {
 				image := imageInfo.String()
-
-				// check if the image verification should be skipped
-				if internal.MatchReferences(imagePatternsToSkip, image) {
-					skippedImages = append(skippedImages, image)
-					continue
-				}
 
 				if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
 					logger.V(4).Info("image does not match", "imageReferences", imageVerify.ImageReferences)

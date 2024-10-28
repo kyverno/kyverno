@@ -106,7 +106,7 @@ func (h mutateImageHandler) Process(
 			)
 		}
 		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm)
-		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
+		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration, matchedExceptions)
 		patches = append(patches, patch...)
 		engineResponses = append(engineResponses, ruleResponse...)
 	}
