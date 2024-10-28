@@ -126,6 +126,7 @@ func FuzzVerifyImageAndPatchTest(f *testing.F) {
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(nil),
 			nil,
+			nil,
 		)
 
 		_, _ = verifyImageAndPatchEngine.VerifyAndPatchImages(

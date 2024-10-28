@@ -30,12 +30,14 @@ import (
 )
 
 type validateCELHandler struct {
-	client engineapi.Client
+	client    engineapi.Client
+	isCluster bool
 }
 
-func NewValidateCELHandler(client engineapi.Client) (handlers.Handler, error) {
+func NewValidateCELHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
 	return validateCELHandler{
-		client: client,
+		client:    client,
+		isCluster: isCluster,
 	}, nil
 }
 
@@ -139,8 +141,8 @@ func (h validateCELHandler) Process(
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		ns = ""
 	}
-	if ns != "" && ns != "default" {
-		if h.client != nil {
+	if ns != "" {
+		if h.client != nil && h.isCluster == true {
 			namespace, err = h.client.GetNamespace(ctx, ns, metav1.GetOptions{})
 			if err != nil {
 				return resource, handlers.WithResponses(
