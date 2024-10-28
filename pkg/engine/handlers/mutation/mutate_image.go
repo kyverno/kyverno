@@ -70,8 +70,8 @@ func (h mutateImageHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
-	if len(matchedExceptions) > 0 {
+	matchedExceptions, exceptionsForImageVerification := engineutils.MatchesException(exceptions, policyContext, logger)
+	if len(matchedExceptions) > 0 && len(exceptionsForImageVerification) == 0 {
 		var keys []string
 		for i, exception := range matchedExceptions {
 			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
@@ -106,7 +106,7 @@ func (h mutateImageHandler) Process(
 			)
 		}
 		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm)
-		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration, matchedExceptions)
+		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration, exceptionsForImageVerification)
 		patches = append(patches, patch...)
 		engineResponses = append(engineResponses, ruleResponse...)
 	}

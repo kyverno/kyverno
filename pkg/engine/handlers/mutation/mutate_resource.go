@@ -32,7 +32,7 @@ func (h mutateResourceHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	matchedExceptions, _ := engineutils.MatchesException(exceptions, policyContext, logger)
 	if len(matchedExceptions) > 0 {
 		var keys []string
 		for i, exception := range matchedExceptions {

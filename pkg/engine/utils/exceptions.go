@@ -15,8 +15,9 @@ import (
 
 // MatchesException takes a list of exceptions and checks if there is an exception applies to the incoming resource.
 // It returns the matched policy exception.
-func MatchesException(polexs []*kyvernov2.PolicyException, policyContext engineapi.PolicyContext, logger logr.Logger) []kyvernov2.PolicyException {
+func MatchesException(polexs []*kyvernov2.PolicyException, policyContext engineapi.PolicyContext, logger logr.Logger) ([]kyvernov2.PolicyException, []kyvernov2.PolicyException) {
 	var matchedExceptions []kyvernov2.PolicyException
+	var exceptionsForImageVerification []kyvernov2.PolicyException
 	gvk, subresource := policyContext.ResourceKind()
 	resource := policyContext.NewResource()
 	if resource.Object == nil {
@@ -35,16 +36,19 @@ func MatchesException(polexs []*kyvernov2.PolicyException, policyContext enginea
 			if polex.Spec.Conditions != nil {
 				passed, err := conditions.CheckAnyAllConditions(logger, policyContext.JSONContext(), *polex.Spec.Conditions)
 				if err != nil {
-					return nil
+					return nil, nil
 				}
 				if !passed {
 					continue
 				}
 			}
+			if polex.Spec.VerifyImages != nil {
+				exceptionsForImageVerification = append(exceptionsForImageVerification, *polex)
+			}
 			matchedExceptions = append(matchedExceptions, *polex)
 		}
 	}
-	return matchedExceptions
+	return matchedExceptions, exceptionsForImageVerification
 }
 
 func checkMatchesResources(
