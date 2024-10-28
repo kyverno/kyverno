@@ -189,6 +189,12 @@ func printTestResult(
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
 					for resourceGVKAndName := range m {
 						nameParts := strings.Split(resourceGVKAndName, "/")
+						// handle the case where resource is specified as ns/name, make it match with name only
+						resourceNameParts := strings.Split(r, "/")
+						if len(resourceNameParts) > 1 {
+							r = resourceNameParts[len(resourceNameParts)-1]
+						}
+
 						if nameParts[len(nameParts)-1] == r {
 							resources = append(resources, resourceGVKAndName)
 						}

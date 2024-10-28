@@ -45,5 +45,5 @@ results:
   policy: validate-image-list-error
   resources:
   - test-pod-ghcr
-  result: error
+  result: fail
   rule: check-image
