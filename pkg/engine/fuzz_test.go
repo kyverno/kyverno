@@ -43,6 +43,7 @@ var (
 		imageverifycache.DisabledImageVerifyCache(),
 		factories.DefaultContextLoaderFactory(nil),
 		nil,
+		nil,
 	)
 	initter sync.Once
 )
@@ -271,6 +272,7 @@ func FuzzMutateTest(f *testing.F) {
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(nil), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(nil),
+			nil,
 			nil,
 		)
 		e.Mutate(
