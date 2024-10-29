@@ -5,7 +5,7 @@ go 1.22.4
 require (
 	github.com/spf13/cobra v1.8.1
 	k8s.io/apiextensions-apiserver v0.31.2
-	sigs.k8s.io/controller-tools v0.16.4
+	sigs.k8s.io/controller-tools v0.16.5
 )
 
 require (
