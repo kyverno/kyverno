@@ -1,7 +1,7 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.3.0
+version: 3.3.1
 appVersion: v1.13.0
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
@@ -33,20 +33,12 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: added
-      description: Add a key to preserve configmap settings during upgrade
-    - kind: added
-      description: Make admission reports breaker threshold configurable
-    - kind: added
-      description: ImagePullSecrets made globally configurable
-    - kind: removed
-      description: Deprecated configuration `features.reports.chunkSize` was removed
-    - kind: added
-      description: ImagePullSecrets made configurable for tests
+    - kind: fixed
+      description: Add spec.emitWarning to v2beta1 policy
 dependencies:
   - name: grafana
-    version: 3.3.0
+    version: 3.3.1
     condition: grafana.enabled
   - name: crds
-    version: 3.3.0
+    version: 3.3.1
     condition: crds.install
