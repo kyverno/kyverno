@@ -31,6 +31,7 @@ type SpecApplyConfiguration struct {
 	FailurePolicy                    *v1.FailurePolicyType                                         `json:"failurePolicy,omitempty"`
 	ValidationFailureAction          *v1.ValidationFailureAction                                   `json:"validationFailureAction,omitempty"`
 	ValidationFailureActionOverrides []kyvernov1.ValidationFailureActionOverrideApplyConfiguration `json:"validationFailureActionOverrides,omitempty"`
+	EmitWarning                      *bool                                                         `json:"emitWarning,omitempty"`
 	Admission                        *bool                                                         `json:"admission,omitempty"`
 	Background                       *bool                                                         `json:"background,omitempty"`
 	SchemaValidation                 *bool                                                         `json:"schemaValidation,omitempty"`
@@ -95,6 +96,14 @@ func (b *SpecApplyConfiguration) WithValidationFailureActionOverrides(values ...
 		}
 		b.ValidationFailureActionOverrides = append(b.ValidationFailureActionOverrides, *values[i])
 	}
+	return b
+}
+
+// WithEmitWarning sets the EmitWarning field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the EmitWarning field is set to the value of the last call.
+func (b *SpecApplyConfiguration) WithEmitWarning(value bool) *SpecApplyConfiguration {
+	b.EmitWarning = &value
 	return b
 }
 
