@@ -33,16 +33,8 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: added
-      description: Add a key to preserve configmap settings during upgrade
-    - kind: added
-      description: Make admission reports breaker threshold configurable
-    - kind: added
-      description: ImagePullSecrets made globally configurable
-    - kind: removed
-      description: Deprecated configuration `features.reports.chunkSize` was removed
-    - kind: added
-      description: ImagePullSecrets made configurable for tests
+    - kind: fixed
+      description: Add spec.emitWarning to v2beta1 policy
 dependencies:
   - name: grafana
     version: v0.0.0
