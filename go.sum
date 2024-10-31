@@ -701,8 +701,8 @@ github.com/onsi/gomega v1.7.1/go.mod h1:XdKZgCCFLUoM/7CFJVPcG8C1xQ1AJ0vpAezJrB7J
 github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
 github.com/onsi/gomega v1.17.0/go.mod h1:HnhC7FXeEQY45zxNK3PPoIUhzk/80Xly9PcubAlGdZY=
 github.com/onsi/gomega v1.19.0/go.mod h1:LY+I3pBVzYsTBU1AnDwOSxaYi9WoWiqgwooUqq9yPro=
-github.com/onsi/gomega v1.34.2 h1:pNCwDkzrsv7MS9kpaQvVb1aVLahQXyJ/Tv5oAZMI3i8=
-github.com/onsi/gomega v1.34.2/go.mod h1:v1xfxRgk0KIsG+QOdm7p8UosrOzPYRo60fd3B/1Dukc=
+github.com/onsi/gomega v1.35.0 h1:xuM1M/UvMp9BCdS4hojhS9/4jEuVqS9Er3bqupeaoPM=
+github.com/onsi/gomega v1.35.0/go.mod h1:PvZbdDc8J6XJEpDK4HCuRBm8a6Fzp9/DmhC9C7yFlog=
 github.com/open-policy-agent/gatekeeper/v3 v3.17.0 h1:8jiY9rgWRofEJeJLm4gyme97fwvqTbv9+QoerMGXCuU=
 github.com/open-policy-agent/gatekeeper/v3 v3.17.0/go.mod h1:LIk/6du1AV47s+aU1ovKNKzOCHIsEmEImUN/72DL3zw=
 github.com/open-policy-agent/opa v0.68.0 h1:Jl3U2vXRjwk7JrHmS19U3HZO5qxQRinQbJ2eCJYSqJQ=
