@@ -57,6 +57,15 @@ type CheckResult struct {
 	Error v1alpha1.Any `json:"error"`
 }
 
+type TestResourceSpec struct {
+	Group       string `json:"group,omitempty"`
+	Version     string `json:"version,omitempty"`
+	Kind        string `json:"kind,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
+	Subresource string `json:"subresource,omitempty"`
+	Name        string `json:"name,omitempty"`
+}
+
 type CheckMatch struct {
 	// Resource filters engine responses
 	Resource *v1alpha1.Any `json:"resource,omitempty"`
