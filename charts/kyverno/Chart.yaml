@@ -1,7 +1,7 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.3.1
+version: 3.3.2
 appVersion: v1.13.0
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
@@ -37,8 +37,8 @@ annotations:
       description: switch to post-delete helm hook to clean up Kyverno configmap
 dependencies:
   - name: grafana
-    version: 3.3.1
+    version: 3.3.2
     condition: grafana.enabled
   - name: crds
-    version: 3.3.1
+    version: 3.3.2
     condition: crds.install
