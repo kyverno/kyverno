@@ -4,6 +4,55 @@ entries:
   - annotations:
       artifacthub.io/changes: |
         - kind: fixed
+          description: switch to post-delete helm hook to clean up Kyverno configmap
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.13.0
+    created: "2024-11-01T10:33:36.266024347Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.3.2
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.3.2
+    description: Kubernetes Native Policy Management
+    digest: 35a4a3a0fee67a94f5d07b43bd67cf034c68cab7f9cd5a6166df8a7045c7139c
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.3.2.tgz
+    version: 3.3.2
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: fixed
           description: Add spec.emitWarning to v2beta1 policy
       artifacthub.io/links: |
         - name: Documentation
@@ -12689,4 +12738,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2024-10-31T09:04:33.906530591Z"
+generated: "2024-11-01T10:33:36.251900514Z"
