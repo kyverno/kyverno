@@ -182,21 +182,45 @@ func printTestResult(
 			test.Resources = append(test.Resources, test.Resource)
 		}
 		if test.Resources != nil {
-			// this matching logic will be removed once resources become an array of gvk/name
-			// the problem with this is that it will match resources with the same name but different kinds
-			// if the matching was invalid it will iterate over all the resources which may not be valid
 			for _, r := range test.Resources {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
 					for resourceGVKAndName := range m {
-						nameParts := strings.Split(resourceGVKAndName, "/")
-						// handle the case where resource is specified as ns/name, make it match with name only
-						resourceNameParts := strings.Split(r, "/")
-						if len(resourceNameParts) > 1 {
-							r = resourceNameParts[len(resourceNameParts)-1]
+						nameParts := strings.Split(resourceGVKAndName, ",")
+						if resourceString, ok := r.(string); ok {
+
+							nsAndName := strings.Split(resourceString, "/")
+
+							if len(nsAndName) == 1 {
+								if resourceString == nameParts[len(nameParts)-1] {
+									resources = append(resources, resourceGVKAndName)
+								}
+							}
+
+							if len(nsAndName) == 2 {
+								if nsAndName[0] == nameParts[len(nameParts)-2] && nsAndName[1] == nameParts[len(nameParts)-1] {
+									resources = append(resources, resourceGVKAndName)
+								}
+							}
 						}
 
-						if nameParts[len(nameParts)-1] == r {
-							resources = append(resources, resourceGVKAndName)
+						if resourceSpec, ok := r.(v1alpha1.TestResourceSpec); ok {
+							if resourceSpec.Group == "" {
+								if resourceSpec.Version != nameParts[0] {
+									continue
+								}
+							} else {
+								if resourceSpec.Group+"/"+resourceSpec.Version != nameParts[0] {
+									continue
+								}
+							}
+
+							if resourceSpec.Namespace != nameParts[len(nameParts)-2] {
+								continue
+							}
+
+							if resourceSpec.Name == nameParts[len(nameParts)-1] {
+								resources = append(resources, resourceGVKAndName)
+							}
 						}
 					}
 				}
@@ -225,7 +249,7 @@ func printTestResult(
 							if rule.RuleType() == "Mutation" {
 								r = response.PatchedResource
 							}
-							nameParts := strings.Split(resource, "/")
+							nameParts := strings.Split(resource, ",")
 							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, nameParts[len(nameParts)-1])
 							if strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
@@ -233,7 +257,7 @@ func printTestResult(
 							}
 
 							success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, resource)
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
@@ -254,7 +278,7 @@ func printTestResult(
 								ID:        testCount,
 								Policy:    color.Policy("", test.Policy),
 								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(test.Kind, test.Namespace, resource),
+								Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
 								Result:    color.ResultPass(),
 								Reason:    color.Excluded(),
 								IsFailure: false,
@@ -272,13 +296,13 @@ func printTestResult(
 			if _, ok := responses.Target[resource]; ok {
 				for _, response := range responses.Target[resource] {
 					// we are doing this twice which is kinda not nice
-					nameParts := strings.Split(resource, "/")
+					nameParts := strings.Split(resource, ",")
 
 					r, rule := extractPatchedTargetFromEngineResponse(nameParts[len(nameParts)-1], response)
 					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, nameParts[len(nameParts)-1])
 
 					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, resource)
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)
 				}
 			}
@@ -289,7 +313,7 @@ func printTestResult(
 						ID:        testCount,
 						Policy:    color.Policy("", test.Policy),
 						Rule:      color.Rule(test.Rule),
-						Resource:  color.Resource(test.Kind, test.Namespace, resource),
+						Resource:  color.Resource(test.Kind, test.Namespace, strings.Replace(resource, ",", "/", -1)),
 						IsFailure: true,
 						Result:    color.ResultFail(),
 						Reason:    color.NotFound(),
