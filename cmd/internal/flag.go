@@ -61,6 +61,8 @@ var (
 	enableGlobalContext bool
 	// reporting
 	enableReporting string
+	// resync
+	resyncPeriod time.Duration
 )
 
 func initLoggingFlags() {
@@ -97,11 +99,12 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Float64Var(&eventsRateLimitQPS, "eventsRateLimitQPS", eventsQPS, "Configure the maximum QPS to the Kubernetes API server from Kyverno for events. Uses the client default if zero.")
 	flag.IntVar(&eventsRateLimitBurst, "eventsRateLimitBurst", eventsBurst, "Configure the maximum burst for throttle for events. Uses the client default if zero.")
+	flag.DurationVar(&resyncPeriod, "resyncPeriod", 15*time.Minute, "Configure the resync period for informer factory")
 }
 
 func initPolicyExceptionsFlags() {
-	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
-	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
+	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions. If it is set to '*', exceptions are allowed in all namespaces.")
+	flag.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 }
 
 func initConfigMapCachingFlags() {

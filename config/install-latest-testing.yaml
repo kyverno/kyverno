@@ -559,6 +559,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -1844,6 +1852,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -3155,6 +3171,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -4440,6 +4464,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -8313,6 +8345,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -13374,6 +13454,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -15671,6 +15799,12 @@ spec:
                   Background controls if rules are applied to existing resources during a background scan.
                   Optional. Default value is "true". The value must be set to "false" if the policy rule
                   uses variables that are only available in the admission review request (e.g. user name).
+                type: boolean
+              emitWarning:
+                default: false
+                description: |-
+                  EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+                  Enabling this option will extend admission request processing times. The default value is "false".
                 type: boolean
               failurePolicy:
                 description: Deprecated, use failurePolicy under the webhookConfiguration
@@ -18071,6 +18205,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -23266,6 +23448,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -28674,6 +28904,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -33736,6 +34014,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -36034,6 +36360,12 @@ spec:
                   Background controls if rules are applied to existing resources during a background scan.
                   Optional. Default value is "true". The value must be set to "false" if the policy rule
                   uses variables that are only available in the admission review request (e.g. user name).
+                type: boolean
+              emitWarning:
+                default: false
+                description: |-
+                  EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+                  Enabling this option will extend admission request processing times. The default value is "false".
                 type: boolean
               failurePolicy:
                 description: Deprecated, use failurePolicy under the webhookConfiguration
@@ -38434,6 +38766,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -43629,6 +44009,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -50717,6 +51145,7 @@ spec:
             - --reportsServiceAccountName=system:serviceaccount:kyverno:kyverno-reports-controller
             - --servicePort=443
             - --webhookServerPort=9443
+            - --resyncPeriod=15m
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -50733,7 +51162,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
@@ -50882,13 +51311,14 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --resyncPeriod=15m
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           env:
@@ -50988,6 +51418,7 @@ spec:
             - --servicePort=443
             - --cleanupServerPort=9443
             - --webhookServerPort=9443
+            - --resyncPeriod=15m
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -51126,6 +51557,7 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --resyncPeriod=15m
             - --admissionReports=true
             - --aggregateReports=true
             - --policyReports=true
@@ -51140,7 +51572,7 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate

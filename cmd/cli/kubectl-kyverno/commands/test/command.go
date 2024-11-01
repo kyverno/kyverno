@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -158,7 +159,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	}
 	// fallback on deprecated field
 	if test.PatchedResource != "" {
-		equals, err := getAndCompareResource(response.PatchedResource, fs, filepath.Join(resoucePath, test.PatchedResource))
+		equals, err := getAndCompareResource([]*unstructured.Unstructured{&response.PatchedResource}, fs, filepath.Join(resoucePath, test.PatchedResource))
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -167,7 +168,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, err := getAndCompareResource(rule.GeneratedResource(), fs, filepath.Join(resoucePath, test.GeneratedResource))
+		equals, err := getAndCompareResource(rule.GeneratedResources(), fs, filepath.Join(resoucePath, test.GeneratedResource))
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}

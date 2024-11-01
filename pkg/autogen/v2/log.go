@@ -1,4 +1,4 @@
-package autogenv2
+package v2
 
 import "github.com/kyverno/kyverno/pkg/logging"
 

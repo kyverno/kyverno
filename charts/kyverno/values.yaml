@@ -15,6 +15,9 @@ global:
   # When set, it will override any values set under `imagePullSecrets` under different components across the chart.
   imagePullSecrets: []
 
+  # -- Resync period for informers
+  resyncPeriod: 15m
+
   caCertificates:
     # -- Global CA certificates to use with Kyverno deployments
     # This value is expected to be one large string of CA certificates
@@ -694,8 +697,9 @@ features:
       # - PolicyError
   policyExceptions:
     # -- Enables the feature
-    enabled: true
+    enabled: false
     # -- Restrict policy exceptions to a single namespace
+    # Set to "*" to allow exceptions in all namespaces
     namespace: ''
   protectManagedResources:
     # -- Enables the feature
@@ -777,6 +781,9 @@ admissionController:
 
   # -- The number of revisions to keep
   revisionHistoryLimit: 10
+
+  # -- Resync period for informers
+  resyncPeriod: 15m
 
   # -- Additional labels to add to each pod
   podLabels: {}
@@ -1234,6 +1241,9 @@ backgroundController:
   # -- The number of revisions to keep
   revisionHistoryLimit: 10
 
+  # -- Resync period for informers
+  resyncPeriod: 15m
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -1496,6 +1506,9 @@ cleanupController:
 
   # -- The number of revisions to keep
   revisionHistoryLimit: 10
+
+  # -- Resync period for informers
+  resyncPeriod: 15m
 
   # -- Additional labels to add to each pod
   podLabels: {}
@@ -1809,6 +1822,9 @@ reportsController:
 
   # -- The number of revisions to keep
   revisionHistoryLimit: 10
+
+  # -- Resync period for informers
+  resyncPeriod: 15m
 
   # -- Additional labels to add to each pod
   podLabels: {}

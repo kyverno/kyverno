@@ -140,6 +140,11 @@ func (in *CleanupPolicySpec) DeepCopyInto(out *CleanupPolicySpec) {
 		*out = new(AnyAllConditions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.DeletionPropagationPolicy != nil {
+		in, out := &in.DeletionPropagationPolicy, &out.DeletionPropagationPolicy
+		*out = new(metav1.DeletionPropagation)
+		**out = **in
+	}
 	return
 }
 
@@ -808,6 +813,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.EmitWarning != nil {
+		in, out := &in.EmitWarning, &out.EmitWarning
+		*out = new(bool)
+		**out = **in
 	}
 	if in.Admission != nil {
 		in, out := &in.Admission, &out.Admission
