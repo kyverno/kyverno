@@ -242,6 +242,9 @@ func printTestResult(
 			var resourceSkipped bool
 			if _, ok := responses.Trigger[resource]; ok {
 				for _, response := range responses.Trigger[resource] {
+					if response.Policy().GetName() != test.Policy {
+						continue
+					}
 					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
 						r := response.Resource
 
