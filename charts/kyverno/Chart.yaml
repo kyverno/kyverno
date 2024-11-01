@@ -34,7 +34,7 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: fixed
-      description: Add spec.emitWarning to v2beta1 policy
+      description: switch to post-delete helm hook to clean up Kyverno configmap
 dependencies:
   - name: grafana
     version: 3.3.2

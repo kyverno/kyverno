@@ -8,7 +8,7 @@ metadata:
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
-    helm.sh/hook: pre-delete
+    helm.sh/hook: post-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
     helm.sh/hook-weight: "0"
 rules:
@@ -29,7 +29,7 @@ metadata:
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
-    helm.sh/hook: pre-delete
+    helm.sh/hook: post-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
     helm.sh/hook-weight: "0"
 roleRef:
@@ -49,7 +49,7 @@ metadata:
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
-    helm.sh/hook: pre-delete
+    helm.sh/hook: post-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "0"
 ---
@@ -61,7 +61,7 @@ metadata:
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
-    helm.sh/hook: pre-delete
+    helm.sh/hook: post-delete
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
     helm.sh/hook-weight: "10"
 spec:
