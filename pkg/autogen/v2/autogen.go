@@ -263,7 +263,10 @@ func GetAutogenKinds(p kyvernov1.PolicyInterface) []string {
 }
 
 // ExtractPodSpec extracts the PodSpec from an unstructured resource if the controller supports autogen.
-func extractPodSpec(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func extractPodSpec(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	if resource == nil {
+		return nil, fmt.Errorf("resource is nil")
+	}
 	kind := resource.GetKind()
 	var podSpec map[string]interface{}
 	var found bool
@@ -293,7 +296,7 @@ type ExtractPodFunc func(resource *unstructured.Unstructured) (*unstructured.Uns
 
 func getPodExtractor() ExtractPodFunc {
 	return func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-		return extractPodSpec(*resource)
+		return extractPodSpec(resource)
 	}
 }
 
