@@ -378,7 +378,7 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 				if len(yamlEncodedTargetResources) > 0 {
 					fmt.Fprintf(p.Out, "patched targets: \n")
 					for _, patchedTarget := range yamlEncodedTargetResources {
-						fmt.Fprintf(p.Out, "\n"+string(patchedTarget)+"\n")
+						fmt.Fprintf(p.Out, "\n%s\n", string(patchedTarget))
 					}
 				}
 			}
