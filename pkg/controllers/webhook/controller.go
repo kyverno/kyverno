@@ -826,11 +826,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
 	if c.watchdogCheck() {
-		webhookCfg := config.WebhookConfig{}
-		webhookCfgs := cfg.GetWebhooks()
-		if len(webhookCfgs) > 0 {
-			webhookCfg = webhookCfgs[0]
-		}
+		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
 		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
 		policies, err := c.getAllPolicies()
@@ -967,12 +963,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
 	if c.watchdogCheck() {
-		webhookCfg := config.WebhookConfig{}
-		webhookCfgs := cfg.GetWebhooks()
-		if len(webhookCfgs) > 0 {
-			webhookCfg = webhookCfgs[0]
-		}
-
+		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
 		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
 		policies, err := c.getAllPolicies()
