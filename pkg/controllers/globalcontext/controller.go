@@ -56,7 +56,10 @@ func NewController(
 	maxResponseLength int64,
 	shouldUpdateStatus bool,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+	)
 	c := &controller{
 		gceLister:          gceInformer.Lister(),
 		queue:              queue,

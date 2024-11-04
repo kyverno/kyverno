@@ -154,7 +154,10 @@ func NewController(
 	webhookCleanupSetup func(context.Context, logr.Logger) error,
 	postWebhookCleanup func(context.Context, logr.Logger) error,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+	)
 	c := controller{
 		discoveryClient:     discoveryClient,
 		mwcClient:           mwcClient,
@@ -823,11 +826,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
 	if c.watchdogCheck() {
-		webhookCfg := config.WebhookConfig{}
-		webhookCfgs := cfg.GetWebhooks()
-		if len(webhookCfgs) > 0 {
-			webhookCfg = webhookCfgs[0]
-		}
+		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
 		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
 		policies, err := c.getAllPolicies()
@@ -964,12 +963,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
 	if c.watchdogCheck() {
-		webhookCfg := config.WebhookConfig{}
-		webhookCfgs := cfg.GetWebhooks()
-		if len(webhookCfgs) > 0 {
-			webhookCfg = webhookCfgs[0]
-		}
-
+		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
 		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
 		policies, err := c.getAllPolicies()

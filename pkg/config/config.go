@@ -174,8 +174,8 @@ type Configuration interface {
 	ToFilter(kind schema.GroupVersionKind, subresource, namespace, name string) bool
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
-	// GetWebhooks returns the webhook configs
-	GetWebhooks() []WebhookConfig
+	// GetWebhook returns the webhook config
+	GetWebhook() WebhookConfig
 	// GetWebhookAnnotations returns annotations to set on webhook configs
 	GetWebhookAnnotations() map[string]string
 	// GetWebhookLabels returns labels to set on webhook configs
@@ -199,7 +199,7 @@ type configuration struct {
 	inclusions                    match
 	filters                       []filter
 	generateSuccessEvents         bool
-	webhooks                      []WebhookConfig
+	webhook                       WebhookConfig
 	webhookAnnotations            map[string]string
 	webhookLabels                 map[string]string
 	matchConditions               []admissionregistrationv1.MatchCondition
@@ -310,10 +310,10 @@ func (cd *configuration) GetGenerateSuccessEvents() bool {
 	return cd.generateSuccessEvents
 }
 
-func (cd *configuration) GetWebhooks() []WebhookConfig {
+func (cd *configuration) GetWebhook() WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
-	return cd.webhooks
+	return cd.webhook
 }
 
 func (cd *configuration) GetWebhookAnnotations() map[string]string {
@@ -364,7 +364,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
-	cd.webhooks = nil
+	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
 	cd.matchConditions = nil
@@ -451,11 +451,11 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.Info("webhooks not set")
 	} else {
 		logger := logger.WithValues("webhooks", webhooks)
-		webhooks, err := parseWebhooks(webhooks)
+		webhook, err := parseWebhooks(webhooks)
 		if err != nil {
 			logger.Error(err, "failed to parse webhooks")
 		} else {
-			cd.webhooks = webhooks
+			cd.webhook = *webhook
 			logger.Info("webhooks configured")
 		}
 	}
@@ -526,7 +526,7 @@ func (cd *configuration) unload() {
 	cd.inclusions = match{}
 	cd.filters = []filter{}
 	cd.generateSuccessEvents = false
-	cd.webhooks = nil
+	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
 	logger.Info("configuration unloaded")

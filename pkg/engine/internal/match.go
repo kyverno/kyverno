@@ -60,9 +60,6 @@ func checkNamespacedPolicy(policy kyvernov1.PolicyInterface, resources ...unstru
 		for _, resource := range resources {
 			if resource.Object != nil {
 				resourceNamespace := resource.GetNamespace()
-				if resourceNamespace == "" {
-					resourceNamespace = "default"
-				}
 				if resourceNamespace != policyNamespace || resourceNamespace == "" {
 					return false
 				}

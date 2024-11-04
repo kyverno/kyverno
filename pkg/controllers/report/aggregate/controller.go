@@ -83,8 +83,14 @@ func NewController(
 		cpolLister:  cpolInformer.Lister(),
 		ephrLister:  ephrInformer.Lister(),
 		cephrLister: cephrInformer.Lister(),
-		frontQueue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
-		backQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
+		frontQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+		),
+		backQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+		),
 	}
 	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, ephrInformer.Informer(), c.frontQueue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
