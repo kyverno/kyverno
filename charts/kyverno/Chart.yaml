@@ -34,7 +34,9 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: fixed
-      description: Add spec.emitWarning to v2beta1 policy
+      description: switch to post-delete helm hook to clean up Kyverno configmap
+    - kind: fixed
+      description: modify config.webhooks to be as a single object instead of a list of webhooks.
 dependencies:
   - name: grafana
     version: v0.0.0
