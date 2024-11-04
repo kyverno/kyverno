@@ -320,18 +320,16 @@ config:
   # -- Sets the threshold for the total number of UpdateRequests generated for mutateExisitng and generate policies.
   updateRequestThreshold: 1000
 
-  # -- Defines the `namespaceSelector` in the webhook configurations.
-  # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
-  # will be forwarded to the webhook configurations.
+  # -- Defines the `namespaceSelector`/`objectSelector` in the webhook configurations.
   # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
   webhooks:
     # Exclude namespaces
-    - namespaceSelector:
-        matchExpressions:
-        - key: kubernetes.io/metadata.name
-          operator: NotIn
-          values:
-            - kube-system
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+          - kube-system
     # Exclude objects
     # - objectSelector:
     #     matchExpressions:

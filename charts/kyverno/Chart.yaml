@@ -35,6 +35,8 @@ annotations:
   artifacthub.io/changes: |
     - kind: fixed
       description: switch to post-delete helm hook to clean up Kyverno configmap
+    - kind: fixed
+      description: modify config.webhooks to be as a single object instead of a list of webhooks.
 dependencies:
   - name: grafana
     version: 3.3.2
