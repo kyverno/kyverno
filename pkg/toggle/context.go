@@ -12,6 +12,7 @@ type Toggles interface {
 	EnableDeferredLoading() bool
 	GenerateValidatingAdmissionPolicy() bool
 	DumpMutatePatches() bool
+	AutogenVersion() bool
 }
 
 type defaultToggles struct{}
@@ -34,6 +35,10 @@ func (defaultToggles) GenerateValidatingAdmissionPolicy() bool {
 
 func (defaultToggles) DumpMutatePatches() bool {
 	return DumpMutatePatches.enabled()
+}
+
+func (defaultToggles) AutogenVersion() bool {
+	return AutogenVersion.enabled()
 }
 
 type contextKey struct{}
