@@ -83,14 +83,17 @@ func NewController(
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		engine:         engine,
-		cpolLister:     cpolInformer.Lister(),
-		polLister:      polInformer.Lister(),
-		urLister:       urLister,
-		nsLister:       namespaceInformer.Lister(),
-		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), "background"),
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		engine:        engine,
+		cpolLister:    cpolInformer.Lister(),
+		polLister:     polInformer.Lister(),
+		urLister:      urLister,
+		nsLister:      namespaceInformer.Lister(),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.TypedRateLimitingQueueConfig[any]{Name: "background"},
+		),
 		eventGen:       eventGen,
 		configuration:  configuration,
 		jp:             jp,

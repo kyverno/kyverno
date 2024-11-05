@@ -154,7 +154,10 @@ func NewController(
 	webhookCleanupSetup func(context.Context, logr.Logger) error,
 	postWebhookCleanup func(context.Context, logr.Logger) error,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+	)
 	c := controller{
 		discoveryClient:     discoveryClient,
 		mwcClient:           mwcClient,

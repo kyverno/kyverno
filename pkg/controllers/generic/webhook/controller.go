@@ -95,7 +95,10 @@ func NewController(
 	webhookCleanupSetup func(context.Context, logr.Logger) error,
 	postWebhookCleanup func(context.Context, logr.Logger) error,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), controllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: controllerName},
+	)
 	c := controller{
 		vwcClient:           vwcClient,
 		vwcLister:           vwcInformer.Lister(),
