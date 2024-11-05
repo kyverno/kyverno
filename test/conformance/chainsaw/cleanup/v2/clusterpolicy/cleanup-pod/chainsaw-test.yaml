@@ -28,3 +28,11 @@ spec:
     try:
     - error:
         file: pod-assert.yaml
+        - name: step-06
+    try:
+    - apply:
+        file: deletion-policy.yaml
+  - name: step-07
+    try:
+    - assert:
+        file: deletion-policy-assert.yaml

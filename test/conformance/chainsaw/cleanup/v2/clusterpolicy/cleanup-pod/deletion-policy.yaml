@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v2
+kind: DeletionPropagationPolicy
+metadata:
+  name: deletion-propagation-example
+spec:
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+  conditions:
+    all:
+      - key: "{{ target.metadata.name }}"
+        operator: Equals
+        value: example
+      - key: "{{ target.metadata.namespace }}"
+        operator: Equals
+        value: default
+  propagation:
+    delete: true
