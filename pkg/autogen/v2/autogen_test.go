@@ -386,11 +386,10 @@ func TestExtractPodSpec(t *testing.T) {
 		},
 	}
 
-	autogen := NewAutogenV2()
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			// Call the function under test
-			podSpec, err := autogen.ExtractPodSpec(test.resource)
+			podSpec, err := extractPodSpec(&test.resource)
 
 			// Check for errors
 			if test.expectError {
