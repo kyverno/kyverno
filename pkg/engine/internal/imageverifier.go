@@ -58,13 +58,22 @@ func NewImageVerifier(
 }
 
 func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Logger) bool {
+	if ctx.Operation() != kyvernov1.Update {
+		return false
+	}
 	newResource := ctx.NewResource()
 	oldResource := ctx.OldResource()
 	if newResource.Object == nil || oldResource.Object == nil {
 		return false
 	}
-	newValue := newResource.GetAnnotations()[kyverno.AnnotationImageVerify]
-	oldValue := oldResource.GetAnnotations()[kyverno.AnnotationImageVerify]
+	newValue, ok := newResource.GetAnnotations()[kyverno.AnnotationImageVerify]
+	if !ok {
+		return false
+	}
+	oldValue, ok := oldResource.GetAnnotations()[kyverno.AnnotationImageVerify]
+	if !ok {
+		return false
+	}
 	if newValue == oldValue {
 		return false
 	}
