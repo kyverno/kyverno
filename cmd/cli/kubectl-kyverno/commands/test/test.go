@@ -194,7 +194,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		Trigger: map[string][]engineapi.EngineResponse{},
 		Target:  map[string][]engineapi.EngineResponse{},
 	}
-
 	for _, resource := range uniques {
 		// the policy processor is for multiple policies at once
 		processor := processor.PolicyProcessor{

@@ -74,7 +74,7 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			unique := sets.New(v...)
 			if len(v) != len(unique) {
 				messages = append(messages, "test results contains duplicate resources")
-				v = unique.UnsortedList()
+				// v = unique.UnsortedList()
 			}
 			results = append(results, v1alpha1.TestResult{
 				TestResultBase: k,
@@ -108,7 +108,6 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 		for _, r := range a.Resources {
 			resourceString, _ := r.(string)
 			asArray1 = append(asArray1, resourceString)
-
 		}
 		asArray2 := []string{}
 		for _, r := range b.Resources {
@@ -116,7 +115,6 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			asArray1 = append(asArray1, resourceString)
 
 		}
-
 		slices.Sort(asArray1)
 		slices.Sort(asArray2)
 

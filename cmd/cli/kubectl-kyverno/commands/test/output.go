@@ -187,15 +187,12 @@ func printTestResult(
 					for resourceGVKAndName := range m {
 						nameParts := strings.Split(resourceGVKAndName, ",")
 						if resourceString, ok := r.(string); ok {
-
 							nsAndName := strings.Split(resourceString, "/")
-
 							if len(nsAndName) == 1 {
 								if resourceString == nameParts[len(nameParts)-1] {
 									resources = append(resources, resourceGVKAndName)
 								}
 							}
-
 							if len(nsAndName) == 2 {
 								if nsAndName[0] == nameParts[len(nameParts)-2] && nsAndName[1] == nameParts[len(nameParts)-1] {
 									resources = append(resources, resourceGVKAndName)
@@ -213,11 +210,9 @@ func printTestResult(
 									continue
 								}
 							}
-
 							if resourceSpec.Namespace != nameParts[len(nameParts)-2] {
 								continue
 							}
-
 							if resourceSpec.Name == nameParts[len(nameParts)-1] {
 								resources = append(resources, resourceGVKAndName)
 							}
