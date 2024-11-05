@@ -182,6 +182,11 @@ spec:
               - result
               type: object
             type: array
+          targetResources:
+            description: Target Resources are for policies that have mutate existing
+            items:
+              type: string
+            type: array
           userinfo:
             description: UserInfo is the user info to be used in the test
             type: string
