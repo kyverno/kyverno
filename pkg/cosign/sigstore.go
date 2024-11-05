@@ -38,7 +38,8 @@ type Bundle struct {
 }
 
 func verifyBundleAndFetchAttestations(ctx context.Context, opts images.Options) ([]*VerificationResult, error) {
-	ref, err := name.ParseReference(opts.ImageRef)
+	nameOpts := opts.Client.NameOptions()
+	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %v", opts.ImageRef)
 	}

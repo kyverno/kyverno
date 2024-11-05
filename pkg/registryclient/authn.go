@@ -13,10 +13,6 @@ import (
 
 var acrRE = regexp.MustCompile(`.*\.azurecr\.io|.*\.azurecr\.cn|.*\.azurecr\.de|.*\.azurecr\.us`)
 
-const (
-	mcrHostname = "mcr.microsoft.com"
-)
-
 type autoRefreshSecrets struct {
 	lister           corev1listers.SecretNamespaceLister
 	imagePullSecrets []string
@@ -72,9 +68,7 @@ func isACRRegistry(input string) bool {
 	if err != nil {
 		return false
 	}
-	if serverURL.Hostname() == mcrHostname {
-		return true
-	}
+
 	matches := acrRE.FindStringSubmatch(serverURL.Hostname())
 	return len(matches) != 0
 }

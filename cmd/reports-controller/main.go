@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/cmd/internal"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -26,16 +27,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
-)
-
-const (
-	resyncPeriod = 15 * time.Minute
 )
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
@@ -65,6 +63,8 @@ func createReportControllers(
 	configuration config.Configuration,
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
+	reportsConfig reportutils.ReportingConfiguration,
+	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -124,6 +124,8 @@ func createReportControllers(
 				jp,
 				eventGenerator,
 				policyReports,
+				reportsConfig,
+				reportsBreaker,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -146,6 +148,7 @@ func createrLeaderControllers(
 	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
+	reportsConfig reportutils.ReportingConfiguration,
 	aggregateReports bool,
 	policyReports bool,
 	validatingAdmissionPolicyReports bool,
@@ -160,6 +163,7 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
+	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
 		eng,
@@ -179,6 +183,8 @@ func createrLeaderControllers(
 		configuration,
 		jp,
 		eventGenerator,
+		reportsConfig,
+		reportsBreaker,
 	)
 	return reportControllers, warmup, nil
 }
@@ -197,6 +203,7 @@ func main() {
 		omitEvents                       string
 		skipResourceFilters              bool
 		maxAPICallResponseLength         int64
+		maxBackgroundReports             int
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
@@ -211,6 +218,7 @@ func main() {
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma separated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
+	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -231,6 +239,7 @@ func main() {
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
+		internal.WithReporting(),
 	)
 	// parse flags
 	internal.ParseFlags(
@@ -260,7 +269,7 @@ func main() {
 			}
 		}
 		// informer factories
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
@@ -309,6 +318,20 @@ func main() {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
+		ephrs, err := breaker.StartBackgroundReportsCounter(ctx, setup.MetadataClient)
+		if err != nil {
+			setup.Logger.Error(err, "failed to start background-scan reports watcher")
+			os.Exit(1)
+		}
+
+		// create the circuit breaker
+		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
+			count, isRunning := ephrs.Count()
+			if !isRunning {
+				return true
+			}
+			return count > maxBackgroundReports
+		})
 		// setup leader election
 		le, err := leaderelection.New(
 			setup.Logger.WithName("leader-election"),
@@ -320,15 +343,16 @@ func main() {
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
 				// create leader factories
-				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-				kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
-				metadataInformer := metadatainformers.NewSharedInformerFactory(setup.MetadataClient, 15*time.Minute)
+				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
+				kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+				metadataInformer := metadatainformers.NewSharedInformerFactory(setup.MetadataClient, setup.ResyncPeriod)
 				// create leader controllers
 				leaderControllers, warmup, err := createrLeaderControllers(
 					engine,
 					backgroundScan,
 					admissionReports,
+					setup.ReportingConfiguration,
 					aggregateReports,
 					policyReports,
 					validatingAdmissionPolicyReports,
@@ -343,6 +367,7 @@ func main() {
 					setup.Jp,
 					eventGenerator,
 					backgroundScanInterval,
+					reportsBreaker,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")

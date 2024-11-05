@@ -33,7 +33,7 @@ func (e *engine) filterRules(
 	policy := policyContext.Policy()
 	resp := engineapi.NewPolicyResponse()
 	applyRules := policy.GetSpec().GetApplyRules()
-	for _, rule := range autogen.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.Rules = append(resp.Rules, *ruleResp)

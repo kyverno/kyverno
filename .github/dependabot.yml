@@ -3,7 +3,6 @@ updates:
   - package-ecosystem: gomod
     directories:
       - /
-      - /hack/chainsaw-matrix/
       - /hack/controller-gen/
     schedule:
       interval: daily

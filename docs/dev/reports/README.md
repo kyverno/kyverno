@@ -94,7 +94,7 @@ To reduce the computation power needed, especially when resources change frequen
 - When the worker gets the namespace from the queue it lists all admission reports and background scan reports for that particular namespace, aggregates them together and reconciles the existing policy reports
 
 This process can have a significant impact on the number of API calls and the memory footprint, especially when we have large reports.
-To mitigate this we use LIST api calls with pagination and reports are aggregated before loading the next page.
+To mitigate this, we use LIST api calls with pagination and reports are aggregated before loading the next page.
 
 
 ```mermaid
@@ -164,7 +164,7 @@ For policy reports it's different, the number of policy reports will depend on t
 - one report per policy for clustered resources (10 policies -> 10 reports)
 
 Policy reports and cluster policy reports are usually much larger, depending on the number of resources in the cluster/namespace.
-Sometimes they are too big to be stored in etcd and we split them into multiple reports containing a configurable number entries (`1000` by default).
+Sometimes they are too big to be stored in etcd and we split them into multiple reports containing a configurable number of entries (`1000` by default).
 
 ### Reports deletion
 
@@ -457,13 +457,13 @@ If you have 1000 pods in a cluster, it gives:
 
 With autogen you have to account for `Deployment`, `StatefulSet`, `Job`, `CronJob`, `ReplicaSet` too (reports for them will be approximately the same size).
 
-And of course ephemeral admission reports consume space too, even if they should be cleaned up quickly.
+And of course, ephemeral admission reports consume space too, even if they should be cleaned up quickly.
 
-Finally you need to take policy reports into account too.
-Basically they should consume approximately the same disk space as background scan reports (approximately because if some policies don't run in the background, results will come from aggregated admission reports).
+Finally, you need to take policy reports into account too.
+Basically, they should consume approximately the same disk space as background scan reports (approximately because if some policies don't run in the background, results will come from aggregated admission reports).
 
-The number of policy reports is usually inferior to the number of other reports but they are bigger in size.
+The number of policy reports is usually inferior to the number of other reports, but they are bigger in size.
 
 In the end, to use PSS policies (with `restricted` profile) on a 1000 pods cluster, you should budget around 25MB of etcd storage, spread across ~2000 reports.
 
-In comparison, an average `Pod` is around 5KB (at least for a pod with a single container). The storage for 1000 pods is around 5MB. We can see that reports has a significant storage impact. Fortunately ETCD stores data on disk and associated cost should be negligible.
+In comparison, an average `Pod` is around 5KB (at least for a pod with a single container). The storage for 1000 pods is around 5MB. We can see that reports has a significant storage impact. Fortunately, ETCD stores data on disk and associated cost should be negligible.

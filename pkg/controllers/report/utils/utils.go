@@ -33,7 +33,7 @@ func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 func BuildKindSet(logger logr.Logger, policies ...kyvernov1.PolicyInterface) sets.Set[string] {
 	kinds := sets.New[string]()
 	for _, policy := range policies {
-		for _, rule := range autogen.ComputeRules(policy, "") {
+		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			if rule.HasValidate() || rule.HasVerifyImages() {
 				kinds.Insert(rule.MatchResources.GetKinds()...)
 			}

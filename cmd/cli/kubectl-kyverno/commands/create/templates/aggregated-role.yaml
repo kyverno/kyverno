@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-{{.Name}}-permission
+  labels:
+      {{- range .Controllers }}
+      rbac.kyverno.io/aggregate-to-{{ . }}: "true"
+      {{- end }}
+rules:
+  - apiGroups: ["{{.ApiGroup}}"]
+    resources: ["{{.ResourceTypes | join ","}}"]
+    verbs: [{{- range $index, $verb := .Verbs}}{{if $index}}, {{end}}"{{$verb}}"{{end}}]
