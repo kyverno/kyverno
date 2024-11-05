@@ -34,9 +34,7 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: added
-      description: Add a key to preserve configmap settings during upgrade
-    - kind: added
-      description: Make admission reports breaker threshold configurable
+      description: Added customLabels to the pods label metadata of the cronjobs
 dependencies:
   - name: grafana
     version: 3.2.8

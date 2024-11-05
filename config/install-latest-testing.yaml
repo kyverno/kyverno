@@ -49410,6 +49410,11 @@ spec:
       backoffLimit: 3
       template:
         metadata:
+          labels:
+            app.kubernetes.io/component: cleanup
+            app.kubernetes.io/instance: kyverno
+            app.kubernetes.io/part-of: kyverno
+            app.kubernetes.io/version: latest
         spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
@@ -49460,6 +49465,11 @@ spec:
       backoffLimit: 3
       template:
         metadata:
+          labels:
+            app.kubernetes.io/component: cleanup
+            app.kubernetes.io/instance: kyverno
+            app.kubernetes.io/part-of: kyverno
+            app.kubernetes.io/version: latest
         spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
@@ -49510,6 +49520,11 @@ spec:
       backoffLimit: 3
       template:
         metadata:
+          labels:
+            app.kubernetes.io/component: cleanup
+            app.kubernetes.io/instance: kyverno
+            app.kubernetes.io/part-of: kyverno
+            app.kubernetes.io/version: latest
         spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
@@ -49560,6 +49575,11 @@ spec:
       backoffLimit: 3
       template:
         metadata:
+          labels:
+            app.kubernetes.io/component: cleanup
+            app.kubernetes.io/instance: kyverno
+            app.kubernetes.io/part-of: kyverno
+            app.kubernetes.io/version: latest
         spec:
           serviceAccountName: kyverno-cleanup-jobs
           containers:
