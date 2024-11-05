@@ -23,19 +23,6 @@ var (
 	podControllersKindsSet = PodControllers.Union(sets.New("Pod"))
 )
 
-// AutogenV2 defines the interface for the new autogeneration strategy.
-type AutogenV2 interface {
-	ExtractPodSpec(resource unstructured.Unstructured) (*unstructured.Unstructured, error)
-}
-
-// ImplAutogenV2 is the implementation of the AutogenV2 interface.
-type ImplAutogenV2 struct{}
-
-// NewAutogenV2 creates a new instance of AutogenV2.
-func NewAutogenV2() AutogenV2 {
-	return &ImplAutogenV2{}
-}
-
 func splitKinds(controllers, separator string) []string {
 	kinds := strings.Split(controllers, separator)
 	sort.Strings(kinds)
@@ -89,41 +76,41 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers sets.Set[s
 		match := rule.MatchResources
 		if !checkAutogenSupport(&needed, match.ResourceDescription) {
 			debug.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
-			return false, sets.New[string]()
+			return false, sets.New("none")
 		}
 		for _, value := range match.Any {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
 				debug.Info("skip generating rule on pod controllers: Name / Selector in match any block is not applicable.", "rule", rule.Name)
-				return false, sets.New[string]()
+				return false, sets.New("none")
 			}
 		}
 		for _, value := range match.All {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
 				debug.Info("skip generating rule on pod controllers: Name / Selector in match all block is not applicable.", "rule", rule.Name)
-				return false, sets.New[string]()
+				return false, sets.New("none")
 			}
 		}
 		if exclude := rule.ExcludeResources; exclude != nil {
 			if !checkAutogenSupport(&needed, exclude.ResourceDescription) {
 				debug.Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
-				return false, sets.New[string]()
+				return false, sets.New("none")
 			}
 			for _, value := range exclude.Any {
 				if !checkAutogenSupport(&needed, value.ResourceDescription) {
 					debug.Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not applicable.", "rule", rule.Name)
-					return false, sets.New[string]()
+					return false, sets.New("none")
 				}
 			}
 			for _, value := range exclude.All {
 				if !checkAutogenSupport(&needed, value.ResourceDescription) {
 					debug.Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not applicable.", "rule", rule.Name)
-					return false, sets.New[string]()
+					return false, sets.New("none")
 				}
 			}
 		}
 	}
 	if !needed {
-		return false, sets.New[string]()
+		return false, sets.New("none")
 	}
 	return true, PodControllers
 }
@@ -276,7 +263,10 @@ func GetAutogenKinds(p kyvernov1.PolicyInterface) []string {
 }
 
 // ExtractPodSpec extracts the PodSpec from an unstructured resource if the controller supports autogen.
-func (a *ImplAutogenV2) ExtractPodSpec(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func extractPodSpec(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	if resource == nil {
+		return nil, fmt.Errorf("resource is nil")
+	}
 	kind := resource.GetKind()
 	var podSpec map[string]interface{}
 	var found bool
@@ -300,4 +290,31 @@ func (a *ImplAutogenV2) ExtractPodSpec(resource unstructured.Unstructured) (*uns
 	}
 
 	return &unstructured.Unstructured{Object: podSpec}, nil
+}
+
+type ExtractPodFunc func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error)
+
+func getPodExtractor() ExtractPodFunc {
+	return func(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+		return extractPodSpec(resource)
+	}
+}
+
+func ComputeRules(p kyvernov1.PolicyInterface, kind string) ([]kyvernov1.Rule, ExtractPodFunc) {
+	spec := p.GetSpec()
+	applyAutoGen, desiredControllers := CanAutoGen(spec)
+	ann := p.GetAnnotations()
+	actualControllersString, ok := ann[kyverno.AnnotationAutogenControllers]
+	if ok && applyAutoGen {
+		desiredControllers = sets.New(strings.Split(actualControllersString, ",")...)
+	}
+	if desiredControllers.Has("none") || kind == "none" {
+		return spec.Rules, nil
+	}
+	if kind != "" {
+		if !desiredControllers.Has(kind) {
+			return spec.Rules, nil
+		}
+	}
+	return spec.Rules, getPodExtractor()
 }
