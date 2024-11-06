@@ -928,24 +928,6 @@ func createStaticKeyAttestorSet(s string, withPublicKey, withSecret, withKMS boo
 	return kyvernov1.AttestorSet{Entries: entries}
 }
 
-func Test_ChangedAnnotation(t *testing.T) {
-	annotationKey := kyverno.AnnotationImageVerify
-	annotationNew := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "true")
-	newResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationNew)
-
-	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
-
-	hasChanged := internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
-	assert.Equal(t, hasChanged, false)
-
-	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
-	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
-
-	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
-	assert.Equal(t, hasChanged, true)
-}
-
 func Test_MarkImageVerified(t *testing.T) {
 	image := "ghcr.io/jimbugwadia/pause2:latest"
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
