@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 )
 
 // the kyvernoRule holds the temporary kyverno rule struct
@@ -21,15 +22,16 @@ import (
 // https://github.com/kyverno/kyverno/issues/568
 
 type kyvernoRule struct {
-	Name                   string                        `json:"name"`
-	MatchResources         *kyvernov1.MatchResources     `json:"match"`
-	ExcludeResources       *kyvernov1.MatchResources     `json:"exclude,omitempty"`
-	Context                *[]kyvernov1.ContextEntry     `json:"context,omitempty"`
-	AnyAllConditions       *kyvernov1.ConditionsWrapper  `json:"preconditions,omitempty"`
-	Mutation               *kyvernov1.Mutation           `json:"mutate,omitempty"`
-	Validation             *kyvernov1.Validation         `json:"validate,omitempty"`
-	VerifyImages           []kyvernov1.ImageVerification `json:"verifyImages,omitempty"`
-	SkipBackgroundRequests *bool                         `json:"skipBackgroundRequests,omitempty"`
+	Name                   string                                         `json:"name"`
+	MatchResources         *kyvernov1.MatchResources                      `json:"match"`
+	ExcludeResources       *kyvernov1.MatchResources                      `json:"exclude,omitempty"`
+	CELPreconditions       *[]admissionregistrationv1beta1.MatchCondition `json:"celPreconditions,omitempty"`
+	Context                *[]kyvernov1.ContextEntry                      `json:"context,omitempty"`
+	AnyAllConditions       *kyvernov1.ConditionsWrapper                   `json:"preconditions,omitempty"`
+	Mutation               *kyvernov1.Mutation                            `json:"mutate,omitempty"`
+	Validation             *kyvernov1.Validation                          `json:"validate,omitempty"`
+	VerifyImages           []kyvernov1.ImageVerification                  `json:"verifyImages,omitempty"`
+	SkipBackgroundRequests *bool                                          `json:"skipBackgroundRequests,omitempty"`
 }
 
 func createRule(rule *kyvernov1.Rule) *kyvernoRule {
@@ -66,6 +68,9 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	}
 	if len(rule.Context) > 0 {
 		jsonFriendlyStruct.Context = &rule.DeepCopy().Context
+	}
+	if len(rule.CELPreconditions) > 0 {
+		jsonFriendlyStruct.CELPreconditions = &rule.DeepCopy().CELPreconditions
 	}
 	return &jsonFriendlyStruct
 }
