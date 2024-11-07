@@ -154,7 +154,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	}
 
 	// process the old object for UPDATE admission requests in case of enforce policies
-	if action == kyvernov1.Enforce {
+	if action.Enforce() {
 		allowExisitingViolations := v.rule.HasValidateAllowExistingViolations()
 		if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
 			priorResp, err := v.validateOldObject(ctx)
