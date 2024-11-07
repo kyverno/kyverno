@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: 3.3.2](https://img.shields.io/badge/Version-3.3.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.13.0](https://img.shields.io/badge/AppVersion-v1.13.0-informational?style=flat-square)
+![Version: 3.3.3-rc.1](https://img.shields.io/badge/Version-3.3.3--rc.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.13.1-rc.1](https://img.shields.io/badge/AppVersion-v1.13.1--rc.1-informational?style=flat-square)
 
 ## About
 
@@ -843,8 +843,8 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | 3.3.2 |
-|  | grafana | 3.3.2 |
+|  | crds | 3.3.3-rc.1 |
+|  | grafana | 3.3.3-rc.1 |
 
 ## Maintainers
 
