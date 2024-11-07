@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -27,7 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type ImageVerifier struct {
@@ -57,41 +54,6 @@ func NewImageVerifier(
 	}
 }
 
-func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Logger) bool {
-	newResource := ctx.NewResource()
-	oldResource := ctx.OldResource()
-	if newResource.Object == nil || oldResource.Object == nil {
-		return false
-	}
-	newValue := newResource.GetAnnotations()[kyverno.AnnotationImageVerify]
-	oldValue := oldResource.GetAnnotations()[kyverno.AnnotationImageVerify]
-	if newValue == oldValue {
-		return false
-	}
-	var newValueObj, oldValueObj map[string]engineapi.ImageVerificationMetadataStatus
-	err := json.Unmarshal([]byte(newValue), &newValueObj)
-	if err != nil {
-		log.Error(err, "failed to parse new resource annotation.")
-		return true
-	}
-	err = json.Unmarshal([]byte(oldValue), &oldValueObj)
-	if err != nil {
-		log.Error(err, "failed to parse old resource annotation.")
-		return true
-	}
-	for img := range oldValueObj {
-		_, found := newValueObj[img]
-		if found {
-			result := newValueObj[img] != oldValueObj[img]
-			if result {
-				log.V(2).Info("annotation mismatch", "image", img, "oldValue", oldValue, "newValue", newValue, "key", kyverno.AnnotationImageVerify)
-				return result
-			}
-		}
-	}
-	return false
-}
-
 func matchReferences(imageReferences []string, image string) bool {
 	for _, imageRef := range imageReferences {
 		if wildcard.Match(imageRef, image) {
@@ -116,27 +78,6 @@ func ruleStatusToImageVerificationStatus(ruleStatus engineapi.RuleStatus) engine
 		imageVerificationResult = engineapi.ImageVerificationFail
 	}
 	return imageVerificationResult
-}
-
-func isImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (bool, error) {
-	if resource.Object == nil {
-		return false, fmt.Errorf("nil resource")
-	}
-	annotations := resource.GetAnnotations()
-	if len(annotations) == 0 {
-		return false, nil
-	}
-	data, ok := annotations[kyverno.AnnotationImageVerify]
-	if !ok {
-		log.V(2).Info("missing image metadata in annotation", "key", kyverno.AnnotationImageVerify, "image", image)
-		return false, fmt.Errorf("image is not verified")
-	}
-	ivm, err := engineapi.ParseImageMetadata(data)
-	if err != nil {
-		log.Error(err, "failed to parse image verification metadata", "data", data, "image", image)
-		return false, fmt.Errorf("failed to parse image metadata: %w", err)
-	}
-	return ivm.IsVerified(image), nil
 }
 
 func ExpandStaticKeys(attestorSet kyvernov1.AttestorSet) kyvernov1.AttestorSet {
@@ -253,13 +194,6 @@ func (iv *ImageVerifier) Verify(
 	for _, imageInfo := range matchedImageInfos {
 		image := imageInfo.String()
 
-		if HasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
-			msg := kyverno.AnnotationImageVerify + " annotation cannot be changed"
-			iv.logger.Info("image verification error", "reason", msg, "image", image)
-			responses = append(responses, engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties))
-			continue
-		}
-
 		pointer := jsonpointer.ParsePath(imageInfo.Pointer).JMESPath()
 		changed, err := iv.policyContext.JSONContext().HasChanged(pointer)
 		if err == nil && !changed {
@@ -268,13 +202,6 @@ func (iv *ImageVerifier) Verify(
 			continue
 		}
 
-		verified, err := isImageVerified(iv.policyContext.NewResource(), image, iv.logger)
-		if err == nil && verified {
-			iv.logger.Info("image was previously verified, skipping check", "image", image)
-			iv.ivm.Add(image, engineapi.ImageVerificationPass)
-			continue
-		}
-		start := time.Now()
 		isInCache := false
 		if iv.ivCache != nil {
 			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
@@ -307,7 +234,6 @@ func (iv *ImageVerifier) Verify(
 				}
 			}
 		}
-		iv.logger.V(4).Info("time taken by the image verify operation", "duration", time.Since(start))
 
 		if imageVerify.MutateDigest {
 			patch, retrievedDigest, err := iv.handleMutateDigest(ctx, digest, imageInfo)

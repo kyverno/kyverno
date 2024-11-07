@@ -1367,6 +1367,161 @@ func Test_mutate_existing_resources(t *testing.T) {
 		targetList     string
 	}{
 		{
+			name: "test-labelselector",
+			policy: []byte(`{
+				        "apiVersion": "kyverno.io/v1",
+				        "kind": "ClusterPolicy",
+				        "metadata": {
+				            "name": "test-post-mutation"
+				        },
+				        "spec": {
+				            "rules": [
+				                {
+				                    "name": "mutate-deploy-on-configmap-update",
+				                    "match": {
+				                        "any": [
+				                            {
+				                                "resources": {
+				                                    "kinds": [
+				                                        "ConfigMap"
+				                                    ],
+				                                    "names": [
+				                                        "dictionary"
+				                                    ],
+				                                    "namespaces": [
+				                                        "staging"
+				                                    ]
+				                                }
+				                            }
+				                        ]
+				                    },
+				                    "preconditions": {
+				                        "any": [
+				                            {
+				                                "key": "{{ request.object.data.foo }}",
+				                                "operator": "Equals",
+				                                "value": "bar"
+				                            }
+				                        ]
+				                    },
+				                    "mutate": {
+				                        "targets": [
+				                            {
+				                                "apiVersion": "v1",
+				                                "kind": "Deployment",
+				                                "namespace": "staging",
+                                        "selector": {
+                                          "matchLabels": {
+                                            "app":"nginx"
+                                        }
+                                      }
+				                            }
+				                        ],
+				                        "patchStrategicMerge": {
+				                            "metadata": {
+				                                "labels": {
+				                                    "foo": "bar"
+				                                }
+				                            }
+				                        }
+				                    }
+				                }
+				            ]
+				        }
+				    }`),
+			trigger: []byte(`{
+				    "apiVersion": "v1",
+				    "data": {
+				        "foo": "bar"
+				    },
+				    "kind": "ConfigMap",
+				    "metadata": {
+				        "name": "dictionary",
+				        "namespace": "staging"
+				    }
+				}`),
+			targets: [][]byte{[]byte(`{
+				    "apiVersion": "apps/v1",
+				    "kind": "Deployment",
+				    "metadata": {
+				        "name": "example-A",
+				        "namespace": "staging",
+				        "labels": {
+				            "app": "nginx"
+				        }
+				    },
+				    "spec": {
+				        "replicas": 1,
+				        "selector": {
+				            "matchLabels": {
+				                "app": "nginx"
+				            }
+				        },
+				        "template": {
+				            "metadata": {
+				                "labels": {
+				                    "app": "nginx"
+				                }
+				            },
+				            "spec": {
+				                "containers": [
+				                    {
+				                        "name": "nginx",
+				                        "image": "nginx:1.14.2",
+				                        "ports": [
+				                            {
+				                                "containerPort": 80
+				                            }
+				                        ]
+				                    }
+				                ]
+				            }
+				        }
+				    }
+				}`)},
+			patchedTargets: [][]byte{[]byte(`{
+		      "apiVersion": "apps/v1",
+		      "kind": "Deployment",
+		      "metadata": {
+		          "name": "example-A",
+		          "namespace": "staging",
+		          "labels": {
+		              "app": "nginx",
+		              "foo": "bar"
+		          }
+		      },
+		      "spec": {
+		          "replicas": 1,
+		          "selector": {
+		              "matchLabels": {
+		                  "app": "nginx"
+		              }
+		          },
+		          "template": {
+		              "metadata": {
+		                  "labels": {
+		                      "app": "nginx"
+		                  }
+		              },
+		              "spec": {
+		                  "containers": [
+		                      {
+		                          "name": "nginx",
+		                          "image": "nginx:1.14.2",
+		                          "ports": [
+		                              {
+		                                  "containerPort": 80
+		                              }
+		                          ]
+		                      }
+		                  ]
+		              }
+		          }
+		      }
+		  }`)},
+			targetList: "DeploymentList",
+		},
+		{
 			name: "test-different-trigger-target",
 			policy: []byte(`{
 				        "apiVersion": "kyverno.io/v1",
@@ -1849,17 +2004,10 @@ func Test_mutate_existing_resources(t *testing.T) {
 		}
 		policyContext := createContext(t, &policy, trigger)
 
-		gvrToListKind := map[schema.GroupVersionResource]string{
-			{Group: patchedTargets[0].GroupVersionKind().Group, Version: patchedTargets[0].GroupVersionKind().Version, Resource: patchedTargets[0].GroupVersionKind().Kind}: test.targetList,
-		}
-
 		scheme := runtime.NewScheme()
-		dclient, err := client.NewFakeClient(scheme, gvrToListKind, targets...)
+		dclient, err := client.NewFakeClient(scheme, map[schema.GroupVersionResource]string{}, targets...)
 		require.NoError(t, err)
 		dclient.SetDiscovery(client.NewFakeDiscoveryClient(nil))
-
-		_, err = dclient.GetResource(context.TODO(), patchedTargets[0].GetAPIVersion(), patchedTargets[0].GetKind(), patchedTargets[0].GetNamespace(), patchedTargets[0].GetName())
-		require.NoError(t, err)
 
 		er := testMutate(context.TODO(), dclient, registryclient.NewOrDie(), policyContext, nil)
 

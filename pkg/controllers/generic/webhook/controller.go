@@ -95,7 +95,10 @@ func NewController(
 	webhookCleanupSetup func(context.Context, logr.Logger) error,
 	postWebhookCleanup func(context.Context, logr.Logger) error,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), controllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: controllerName},
+	)
 	c := controller{
 		vwcClient:           vwcClient,
 		vwcLister:           vwcInformer.Lister(),
@@ -167,8 +170,10 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	if err := c.webhookCleanupSetup(ctx, c.logger); err != nil {
-		c.logger.Error(err, "failed to setup webhook cleanup")
+	if c.autoDeleteWebhooks {
+		if err := c.webhookCleanupSetup(ctx, c.logger); err != nil {
+			c.logger.Error(err, "failed to setup webhook cleanup")
+		}
 	}
 	c.enqueue()
 	controllerutils.Run(ctx, c.logger, c.controllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)

@@ -225,8 +225,8 @@ spec:
                                 type: array
                               default:
                                 description: |-
-                                  Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                  returns error
+                                  Default is an optional arbitrary JSON object that the context
+                                  value is set to, if the apiCall returns error.
                                 x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: |-
@@ -255,6 +255,22 @@ spec:
                                       CABundle is a PEM encoded CA bundle which will be used to validate
                                       the server certificate.
                                     type: string
+                                  headers:
+                                    description: Headers is a list of optional HTTP
+                                      headers to be included in the request.
+                                    items:
+                                      properties:
+                                        key:
+                                          description: Key is the header key
+                                          type: string
+                                        value:
+                                          description: Value is the header value
+                                          type: string
+                                      required:
+                                      - key
+                                      - value
+                                      type: object
+                                    type: array
                                   url:
                                     description: |-
                                       URL is the JSON web service URL. A typical form is
@@ -1243,8 +1259,8 @@ spec:
                                           type: array
                                         default:
                                           description: |-
-                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                            returns error
+                                            Default is an optional arbitrary JSON object that the context
+                                            value is set to, if the apiCall returns error.
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -1273,6 +1289,25 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            headers:
+                                              description: Headers is a list of optional
+                                                HTTP headers to be included in the
+                                                request.
+                                              items:
+                                                properties:
+                                                  key:
+                                                    description: Key is the header
+                                                      key
+                                                    type: string
+                                                  value:
+                                                    description: Value is the header
+                                                      value
+                                                    type: string
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
                                             url:
                                               description: |-
                                                 URL is the JSON web service URL. A typical form is
@@ -2309,8 +2344,8 @@ spec:
                                           type: array
                                         default:
                                           description: |-
-                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                            returns error
+                                            Default is an optional arbitrary JSON object that the context
+                                            value is set to, if the apiCall returns error.
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -2339,6 +2374,25 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            headers:
+                                              description: Headers is a list of optional
+                                                HTTP headers to be included in the
+                                                request.
+                                              items:
+                                                properties:
+                                                  key:
+                                                    description: Key is the header
+                                                      key
+                                                    type: string
+                                                  value:
+                                                    description: Value is the header
+                                                      value
+                                                    type: string
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
                                             url:
                                               description: |-
                                                 URL is the JSON web service URL. A typical form is
@@ -2673,8 +2727,8 @@ spec:
                                           type: array
                                         default:
                                           description: |-
-                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                            returns error
+                                            Default is an optional arbitrary JSON object that the context
+                                            value is set to, if the apiCall returns error.
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -2703,6 +2757,25 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            headers:
+                                              description: Headers is a list of optional
+                                                HTTP headers to be included in the
+                                                request.
+                                              items:
+                                                properties:
+                                                  key:
+                                                    description: Key is the header
+                                                      key
+                                                    type: string
+                                                  value:
+                                                    description: Value is the header
+                                                      value
+                                                    type: string
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
                                             url:
                                               description: |-
                                                 URL is the JSON web service URL. A typical form is
@@ -2848,6 +2921,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -3357,8 +3478,8 @@ spec:
                                           type: array
                                         default:
                                           description: |-
-                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                            returns error
+                                            Default is an optional arbitrary JSON object that the context
+                                            value is set to, if the apiCall returns error.
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -3387,6 +3508,25 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            headers:
+                                              description: Headers is a list of optional
+                                                HTTP headers to be included in the
+                                                request.
+                                              items:
+                                                properties:
+                                                  key:
+                                                    description: Key is the header
+                                                      key
+                                                    type: string
+                                                  value:
+                                                    description: Value is the header
+                                                      value
+                                                    type: string
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
                                             url:
                                               description: |-
                                                 URL is the JSON web service URL. A typical form is
@@ -5160,8 +5300,8 @@ spec:
                                     type: array
                                   default:
                                     description: |-
-                                      Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                      returns error
+                                      Default is an optional arbitrary JSON object that the context
+                                      value is set to, if the apiCall returns error.
                                     x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: |-
@@ -5190,6 +5330,22 @@ spec:
                                           CABundle is a PEM encoded CA bundle which will be used to validate
                                           the server certificate.
                                         type: string
+                                      headers:
+                                        description: Headers is a list of optional
+                                          HTTP headers to be included in the request.
+                                        items:
+                                          properties:
+                                            key:
+                                              description: Key is the header key
+                                              type: string
+                                            value:
+                                              description: Value is the header value
+                                              type: string
+                                          required:
+                                          - key
+                                          - value
+                                          type: object
+                                        type: array
                                       url:
                                         description: |-
                                           URL is the JSON web service URL. A typical form is
@@ -6188,8 +6344,8 @@ spec:
                                               type: array
                                             default:
                                               description: |-
-                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                                returns error
+                                                Default is an optional arbitrary JSON object that the context
+                                                value is set to, if the apiCall returns error.
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -6218,6 +6374,25 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                headers:
+                                                  description: Headers is a list of
+                                                    optional HTTP headers to be included
+                                                    in the request.
+                                                  items:
+                                                    properties:
+                                                      key:
+                                                        description: Key is the header
+                                                          key
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          header value
+                                                        type: string
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
                                                 url:
                                                   description: |-
                                                     URL is the JSON web service URL. A typical form is
@@ -7266,8 +7441,8 @@ spec:
                                               type: array
                                             default:
                                               description: |-
-                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                                returns error
+                                                Default is an optional arbitrary JSON object that the context
+                                                value is set to, if the apiCall returns error.
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -7296,6 +7471,25 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                headers:
+                                                  description: Headers is a list of
+                                                    optional HTTP headers to be included
+                                                    in the request.
+                                                  items:
+                                                    properties:
+                                                      key:
+                                                        description: Key is the header
+                                                          key
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          header value
+                                                        type: string
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
                                                 url:
                                                   description: |-
                                                     URL is the JSON web service URL. A typical form is
@@ -7639,8 +7833,8 @@ spec:
                                               type: array
                                             default:
                                               description: |-
-                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                                returns error
+                                                Default is an optional arbitrary JSON object that the context
+                                                value is set to, if the apiCall returns error.
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -7669,6 +7863,25 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                headers:
+                                                  description: Headers is a list of
+                                                    optional HTTP headers to be included
+                                                    in the request.
+                                                  items:
+                                                    properties:
+                                                      key:
+                                                        description: Key is the header
+                                                          key
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          header value
+                                                        type: string
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
                                                 url:
                                                   description: |-
                                                     URL is the JSON web service URL. A typical form is
@@ -7818,6 +8031,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -8336,8 +8597,8 @@ spec:
                                               type: array
                                             default:
                                               description: |-
-                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                                returns error
+                                                Default is an optional arbitrary JSON object that the context
+                                                value is set to, if the apiCall returns error.
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -8366,6 +8627,25 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                headers:
+                                                  description: Headers is a list of
+                                                    optional HTTP headers to be included
+                                                    in the request.
+                                                  items:
+                                                    properties:
+                                                      key:
+                                                        description: Key is the header
+                                                          key
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          header value
+                                                        type: string
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
                                                 url:
                                                   description: |-
                                                     URL is the JSON web service URL. A typical form is
@@ -10098,6 +10378,12 @@ spec:
                   Optional. Default value is "true". The value must be set to "false" if the policy rule
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
+              emitWarning:
+                default: false
+                description: |-
+                  EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+                  Enabling this option will extend admission request processing times. The default value is "false".
+                type: boolean
               failurePolicy:
                 description: Deprecated, use failurePolicy under the webhookConfiguration
                   instead.
@@ -10213,8 +10499,8 @@ spec:
                                 type: array
                               default:
                                 description: |-
-                                  Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                  returns error
+                                  Default is an optional arbitrary JSON object that the context
+                                  value is set to, if the apiCall returns error.
                                 x-kubernetes-preserve-unknown-fields: true
                               jmesPath:
                                 description: |-
@@ -10243,6 +10529,22 @@ spec:
                                       CABundle is a PEM encoded CA bundle which will be used to validate
                                       the server certificate.
                                     type: string
+                                  headers:
+                                    description: Headers is a list of optional HTTP
+                                      headers to be included in the request.
+                                    items:
+                                      properties:
+                                        key:
+                                          description: Key is the header key
+                                          type: string
+                                        value:
+                                          description: Value is the header value
+                                          type: string
+                                      required:
+                                      - key
+                                      - value
+                                      type: object
+                                    type: array
                                   url:
                                     description: |-
                                       URL is the JSON web service URL. A typical form is
@@ -11025,8 +11327,8 @@ spec:
                                           type: array
                                         default:
                                           description: |-
-                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                            returns error
+                                            Default is an optional arbitrary JSON object that the context
+                                            value is set to, if the apiCall returns error.
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -11055,6 +11357,25 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            headers:
+                                              description: Headers is a list of optional
+                                                HTTP headers to be included in the
+                                                request.
+                                              items:
+                                                properties:
+                                                  key:
+                                                    description: Key is the header
+                                                      key
+                                                    type: string
+                                                  value:
+                                                    description: Value is the header
+                                                      value
+                                                    type: string
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
                                             url:
                                               description: |-
                                                 URL is the JSON web service URL. A typical form is
@@ -11885,8 +12206,8 @@ spec:
                                           type: array
                                         default:
                                           description: |-
-                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                            returns error
+                                            Default is an optional arbitrary JSON object that the context
+                                            value is set to, if the apiCall returns error.
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -11915,6 +12236,25 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            headers:
+                                              description: Headers is a list of optional
+                                                HTTP headers to be included in the
+                                                request.
+                                              items:
+                                                properties:
+                                                  key:
+                                                    description: Key is the header
+                                                      key
+                                                    type: string
+                                                  value:
+                                                    description: Value is the header
+                                                      value
+                                                    type: string
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
                                             url:
                                               description: |-
                                                 URL is the JSON web service URL. A typical form is
@@ -12249,8 +12589,8 @@ spec:
                                           type: array
                                         default:
                                           description: |-
-                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                            returns error
+                                            Default is an optional arbitrary JSON object that the context
+                                            value is set to, if the apiCall returns error.
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -12279,6 +12619,25 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            headers:
+                                              description: Headers is a list of optional
+                                                HTTP headers to be included in the
+                                                request.
+                                              items:
+                                                properties:
+                                                  key:
+                                                    description: Key is the header
+                                                      key
+                                                    type: string
+                                                  value:
+                                                    description: Value is the header
+                                                      value
+                                                    type: string
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
                                             url:
                                               description: |-
                                                 URL is the JSON web service URL. A typical form is
@@ -12424,6 +12783,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -13098,8 +13505,8 @@ spec:
                                           type: array
                                         default:
                                           description: |-
-                                            Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                            returns error
+                                            Default is an optional arbitrary JSON object that the context
+                                            value is set to, if the apiCall returns error.
                                           x-kubernetes-preserve-unknown-fields: true
                                         jmesPath:
                                           description: |-
@@ -13128,6 +13535,25 @@ spec:
                                                 CABundle is a PEM encoded CA bundle which will be used to validate
                                                 the server certificate.
                                               type: string
+                                            headers:
+                                              description: Headers is a list of optional
+                                                HTTP headers to be included in the
+                                                request.
+                                              items:
+                                                properties:
+                                                  key:
+                                                    description: Key is the header
+                                                      key
+                                                    type: string
+                                                  value:
+                                                    description: Value is the header
+                                                      value
+                                                    type: string
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
                                             url:
                                               description: |-
                                                 URL is the JSON web service URL. A typical form is
@@ -14869,8 +15295,8 @@ spec:
                                     type: array
                                   default:
                                     description: |-
-                                      Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                      returns error
+                                      Default is an optional arbitrary JSON object that the context
+                                      value is set to, if the apiCall returns error.
                                     x-kubernetes-preserve-unknown-fields: true
                                   jmesPath:
                                     description: |-
@@ -14899,6 +15325,22 @@ spec:
                                           CABundle is a PEM encoded CA bundle which will be used to validate
                                           the server certificate.
                                         type: string
+                                      headers:
+                                        description: Headers is a list of optional
+                                          HTTP headers to be included in the request.
+                                        items:
+                                          properties:
+                                            key:
+                                              description: Key is the header key
+                                              type: string
+                                            value:
+                                              description: Value is the header value
+                                              type: string
+                                          required:
+                                          - key
+                                          - value
+                                          type: object
+                                        type: array
                                       url:
                                         description: |-
                                           URL is the JSON web service URL. A typical form is
@@ -15897,8 +16339,8 @@ spec:
                                               type: array
                                             default:
                                               description: |-
-                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                                returns error
+                                                Default is an optional arbitrary JSON object that the context
+                                                value is set to, if the apiCall returns error.
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -15927,6 +16369,25 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                headers:
+                                                  description: Headers is a list of
+                                                    optional HTTP headers to be included
+                                                    in the request.
+                                                  items:
+                                                    properties:
+                                                      key:
+                                                        description: Key is the header
+                                                          key
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          header value
+                                                        type: string
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
                                                 url:
                                                   description: |-
                                                     URL is the JSON web service URL. A typical form is
@@ -16975,8 +17436,8 @@ spec:
                                               type: array
                                             default:
                                               description: |-
-                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                                returns error
+                                                Default is an optional arbitrary JSON object that the context
+                                                value is set to, if the apiCall returns error.
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -17005,6 +17466,25 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                headers:
+                                                  description: Headers is a list of
+                                                    optional HTTP headers to be included
+                                                    in the request.
+                                                  items:
+                                                    properties:
+                                                      key:
+                                                        description: Key is the header
+                                                          key
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          header value
+                                                        type: string
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
                                                 url:
                                                   description: |-
                                                     URL is the JSON web service URL. A typical form is
@@ -17348,8 +17828,8 @@ spec:
                                               type: array
                                             default:
                                               description: |-
-                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                                returns error
+                                                Default is an optional arbitrary JSON object that the context
+                                                value is set to, if the apiCall returns error.
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -17378,6 +17858,25 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                headers:
+                                                  description: Headers is a list of
+                                                    optional HTTP headers to be included
+                                                    in the request.
+                                                  items:
+                                                    properties:
+                                                      key:
+                                                        description: Key is the header
+                                                          key
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          header value
+                                                        type: string
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
                                                 url:
                                                   description: |-
                                                     URL is the JSON web service URL. A typical form is
@@ -17527,6 +18026,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -18045,8 +18592,8 @@ spec:
                                               type: array
                                             default:
                                               description: |-
-                                                Default is an optional arbitrary JSON object that the context may take if the apiCall
-                                                returns error
+                                                Default is an optional arbitrary JSON object that the context
+                                                value is set to, if the apiCall returns error.
                                               x-kubernetes-preserve-unknown-fields: true
                                             jmesPath:
                                               description: |-
@@ -18075,6 +18622,25 @@ spec:
                                                     CABundle is a PEM encoded CA bundle which will be used to validate
                                                     the server certificate.
                                                   type: string
+                                                headers:
+                                                  description: Headers is a list of
+                                                    optional HTTP headers to be included
+                                                    in the request.
+                                                  items:
+                                                    properties:
+                                                      key:
+                                                        description: Key is the header
+                                                          key
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          header value
+                                                        type: string
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
                                                 url:
                                                   description: |-
                                                     URL is the JSON web service URL. A typical form is

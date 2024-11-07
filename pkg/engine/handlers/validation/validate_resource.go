@@ -146,20 +146,28 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	}
 
-	allowExisitingViolations := v.rule.HasValidateAllowExistingViolations()
-	if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
-		priorResp, err := v.validateOldObject(ctx)
-		if err != nil {
-			v.log.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", v.rule.Name, "error", err.Error())
-			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed", ruleResponse.Properties())
-		}
+	var action kyvernov1.ValidationFailureAction
+	if v.rule.Validation.FailureAction != nil {
+		action = *v.rule.Validation.FailureAction
+	} else {
+		action = v.policyContext.Policy().GetSpec().ValidationFailureAction
+	}
 
-		if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
-			v.log.V(3).Info("skipping modified resource as validation results have not changed")
-			if ruleResponse.Status() == engineapi.RuleStatusPass {
-				return ruleResponse
+	// process the old object for UPDATE admission requests in case of enforce policies
+	if action.Enforce() {
+		allowExisitingViolations := v.rule.HasValidateAllowExistingViolations()
+		if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
+			priorResp, err := v.validateOldObject(ctx)
+			if err != nil {
+				v.log.V(4).Info("warning: failed to validate old object", "rule", v.rule.Name, "error", err.Error())
+				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "failed to validate old object", ruleResponse.Properties())
 			}
-			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed", v.rule.ReportProperties)
+
+			// when an existing resource violates, and the updated resource also violates, then skip
+			if ruleResponse.Status() == engineapi.RuleStatusFail && priorResp.Status() == engineapi.RuleStatusFail { //
+				v.log.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "ruleResponse", ruleResponse, "priorResp", priorResp)
+				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", v.rule.ReportProperties)
+			}
 		}
 	}
 
@@ -175,7 +183,7 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if ok := matchResource(oldResource, v.rule); !ok {
+	if ok := matchResource(oldResource, v.rule, v.policyContext.NamespaceLabels(), v.policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
 		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", v.rule.ReportProperties), nil
 	}
 

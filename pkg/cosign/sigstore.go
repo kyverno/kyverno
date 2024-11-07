@@ -38,7 +38,8 @@ type Bundle struct {
 }
 
 func verifyBundleAndFetchAttestations(ctx context.Context, opts images.Options) ([]*VerificationResult, error) {
-	ref, err := name.ParseReference(opts.ImageRef)
+	nameOpts := opts.Client.NameOptions()
+	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %v", opts.ImageRef)
 	}
@@ -83,6 +84,8 @@ func verifyBundles(bundles []*Bundle, desc *v1.Descriptor, trustedRoot *root.Tru
 		result, err := verifier.Verify(bundle.ProtoBundle, policy)
 		if err == nil {
 			verificationResults = append(verificationResults, &VerificationResult{Bundle: bundle, Result: result, Desc: desc})
+		} else {
+			logger.V(4).Info("failed to verify sigstore bundle", "err", err.Error(), "bundle", bundle)
 		}
 	}
 

@@ -47,7 +47,7 @@ func TestExtractStatements(t *testing.T) {
 
 	for _, referrer := range referrersDescs.Manifests {
 		if referrer.ArtifactType == "application/vnd.cncf.notary.signature" {
-			statements, err := extractStatements(context.Background(), ref, referrer, nil)
+			statements, err := extractStatements(context.Background(), ref, referrer, nil, nil)
 			assert.NilError(t, err)
 			assert.Assert(t, len(statements) == 1)
 			assert.Assert(t, statements[0]["type"] == referrer.ArtifactType)

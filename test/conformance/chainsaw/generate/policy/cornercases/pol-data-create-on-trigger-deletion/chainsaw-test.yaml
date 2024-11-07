@@ -1,7 +1,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: pol-data-create-on-trigger-deletion
 spec:
   steps:
@@ -11,10 +10,23 @@ spec:
         file: chainsaw-step-01-apply-1-1.yaml
     - apply:
         file: chainsaw-step-01-apply-1-2.yaml
-    - apply:
-        file: chainsaw-step-01-apply-1-3.yaml
-    - assert:
-        file: chainsaw-step-01-assert-1-1.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: pol-create-on-trigger-deletion
+        - name: namespace
+          value: pol-create-on-trigger-deletion-ns
+  - try:
     - assert:
         file: chainsaw-step-01-assert-1-2.yaml
   - name: step-02

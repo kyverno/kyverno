@@ -26,9 +26,15 @@ type TestResultBase struct {
 	// Kind mentions the kind of the resource on which the policy is to be applied.
 	Kind string `json:"kind"`
 
+	// Deprecated. Use `patchedResources` instead.
 	// PatchedResource takes a resource configuration file in yaml format from
 	// the user to compare it against the Kyverno mutated resource configuration.
 	PatchedResource string `json:"patchedResource,omitempty"`
+
+	// PatchedResource takes a resource configuration file in yaml format from
+	// the user to compare it against the Kyverno mutated resource configuration.
+	// Multiple resources can be passed in the same file
+	PatchedResources string `json:"patchedResources,omitempty"`
 
 	// GeneratedResource takes a resource configuration file in yaml format from
 	// the user to compare it against the Kyverno generated resource configuration.
