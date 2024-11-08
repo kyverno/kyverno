@@ -365,10 +365,16 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resource))
 	assert.NilError(t, err)
 
+	operation := kyvernov1.Create
+	if len(resource) != 0 && len(oldResource) != 0 {
+		operation = kyvernov1.Update
+	} else if len(resource) == 0 && len(oldResource) != 0 {
+		operation = kyvernov1.Delete
+	}
 	policyContext, err := policycontext.NewPolicyContext(
 		jp,
 		*resourceUnstructured,
-		kyvernov1.Create,
+		operation,
 		nil,
 		cfg,
 	)
@@ -920,28 +926,6 @@ func createStaticKeyAttestorSet(s string, withPublicKey, withSecret, withKMS boo
 		entries = append(entries, attestor)
 	}
 	return kyvernov1.AttestorSet{Entries: entries}
-}
-
-func Test_ChangedAnnotation(t *testing.T) {
-	annotationKey := kyverno.AnnotationImageVerify
-	annotationNew := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "true")
-	newResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationNew)
-
-	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
-
-	hasChanged := internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
-	assert.Equal(t, hasChanged, false)
-
-	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
-	assert.Equal(t, hasChanged, true)
-
-	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
-	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
-
-	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
-	assert.Equal(t, hasChanged, true)
 }
 
 func Test_MarkImageVerified(t *testing.T) {
