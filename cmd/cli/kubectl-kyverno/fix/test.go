@@ -67,18 +67,28 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 	if compress {
 		compressed := map[v1alpha1.TestResultBase][]string{}
 		for _, result := range results {
-			compressed[result.TestResultBase] = append(compressed[result.TestResultBase], []string{"alo"}...)
+			resourcesAsStringArray := []string{}
+			for _, resource := range result.Resources {
+				if r, ok := resource.(string); ok {
+					resourcesAsStringArray = append(resourcesAsStringArray, r)
+				}
+			}
+			compressed[result.TestResultBase] = append(compressed[result.TestResultBase], resourcesAsStringArray...)
 		}
 		results = nil
 		for k, v := range compressed {
 			unique := sets.New(v...)
 			if len(v) != len(unique) {
 				messages = append(messages, "test results contains duplicate resources")
-				// v = unique.UnsortedList()
+				v = unique.UnsortedList()
+			}
+			anyArray := make([]interface{}, len(v))
+			for i, r := range v {
+				anyArray[i] = r
 			}
 			results = append(results, v1alpha1.TestResult{
 				TestResultBase: k,
-				Resources:      []any{},
+				Resources:      anyArray,
 			})
 		}
 	}
