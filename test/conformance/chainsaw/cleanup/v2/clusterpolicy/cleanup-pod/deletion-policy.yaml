@@ -1,5 +1,5 @@
 apiVersion: kyverno.io/v2
-kind: DeletionPropagationPolicy
+kind: ClusterCleanupPolicy
 metadata:
   name: deletion-propagation-example
 spec:
