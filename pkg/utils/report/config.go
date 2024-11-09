@@ -1,9 +1,13 @@
 package report
 
-import "k8s.io/apimachinery/pkg/util/sets"
+import (
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+)
 
 type reportingConfig struct {
 	helper sets.Set[string]
+	spec   v1.Spec
 }
 
 func (r *reportingConfig) ValidateReportsEnabled() bool {
@@ -23,6 +27,11 @@ func (r *reportingConfig) ImageVerificationReportsEnabled() bool {
 }
 
 func (r *reportingConfig) GenerateReportsEnabled() bool {
+	// If the DisableReportGeneration flag is set to true, report generation is disabled
+	if r.spec.DisableReportGeneration != nil && *r.spec.DisableReportGeneration {
+		return false
+	}
+
 	return r.helper.Has("generate")
 }
 
