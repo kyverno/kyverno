@@ -1745,3 +1745,84 @@ func Test_SHA256(t *testing.T) {
 	assert.Assert(t, ok)
 	assert.Equal(t, str, "75c07bb807f2d80a85d34880b8af0c5f29f7c27577076ed5d0e4b427dee7dbcc")
 }
+
+func Test_jpRound(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{
+		{
+			name: "round to 2 decimal places",
+			args: args{
+				arguments: []interface{}{123.4567, 2.0},
+			},
+			want:    123.46,
+			wantErr: false,
+		},
+		{
+			name: "round to 0 decimal places",
+			args: args{
+				arguments: []interface{}{123.4567, 0.0},
+			},
+			want:    123.0,
+			wantErr: false,
+		},
+		{
+			name: "round to negative decimal places",
+			args: args{
+				arguments: []interface{}{123.4567, -1.0},
+			},
+			want:    120.0,
+			wantErr: false,
+		},
+		{
+			name: "round to 3 decimal places",
+			args: args{
+				arguments: []interface{}{123.4567, 3.0},
+			},
+			want:    123.457,
+			wantErr: false,
+		},
+		{
+			name: "invalid first argument",
+			args: args{
+				arguments: []interface{}{"123.4567", 2.0},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid second argument",
+			args: args{
+				arguments: []interface{}{123.4567, "2.0"},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "non-integer second argument",
+			args: args{
+				arguments: []interface{}{123.4567, 2.5},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpRound(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpRound() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpRound() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
