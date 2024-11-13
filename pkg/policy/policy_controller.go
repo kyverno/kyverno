@@ -151,14 +151,14 @@ func NewPolicyController(
 	return &pc, nil
 }
 
-func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bool {
+func (pc *policyController) canBackgroundProcess(ctx context.Context, p kyvernov1.PolicyInterface) bool {
 	logger := pc.log.WithValues("policy", p.GetName())
 	if !p.GetSpec().HasGenerate() && !p.GetSpec().HasMutateExisting() {
 		logger.V(4).Info("policy does not have background rules for reconciliation")
 		return false
 	}
 
-	if err := policyvalidation.ValidateVariables(p, true); err != nil {
+	if err := policyvalidation.ValidateVariables(ctx, p, true); err != nil {
 		logger.V(4).Info("policy cannot be processed in the background")
 		return false
 	}
@@ -178,12 +178,12 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 	return true
 }
 
-func (pc *policyController) addPolicy(obj interface{}) {
+func (pc *policyController) addPolicy(ctx context.Context, obj interface{}) {
 	logger := pc.log
 	p := castPolicy(obj)
 	logger.Info("policy created", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
 
-	if !pc.canBackgroundProcess(p) {
+	if !pc.canBackgroundProcess(ctx, p) {
 		return
 	}
 
@@ -191,11 +191,11 @@ func (pc *policyController) addPolicy(obj interface{}) {
 	pc.enqueuePolicy(p)
 }
 
-func (pc *policyController) updatePolicy(old, cur interface{}) {
+func (pc *policyController) updatePolicy(ctx context.Context, old, cur interface{}) {
 	logger := pc.log
 	oldP := castPolicy(old)
 	curP := castPolicy(cur)
-	if !pc.canBackgroundProcess(curP) {
+	if !pc.canBackgroundProcess(ctx, curP) {
 		return
 	}
 
@@ -205,7 +205,7 @@ func (pc *policyController) updatePolicy(old, cur interface{}) {
 
 	logger.V(2).Info("updating policy", "name", oldP.GetName())
 	if deleted, ok, selector := ruleChange(oldP, curP); ok {
-		err := pc.createURForDownstreamDeletion(deleted)
+		err := pc.createURForDownstreamDeletion(ctx, deleted)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("failed to create UR on rule deletion, clean up downstream resource may be failed: %v", err))
 		}
@@ -216,7 +216,7 @@ func (pc *policyController) updatePolicy(old, cur interface{}) {
 	pc.enqueuePolicy(curP)
 }
 
-func (pc *policyController) deletePolicy(obj interface{}) {
+func (pc *policyController) deletePolicy(ctx context.Context, obj interface{}) {
 	logger := pc.log
 	var p kyvernov1.PolicyInterface
 
@@ -231,7 +231,7 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 	}
 
 	logger.Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
-	err := pc.createURForDownstreamDeletion(p)
+	err := pc.createURForDownstreamDeletion(ctx, p)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %v", err))
 	}
@@ -262,15 +262,27 @@ func (pc *policyController) Run(ctx context.Context, workers int) {
 	}
 
 	_, _ = pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    pc.addPolicy,
-		UpdateFunc: pc.updatePolicy,
-		DeleteFunc: pc.deletePolicy,
+		AddFunc: func(obj interface{}) {
+			pc.addPolicy(ctx, obj)
+		},
+		UpdateFunc: func(old, cur interface{}) {
+			pc.updatePolicy(ctx, old, cur)
+		},
+		DeleteFunc: func(obj interface{}) {
+			pc.deletePolicy(ctx, obj)
+		},
 	})
 
 	_, _ = pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    pc.addPolicy,
-		UpdateFunc: pc.updatePolicy,
-		DeleteFunc: pc.deletePolicy,
+		AddFunc: func(obj interface{}) {
+			pc.addPolicy(ctx, obj)
+		},
+		UpdateFunc: func(old, cur interface{}) {
+			pc.updatePolicy(ctx, old, cur)
+		},
+		DeleteFunc: func(obj interface{}) {
+			pc.deletePolicy(ctx, obj)
+		},
 	})
 
 	for i := 0; i < workers; i++ {
@@ -369,7 +381,7 @@ func (pc *policyController) forceReconciliation(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			logger.Info("reconciling generate and mutateExisting policies", "scan interval", pc.reconcilePeriod.String())
-			pc.requeuePolicies()
+			pc.requeuePolicies(ctx)
 
 		case <-ctx.Done():
 			return
@@ -377,11 +389,11 @@ func (pc *policyController) forceReconciliation(ctx context.Context) {
 	}
 }
 
-func (pc *policyController) requeuePolicies() {
+func (pc *policyController) requeuePolicies(ctx context.Context) {
 	logger := pc.log.WithName("requeuePolicies")
 	if cpols, err := pc.pLister.List(labels.Everything()); err == nil {
 		for _, cpol := range cpols {
-			if !pc.canBackgroundProcess(cpol) {
+			if !pc.canBackgroundProcess(ctx, cpol) {
 				continue
 			}
 			pc.enqueuePolicy(cpol)
@@ -391,7 +403,7 @@ func (pc *policyController) requeuePolicies() {
 	}
 	if pols, err := pc.npLister.Policies(metav1.NamespaceAll).List(labels.Everything()); err == nil {
 		for _, p := range pols {
-			if !pc.canBackgroundProcess(p) {
+			if !pc.canBackgroundProcess(ctx, p) {
 				continue
 			}
 			pc.enqueuePolicy(p)

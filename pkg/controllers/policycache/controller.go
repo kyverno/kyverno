@@ -28,7 +28,7 @@ const (
 
 type Controller interface {
 	controllers.Controller
-	WarmUp() error
+	WarmUp(ctx context.Context) error
 }
 
 type controller struct {
@@ -65,7 +65,7 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 	return &c
 }
 
-func (c *controller) WarmUp() error {
+func (c *controller) WarmUp(ctx context.Context) error {
 	logger.Info("warming up ...")
 	defer logger.Info("warm up done")
 
@@ -78,7 +78,7 @@ func (c *controller) WarmUp() error {
 			return err
 		} else {
 			if policy.IsReady() {
-				return c.cache.Set(key, policy, c.client.Discovery())
+				return c.cache.Set(ctx, key, policy, c.client.Discovery())
 			} else {
 				c.cache.Unset(key)
 				return nil
@@ -94,7 +94,7 @@ func (c *controller) WarmUp() error {
 			return err
 		} else {
 			if policy.IsReady() {
-				return c.cache.Set(key, policy, c.client.Discovery())
+				return c.cache.Set(ctx, key, policy, c.client.Discovery())
 			} else {
 				c.cache.Unset(key)
 				return nil
@@ -118,7 +118,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookMatchConditions() {
 		if policy.IsReady() {
-			return c.cache.Set(key, policy, c.client.Discovery())
+			return c.cache.Set(ctx, key, policy, c.client.Discovery())
 		} else {
 			c.cache.Unset(key)
 			return nil

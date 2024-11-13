@@ -462,7 +462,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&validPolicy)
-	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &validPolicy, policycache.TestResourceFinder{})
 
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: v1.AdmissionRequest{
@@ -484,7 +484,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	assert.Equal(t, len(response.Warnings), 0)
 
 	validPolicy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &validPolicy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -520,7 +520,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 
 	keyInvalid := makeKey(&invalidPolicy)
 	invalidPolicy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
 
 	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -528,7 +528,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 
 	var ignore kyverno.FailurePolicyType = kyverno.Ignore
 	invalidPolicy.Spec.FailurePolicy = &ignore
-	policyCache.Set(keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
@@ -549,7 +549,7 @@ func Test_ImageVerify(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
-	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &policy, policycache.TestResourceFinder{})
 
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: v1.AdmissionRequest{
@@ -564,7 +564,7 @@ func Test_ImageVerify(t *testing.T) {
 	}
 
 	policy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &policy, policycache.TestResourceFinder{})
 
 	response := resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -572,7 +572,7 @@ func Test_ImageVerify(t *testing.T) {
 
 	var ignore kyverno.FailurePolicyType = kyverno.Ignore
 	policy.Spec.FailurePolicy = &ignore
-	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &policy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -593,7 +593,7 @@ func Test_MutateAndVerify(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
-	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &policy, policycache.TestResourceFinder{})
 
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: v1.AdmissionRequest{
@@ -631,14 +631,14 @@ func Test_MutateAndGenerate(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&generatePolicy)
-	policyCache.Set(key, &generatePolicy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &generatePolicy, policycache.TestResourceFinder{})
 
 	var mutatePolicy kyverno.ClusterPolicy
 	err = json.Unmarshal([]byte(mutateAndGenerateMutatePolicy), &mutatePolicy)
 	assert.NilError(t, err)
 
 	key = makeKey(&mutatePolicy)
-	policyCache.Set(key, &mutatePolicy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &mutatePolicy, policycache.TestResourceFinder{})
 
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: v1.AdmissionRequest{
@@ -692,7 +692,7 @@ func Test_ValidateAuditWarn(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&validPolicy)
-	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &validPolicy, policycache.TestResourceFinder{})
 
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: v1.AdmissionRequest{
@@ -712,7 +712,7 @@ func Test_ValidateAuditWarn(t *testing.T) {
 
 	auditWarn := true
 	validPolicy.Spec.EmitWarning = &auditWarn
-	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &validPolicy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
@@ -736,7 +736,7 @@ func Test_ValidateAuditWarnGood(t *testing.T) {
 	auditWarn := true
 	validPolicy.Spec.EmitWarning = &auditWarn
 	key := makeKey(&validPolicy)
-	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &validPolicy, policycache.TestResourceFinder{})
 
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: v1.AdmissionRequest{
@@ -771,7 +771,7 @@ func Test_MutateWarn(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
-	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &policy, policycache.TestResourceFinder{})
 
 	request := handlers.AdmissionRequest{
 		AdmissionRequest: v1.AdmissionRequest{
@@ -791,7 +791,7 @@ func Test_MutateWarn(t *testing.T) {
 
 	auditWarn := true
 	policy.Spec.EmitWarning = &auditWarn
-	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+	policyCache.Set(ctx, key, &policy, policycache.TestResourceFinder{})
 
 	response = resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)

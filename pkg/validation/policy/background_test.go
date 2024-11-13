@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -67,8 +68,9 @@ func Test_Validation_valid_backgroundPolicy(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
-
-	err = ValidateVariables(&policy, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = ValidateVariables(ctx, &policy, true)
 	assert.NilError(t, err)
 }
 
@@ -131,6 +133,8 @@ func Test_Validation_invalid_backgroundPolicy(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
-	err = ValidateVariables(&policy, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = ValidateVariables(ctx, &policy, true)
 	assert.ErrorContains(t, err, "variable {{serviceAccountName}} is not allowed")
 }

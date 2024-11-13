@@ -35,7 +35,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, h.kyvernoClient, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
+	warnings, err := policyvalidate.Validate(ctx, policy, oldPolicy, h.client, h.kyvernoClient, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 	}

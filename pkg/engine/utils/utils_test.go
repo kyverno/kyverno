@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -903,8 +904,9 @@ func TestMatchesResourceDescription(t *testing.T) {
 			t.Errorf("Testcase %d invalid policy raw", i+1)
 		}
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
-
-		for _, rule := range autogen.Default.ComputeRules(&policy, "") {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		for _, rule := range autogen.Default(ctx).ComputeRules(&policy, "") {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
@@ -1808,8 +1810,10 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 			t.Errorf("Testcase %d invalid policy raw", i+1)
 		}
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		for _, rule := range autogen.Default.ComputeRules(&policy, "") {
+		for _, rule := range autogen.Default(ctx).ComputeRules(&policy, "") {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {

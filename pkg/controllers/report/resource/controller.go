@@ -236,7 +236,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	kinds := utils.BuildKindSet(logger, utils.RemoveNonValidationPolicies(append(clusterPolicies, policies...)...)...)
+	kinds := utils.BuildKindSet(ctx, logger, utils.RemoveNonValidationPolicies(append(clusterPolicies, policies...)...)...)
 	gvkToGvr := map[schema.GroupVersionKind]schema.GroupVersionResource{}
 	for _, policyKind := range sets.List(kinds) {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)

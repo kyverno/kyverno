@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -17,23 +19,23 @@ import (
 	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 )
 
-func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
+func CanBackgroundProcess(ctx context.Context, p kyvernov1.PolicyInterface) bool {
 	if !p.BackgroundProcessingEnabled() {
 		return false
 	}
 	if p.GetStatus().ValidatingAdmissionPolicy.Generated {
 		return false
 	}
-	if err := policyvalidation.ValidateVariables(p, true); err != nil {
+	if err := policyvalidation.ValidateVariables(ctx, p, true); err != nil {
 		return false
 	}
 	return true
 }
 
-func BuildKindSet(logger logr.Logger, policies ...kyvernov1.PolicyInterface) sets.Set[string] {
+func BuildKindSet(ctx context.Context, logger logr.Logger, policies ...kyvernov1.PolicyInterface) sets.Set[string] {
 	kinds := sets.New[string]()
 	for _, policy := range policies {
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 			if rule.HasValidate() || rule.HasVerifyImages() {
 				kinds.Insert(rule.MatchResources.GetKinds()...)
 			}
@@ -42,10 +44,10 @@ func BuildKindSet(logger logr.Logger, policies ...kyvernov1.PolicyInterface) set
 	return kinds
 }
 
-func RemoveNonBackgroundPolicies(policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
+func RemoveNonBackgroundPolicies(ctx context.Context, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
 	var backgroundPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
-		if CanBackgroundProcess(pol) {
+		if CanBackgroundProcess(ctx, pol) {
 			backgroundPolicies = append(backgroundPolicies, pol)
 		}
 	}

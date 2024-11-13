@@ -143,7 +143,7 @@ func (c *controller) listExceptions() ([]*kyvernov2.PolicyException, error) {
 	return c.polexLister.PolicyExceptions(c.namespace).List(labels.Everything())
 }
 
-func (c *controller) buildRuleIndex(key string, policy kyvernov1.PolicyInterface) (ruleIndex, error) {
+func (c *controller) buildRuleIndex(ctx context.Context, key string, policy kyvernov1.PolicyInterface) (ruleIndex, error) {
 	polexList, err := c.listExceptions()
 	if err != nil {
 		return nil, err
@@ -158,7 +158,7 @@ func (c *controller) buildRuleIndex(key string, policy kyvernov1.PolicyInterface
 		return 0
 	})
 	index := ruleIndex{}
-	for _, name := range autogen.Default.GetAutogenRuleNames(policy) {
+	for _, name := range autogen.Default(ctx).GetAutogenRuleNames(policy) {
 		for _, polex := range polexList {
 			if polex.Contains(key, name) {
 				index[name] = append(index[name], polex)
@@ -180,7 +180,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		delete(c.index, key)
 		return nil
 	}
-	ruleIndex, err := c.buildRuleIndex(key, policy)
+	ruleIndex, err := c.buildRuleIndex(ctx, key, policy)
 	if err != nil {
 		return err
 	}

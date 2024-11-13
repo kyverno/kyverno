@@ -155,7 +155,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	group.Wait()
 }
 
-func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
+func (c *controller) createPolicyMap(ctx context.Context) (map[string]policyMapEntry, error) {
 	results := map[string]policyMapEntry{}
 	cpols, err := c.cpolLister.List(labels.Everything())
 	if err != nil {
@@ -170,7 +170,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: cpol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogen.Default.ComputeRules(cpol, "") {
+		for _, rule := range autogen.Default(ctx).ComputeRules(cpol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
@@ -187,7 +187,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: pol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogen.Default.ComputeRules(pol, "") {
+		for _, rule := range autogen.Default(ctx).ComputeRules(pol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
@@ -424,7 +424,7 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 		}
 	}()
 	// aggregate reports
-	policyMap, err := c.createPolicyMap()
+	policyMap, err := c.createPolicyMap(ctx)
 	if err != nil {
 		return err
 	}

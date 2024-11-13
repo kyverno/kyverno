@@ -123,7 +123,7 @@ func (e *engine) Generate(
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
-		policyResponse := e.generateResponse(logger, policyContext)
+		policyResponse := e.generateResponse(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
@@ -158,7 +158,7 @@ func (e *engine) ApplyBackgroundChecks(
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
-		policyResponse := e.applyBackgroundChecks(logger, policyContext)
+		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
