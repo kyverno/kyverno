@@ -14,6 +14,19 @@ results:
   result: pass
   rule: check-image-base-rule
 - kind: Pod
+  policy: check-manifest-list
+  resources:
+  - test-pod-with-single-arch-no-index
+  result: fail
+  rule: check-manifest-list-rule
+- kind: Pod
+  policy: check-manifest-list
+  resources:
+  - test-pod-with-trusted-registry
+  - test-pod-with-single-arch-index
+  result: pass
+  rule: check-manifest-list-rule
+- kind: Pod
   policy: images
   resources:
   - test-pod-with-non-root-user-image
