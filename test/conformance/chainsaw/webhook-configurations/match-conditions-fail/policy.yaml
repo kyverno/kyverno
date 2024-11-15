@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: refresh-env-var-in-pods
+spec:
+  webhookConfiguration:
+    matchConditions:
+      - name: "exclude-managed-pod"
+        expression: '!("ownerReferences" in request.object.metadata.keys(@))'
+  rules:
+    - name: refresh-from-secret-env
+      match:
+        any:
+          - resources:
+              kinds:
+                - Secret
+      validate:
+        pattern:
+          metadata:
+            labels:
+              foo: bar
