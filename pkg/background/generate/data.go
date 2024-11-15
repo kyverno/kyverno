@@ -26,6 +26,8 @@ func manageData(log logr.Logger, target kyvernov1.ResourceSpec, data interface{}
 	if err != nil && apierrors.IsNotFound(err) {
 		// the target resource should always exist regardless of synchronize settings
 		return newCreateGenerateResponse(resource, target, nil)
+	} else if err != nil {
+		return newSkipGenerateResponse(nil, target, err)
 	}
 
 	log.V(4).Info("found target resource")
