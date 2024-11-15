@@ -411,7 +411,7 @@ func (c *GenerateController) createReports(
 	resource unstructured.Unstructured,
 	engineResponses ...engineapi.EngineResponse,
 ) error {
-	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GetName(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
+	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
 		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
