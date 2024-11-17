@@ -80,6 +80,11 @@ type validationHandler struct {
 	reportsBreaker   breaker.Breaker
 }
 
+var allowedServiceAccounts = []string{
+	"system:serviceaccount:kube-system:replicaset-controller",
+	"system:serviceaccount:kube-system:deployment-controller",
+}
+
 func (v *validationHandler) HandleValidationEnforce(
 	ctx context.Context,
 	request handlers.AdmissionRequest,
@@ -92,6 +97,12 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	if len(policies) == 0 && len(auditWarnPolicies) == 0 {
 		return true, "", nil, nil
+	}
+
+	for _, sa := range allowedServiceAccounts {
+		if request.UserInfo.Username == sa {
+			return true, "", nil, nil
+		}
 	}
 
 	policyContext, err := v.buildPolicyContextFromAdmissionRequest(logger, request)
