@@ -381,7 +381,8 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 
 func extractPatchedTargetFromEngineResponse(resourceName string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
 	for _, rule := range response.PolicyResponse.Rules {
-		if r, _, _ := rule.PatchedTarget(); r.GetName() == resourceName {
+		r, _, _ := rule.PatchedTarget()
+		if r != nil && r.GetName() == resourceName {
 			return r, &rule
 		}
 	}
