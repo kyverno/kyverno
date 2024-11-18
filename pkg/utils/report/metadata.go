@@ -115,11 +115,9 @@ func SetResourceUid(report reportsv1.ReportInterface, uid types.UID) {
 }
 
 func SetResourceGVR(report reportsv1.ReportInterface, gvr schema.GroupVersionResource) {
-	if gvr.Group != "" {
-		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version+"."+gvr.Group)
-	} else {
-		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version)
-	}
+	controllerutils.SetLabel(report, LabelResourceGroup, gvr.Group)
+	controllerutils.SetLabel(report, LabelResourceVersion, gvr.Version)
+	controllerutils.SetLabel(report, LabelResourceKind, gvr.Resource)
 }
 
 func SetResourceGVK(report reportsv1.ReportInterface, gvk schema.GroupVersionKind) {
@@ -181,16 +179,26 @@ func GetResourceUid(report metav1.Object) types.UID {
 }
 
 func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
-	arg := controllerutils.GetLabel(report, LabelResourceGVR)
-	dots := strings.Count(arg, ".")
+	group := controllerutils.GetLabel(report, LabelResourceGroup)
+	version := controllerutils.GetLabel(report, LabelResourceVersion)
+	resource := controllerutils.GetLabel(report, LabelResourceKind)
+
+	// If all three parts exist, return the GVR
+	if group != "" && version != "" && resource != "" {
+		return schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+	}
+
+	// Fallback to the old combined label
+	combinedGVR := controllerutils.GetLabel(report, LabelResourceGVR)
+	dots := strings.Count(combinedGVR, ".")
 	if dots >= 2 {
-		s := strings.SplitN(arg, ".", 3)
+		s := strings.SplitN(combinedGVR, ".", 3)
 		return schema.GroupVersionResource{Group: s[2], Version: s[1], Resource: s[0]}
 	} else if dots == 1 {
-		s := strings.SplitN(arg, ".", 2)
+		s := strings.SplitN(combinedGVR, ".", 2)
 		return schema.GroupVersionResource{Version: s[1], Resource: s[0]}
 	}
-	return schema.GroupVersionResource{Resource: arg}
+	return schema.GroupVersionResource{Resource: combinedGVR}
 }
 
 func GetResourceNamespaceAndName(report metav1.Object) (string, string) {
