@@ -61,7 +61,7 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 	var s kyvernov1.TargetSelector
 	jsonData, err := json.Marshal(target)
 	if err != nil {
-		return kyvernov1.TargetSelector{}, fmt.Errorf("Failed to marshal the label selector to json: %s", err)
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to marshal the mutation target to JSON: %s", err)
 	}
 
 	var result map[string]interface{}
