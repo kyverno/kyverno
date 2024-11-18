@@ -34,9 +34,7 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: fixed
-      description: switch to post-delete helm hook to clean up Kyverno configmap
-    - kind: fixed
-      description: modify config.webhooks to be as a single object instead of a list of webhooks.
+      description: fix validation error in validate.yaml
 dependencies:
   - name: grafana
     version: 3.3.3
