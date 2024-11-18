@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -10,6 +12,10 @@ func SetLabel(obj metav1.Object, key, value string) map[string]string {
 	labels := obj.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
+	}
+	if len(value) > 63 {
+		hash := sha256.Sum256([]byte(value))     //to hash
+		value = hex.EncodeToString(hash[:])[:63] // Truncate to 63 characters
 	}
 	labels[key] = value
 	obj.SetLabels(labels)
