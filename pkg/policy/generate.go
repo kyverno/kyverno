@@ -22,7 +22,7 @@ import (
 
 func (pc *policyController) handleGenerate(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleGenerate").WithName(policyKey)
-	logger.Info("update URs on policy event")
+	logger.V(4).Info("update URs on policy event")
 
 	if err := pc.syncDataPolicyChanges(policy, false); err != nil {
 		logger.Error(err, "failed to create UR on policy event")
@@ -65,7 +65,7 @@ func (pc *policyController) syncDataPolicyChanges(policy kyvernov1.PolicyInterfa
 	if len(ur.Spec.RuleContext) == 0 {
 		return multierr.Combine(errs...)
 	}
-	pc.log.V(2).WithName("syncDataPolicyChanges").Info("creating new UR for generate")
+	pc.log.V(4).WithName("syncDataPolicyChanges").Info("creating new UR for generate")
 	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 	if err != nil {
 		errs = append(errs, err)
@@ -124,7 +124,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		return multierr.Combine(errors...)
 	}
 
-	logger.V(2).Info("creating new UR for generate")
+	logger.V(4).Info("creating new UR for generate")
 	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 	if err != nil {
 		errors = append(errors, err)
@@ -181,7 +181,7 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		return multierr.Combine(errs...)
 	}
 
-	pc.log.V(2).WithName("createURForDownstreamDeletion").Info("creating new UR for generate")
+	pc.log.V(4).WithName("createURForDownstreamDeletion").Info("creating new UR for generate")
 	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 	if err != nil {
 		errs = append(errs, err)
