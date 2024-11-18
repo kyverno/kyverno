@@ -71,7 +71,7 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 
 	selector, err := variables.SubstituteAll(logger, ctx.JSONContext(), result)
 	if err != nil || selector == nil {
-		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d].Selector %s, value: %v, err: %v", i, target.Selector, selector, err)
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d]: %v", i, err)
 	}
 
 	substitutedJson, err := json.Marshal(selector)
