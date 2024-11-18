@@ -43,7 +43,7 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	} else {
 		report = &reportsv1.EphemeralReport{}
 	}
-	report.SetName(name)
+	report.SetGenerateName(name + "-")
 	report.SetNamespace(namespace)
 	controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, owner, uid)
 	SetResourceUid(report, uid)
@@ -60,14 +60,14 @@ func BuildMutationReport(resource unstructured.Unstructured, request admissionv1
 	return report
 }
 
-func BuildMutateExistingReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
-	report := NewBackgroundScanReport(namespace, name, gvk, owner, uid)
+func BuildMutateExistingReport(namespace string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewBackgroundScanReport(namespace, string(uid), gvk, owner, uid)
 	SetMutationResponses(report, responses...)
 	return report
 }
 
-func BuildGenerateReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
-	report := NewBackgroundScanReport(namespace, name, gvk, owner, uid)
+func BuildGenerateReport(namespace string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewBackgroundScanReport(namespace, string(uid), gvk, owner, uid)
 	SetGenerationResponses(report, responses...)
 	return report
 }
