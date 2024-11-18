@@ -156,9 +156,11 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
 		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
 		if err != nil {
+			fmt.Fprintf(out, "  skipping invalid policy %s: %s\n", pol.GetName(), err)
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
 		}
+
 		validPolicies = append(validPolicies, pol)
 	}
 	// execute engine

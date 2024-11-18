@@ -123,7 +123,7 @@ func testCommandExecute(
 			}
 			fmt.Fprintln(out, "  Checking results ...")
 			var resultsTable table.Table
-			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
+			if err := printTestResult(out, filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			if err := printCheckResult(test.Test.Checks, responses, rc, &resultsTable); err != nil {
@@ -168,12 +168,13 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, err := getAndCompareResource(rule.GeneratedResources(), fs, filepath.Join(resoucePath, test.GeneratedResource))
+		fullpath := filepath.Join(resoucePath, test.GeneratedResource)
+		equals, err := getAndCompareResource(rule.GeneratedResources(), fs, fullpath)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
 		if !equals {
-			return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
+			return false, "Generated resource didn't match the generated resource in the test result: " + fullpath, "Resource diff"
 		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
@@ -183,7 +184,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	return true, result.Message, "Ok"
 }
 
-func lookupEngineResponses(test v1alpha1.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
+func lookupEngineResponses(out io.Writer, test v1alpha1.TestResult, resourceName string, responses ...engineapi.EngineResponse) []engineapi.EngineResponse {
 	matches := make([]engineapi.EngineResponse, 0, len(responses))
 	for _, response := range responses {
 		policy := response.Policy()

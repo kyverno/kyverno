@@ -161,6 +161,7 @@ func printCheckResult(
 }
 
 func printTestResult(
+	out io.Writer,
 	tests []v1alpha1.TestResult,
 	responses []engineapi.EngineResponse,
 	rc *resultCounts,
@@ -172,7 +173,7 @@ func printTestResult(
 	for _, test := range tests {
 		// lookup matching engine responses (without the resource name)
 		// to reduce the search scope
-		responses := lookupEngineResponses(test, "", responses...)
+		responses := lookupEngineResponses(out, test, "", responses...)
 		// TODO fix deprecated fields
 		// identify the resources to be looked up
 		var resources []string
@@ -184,7 +185,7 @@ func printTestResult(
 		for _, resource := range resources {
 			var rows []table.Row
 			// lookup matching engine responses (with the resource name this time)
-			for _, response := range lookupEngineResponses(test, resource, responses...) {
+			for _, response := range lookupEngineResponses(out, test, resource, responses...) {
 				// lookup matching rule responses
 				for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
 					// perform test checks

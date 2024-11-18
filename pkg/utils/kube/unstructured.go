@@ -3,6 +3,7 @@ package kube
 import (
 	"encoding/json"
 
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -27,4 +28,13 @@ func ObjToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 	return &unstructured.Unstructured{Object: unstrObj}, nil
+}
+
+func UnstructuredToBytes(obj *unstructured.Unstructured) ([]byte, error) {
+	raw, err := yaml.Marshal(obj.Object)
+
+	if err != nil {
+		return nil, err
+	}
+	return raw, err
 }
