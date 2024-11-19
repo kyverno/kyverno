@@ -12,7 +12,7 @@ import (
 
 func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleMutate").WithName(policyKey)
-	logger.Info("update URs on policy event")
+	logger.V(4).Info("update URs on policy event")
 
 	ruleType := kyvernov2.Mutate
 	spec := policy.GetSpec()
@@ -42,7 +42,7 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 				continue
 			}
 
-			logger.Info("creating new UR for mutate")
+			logger.V(4).Info("creating new UR for mutate")
 			ur := newMutateUR(policy, backgroundcommon.ResourceSpecFromUnstructured(*trigger), rule.Name)
 			skip, err := pc.handleUpdateRequest(ur, trigger, rule.Name, policyNew)
 			if err != nil {
