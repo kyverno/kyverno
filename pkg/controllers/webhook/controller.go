@@ -528,7 +528,7 @@ func (c *controller) isGlobalContextEntryReady(name string, gctxentries []*kyver
 	return false
 }
 
-func (c *controller) updatePolicyStatuses(ctx context.Context) error {
+func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	policies, err := c.getAllPolicies()
@@ -546,10 +546,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		}
 		ready, message := true, "Ready"
 		if c.autoUpdateWebhooks {
-			for _, set := range c.policyState {
+			if set, ok := c.policyState[webhookType]; ok {
 				if !set.Has(policyKey) {
 					ready, message = false, "Not Ready"
-					break
 				}
 			}
 		}
@@ -670,7 +669,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
 				return err
 			}
-			if err := c.updatePolicyStatuses(ctx); err != nil {
+			if err := c.updatePolicyStatuses(ctx, config.MutatingWebhookConfigurationName); err != nil {
 				return err
 			}
 		}
@@ -681,7 +680,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
 				return err
 			}
-			if err := c.updatePolicyStatuses(ctx); err != nil {
+			if err := c.updatePolicyStatuses(ctx, config.ValidatingWebhookConfigurationName); err != nil {
 				return err
 			}
 		}
