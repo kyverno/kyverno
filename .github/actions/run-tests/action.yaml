@@ -88,7 +88,7 @@ runs:
 
         echo "::set-output name=prev_version::$INSTALL_VERSION"
     - name: Checkout Previous Version
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       if: ${{ steps.determine-prev-version.outputs.prev_version != 'none' }}
       with:
         repository: kyverno/kyverno
@@ -142,7 +142,7 @@ runs:
 
         echo "::set-output name=next_version::$INSTALL_VERSION"
     - name: Checkout Next Version
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       if: ${{ steps.determine-next-version.outputs.next_version != 'main' }}
       with:
         repository: kyverno/kyverno
