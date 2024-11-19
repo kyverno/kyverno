@@ -59,7 +59,7 @@ func loadTargets(ctx context.Context, client engineapi.Client, targets []kyverno
 
 func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyvernov1.TargetSelector, error) {
 	var s kyvernov1.TargetSelector
-	jsonData, err := json.Marshal(target)
+	jsonData, err := json.Marshal(target.TargetSelector)
 	if err != nil {
 		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to marshal the mutation target to JSON: %s", err)
 	}
