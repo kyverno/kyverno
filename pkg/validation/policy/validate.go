@@ -135,6 +135,9 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
+	if policy.GetKind() == "ClusterPolicy" && policy.GetNamespace() != "" {
+		logging.Error(errors.New("ClusterPolicy should not be namespaced"), "Namespace field to a cluster-scoped resource is disregarded")
+	}
 	if policy.GetSpec().CustomWebhookMatchConditions() &&
 		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
