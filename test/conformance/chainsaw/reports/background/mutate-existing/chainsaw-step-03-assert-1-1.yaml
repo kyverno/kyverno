@@ -1,0 +1,22 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  namespace: staging
+results:
+- message: mutated Secret/secret-1 in namespace staging
+  policy: mutate-existing-secret
+  properties:
+    patched-target: /v1, Kind=Secret Name=secret-1 Namespace=staging
+  result: pass
+  rule: mutate-secret-on-configmap-create
+  scored: true
+  source: kyverno
+summary:
+  error: 0
+  fail: 0
+  pass: 1
+  skip: 0
+  warn: 0

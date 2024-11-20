@@ -120,7 +120,7 @@ func (h validateAssertHandler) Process(
 		}
 
 		// process the old object for UPDATE admission requests in case of enforce policies
-		if action == kyvernov1.Enforce {
+		if action.Enforce() {
 			allowExisitingViolations := rule.HasValidateAllowExistingViolations()
 			if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
 				errs, err := validateOldObject(ctx, policyContext, rule, payload, bindings)
@@ -156,7 +156,7 @@ func validateOldObject(ctx context.Context, policyContext engineapi.PolicyContex
 
 	oldResource := policyContext.OldResource()
 
-	if ok := matchResource(oldResource, rule); !ok {
+	if ok := matchResource(oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
 		return nil, nil
 	}
 

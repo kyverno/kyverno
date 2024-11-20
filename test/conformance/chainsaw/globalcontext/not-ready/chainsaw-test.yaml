@@ -14,12 +14,21 @@ spec:
         file: gctxentry.yaml
     - sleep:
         duration: 3s
-    - apply:
-        file: clusterpolicy.yaml
-    - sleep:
-        duration: 3s
-    - assert:
-        file: clusterpolicy-ready.yaml
+  - name: create policy
+    use:
+      template: ../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: cpol-not-ready
+  - try:
     - delete:
         ref:
           apiVersion: kyverno.io/v2alpha1
@@ -28,7 +37,7 @@ spec:
     - sleep:
         duration: 3s
     - assert:
-        file: clusterpolicy-failed.yaml
+        file: policy-failed.yaml
     - apply:
         file: new-deployment.yaml
     - assert:

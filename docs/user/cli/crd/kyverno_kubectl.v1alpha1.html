@@ -1691,8 +1691,40 @@ Possible values are pass, fail and skip.</p>
         <td>
           
 
-          <p>PatchedResource takes a resource configuration file in yaml format from
+          <p>Deprecated. Use <code>patchedResources</code> instead.
+PatchedResource takes a resource configuration file in yaml format from
 the user to compare it against the Kyverno mutated resource configuration.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>patchedResources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PatchedResource takes a resource configuration file in yaml format from
+the user to compare it against the Kyverno mutated resource configuration.
+Multiple resources can be passed in the same file</p>
 
 
           

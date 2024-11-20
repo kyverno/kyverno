@@ -55,7 +55,7 @@ func buildFuzzContext(ff *fuzz.ConsumeFuzzer) (*PolicyContext, error) {
 	cpol := &kyverno.ClusterPolicy{}
 	cpol.Spec = cpSpec
 
-	if len(autogen.ComputeRules(cpol, "")) == 0 {
+	if len(autogen.Default.ComputeRules(cpol, "")) == 0 {
 		return nil, fmt.Errorf("No rules created")
 	}
 
@@ -145,7 +145,7 @@ func FuzzEngineValidateTest(f *testing.F) {
 		policy := &kyverno.ClusterPolicy{}
 		policy.Spec = cpSpec
 
-		if len(autogen.ComputeRules(policy, "")) == 0 {
+		if len(autogen.Default.ComputeRules(policy, "")) == 0 {
 			return
 		}
 
@@ -241,7 +241,7 @@ func FuzzMutateTest(f *testing.F) {
 		policy := &kyverno.ClusterPolicy{}
 		policy.Spec = cpSpec
 
-		if len(autogen.ComputeRules(policy, "")) == 0 {
+		if len(autogen.Default.ComputeRules(policy, "")) == 0 {
 			return
 		}
 

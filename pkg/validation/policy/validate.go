@@ -27,15 +27,18 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
+	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/cel/openapi/resolver"
 	"k8s.io/client-go/discovery"
@@ -148,6 +151,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
 
+	mc := spec.GetMatchConditions()
+	if mc != nil {
+		if err := ValidateCustomWebhookMatchConditions(spec.GetMatchConditions()); err != nil {
+			return warnings, err
+		}
+	}
+
 	err := ValidateVariables(policy, background)
 	if err != nil {
 		return warnings, err
@@ -232,7 +242,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		return warnings, err
 	}
 
-	rules := autogen.ComputeRules(policy, "")
+	rules := autogen.Default.ComputeRules(policy, "")
 	rulesPath := specPath.Child("rules")
 
 	for i, rule := range rules {
@@ -531,6 +541,18 @@ func isGlobalContextEntryReady(name string, gctxentries *kyvernov2alpha1.GlobalC
 	return false
 }
 
+func ValidateCustomWebhookMatchConditions(wc []admissionregistrationv1.MatchCondition) error {
+	c, err := celutils.NewCompiler(nil, nil, wc, nil)
+	if err != nil {
+		return err
+	}
+	f := c.CompileMatchExpressions(cel.OptionalVariableDeclarations{})
+	if len(f.CompilationErrors()) > 0 {
+		return fmt.Errorf("match conditions compilation errors: %v", f.CompilationErrors())
+	}
+	return nil
+}
+
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 	vars, err := hasVariables(p)
 	if err != nil {
@@ -549,7 +571,7 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 
 // hasInvalidVariables - checks for unexpected variables in the policy
 func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) error {
-	for _, r := range autogen.ComputeRules(policy, "") {
+	for _, r := range autogen.Default.ComputeRules(policy, "") {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {
