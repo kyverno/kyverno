@@ -193,7 +193,7 @@ func (c *GenerateController) getTriggerForCreateOperation(spec kyvernov2.UpdateR
 				c.log.Error(err, "failed to extract resources from admission review request")
 				return nil, err
 			}
-			trigger = &newResource
+			return &newResource, nil
 		}
 	}
 	return trigger, err
