@@ -381,7 +381,7 @@ func (p *PolicyProcessor) printMutatedOutput(yaml string) error {
 		}
 		file = f
 	} else {
-		f, err := os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304
+		f, err := os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
 		if err != nil {
 			return err
 		}
