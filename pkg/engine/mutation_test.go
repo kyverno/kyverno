@@ -1522,6 +1522,163 @@ func Test_mutate_existing_resources(t *testing.T) {
 			targetList: "DeploymentList",
 		},
 		{
+			name: "test-labelselector-variables",
+			policy: []byte(`{
+				        "apiVersion": "kyverno.io/v1",
+				        "kind": "ClusterPolicy",
+				        "metadata": {
+				            "name": "test-post-mutation"
+				        },
+				        "spec": {
+				            "rules": [
+				                {
+				                    "name": "mutate-deploy-on-configmap-update",
+				                    "match": {
+				                        "any": [
+				                            {
+				                                "resources": {
+				                                    "kinds": [
+				                                        "ConfigMap"
+				                                    ],
+				                                    "names": [
+				                                        "dictionary"
+				                                    ],
+				                                    "namespaces": [
+				                                        "staging"
+				                                    ]
+				                                }
+				                            }
+				                        ]
+				                    },
+				                    "preconditions": {
+				                        "any": [
+				                            {
+				                                "key": "{{ request.object.data.foo }}",
+				                                "operator": "Equals",
+				                                "value": "bar"
+				                            }
+				                        ]
+				                    },
+				                    "mutate": {
+				                        "targets": [
+				                            {
+				                                "apiVersion": "v1",
+				                                "kind": "Deployment",
+				                                "namespace": "staging",
+                                        "selector": {
+                                          "matchLabels": {
+                                            "parent": "{{ request.object.metadata.name }}"
+                                        }
+                                      }
+				                            }
+				                        ],
+				                        "patchStrategicMerge": {
+				                            "metadata": {
+				                                "labels": {
+				                                    "foo": "bar"
+				                                }
+				                            }
+				                        }
+				                    }
+				                }
+				            ]
+				        }
+				    }`),
+			trigger: []byte(`{
+				    "apiVersion": "v1",
+				    "data": {
+				        "foo": "bar"
+				    },
+				    "kind": "ConfigMap",
+				    "metadata": {
+				        "name": "dictionary",
+				        "namespace": "staging"
+				    }
+				}`),
+			targets: [][]byte{[]byte(`{
+				    "apiVersion": "apps/v1",
+				    "kind": "Deployment",
+				    "metadata": {
+				        "name": "example-A",
+				        "namespace": "staging",
+				        "labels": {
+                    "parent": "dictionary",
+				            "app": "nginx"
+				        }
+				    },
+				    "spec": {
+				        "replicas": 1,
+				        "selector": {
+				            "matchLabels": {
+				                "app": "nginx"
+				            }
+				        },
+				        "template": {
+				            "metadata": {
+				                "labels": {
+				                    "app": "nginx"
+				                }
+				            },
+				            "spec": {
+				                "containers": [
+				                    {
+				                        "name": "nginx",
+				                        "image": "nginx:1.14.2",
+				                        "ports": [
+				                            {
+				                                "containerPort": 80
+				                            }
+				                        ]
+				                    }
+				                ]
+				            }
+				        }
+				    }
+				}`)},
+			patchedTargets: [][]byte{[]byte(`{
+		      "apiVersion": "apps/v1",
+		      "kind": "Deployment",
+		      "metadata": {
+		          "name": "example-A",
+		          "namespace": "staging",
+		          "labels": {
+		              "app": "nginx",
+                  "parent": "dictionary",
+		              "foo": "bar"
+		          }
+		      },
+		      "spec": {
+		          "replicas": 1,
+		          "selector": {
+		              "matchLabels": {
+		                  "app": "nginx"
+		              }
+		          },
+		          "template": {
+		              "metadata": {
+		                  "labels": {
+		                      "app": "nginx"
+		                  }
+		              },
+		              "spec": {
+		                  "containers": [
+		                      {
+		                          "name": "nginx",
+		                          "image": "nginx:1.14.2",
+		                          "ports": [
+		                              {
+		                                  "containerPort": 80
+		                              }
+		                          ]
+		                      }
+		                  ]
+		              }
+		          }
+		      }
+		  }`)},
+			targetList: "DeploymentList",
+		},
+		{
 			name: "test-different-trigger-target",
 			policy: []byte(`{
 				        "apiVersion": "kyverno.io/v1",
