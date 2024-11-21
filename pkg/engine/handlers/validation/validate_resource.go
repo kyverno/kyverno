@@ -184,15 +184,16 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if ok := matchResource(oldResource, v.rule, v.policyContext.NamespaceLabels(), v.policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
-		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", v.rule.ReportProperties), nil
-	}
-
 	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")
 	}
+
 	if err := v.policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
 		return nil, errors.Wrapf(err, "failed to set operation")
+	}
+
+	if ok := matchResource(v.log, oldResource, v.rule, v.policyContext.NamespaceLabels(), v.policyContext.Policy().GetNamespace(), kyvernov1.Create, v.policyContext.JSONContext()); !ok {
+		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", nil), nil
 	}
 
 	resp := v.validate(ctx)

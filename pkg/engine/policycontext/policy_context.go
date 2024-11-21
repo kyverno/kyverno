@@ -82,6 +82,11 @@ func (c *PolicyContext) SetResources(oldResource, newResource unstructured.Unstr
 	return nil
 }
 
+func (c *PolicyContext) SetOperation(operation kyvernov1.AdmissionOperation) error {
+	c.operation = operation
+	return c.jsonContext.AddOperation(string(operation))
+}
+
 func (c *PolicyContext) RequestResource() metav1.GroupVersionResource {
 	return c.requestResource
 }
@@ -104,14 +109,6 @@ func (c *PolicyContext) AdmissionInfo() kyvernov2.RequestInfo {
 
 func (c *PolicyContext) Operation() kyvernov1.AdmissionOperation {
 	return c.operation
-}
-
-func (c *PolicyContext) SetOperation(op kyvernov1.AdmissionOperation) error {
-	c.operation = op
-	if err := c.jsonContext.AddOperation(string(op)); err != nil {
-		return errors.Wrapf(err, "failed to replace old object in the JSON context")
-	}
-	return nil
 }
 
 func (c *PolicyContext) NamespaceLabels() map[string]string {
