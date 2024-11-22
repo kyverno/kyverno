@@ -51,6 +51,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Running as root is not allowed. Either the field spec.securityContext.runAsNonRoot
           must be set to `true`, or the fields spec.containers[*].securityContext.runAsNonRoot,
