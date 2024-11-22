@@ -161,19 +161,23 @@ func validateOldObject(ctx context.Context, logger logr.Logger, policyContext en
 		return nil, errors.Wrapf(err, "failed to set operation")
 	}
 
+	payload["object"] = policyContext.OldResource().Object
+	payload["oldObject"] = nil
+	payload["operation"] = kyvernov1.Create
+
 	defer func() {
 		if err = policyContext.SetOperation(kyvernov1.Update); err != nil {
 			logger.Error(errors.Wrapf(err, "failed to reset operation"), "")
 		}
+
+		payload["object"] = policyContext.NewResource().Object
+		payload["oldObject"] = policyContext.OldResource().Object
+		payload["operation"] = kyvernov1.Update
 	}()
 
 	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); !ok {
 		return
 	}
-
-	payload["object"] = policyContext.OldResource().Object
-	payload["oldObject"] = nil
-	payload["operation"] = kyvernov1.Create
 
 	assertion := assert.Parse(ctx, rule.Validation.Assert.Value)
 	errs, err = assert.Assert(ctx, nil, assertion, payload, bindings)
