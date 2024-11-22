@@ -55,20 +55,28 @@
 {{- end -}}
 
 {{- define "kyverno.config.webhooks" -}}
-{{- $webhooks := .Values.config.webhooks -}}
 {{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list (include "kyverno.namespace" .)) }}
-  {{- if $webhooks | typeIs "slice" -}}
-    {{- $newWebhooks := dict -}}
-    {{- range $index, $webhook := $webhooks -}}
-      {{- if $webhook.namespaceSelector -}}
-        {{- $namespaceSelector := $webhook.namespaceSelector }}
-        {{- $newWebhooks := merge $newWebhooks (dict "namespaceSelector" $namespaceSelector) }}
-      {{- end -}}
+{{- $webhooks := .Values.config.webhooks -}}
+{{- if $webhooks | typeIs "slice" -}}
+  {{- $newWebhooks := dict -}}
+  {{- range $index, $webhook := $webhooks -}}
+    {{- if $webhook.namespaceSelector -}}
+      {{- $namespaceSelector := $webhook.namespaceSelector }}
+      {{- $matchExpressions := default (list) $namespaceSelector.matchExpressions }}
+      {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
+      {{- $newWebhook := merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector) }}
+      {{- $newWebhooks = merge $newWebhooks (dict $webhook.name $newWebhook) }}
     {{- end -}}
-    {{- $newWebhooks | toJson | nindent 2 }}
-  {{- else -}}
-    {{- .Values.config.webhooks | toJson | nindent 2 }}
   {{- end -}}
+  {{- $newWebhooks | toYaml | nindent 2 }}
+{{- else -}}
+  {{- $webhook := $webhooks }}
+  {{- $namespaceSelector := default (dict) $webhook.namespaceSelector }}
+  {{- $matchExpressions := default (list) $namespaceSelector.matchExpressions }}
+  {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
+  {{- $newWebhook := merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector) }}
+  {{- $newWebhook | toYaml | nindent 2 }}
+{{- end -}}
 {{- end -}}
 
 {{- define "kyverno.config.imagePullSecret" -}}
