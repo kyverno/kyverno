@@ -167,7 +167,7 @@ func validateOldObject(ctx context.Context, logger logr.Logger, policyContext en
 		}
 	}()
 
-	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); ok {
+	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); !ok {
 		return
 	}
 
