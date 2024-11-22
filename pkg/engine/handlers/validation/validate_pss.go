@@ -172,7 +172,7 @@ func (h validatePssHandler) validateOldObject(
 	rule kyvernov1.Rule,
 	engineLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
-) (*engineapi.RuleResponse, error) {
+) (resp *engineapi.RuleResponse, err error) {
 	if policyContext.Operation() != kyvernov1.Update {
 		return nil, nil
 	}
@@ -181,28 +181,30 @@ func (h validatePssHandler) validateOldObject(
 	oldResource := policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if err := policyContext.SetResources(emptyResource, oldResource); err != nil {
+	if err = policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")
 	}
-	if err := policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
+	if err = policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
 		return nil, errors.Wrapf(err, "failed to set operation")
 	}
 
+	defer func() {
+		if err = policyContext.SetResources(oldResource, newResource); err != nil {
+			logger.Error(errors.Wrapf(err, "failed to reset resources"), "")
+		}
+
+		if err = policyContext.SetOperation(kyvernov1.Update); err != nil {
+			logger.Error(errors.Wrapf(err, "failed to reset operations"), "")
+		}
+	}()
+
 	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); !ok {
-		return nil, nil
+		return
 	}
 
-	_, resp := h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
+	_, resp = h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
 
-	if err := policyContext.SetResources(oldResource, newResource); err != nil {
-		return nil, errors.Wrapf(err, "failed to reset resources")
-	}
-
-	if err := policyContext.SetOperation(kyvernov1.Update); err != nil {
-		return nil, errors.Wrapf(err, "failed to reset operation")
-	}
-
-	return resp, nil
+	return
 }
 
 func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []pssutils.PSSCheckResult) {

@@ -12,9 +12,11 @@ import (
 )
 
 func matchResource(logger logr.Logger, resource unstructured.Unstructured, rule kyvernov1.Rule, namespaceLabels map[string]string, policyNamespace string, operation kyvernov1.AdmissionOperation, jsonContext enginecontext.Interface) bool {
-	preconditionsPassed, _, err := internal.CheckPreconditions(logger, jsonContext, rule.RawAnyAllConditions)
-	if !preconditionsPassed || err != nil {
-		return false
+	if rule.RawAnyAllConditions != nil {
+		preconditionsPassed, _, err := internal.CheckPreconditions(logger, jsonContext, rule.RawAnyAllConditions)
+		if !preconditionsPassed || err != nil {
+			return false
+		}
 	}
 
 	// cannot use admission info from the current request as the user can be different, if the rule matches on old request user info, it should skip
@@ -28,7 +30,7 @@ func matchResource(logger logr.Logger, resource unstructured.Unstructured, rule 
 		},
 	}
 
-	err = engineutils.MatchesResourceDescription(
+	err := engineutils.MatchesResourceDescription(
 		resource,
 		rule,
 		admissionInfo,
