@@ -200,7 +200,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var targetResources []*unstructured.Unstructured
 	if len(c.TargetResourcePaths) > 0 {
-		targetResources, err = common.GetResources(out, policies, vaps, c.TargetResourcePaths, nil, false, c.Namespace, false)
+		targetResources, err = c.loadResources(out, c.TargetResourcePaths, policies, vaps, nil)
 		if err != nil {
 			return rc, resources1, skipInvalidPolicies, responses1, err
 		}
