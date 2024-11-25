@@ -2,6 +2,7 @@ package mutation
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -57,31 +58,32 @@ func loadTargets(ctx context.Context, client engineapi.Client, targets []kyverno
 }
 
 func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyvernov1.TargetSelector, error) {
-	kind, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Kind)
+	var s kyvernov1.TargetSelector
+	jsonData, err := json.Marshal(target.TargetSelector)
 	if err != nil {
-		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s, value: %v, err: %v", i, target.Kind, kind, err)
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to marshal the mutation target to JSON: %s", err)
 	}
-	apiversion, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.APIVersion)
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(jsonData, &result); err != nil {
+		return kyvernov1.TargetSelector{}, err
+	}
+
+	selector, err := variables.SubstituteAll(logger, ctx.JSONContext(), result)
+	if err != nil || selector == nil {
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d]: %v", i, err)
+	}
+
+	substitutedJson, err := json.Marshal(selector)
 	if err != nil {
-		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s, value: %v, err: %v", i, target.APIVersion, apiversion, err)
+		return kyvernov1.TargetSelector{}, err
 	}
-	namespace, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Namespace)
-	if err != nil || namespace == nil {
-		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s, value: %v, err: %v", i, target.Namespace, namespace, err)
+
+	if err := json.Unmarshal(substitutedJson, &s); err != nil {
+		return kyvernov1.TargetSelector{}, err
 	}
-	name, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Name)
-	if err != nil || name == nil {
-		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s, value: %v, err: %v", i, target.Name, name, err)
-	}
-	return kyvernov1.TargetSelector{
-		ResourceSpec: kyvernov1.ResourceSpec{
-			APIVersion: apiversion.(string),
-			Kind:       kind.(string),
-			Namespace:  namespace.(string),
-			Name:       name.(string),
-		},
-		Selector: target.Selector,
-	}, nil
+
+	return s, nil
 }
 
 func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.ResourceSpec, policyCtx engineapi.PolicyContext, lselector *metav1.LabelSelector) ([]resourceInfo, error) {
