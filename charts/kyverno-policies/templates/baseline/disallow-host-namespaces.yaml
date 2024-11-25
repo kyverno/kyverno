@@ -32,7 +32,7 @@ spec:
         - resources:
             kinds:
               - Pod
-      {{- with index .Values "policyExclude" $name }}
+      {{- with merge (index .Values "policyExclude" "host-namespaces") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
