@@ -309,7 +309,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 					labels = append(labels, attribute.String("deletion_policy", string(*deleteOptions.PropagationPolicy)))
 				}
 				logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, metav1.DeleteOptions{}); err != nil {
+				if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
 					if c.metrics.cleanupFailuresTotal != nil {
 						c.metrics.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 					}
