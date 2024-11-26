@@ -136,7 +136,8 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	if policy.GetKind() == "ClusterPolicy" && policy.GetNamespace() != "" {
-		logging.Error(errors.New("ClusterPolicy should not be namespaced"), "Namespace field to a cluster-scoped resource is disregarded")
+		warnings = append(warnings, "A clusterpolicy should not have the namespace defined")
+		return warnings, nil
 	}
 	if policy.GetSpec().CustomWebhookMatchConditions() &&
 		!kubeutils.HigherThanKubernetesVersion(client.GetKubeClient().Discovery(), logging.GlobalLogger(), 1, 27, 0) {

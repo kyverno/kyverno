@@ -150,16 +150,34 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 		}
 	}
 	// validate policies
-	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
+	type PolicyWithWarning struct {
+		Policy  kyvernov1.PolicyInterface
+		Warning string
+	}
+
+	validPolicies := make([]PolicyWithWarning, 0, len(results.Policies))
 	for _, pol := range results.Policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
+		warning, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
 		}
-		validPolicies = append(validPolicies, pol)
+		warningMessage := ""
+		if len(warning) > 0 {
+			warningMessage = warning[0]
+		}
+		validPolicies = append(validPolicies, PolicyWithWarning{
+			Policy:  pol,
+			Warning: warningMessage,
+		})
+	}
+	policies := make([]kyvernov1.PolicyInterface, 0, len(validPolicies))
+	var warnings []string
+	for _, policyWithWarning := range validPolicies {
+		policies = append(policies, policyWithWarning.Policy)
+		warnings = append(warnings, policyWithWarning.Warning)
 	}
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
@@ -167,7 +185,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 	for _, resource := range uniques {
 		processor := processor.PolicyProcessor{
 			Store:                     &store,
-			Policies:                  validPolicies,
+			Policies:                  policies,
 			Resource:                  *resource,
 			PolicyExceptions:          exceptions,
 			MutateLogPath:             "",
@@ -184,6 +202,25 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
+		}
+		for i := range ers {
+			rules := ers[i].PolicyResponse.Rules
+
+			for j := range rules {
+				if j >= len(warnings) {
+					break
+				}
+
+				// Create a new RuleResponse with the updated message
+				newRuleResponse := engineapi.NewRuleResponse(
+					rules[j].Name(),
+					rules[j].RuleType(),
+					warnings[j],
+					rules[j].Status(),
+					rules[j].Properties(),
+				)
+				rules[j] = *newRuleResponse
+			}
 		}
 		engineResponses = append(engineResponses, ers...)
 	}
