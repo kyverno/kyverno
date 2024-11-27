@@ -223,7 +223,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	}
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
-			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
+			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
 				// todo: check gvk and name properly
 				resourceKey := targetResource.GetAPIVersion() + "," + targetResource.GetKind() + "," + targetResource.GetNamespace() + "," + targetResource.GetName()
 				// this will cause a potential bug with policies that has multiple mutate rules that will mutate this resource

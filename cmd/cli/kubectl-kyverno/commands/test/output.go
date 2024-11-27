@@ -248,10 +248,8 @@ func printTestResult(
 							if rule.RuleType() == "Mutation" {
 								r = response.PatchedResource
 							}
-							nameParts := strings.Split(resource, ",")
-							name, ns := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2]
 
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, name, ns)
+							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
 							if strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
@@ -263,7 +261,7 @@ func printTestResult(
 						} else {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, r.GetName(), r.GetNamespace())
+								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r)
 
 								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
@@ -298,10 +296,10 @@ func printTestResult(
 				for _, response := range responses.Target[resource] {
 					// we are doing this twice which is kinda not nice
 					nameParts := strings.Split(resource, ",")
-					name, ns := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2]
+					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
 
-					r, rule := extractPatchedTargetFromEngineResponse(name, ns, response)
-					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, name, ns)
+					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
+					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r)
 
 					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
@@ -382,14 +380,14 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 	return rows
 }
 
-func extractPatchedTargetFromEngineResponse(resourceName string, resourceNamespace string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
+func extractPatchedTargetFromEngineResponse(apiVersion, kind, resourceName, resourceNamespace string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
 	for _, rule := range response.PolicyResponse.Rules {
 		r, _, _ := rule.PatchedTarget()
 		if r != nil {
 			if resourceNamespace == "" {
 				resourceNamespace = r.GetNamespace()
 			}
-			if r.GetName() == resourceName && r.GetNamespace() == resourceNamespace {
+			if r.GetAPIVersion() == apiVersion && r.GetKind() == kind && r.GetName() == resourceName && r.GetNamespace() == resourceNamespace {
 				return r, &rule
 			}
 		}
