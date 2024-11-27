@@ -22,9 +22,12 @@ spec:
   - name: create resource
     try:
     - apply:
-        file: resource.yaml  
-
-  - name: wait policy ready
-    use:
-      template: ../../../_step-templates/cluster-policyreport-ready.yaml
-     
+        file: resource.yaml 
+         
+  - name: report created
+    try:
+    - assert:
+        resource:
+          apiVersion: wgpolicyk8s.io/v1alpha2
+          kind: PolicyReport
+          
