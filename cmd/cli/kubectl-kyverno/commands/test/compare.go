@@ -8,9 +8,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func getAndCompareResource(actualResource unstructured.Unstructured, fs billy.Filesystem, path string, resourceName string) (bool, error) {
+func getAndCompareResource(actualResource unstructured.Unstructured, fs billy.Filesystem, path string, resourceName string, resourceNamespace string) (bool, error) {
 	// should be changed to specify the resource name desired
-	expectedResource, err := resource.GetResourceFromPath(fs, path, resourceName)
+	expectedResource, err := resource.GetResourceFromPath(fs, path, resourceName, resourceNamespace)
 	if err != nil {
 		return false, fmt.Errorf("error: failed to load resource (%s)", err)
 	}

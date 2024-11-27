@@ -150,7 +150,7 @@ func testCommandExecute(
 	return nil
 }
 
-func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured, resourceName string) (bool, string, string) {
+func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath string, response engineapi.EngineResponse, rule engineapi.RuleResponse, actualResource unstructured.Unstructured, resourceName, resourceNamespace string) (bool, string, string) {
 	expected := test.Result
 	// fallback to the deprecated field
 	if expected == "" {
@@ -158,7 +158,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	}
 	// fallback on deprecated field
 	if test.PatchedResource != "" {
-		equals, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.PatchedResource), resourceName)
+		equals, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.PatchedResource), resourceName, resourceNamespace)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -167,7 +167,7 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.GeneratedResource), resourceName)
+		equals, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.GeneratedResource), resourceName, resourceNamespace)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}

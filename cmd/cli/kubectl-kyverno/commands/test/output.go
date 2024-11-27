@@ -249,7 +249,9 @@ func printTestResult(
 								r = response.PatchedResource
 							}
 							nameParts := strings.Split(resource, ",")
-							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, nameParts[len(nameParts)-1])
+							name, ns := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2]
+
+							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r, name, ns)
 							if strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue
@@ -261,7 +263,7 @@ func printTestResult(
 						} else {
 							generatedResources := rule.GeneratedResources()
 							for _, r := range generatedResources {
-								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, r.GetName())
+								ok, message, reason := checkResult(test, fs, resoucePath, response, rule, *r, r.GetName(), r.GetNamespace())
 
 								success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
@@ -296,9 +298,10 @@ func printTestResult(
 				for _, response := range responses.Target[resource] {
 					// we are doing this twice which is kinda not nice
 					nameParts := strings.Split(resource, ",")
+					name, ns := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2]
 
-					r, rule := extractPatchedTargetFromEngineResponse(nameParts[len(nameParts)-1], response)
-					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, nameParts[len(nameParts)-1])
+					r, rule := extractPatchedTargetFromEngineResponse(name, ns, response)
+					ok, message, reason := checkResult(test, fs, resoucePath, response, *rule, *r, name, ns)
 
 					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
 					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
@@ -379,11 +382,16 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 	return rows
 }
 
-func extractPatchedTargetFromEngineResponse(resourceName string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
+func extractPatchedTargetFromEngineResponse(resourceName string, resourceNamespace string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
 	for _, rule := range response.PolicyResponse.Rules {
 		r, _, _ := rule.PatchedTarget()
-		if r != nil && r.GetName() == resourceName {
-			return r, &rule
+		if r != nil {
+			if resourceNamespace == "" {
+				resourceNamespace = r.GetNamespace()
+			}
+			if r.GetName() == resourceName && r.GetNamespace() == resourceNamespace {
+				return r, &rule
+			}
 		}
 	}
 	return nil, nil
