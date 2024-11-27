@@ -38,12 +38,12 @@ func getAndCompareResource(actualResources []*unstructured.Unstructured, fs bill
 			return false, fmt.Errorf("error: failed to compare resources (%s)", err)
 		}
 		if !equals {
-			log.Log.V(8).Info("Resource diff", "expected", expectedResourcesMap[r.GetNamespace()+"/"+r.GetName()], "actual", r)
+			log.Log.V(4).Info("Resource diff", "expected", expectedResourcesMap[r.GetNamespace()+"/"+r.GetName()], "actual", r)
 			es, _ := yaml.Marshal(expectedResourcesMap[r.GetNamespace()+"/"+r.GetName()])
 			as, _ := yaml.Marshal(r)
 			dmp := diffmatchpatch.New()
 			diffs := dmp.DiffMain(string(es), string(as), false)
-			log.Log.V(8).Info("\n" + dmp.DiffPrettyText(diffs) + "\n")
+			log.Log.V(4).Info("\n" + dmp.DiffPrettyText(diffs) + "\n")
 			return false, nil
 		}
 	}
