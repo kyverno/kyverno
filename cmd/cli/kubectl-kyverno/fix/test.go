@@ -123,7 +123,6 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 		for _, r := range b.Resources {
 			resourceString, _ := r.(string)
 			asArray1 = append(asArray1, resourceString)
-
 		}
 		slices.Sort(asArray1)
 		slices.Sort(asArray2)
