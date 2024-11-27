@@ -405,7 +405,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			if err != nil {
 				return nil, err
 			}
-			checkForScaleSubresource(validationJson, allKinds, &warnings)
+			checkForScaleSubresource(validationJson, allKinds)
 			checkForStatusSubresource(validationJson, allKinds, &warnings)
 		}
 
@@ -418,7 +418,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			if err != nil {
 				return nil, err
 			}
-			checkForScaleSubresource(mutationJson, allKinds, &warnings)
+			checkForScaleSubresource(mutationJson, allKinds)
 			checkForStatusSubresource(mutationJson, allKinds, &warnings)
 
 			mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
@@ -448,7 +448,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 					if err != nil {
 						return nil, err
 					}
-					checkForScaleSubresource(validationJson, allKinds, &warnings)
+					checkForScaleSubresource(validationJson, allKinds)
 					checkForStatusSubresource(validationJson, allKinds, &warnings)
 				}
 			}
@@ -1683,15 +1683,13 @@ func validateNamespaces(validationFailureActionOverrides []kyvernov1.ValidationF
 	return nil
 }
 
-func checkForScaleSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
+func checkForScaleSubresource(ruleTypeJson []byte, allKinds []string) {
 	if strings.Contains(string(ruleTypeJson), "replicas") {
 		for _, kind := range allKinds {
 			if strings.Contains(strings.ToLower(kind), "scale") {
 				return
 			}
 		}
-		msg := "You are matching on replicas but not including the scale subresource in the policy."
-		*warnings = append(*warnings, msg)
 	}
 }
 
