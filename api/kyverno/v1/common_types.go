@@ -389,7 +389,7 @@ type Mutation struct {
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+	// and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
 	// +optional
 	RawPatchStrategicMerge *apiextv1.JSON `json:"patchStrategicMerge,omitempty"`
 
@@ -435,7 +435,7 @@ type ForEachMutation struct {
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+	// and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
 	// +optional
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
