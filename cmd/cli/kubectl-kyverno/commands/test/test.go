@@ -174,7 +174,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 		})
 	}
 	policies := make([]kyvernov1.PolicyInterface, 0, len(validPolicies))
-	var warnings []string
+	warnings := make([]string, 0, len(validPolicies))
 	for _, policyWithWarning := range validPolicies {
 		policies = append(policies, policyWithWarning.Policy)
 		warnings = append(warnings, policyWithWarning.Warning)
