@@ -118,7 +118,8 @@ crds:
 
     image:
       # -- (string) Image registry
-      registry: ghcr.io
+      registry: ~
+      defaultRegistry: ghcr.io
       # -- (string) Image repository
       repository: kyverno/kyverno-cli
       # -- (string) Image tag
@@ -320,18 +321,16 @@ config:
   # -- Sets the threshold for the total number of UpdateRequests generated for mutateExisitng and generate policies.
   updateRequestThreshold: 1000
 
-  # -- Defines the `namespaceSelector` in the webhook configurations.
-  # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
-  # will be forwarded to the webhook configurations.
+  # -- Defines the `namespaceSelector`/`objectSelector` in the webhook configurations.
   # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
   webhooks:
     # Exclude namespaces
-    - namespaceSelector:
-        matchExpressions:
-        - key: kubernetes.io/metadata.name
-          operator: NotIn
-          values:
-            - kube-system
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+          - kube-system
     # Exclude objects
     # - objectSelector:
     #     matchExpressions:
@@ -959,7 +958,8 @@ admissionController:
 
     image:
       # -- Image registry
-      registry: ghcr.io
+      registry: ~
+      defaultRegistry: ghcr.io
       # -- Image repository
       repository: kyverno/kyvernopre
       # -- (string) Image tag
@@ -1005,7 +1005,8 @@ admissionController:
 
     image:
       # -- Image registry
-      registry: ghcr.io
+      registry: ~
+      defaultRegistry: ghcr.io
       # -- Image repository
       repository: kyverno/kyverno
       # -- (string) Image tag
@@ -1222,7 +1223,8 @@ backgroundController:
 
   image:
     # -- Image registry
-    registry: ghcr.io
+    registry: ~
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/background-controller
     # -- Image tag
@@ -1488,7 +1490,8 @@ cleanupController:
 
   image:
     # -- Image registry
-    registry: ghcr.io
+    registry: ~
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/cleanup-controller
     # -- (string) Image tag
@@ -1804,7 +1807,8 @@ reportsController:
 
   image:
     # -- Image registry
-    registry: ghcr.io
+    registry: ~
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/reports-controller
     # -- (string) Image tag

@@ -154,7 +154,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	}
 
 	// process the old object for UPDATE admission requests in case of enforce policies
-	if action == kyvernov1.Enforce {
+	if action.Enforce() {
 		allowExisitingViolations := v.rule.HasValidateAllowExistingViolations()
 		if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
 			priorResp, err := v.validateOldObject(ctx)
@@ -164,7 +164,8 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 			}
 
 			// when an existing resource violates, and the updated resource also violates, then skip
-			if ruleResponse.Status() == engineapi.RuleStatusFail && priorResp.Status() == engineapi.RuleStatusFail { //
+			if (priorResp != nil && ruleResponse != nil) &&
+				(ruleResponse.Status() == engineapi.RuleStatusFail && priorResp.Status() == engineapi.RuleStatusFail) {
 				v.log.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "ruleResponse", ruleResponse, "priorResp", priorResp)
 				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", v.rule.ReportProperties)
 			}

@@ -58,10 +58,13 @@ func NewController(
 		informer:       informer.Informer(),
 		lister:         informer.Lister().ConfigMaps(namespace),
 		controllerName: controllerName,
-		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), controllerName),
-		logger:         logging.ControllerLogger(controllerName),
-		name:           name,
-		callback:       callback,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.TypedRateLimitingQueueConfig[any]{Name: controllerName},
+		),
+		logger:   logging.ControllerLogger(controllerName),
+		name:     name,
+		callback: callback,
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, informer.Informer(), c.queue); err != nil {
 		logging.Error(err, "failed to register event handlers")

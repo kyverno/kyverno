@@ -154,7 +154,10 @@ func NewController(
 	webhookCleanupSetup func(context.Context, logr.Logger) error,
 	postWebhookCleanup func(context.Context, logr.Logger) error,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+	)
 	c := controller{
 		discoveryClient:     discoveryClient,
 		mwcClient:           mwcClient,
@@ -525,7 +528,7 @@ func (c *controller) isGlobalContextEntryReady(name string, gctxentries []*kyver
 	return false
 }
 
-func (c *controller) updatePolicyStatuses(ctx context.Context) error {
+func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	policies, err := c.getAllPolicies()
@@ -543,10 +546,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		}
 		ready, message := true, "Ready"
 		if c.autoUpdateWebhooks {
-			for _, set := range c.policyState {
+			if set, ok := c.policyState[webhookType]; ok {
 				if !set.Has(policyKey) {
 					ready, message = false, "Not Ready"
-					break
 				}
 			}
 		}
@@ -667,7 +669,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
 				return err
 			}
-			if err := c.updatePolicyStatuses(ctx); err != nil {
+			if err := c.updatePolicyStatuses(ctx, config.MutatingWebhookConfigurationName); err != nil {
 				return err
 			}
 		}
@@ -678,7 +680,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
 				return err
 			}
-			if err := c.updatePolicyStatuses(ctx); err != nil {
+			if err := c.updatePolicyStatuses(ctx, config.ValidatingWebhookConfigurationName); err != nil {
 				return err
 			}
 		}
@@ -823,11 +825,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
 	if c.watchdogCheck() {
-		webhookCfg := config.WebhookConfig{}
-		webhookCfgs := cfg.GetWebhooks()
-		if len(webhookCfgs) > 0 {
-			webhookCfg = webhookCfgs[0]
-		}
+		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
 		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
 		policies, err := c.getAllPolicies()
@@ -964,12 +962,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
 	if c.watchdogCheck() {
-		webhookCfg := config.WebhookConfig{}
-		webhookCfgs := cfg.GetWebhooks()
-		if len(webhookCfgs) > 0 {
-			webhookCfg = webhookCfgs[0]
-		}
-
+		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
 		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
 		policies, err := c.getAllPolicies()

@@ -175,7 +175,7 @@ data:
     [Secret,kyverno,kyverno-svc.kyverno.svc.*]
     [Secret,kyverno,kyverno-cleanup-controller.kyverno.svc.*]
   updateRequestThreshold: "1000"
-  webhooks: "[{\"namespaceSelector\":{\"matchExpressions\":[{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kube-system\"]},{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kyverno\"]}],\"matchLabels\":null}}]"
+  webhooks: "\n  {\"namespaceSelector\":{\"matchExpressions\":[{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kube-system\"]},{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kyverno\"]}],\"matchLabels\":null}}"
   webhookAnnotations: "{\"admissions.enforcer/disabled\":\"true\"}"
 ---
 apiVersion: v1
@@ -15799,6 +15799,12 @@ spec:
                   Background controls if rules are applied to existing resources during a background scan.
                   Optional. Default value is "true". The value must be set to "false" if the policy rule
                   uses variables that are only available in the admission review request (e.g. user name).
+                type: boolean
+              emitWarning:
+                default: false
+                description: |-
+                  EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+                  Enabling this option will extend admission request processing times. The default value is "false".
                 type: boolean
               failurePolicy:
                 description: Deprecated, use failurePolicy under the webhookConfiguration
@@ -36354,6 +36360,12 @@ spec:
                   Background controls if rules are applied to existing resources during a background scan.
                   Optional. Default value is "true". The value must be set to "false" if the policy rule
                   uses variables that are only available in the admission review request (e.g. user name).
+                type: boolean
+              emitWarning:
+                default: false
+                description: |-
+                  EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+                  Enabling this option will extend admission request processing times. The default value is "false".
                 type: boolean
               failurePolicy:
                 description: Deprecated, use failurePolicy under the webhookConfiguration
