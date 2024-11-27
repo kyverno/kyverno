@@ -190,7 +190,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
-	var testResponse = TestResponse{
+	testResponse := TestResponse{
 		Trigger: map[string][]engineapi.EngineResponse{},
 		Target:  map[string][]engineapi.EngineResponse{},
 	}
