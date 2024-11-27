@@ -19,7 +19,7 @@
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.image" -}}
-{{- $imageRegistry := default .image.registry .globalRegistry -}}
+{{- $imageRegistry := default (default .image.defaultRegistry .globalRegistry) .image.registry -}}
 {{- if $imageRegistry -}}
   {{ $imageRegistry }}/{{ required "An image repository is required" .image.repository }}:{{ default .defaultTag .image.tag }}
 {{- else -}}
