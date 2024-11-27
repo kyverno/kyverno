@@ -35,6 +35,8 @@ annotations:
   artifacthub.io/changes: |
     - kind: fixed
       description: fix validation error in validate.yaml
+    - kind: fixed
+      description: fixed global image registry config by introducing *.image.defaultRegistry.
 dependencies:
   - name: grafana
     version: 3.3.3
