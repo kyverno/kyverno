@@ -90,13 +90,14 @@ func (e *engine) filterRule(
 	gvk, subresource := policyContext.ResourceKind()
 
 	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err != nil {
+		logger.V(4).Info("new resource does not match...", "reason", err.Error())
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
 			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err == nil {
 				return engineapi.RuleFail(rule.Name, ruleType, "", rule.ReportProperties)
 			}
 		}
-		logger.V(4).Info("rule not matched", "reason", err.Error())
+		logger.V(4).Info("old resource does not match...", "reason", err.Error())
 		return nil
 	}
 

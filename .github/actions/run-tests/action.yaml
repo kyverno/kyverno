@@ -181,6 +181,15 @@ runs:
         make kind-install-kyverno
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno-wait-ready
+    # install kubectl-evict plugin needed for testing eviction subresource trigger
+    - name: Install kubectl-evict
+      shell: bash
+      run: |
+        set -e
+        GOBIN=$(go env GOPATH)/bin
+        go install github.com/ueokande/kubectl-evict@latest
+        echo 'Adding kubectl-evict directory to PATH...'
+        echo "${GOBIN}" >> "${GITHUB_PATH}"
     # run tests
     - name: Test with Chainsaw
       if: ${{ steps.determine-next-version.outputs.next_version != 'main' }}
