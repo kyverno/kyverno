@@ -115,9 +115,18 @@ func SetResourceUid(report reportsv1.ReportInterface, uid types.UID) {
 }
 
 func SetResourceGVR(report reportsv1.ReportInterface, gvr schema.GroupVersionResource) {
-	controllerutils.SetLabel(report, LabelResourceGroup, gvr.Group)
-	controllerutils.SetLabel(report, LabelResourceVersion, gvr.Version)
-	controllerutils.SetLabel(report, LabelResourceKind, gvr.Resource)
+	gvrString := gvr.Resource + "." + gvr.Version + "." + gvr.Group
+
+	if len(gvrString) > 63 {
+		controllerutils.SetLabel(report, LabelResourceGroup, gvr.Group)
+		controllerutils.SetLabel(report, LabelResourceVersion, gvr.Version)
+		controllerutils.SetLabel(report, AnnotationResourceName, gvr.Resource)
+	} else if gvr.Group != "" {
+		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version+"."+gvr.Group)
+	} else {
+		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version)
+
+	}
 }
 
 func SetResourceGVK(report reportsv1.ReportInterface, gvk schema.GroupVersionKind) {
@@ -181,11 +190,14 @@ func GetResourceUid(report metav1.Object) types.UID {
 func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
 	group := controllerutils.GetLabel(report, LabelResourceGroup)
 	version := controllerutils.GetLabel(report, LabelResourceVersion)
-	resource := controllerutils.GetLabel(report, LabelResourceKind)
+	resource := controllerutils.GetLabel(report, AnnotationResourceName)
+	GVRstring := group + version + resource
 
 	// If all three parts exist, return the GVR
 	if group != "" && version != "" && resource != "" {
-		return schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+		if len(GVRstring) > 63 {
+			return schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+		}
 	}
 
 	// Fallback to the old combined label

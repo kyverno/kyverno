@@ -27,4 +27,4 @@ spec:
   - name: check report
     try:
     - assert:
-        file: assert-report.yaml
+        file: ephemeral-report.yaml
