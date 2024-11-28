@@ -24,7 +24,7 @@ require (
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zerologr v1.2.3
-	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49
+	github.com/google/gnostic-models v0.6.9
 	github.com/google/go-containerregistry v0.20.2
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20240826191751-a07d1cab8700
 	github.com/in-toto/in-toto-golang v0.9.1-0.20240317085821-8e2966059a09
