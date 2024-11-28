@@ -211,7 +211,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 			Cluster:                   false,
 			Client:                    dClient,
 			Subresources:              vars.Subresources(),
-			Out:                       out,
+			Out:                       io.Discard,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
