@@ -78,7 +78,6 @@ func Validate(
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	policy := policyData.definition
 	bindings := policyData.bindings
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 	var ers []engineapi.EngineResponse
 
 	gvk := resource.GroupVersionKind()
@@ -116,7 +115,10 @@ func Validate(
 			return nil, nil
 		}
 		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-		engineResponse, err = validateResource(policy, nil, resource, *namespace, a, nil)
+		engineResponse, err := validateResource(policy, nil, resource, *namespace, a, nil)
+		if err != nil {
+			return nil, err
+		}
 		ers = append(ers, engineResponse)
 		return ers, nil
 	}
@@ -162,19 +164,27 @@ func Validate(
 			if !isMatch {
 				continue
 			}
-			params, err := CollectParams(context.TODO(), adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, "")
-			if err != nil {
-				return nil, err
-			}
-			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-
-			for _, p := range params {
-				engineResponse, err := validateResource(policy, &bindings[i], resource, *namespace, a, p)
+			if binding.Spec.ParamRef != nil {
+				params, err := CollectParams(context.TODO(), adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, resource.GetNamespace())
 				if err != nil {
-					continue // is this correct ?
+					return nil, err
 				}
-				ers = append(ers, engineResponse)
+				logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+				for _, p := range params {
+					engineResponse, err := validateResource(policy, &bindings[i], resource, *namespace, a, p)
+					if err != nil {
+						continue // is this correct ?
+					}
+					ers = append(ers, engineResponse)
+				}
+				return ers, nil
 			}
+
+			engineResponse, err := validateResource(policy, &bindings[i], resource, *namespace, a, nil)
+			if err != nil {
+				continue // is this correct ?
+			}
+			ers = append(ers, engineResponse)
 			return ers, nil
 		}
 	} else {
@@ -190,18 +200,27 @@ func Validate(
 				}
 			}
 
-			params, err := CollectParams(context.TODO(), adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, resource.GetNamespace())
-			if err != nil {
-				return nil, err
-			}
-			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			for _, p := range params {
-				engineResponse, err := validateResource(policy, &bindings[i], resource, *namespace, a, p)
+			if binding.Spec.ParamRef != nil {
+				params, err := CollectParams(context.TODO(), adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, resource.GetNamespace())
 				if err != nil {
-					continue // is this correct ?
+					return nil, err
 				}
-				ers = append(ers, engineResponse)
+				logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+				for _, p := range params {
+					engineResponse, err := validateResource(policy, &bindings[i], resource, *namespace, a, p)
+					if err != nil {
+						continue // is this correct ?
+					}
+					ers = append(ers, engineResponse)
+				}
+				return ers, nil
 			}
+
+			engineResponse, err := validateResource(policy, &bindings[i], resource, *namespace, a, nil)
+			if err != nil {
+				continue // is this correct ?
+			}
+			ers = append(ers, engineResponse)
 			return ers, nil
 		}
 	}
@@ -212,7 +231,7 @@ func Validate(
 func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1beta1.ParamKind, paramRef *admissionregistrationv1beta1.ParamRef, namespace string) ([]runtime.Object, error) {
 	var params []runtime.Object
 
-	apiVersion := paramKind.APIVersion
+	apiVersion := paramKind.APIVersion // nil pointer ?
 	kind := paramKind.Kind
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
