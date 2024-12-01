@@ -28,7 +28,7 @@ type scanner struct {
 }
 
 type ScanResult struct {
-	EngineResponse *engineapi.EngineResponse
+	EngineResponse []*engineapi.EngineResponse
 	Error          error
 }
 
@@ -56,6 +56,7 @@ func NewScanner(
 
 func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, bindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
 	results := map[*engineapi.GenericPolicy]ScanResult{}
+	var responses []*engineapi.EngineResponse
 	for i, policy := range policies {
 		var errors []error
 		logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
@@ -102,13 +103,15 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := validatingadmissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client)
+			res, err := validatingadmissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client, true) // todo: check if this is ever being called offline
 			if err != nil {
 				errors = append(errors, err)
 			}
-			response = &res
+			for _, r := range res {
+				responses = append(responses, &r)
+			}
 		}
-		results[&policies[i]] = ScanResult{response, multierr.Combine(errors...)}
+		results[&policies[i]] = ScanResult{responses, multierr.Combine(errors...)}
 	}
 	return results
 }

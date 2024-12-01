@@ -433,8 +433,10 @@ func (c *controller) reconcileReport(
 				if result.Error != nil {
 					return result.Error
 				} else if result.EngineResponse != nil {
-					ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*result.EngineResponse)...)
-					utils.GenerateEvents(logger, c.eventGen, c.config, *result.EngineResponse)
+					for _, er := range result.EngineResponse {
+						ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(*er)...)
+						utils.GenerateEvents(logger, c.eventGen, c.config, *er)
+					}
 				}
 			}
 		}
