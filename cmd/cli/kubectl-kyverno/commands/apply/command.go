@@ -194,6 +194,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 	rc, resources1, skipInvalidPolicies, responses1, policies, vaps, vapBindings, err := c.loadPolicies(skipInvalidPolicies)
+	if err != nil {
+		return rc, resources1, skipInvalidPolicies, responses1, err
+	}
 
 	vapParams, err := common.GetResources(out, policies, vaps, c.VapParams, nil, false, "", false)
 	if err != nil {

@@ -89,9 +89,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 					logger.Error(err, "failed to scan images")
 					errors = append(errors, err)
 				}
-				if response == nil {
-					response = ivResponse
-				} else if ivResponse != nil {
+				if ivResponse != nil {
 					response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ivResponse.PolicyResponse.Rules...)
 				}
 			}
@@ -108,7 +106,8 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 				errors = append(errors, err)
 			}
 			for _, r := range res {
-				responses = append(responses, &r)
+				rCopy := r
+				responses = append(responses, &rCopy)
 			}
 		}
 		results[&policies[i]] = ScanResult{responses, multierr.Combine(errors...)}
