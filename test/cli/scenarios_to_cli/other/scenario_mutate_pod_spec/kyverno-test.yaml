@@ -8,7 +8,7 @@ resources:
 - resource.yaml
 results:
 - kind: Deployment
-  patchedResource: patchedresource.yaml
+  patchedResources: patchedresource.yaml
   policy: mutate-pods-spec
   resources:
   - nginx-deployment
