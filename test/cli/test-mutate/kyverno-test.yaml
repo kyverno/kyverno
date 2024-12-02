@@ -8,49 +8,49 @@ resources:
 - resource.yaml
 results:
 - kind: Deployment
-  patchedResource: patchedResource4.yaml
+  patchedResources: patchedResource4.yaml
   policy: add-label
   resources:
   - mydeploy
   result: pass
   rule: add-label
 - kind: Pod
-  patchedResource: patchedResource2.yaml
-  policy: add-label
-  resources:
-  - testing/same-name-but-diff-namespace
-  result: pass
-  rule: add-label
-- kind: Pod
-  patchedResource: patchedResource3.yaml
+  patchedResources: patchedResource3.yaml
   policy: add-label
   resources:
   - production/same-name-but-diff-namespace
   result: pass
   rule: add-label
 - kind: Pod
-  patchedResource: patchedResource6.yaml
+  patchedResources: patchedResource6.yaml
   policy: add-label
   resources:
   - same-name-but-diff-kind
   result: pass
   rule: add-label
 - kind: Pod
-  patchedResource: patchedResource1.yaml
+  patchedResources: patchedResource2.yaml
+  policy: add-label
+  resources:
+  - testing/same-name-but-diff-namespace
+  result: pass
+  rule: add-label
+- kind: Pod
+  patchedResources: patchedResource1.yaml
   policy: add-label
   resources:
   - practice/resource-equal-to-patch-res-for-cp
   result: skip
   rule: add-label
 - kind: Pod
-  patchedResource: patched-resource.yaml
+  patchedResources: patched-resource.yaml
   policy: example
   resources:
   - example
   result: pass
   rule: object_from_lists
 - kind: Pod
-  patchedResource: patchedResource8.yaml
+  patchedResources: patchedResource8.yaml
   policy: testing/add-ndots
   resources:
   - same-name-but-diff-namespace
