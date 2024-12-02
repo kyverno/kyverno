@@ -4,10 +4,6 @@ metadata:
   name: default
 spec:
   steps:
-  - name: step-01
-    try:
-    - apply:
-        file: ns-bad.yaml
   - name: create policy
     use:
       template: ../../../../../_step-templates/create-policy.yaml
