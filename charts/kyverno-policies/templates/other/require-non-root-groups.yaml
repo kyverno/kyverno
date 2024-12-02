@@ -52,6 +52,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Running with root group IDs is disallowed. The fields
           spec.securityContext.runAsGroup, spec.containers[*].securityContext.runAsGroup,
@@ -107,6 +108,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Containers cannot run with a root primary or supplementary GID. The field
           spec.securityContext.supplementalGroups must be unset or
@@ -137,6 +139,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Containers cannot run with a root primary or supplementary GID. The field
           spec.securityContext.fsGroup must be unset or set to a value greater than zero.
