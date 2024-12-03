@@ -11,6 +11,7 @@
 [![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kyverno)](https://artifacthub.io/packages/search?repo=kyverno)
 [![codecov](https://codecov.io/gh/kyverno/kyverno/branch/main/graph/badge.svg)](https://app.codecov.io/gh/kyverno/kyverno/branch/main)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno?ref=badge_shield)
+[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Kyverno%20Guru-006BFF)](https://gurubase.io/g/kyverno)
 
 
 <a href="https://kyverno.io" rel="kyverno.io">![logo](img/Kyverno_Horizontal.png)</a>
