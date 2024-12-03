@@ -272,7 +272,8 @@ func (p *PolicyProcessor) makePolicyContext(
 	policyContext = policyContext.
 		WithPolicy(policy).
 		WithNamespaceLabels(namespaceLabels).
-		WithResourceKind(gvk, subresource)
+		WithResourceKind(gvk, subresource).
+		WithAdmissionOperation(true)
 	for key, value := range resourceValues {
 		err = policyContext.JSONContext().AddVariable(key, value)
 		if err != nil {
@@ -341,6 +342,8 @@ func (p *PolicyProcessor) makePolicyContext(
 			}
 			policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: object})
 		}
+	default:
+		policyContext = policyContext.WithAdmissionOperation(false)
 	}
 	return policyContext, nil
 }
