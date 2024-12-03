@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: pod-security-exception
+spec:
+  exceptions:
+  - policyName: check-image
+    ruleNames:
+    - check-image-rule
+  verifyImages:
+  - imageReferences:
+      - "*/nginx*"
+  match:
+    any:
+    - resources:
+        kinds:
+          - Pod

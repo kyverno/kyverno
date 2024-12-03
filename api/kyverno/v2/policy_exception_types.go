@@ -80,6 +80,19 @@ type PolicyExceptionSpec struct {
 	// Applicable only to policies that have validate.podSecurity subrule.
 	// +optional
 	PodSecurity []kyvernov1.PodSecurityStandard `json:"podSecurity,omitempty"`
+
+	// VerifyImages is used to exclude the image verification for the given image reference patterns.
+	// +optional
+	VerifyImages []ImageVerification `json:"verifyImages,omitempty"`
+}
+
+type ImageVerification struct {
+	// ImageReferences is a list of matching image reference patterns. At least one pattern in the
+	// list must match the image for the rule to apply. Each image reference consists of a registry
+	// address (defaults to docker.io), repository, image, and tag (defaults to latest).
+	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+	// +kubebuilder:validation:Optional
+	ImageReferences []string `json:"imageReferences,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
