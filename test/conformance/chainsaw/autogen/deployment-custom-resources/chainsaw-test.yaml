@@ -5,6 +5,16 @@ metadata:
   name: deployment-custom-resources
 spec:
   steps:
+  - name: Prerequisites
+    timeouts:
+      # Using the default timeout will result in the following error.
+      #     | 19:56:32 | deployment-custom-resources | Prerequisites | CLEANUP   | ERROR |
+      # === ERROR
+      # context deadline exceeded
+      cleanup: 2m
+    try:
+    - apply:
+        file: kruise.yaml
   - name: step-01
     try:
     - apply:

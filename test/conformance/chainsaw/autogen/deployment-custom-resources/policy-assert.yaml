@@ -7,7 +7,7 @@ metadata:
 spec:
   validationFailureAction: Enforce
   rules:
-  - name: check-team
+  - name: check-team-with-CloneSet
     match:
       any:
       - resources:
@@ -39,7 +39,7 @@ status:
             - Deployment
         resources: {}
       mutate: {}
-      name: autogen-check-team
+      name: autogen-check-team-with-CloneSet
       skipBackgroundRequests: true
       validate:
         message: label 'team' is required
