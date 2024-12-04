@@ -34,7 +34,7 @@ spec:
         - resources:
             kinds:
               - Pod
-      {{- with index .Values "policyExclude" $name }}
+      {{- with merge (index .Values "policyExclude" "check-sysctls") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -54,6 +54,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Setting additional sysctls above the allowed type is disallowed.
           The field spec.securityContext.sysctls must be unset or not use any other names

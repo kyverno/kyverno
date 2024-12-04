@@ -32,7 +32,7 @@ spec:
         - resources:
             kinds:
               - Pod
-      {{- with index .Values "policyExclude" $name }}
+      {{- with merge (index .Values "policyExclude" "host-process-containers") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -52,6 +52,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           HostProcess containers are disallowed. The fields spec.securityContext.windowsOptions.hostProcess,
           spec.containers[*].securityContext.windowsOptions.hostProcess, spec.initContainers[*].securityContext.windowsOptions.hostProcess,
