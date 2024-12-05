@@ -125,7 +125,6 @@ func SetResourceGVR(report reportsv1.ReportInterface, gvr schema.GroupVersionRes
 		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version+"."+gvr.Group)
 	} else {
 		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version)
-
 	}
 }
 
