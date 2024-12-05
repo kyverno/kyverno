@@ -55,6 +55,10 @@ validationFailureActionOverrides:
   #     namespaces:
   #       - fluent
 
+# -- Validate already existing resources.
+# For more info https://kyverno.io/docs/writing-policies/validate.
+validationAllowExistingViolations: true
+
 # -- Exclude resources from individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map.
 policyExclude: {}
