@@ -164,7 +164,8 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 			}
 
 			// when an existing resource violates, and the updated resource also violates, then skip
-			if ruleResponse.Status() == engineapi.RuleStatusFail && priorResp.Status() == engineapi.RuleStatusFail { //
+			if (priorResp != nil && ruleResponse != nil) &&
+				(ruleResponse.Status() == engineapi.RuleStatusFail && priorResp.Status() == engineapi.RuleStatusFail) {
 				v.log.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "ruleResponse", ruleResponse, "priorResp", priorResp)
 				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", v.rule.ReportProperties)
 			}
@@ -174,7 +175,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	return ruleResponse
 }
 
-func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
+func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.RuleResponse, err error) {
 	if v.policyContext.Operation() != kyvernov1.Update {
 		return nil, errors.New("invalid operation")
 	}
@@ -183,28 +184,32 @@ func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleRespo
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if ok := matchResource(oldResource, v.rule, v.policyContext.NamespaceLabels(), v.policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
-		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", v.rule.ReportProperties), nil
-	}
-
-	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
+	if err = v.policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")
 	}
-	if err := v.policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
+
+	if err = v.policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
 		return nil, errors.Wrapf(err, "failed to set operation")
 	}
 
-	resp := v.validate(ctx)
+	defer func() {
+		if err = v.policyContext.SetResources(oldResource, newResource); err != nil {
+			v.log.Error(errors.Wrapf(err, "failed to reset resources"), "")
+		}
 
-	if err := v.policyContext.SetResources(oldResource, newResource); err != nil {
-		return nil, errors.Wrapf(err, "failed to reset resources")
+		if err = v.policyContext.SetOperation(kyvernov1.Update); err != nil {
+			v.log.Error(errors.Wrapf(err, "failed to reset operation"), "")
+		}
+	}()
+
+	if ok := matchResource(v.log, oldResource, v.rule, v.policyContext.NamespaceLabels(), v.policyContext.Policy().GetNamespace(), kyvernov1.Create, v.policyContext.JSONContext()); !ok {
+		resp = engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", nil)
+		return
 	}
 
-	if err := v.policyContext.SetOperation(kyvernov1.Update); err != nil {
-		return nil, errors.Wrapf(err, "failed to reset operation")
-	}
+	resp = v.validate(ctx)
 
-	return resp, nil
+	return
 }
 
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {

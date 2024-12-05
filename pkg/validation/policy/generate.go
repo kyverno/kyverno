@@ -30,7 +30,7 @@ func immutableGenerateFields(new, old kyvernov1.PolicyInterface) (string, error)
 	}
 
 	if !newRuleHashes.IsSuperset(oldRuleHashes) {
-		return "", errors.New("changes of the rule spec in a generate rule is disallowed")
+		return "", errors.New("changes of immutable fields of a rule spec in a generate rule is disallowed")
 	}
 
 	return "", nil
