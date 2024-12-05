@@ -17,9 +17,9 @@ type PolicyContext interface {
 	NewResource() unstructured.Unstructured
 	OldResource() unstructured.Unstructured
 	SetResources(oldResource, newResource unstructured.Unstructured) error
+	SetOperation(kyvernov1.AdmissionOperation) error
 	AdmissionInfo() kyvernov2.RequestInfo
 	Operation() kyvernov1.AdmissionOperation
-	SetOperation(op kyvernov1.AdmissionOperation) error
 	NamespaceLabels() map[string]string
 	RequestResource() metav1.GroupVersionResource
 	ResourceKind() (schema.GroupVersionKind, string)
