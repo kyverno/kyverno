@@ -1,7 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: default
+  name: enforce-validate-existing
 spec:
   steps:
   - name: create policy
@@ -17,15 +17,17 @@ spec:
       with:
         bindings:
         - name: name
-          value: default
-  - name: step-03
+          value: prevent-ingress-annotation
+  - name: step-02
     try:
     - apply:
-        file: pod.yaml
-  - name: step-04
+        file: ingress.yaml
+    - assert:
+        file: ingress-ready.yaml
+  - name: step-03
     try:
     - apply:
         expect:
         - check:
             ($error != null): true
-        file: pod-bad.yaml
+        file: ingress-update.yaml
