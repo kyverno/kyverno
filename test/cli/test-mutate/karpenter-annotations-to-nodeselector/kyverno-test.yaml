@@ -8,15 +8,15 @@ resources:
 - resource.yaml
 results:
 - kind: Pod
-  policy: karpenter-annotations-to-nodeselector
-  resources:
-  - soft-pod-antiaffinity-1-copy
-  result: pass
-  rule: hard-nodeselector-lifecycle-on-demand
-- kind: Pod
-  patchedResource: patched.yaml
+  patchedResources: patched.yaml
   policy: karpenter-annotations-to-nodeselector
   resources:
   - soft-pod-antiaffinity-1
+  result: pass
+  rule: hard-nodeselector-lifecycle-on-demand
+- kind: Pod
+  policy: karpenter-annotations-to-nodeselector
+  resources:
+  - soft-pod-antiaffinity-1-copy
   result: pass
   rule: hard-nodeselector-lifecycle-on-demand

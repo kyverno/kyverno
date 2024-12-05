@@ -59,7 +59,7 @@ runs:
       with:
         version: v1
         args: app -licenses -json -output ${{ inputs.sbom-name }}-bom.cdx.json -main ${{ inputs.main-path }}
-    - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+    - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
       with:
         name: ${{ inputs.sbom-name }}-bom-cdx
         path: ${{ inputs.sbom-name }}-bom.cdx.json

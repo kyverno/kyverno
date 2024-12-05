@@ -14,7 +14,7 @@ results:
   result: skip
   rule: clb
 - kind: Service
-  patchedResource: patched.yaml
+  patchedResources: patched.yaml
   policy: disable-connection-draining
   resources:
   - nlb-aws-controller-no-attributes

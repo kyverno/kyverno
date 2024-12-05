@@ -795,19 +795,6 @@ string
 </tr>
 <tr>
 <td>
-<code>patchedResource</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Deprecated. Use <code>patchedResources</code> instead.
-PatchedResource takes a resource configuration file in yaml format from
-the user to compare it against the Kyverno mutated resource configuration.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>patchedResources</code><br/>
 <em>
 string
@@ -898,6 +885,19 @@ string
 <td>
 <p>Namespace mentions the namespace of the policy which has namespace scope.
 This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;</code> for policies and/or resources instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>patchedResource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PatchedResource takes a resource configuration file in yaml format from
+the user to compare it against the Kyverno mutated resource configuration.
+This is DEPRECATED, Use <code>patchedResources</code> instead.</p>
 </td>
 </tr>
 </tbody>

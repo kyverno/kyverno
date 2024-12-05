@@ -201,8 +201,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: cleanuppolicies.kyverno.io
@@ -559,14 +559,6 @@ spec:
                   - name
                   type: object
                 type: array
-              deletionPropagationPolicy:
-                description: DeletionPropagationPolicy defines how resources will
-                  be deleted (Foreground, Background, Orphan).
-                enum:
-                - Foreground
-                - Background
-                - Orphan
-                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -1852,14 +1844,6 @@ spec:
                   - name
                   type: object
                 type: array
-              deletionPropagationPolicy:
-                description: DeletionPropagationPolicy defines how resources will
-                  be deleted (Foreground, Background, Orphan).
-                enum:
-                - Foreground
-                - Background
-                - Orphan
-                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -2813,8 +2797,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: clustercleanuppolicies.kyverno.io
@@ -3171,14 +3155,6 @@ spec:
                   - name
                   type: object
                 type: array
-              deletionPropagationPolicy:
-                description: DeletionPropagationPolicy defines how resources will
-                  be deleted (Foreground, Background, Orphan).
-                enum:
-                - Foreground
-                - Background
-                - Orphan
-                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -4464,14 +4440,6 @@ spec:
                   - name
                   type: object
                 type: array
-              deletionPropagationPolicy:
-                description: DeletionPropagationPolicy defines how resources will
-                  be deleted (Foreground, Background, Orphan).
-                enum:
-                - Foreground
-                - Background
-                - Orphan
-                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -5425,8 +5393,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: clusterpolicies.kyverno.io
@@ -25718,8 +25686,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: globalcontextentries.kyverno.io
@@ -25983,8 +25951,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: policies.kyverno.io
@@ -46279,8 +46247,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: policyexceptions.kyverno.io
@@ -47587,8 +47555,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: updaterequests.kyverno.io
@@ -48420,8 +48388,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: clusterephemeralreports.reports.kyverno.io
@@ -48762,8 +48730,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: ephemeralreports.reports.kyverno.io
@@ -49104,8 +49072,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: clusterpolicyreports.wgpolicyk8s.io
@@ -49472,8 +49440,8 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: kyverno-crds
-    app.kubernetes.io/version: v0.0.0
-    helm.sh/chart: crds-v0.0.0
+    app.kubernetes.io/version: 3.3.3
+    helm.sh/chart: crds-3.3.3
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
   name: policyreports.wgpolicyk8s.io

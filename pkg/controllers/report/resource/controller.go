@@ -96,13 +96,10 @@ func NewController(
 	vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
-		client:     client,
-		polLister:  polInformer.Lister(),
-		cpolLister: cpolInformer.Lister(),
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
-			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
-		),
+		client:          client,
+		polLister:       polInformer.Lister(),
+		cpolLister:      cpolInformer.Lister(),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
 	if vapInformer != nil {

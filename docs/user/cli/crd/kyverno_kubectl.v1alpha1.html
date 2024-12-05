@@ -1675,37 +1675,6 @@ Possible values are pass, fail and skip.</p>
     
     
       <tr>
-        <td><code>patchedResource</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Deprecated. Use <code>patchedResources</code> instead.
-PatchedResource takes a resource configuration file in yaml format from
-the user to compare it against the Kyverno mutated resource configuration.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
         <td><code>patchedResources</code>
           
           <span style="color:blue;"> *</span>
@@ -1912,6 +1881,37 @@ This is DEPRECATED, use <code>Resources</code> instead.</p>
 
           <p>Namespace mentions the namespace of the policy which has namespace scope.
 This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;</code> for policies and/or resources instead.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>patchedResource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PatchedResource takes a resource configuration file in yaml format from
+the user to compare it against the Kyverno mutated resource configuration.
+This is DEPRECATED, Use <code>patchedResources</code> instead.</p>
 
 
           

@@ -30,7 +30,7 @@ jobs:
         echo "releasebranch2=$releasebranch2" >> $GITHUB_OUTPUT
     
     - name: Scan for vulnerabilities in latest image
-      uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+      uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.24.0
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
@@ -42,7 +42,7 @@ jobs:
         # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-1 image
-      uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+      uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.24.0
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch1 }}
         format: json
@@ -54,7 +54,7 @@ jobs:
         # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
         TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
     - name: Scan for vulnerabilities in latest-2 image
-      uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+      uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.24.0
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get-branches.outputs.releasebranch2 }}
         format: json
@@ -86,7 +86,7 @@ jobs:
         fi
 
     - name: Upload vulnerability scan report
-      uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
       if: steps.parse-results.outputs.results == 'found'
       with:
         name: scan.json
@@ -101,7 +101,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Download scan
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
