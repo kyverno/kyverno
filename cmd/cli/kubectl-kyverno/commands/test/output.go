@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno-json/pkg/engine/assert"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1beta1 "github.com/kyverno/kyverno/api/policyreport/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
@@ -190,7 +190,7 @@ func printTestResult(
 					// perform test checks
 					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
 					// if checks failed but we were expecting a fail it's considered a success
-					success := ok || (!ok && test.Result == policyreportv1alpha2.StatusFail)
+					success := ok || (!ok && test.Result == policyreportv1beta1.StatusFail)
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
@@ -204,7 +204,7 @@ func printTestResult(
 					}
 					if success {
 						row.Result = color.ResultPass()
-						if test.Result == policyreportv1alpha2.StatusSkip {
+						if test.Result == policyreportv1beta1.StatusSkip {
 							rc.Skip++
 						} else {
 							rc.Pass++

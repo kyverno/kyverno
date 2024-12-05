@@ -25,9 +25,11 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
       name: Kind
+      priority: 1
       type: string
     - jsonPath: .scope.name
       name: Name
+      priority: 1
       type: string
     - jsonPath: .summary.pass
       name: Pass
@@ -47,7 +49,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha2
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: PolicyReport is the Schema for the policyreports API
@@ -59,6 +61,36 @@ spec:
               may reject unrecognized values.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
+          configuration:
+            description: |-
+              Configuration is an optional field which can be used to specify
+              a contract between PolicyReport generators and consumers
+            properties:
+              limits:
+                properties:
+                  maxResults:
+                    description: MaxResults is the maximum number of results contained
+                      in the report
+                    type: integer
+                  statusFilter:
+                    description: StatusFilter indicates that the PolicyReport contains
+                      only those reports with statuses specified in this list
+                    items:
+                      description: StatusFilter is used by PolicyReport generators
+                        to write only those reports whose status is specified by the
+                        filters
+                      enum:
+                      - pass
+                      - fail
+                      - warn
+                      - error
+                      - skip
+                      type: string
+                    type: array
+                type: object
+            required:
+            - limits
+            type: object
           kind:
             description: |-
               Kind is a string value representing the REST resource this object represents.
@@ -93,10 +125,10 @@ spec:
                   type: object
                 resourceSelector:
                   description: |-
-                    SubjectSelector is an optional label selector for checked Kubernetes resources.
+                    ResourceSelector is an optional label selector for checked Kubernetes resources.
                     For example, a policy result may apply to all pods that match a label.
-                    Either a Subject or a SubjectSelector can be specified.
-                    If neither are provided, the result is assumed to be for the policy report scope.
+                    Either a Subject or a ResourceSelector can be specified. If neither are provided, the
+                    result is assumed to be for the policy report scope.
                   properties:
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
@@ -215,8 +247,10 @@ spec:
                   - info
                   type: string
                 source:
-                  description: Source is an identifier for the policy engine that
-                    manages this report
+                  description: |-
+                    Source is an identifier for the policy engine that manages this report
+                    If the Source is specified at this level, it will override the Source
+                    field set at the PolicyReport level
                   type: string
                 timestamp:
                   description: Timestamp indicates the time the result was found
@@ -336,6 +370,13 @@ spec:
                 type: object
             type: object
             x-kubernetes-map-type: atomic
+          source:
+            description: |-
+              Source is an identifier for the source e.g. a policy engine that manages this report.
+              Use this field if all the results are produced by a single policy engine.
+              If the results are produced by multiple sources e.g. different engines or scanners,
+              then use the Source field at the PolicyReportResult level.
+            type: string
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
