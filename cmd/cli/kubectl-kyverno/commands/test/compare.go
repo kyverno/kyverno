@@ -9,7 +9,6 @@ import (
 )
 
 func getAndCompareResource(actualResource unstructured.Unstructured, fs billy.Filesystem, path string) (bool, error) {
-	// should be changed to specify the resource name desired
 	expectedResource, err := resource.GetResourceFromPath(fs, path, actualResource.GetAPIVersion(), actualResource.GetKind(), actualResource.GetNamespace(), actualResource.GetName())
 	if err != nil {
 		return false, fmt.Errorf("error: failed to load resource (%s)", err)

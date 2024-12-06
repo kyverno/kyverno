@@ -114,7 +114,6 @@ func (e *engine) Mutate(
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
 		policyResponse, patchedResource := e.mutate(ctx, logger, policyContext)
 		response = response.
-			WithPolicyResponse(policyResponse).
 			WithPatchedResource(patchedResource).
 			WithPolicyResponse(policyResponse)
 	}
