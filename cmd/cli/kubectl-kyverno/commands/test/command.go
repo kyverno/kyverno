@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -158,21 +159,25 @@ func checkResult(test v1alpha1.TestResult, fs billy.Filesystem, resoucePath stri
 	}
 	// fallback on deprecated field
 	if test.PatchedResource != "" {
-		equals, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.PatchedResource))
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.PatchedResource))
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
 		if !equals {
-			return false, "Patched resource didn't match the patched resource in the test result", "Resource diff"
+			dmp := diffmatchpatch.New()
+			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
+			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
 	}
 	if test.GeneratedResource != "" {
-		equals, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.GeneratedResource))
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resoucePath, test.GeneratedResource))
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
 		if !equals {
-			return false, "Generated resource didn't match the generated resource in the test result", "Resource diff"
+			dmp := diffmatchpatch.New()
+			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
+			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
 	}
 	result := report.ComputePolicyReportResult(false, response, rule)
