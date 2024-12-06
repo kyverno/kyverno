@@ -243,8 +243,16 @@ func printTestResult(
 					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
 						continue
 					}
-					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
+					var rulesToCheck []engineapi.RuleResponse
+					if test.Rule == "" {
+						rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
+					} else {
+						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
+					}
+					ruleName := ""
+					for _, rule := range rulesToCheck {
 						r := response.Resource
+						ruleName = rule.Name()
 
 						if test.IsValidatingAdmissionPolicy || test.IsValidatingPolicy || test.IsImageValidatingPolicy || test.IsDeletingPolicy || test.IsMutatingPolicy {
 							if test.IsMutatingPolicy {
@@ -257,7 +265,7 @@ func printTestResult(
 								continue
 							}
 
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 							continue
 						}
@@ -286,7 +294,7 @@ func printTestResult(
 							}
 
 							success := ok || (!ok && test.Result == openreports.StatusFail)
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
@@ -294,7 +302,7 @@ func printTestResult(
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
 								success := ok || (!ok && test.Result == openreports.StatusFail)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, success, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
 							}
 						}
@@ -335,7 +343,7 @@ func printTestResult(
 					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
 					success := ok || (!ok && test.Result == openreports.StatusFail)
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, success, message, reason, strings.Replace(resource, ",", "/", -1))
+					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), success, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)
 				}
 			}
@@ -386,14 +394,14 @@ func printTestResult(
 	return nil
 }
 
-func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
+func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, ruleName string, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
 	resourceParts := strings.Split(resourceGVKAndName, "/")
 	rows := []table.Row{}
 	row := table.Row{
 		RowCompact: table.RowCompact{
 			ID:        *globalTestCounter,
 			Policy:    color.Policy("", test.Policy),
-			Rule:      color.Rule(test.Rule),
+			Rule:      color.Rule(ruleName),
 			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
 			Reason:    reason,
 			IsFailure: !success,
