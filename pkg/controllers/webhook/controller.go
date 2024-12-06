@@ -122,7 +122,7 @@ type controller struct {
 	postWebhookCleanup  func(context.Context, logr.Logger) error
 
 	// state
-	lock        sync.Mutex
+	lock        sync.RWMutex
 	policyState map[string]sets.Set[string]
 }
 
@@ -528,9 +528,28 @@ func (c *controller) isGlobalContextEntryReady(name string, gctxentries []*kyver
 	return false
 }
 
-func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType string) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+func checkIfPolicyIsConfiguredInWebhooks(policy kyvernov1.PolicyInterface, mExists, vExists bool) bool {
+	needsMutate := false
+	needsValidate := false
+	for _, rule := range policy.GetSpec().Rules {
+		if rule.HasMutate() || rule.HasVerifyImages() {
+			needsMutate = true
+		}
+		if rule.HasValidate() || rule.HasGenerate() || rule.HasMutateExisting() || rule.HasVerifyImages() {
+			needsValidate = true
+		}
+	}
+
+	if (needsMutate && !mExists) || (needsValidate && !vExists) {
+		return false
+	}
+
+	return true
+}
+
+func (c *controller) updatePolicyStatuses(ctx context.Context) error {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	policies, err := c.getAllPolicies()
 	if err != nil {
 		return err
@@ -546,10 +565,18 @@ func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType strin
 		}
 		ready, message := true, "Ready"
 		if c.autoUpdateWebhooks {
-			if set, ok := c.policyState[webhookType]; ok {
-				if !set.Has(policyKey) {
-					ready, message = false, "Not Ready"
-				}
+			mutatingState, ok := c.policyState[config.MutatingWebhookConfigurationName]
+			if !ok {
+				return fmt.Errorf("failed to get mutating webhook configuration state")
+			}
+			validatingState, ok := c.policyState[config.ValidatingWebhookConfigurationName]
+			if !ok {
+				return fmt.Errorf("failed to get validating webhook configuration state")
+			}
+			mExists := mutatingState.Has(policyKey)
+			vExists := validatingState.Has(policyKey)
+			if !checkIfPolicyIsConfiguredInWebhooks(policy, mExists, vExists) {
+				ready, message = false, "Not Ready"
 			}
 		}
 		// If there are global context entries under , check if they are ready
@@ -669,7 +696,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
 				return err
 			}
-			if err := c.updatePolicyStatuses(ctx, config.MutatingWebhookConfigurationName); err != nil {
+			if err := c.updatePolicyStatuses(ctx); err != nil {
 				return err
 			}
 		}
@@ -680,7 +707,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
 				return err
 			}
-			if err := c.updatePolicyStatuses(ctx, config.ValidatingWebhookConfigurationName); err != nil {
+			if err := c.updatePolicyStatuses(ctx); err != nil {
 				return err
 			}
 		}
@@ -1005,7 +1032,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		webhooks = append(webhooks, fineGrainedFailList...)
 		result.Webhooks = c.buildResourceValidatingWebhookRules(caBundle, webhookCfg, sideEffects, webhooks)
 	} else {
-		c.recordPolicyState(config.MutatingWebhookConfigurationName)
+		c.recordPolicyState(config.ValidatingWebhookConfigurationName)
 	}
 	return &result, nil
 }
