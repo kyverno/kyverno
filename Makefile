@@ -1142,8 +1142,8 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait \
-		--repo https://charts.bitnami.com/bitnami metrics-server \
+	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+		--namespace kube-system --wait \
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all
