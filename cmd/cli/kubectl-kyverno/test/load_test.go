@@ -65,7 +65,7 @@ func TestLoadTests(t *testing.T) {
 						Result: policyreportv1alpha2.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
-					Resources: []string{
+					Resources: []any{
 						"test-pod-with-non-root-user-image",
 						"test-pod-with-trusted-registry",
 					},
@@ -97,7 +97,7 @@ func TestLoadTests(t *testing.T) {
 						Rule:              "generate-limitrange",
 						GeneratedResource: "generatedLimitRange.yaml",
 					},
-					Resources: []string{"hello-world-namespace"},
+					Resources: []any{"hello-world-namespace"},
 				}, {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
@@ -106,7 +106,7 @@ func TestLoadTests(t *testing.T) {
 						Rule:              "generate-resourcequota",
 						GeneratedResource: "generatedResourceQuota.yaml",
 					},
-					Resources: []string{"hello-world-namespace"},
+					Resources: []any{"hello-world-namespace"},
 				}},
 			},
 		}},
@@ -134,7 +134,7 @@ func TestLoadTests(t *testing.T) {
 						Result: policyreportv1alpha2.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
-					Resources: []string{
+					Resources: []any{
 						"test-pod-with-non-root-user-image",
 						"test-pod-with-trusted-registry",
 					},
@@ -160,7 +160,7 @@ func TestLoadTests(t *testing.T) {
 						Rule:              "generate-limitrange",
 						GeneratedResource: "generatedLimitRange.yaml",
 					},
-					Resources: []string{"hello-world-namespace"},
+					Resources: []any{"hello-world-namespace"},
 				}, {
 					TestResultBase: v1alpha1.TestResultBase{
 						Kind:              "Namespace",
@@ -169,7 +169,7 @@ func TestLoadTests(t *testing.T) {
 						Rule:              "generate-resourcequota",
 						GeneratedResource: "generatedResourceQuota.yaml",
 					},
-					Resources: []string{"hello-world-namespace"},
+					Resources: []any{"hello-world-namespace"},
 				}},
 			},
 		}},
@@ -234,7 +234,7 @@ func TestLoadTest(t *testing.T) {
 						Result: policyreportv1alpha2.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
-					Resources: []string{
+					Resources: []any{
 						"test-pod-with-non-root-user-image",
 						"test-pod-with-trusted-registry",
 					},
@@ -263,7 +263,7 @@ func TestLoadTest(t *testing.T) {
 						Result: policyreportv1alpha2.StatusPass,
 						Rule:   "only-allow-trusted-images",
 					},
-					Resources: []string{
+					Resources: []any{
 						"test-pod-with-non-root-user-image",
 						"test-pod-with-trusted-registry",
 					},

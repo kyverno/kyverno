@@ -53,6 +53,7 @@ func NewEngine(
 		ivCache,
 		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig), factories.WithGlobalContextStore(gctxStore)),
 		exceptionsSelector,
+		nil,
 	)
 }
 
