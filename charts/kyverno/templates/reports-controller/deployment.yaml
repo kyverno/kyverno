@@ -119,7 +119,7 @@ spec:
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
             - --resyncPeriod={{ .Values.reportsController.resyncPeriod | default .Values.global.resyncPeriod }}
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.reportsController.featuresOverride)
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.reportsController.featuresOverride)
               "reporting"
               "admissionReports"
               "aggregateReports"
