@@ -1,0 +1,8 @@
+apiVersion: verylonggggggggggggggggggggggggggggggggggggggggroup.example.com/verylongversion
+kind: VeryLongResource
+metadata:
+  name: very-long-resource-name-testing-label-length
+  labels:
+    env: "test-environment"
+spec:
+  exampleField: "exampleValue"
