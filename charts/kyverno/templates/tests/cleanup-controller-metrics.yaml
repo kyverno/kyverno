@@ -10,6 +10,10 @@ metadata:
     {{- include "kyverno.test.annotations" . | nindent 4 }}
 spec:
   restartPolicy: Never
+  {{- with .Values.test.imagePullSecrets | default .Values.global.imagePullSecrets }}
+  imagePullSecrets:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
   containers:
     - name: test
       image: {{ template "kyverno.test.image" . }}
@@ -25,5 +29,5 @@ spec:
       command:
         - /bin/sh
         - -c
-        - sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.cleanup-controller.name" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.metricsService.port }}/metrics
+        - sleep {{ .Values.test.sleep }} ; wget -O- -S --no-check-certificate http://{{ template "kyverno.cleanup-controller.name" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.cleanupController.metricsService.port }}/metrics
 {{- end -}}

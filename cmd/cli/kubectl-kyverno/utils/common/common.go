@@ -89,7 +89,7 @@ func GetResourceAccordingToResourcePath(
 
 func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subresources []v1alpha1.Subresource, dClient dclient.Interface) sets.Set[string] {
 	knownkinds := sets.New[string]()
-	for _, rule := range autogen.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
 			if err != nil {
@@ -98,13 +98,15 @@ func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subreso
 			}
 			knownkinds.Insert(k)
 		}
-		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			k, err := getKind(kind, subresources, dClient)
-			if err != nil {
-				fmt.Fprintf(out, "Error: %s", err.Error())
-				continue
+		if rule.ExcludeResources != nil {
+			for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
+				k, err := getKind(kind, subresources, dClient)
+				if err != nil {
+					fmt.Fprintf(out, "Error: %s", err.Error())
+					continue
+				}
+				knownkinds.Insert(k)
 			}
-			knownkinds.Insert(k)
 		}
 	}
 	return knownkinds

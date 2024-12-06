@@ -41,7 +41,7 @@ func NewEngine(
 	exceptionsSelector engineapi.PolicyExceptionSelector,
 	gctxStore loaders.Store,
 ) engineapi.Engine {
-	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
+	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, resyncPeriod)
 	logger = logger.WithName("engine")
 	logger.Info("setup engine...")
 	return engine.NewEngine(
@@ -63,6 +63,10 @@ func NewExceptionSelector(
 	logger = logger.WithName("exception-selector").WithValues("enablePolicyException", enablePolicyException, "exceptionNamespace", exceptionNamespace)
 	logger.Info("setup exception selector...")
 	if !enablePolicyException {
+		return nil, nil
+	}
+	if exceptionNamespace == "" {
+		logger.Error(errors.New("the flag --exceptionNamespace cannot be empty"), "the flag --exceptionNamespace cannot be empty")
 		return nil, nil
 	}
 	polexCache := exceptioncontroller.NewController(

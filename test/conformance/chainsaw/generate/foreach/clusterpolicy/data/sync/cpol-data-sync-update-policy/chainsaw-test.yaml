@@ -1,0 +1,55 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-data-sync-create
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: 1-1-policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: foreach-cpol-data-sync-update-policy
+  - name: step-02
+    try:
+    - apply:
+        file: 2-1-trigger.yaml
+    - assert:
+        file: 2-2-netpol.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: 3-1-update-policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: foreach-cpol-data-sync-update-policy
+  - try:
+    - assert:
+        file: 3-2-netpol.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: 4-1-update-policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: foreach-cpol-data-sync-update-policy
+  - try:
+    - assert:
+        file: 4-2-netpol.yaml

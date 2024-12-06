@@ -17,34 +17,36 @@ import (
 
 // Generate provides implementation to validate 'generate' rule
 type Generate struct {
-	user        string
-	rule        kyvernov1.Generation
-	authChecker auth.AuthChecks
-	log         logr.Logger
+	user               string
+	rule               *kyvernov1.Rule
+	authChecker        auth.AuthChecks
+	authCheckerReports auth.AuthChecks
+	log                logr.Logger
 }
 
 // NewGenerateFactory returns a new instance of Generate validation checker
-func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, user string, log logr.Logger) *Generate {
+func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger) *Generate {
 	g := Generate{
-		user:        user,
-		rule:        rule,
-		authChecker: auth.NewAuth(client, user, log),
-		log:         log,
+		user:               user,
+		rule:               rule,
+		authChecker:        auth.NewAuth(client, user, log),
+		authCheckerReports: auth.NewAuth(client, reportsSA, log),
+		log:                log,
 	}
 
 	return &g
 }
 
 // Validate validates the 'generate' rule
-func (g *Generate) Validate(ctx context.Context) (warnings []string, path string, err error) {
+func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []string, path string, err error) {
 	rule := g.rule
-	if rule.CloneList.Selector != nil {
-		if wildcard.ContainsWildcard(rule.CloneList.Selector.String()) {
+	if rule.Generation.CloneList.Selector != nil {
+		if wildcard.ContainsWildcard(rule.Generation.CloneList.Selector.String()) {
 			return nil, "selector", fmt.Errorf("wildcard characters `*/?` not supported")
 		}
 	}
 
-	if target := rule.GetData(); target != nil {
+	if target := rule.Generation.GetData(); target != nil {
 		// TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
 		if path, err := common.ValidatePattern(target, "/", nil); err != nil {
@@ -57,42 +59,49 @@ func (g *Generate) Validate(ctx context.Context) (warnings []string, path string
 	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
-	if rule.ForEachGeneration != nil {
-		for _, forEach := range rule.ForEachGeneration {
-			if err := g.validateAuth(ctx, forEach.GeneratePattern); err != nil {
+	if rule.Generation.ForEachGeneration != nil {
+		for _, forEach := range rule.Generation.ForEachGeneration {
+			if err := g.validateAuth(ctx, verbs, forEach.GeneratePattern); err != nil {
 				return nil, "foreach", err
 			}
 		}
 	} else {
-		if err := g.validateAuth(ctx, rule.GeneratePattern); err != nil {
+		if err := g.validateAuth(ctx, verbs, rule.Generation.GeneratePattern); err != nil {
 			return nil, "", err
 		}
 	}
-	return nil, "", nil
+	if w, err := g.validateAuthReports(ctx); err != nil {
+		return nil, "", err
+	} else if len(w) > 0 {
+		warnings = append(warnings, w...)
+	}
+	return warnings, "", nil
 }
 
-func (g *Generate) validateAuth(ctx context.Context, generate kyvernov1.GeneratePattern) error {
+func (g *Generate) validateAuth(ctx context.Context, verbs []string, generate kyvernov1.GeneratePattern) error {
 	if len(generate.CloneList.Kinds) != 0 {
 		for _, kind := range generate.CloneList.Kinds {
 			gvk, sub := parseCloneKind(kind)
-			return g.canIGenerate(ctx, gvk, generate.Namespace, sub)
+			return g.canIGenerate(ctx, verbs, gvk, generate.Namespace, sub)
 		}
 	} else {
 		k, sub := kubeutils.SplitSubresource(generate.Kind)
-		return g.canIGenerate(ctx, strings.Join([]string{generate.APIVersion, k}, "/"), generate.Namespace, sub)
+		return g.canIGenerate(ctx, verbs, strings.Join([]string{generate.APIVersion, k}, "/"), generate.Namespace, sub)
 	}
 	return nil
 }
 
-func (g *Generate) canIGenerate(ctx context.Context, gvk, namespace, subresource string) error {
+func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namespace, subresource string) error {
 	if regex.IsVariable(gvk) {
 		g.log.V(2).Info("resource Kind uses variables; skipping authorization checks.")
 		return nil
 	}
 
-	verbs := []string{"get", "create"}
-	if g.rule.Synchronize {
-		verbs = []string{"get", "create", "update", "delete"}
+	if verbs == nil {
+		verbs = []string{"get", "create"}
+		if g.rule.Generation.Synchronize {
+			verbs = []string{"get", "create", "update", "delete"}
+		}
 	}
 
 	ok, msg, err := g.authChecker.CanI(ctx, verbs, gvk, namespace, "", subresource)
@@ -114,4 +123,24 @@ func parseCloneKind(gvks string) (gvk, sub string) {
 		k = strings.Join([]string{gv, k}, "/")
 	}
 	return k, sub
+}
+
+func (g *Generate) validateAuthReports(ctx context.Context) (warnings []string, err error) {
+	kinds := g.rule.MatchResources.GetKinds()
+	for _, k := range kinds {
+		if wildcard.ContainsWildcard(k) {
+			return nil, nil
+		}
+
+		verbs := []string{"get", "list", "watch"}
+		ok, msg, err := g.authCheckerReports.CanI(ctx, verbs, k, "", "", "")
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			warnings = append(warnings, msg)
+		}
+	}
+
+	return warnings, nil
 }

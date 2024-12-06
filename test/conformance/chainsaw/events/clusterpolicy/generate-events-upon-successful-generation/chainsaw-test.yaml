@@ -1,17 +1,30 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: generate-events-upon-successful-generation
 spec:
   steps:
   - name: step-01
     try:
-    - apply:
-        file: policy.yaml
+    - script:
+        content: kubectl patch configmap kyverno -p '{"data":{"generateSuccessEvents":"true"}}' -n kyverno
     - assert:
-        file: policy-assert.yaml
-  - name: step-02
+        file: kyverno-configmap-assert.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: zk-kafka-address
+  - name: step-03
     try:
     - apply:
         file: resource.yaml

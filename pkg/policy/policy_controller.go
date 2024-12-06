@@ -122,14 +122,17 @@ func NewPolicyController(
 	eventBroadcaster.StartRecordingToSink(stopCh)
 
 	pc := policyController{
-		client:          client,
-		kyvernoClient:   kyvernoClient,
-		engine:          engine,
-		pInformer:       pInformer,
-		npInformer:      npInformer,
-		eventGen:        eventGen,
-		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), "policy"),
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		engine:        engine,
+		pInformer:     pInformer,
+		npInformer:    npInformer,
+		eventGen:      eventGen,
+		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.TypedRateLimitingQueueConfig[any]{Name: "policy"},
+		),
 		configuration:   configuration,
 		reconcilePeriod: reconcilePeriod,
 		metricsConfig:   metricsConfig,
@@ -201,11 +204,13 @@ func (pc *policyController) updatePolicy(old, cur interface{}) {
 	}
 
 	logger.V(2).Info("updating policy", "name", oldP.GetName())
-	if deleted, ok := ruleDeletion(oldP, curP); ok {
+	if deleted, ok, selector := ruleChange(oldP, curP); ok {
 		err := pc.createURForDownstreamDeletion(deleted)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("failed to create UR on rule deletion, clean up downstream resource may be failed: %v", err))
 		}
+	} else {
+		pc.unlabelDownstream(selector)
 	}
 
 	pc.enqueuePolicy(curP)

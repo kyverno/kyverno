@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-labels-deny
+spec:
+  background: true
+  rules:
+    - name: check-labels
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        failureAction: Enforce
+        deny:
+          conditions:
+            any:
+            - key: "{{ request.object.metadata.labels.foo || '' }}"
+              operator: NotEquals
+              value: 'bar'

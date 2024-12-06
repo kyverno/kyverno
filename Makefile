@@ -27,6 +27,7 @@ REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
 REPO_REPORTS         := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE)
 REPO_BACKGROUND      := $(REGISTRY)/$(REPO)/$(BACKGROUND_IMAGE)
 USE_CONFIG           ?= standard
+INSTALL_VERSION	     ?= 3.2.6
 
 #########
 # TOOLS #
@@ -698,20 +699,29 @@ codegen-helm-update-versions: ## Update helm charts versions
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
+codegen-quick: ## Generate all generated code except client
+codegen-quick: codegen-deepcopy
+codegen-quick: codegen-crds-all
+codegen-quick: codegen-docs-all
+codegen-quick: codegen-helm-all
+codegen-quick: codegen-manifest-all
 
 .PHONY: codegen-slow
-codegen-slow: codegen-client-all ## Generate client code
+codegen-slow: ## Generate client code
+codegen-slow: codegen-client-all
 
 .PHONY: codegen-all
-codegen-all: codegen-quick codegen-slow ## Generate all generated code
+codegen-all: ## Generate all generated code
+codegen-all: codegen-quick
+codegen-all: codegen-slow
 
 ##################
 # VERIFY CODEGEN #
 ##################
 
 .PHONY: verify-crds
-verify-crds: codegen-crds-all ## Check CRDs are up to date
+verify-crds: ## Check CRDs are up to date
+verify-crds: codegen-crds-all
 	@echo Checking crds are up to date... >&2
 	@git --no-pager diff $(CRDS_PATH)
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".' >&2
@@ -719,7 +729,8 @@ verify-crds: codegen-crds-all ## Check CRDs are up to date
 	@git diff --quiet --exit-code $(CRDS_PATH)
 
 .PHONY: verify-client
-verify-client: codegen-client-all ## Check client is up to date
+verify-client: ## Check client is up to date
+verify-client: codegen-client-all
 	@echo Checking client is up to date... >&2
 	@git --no-pager diff --ignore-space-change pkg/client
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".' >&2
@@ -731,7 +742,8 @@ verify-client: codegen-client-all ## Check client is up to date
 	@git diff --ignore-space-change --quiet --exit-code pkg/clients
 
 .PHONY: verify-deepcopy
-verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
+verify-deepcopy: ## Check deepcopy functions are up to date
+verify-deepcopy: codegen-deepcopy
 	@echo Checking deepcopy functions are up to date... >&2
 	@git --no-pager diff api
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy".' >&2
@@ -739,7 +751,8 @@ verify-deepcopy: codegen-deepcopy ## Check deepcopy functions are up to date
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-docs
-verify-docs: codegen-docs-all ## Check docs are up to date
+verify-docs: ## Check docs are up to date
+verify-docs: codegen-docs-all
 	@echo Checking docs are up to date... >&2
 	@git --no-pager diff docs/user
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-docs-all".' >&2
@@ -747,7 +760,8 @@ verify-docs: codegen-docs-all ## Check docs are up to date
 	@git diff --quiet --exit-code docs/user
 
 .PHONY: verify-helm
-verify-helm: codegen-helm-all ## Check Helm charts are up to date
+verify-helm: ## Check Helm charts are up to date
+verify-helm: codegen-helm-all
 	@echo Checking helm charts are up to date... >&2
 	@git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
@@ -755,7 +769,8 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@git diff --quiet --exit-code charts
 
 .PHONY: verify-manifests
-verify-manifests: codegen-manifest-all ## Check manifests are up to date
+verify-manifests: ## Check manifests are up to date
+verify-manifests: codegen-manifest-all
 	@echo Checking manifests are up to date... >&2
 	@git --no-pager diff ${INSTALL_MANIFEST_PATH}
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-manifest-all".' >&2
@@ -763,7 +778,8 @@ verify-manifests: codegen-manifest-all ## Check manifests are up to date
 	@git diff --quiet --exit-code ${INSTALL_MANIFEST_PATH}
 
 .PHONY: verify-cli-crds
-verify-cli-crds: codegen-cli-crds ## Check generated CRDs to be embedded in the CLI are up to date
+verify-cli-crds: ## Check generated CRDs to be embedded in the CLI are up to date
+verify-cli-crds: codegen-cli-crds
 	@echo Checking generated CRDs to be embedded in the CLI are up to date... >&2
 	@git --no-pager diff cmd/cli/kubectl-kyverno/data/crds
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-cli-crds".' >&2
@@ -779,7 +795,14 @@ verify-cli-tests: ## Check CLI test files are up to date
 	@git diff --quiet --exit-code test/cli
 
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-docs verify-helm verify-manifests verify-cli-crds ## Verify all generated code and docs are up to date
+verify-codegen: ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds
+verify-codegen: verify-client
+verify-codegen: verify-deepcopy
+verify-codegen: verify-docs
+verify-codegen: verify-helm
+verify-codegen: verify-manifests
+verify-codegen: verify-cli-crds
 
 ##############
 # UNIT TESTS #
@@ -1011,7 +1034,17 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
 		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
 		--set crds.migration.image.tag=$(GIT_SHA) \
-		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
+		$(EXPLICIT_INSTALL_SETTINGS)
+
+.PHONY: kind-install-kyverno-from-repo
+kind-install-kyverno-from-repo: $(HELM) ## Install Kyverno Helm Chart from the Kyverno repo
+	@echo Install kyverno chart... >&2
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait \
+		--repo https://kyverno.github.io/kyverno/ kyverno \
+		--version $(INSTALL_VERSION) \
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
+		$(EXPLICIT_INSTALL_SETTINGS)
 
 .PHONY: kind-install-goldilocks
 kind-install-goldilocks: $(HELM) ## Install goldilocks helm chart
@@ -1042,6 +1075,10 @@ kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/standard/kyverno-reporter.yaml
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
+
+.PHONY: kind-admission-controller-image-name
+kind-admission-controller-image-name: ## Print admission controller image name
+	@echo -n $(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA)
 
 ###########
 # ROLLOUT #
@@ -1105,8 +1142,8 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait \
-		--repo https://charts.bitnami.com/bitnami metrics-server \
+	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+		--namespace kube-system --wait \
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all

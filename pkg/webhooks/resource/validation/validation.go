@@ -31,7 +31,7 @@ type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleValidationEnforce(context.Context, handlers.AdmissionRequest, []kyvernov1.PolicyInterface, time.Time) (bool, string, []string, []engineapi.EngineResponse)
+	HandleValidationEnforce(context.Context, handlers.AdmissionRequest, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, time.Time) (bool, string, []string, []engineapi.EngineResponse)
 	HandleValidationAudit(context.Context, handlers.AdmissionRequest) []engineapi.EngineResponse
 }
 
@@ -46,6 +46,7 @@ func NewValidationHandler(
 	metrics metrics.MetricsConfigManager,
 	cfg config.Configuration,
 	nsLister corev1listers.NamespaceLister,
+	reportConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
 ) ValidationHandler {
 	return &validationHandler{
@@ -59,6 +60,7 @@ func NewValidationHandler(
 		metrics:          metrics,
 		cfg:              cfg,
 		nsLister:         nsLister,
+		reportConfig:     reportConfig,
 		reportsBreaker:   reportsBreaker,
 	}
 }
@@ -74,6 +76,7 @@ type validationHandler struct {
 	metrics          metrics.MetricsConfigManager
 	cfg              config.Configuration
 	nsLister         corev1listers.NamespaceLister
+	reportConfig     reportutils.ReportingConfiguration
 	reportsBreaker   breaker.Breaker
 }
 
@@ -81,12 +84,13 @@ func (v *validationHandler) HandleValidationEnforce(
 	ctx context.Context,
 	request handlers.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
+	auditWarnPolicies []kyvernov1.PolicyInterface,
 	admissionRequestTimestamp time.Time,
 ) (bool, string, []string, []engineapi.EngineResponse) {
 	resourceName := admissionutils.GetResourceName(request.AdmissionRequest)
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
-	if len(policies) == 0 {
+	if len(policies) == 0 && len(auditWarnPolicies) == 0 {
 		return true, "", nil, nil
 	}
 
@@ -129,6 +133,27 @@ func (v *validationHandler) HandleValidationEnforce(
 		)
 	}
 
+	var auditWarnEngineResponses []engineapi.EngineResponse
+	for _, policy := range auditWarnPolicies {
+		tracing.ChildSpan(
+			ctx,
+			"pkg/webhooks/resource/validate",
+			fmt.Sprintf("AUDIT WARN POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+			func(ctx context.Context, span trace.Span) {
+				policyContext := policyContext.WithPolicy(policy)
+
+				engineResponse := v.engine.Validate(ctx, policyContext)
+				if engineResponse.IsNil() {
+					// we get an empty response if old and new resources created the same response
+					// allow updates if resource update doesn't change the policy evaluation
+					return
+				}
+
+				auditWarnEngineResponses = append(auditWarnEngineResponses, engineResponse)
+			},
+		)
+	}
+
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 
 	if blocked {
@@ -137,13 +162,14 @@ func (v *validationHandler) HandleValidationEnforce(
 	}
 
 	go func() {
-		if needsReports(request, policyContext.NewResource(), v.admissionReports) {
+		if needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig) {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
 		}
 	}()
 
+	engineResponses = append(engineResponses, auditWarnEngineResponses...)
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings, engineResponses
 }
@@ -165,7 +191,7 @@ func (v *validationHandler) HandleValidationAudit(
 	}
 
 	var responses []engineapi.EngineResponse
-	needsReport := needsReports(request, policyContext.NewResource(), v.admissionReports)
+	needsReport := needsReports(request, policyContext.NewResource(), v.admissionReports, v.reportConfig)
 	tracing.Span(
 		context.Background(),
 		"",

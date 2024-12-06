@@ -43,7 +43,7 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	} else {
 		report = &reportsv1.EphemeralReport{}
 	}
-	report.SetName(name)
+	report.SetGenerateName(name + "-")
 	report.SetNamespace(namespace)
 	controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, owner, uid)
 	SetResourceUid(report, uid)
@@ -51,6 +51,24 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	SetResourceNamespaceAndName(report, namespace, owner)
 	SetManagedByKyvernoLabel(report)
 	SetSource(report, "background-scan")
+	return report
+}
+
+func BuildMutationReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), schema.GroupVersionKind(request.Kind), resource)
+	SetMutationResponses(report, responses...)
+	return report
+}
+
+func BuildMutateExistingReport(namespace string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewBackgroundScanReport(namespace, string(uid), gvk, owner, uid)
+	SetMutationResponses(report, responses...)
+	return report
+}
+
+func BuildGenerateReport(namespace string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+	report := NewBackgroundScanReport(namespace, string(uid), gvk, owner, uid)
+	SetGenerationResponses(report, responses...)
 	return report
 }
 

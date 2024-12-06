@@ -3,7 +3,6 @@ package policycache
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -80,8 +79,12 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace 
 }
 
 func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
-	var filteredRules []kyvernov1.Rule
-	for _, rule := range autogen.ComputeRules(policy, "") {
+	filteredRules := make([]kyvernov1.Rule, 0, len(policy.GetSpec().Rules))
+
+	// Use pointer to avoid copying the rule in each iteration
+	for i := range policy.GetSpec().Rules {
+		rule := &policy.GetSpec().Rules[i]
+
 		if !rule.HasValidate() {
 			continue
 		}
@@ -89,7 +92,8 @@ func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyver
 		// if the field isn't set, use the higher level policy setting
 		validationFailureAction := rule.Validation.FailureAction
 		if validationFailureAction == nil {
-			validationFailureAction = &policy.GetSpec().ValidationFailureAction
+			policyAction := policy.GetSpec().ValidationFailureAction
+			validationFailureAction = &policyAction
 		}
 
 		validationFailureActionOverrides := rule.Validation.FailureActionOverrides
@@ -98,21 +102,29 @@ func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyver
 		}
 
 		if (ns == "" || len(validationFailureActionOverrides) == 0) && validationFailureAction.Enforce() == enforce {
-			filteredRules = append(filteredRules, rule)
+			filteredRules = append(filteredRules, *rule)
 			continue
 		}
+
 		for _, action := range validationFailureActionOverrides {
 			if action.Action.Enforce() == enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
-				filteredRules = append(filteredRules, rule)
-				continue
+				filteredRules = append(filteredRules, *rule)
+				break // Changed continue to break since we found a match
 			}
 		}
 	}
+
 	if len(filteredRules) > 0 {
-		filteredPolicy := policy.CreateDeepCopy()
-		filteredPolicy.GetSpec().Rules = filteredRules
+		var filteredPolicy kyvernov1.PolicyInterface
+		if _, ok := policy.(*kyvernov1.Policy); ok {
+			shallowCopy := *policy.(*kyvernov1.Policy)
+			filteredPolicy = &shallowCopy
+		} else {
+			shallowCopy := *policy.(*kyvernov1.ClusterPolicy)
+			filteredPolicy = &shallowCopy
+		}
+		filteredPolicy.GetSpec().SetRules(filteredRules)
 		return true, filteredPolicy
 	}
-
 	return false, nil
 }

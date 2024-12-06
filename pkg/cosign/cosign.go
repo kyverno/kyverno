@@ -60,7 +60,8 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 		return &images.Response{Digest: results[0].Desc.Digest.String()}, nil
 	}
 
-	ref, err := name.ParseReference(opts.ImageRef)
+	nameOpts := opts.Client.NameOptions()
+	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
 	}
@@ -135,19 +136,20 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		cosignOpts.RootCerts = cp
 	}
 
+	signatureAlgorithm, ok := signatureAlgorithmMap[opts.SignatureAlgorithm]
+	if !ok {
+		return nil, fmt.Errorf("invalid signature algorithm provided %s", opts.SignatureAlgorithm)
+	}
+
 	if opts.Key != "" {
 		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
-			if signatureAlgorithm, ok := signatureAlgorithmMap[opts.SignatureAlgorithm]; ok {
-				cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithm)
-				if err != nil {
-					return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
-				}
-			} else {
-				return nil, fmt.Errorf("invalid signature algorithm provided %s", opts.SignatureAlgorithm)
+			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithm)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
 			}
 		} else {
 			// this supports Kubernetes secrets and KMS
-			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, opts.Key)
+			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, opts.Key, signatureAlgorithm)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load public key from %s: %w", opts.Key, err)
 			}
@@ -161,7 +163,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 			}
 
 			if opts.CertChain == "" {
-				cosignOpts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, crypto.SHA256)
+				cosignOpts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, signatureAlgorithm)
 				if err != nil {
 					return nil, fmt.Errorf("failed to load signature from certificate: %w", err)
 				}
@@ -300,12 +302,13 @@ func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		return nil, err
 	}
 
+	nameOpts := opts.Client.NameOptions()
 	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
 		"",
 		"VERIFY IMG ATTESTATIONS",
 		func(ctx context.Context, span trace.Span) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
-			ref, err := name.ParseReference(opts.ImageRef)
+			ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
 			if err != nil {
 				return nil, false, fmt.Errorf("failed to parse image: %w", err)
 			}

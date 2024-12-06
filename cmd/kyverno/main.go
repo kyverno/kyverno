@@ -51,15 +51,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
+	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
 const (
-	resyncPeriod                   = 15 * time.Minute
-	exceptionWebhookControllerName = "exception-webhook-controller"
-	gctxWebhookControllerName      = "global-context-webhook-controller"
+	exceptionWebhookControllerName   = "exception-webhook-controller"
+	gctxWebhookControllerName        = "global-context-webhook-controller"
+	webhookControllerFinalizerName   = "kyverno.io/webhooks"
+	exceptionControllerFinalizerName = "kyverno.io/exceptionwebhooks"
+	gctxControllerFinalizerName      = "kyverno.io/globalcontextwebhooks"
 )
 
 var (
@@ -107,11 +110,13 @@ func createrLeaderControllers(
 	serverIP string,
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
+	autoDeleteWebhooks bool,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	caInformer corev1informers.SecretInformer,
 	tlsInformer corev1informers.SecretInformer,
+	deploymentInformer appsv1informers.DeploymentInformer,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
@@ -141,6 +146,7 @@ func createrLeaderControllers(
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
@@ -150,16 +156,20 @@ func createrLeaderControllers(
 		servicePort,
 		webhookServerPort,
 		autoUpdateWebhooks,
+		autoDeleteWebhooks,
 		admissionReports,
 		runtime,
 		configuration,
 		caSecretName,
+		webhookcontroller.WebhookCleanupSetup(kubeClient, webhookControllerFinalizerName),
+		webhookcontroller.WebhookCleanupHandler(kubeClient, webhookControllerFinalizerName),
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		caInformer,
+		deploymentInformer,
 		config.ExceptionValidatingWebhookConfigurationName,
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
@@ -181,12 +191,17 @@ func createrLeaderControllers(
 		genericwebhookcontroller.None,
 		configuration,
 		caSecretName,
+		runtime,
+		autoDeleteWebhooks,
+		webhookcontroller.WebhookCleanupSetup(kubeClient, exceptionControllerFinalizerName),
+		webhookcontroller.WebhookCleanupHandler(kubeClient, exceptionControllerFinalizerName),
 	)
 	gctxWebhookController := genericwebhookcontroller.NewController(
 		gctxWebhookControllerName,
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		caInformer,
+		deploymentInformer,
 		config.GlobalContextValidatingWebhookConfigurationName,
 		config.GlobalContextValidatingWebhookServicePath,
 		serverIP,
@@ -208,6 +223,10 @@ func createrLeaderControllers(
 		genericwebhookcontroller.None,
 		configuration,
 		caSecretName,
+		runtime,
+		autoDeleteWebhooks,
+		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
+		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
@@ -241,6 +260,7 @@ func main() {
 		maxQueuedEvents              int
 		omitEvents                   string
 		autoUpdateWebhooks           bool
+		autoDeleteWebhooks           bool
 		webhookRegistrationTimeout   time.Duration
 		admissionReports             bool
 		dumpPayload                  bool
@@ -261,10 +281,12 @@ func main() {
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
+	flagset.BoolVar(&autoDeleteWebhooks, "autoDeleteWebhooks", false, "Set this flag to 'true' to enable autodeletion of webhook configurations using finalizers (requires extra permissions).")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
+	flagset.Func(toggle.DumpMutatePatchesFlagName, toggle.DumpMutatePatchesDescription, toggle.DumpMutatePatches.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
@@ -297,6 +319,7 @@ func main() {
 		internal.WithApiServerClient(),
 		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
+		internal.WithReporting(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -322,9 +345,10 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
-		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
-		if !informers.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, caSecret, tlsSecret) {
+		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
+		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
+		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), setup.ResyncPeriod)
+		if !informers.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, caSecret, tlsSecret, kyvernoDeployment) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
 		}
@@ -339,9 +363,10 @@ func main() {
 			os.Exit(1)
 		}
 		// informer factories
-		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
+		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+
 		certRenewer := tls.NewCertRenewer(
 			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 			tls.CertRenewalInterval,
@@ -454,8 +479,8 @@ func main() {
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
 				// create leader factories
-				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
+				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				// create leader controllers
 				leaderControllers, warmup, err := createrLeaderControllers(
 					generateValidatingAdmissionPolicy,
@@ -463,11 +488,13 @@ func main() {
 					serverIP,
 					webhookTimeout,
 					autoUpdateWebhooks,
+					autoDeleteWebhooks,
 					kubeInformer,
 					kubeKyvernoInformer,
 					kyvernoInformer,
 					caSecret,
 					tlsSecret,
+					kyvernoDeployment,
 					setup.KubeClient,
 					setup.KyvernoClient,
 					setup.KyvernoDynamicClient,
@@ -520,9 +547,9 @@ func main() {
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
-		ephrs, err := StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
-			setup.Logger.Error(errors.New("failed to start admission reports watcher"), "failed to start admission reports watcher")
+			setup.Logger.Error(err, "failed to start admission reports watcher")
 			os.Exit(1)
 		}
 		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
@@ -551,6 +578,7 @@ func main() {
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,
+			setup.ReportingConfiguration,
 			reportsBreaker,
 		)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{

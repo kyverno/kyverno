@@ -53,7 +53,7 @@ func (h mutateExistingHandler) Process(
 
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Mutation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", ")).WithExceptions(matchedExceptions),
+			engineapi.RuleSkip(rule.Name, engineapi.Mutation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
 		)
 	}
 
@@ -61,7 +61,7 @@ func (h mutateExistingHandler) Process(
 	logger.V(3).Info("processing mutate rule")
 	targets, err := loadTargets(ctx, h.client, rule.Mutation.Targets, policyContext, logger)
 	if err != nil {
-		rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "", err)
+		rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "", err, rule.ReportProperties)
 		responses = append(responses, *rr)
 	}
 
@@ -76,20 +76,20 @@ func (h mutateExistingHandler) Process(
 		}
 		// load target specific context
 		if err := contextLoader(ctx, target.context, policyContext.JSONContext()); err != nil {
-			rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to load context", err)
+			rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to load context", err, rule.ReportProperties)
 			responses = append(responses, *rr)
 			continue
 		}
 		// load target specific preconditions
 		preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), target.preconditions)
 		if err != nil {
-			rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to evaluate preconditions", err)
+			rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to evaluate preconditions", err, rule.ReportProperties)
 			responses = append(responses, *rr)
 			continue
 		}
 		if !preconditionsPassed {
 			s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
-			rr := engineapi.RuleSkip(rule.Name, engineapi.Mutation, s)
+			rr := engineapi.RuleSkip(rule.Name, engineapi.Mutation, s, rule.ReportProperties)
 			responses = append(responses, *rr)
 			continue
 		}

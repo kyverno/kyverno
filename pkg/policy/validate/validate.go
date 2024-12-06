@@ -32,7 +32,7 @@ func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock boo
 
 	return &Validate{
 		rule:           rule,
-		validationRule: &rule.Validation,
+		validationRule: rule.Validation,
 		authChecker:    authChecker,
 	}
 }
@@ -40,13 +40,13 @@ func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock boo
 func NewMockValidateFactory(rule *kyvernov1.Rule) *Validate {
 	return &Validate{
 		rule:           rule,
-		validationRule: &rule.Validation,
+		validationRule: rule.Validation,
 		authChecker:    fake.NewFakeAuth(),
 	}
 }
 
 // Validate validates the 'validate' rule
-func (v *Validate) Validate(ctx context.Context) (warnings []string, path string, err error) {
+func (v *Validate) Validate(ctx context.Context, _ []string) (warnings []string, path string, err error) {
 	if err := v.validateElements(); err != nil {
 		return nil, "", err
 	}

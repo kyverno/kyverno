@@ -3,6 +3,7 @@
 ### Note
 
 - Removed deprecated flag `reportsChunkSize`.
+- Added `--tufRootRaw` flag to pass tuf root for custom sigstore deployments.
 
 ## v1.11.0
 

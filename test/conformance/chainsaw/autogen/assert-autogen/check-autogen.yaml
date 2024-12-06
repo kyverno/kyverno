@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-default-sa
+status:
+  autogen:
+    rules:
+    - match:
+        any:
+        - resources:
+            kinds:
+            - Deployment
+      name: autogen-disallow-default-sa
+      validate:
+        message: default ServiceAccount should not be used
+        assert:
+          object:
+            spec:
+              template:
+                spec:
+                  (serviceAccountName == 'default'): false
+    - match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+      name: autogen-cronjob-disallow-default-sa
+      validate:
+        message: default ServiceAccount should not be used
+        assert:
+          object:
+            spec:
+              jobTemplate:
+                spec:
+                  template:
+                    spec:
+                      (serviceAccountName == 'default'): false

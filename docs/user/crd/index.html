@@ -178,6 +178,19 @@ ValidationFailureAction
 </tr>
 <tr>
 <td>
+<code>emitWarning</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>admission</code><br/>
 <em>
 bool
@@ -436,6 +449,19 @@ ValidationFailureAction
 </td>
 <td>
 <p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>emitWarning</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -750,6 +776,17 @@ OCI registry and decodes them into a list of Statements.</p>
 <tbody>
 <tr>
 <td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the variable name.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>predicateType</code><br/>
 <em>
 string
@@ -892,6 +929,17 @@ string
 <td>
 <p>Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
 If specified Repository will override other OCI image repository locations for this Attestor.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>signatureAlgorithm</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
 </td>
 </tr>
 </tbody>
@@ -1434,6 +1482,21 @@ APICall
 </tr>
 <tr>
 <td>
+<code>default</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Default is an optional arbitrary JSON object that the context
+value is set to, if the apiCall returns error.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>jmesPath</code><br/>
 <em>
 string
@@ -1561,6 +1624,7 @@ GlobalContextEntryReference
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
+<a href="#kyverno.io/v1.ValidateImageVerification">ValidateImageVerification</a>, 
 <a href="#kyverno.io/v1.Validation">Validation</a>)
 </p>
 <p>
@@ -1806,7 +1870,7 @@ github.com/kyverno/kyverno/api/kyverno.Any
 <em>(Optional)</em>
 <p>PatchStrategicMerge is a strategic merge patch used to modify resources.
 See <a href="https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/">https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/</a>
-and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/</a>.</p>
+and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/">https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/</a>.</p>
 </td>
 </tr>
 <tr>
@@ -1819,7 +1883,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/</a>.</p>
+See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/</a>.</p>
 </td>
 </tr>
 <tr>
@@ -2265,6 +2329,47 @@ transform the JSON response returned from the server. For example
 a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
 for the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
 of deployments across all namespaces.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.HTTPHeader">HTTPHeader
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Key is the header key</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>value</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Value is the header value</p>
 </td>
 </tr>
 </tbody>
@@ -2719,6 +2824,20 @@ bool
 </tr>
 <tr>
 <td>
+<code>validate</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidateImageVerification">
+ValidateImageVerification
+</a>
+</em>
+</td>
+<td>
+<p>Validation checks conditions across multiple image
+verification attestations or context entries</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>required</code><br/>
 <em>
 bool
@@ -3112,7 +3231,7 @@ Kubernetes apiextensions/v1.JSON
 <em>(Optional)</em>
 <p>PatchStrategicMerge is a strategic merge patch used to modify resources.
 See <a href="https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/">https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/</a>
-and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/</a>.</p>
+and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/">https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/</a>.</p>
 </td>
 </tr>
 <tr>
@@ -3125,7 +3244,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/</a>.</p>
+See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/</a>.</p>
 </td>
 </tr>
 <tr>
@@ -3700,7 +3819,7 @@ ResourceDescription
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.GeneratePattern">GeneratePattern</a>, 
-<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
+<a href="#kyverno.io/v1.TargetSelector">TargetSelector</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>, 
 <a href="#kyverno.io/v2.RuleContext">RuleContext</a>, 
@@ -3824,6 +3943,18 @@ string
 <td>
 <em>(Optional)</em>
 <p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>reportProperties</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ReportProperties are the additional properties from the rule that will be added to the policy report result</p>
 </td>
 </tr>
 <tr>
@@ -4114,6 +4245,19 @@ string
 </tr>
 <tr>
 <td>
+<code>headers</code><br/>
+<em>
+<a href="#kyverno.io/v1.HTTPHeader">
+[]HTTPHeader
+</a>
+</em>
+</td>
+<td>
+<p>Headers is a list of optional HTTP headers to be included in the request.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>caBundle</code><br/>
 <em>
 string
@@ -4213,6 +4357,19 @@ ValidationFailureAction
 </td>
 <td>
 <p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>emitWarning</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -4373,7 +4530,7 @@ string
 </em>
 </td>
 <td>
-<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
+<p>Deprecated. Use attestor.signatureAlgorithm instead.</p>
 </td>
 </tr>
 <tr>
@@ -4451,15 +4608,15 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
 <tbody>
 <tr>
 <td>
-<code>ResourceSpec</code><br/>
+<code>TargetSelector</code><br/>
 <em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
+<a href="#kyverno.io/v1.TargetSelector">
+TargetSelector
 </a>
 </em>
 </td>
 <td>
-<p>ResourceSpec contains the target resources to load when mutating existing resources.</p>
+<p>TargetSelector contains the ResourceSpec and a label selector to support selecting with labels.</p>
 </td>
 </tr>
 <tr>
@@ -4492,6 +4649,52 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 will be deprecated in the next major release.
 See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.TargetSelector">TargetSelector
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ResourceSpec</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<p>ResourceSpec contains the target resources to load when mutating existing resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>selector</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+Kubernetes meta/v1.LabelSelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Selector allows you to select target resources with their labels.</p>
 </td>
 </tr>
 </tbody>
@@ -4552,6 +4755,54 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <em>(Optional)</em>
 <p>Subjects is the list of subject names like users, user groups, and service accounts.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ValidateImageVerification">ValidateImageVerification
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+<p>ValidateImageVerification checks conditions across multiple image
+verification attestations or context entries</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Message specifies a custom message to be displayed on failure.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deny</code><br/>
+<em>
+<a href="#kyverno.io/v1.Deny">
+Deny
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deny defines conditions used to pass or fail a validation rule.</p>
 </td>
 </tr>
 </tbody>
@@ -4647,6 +4898,17 @@ Allowed values are Audit or Enforce.</p>
 <em>(Optional)</em>
 <p>FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
 namespace-wise. It overrides FailureAction for the specified namespaces.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>allowExistingViolations</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>AllowExistingViolations allows prexisting violating resources to continue violating a policy.</p>
 </td>
 </tr>
 <tr>
@@ -5636,6 +5898,20 @@ AnyAllConditions
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>deletionPropagationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
+Kubernetes meta/v1.DeletionPropagation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -5783,6 +6059,20 @@ AnyAllConditions
 <td>
 <em>(Optional)</em>
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deletionPropagationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
+Kubernetes meta/v1.DeletionPropagation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
 </td>
 </tr>
 </table>
@@ -6310,6 +6600,20 @@ AnyAllConditions
 <td>
 <em>(Optional)</em>
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deletionPropagationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
+Kubernetes meta/v1.DeletionPropagation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
 </td>
 </tr>
 </tbody>
@@ -7446,6 +7750,20 @@ AnyAllConditions
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>deletionPropagationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
+Kubernetes meta/v1.DeletionPropagation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -7595,6 +7913,20 @@ AnyAllConditions
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>deletionPropagationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
+Kubernetes meta/v1.DeletionPropagation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -7741,6 +8073,19 @@ ValidationFailureAction
 </td>
 <td>
 <p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>emitWarning</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -8002,6 +8347,19 @@ ValidationFailureAction
 </td>
 <td>
 <p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>emitWarning</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -8415,6 +8773,20 @@ AnyAllConditions
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>deletionPropagationPolicy</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
+Kubernetes meta/v1.DeletionPropagation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -8756,6 +9128,20 @@ bool
 </td>
 <td>
 <p>VerifyDigest validates that images have a digest.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validate</code><br/>
+<em>
+<a href="#kyverno.io/v1.ValidateImageVerification">
+ValidateImageVerification
+</a>
+</em>
+</td>
+<td>
+<p>Validation checks conditions across multiple image
+verification attestations or context entries</p>
 </td>
 </tr>
 <tr>
@@ -9387,6 +9773,19 @@ ValidationFailureAction
 </td>
 <td>
 <p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>emitWarning</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>

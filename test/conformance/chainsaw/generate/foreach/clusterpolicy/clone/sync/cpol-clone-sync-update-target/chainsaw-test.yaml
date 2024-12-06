@@ -1,0 +1,40 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: cpol-data-sync-create
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: 1-1-source.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: 2-1-policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: foreach-cpol-clone-sync-update-target
+  - name: step-03
+    try:
+    - apply:
+        file: 3-1-trigger.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: 4-1-cloned-target.yaml
+  - name: step-05
+    try:
+    - apply:
+        file: 5-1-update-target.yaml
+    - assert:
+        file: 4-1-cloned-target.yaml
+    

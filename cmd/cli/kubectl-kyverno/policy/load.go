@@ -21,7 +21,8 @@ import (
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
-	"k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
@@ -31,8 +32,10 @@ var (
 	policyV2              = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("Policy")
 	clusterPolicyV1       = schema.GroupVersion(kyvernov1.GroupVersion).WithKind("ClusterPolicy")
 	clusterPolicyV2       = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("ClusterPolicy")
-	vapV1Beta1            = v1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
-	vapBindingV1beta1     = v1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
+	vapV1Beta1            = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
+	vapBindingV1beta1     = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
+	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
+	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	LegacyLoader          = legacyLoader
 	KubectlValidateLoader = kubectlValidateLoader
 	defaultLoader         = func(path string, bytes []byte) (*LoaderResults, error) {
@@ -51,8 +54,8 @@ type LoaderError struct {
 
 type LoaderResults struct {
 	Policies       []kyvernov1.PolicyInterface
-	VAPs           []v1beta1.ValidatingAdmissionPolicy
-	VAPBindings    []v1beta1.ValidatingAdmissionPolicyBinding
+	VAPs           []admissionregistrationv1beta1.ValidatingAdmissionPolicy
+	VAPBindings    []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
 	NonFatalErrors []LoaderError
 }
 
@@ -156,14 +159,14 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.Policies = append(results.Policies, typed)
-		case vapV1Beta1:
-			typed, err := convert.To[v1beta1.ValidatingAdmissionPolicy](untyped)
+		case vapV1Beta1, vapV1:
+			typed, err := convert.To[admissionregistrationv1beta1.ValidatingAdmissionPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.VAPs = append(results.VAPs, *typed)
-		case vapBindingV1beta1:
-			typed, err := convert.To[v1beta1.ValidatingAdmissionPolicyBinding](untyped)
+		case vapBindingV1beta1, vapBindingV1:
+			typed, err := convert.To[admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding](untyped)
 			if err != nil {
 				return nil, err
 			}

@@ -55,12 +55,10 @@ spec:
         imageReferences:
         - "ghcr.io/*"
         skipImageReferences:
-        - "ghcr.io/chipzoller*"
+        - "ghcr.io/kyverno*"
         failureAction: Enforce
         attestors:
         - count: 1
           entries:
           - certificates:
               cert: "{{ keys.data.certificate }}"
-  name: keys
-  namespace: test-verify-images
