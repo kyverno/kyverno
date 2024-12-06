@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -60,8 +61,9 @@ func Test_valid_onUpdatePolicyPolicy(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
-
-	err = ValidateOnPolicyUpdate(&policy, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = ValidateOnPolicyUpdate(ctx, &policy, true)
 	assert.NilError(t, err)
 }
 
@@ -104,6 +106,8 @@ func Test_invalid_onUpdatePolicyPolicy(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
-	err = ValidateOnPolicyUpdate(&policy, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = ValidateOnPolicyUpdate(ctx, &policy, true)
 	assert.ErrorContains(t, err, "only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: variable {{request.userInfo.username}} is not allowed ")
 }

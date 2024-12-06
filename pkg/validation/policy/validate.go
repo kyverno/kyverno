@@ -131,7 +131,7 @@ func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFa
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient versioned.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
+func Validate(ctx context.Context, policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient versioned.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -158,7 +158,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 	}
 
-	err := ValidateVariables(policy, background)
+	err := ValidateVariables(ctx, policy, background)
 	if err != nil {
 		return warnings, err
 	}
@@ -242,7 +242,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		return warnings, err
 	}
 
-	rules := autogen.Default.ComputeRules(policy, "")
+	rules := autogen.Default(ctx).ComputeRules(policy, "")
 	rulesPath := specPath.Child("rules")
 
 	for i, rule := range rules {
@@ -424,12 +424,12 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
 			if mutateExisting != nil {
 				if *mutateExisting {
-					if err := ValidateOnPolicyUpdate(policy, true); err != nil {
+					if err := ValidateOnPolicyUpdate(ctx, policy, true); err != nil {
 						return warnings, err
 					}
 				}
 			} else if spec.MutateExistingOnPolicyUpdate {
-				if err := ValidateOnPolicyUpdate(policy, true); err != nil {
+				if err := ValidateOnPolicyUpdate(ctx, policy, true); err != nil {
 					return warnings, err
 				}
 			}
@@ -553,25 +553,25 @@ func ValidateCustomWebhookMatchConditions(wc []admissionregistrationv1.MatchCond
 	return nil
 }
 
-func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
+func ValidateVariables(ctx context.Context, p kyvernov1.PolicyInterface, backgroundMode bool) error {
 	vars, err := hasVariables(p)
 	if err != nil {
 		return err
 	}
 	if backgroundMode {
-		if err := containsUserVariables(p, vars); err != nil {
+		if err := containsUserVariables(ctx, p, vars); err != nil {
 			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
 		}
 	}
-	if err := hasInvalidVariables(p, backgroundMode); err != nil {
+	if err := hasInvalidVariables(ctx, p, backgroundMode); err != nil {
 		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
 	}
 	return nil
 }
 
 // hasInvalidVariables - checks for unexpected variables in the policy
-func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) error {
-	for _, r := range autogen.Default.ComputeRules(policy, "") {
+func hasInvalidVariables(ctx context.Context, policy kyvernov1.PolicyInterface, background bool) error {
+	for _, r := range autogen.Default(ctx).ComputeRules(policy, "") {
 		ruleCopy := r.DeepCopy()
 
 		if err := ruleForbiddenSectionsHaveVariables(ruleCopy); err != nil {
@@ -607,7 +607,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 	return nil
 }
 
-func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) error {
+func ValidateOnPolicyUpdate(ctx context.Context, p kyvernov1.PolicyInterface, onPolicyUpdate bool) error {
 	vars, err := hasVariables(p)
 	if err != nil {
 		return err
@@ -616,11 +616,11 @@ func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) er
 		return nil
 	}
 
-	if err := hasInvalidVariables(p, onPolicyUpdate); err != nil {
+	if err := hasInvalidVariables(ctx, p, onPolicyUpdate); err != nil {
 		return fmt.Errorf("update event, policy contains invalid variables: %s", err.Error())
 	}
 
-	if err := containsUserVariables(p, vars); err != nil {
+	if err := containsUserVariables(ctx, p, vars); err != nil {
 		return fmt.Errorf("only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: %s ", err)
 	}
 

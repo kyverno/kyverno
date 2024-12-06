@@ -97,7 +97,7 @@ func createNonLeaderControllers(
 			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
 		},
 		func(ctx context.Context) error {
-			if err := policyCacheController.WarmUp(); err != nil {
+			if err := policyCacheController.WarmUp(ctx); err != nil {
 				return err
 			}
 			return nil

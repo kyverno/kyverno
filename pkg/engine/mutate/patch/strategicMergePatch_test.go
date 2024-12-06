@@ -1,6 +1,7 @@
 package patch
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -243,8 +244,9 @@ func Test_PolicyDeserilize(t *testing.T) {
 	var policy kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
-
-	overlayPatches := autogen.Default.ComputeRules(&policy, "")[0].Mutation.GetPatchStrategicMerge()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	overlayPatches := autogen.Default(ctx).ComputeRules(&policy, "")[0].Mutation.GetPatchStrategicMerge()
 	patchString, err := json.Marshal(overlayPatches)
 	assert.NilError(t, err)
 

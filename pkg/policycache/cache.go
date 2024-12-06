@@ -1,6 +1,8 @@
 package policycache
 
 import (
+	"context"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -15,7 +17,7 @@ type ResourceFinder interface {
 // Cache get method use for to get policy names and mostly use to test cache testcases
 type Cache interface {
 	// Set inserts a policy in the cache
-	Set(string, kyvernov1.PolicyInterface, ResourceFinder) error
+	Set(context.Context, string, kyvernov1.PolicyInterface, ResourceFinder) error
 	// Unset removes a policy from the cache
 	Unset(string)
 	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
@@ -34,8 +36,8 @@ func NewCache() Cache {
 	}
 }
 
-func (c *cache) Set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
-	return c.store.set(key, policy, client)
+func (c *cache) Set(ctx context.Context, key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
+	return c.store.set(ctx, key, policy, client)
 }
 
 func (c *cache) Unset(key string) {

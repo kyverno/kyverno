@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -56,8 +57,9 @@ func TestNotAllowedVars_MatchSection(t *testing.T) {
 
 	policy, _, _, err := yamlutils.GetPolicy(policyWithVarInMatch)
 	assert.NilError(t, err)
-
-	err = hasInvalidVariables(policy[0], false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = hasInvalidVariables(ctx, policy[0], false)
 	assert.Error(t, err, "rule \"validate-name\" should not have variables in match section")
 }
 
@@ -108,8 +110,9 @@ func TestNotAllowedVars_ExcludeSection(t *testing.T) {
 
 	policy, _, _, err := yamlutils.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
-
-	err = hasInvalidVariables(policy[0], false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = hasInvalidVariables(ctx, policy[0], false)
 	assert.Error(t, err, "rule \"validate-name\" should not have variables in exclude section")
 }
 
@@ -161,8 +164,9 @@ func TestNotAllowedVars_ExcludeSection_PositiveCase(t *testing.T) {
 
 	policy, _, _, err := yamlutils.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
-
-	err = hasInvalidVariables(policy[0], false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = hasInvalidVariables(ctx, policy[0], false)
 	assert.NilError(t, err)
 }
 
@@ -195,8 +199,9 @@ func TestNotAllowedVars_JSONPatchPath(t *testing.T) {
 
 	policy, _, _, err := yamlutils.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
-
-	err = hasInvalidVariables(policy[0], false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = hasInvalidVariables(ctx, policy[0], false)
 	assert.Error(t, err, "rule \"pCM1\" should not have variables in patchesJSON6902 path section")
 }
 
@@ -240,8 +245,9 @@ func TestNotAllowedVars_JSONPatchPath_ContextRootPositive(t *testing.T) {
 
 	policy, _, _, err := yamlutils.GetPolicy(policyManifest)
 	assert.NilError(t, err)
-
-	err = hasInvalidVariables(policy[0], false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = hasInvalidVariables(ctx, policy[0], false)
 	assert.NilError(t, err)
 }
 
@@ -283,8 +289,9 @@ func TestNotAllowedVars_JSONPatchPath_ContextSubPositive(t *testing.T) {
 
 	policy, _, _, err := yamlutils.GetPolicy(policyManifest)
 	assert.NilError(t, err)
-
-	err = hasInvalidVariables(policy[0], false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = hasInvalidVariables(ctx, policy[0], false)
 	assert.NilError(t, err)
 }
 
@@ -317,8 +324,9 @@ func TestNotAllowedVars_JSONPatchPath_PositiveCase(t *testing.T) {
 
 	policy, _, _, err := yamlutils.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
-
-	err = hasInvalidVariables(policy[0], false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = hasInvalidVariables(ctx, policy[0], false)
 	assert.NilError(t, err)
 }
 
@@ -349,8 +357,9 @@ spec:
 
 	policy, _, _, err := yamlutils.GetPolicy(policyJSON)
 	assert.NilError(t, err)
-
-	err = hasInvalidVariables(policy[0], false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = hasInvalidVariables(ctx, policy[0], false)
 	assert.NilError(t, err)
 }
 
@@ -437,8 +446,9 @@ func TestNotAllowedVars_VariableFormats(t *testing.T) {
 
 		policy, _, _, err := yamlutils.GetPolicy(policyYAML)
 		assert.NilError(t, err)
-
-		err = hasInvalidVariables(policy[0], false)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err = hasInvalidVariables(ctx, policy[0], false)
 		if tc.pass {
 			assert.NilError(t, err, "%s: not expecting an error", tc.name)
 		} else {
@@ -483,7 +493,8 @@ spec:
 
 	policy, _, _, err := yamlutils.GetPolicy(policyJSON)
 	assert.NilError(t, err)
-
-	err = hasInvalidVariables(policy[0], false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = hasInvalidVariables(ctx, policy[0], false)
 	assert.NilError(t, err)
 }

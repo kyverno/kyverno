@@ -40,6 +40,8 @@ import (
 
 const divider = "----------------------------------------------------------------------"
 
+var ctx = context.Background()
+
 type SkippedInvalidPolicies struct {
 	skipped []string
 	invalid []string
@@ -213,7 +215,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
 		var policyRulesCount int
 		for _, policy := range policies {
-			policyRulesCount += len(autogen.Default.ComputeRules(policy, ""))
+			policyRulesCount += len(autogen.Default(ctx).ComputeRules(policy, ""))
 		}
 		policyRulesCount += len(vaps)
 		if len(exceptions) > 0 {
@@ -309,7 +311,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
+		_, err := policyvalidation.Validate(ctx, pol, nil, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)

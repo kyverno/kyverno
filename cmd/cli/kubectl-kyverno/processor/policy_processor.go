@@ -35,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+var ctx = context.Background()
+
 type PolicyProcessor struct {
 	Store                     *store.Store
 	Policies                  []kyvernov1.PolicyInterface
@@ -125,7 +127,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if err != nil {
 			return responses, err
 		}
-		mutateResponse := eng.Mutate(context.Background(), policyContext)
+		mutateResponse := eng.Mutate(ctx, policyContext)
 		err = p.processMutateEngineResponse(mutateResponse, resPath)
 		if err != nil {
 			return responses, fmt.Errorf("failed to print mutated result (%w)", err)
