@@ -60,18 +60,13 @@ func (a *apiCall) FetchAndLoad(ctx context.Context) ([]byte, error) {
 func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	call, err := variables.SubstituteAllInType(a.logger, a.jsonCtx, a.entry.APICall)
 	if err != nil {
-		if call == nil && a.entry.APICall.Default != nil {
-			data := a.entry.APICall.Default.Raw
-			a.logger.V(4).Info("failed to fetch data for APICall, using default value", "default", data, "name", a.entry.Name, "URLPath", a.entry.APICall.URLPath, "error", err)
-			return data, nil
-		}
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 	data, err := a.Execute(ctx, &call.APICall)
 	if err != nil {
 		if data == nil && a.entry.APICall.Default != nil {
 			data = a.entry.APICall.Default.Raw
-			a.logger.V(4).Info("failed to fetch data for APICall, using default value", "default", data, "name", a.entry.Name, "URLPath", a.entry.APICall.URLPath, "error", err)
+			a.logger.V(4).Info("failed to substitute variable data for APICall, using default value", "default", data, "name", a.entry.Name, "URLPath", a.entry.APICall.URLPath, "error", err)
 			return data, nil
 		}
 		return nil, err
