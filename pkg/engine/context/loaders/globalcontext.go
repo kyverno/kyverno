@@ -100,18 +100,18 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 		return nil, err
 	}
 
-	var jsonData []byte
-	if _, ok := data.([]byte); ok {
-		jsonData = data.([]byte)
-	} else {
-		jsonData, err = json.Marshal(data)
-		if err != nil {
-			return nil, err
-		}
-	}
-	g.logger.V(6).Info("fetched json data", "name", g.entry.Name, "jsondata", jsonData)
-
 	if g.entry.GlobalReference.JMESPath == "" {
+		var jsonData []byte
+		if _, ok := data.([]byte); ok {
+			jsonData = data.([]byte)
+		} else {
+			jsonData, err = json.Marshal(data)
+			if err != nil {
+				return nil, err
+			}
+		}
+		g.logger.V(6).Info("fetched json data", "name", g.entry.Name, "jsondata", string(jsonData))
+
 		err := g.enginectx.AddContextEntry(g.entry.Name, jsonData)
 		if err != nil {
 			g.logger.Error(err, "failed to add resource data to context entry")
@@ -127,7 +127,7 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", g.entry.Name, rc.JMESPath, err)
 	}
 
-	results, err := g.applyJMESPathJSON(path.(string), jsonData)
+	results, err := g.applyJMESPathJSON(path.(string), data)
 	if err != nil {
 		g.logger.Error(err, "failed to apply JMESPath for context entry")
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, g.entry.Name, err)
@@ -137,11 +137,14 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 	return json.Marshal(results)
 }
 
-func (a *gctxLoader) applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
-	var data interface{}
-	err := json.Unmarshal(jsonData, &data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %w", string(jsonData), err)
+func (a *gctxLoader) applyJMESPathJSON(jmesPath string, data any) (interface{}, error) {
+	if _, ok := data.([]byte); ok {
+		var obj interface{}
+		err := json.Unmarshal(data.([]byte), &obj)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %w", string(data.([]byte)), err)
+		}
+		return a.jp.Search(jmesPath, obj)
 	}
 	return a.jp.Search(jmesPath, data)
 }
