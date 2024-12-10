@@ -214,6 +214,43 @@ func Test_servicePostRequest(t *testing.T) {
 	assert.Equal(t, string(expectedResults)+"\n", string(data))
 }
 
+func Test_fallbackToDefault(t *testing.T) {
+	serverResponse := []byte(`Error from server (NotFound): the server could not find the requested resource`)
+	defaultResponse := []byte(`{ "day": "Monday" }`)
+	s := buildTestServer(serverResponse, false)
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	entry.Name = "test"
+	entry.APICall = &kyvernov1.ContextAPICall{
+		APICall: kyvernov1.APICall{
+			Service: &kyvernov1.ServiceCall{
+				URL: s.URL,
+				Headers: []kyvernov1.HTTPHeader{
+					{Key: "Authorization", Value: "Bearer 1234567890"},
+					{Key: "Content-Type", Value: "application/json"},
+				},
+			},
+		},
+		Default: &apiextensionsv1.JSON{
+			Raw: defaultResponse,
+		},
+	}
+
+	entry.APICall.Method = "GET"
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+	assert.NilError(t, err)
+
+	jsonData, err := call.Fetch(context.TODO())
+	assert.NilError(t, err)
+	data, err := call.Store(jsonData)
+
+	assert.NilError(t, err) // no error because it should fallback to default value
+	assert.Equal(t, string(defaultResponse), string(data))
+}
+
 func buildEchoHeaderTestServer() *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resource", func(w http.ResponseWriter, r *http.Request) {
