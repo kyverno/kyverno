@@ -13,6 +13,57 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.13.2
+    created: "2024-12-10T09:02:33.564950974Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.3.4
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.3.4
+    description: Kubernetes Native Policy Management
+    digest: a8e858e3d4159423f13b9a8ef1be4f285b2c5eff5e63be56da1e51d28ae01d12
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.3.4.tgz
+    version: 3.3.4
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: fixed
+          description: fix validation error in validate.yaml
+        - kind: fixed
+          description: fixed global image registry config by introducing *.image.defaultRegistry.
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.13.2-rc.1
     created: "2024-12-05T15:14:28.076973953Z"
     dependencies:
@@ -13040,4 +13091,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2024-12-05T15:14:28.061824122Z"
+generated: "2024-12-10T09:02:33.550575812Z"
