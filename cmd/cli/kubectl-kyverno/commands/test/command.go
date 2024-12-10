@@ -203,4 +203,3 @@ func lookupRuleResponses(test v1alpha1.TestResult, responses ...engineapi.RuleRe
 	}
 	return matches
 }
-

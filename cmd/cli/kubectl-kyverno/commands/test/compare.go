@@ -34,4 +34,3 @@ func getAndCompareResource(actualResource unstructured.Unstructured, fs billy.Fi
 	}
 	return true, "", nil
 }
-
