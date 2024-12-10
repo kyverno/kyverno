@@ -621,8 +621,8 @@ grafana:
     create: false
     folder: kyverno
     allowCrossNamespaceImport: true
-    matchLabels:
-      dashboards: "grafana"
+    matchLabels: {}
+      # dashboards: "grafana"
 
 # Features configuration
 features:
