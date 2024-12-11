@@ -8,7 +8,7 @@ require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alitto/pond v1.9.2
-	github.com/aquilax/truncate v1.0.0
+	github.com/aquilax/truncate v1.0.1
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20240909191326-0ee4ec5d16bf
 	github.com/blang/semver/v4 v4.0.0
