@@ -389,6 +389,24 @@ func Test_Apply(t *testing.T) {
 				},
 			}},
 		},
+		{
+			// Test mutate with Skip #11603
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutate/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutate/patchedResource1.yaml"},
+				GitBranch:     "main",
+				PolicyReport:  true,
+			},
+			expectedPolicyReports: []policyreportv1alpha2.PolicyReport{{
+				Summary: policyreportv1alpha2.PolicyReportSummary{
+					Pass:  0,
+					Fail:  0,
+					Skip:  2,
+					Error: 1,
+					Warn:  0,
+				},
+			}},
+		},
 	}
 
 	compareSummary := func(expected policyreportv1alpha2.PolicyReportSummary, actual policyreportv1alpha2.PolicyReportSummary, desc string) {
