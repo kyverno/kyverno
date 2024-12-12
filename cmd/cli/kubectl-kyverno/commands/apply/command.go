@@ -34,6 +34,8 @@ import (
 	"github.com/spf13/cobra"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -53,6 +55,7 @@ type ApplyCommandConfig struct {
 	Variables             []string
 	ValuesFile            string
 	UserInfoPath          string
+	VapParams             []string
 	Cluster               bool
 	PolicyReport          bool
 	Stdin                 bool
@@ -139,6 +142,7 @@ func Command() *cobra.Command {
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.VapParams, "validating-admission-policy-params", "", []string{}, "Path to resource files that act as validating admission policy parameters")
 	cmd.Flags().StringVarP(&applyCommandConfig.ValuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
 	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
@@ -189,11 +193,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
 	var store store.Store
-	rc, resources1, skipInvalidPolicies, responses1, dClient, err := c.initStoreAndClusterClient(&store, skipInvalidPolicies)
+	rc, resources1, skipInvalidPolicies, responses1, policies, vaps, vapBindings, err := c.loadPolicies(skipInvalidPolicies)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	rc, resources1, skipInvalidPolicies, responses1, policies, vaps, vapBindings, err := c.loadPolicies(skipInvalidPolicies)
+
+	vapParams, err := common.GetResources(out, policies, vaps, c.VapParams, nil, false, "", false)
+	if err != nil {
+		return rc, resources1, skipInvalidPolicies, responses1, err
+	}
+
+	rc, resources1, skipInvalidPolicies, responses1, dClient, err := c.initStoreAndClusterClient(&store, skipInvalidPolicies, vapParams)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
@@ -274,6 +284,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 			PolicyReport:         c.PolicyReport,
 			Rc:                   rc,
 			Client:               dClient,
+			IsCluster:            c.Cluster,
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
@@ -429,7 +440,7 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 	return nil, nil, skipInvalidPolicies, nil, policies, vaps, vapBindings, nil
 }
 
-func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, dclient.Interface, error) {
+func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, skipInvalidPolicies SkippedInvalidPolicies, vapParams []*unstructured.Unstructured) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, dclient.Interface, error) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
@@ -451,6 +462,18 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, skipI
 			return nil, nil, skipInvalidPolicies, nil, nil, err
 		}
 		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute)
+		if err != nil {
+			return nil, nil, skipInvalidPolicies, nil, nil, err
+		}
+	}
+	if len(vapParams) > 0 && !c.Cluster {
+		var fakeClientResources []runtime.Object
+		for _, p := range vapParams {
+			fakeClientResources = append(fakeClientResources, p)
+		}
+
+		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, fakeClientResources...)
+		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 		if err != nil {
 			return nil, nil, skipInvalidPolicies, nil, nil, err
 		}
