@@ -20,13 +20,6 @@ includeOtherPolicies: []
 includeRestrictedPolicies: []
 # - require-run-as-non-root-user
 
-# -- Additional custom policies to include.
-customPolicies: []
-# - apiVersion: kyverno.io/v1
-#   kind: ClusterPolicy
-#   metadata: # metadata
-#   spec: # spec
-
 # -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
 # For more info: https://kyverno.io/docs/writing-policies/policy-settings/
 failurePolicy: Fail
@@ -54,10 +47,6 @@ validationFailureActionOverrides:
   #   - action: audit
   #     namespaces:
   #       - fluent
-
-# -- Validate already existing resources.
-# For more info https://kyverno.io/docs/writing-policies/validate.
-validationAllowExistingViolations: true
 
 # -- Exclude resources from individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map.
@@ -118,7 +107,3 @@ skipBackgroundRequests: ~
 # -- Kyverno version
 # The default of "autodetect" will try to determine the currently installed version from the deployment
 kyvernoVersion: autodetect
-
-# -- Kubernetes version override
-# Override default value of kubeVersion set by release team taken from Chart.yaml with custom value. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes.
-kubeVersionOverride:

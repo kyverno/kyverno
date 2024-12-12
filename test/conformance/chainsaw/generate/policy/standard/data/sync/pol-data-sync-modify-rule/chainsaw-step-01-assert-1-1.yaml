@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: zk-kafka-address
+  namespace: pol-data-sync-modify-rule
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

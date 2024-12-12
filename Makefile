@@ -7,7 +7,7 @@
 GIT_SHA              := $(shell git rev-parse HEAD)
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-KIND_IMAGE           ?= kindest/node:v1.30.0
+KIND_IMAGE           ?= kindest/node:v1.29.1
 KIND_NAME            ?= kind
 KIND_CONFIG          ?= default
 GOOS                 ?= $(shell go env GOOS)
@@ -35,9 +35,9 @@ INSTALL_VERSION	     ?= 3.2.6
 
 TOOLS_DIR                          ?= $(PWD)/.tools
 KIND                               ?= $(TOOLS_DIR)/kind
-KIND_VERSION                       ?= v0.23.0
-CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             ?= v0.16.1
+KIND_VERSION                       ?= v0.21.0
+CONTROLLER_GEN                     ?= $(TOOLS_DIR)/controller-gen
+CONTROLLER_GEN_VERSION             ?= v0.15.0
 CLIENT_GEN                         ?= $(TOOLS_DIR)/client-gen
 LISTER_GEN                         ?= $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       ?= $(TOOLS_DIR)/informer-gen
@@ -76,7 +76,7 @@ $(KIND):
 
 $(CONTROLLER_GEN):
 	@echo Install controller-gen... >&2
-	@cd ./hack/controller-gen && GOBIN=$(TOOLS_DIR) go install
+	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
 
 $(CLIENT_GEN):
 	@echo Install client-gen... >&2
@@ -403,8 +403,7 @@ image-build-all: $(BUILD_WITH)-build-all
 GOPATH_SHIM                 := ${PWD}/.gopath
 PACKAGE_SHIM                := $(GOPATH_SHIM)/src/$(PACKAGE)
 OUT_PACKAGE                 := $(PACKAGE)/pkg/client
-INPUT_DIRS                  := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2
-CLIENT_INPUT_DIRS           := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v2,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2
+INPUT_DIRS                  := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2,$(PACKAGE)/api/kyverno/v2beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/reports/v1,$(PACKAGE)/api/policyreport/v1alpha2
 CLIENTSET_PACKAGE           := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE             := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE           := $(OUT_PACKAGE)/informers
@@ -434,7 +433,7 @@ codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
 		--clientset-name versioned \
 		--output-package $(CLIENTSET_PACKAGE) \
 		--input-base "" \
-		--input $(CLIENT_INPUT_DIRS)
+		--input $(INPUT_DIRS)
 
 .PHONY: codegen-client-listers
 codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
@@ -443,7 +442,7 @@ codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
 	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-package $(LISTERS_PACKAGE) \
-		--input-dirs $(CLIENT_INPUT_DIRS)
+		--input-dirs $(INPUT_DIRS)
 
 .PHONY: codegen-client-informers
 codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
@@ -452,7 +451,7 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) \
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-package $(INFORMERS_PACKAGE) \
-		--input-dirs $(CLIENT_INPUT_DIRS) \
+		--input-dirs $(INPUT_DIRS) \
 		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned \
 		--listers-package $(LISTERS_PACKAGE)
 
@@ -470,8 +469,8 @@ codegen-register: $(PACKAGE_SHIM) $(REGISTER_GEN) ## Generate types registration
 		--go-header-file=./scripts/boilerplate.go.txt \
 		--input-dirs=$(INPUT_DIRS)
 
-.PHONY: codegen-deepcopy
-codegen-deepcopy: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
+.PHONY: codegen-deepcopy-all
+codegen-deepcopy-all: $(PACKAGE_SHIM) $(DEEPCOPY_GEN) ## Generate deep copy functions
 	@echo Generate deep copy functions... >&2
 	@GOPATH=$(GOPATH_SHIM) $(DEEPCOPY_GEN) \
 		--go-header-file=./scripts/boilerplate.go.txt \
@@ -493,47 +492,31 @@ codegen-applyconfigurations: $(PACKAGE_SHIM) $(APPLYCONFIGURATION_GEN) ## Genera
 		--output-package $(APPLYCONFIGURATIONS_PACKAGE)
 
 .PHONY: codegen-client-all
-codegen-client-all: ## Generate clientset, listers and informers
-codegen-client-all: codegen-register
-codegen-client-all: codegen-deepcopy
-codegen-client-all: codegen-defaulters
-codegen-client-all: codegen-applyconfigurations
-codegen-client-all: codegen-client-clientset
-codegen-client-all: codegen-client-listers
-codegen-client-all: codegen-client-informers
-codegen-client-all: codegen-client-wrappers
+codegen-client-all: codegen-register codegen-defaulters codegen-applyconfigurations codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
-codegen-crds-kyverno: ## Generate kyverno CRDs
-codegen-crds-kyverno: $(PACKAGE_SHIM)
-codegen-crds-kyverno: $(CONTROLLER_GEN)
+codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	@echo Generate kyverno crds... >&2
 	@rm -rf $(CRDS_PATH)/kyverno && mkdir -p $(CRDS_PATH)/kyverno
-	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./api/kyverno/v1/... paths=./api/kyverno/v1beta1/... paths=./api/kyverno/v2/... paths=./api/kyverno/v2alpha1/... paths=./api/kyverno/v2beta1/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/kyverno
+	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... output:dir=$(CRDS_PATH)/kyverno
 
 .PHONY: codegen-crds-policyreport
-codegen-crds-policyreport: ## Generate policy reports CRDs
-codegen-crds-policyreport: $(PACKAGE_SHIM)
-codegen-crds-policyreport: $(CONTROLLER_GEN)
+codegen-crds-policyreport: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
 	@rm -rf $(CRDS_PATH)/policyreport && mkdir -p $(CRDS_PATH)/policyreport
-	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./api/policyreport/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/policyreport
+	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... output:dir=$(CRDS_PATH)/policyreport
 
 .PHONY: codegen-crds-reports
-codegen-crds-reports: ## Generate reports CRDs
-codegen-crds-reports: $(PACKAGE_SHIM)
-codegen-crds-reports: $(CONTROLLER_GEN)
+codegen-crds-reports: $(CONTROLLER_GEN) ## Generate reports CRDs
 	@echo Generate reports crds... >&2
 	@rm -rf $(CRDS_PATH)/reports && mkdir -p $(CRDS_PATH)/reports
-	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./api/reports/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=$(CRDS_PATH)/reports
+	@$(CONTROLLER_GEN) crd paths=./api/reports/... output:dir=$(CRDS_PATH)/reports
 
 .PHONY: codegen-crds-cli
-codegen-crds-cli: ## Generate CLI CRDs
-codegen-crds-cli: $(PACKAGE_SHIM)
-codegen-crds-cli: $(CONTROLLER_GEN)
+codegen-crds-cli: $(CONTROLLER_GEN) ## Generate CLI CRDs
 	@echo Generate cli crds... >&2
 	@rm -rf ${PWD}/cmd/cli/kubectl-kyverno/config/crds && mkdir -p ${PWD}/cmd/cli/kubectl-kyverno/config/crds
-	@GOPATH=$(GOPATH_SHIM) $(CONTROLLER_GEN) paths=./cmd/cli/kubectl-kyverno/apis/... crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
+	@$(CONTROLLER_GEN) crd paths=./cmd/cli/kubectl-kyverno/apis/... output:dir=${PWD}/cmd/cli/kubectl-kyverno/config/crds
 
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-policyreport codegen-crds-reports codegen-cli-crds ## Generate all CRDs
@@ -610,7 +593,6 @@ define generate_crd
 		| $(SED) -e '/^  annotations:/a \ \ \ \ {{- with .Values.annotations }}' \
  		| $(SED) -e '/^  annotations:/i \ \ labels:' \
 		| $(SED) -e '/^  labels:/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
-		| $(SED) -e 's/(devel)/$(CONTROLLER_GEN_VERSION)/' \
  		>> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 	@echo "{{- end }}" >> ./charts/kyverno/charts/crds/templates/$(3)/$(1)
 endef
@@ -621,7 +603,11 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
+	$(call generate_crd,kyverno.io_admissionreports.yaml,kyverno,kyverno.io,kyverno,admissionreports)
+	$(call generate_crd,kyverno.io_backgroundscanreports.yaml,kyverno,kyverno.io,kyverno,backgroundscanreports)
 	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
+	$(call generate_crd,kyverno.io_clusteradmissionreports.yaml,kyverno,kyverno.io,kyverno,clusteradmissionreports)
+	$(call generate_crd,kyverno.io_clusterbackgroundscanreports.yaml,kyverno,kyverno.io,kyverno,clusterbackgroundscanreports)
 	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno,clustercleanuppolicies)
 	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno,clusterpolicies)
 	$(call generate_crd,kyverno.io_globalcontextentries.yaml,kyverno,kyverno.io,kyverno,globalcontextentries)
@@ -699,29 +685,20 @@ codegen-helm-update-versions: ## Update helm charts versions
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 
 .PHONY: codegen-quick
-codegen-quick: ## Generate all generated code except client
-codegen-quick: codegen-deepcopy
-codegen-quick: codegen-crds-all
-codegen-quick: codegen-docs-all
-codegen-quick: codegen-helm-all
-codegen-quick: codegen-manifest-all
+codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-docs-all codegen-helm-all codegen-manifest-all ## Generate all generated code except client
 
 .PHONY: codegen-slow
-codegen-slow: ## Generate client code
-codegen-slow: codegen-client-all
+codegen-slow: codegen-client-all ## Generate client code
 
 .PHONY: codegen-all
-codegen-all: ## Generate all generated code
-codegen-all: codegen-quick
-codegen-all: codegen-slow
+codegen-all: codegen-quick codegen-slow ## Generate all generated code
 
 ##################
 # VERIFY CODEGEN #
 ##################
 
 .PHONY: verify-crds
-verify-crds: ## Check CRDs are up to date
-verify-crds: codegen-crds-all
+verify-crds: codegen-crds-all ## Check CRDs are up to date
 	@echo Checking crds are up to date... >&2
 	@git --no-pager diff $(CRDS_PATH)
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".' >&2
@@ -729,8 +706,7 @@ verify-crds: codegen-crds-all
 	@git diff --quiet --exit-code $(CRDS_PATH)
 
 .PHONY: verify-client
-verify-client: ## Check client is up to date
-verify-client: codegen-client-all
+verify-client: codegen-client-all ## Check client is up to date
 	@echo Checking client is up to date... >&2
 	@git --no-pager diff --ignore-space-change pkg/client
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".' >&2
@@ -742,17 +718,15 @@ verify-client: codegen-client-all
 	@git diff --ignore-space-change --quiet --exit-code pkg/clients
 
 .PHONY: verify-deepcopy
-verify-deepcopy: ## Check deepcopy functions are up to date
-verify-deepcopy: codegen-deepcopy
+verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 	@echo Checking deepcopy functions are up to date... >&2
 	@git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy".' >&2
-	@echo 'To correct this, locally run "make codegen-deepcopy", commit the changes, and re-run tests.' >&2
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".' >&2
+	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-docs
-verify-docs: ## Check docs are up to date
-verify-docs: codegen-docs-all
+verify-docs: codegen-docs-all ## Check docs are up to date
 	@echo Checking docs are up to date... >&2
 	@git --no-pager diff docs/user
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-docs-all".' >&2
@@ -760,8 +734,7 @@ verify-docs: codegen-docs-all
 	@git diff --quiet --exit-code docs/user
 
 .PHONY: verify-helm
-verify-helm: ## Check Helm charts are up to date
-verify-helm: codegen-helm-all
+verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@echo Checking helm charts are up to date... >&2
 	@git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
@@ -769,8 +742,7 @@ verify-helm: codegen-helm-all
 	@git diff --quiet --exit-code charts
 
 .PHONY: verify-manifests
-verify-manifests: ## Check manifests are up to date
-verify-manifests: codegen-manifest-all
+verify-manifests: codegen-manifest-all ## Check manifests are up to date
 	@echo Checking manifests are up to date... >&2
 	@git --no-pager diff ${INSTALL_MANIFEST_PATH}
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-manifest-all".' >&2
@@ -778,8 +750,7 @@ verify-manifests: codegen-manifest-all
 	@git diff --quiet --exit-code ${INSTALL_MANIFEST_PATH}
 
 .PHONY: verify-cli-crds
-verify-cli-crds: ## Check generated CRDs to be embedded in the CLI are up to date
-verify-cli-crds: codegen-cli-crds
+verify-cli-crds: codegen-cli-crds ## Check generated CRDs to be embedded in the CLI are up to date
 	@echo Checking generated CRDs to be embedded in the CLI are up to date... >&2
 	@git --no-pager diff cmd/cli/kubectl-kyverno/data/crds
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-cli-crds".' >&2
@@ -795,14 +766,7 @@ verify-cli-tests: ## Check CLI test files are up to date
 	@git diff --quiet --exit-code test/cli
 
 .PHONY: verify-codegen
-verify-codegen: ## Verify all generated code and docs are up to date
-verify-codegen: verify-crds
-verify-codegen: verify-client
-verify-codegen: verify-deepcopy
-verify-codegen: verify-docs
-verify-codegen: verify-helm
-verify-codegen: verify-manifests
-verify-codegen: verify-cli-crds
+verify-codegen: verify-crds verify-client verify-deepcopy verify-docs verify-helm verify-manifests verify-cli-crds ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #
@@ -1142,8 +1106,8 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
-		--namespace kube-system --wait \
+	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait \
+		--repo https://charts.bitnami.com/bitnami metrics-server \
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all

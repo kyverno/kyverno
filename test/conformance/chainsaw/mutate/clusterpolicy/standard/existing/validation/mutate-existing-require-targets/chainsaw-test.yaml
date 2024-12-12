@@ -1,6 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: mutate-existing-require-targets
 spec:
   steps:

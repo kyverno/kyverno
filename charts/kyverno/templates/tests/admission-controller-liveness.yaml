@@ -1,4 +1,3 @@
-{{- if .Values.admissionController.enabled -}}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -10,10 +9,6 @@ metadata:
     {{- include "kyverno.test.annotations" . | nindent 4 }}
 spec:
   restartPolicy: Never
-  {{- with .Values.test.imagePullSecrets | default .Values.global.imagePullSecrets }}
-  imagePullSecrets:
-    {{- tpl (toYaml .) $ | nindent 4 }}
-  {{- end }}
   containers:
     - name: test
       image: {{ template "kyverno.test.image" . }}
@@ -29,5 +24,4 @@ spec:
       command:
         - /bin/sh
         - -c
-        - sleep {{ .Values.test.sleep }} ; wget -O- -S --no-check-certificate https://{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.admissionController.service.port }}/health/liveness
-{{- end -}}
+        - sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.admissionController.service.port }}/health/liveness

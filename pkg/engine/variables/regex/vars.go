@@ -3,8 +3,9 @@ package regex
 import "regexp"
 
 var (
-	// RegexVariables is the Regex for '{{...}}' at the beginning of the string, and 'x{{...}}' where 'x' is not '\'
 	RegexVariables = regexp.MustCompile(`(^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
+
+	RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
 	// RegexReferences is the Regex for '$(...)' at the beginning of the string, and 'x$(...)' where 'x' is not '\'
 	RegexReferences = regexp.MustCompile(`^\$\(.[^\ ]*\)|[^\\]\$\(.[^\ ]*\)`)
@@ -15,4 +16,6 @@ var (
 	RegexVariableInit = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
 	RegexElementIndex = regexp.MustCompile(`{{\s*elementIndex\d*\s*}}`)
+
+	RegexVariableKey = regexp.MustCompile(`\{{(.*?)\}}`)
 )

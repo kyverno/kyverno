@@ -1,6 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: cpol-clone-sync-modify-downstream-apply
 spec:
   steps:
@@ -11,21 +12,9 @@ spec:
   - name: step-01
     try:
     - apply:
-        file: permissions.yaml
-  - name: create policy
-    use:
-      template: ../../../../../../_step-templates/create-policy.yaml
-      with:
-        bindings:
-        - name: file
-          value: policy.yaml
-  - name: wait policy ready
-    use:
-      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
-      with:
-        bindings:
-        - name: name
-          value: cpol-clone-sync-modify-downstream-apply
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
   - name: step-02
     try:
     - apply:

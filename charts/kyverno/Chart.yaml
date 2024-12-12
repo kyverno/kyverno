@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: v0.0.0
-appVersion: latest
+version: 3.2.8
+appVersion: v1.12.6
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -33,14 +33,12 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: fixed
-      description: fix validation error in validate.yaml
-    - kind: fixed
-      description: fixed global image registry config by introducing *.image.defaultRegistry.
+    - kind: added
+      description: Added customLabels to the pods label metadata of the cronjobs
 dependencies:
   - name: grafana
-    version: v0.0.0
+    version: 3.2.8
     condition: grafana.enabled
   - name: crds
-    version: v0.0.0
+    version: 3.2.8
     condition: crds.install

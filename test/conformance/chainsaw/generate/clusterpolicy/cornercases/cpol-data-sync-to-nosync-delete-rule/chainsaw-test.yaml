@@ -1,27 +1,16 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: cpol-data-sync-to-nosync-delete-rule
 spec:
   steps:
   - name: step-01
     try:
     - apply:
-        file: permissions.yaml
-  - name: create policy
-    use:
-      template: ../../../../_step-templates/create-policy.yaml
-      with:
-        bindings:
-        - name: file
-          value: policy.yaml
-  - name: wait policy ready
-    use:
-      template: ../../../../_step-templates/cluster-policy-ready.yaml
-      with:
-        bindings:
-        - name: name
-          value: cpol-data-sync-to-nosync-delete-rule
+        file: policy.yaml
+    - assert:
+        file: policy-ready.yaml
   - name: step-02
     try:
     - apply:
@@ -40,13 +29,8 @@ spec:
     try:
     - apply:
         file: delete-rule.yaml
-  - name: wait policy ready
-    use:
-      template: ../../../../_step-templates/cluster-policy-ready.yaml
-      with:
-        bindings:
-        - name: name
-          value: cpol-data-sync-to-nosync-delete-rule
+    - assert:
+        file: policy-ready.yaml
   - name: step-06
     try:
     - sleep:

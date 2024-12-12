@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-sync-single-source-multiple-targets
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

@@ -1,34 +1,21 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: generate-events-upon-successful-mutation
 spec:
   steps:
   - name: step-01
     try:
-    - script:
-        content: kubectl patch configmap kyverno -p '{"data":{"generateSuccessEvents":"true"}}' -n kyverno
+    - apply:
+        file: policy.yaml
     - assert:
-        file: kyverno-configmap-assert.yaml
-  - name: create policy
-    use:
-      template: ../../../_step-templates/create-policy.yaml
-      with:
-        bindings:
-        - name: file
-          value: policy.yaml
-  - name: wait policy ready
-    use:
-      template: ../../../_step-templates/cluster-policy-ready.yaml
-      with:
-        bindings:
-        - name: name
-          value: add-labels
-  - name: step-03
+        file: policy-assert.yaml
+  - name: step-02
     try:
     - apply:
         file: resource.yaml
-  - name: step-04
+  - name: step-03
     try:
     - assert:
         file: event-assert.yaml

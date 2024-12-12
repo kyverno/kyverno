@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -49,8 +48,6 @@ type SetupResult struct {
 	MetadataClient         metadataclient.UpstreamInterface
 	KyvernoDynamicClient   dclient.Interface
 	EventsClient           eventsv1.EventsV1Interface
-	ReportingConfiguration reportutils.ReportingConfiguration
-	ResyncPeriod           time.Duration
 }
 
 func Setup(config Configuration, name string, skipResourceFilters bool) (context.Context, SetupResult, context.CancelFunc) {
@@ -98,7 +95,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	}
 	var dClient dclient.Interface
 	if config.UsesKyvernoDynamicClient() {
-		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, resyncPeriod)
+		dClient = createKyvernoDynamicClient(logger, ctx, dynamicClient, client, 15*time.Minute)
 	}
 	var eventsClient eventsv1.EventsV1Interface
 	if config.UsesEventsClient() {
@@ -107,10 +104,6 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	var metadataClient metadataclient.UpstreamInterface
 	if config.UsesMetadataClient() {
 		metadataClient = createMetadataClient(logger, metadataclient.WithMetrics(metricsManager, metrics.MetadataClient), metadataclient.WithTracing())
-	}
-	var reportingConfig reportutils.ReportingConfiguration
-	if config.UsesReporting() {
-		reportingConfig = setupReporting(logger)
 	}
 	return ctx,
 		SetupResult{
@@ -130,8 +123,6 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			MetadataClient:         metadataClient,
 			KyvernoDynamicClient:   dClient,
 			EventsClient:           eventsClient,
-			ReportingConfiguration: reportingConfig,
-			ResyncPeriod:           resyncPeriod,
 		},
 		shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }

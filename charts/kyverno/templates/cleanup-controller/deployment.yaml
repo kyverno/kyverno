@@ -5,19 +5,8 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.cleanup-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
-  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
-  finalizers:
-  - kyverno.io/policywebhooks
-  - kyverno.io/ttlwebhooks
-  {{- end }}
-  {{- end }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
-  {{- with .Values.cleanupController.annotations }}
-  annotations:
-    {{- tpl (toYaml .) $ | nindent 4 }}
-  {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.cleanupController.replicas }}
   revisionHistoryLimit: {{ .Values.cleanupController.revisionHistoryLimit }}
@@ -39,7 +28,7 @@ spec:
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
-      {{- with .Values.cleanupController.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      {{- with .Values.cleanupController.imagePullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -51,7 +40,7 @@ spec:
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.cleanupController.tolerations | default .Values.global.tolerations}}
+      {{- with .Values.cleanupController.tolerations }}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -91,10 +80,10 @@ spec:
           image: {{ include "kyverno.cleanup-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.cleanupController.image.pullPolicy }}
           ports:
-          - containerPort: {{ .Values.cleanupController.server.port }}
+          - containerPort: 9443
             name: https
             protocol: TCP
-          - containerPort: {{ .Values.cleanupController.metering.port }}
+          - containerPort: 8000
             name: metrics
             protocol: TCP
           {{ if .Values.cleanupController.profiling.enabled }}
@@ -108,10 +97,6 @@ spec:
             - --servicePort={{ .Values.cleanupController.service.port }}
             - --cleanupServerPort={{ .Values.cleanupController.server.port }}
             - --webhookServerPort={{ .Values.cleanupController.webhookServer.port }}
-            - --resyncPeriod={{ .Values.cleanupController.resyncPeriod | default .Values.global.resyncPeriod }}
-            {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-            - --autoDeleteWebhooks
-            {{- end }}
             {{- if .Values.cleanupController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.cleanupController.tracing.address }}
@@ -161,8 +146,6 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
-          - name: KYVERNO_ROLE_NAME
-            value: {{ template "kyverno.cleanup-controller.roleName" . }}
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:

@@ -20,8 +20,7 @@ type parsedReference struct {
 }
 
 func parseReferenceCrane(ctx context.Context, ref string, registryClient images.Client) (*parsedReference, error) {
-	nameOpts := registryClient.NameOptions()
-	nameRef, err := name.ParseReference(ref, nameOpts...)
+	nameRef, err := name.ParseReference(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +36,7 @@ func parseReferenceCrane(ctx context.Context, ref string, registryClient images.
 	}
 
 	if !isDigestReference(ref) {
-		nameRef, err = name.ParseReference(GetReferenceFromDescriptor(v1ToOciSpecDescriptor(*desc), nameRef), nameOpts...)
+		nameRef, err = name.ParseReference(GetReferenceFromDescriptor(v1ToOciSpecDescriptor(*desc), nameRef))
 		if err != nil {
 			return nil, err
 		}

@@ -16,7 +16,6 @@ spec:
           - foo
     name: validate-some-foo
     validate:
-      failureAction: Audit
       deny:
         conditions:
         - key: '{{ images.containers.*.registry }}'
@@ -36,7 +35,6 @@ spec:
           - Pod
     name: validate-some-non-foo
     validate:
-      failureAction: Audit
       deny:
         conditions:
         - key: '{{ images.containers.*.registry }}'
@@ -44,3 +42,4 @@ spec:
           value:
           - bar.io
       message: Unknown image registry.
+  validationFailureAction: Audit

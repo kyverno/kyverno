@@ -11,13 +11,13 @@ import (
 	"github.com/alitto/pond"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/d4f"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
@@ -27,7 +27,6 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
@@ -54,7 +53,7 @@ type resourceHandlers struct {
 
 	// listers
 	nsLister   corev1listers.NamespaceLister
-	urLister   kyvernov2listers.UpdateRequestNamespaceLister
+	urLister   kyvernov1beta1listers.UpdateRequestNamespaceLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 
@@ -64,10 +63,8 @@ type resourceHandlers struct {
 
 	admissionReports             bool
 	backgroundServiceAccountName string
-	reportsServiceAccountName    string
 	auditPool                    *pond.WorkerPool
-	reportingConfig              reportutils.ReportingConfiguration
-	reportsBreaker               breaker.Breaker
+	reportsBreaker               d4f.Breaker
 }
 
 func NewHandlers(
@@ -78,19 +75,17 @@ func NewHandlers(
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
 	nsLister corev1listers.NamespaceLister,
-	urLister kyvernov2listers.UpdateRequestNamespaceLister,
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	admissionReports bool,
 	backgroundServiceAccountName string,
-	reportsServiceAccountName string,
 	jp jmespath.Interface,
 	maxAuditWorkers int,
 	maxAuditCapacity int,
-	reportingConfig reportutils.ReportingConfiguration,
-	reportsBreaker breaker.Breaker,
+	reportsBreaker d4f.Breaker,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
@@ -108,9 +103,7 @@ func NewHandlers(
 		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
 		admissionReports:             admissionReports,
 		backgroundServiceAccountName: backgroundServiceAccountName,
-		reportsServiceAccountName:    reportsServiceAccountName,
 		auditPool:                    pond.New(maxAuditWorkers, maxAuditCapacity, pond.Strategy(pond.Lazy())),
-		reportingConfig:              reportingConfig,
 		reportsBreaker:               reportsBreaker,
 	}
 }
@@ -120,12 +113,12 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in validating webhook")
 
-	policies, mutatePolicies, generatePolicies, _, auditWarnPolicies, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, false)
+	policies, mutatePolicies, generatePolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, false)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
 	}
 
-	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 && len(auditWarnPolicies) == 0 {
+	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
 	}
 
@@ -142,47 +135,34 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.metricsConfig,
 		h.configuration,
 		h.nsLister,
-		h.reportingConfig,
 		h.reportsBreaker,
 	)
 	var wg sync.WaitGroup
 	var ok bool
 	var msg string
 	var warnings []string
-	var enforceResponses []engineapi.EngineResponse
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ok, msg, warnings, enforceResponses = vh.HandleValidationEnforce(ctx, request, policies, auditWarnPolicies, startTime)
+		ok, msg, warnings = vh.HandleValidationEnforce(ctx, request, policies, startTime)
 	}()
 
+	go h.auditPool.Submit(func() {
+		vh.HandleValidationAudit(ctx, request)
+	})
 	if !admissionutils.IsDryRun(request.AdmissionRequest) {
 		h.handleBackgroundApplies(ctx, logger, request, generatePolicies, mutatePolicies, startTime, nil)
+	}
+	if len(policies) == 0 {
+		return admissionutils.ResponseSuccess(request.UID)
 	}
 
 	wg.Wait()
 	if !ok {
 		logger.Info("admission request denied")
-		events := webhookutils.GenerateEvents(enforceResponses, true, h.configuration)
-		h.eventGen.Add(events...)
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
-	go h.auditPool.Submit(func() {
-		auditResponses := vh.HandleValidationAudit(ctx, request)
-		var events []event.Info
 
-		switch {
-		case len(auditResponses) == 0:
-			events = webhookutils.GenerateEvents(enforceResponses, false, h.configuration)
-		case len(enforceResponses) == 0:
-			events = webhookutils.GenerateEvents(auditResponses, false, h.configuration)
-		default:
-			responses := mergeEngineResponses(auditResponses, enforceResponses)
-			events = webhookutils.GenerateEvents(responses, false, h.configuration)
-		}
-
-		h.eventGen.Add(events...)
-	})
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 
@@ -191,7 +171,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	logger = logger.WithValues("kind", kind).WithValues("URLParams", request.URLParams)
 	logger.V(4).Info("received an admission request in mutating webhook")
 
-	_, mutatePolicies, _, verifyImagesPolicies, _, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, true) //nolint:dogsled
+	_, mutatePolicies, _, verifyImagesPolicies, err := h.retrieveAndCategorizePolicies(ctx, logger, request, failurePolicy, true)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed to fetch policy with key")
 	}
@@ -205,53 +185,51 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports, h.reportingConfig, h.reportsBreaker)
-	patches, warnings, err := mh.HandleMutation(ctx, request, mutatePolicies, policyContext, startTime, h.configuration)
+	mh := mutation.NewMutationHandler(logger, h.engine, h.eventGen, h.nsLister, h.metricsConfig)
+	mutatePatches, mutateWarnings, err := mh.HandleMutation(ctx, request.AdmissionRequest, mutatePolicies, policyContext, startTime)
 	if err != nil {
 		logger.Error(err, "mutation failed")
 		return admissionutils.Response(request.UID, err)
 	}
-	if len(verifyImagesPolicies) != 0 {
-		newRequest := patchRequest(patches, request.AdmissionRequest, logger)
-		// rebuild context to process images updated via mutate policies
-		policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
-		if err != nil {
-			logger.Error(err, "failed to build policy context")
-			return admissionutils.Response(request.UID, err)
-		}
-		ivh := imageverification.NewImageVerificationHandler(
-			logger,
-			h.kyvernoClient,
-			h.engine,
-			h.eventGen,
-			h.admissionReports,
-			h.configuration,
-			h.nsLister,
-			h.reportingConfig,
-			h.reportsBreaker,
-		)
-		imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
-		if err != nil {
-			logger.Error(err, "image verification failed")
-			return admissionutils.Response(request.UID, err)
-		}
-		patches = jsonutils.JoinPatches(patches, imagePatches)
-		warnings = append(warnings, imageVerifyWarnings...)
+	newRequest := patchRequest(mutatePatches, request.AdmissionRequest, logger)
+	// rebuild context to process images updated via mutate policies
+	policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
+	if err != nil {
+		logger.Error(err, "failed to build policy context")
+		return admissionutils.Response(request.UID, err)
 	}
-	return admissionutils.MutationResponse(request.UID, patches, warnings...)
+	ivh := imageverification.NewImageVerificationHandler(
+		logger,
+		h.kyvernoClient,
+		h.engine,
+		h.eventGen,
+		h.admissionReports,
+		h.configuration,
+		h.nsLister,
+		h.reportsBreaker,
+	)
+	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
+	if err != nil {
+		logger.Error(err, "image verification failed")
+		return admissionutils.Response(request.UID, err)
+	}
+	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
+	var warnings []string
+	warnings = append(warnings, mutateWarnings...)
+	warnings = append(warnings, imageVerifyWarnings...)
+	return admissionutils.MutationResponse(request.UID, patch, warnings...)
 }
 
 func (h *resourceHandlers) retrieveAndCategorizePolicies(
 	ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, mutation bool) (
-	[]kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, error,
+	[]kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, []kyvernov1.PolicyInterface, error,
 ) {
-	var policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, auditWarnPolicies []kyvernov1.PolicyInterface
+	var policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies []kyvernov1.PolicyInterface
 	if request.URLParams == "" {
 		gvr := schema.GroupVersionResource(request.Resource)
 		policies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvr, request.SubResource, request.Namespace)...)
 		mutatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvr, request.SubResource, request.Namespace)...)
 		generatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvr, request.SubResource, request.Namespace)...)
-		auditWarnPolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.ValidateAuditWarn, gvr, request.SubResource, request.Namespace)...)
 		if mutation {
 			imageVerifyValidatePolicies = filterPolicies(ctx, failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvr, request.SubResource, request.Namespace)...)
 		} else {
@@ -276,13 +254,13 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 			policy, err = h.polLister.Policies(polNamespace).Get(polName)
 		}
 		if err != nil {
-			return nil, nil, nil, nil, nil, fmt.Errorf("key %s/%s: %v", polNamespace, polName, err)
+			return nil, nil, nil, nil, fmt.Errorf("key %s/%s: %v", polNamespace, polName, err)
 		}
 
 		filteredPolicies := filterPolicies(ctx, failurePolicy, policy)
 		if len(filteredPolicies) == 0 {
 			logger.V(4).Info("no policy found with key", "namespace", polNamespace, "name", polName)
-			return nil, nil, nil, nil, nil, nil
+			return nil, nil, nil, nil, nil
 		}
 		policy = filteredPolicies[0]
 		spec := policy.GetSpec()
@@ -298,11 +276,8 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 		if spec.HasVerifyImages() {
 			policies = append(policies, policy)
 		}
-		if spec.HasValidate() && *spec.EmitWarning {
-			auditWarnPolicies = append(auditWarnPolicies, policy)
-		}
 	}
-	return policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, auditWarnPolicies, nil
+	return policies, mutatePolicies, generatePolicies, imageVerifyValidatePolicies, nil
 }
 
 func (h *resourceHandlers) buildPolicyContextFromAdmissionRequest(logger logr.Logger, request handlers.AdmissionRequest) (*policycontext.PolicyContext, error) {
@@ -334,35 +309,4 @@ func filterPolicies(ctx context.Context, failurePolicy string, policies ...kyver
 		}
 	}
 	return results
-}
-
-func mergeEngineResponses(auditResponses, enforceResponses []engineapi.EngineResponse) []engineapi.EngineResponse {
-	responseMap := make(map[string]engineapi.EngineResponse)
-	var responses []engineapi.EngineResponse
-
-	for _, enforceResponse := range enforceResponses {
-		responseMap[enforceResponse.Policy().GetName()] = enforceResponse
-	}
-
-	for _, auditResponse := range auditResponses {
-		policyName := auditResponse.Policy().GetName()
-		if enforceResponse, exists := responseMap[policyName]; exists {
-			response := auditResponse
-			for _, ruleResponse := range enforceResponse.PolicyResponse.Rules {
-				response.PolicyResponse.Add(ruleResponse.Stats(), ruleResponse)
-			}
-			responses = append(responses, response)
-			delete(responseMap, policyName)
-		} else {
-			responses = append(responses, auditResponse)
-		}
-	}
-
-	if len(responseMap) != 0 {
-		for _, enforceResponse := range responseMap {
-			responses = append(responses, enforceResponse)
-		}
-	}
-
-	return responses
 }

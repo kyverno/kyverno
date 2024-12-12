@@ -8,14 +8,14 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  patchedResources: patched-resource.yaml
+  patchedResource: patched-resource.yaml
   policy: foreach-json-patch
   resources:
   - nginx
   result: pass
   rule: add-security-context
 - kind: Pod
-  patchedResources: pod-updated-image.yaml
+  patchedResource: pod-updated-image.yaml
   policy: mutate-images
   resources:
   - mypod

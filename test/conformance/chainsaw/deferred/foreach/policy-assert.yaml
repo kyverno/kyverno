@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: testcase-7fki3
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

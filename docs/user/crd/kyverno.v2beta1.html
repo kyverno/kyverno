@@ -293,33 +293,6 @@ and admission review request information like the name or role.</p>
       </tr>
     
   
-    
-    
-      <tr>
-        <td><code>deletionPropagationPolicy</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">meta/v1.DeletionPropagation</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
 
             </table>
           
@@ -617,33 +590,6 @@ and admission review request information like the name or role.</p>
       </tr>
     
   
-    
-    
-      <tr>
-        <td><code>deletionPropagationPolicy</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">meta/v1.DeletionPropagation</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
 
             </table>
           
@@ -858,8 +804,6 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
       <tr>
         <td><code>failurePolicy</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
@@ -874,7 +818,9 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
         <td>
           
 
-          <p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
+          <p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
 
 
           
@@ -888,8 +834,6 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
     
       <tr>
         <td><code>validationFailureAction</code>
-          
-          <span style="color:blue;"> *</span>
           
           </br>
 
@@ -905,7 +849,10 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
         <td>
           
 
-          <p>Deprecated, use validationFailureAction under the validate rule instead.</p>
+          <p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &quot;Audit&quot;.</p>
 
 
           
@@ -919,8 +866,6 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
     
       <tr>
         <td><code>validationFailureActionOverrides</code>
-          
-          <span style="color:blue;"> *</span>
           
           </br>
 
@@ -936,35 +881,8 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
         <td>
           
 
-          <p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>emitWarning</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">bool</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
-Enabling this option will extend admission request processing times. The default value is &quot;false&quot;.</p>
+          <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 
 
           
@@ -1079,7 +997,9 @@ uses variables that are only available in the admission review request (e.g. use
         <td>
           
 
-          <p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
+          <p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 
 
           
@@ -1106,7 +1026,8 @@ uses variables that are only available in the admission review request (e.g. use
         <td>
           
 
-          <p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
+          <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &quot;false&quot;.</p>
 
 
           
@@ -1148,8 +1069,6 @@ uses variables that are only available in the admission review request (e.g. use
       <tr>
         <td><code>generateExisting</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
@@ -1162,7 +1081,9 @@ uses variables that are only available in the admission review request (e.g. use
         <td>
           
 
-          <p>Deprecated, use generateExisting under the generate rule instead</p>
+          <p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &quot;true&quot; generate rule will be triggered and applied to existing matched resources.
+Defaults to &quot;false&quot; if not specified.</p>
 
 
           
@@ -1211,7 +1132,7 @@ Defaults to &quot;false&quot; if not specified.</p>
           
           
             
-              <a href="#kyverno-io-v1-WebhookConfiguration">
+              <a href="#kyverno-io-v2beta1-WebhookConfiguration">
                 <span style="font-family: monospace">WebhookConfiguration</span>
               </a>
             
@@ -1220,7 +1141,8 @@ Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
+          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 
 
           
@@ -1445,8 +1367,6 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
       <tr>
         <td><code>failurePolicy</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
@@ -1461,7 +1381,9 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
         <td>
           
 
-          <p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
+          <p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
 
 
           
@@ -1475,8 +1397,6 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
     
       <tr>
         <td><code>validationFailureAction</code>
-          
-          <span style="color:blue;"> *</span>
           
           </br>
 
@@ -1492,7 +1412,10 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
         <td>
           
 
-          <p>Deprecated, use validationFailureAction under the validate rule instead.</p>
+          <p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &quot;Audit&quot;.</p>
 
 
           
@@ -1506,8 +1429,6 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
     
       <tr>
         <td><code>validationFailureActionOverrides</code>
-          
-          <span style="color:blue;"> *</span>
           
           </br>
 
@@ -1523,35 +1444,8 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
         <td>
           
 
-          <p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>emitWarning</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">bool</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
-Enabling this option will extend admission request processing times. The default value is &quot;false&quot;.</p>
+          <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 
 
           
@@ -1666,7 +1560,9 @@ uses variables that are only available in the admission review request (e.g. use
         <td>
           
 
-          <p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
+          <p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 
 
           
@@ -1693,7 +1589,8 @@ uses variables that are only available in the admission review request (e.g. use
         <td>
           
 
-          <p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
+          <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &quot;false&quot;.</p>
 
 
           
@@ -1735,8 +1632,6 @@ uses variables that are only available in the admission review request (e.g. use
       <tr>
         <td><code>generateExisting</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
@@ -1749,7 +1644,9 @@ uses variables that are only available in the admission review request (e.g. use
         <td>
           
 
-          <p>Deprecated, use generateExisting under the generate rule instead</p>
+          <p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &quot;true&quot; generate rule will be triggered and applied to existing matched resources.
+Defaults to &quot;false&quot; if not specified.</p>
 
 
           
@@ -1798,7 +1695,7 @@ Defaults to &quot;false&quot; if not specified.</p>
           
           
             
-              <a href="#kyverno-io-v1-WebhookConfiguration">
+              <a href="#kyverno-io-v2beta1-WebhookConfiguration">
                 <span style="font-family: monospace">WebhookConfiguration</span>
               </a>
             
@@ -1807,7 +1704,8 @@ Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
+          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 
 
           
@@ -2236,7 +2134,9 @@ Here, all of the conditions need to pass.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-CleanupPolicy">CleanupPolicy</a>, 
         <a href="#kyverno-io-v2beta1-CleanupPolicy">CleanupPolicy</a>, 
+        <a href="#kyverno-io-v2alpha1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>, 
         <a href="#kyverno-io-v2beta1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
     </p>
   
@@ -2414,33 +2314,6 @@ and admission review request information like the name or role.</p>
       </tr>
     
   
-    
-    
-      <tr>
-        <td><code>deletionPropagationPolicy</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">meta/v1.DeletionPropagation</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
 
 
       </tbody>
@@ -2453,7 +2326,9 @@ and admission review request information like the name or role.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-CleanupPolicy">CleanupPolicy</a>, 
         <a href="#kyverno-io-v2beta1-CleanupPolicy">CleanupPolicy</a>, 
+        <a href="#kyverno-io-v2alpha1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>, 
         <a href="#kyverno-io-v2beta1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
     </p>
   
@@ -2581,7 +2456,7 @@ and admission review request information like the name or role.</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
+              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
             
           
         </td>
@@ -2637,14 +2512,12 @@ DurationLessThanOrEquals, DurationLessThan</p>
       <tr>
         <td><code>value</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
+              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
             
           
         </td>
@@ -2911,35 +2784,6 @@ mutated to include the SHA digest retrieved during the registration.</p>
     
     
       <tr>
-        <td><code>failureAction</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#kyverno-io-v1-ValidationFailureAction">
-                <span style="font-family: monospace">ValidationFailureAction</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Allowed values are Audit or Enforce.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
         <td><code>type</code>
           
           <span style="color:blue;"> *</span>
@@ -3190,38 +3034,6 @@ Defaults to true.</p>
     
     
       <tr>
-        <td><code>validate</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <a href="#kyverno-io-v1-ValidateImageVerification">
-                <span style="font-family: monospace">ValidateImageVerification</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Validation checks conditions across multiple image
-verification attestations or context entries</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
         <td><code>required</code>
           
           <span style="color:blue;"> *</span>
@@ -3320,9 +3132,7 @@ verification attestations or context entries</p>
   
     <p>
       (<em>Appears in:</em>
-        <a href="#kyverno-io-v2-CleanupPolicySpec">CleanupPolicySpec</a>, 
         <a href="#kyverno-io-v2beta1-CleanupPolicySpec">CleanupPolicySpec</a>, 
-        <a href="#kyverno-io-v2-PolicyExceptionSpec">PolicyExceptionSpec</a>, 
         <a href="#kyverno-io-v2beta1-PolicyExceptionSpec">PolicyExceptionSpec</a>, 
         <a href="#kyverno-io-v2beta1-Rule">Rule</a>)
     </p>
@@ -3419,6 +3229,7 @@ which a policy rule is applicable.</p>
   
     <p>
       (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-PolicyException">PolicyException</a>, 
         <a href="#kyverno-io-v2beta1-PolicyException">PolicyException</a>)
     </p>
   
@@ -4336,8 +4147,6 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
       <tr>
         <td><code>failurePolicy</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
@@ -4352,7 +4161,9 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
         <td>
           
 
-          <p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
+          <p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
 
 
           
@@ -4366,8 +4177,6 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
     
       <tr>
         <td><code>validationFailureAction</code>
-          
-          <span style="color:blue;"> *</span>
           
           </br>
 
@@ -4383,7 +4192,10 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
         <td>
           
 
-          <p>Deprecated, use validationFailureAction under the validate rule instead.</p>
+          <p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &quot;Audit&quot;.</p>
 
 
           
@@ -4397,8 +4209,6 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
     
       <tr>
         <td><code>validationFailureActionOverrides</code>
-          
-          <span style="color:blue;"> *</span>
           
           </br>
 
@@ -4414,35 +4224,8 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
         <td>
           
 
-          <p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>emitWarning</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">bool</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
-Enabling this option will extend admission request processing times. The default value is &quot;false&quot;.</p>
+          <p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 
 
           
@@ -4557,7 +4340,9 @@ uses variables that are only available in the admission review request (e.g. use
         <td>
           
 
-          <p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
+          <p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 
 
           
@@ -4584,7 +4369,8 @@ uses variables that are only available in the admission review request (e.g. use
         <td>
           
 
-          <p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
+          <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &quot;false&quot;.</p>
 
 
           
@@ -4626,8 +4412,6 @@ uses variables that are only available in the admission review request (e.g. use
       <tr>
         <td><code>generateExisting</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
@@ -4640,7 +4424,9 @@ uses variables that are only available in the admission review request (e.g. use
         <td>
           
 
-          <p>Deprecated, use generateExisting under the generate rule instead</p>
+          <p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &quot;true&quot; generate rule will be triggered and applied to existing matched resources.
+Defaults to &quot;false&quot; if not specified.</p>
 
 
           
@@ -4689,7 +4475,7 @@ Defaults to &quot;false&quot; if not specified.</p>
           
           
             
-              <a href="#kyverno-io-v1-WebhookConfiguration">
+              <a href="#kyverno-io-v2beta1-WebhookConfiguration">
                 <span style="font-family: monospace">WebhookConfiguration</span>
               </a>
             
@@ -4698,7 +4484,8 @@ Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
+          <p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 
 
           
@@ -4743,68 +4530,6 @@ Defaults to &quot;false&quot; if not specified.</p>
         
 
   
-  
-    
-    
-      <tr>
-        <td><code>failureAction</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#kyverno-io-v1-ValidationFailureAction">
-                <span style="font-family: monospace">ValidationFailureAction</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>FailureAction defines if a validation policy rule violation should block
-the admission review request (Enforce), or allow (Audit) the admission review request
-and report an error in a policy report. Optional.
-Allowed values are Audit or Enforce.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>failureActionOverrides</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#kyverno-io-v1-ValidationFailureActionOverride">
-                <span style="font-family: monospace">[]ValidationFailureActionOverride</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
-namespace-wise. It overrides FailureAction for the specified namespaces.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
   
     
     
@@ -4896,14 +4621,12 @@ namespace-wise. It overrides FailureAction for the specified namespaces.</p>
       <tr>
         <td><code>pattern</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
+              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
             
           
         </td>
@@ -4925,14 +4648,12 @@ namespace-wise. It overrides FailureAction for the specified namespaces.</p>
       <tr>
         <td><code>anyPattern</code>
           
-          <span style="color:blue;"> *</span>
-          
           </br>
 
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
+              <span style="font-family: monospace">k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON</span>
             
           
         </td>
@@ -5038,24 +4759,60 @@ by specifying exclusions for Pod Security Standards controls.</p>
       </tr>
     
   
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2beta1-WebhookConfiguration">WebhookConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2beta1-Spec">Spec</a>)
+    </p>
+  
+
+  <p><p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
     
     
       <tr>
-        <td><code>assert</code>
+        <td><code>matchConditions</code>
           
           </br>
 
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any</span>
+              <span style="font-family: monospace">[]admissionregistration/v1.MatchCondition</span>
             
           
         </td>
         <td>
           
 
-          <p>Assert defines a kyverno-json assertion tree.</p>
+          <p>MatchCondition configures admission webhook matchConditions.</p>
 
 
           

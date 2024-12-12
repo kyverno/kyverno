@@ -21,6 +21,9 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv1"><b style="color: white">kyverno.io/v1</b></a>
 </li>
 <li>
+<a href="#kyverno.io%2fv1alpha2"><b style="color: white">kyverno.io/v1alpha2</b></a>
+</li>
+<li>
 <a href="#kyverno.io%2fv1beta1"><b style="color: white">kyverno.io/v1beta1</b></a>
 </li>
 <li>
@@ -147,7 +150,11 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
+<em>(Optional)</em>
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+This field should not be accessed directly, instead <code>GetFailurePolicy()</code> should be used.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
 </tr>
 <tr>
@@ -160,7 +167,11 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureAction under the validate rule instead.</p>
+<em>(Optional)</em>
+<p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -173,20 +184,9 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>emitWarning</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
 <em>(Optional)</em>
-<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
-Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
+<p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 </td>
 </tr>
 <tr>
@@ -235,7 +235,9 @@ int32
 </em>
 </td>
 <td>
-<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
+<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 <tr>
@@ -247,7 +249,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
+<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -271,7 +274,9 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Deprecated, use generateExisting under the generate rule instead</p>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -299,7 +304,8 @@ WebhookConfiguration
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </table>
@@ -422,7 +428,11 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
+<em>(Optional)</em>
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+This field should not be accessed directly, instead <code>GetFailurePolicy()</code> should be used.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
 </tr>
 <tr>
@@ -435,7 +445,11 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureAction under the validate rule instead.</p>
+<em>(Optional)</em>
+<p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -448,20 +462,9 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>emitWarning</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
 <em>(Optional)</em>
-<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
-Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
+<p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 </td>
 </tr>
 <tr>
@@ -510,7 +513,9 @@ int32
 </em>
 </td>
 <td>
-<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
+<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 <tr>
@@ -522,7 +527,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
+<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -546,7 +552,9 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Deprecated, use generateExisting under the generate rule instead</p>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -574,7 +582,8 @@ WebhookConfiguration
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </table>
@@ -640,7 +649,7 @@ Method
 </em>
 </td>
 <td>
-<p>Method is the HTTP request type (GET or POST). Defaults to GET.</p>
+<p>Method is the HTTP request type (GET or POST).</p>
 </td>
 </tr>
 <tr>
@@ -690,7 +699,6 @@ It&rsquo;s mutually exclusive with the URLPath field.</p>
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Attestation">Attestation</a>, 
-<a href="#kyverno.io/v1.ForEachGeneration">ForEachGeneration</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
 </p>
@@ -774,17 +782,6 @@ OCI registry and decodes them into a list of Statements.</p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Name is the variable name.</p>
-</td>
-</tr>
 <tr>
 <td>
 <code>predicateType</code><br/>
@@ -931,17 +928,6 @@ string
 If specified Repository will override other OCI image repository locations for this Attestor.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>signatureAlgorithm</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
-</td>
-</tr>
 </tbody>
 </table>
 <hr />
@@ -1049,8 +1035,8 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <td>
 <code>expressions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1beta1-admissionregistration">
-[]Kubernetes admissionregistration/v1beta1.Validation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Validation
 </a>
 </em>
 </td>
@@ -1062,8 +1048,8 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <td>
 <code>paramKind</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramkind-v1beta1-admissionregistration">
-Kubernetes admissionregistration/v1beta1.ParamKind
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramkind-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.ParamKind
 </a>
 </em>
 </td>
@@ -1076,8 +1062,8 @@ Kubernetes admissionregistration/v1beta1.ParamKind
 <td>
 <code>paramRef</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramref-v1beta1-admissionregistration">
-Kubernetes admissionregistration/v1beta1.ParamRef
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramref-v1alpha1-admissionregistration">
+Kubernetes admissionregistration/v1alpha1.ParamRef
 </a>
 </em>
 </td>
@@ -1090,8 +1076,8 @@ Kubernetes admissionregistration/v1beta1.ParamRef
 <td>
 <code>auditAnnotations</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1beta1-admissionregistration">
-[]Kubernetes admissionregistration/v1beta1.AuditAnnotation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.AuditAnnotation
 </a>
 </em>
 </td>
@@ -1104,8 +1090,8 @@ Kubernetes admissionregistration/v1beta1.ParamRef
 <td>
 <code>variables</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1beta1-admissionregistration">
-[]Kubernetes admissionregistration/v1beta1.Variable
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.Variable
 </a>
 </em>
 </td>
@@ -1158,19 +1144,6 @@ string
 </td>
 <td>
 <p>PubKey, if set, is used to validate SCTs against a custom source.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>tsaCertChain</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>TSACertChain, if set, is the PEM-encoded certificate chain file for the RFC3161 timestamp authority. Must
-contain the root CA certificate. Optionally may contain intermediate CA certificates, and
-may contain the leaf TSA certificate if not present in the timestamurce.</p>
 </td>
 </tr>
 </tbody>
@@ -1249,7 +1222,7 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.GeneratePattern">GeneratePattern</a>)
+<a href="#kyverno.io/v1.Generation">Generation</a>)
 </p>
 <p>
 <p>CloneFrom provides the location of the source resource used to generate target resources.
@@ -1373,40 +1346,6 @@ string
 <p>
 <p>ConditionOperator is the operation performed on condition key and value.</p>
 </p>
-<h3 id="kyverno.io/v1.ConditionsWrapper">ConditionsWrapper
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Deny">Deny</a>, 
-<a href="#kyverno.io/v1.Rule">Rule</a>, 
-<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>)
-</p>
-<p>
-<p>ConditionsWrapper contains either the deprecated list of Conditions or the new AnyAll Conditions.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>-</code><br/>
-<em>
-any
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Conditions is a list of conditions that must be satisfied for the rule to be applied.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.ConfigMapReference">ConfigMapReference
 </h3>
 <p>
@@ -1482,21 +1421,6 @@ APICall
 </tr>
 <tr>
 <td>
-<code>default</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
-Kubernetes apiextensions/v1.JSON
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Default is an optional arbitrary JSON object that the context
-value is set to, if the apiCall returns error.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>jmesPath</code><br/>
 <em>
 string
@@ -1517,7 +1441,6 @@ of deployments across all namespaces.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ForEachGeneration">ForEachGeneration</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
 <a href="#kyverno.io/v1.Rule">Rule</a>, 
@@ -1624,7 +1547,6 @@ GlobalContextEntryReference
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
-<a href="#kyverno.io/v1.ValidateImageVerification">ValidateImageVerification</a>, 
 <a href="#kyverno.io/v1.Validation">Validation</a>)
 </p>
 <p>
@@ -1642,8 +1564,8 @@ GlobalContextEntryReference
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="#kyverno.io/v1.ConditionsWrapper">
-ConditionsWrapper
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
 </a>
 </em>
 </td>
@@ -1705,90 +1627,15 @@ string
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Spec">Spec</a>, 
-<a href="#kyverno.io/v1.WebhookConfiguration">WebhookConfiguration</a>, 
 <a href="#kyverno.io/v2beta1.Spec">Spec</a>)
 </p>
 <p>
 <p>FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.</p>
 </p>
-<h3 id="kyverno.io/v1.ForEachGeneration">ForEachGeneration
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Generation">Generation</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>list</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>List specifies a JMESPath expression that results in one or more elements
-to which the validation logic is applied.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>context</code><br/>
-<em>
-<a href="#kyverno.io/v1.ContextEntry">
-[]ContextEntry
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Context defines variables and data sources that can be used during rule execution.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>preconditions</code><br/>
-<em>
-<a href="#kyverno.io/v1.AnyAllConditions">
-AnyAllConditions
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
-set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
-</td>
-</tr>
-<tr>
-<td>
-<code>GeneratePattern</code><br/>
-<em>
-<a href="#kyverno.io/v1.GeneratePattern">
-GeneratePattern
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.ForEachMutation">ForEachMutation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ForEachMutationWrapper">ForEachMutationWrapper</a>, 
 <a href="#kyverno.io/v1.Mutation">Mutation</a>)
 </p>
 <p>
@@ -1863,14 +1710,16 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>patchStrategicMerge</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>PatchStrategicMerge is a strategic merge patch used to modify resources.
 See <a href="https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/">https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/</a>
-and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/">https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/</a>.</p>
+and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/</a>.</p>
 </td>
 </tr>
 <tr>
@@ -1883,15 +1732,15 @@ string
 <td>
 <em>(Optional)</em>
 <p>PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/</a>.</p>
+See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/</a>.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>foreach</code><br/>
 <em>
-<a href="#kyverno.io/v1.ForEachMutationWrapper">
-ForEachMutationWrapper
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
 </a>
 </em>
 </td>
@@ -1903,45 +1752,10 @@ ForEachMutationWrapper
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.ForEachMutationWrapper">ForEachMutationWrapper
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>)
-</p>
-<p>
-<p>ForEachMutationWrapper contains a list of ForEach descriptors.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>-</code><br/>
-<em>
-<a href="#kyverno.io/v1.ForEachMutation">
-[]ForEachMutation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Item is a descriptor on how to iterate over the list of items.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.ForEachValidation">ForEachValidation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ForEachValidationWrapper">ForEachValidationWrapper</a>, 
 <a href="#kyverno.io/v1.Validation">Validation</a>, 
 <a href="#kyverno.io/v2beta1.Validation">Validation</a>)
 </p>
@@ -2059,48 +1873,14 @@ Deny
 <td>
 <code>foreach</code><br/>
 <em>
-<a href="#kyverno.io/v1.ForEachValidationWrapper">
-ForEachValidationWrapper
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>Foreach declares a nested foreach iterator</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.ForEachValidationWrapper">ForEachValidationWrapper
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
-</p>
-<p>
-<p>ForEachValidationWrapper contains a list of ForEach descriptors.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>-</code><br/>
-<em>
-<a href="#kyverno.io/v1.ForEachValidation">
-[]ForEachValidation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Item is a descriptor on how to iterate over the list of items.</p>
 </td>
 </tr>
 </tbody>
@@ -2115,14 +1895,19 @@ ForEachValidationWrapper
 <p>
 <p>ForeachOrder specifies the iteration order in foreach statements.</p>
 </p>
-<h3 id="kyverno.io/v1.GeneratePattern">GeneratePattern
+<h3 id="kyverno.io/v1.GenerateType">GenerateType
+(<code>string</code> alias)</p></h3>
+<p>
+</p>
+<h3 id="kyverno.io/v1.Generation">Generation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ForEachGeneration">ForEachGeneration</a>, 
-<a href="#kyverno.io/v1.Generation">Generation</a>)
+<a href="#kyverno.io/v1.Rule">Rule</a>, 
+<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
+<p>Generation defines how new resources should be created and managed.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -2143,6 +1928,36 @@ ResourceSpec
 </td>
 <td>
 <p>ResourceSpec contains information to select the resource.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Synchronize controls if generated resources should be kept in-sync with their source resource.
+If Synchronize is set to &ldquo;true&rdquo; changes to generated resources will be overwritten with resource
+data from Data or the resource specified in the Clone declaration.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>orphanDownstreamOnPolicyDelete</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
+them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
+See <a href="https://kyverno.io/docs/writing-policies/generate/#data-examples">https://kyverno.io/docs/writing-policies/generate/#data-examples</a>.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -2194,101 +2009,6 @@ CloneList
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.GenerateType">GenerateType
-(<code>string</code> alias)</p></h3>
-<p>
-</p>
-<h3 id="kyverno.io/v1.Generation">Generation
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Rule">Rule</a>, 
-<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
-</p>
-<p>
-<p>Generation defines how new resources should be created and managed.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>generateExisting</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>GenerateExisting controls whether to trigger the rule in existing resources
-If is set to &ldquo;true&rdquo; the rule will be triggered and applied to existing matched resources.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>synchronize</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Synchronize controls if generated resources should be kept in-sync with their source resource.
-If Synchronize is set to &ldquo;true&rdquo; changes to generated resources will be overwritten with resource
-data from Data or the resource specified in the Clone declaration.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>orphanDownstreamOnPolicyDelete</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-See <a href="https://kyverno.io/docs/writing-policies/generate/#data-examples">https://kyverno.io/docs/writing-policies/generate/#data-examples</a>.
-Defaults to &ldquo;false&rdquo; if not specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>GeneratePattern</code><br/>
-<em>
-<a href="#kyverno.io/v1.GeneratePattern">
-GeneratePattern
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>foreach</code><br/>
-<em>
-<a href="#kyverno.io/v1.ForEachGeneration">
-[]ForEachGeneration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ForEach applies generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.GlobalContextEntryReference">GlobalContextEntryReference
 </h3>
 <p>
@@ -2329,47 +2049,6 @@ transform the JSON response returned from the server. For example
 a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
 for the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
 of deployments across all namespaces.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.HTTPHeader">HTTPHeader
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>key</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Key is the header key</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>value</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Value is the header value</p>
 </td>
 </tr>
 </tbody>
@@ -2614,20 +2293,6 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
-<code>failureAction</code><br/>
-<em>
-<a href="#kyverno.io/v1.ValidationFailureAction">
-ValidationFailureAction
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Allowed values are Audit or Enforce.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>type</code><br/>
 <em>
 <a href="#kyverno.io/v1.ImageVerificationType">
@@ -2637,7 +2302,7 @@ ImageVerificationType
 </td>
 <td>
 <p>Type specifies the method of signature validation. The allowed options
-are Cosign, Sigstore Bundle and Notary. By default Cosign is used if a type is not specified.</p>
+are Cosign and Notary. By default Cosign is used if a type is not specified.</p>
 </td>
 </tr>
 <tr>
@@ -2788,19 +2453,6 @@ The repository can also be overridden per Attestor or Attestation.</p>
 </tr>
 <tr>
 <td>
-<code>cosignOCI11</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>CosignOCI11 enables the experimental OCI 1.1 behaviour in cosign image verification.
-Defaults to false.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>mutateDigest</code><br/>
 <em>
 bool
@@ -2820,20 +2472,6 @@ bool
 </td>
 <td>
 <p>VerifyDigest validates that images have a digest.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>validate</code><br/>
-<em>
-<a href="#kyverno.io/v1.ValidateImageVerification">
-ValidateImageVerification
-</a>
-</em>
-</td>
-<td>
-<p>Validation checks conditions across multiple image
-verification attestations or context entries</p>
 </td>
 </tr>
 <tr>
@@ -2941,17 +2579,6 @@ string
 </tr>
 <tr>
 <td>
-<code>issuerRegExp</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>IssuerRegExp is the regular expression to match certificate issuer used for keyless signing.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>subject</code><br/>
 <em>
 string
@@ -2959,17 +2586,6 @@ string
 </td>
 <td>
 <p>Subject is the verified identity used for keyless signing, for example the email address.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>subjectRegExp</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>SubjectRegExp is the regular expression to match identity used for keyless signing, for example the email address.</p>
 </td>
 </tr>
 <tr>
@@ -3194,18 +2810,6 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <tbody>
 <tr>
 <td>
-<code>mutateExistingOnPolicyUpdate</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MutateExistingOnPolicyUpdate controls if the mutateExisting rule will be applied on policy events.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>targets</code><br/>
 <em>
 <a href="#kyverno.io/v1.TargetResourceSpec">
@@ -3231,7 +2835,7 @@ Kubernetes apiextensions/v1.JSON
 <em>(Optional)</em>
 <p>PatchStrategicMerge is a strategic merge patch used to modify resources.
 See <a href="https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/">https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/</a>
-and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/">https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/</a>.</p>
+and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/</a>.</p>
 </td>
 </tr>
 <tr>
@@ -3244,7 +2848,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/</a>.</p>
+See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/</a>.</p>
 </td>
 </tr>
 <tr>
@@ -3809,6 +3413,7 @@ ResourceDescription
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>, 
+<a href="#kyverno.io/v2.MatchResources">MatchResources</a>, 
 <a href="#kyverno.io/v2beta1.MatchResources">MatchResources</a>)
 </p>
 <p>
@@ -3818,11 +3423,10 @@ ResourceDescription
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.GeneratePattern">GeneratePattern</a>, 
-<a href="#kyverno.io/v1.TargetSelector">TargetSelector</a>, 
+<a href="#kyverno.io/v1.Generation">Generation</a>, 
+<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestStatus">UpdateRequestStatus</a>, 
-<a href="#kyverno.io/v2.RuleContext">RuleContext</a>, 
 <a href="#kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec</a>, 
 <a href="#kyverno.io/v2.UpdateRequestStatus">UpdateRequestStatus</a>)
 </p>
@@ -3947,18 +3551,6 @@ string
 </tr>
 <tr>
 <td>
-<code>reportProperties</code><br/>
-<em>
-map[string]string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ReportProperties are the additional properties from the rule that will be added to the policy report result</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>match</code><br/>
 <em>
 <a href="#kyverno.io/v1.MatchResources">
@@ -4008,8 +3600,8 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="#kyverno.io/v1.ConditionsWrapper">
-ConditionsWrapper
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
 </a>
 </em>
 </td>
@@ -4026,8 +3618,8 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>celPreconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1beta1-admissionregistration">
-[]Kubernetes admissionregistration/v1beta1.MatchCondition
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1alpha1-admissionregistration">
+[]Kubernetes admissionregistration/v1alpha1.MatchCondition
 </a>
 </em>
 </td>
@@ -4245,19 +3837,6 @@ string
 </tr>
 <tr>
 <td>
-<code>headers</code><br/>
-<em>
-<a href="#kyverno.io/v1.HTTPHeader">
-[]HTTPHeader
-</a>
-</em>
-</td>
-<td>
-<p>Headers is a list of optional HTTP headers to be included in the request.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>caBundle</code><br/>
 <em>
 string
@@ -4330,7 +3909,11 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
+<em>(Optional)</em>
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+This field should not be accessed directly, instead <code>GetFailurePolicy()</code> should be used.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
 </tr>
 <tr>
@@ -4343,7 +3926,11 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureAction under the validate rule instead.</p>
+<em>(Optional)</em>
+<p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -4356,20 +3943,9 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>emitWarning</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
 <em>(Optional)</em>
-<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
-Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
+<p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 </td>
 </tr>
 <tr>
@@ -4418,7 +3994,9 @@ int32
 </em>
 </td>
 <td>
-<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
+<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 <tr>
@@ -4430,7 +4008,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
+<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -4454,7 +4033,9 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Deprecated, use generateExisting under the generate rule instead</p>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -4482,7 +4063,8 @@ WebhookConfiguration
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </tbody>
@@ -4530,7 +4112,7 @@ string
 </em>
 </td>
 <td>
-<p>Deprecated. Use attestor.signatureAlgorithm instead.</p>
+<p>Specify signature algorithm for public keys. Supported values are sha224, sha256, sha384 and sha512.</p>
 </td>
 </tr>
 <tr>
@@ -4608,15 +4190,15 @@ Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used
 <tbody>
 <tr>
 <td>
-<code>TargetSelector</code><br/>
+<code>ResourceSpec</code><br/>
 <em>
-<a href="#kyverno.io/v1.TargetSelector">
-TargetSelector
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
 </a>
 </em>
 </td>
 <td>
-<p>TargetSelector contains the ResourceSpec and a label selector to support selecting with labels.</p>
+<p>ResourceSpec contains the target resources to load when mutating existing resources.</p>
 </td>
 </tr>
 <tr>
@@ -4637,8 +4219,8 @@ TargetSelector
 <td>
 <code>preconditions</code><br/>
 <em>
-<a href="#kyverno.io/v1.ConditionsWrapper">
-ConditionsWrapper
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
 </a>
 </em>
 </td>
@@ -4649,52 +4231,6 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
 of conditions (without <code>any</code> or <code>all</code> statements is supported for backwards compatibility but
 will be deprecated in the next major release.
 See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.TargetSelector">TargetSelector
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.TargetResourceSpec">TargetResourceSpec</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>ResourceSpec</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
-</em>
-</td>
-<td>
-<p>ResourceSpec contains the target resources to load when mutating existing resources.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>selector</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
-Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Selector allows you to select target resources with their labels.</p>
 </td>
 </tr>
 </tbody>
@@ -4760,54 +4296,6 @@ Kubernetes meta/v1.LabelSelector
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.ValidateImageVerification">ValidateImageVerification
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
-<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
-</p>
-<p>
-<p>ValidateImageVerification checks conditions across multiple image
-verification attestations or context entries</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>message</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Message specifies a custom message to be displayed on failure.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>deny</code><br/>
-<em>
-<a href="#kyverno.io/v1.Deny">
-Deny
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Deny defines conditions used to pass or fail a validation rule.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.ValidatingAdmissionPolicyStatus">ValidatingAdmissionPolicyStatus
 </h3>
 <p>
@@ -4868,49 +4356,6 @@ It is an empty string when validating admission policy is successfully generated
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>failureAction</code><br/>
-<em>
-<a href="#kyverno.io/v1.ValidationFailureAction">
-ValidationFailureAction
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>FailureAction defines if a validation policy rule violation should block
-the admission review request (Enforce), or allow (Audit) the admission review request
-and report an error in a policy report. Optional.
-Allowed values are Audit or Enforce.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>failureActionOverrides</code><br/>
-<em>
-<a href="#kyverno.io/v1.ValidationFailureActionOverride">
-[]ValidationFailureActionOverride
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
-namespace-wise. It overrides FailureAction for the specified namespaces.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>allowExistingViolations</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>AllowExistingViolations allows prexisting violating resources to continue violating a policy.</p>
-</td>
-</tr>
 <tr>
 <td>
 <code>message</code><br/>
@@ -5023,18 +4468,6 @@ CEL
 <p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>assert</code><br/>
-<em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Assert defines a kyverno-json assertion tree.</p>
-</td>
-</tr>
 </tbody>
 </table>
 <hr />
@@ -5042,13 +4475,9 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 (<code>string</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v1.Spec">Spec</a>, 
-<a href="#kyverno.io/v1.Validation">Validation</a>, 
 <a href="#kyverno.io/v1.ValidationFailureActionOverride">ValidationFailureActionOverride</a>, 
-<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>, 
-<a href="#kyverno.io/v2beta1.Spec">Spec</a>, 
-<a href="#kyverno.io/v2beta1.Validation">Validation</a>)
+<a href="#kyverno.io/v2beta1.Spec">Spec</a>)
 </p>
 <p>
 <p>ValidationFailureAction defines the policy validation failure action</p>
@@ -5058,9 +4487,7 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Spec">Spec</a>, 
-<a href="#kyverno.io/v1.Validation">Validation</a>, 
-<a href="#kyverno.io/v2beta1.Spec">Spec</a>, 
-<a href="#kyverno.io/v2beta1.Validation">Validation</a>)
+<a href="#kyverno.io/v2beta1.Spec">Spec</a>)
 </p>
 <p>
 </p>
@@ -5130,7 +4557,9 @@ Kubernetes meta/v1.LabelSelector
 <td>
 <code>value</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
@@ -5155,7 +4584,9 @@ transform the variable.</p>
 <td>
 <code>default</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
@@ -5171,8 +4602,7 @@ expression evaluates to nil</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Spec">Spec</a>, 
-<a href="#kyverno.io/v2beta1.Spec">Spec</a>)
+<a href="#kyverno.io/v1.Spec">Spec</a>)
 </p>
 <p>
 <p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
@@ -5187,36 +4617,6 @@ expression evaluates to nil</p>
 <tbody>
 <tr>
 <td>
-<code>failurePolicy</code><br/>
-<em>
-<a href="#kyverno.io/v1.FailurePolicyType">
-FailurePolicyType
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
-Rules within the same policy share the same failure behavior.
-This field should not be accessed directly, instead <code>GetFailurePolicy()</code> should be used.
-Allowed values are Ignore or Fail. Defaults to Fail.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>timeoutSeconds</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<p>TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
-After the configured time expires, the admission request may fail, or may simply ignore the policy results,
-based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>matchConditions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
@@ -5226,13 +4626,422 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
 </td>
 <td>
 <em>(Optional)</em>
-<p>MatchCondition configures admission webhook matchConditions.
-Requires Kubernetes 1.27 or later.</p>
+<p>MatchCondition configures admission webhook matchConditions.</p>
 </td>
 </tr>
 </tbody>
 </table>
 <hr />
+<h2 id="kyverno.io/v1alpha2">kyverno.io/v1alpha2</h2>
+<p>
+<p>Package v1alpha2 contains API Schema definitions for the policy v1alpha2 API group</p>
+</p>
+Resource Types:
+<ul><li>
+<a href="#kyverno.io/v1alpha2.AdmissionReport">AdmissionReport</a>
+</li><li>
+<a href="#kyverno.io/v1alpha2.BackgroundScanReport">BackgroundScanReport</a>
+</li><li>
+<a href="#kyverno.io/v1alpha2.ClusterAdmissionReport">ClusterAdmissionReport</a>
+</li><li>
+<a href="#kyverno.io/v1alpha2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>
+</li></ul>
+<hr />
+<h3 id="kyverno.io/v1alpha2.AdmissionReport">AdmissionReport
+</h3>
+<p>
+<p>AdmissionReport is the Schema for the AdmissionReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v1alpha2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>AdmissionReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1alpha2.BackgroundScanReport">BackgroundScanReport
+</h3>
+<p>
+<p>BackgroundScanReport is the Schema for the BackgroundScanReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v1alpha2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>BackgroundScanReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">
+BackgroundScanReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1alpha2.ClusterAdmissionReport">ClusterAdmissionReport
+</h3>
+<p>
+<p>ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v1alpha2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterAdmissionReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1alpha2.ClusterBackgroundScanReport">ClusterBackgroundScanReport
+</h3>
+<p>
+<p>ClusterBackgroundScanReport is the Schema for the ClusterBackgroundScanReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v1alpha2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterBackgroundScanReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">
+BackgroundScanReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1alpha2.ReportInterface">ReportInterface
+</h3>
+<p>
+<p>ReportInterface abstracts the concrete report change request type</p>
+</p>
 <h2 id="kyverno.io/v1beta1">kyverno.io/v1beta1</h2>
 <p>
 <p>Package v1beta1 contains API Schema definitions for the policy v1beta1 API group</p>
@@ -5760,7 +5569,15 @@ int
 </p>
 Resource Types:
 <ul><li>
+<a href="#kyverno.io/v2.AdmissionReport">AdmissionReport</a>
+</li><li>
+<a href="#kyverno.io/v2.BackgroundScanReport">BackgroundScanReport</a>
+</li><li>
 <a href="#kyverno.io/v2.CleanupPolicy">CleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2.ClusterAdmissionReport">ClusterAdmissionReport</a>
+</li><li>
+<a href="#kyverno.io/v2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>
 </li><li>
 <a href="#kyverno.io/v2.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
 </li><li>
@@ -5768,6 +5585,201 @@ Resource Types:
 </li><li>
 <a href="#kyverno.io/v2.UpdateRequest">UpdateRequest</a>
 </li></ul>
+<hr />
+<h3 id="kyverno.io/v2.AdmissionReport">AdmissionReport
+</h3>
+<p>
+<p>AdmissionReport is the Schema for the AdmissionReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>AdmissionReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.BackgroundScanReport">BackgroundScanReport
+</h3>
+<p>
+<p>BackgroundScanReport is the Schema for the BackgroundScanReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>BackgroundScanReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">
+BackgroundScanReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h3 id="kyverno.io/v2.CleanupPolicy">CleanupPolicy
 </h3>
@@ -5845,7 +5857,7 @@ CleanupPolicySpec
 <td>
 <code>match</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.MatchResources">
+<a href="#kyverno.io/v2.MatchResources">
 MatchResources
 </a>
 </em>
@@ -5861,7 +5873,7 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.MatchResources">
+<a href="#kyverno.io/v2.MatchResources">
 MatchResources
 </a>
 </em>
@@ -5898,20 +5910,6 @@ AnyAllConditions
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>deletionPropagationPolicy</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
-Kubernetes meta/v1.DeletionPropagation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
-</td>
-</tr>
 </table>
 </td>
 </tr>
@@ -5927,6 +5925,201 @@ CleanupPolicyStatus
 <td>
 <em>(Optional)</em>
 <p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.ClusterAdmissionReport">ClusterAdmissionReport
+</h3>
+<p>
+<p>ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterAdmissionReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.ClusterBackgroundScanReport">ClusterBackgroundScanReport
+</h3>
+<p>
+<p>ClusterBackgroundScanReport is the Schema for the ClusterBackgroundScanReports API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterBackgroundScanReport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">
+BackgroundScanReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
 </td>
 </tr>
 </tbody>
@@ -6008,7 +6201,7 @@ CleanupPolicySpec
 <td>
 <code>match</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.MatchResources">
+<a href="#kyverno.io/v2.MatchResources">
 MatchResources
 </a>
 </em>
@@ -6024,7 +6217,7 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.MatchResources">
+<a href="#kyverno.io/v2.MatchResources">
 MatchResources
 </a>
 </em>
@@ -6059,20 +6252,6 @@ AnyAllConditions
 <td>
 <em>(Optional)</em>
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>deletionPropagationPolicy</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
-Kubernetes meta/v1.DeletionPropagation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
 </td>
 </tr>
 </table>
@@ -6183,7 +6362,7 @@ MatchResources
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="#kyverno.io/v2.AnyAllConditions">
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
 AnyAllConditions
 </a>
 </em>
@@ -6312,20 +6491,6 @@ string
 </tr>
 <tr>
 <td>
-<code>ruleContext</code><br/>
-<em>
-<a href="#kyverno.io/v2.RuleContext">
-[]RuleContext
-</a>
-</em>
-</td>
-<td>
-<p>RuleContext is the associate context to apply rules.
-optional</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>rule</code><br/>
 <em>
 string
@@ -6343,8 +6508,7 @@ bool
 </em>
 </td>
 <td>
-<p>DeleteDownstream represents whether the downstream needs to be deleted.
-Deprecated</p>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
 </td>
 </tr>
 <tr>
@@ -6356,8 +6520,7 @@ bool
 </td>
 <td>
 <p>Synchronize represents the sync behavior of the corresponding rule
-Optional. Defaults to &ldquo;false&rdquo; if not specified.
-Deprecated, will be removed in 1.14.</p>
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -6383,8 +6546,7 @@ UpdateRequestSpecContext
 </em>
 </td>
 <td>
-<p>Context represents admission request context.
-It is used upon admission review only and is shared across rules within the same UR.</p>
+<p>Context &hellip;</p>
 </td>
 </tr>
 </table>
@@ -6402,6 +6564,69 @@ UpdateRequestStatus
 <td>
 <em>(Optional)</em>
 <p>Status contains statistics related to update request.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1alpha2.AdmissionReport">AdmissionReport</a>, 
+<a href="#kyverno.io/v1alpha2.ClusterAdmissionReport">ClusterAdmissionReport</a>, 
+<a href="#kyverno.io/v2.AdmissionReport">AdmissionReport</a>, 
+<a href="#kyverno.io/v2.ClusterAdmissionReport">ClusterAdmissionReport</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>owner</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
+Kubernetes meta/v1.OwnerReference
+</a>
+</em>
+</td>
+<td>
+<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
 </td>
 </tr>
 </tbody>
@@ -6457,8 +6682,7 @@ Kubernetes admission/v1.Operation
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>, 
-<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>)
 </p>
 <p>
 </p>
@@ -6507,11 +6731,56 @@ Here, all of the conditions need to pass.</p>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v2.CleanupPolicyInterface">CleanupPolicyInterface
+<h3 id="kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec
 </h3>
 <p>
-<p>CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)</p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1alpha2.BackgroundScanReport">BackgroundScanReport</a>, 
+<a href="#kyverno.io/v1alpha2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>, 
+<a href="#kyverno.io/v2.BackgroundScanReport">BackgroundScanReport</a>, 
+<a href="#kyverno.io/v2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>)
 </p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportSummary">
+PolicyReportSummary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec
 </h3>
 <p>
@@ -6549,7 +6818,7 @@ and schedule when the matching resources needs deleted.</p>
 <td>
 <code>match</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.MatchResources">
+<a href="#kyverno.io/v2.MatchResources">
 MatchResources
 </a>
 </em>
@@ -6565,7 +6834,7 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v2beta1.MatchResources">
+<a href="#kyverno.io/v2.MatchResources">
 MatchResources
 </a>
 </em>
@@ -6600,20 +6869,6 @@ AnyAllConditions
 <td>
 <em>(Optional)</em>
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>deletionPropagationPolicy</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
-Kubernetes meta/v1.DeletionPropagation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
 </td>
 </tr>
 </tbody>
@@ -6684,7 +6939,9 @@ Kubernetes meta/v1.Time
 <td>
 <code>key</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
@@ -6711,10 +6968,13 @@ DurationLessThanOrEquals, DurationLessThan</p>
 <td>
 <code>value</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Value is the conditional value, or set of values. The values can be fixed set
 or can be variables declared using JMESPath.</p>
 </td>
@@ -6786,6 +7046,55 @@ references a ClusterPolicy.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2.MatchResources">MatchResources
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>)
+</p>
+<p>
+<p>MatchResources is used to specify resource and admission review request data for
+which a policy rule is applicable.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>any</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceFilters">
+ResourceFilters
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Any allows specifying resources which will be ORed</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>all</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceFilters">
+ResourceFilters
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>All allows specifying resources which will be ANDed</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec
 </h3>
 <p>
@@ -6833,7 +7142,7 @@ MatchResources
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="#kyverno.io/v2.AnyAllConditions">
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
 AnyAllConditions
 </a>
 </em>
@@ -6941,72 +7250,6 @@ Kubernetes authentication/v1.UserInfo
 </p>
 <p>
 </p>
-<h3 id="kyverno.io/v2.RuleContext">RuleContext
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>rule</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Rule is the associate rule name of the current UR.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>deleteDownstream</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>synchronize</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>Synchronize represents the sync behavior of the corresponding rule
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>trigger</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
-</em>
-</td>
-<td>
-<p>ResourceSpec is the information to identify the trigger resource.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v2.UpdateRequestSpec">UpdateRequestSpec
 </h3>
 <p>
@@ -7050,20 +7293,6 @@ string
 </tr>
 <tr>
 <td>
-<code>ruleContext</code><br/>
-<em>
-<a href="#kyverno.io/v2.RuleContext">
-[]RuleContext
-</a>
-</em>
-</td>
-<td>
-<p>RuleContext is the associate context to apply rules.
-optional</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>rule</code><br/>
 <em>
 string
@@ -7081,8 +7310,7 @@ bool
 </em>
 </td>
 <td>
-<p>DeleteDownstream represents whether the downstream needs to be deleted.
-Deprecated</p>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
 </td>
 </tr>
 <tr>
@@ -7094,8 +7322,7 @@ bool
 </td>
 <td>
 <p>Synchronize represents the sync behavior of the corresponding rule
-Optional. Defaults to &ldquo;false&rdquo; if not specified.
-Deprecated, will be removed in 1.14.</p>
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -7121,8 +7348,7 @@ UpdateRequestSpecContext
 </em>
 </td>
 <td>
-<p>Context represents admission request context.
-It is used upon admission review only and is shared across rules within the same UR.</p>
+<p>Context &hellip;</p>
 </td>
 </tr>
 </tbody>
@@ -7257,8 +7483,312 @@ int
 </p>
 Resource Types:
 <ul><li>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
+</li><li>
 <a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>
+</li><li>
+<a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>
 </li></ul>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy
+</h3>
+<p>
+<p>CleanupPolicy defines a rule for resource cleanup.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>CleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy
+</h3>
+<p>
+<p>ClusterCleanupPolicy defines rule for resource cleanup.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterCleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h3 id="kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry
 </h3>
@@ -7370,6 +7900,144 @@ GlobalContextEntryStatus
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2alpha1.PolicyException">PolicyException
+</h3>
+<p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>PolicyException</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">
+PolicyExceptionSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions are used to determine if a resource applies to the exception by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+<p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podSecurity</code><br/>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity specifies the Pod Security Standard controls to be excluded.
+Applicable only to policies that have validate.podSecurity subrule.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CleanupPolicyInterface">CleanupPolicyInterface
+</h3>
+<p>
+<p>CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)</p>
+</p>
 <h3 id="kyverno.io/v2alpha1.ExternalAPICall">ExternalAPICall
 </h3>
 <p>
@@ -7414,18 +8082,6 @@ Kubernetes meta/v1.Duration
 <p>RefreshInterval defines the interval in duration at which to poll the APICall.
 The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
 such as &ldquo;300ms&rdquo;, &ldquo;1.5h&rdquo; or &ldquo;2h45m&rdquo;. Valid time units are &ldquo;ns&rdquo;, &ldquo;us&rdquo; (or &ldquo;µs&rdquo;), &ldquo;ms&rdquo;, &ldquo;s&rdquo;, &ldquo;m&rdquo;, &ldquo;h&rdquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>retryLimit</code><br/>
-<em>
-int
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>RetryLimit defines the number of times the APICall should be retried in case of failure.</p>
 </td>
 </tr>
 </tbody>
@@ -7750,20 +8406,6 @@ AnyAllConditions
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>deletionPropagationPolicy</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
-Kubernetes meta/v1.DeletionPropagation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
-</td>
-</tr>
 </table>
 </td>
 </tr>
@@ -7913,20 +8555,6 @@ AnyAllConditions
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>deletionPropagationPolicy</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
-Kubernetes meta/v1.DeletionPropagation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
-</td>
-</tr>
 </table>
 </td>
 </tr>
@@ -8046,7 +8674,10 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
+<em>(Optional)</em>
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
 </tr>
 <tr>
@@ -8059,7 +8690,11 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureAction under the validate rule instead.</p>
+<em>(Optional)</em>
+<p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -8072,20 +8707,9 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>emitWarning</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
 <em>(Optional)</em>
-<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
-Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
+<p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 </td>
 </tr>
 <tr>
@@ -8134,7 +8758,9 @@ int32
 </em>
 </td>
 <td>
-<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
+<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 <tr>
@@ -8146,7 +8772,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
+<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -8169,7 +8796,10 @@ bool
 </em>
 </td>
 <td>
-<p>Deprecated, use generateExisting under the generate rule instead</p>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -8190,14 +8820,15 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>webhookConfiguration</code><br/>
 <em>
-<a href="#kyverno.io/v1.WebhookConfiguration">
+<a href="#kyverno.io/v2beta1.WebhookConfiguration">
 WebhookConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </table>
@@ -8320,7 +8951,10 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
+<em>(Optional)</em>
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
 </tr>
 <tr>
@@ -8333,7 +8967,11 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureAction under the validate rule instead.</p>
+<em>(Optional)</em>
+<p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -8346,20 +8984,9 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>emitWarning</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
 <em>(Optional)</em>
-<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
-Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
+<p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 </td>
 </tr>
 <tr>
@@ -8408,7 +9035,9 @@ int32
 </em>
 </td>
 <td>
-<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
+<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 <tr>
@@ -8420,7 +9049,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
+<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -8443,7 +9073,10 @@ bool
 </em>
 </td>
 <td>
-<p>Deprecated, use generateExisting under the generate rule instead</p>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -8464,14 +9097,15 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>webhookConfiguration</code><br/>
 <em>
-<a href="#kyverno.io/v1.WebhookConfiguration">
+<a href="#kyverno.io/v2beta1.WebhookConfiguration">
 WebhookConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </table>
@@ -8631,6 +9265,7 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
 <a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
@@ -8687,6 +9322,8 @@ Here, all of the conditions need to pass.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>, 
 <a href="#kyverno.io/v2beta1.CleanupPolicy">CleanupPolicy</a>, 
 <a href="#kyverno.io/v2beta1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
 </p>
@@ -8773,20 +9410,6 @@ AnyAllConditions
 <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>deletionPropagationPolicy</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#deletionpropagation-v1-meta">
-Kubernetes meta/v1.DeletionPropagation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).</p>
-</td>
-</tr>
 </tbody>
 </table>
 <hr />
@@ -8794,6 +9417,8 @@ Kubernetes meta/v1.DeletionPropagation
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>, 
 <a href="#kyverno.io/v2beta1.CleanupPolicy">CleanupPolicy</a>, 
 <a href="#kyverno.io/v2beta1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
 </p>
@@ -8855,7 +9480,9 @@ Kubernetes meta/v1.Time
 <td>
 <code>key</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
@@ -8882,10 +9509,13 @@ DurationLessThanOrEquals, DurationLessThan</p>
 <td>
 <code>value</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Value is the conditional value, or set of values. The values can be fixed set
 or can be variables declared using JMESPath.</p>
 </td>
@@ -9012,20 +9642,6 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
-<code>failureAction</code><br/>
-<em>
-<a href="#kyverno.io/v1.ValidationFailureAction">
-ValidationFailureAction
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Allowed values are Audit or Enforce.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>type</code><br/>
 <em>
 <a href="#kyverno.io/v1.ImageVerificationType">
@@ -9132,20 +9748,6 @@ bool
 </tr>
 <tr>
 <td>
-<code>validate</code><br/>
-<em>
-<a href="#kyverno.io/v1.ValidateImageVerification">
-ValidateImageVerification
-</a>
-</em>
-</td>
-<td>
-<p>Validation checks conditions across multiple image
-verification attestations or context entries</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>required</code><br/>
 <em>
 bool
@@ -9186,7 +9788,6 @@ bool
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v2.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
@@ -9239,6 +9840,7 @@ ResourceFilters
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>, 
 <a href="#kyverno.io/v2beta1.PolicyException">PolicyException</a>)
 </p>
 <p>
@@ -9746,7 +10348,10 @@ FailurePolicyType
 </em>
 </td>
 <td>
-<p>Deprecated, use failurePolicy under the webhookConfiguration instead.</p>
+<em>(Optional)</em>
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
+Rules within the same policy share the same failure behavior.
+Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
 </tr>
 <tr>
@@ -9759,7 +10364,11 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureAction under the validate rule instead.</p>
+<em>(Optional)</em>
+<p>ValidationFailureAction defines if a validation policy rule violation should block
+the admission review request (enforce), or allow (audit) the admission review request
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -9772,20 +10381,9 @@ ValidationFailureAction
 </em>
 </td>
 <td>
-<p>Deprecated, use validationFailureActionOverrides under the validate rule instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>emitWarning</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
 <em>(Optional)</em>
-<p>EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
-Enabling this option will extend admission request processing times. The default value is &ldquo;false&rdquo;.</p>
+<p>ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
+namespace-wise. It overrides ValidationFailureAction for the specified namespaces.</p>
 </td>
 </tr>
 <tr>
@@ -9834,7 +10432,9 @@ int32
 </em>
 </td>
 <td>
-<p>Deprecated, use webhookTimeoutSeconds under webhookConfiguration instead.</p>
+<p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 <tr>
@@ -9846,7 +10446,8 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>Deprecated, use mutateExistingOnPolicyUpdate under the mutate rule instead</p>
+<p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+Default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -9869,7 +10470,10 @@ bool
 </em>
 </td>
 <td>
-<p>Deprecated, use generateExisting under the generate rule instead</p>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
+If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
+Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
 </tr>
 <tr>
@@ -9890,14 +10494,15 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>webhookConfiguration</code><br/>
 <em>
-<a href="#kyverno.io/v1.WebhookConfiguration">
+<a href="#kyverno.io/v2beta1.WebhookConfiguration">
 WebhookConfiguration
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.</p>
+<p>WebhookConfiguration specifies the custom configuration for Kubernetes admission webhookconfiguration.
+Requires Kubernetes 1.27 or later.</p>
 </td>
 </tr>
 </tbody>
@@ -9920,38 +10525,6 @@ WebhookConfiguration
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>failureAction</code><br/>
-<em>
-<a href="#kyverno.io/v1.ValidationFailureAction">
-ValidationFailureAction
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>FailureAction defines if a validation policy rule violation should block
-the admission review request (Enforce), or allow (Audit) the admission review request
-and report an error in a policy report. Optional.
-Allowed values are Audit or Enforce.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>failureActionOverrides</code><br/>
-<em>
-<a href="#kyverno.io/v1.ValidationFailureActionOverride">
-[]ValidationFailureActionOverride
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>FailureActionOverrides is a Cluster Policy attribute that specifies FailureAction
-namespace-wise. It overrides FailureAction for the specified namespaces.</p>
-</td>
-</tr>
 <tr>
 <td>
 <code>message</code><br/>
@@ -9996,10 +10569,13 @@ Manifests
 <td>
 <code>pattern</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Pattern specifies an overlay-style pattern used to check resources.</p>
 </td>
 </tr>
@@ -10007,10 +10583,13 @@ github.com/kyverno/kyverno/api/kyverno.Any
 <td>
 <code>anyPattern</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>AnyPattern specifies list of validation patterns. At least one of the patterns
 must be satisfied for the validation rule to succeed.</p>
 </td>
@@ -10058,16 +10637,38 @@ CEL
 <p>CEL allows validation checks using the Common Expression Language (<a href="https://kubernetes.io/docs/reference/using-api/cel/">https://kubernetes.io/docs/reference/using-api/cel/</a>).</p>
 </td>
 </tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2beta1.WebhookConfiguration">WebhookConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.Spec">Spec</a>)
+</p>
+<p>
+<p>WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td>
-<code>assert</code><br/>
+<code>matchConditions</code><br/>
 <em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Assert defines a kyverno-json assertion tree.</p>
+<p>MatchCondition configures admission webhook matchConditions.</p>
 </td>
 </tr>
 </tbody>
@@ -10352,11 +10953,6 @@ PolicyReportSummary
 </tbody>
 </table>
 <hr />
-<h3 id="reports.kyverno.io/v1.ReportInterface">ReportInterface
-</h3>
-<p>
-<p>ReportInterface abstracts the concrete report change request type</p>
-</p>
 <h2 id="wgpolicyk8s.io/v1alpha2">wgpolicyk8s.io/v1alpha2</h2>
 Resource Types:
 <ul><li>
@@ -10579,6 +11175,8 @@ PolicyReportSummary
 (<em>Appears on:</em>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
+<a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>, 
 <a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
 </p>
 <p>
@@ -10752,6 +11350,8 @@ PolicySeverity
 (<em>Appears on:</em>
 <a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
 <a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
+<a href="#kyverno.io/v2.AdmissionReportSpec">AdmissionReportSpec</a>, 
+<a href="#kyverno.io/v2.BackgroundScanReportSpec">BackgroundScanReportSpec</a>, 
 <a href="#reports.kyverno.io/v1.EphemeralReportSpec">EphemeralReportSpec</a>)
 </p>
 <p>

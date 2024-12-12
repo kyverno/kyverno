@@ -22,3 +22,4 @@ spec:
           labels:
             foo: bar
     name: mutate
+  validationFailureAction: Audit

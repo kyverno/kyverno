@@ -12,7 +12,6 @@ spec:
           - Pod
     name: allowed-fluxcd-annotations
     validate:
-      failureAction: Enforce
       deny:
         conditions:
           all:
@@ -22,3 +21,4 @@ spec:
             - fluxcd.io/cow
             - fluxcd.io/dog
       message: The only approved FluxCD annotations are `fluxcd.io/cow` and `fluxcd.io/dog`.
+  validationFailureAction: Enforce

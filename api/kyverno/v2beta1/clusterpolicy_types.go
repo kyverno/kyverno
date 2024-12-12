@@ -18,6 +18,7 @@ import (
 // +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol,categories=kyverno
 // +kubebuilder:printcolumn:name="ADMISSION",type=boolean,JSONPath=".spec.admission"
 // +kubebuilder:printcolumn:name="BACKGROUND",type=boolean,JSONPath=".spec.background"
+// +kubebuilder:printcolumn:name="VALIDATE ACTION",type=string,JSONPath=".spec.validationFailureAction"
 // +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="FAILURE POLICY",type=string,JSONPath=".spec.failurePolicy",priority=1
@@ -29,15 +30,15 @@ import (
 
 // ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
 type ClusterPolicy struct {
-	metav1.TypeMeta   `json:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
 	// Spec declares policy behaviors.
-	Spec Spec `json:"spec"`
+	Spec Spec `json:"spec" yaml:"spec"`
 
 	// Status contains policy runtime data.
 	// +optional
-	Status kyvernov1.PolicyStatus `json:"status,omitempty"`
+	Status kyvernov1.PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -123,7 +124,7 @@ func (p *ClusterPolicy) GetKind() string {
 
 // ClusterPolicyList is a list of ClusterPolicy instances.
 type ClusterPolicyList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []ClusterPolicy `json:"items"`
+	metav1.TypeMeta `json:",inline" yaml:",inline"`
+	metav1.ListMeta `json:"metadata" yaml:"metadata"`
+	Items           []ClusterPolicy `json:"items" yaml:"items"`
 }

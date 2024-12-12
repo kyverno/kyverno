@@ -1,7 +1,9 @@
 package v2
 
 import (
-	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ConditionOperator is the operation performed on condition key and value.
@@ -42,40 +44,37 @@ var ConditionOperators = map[string]ConditionOperator{
 
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:pruning:PreserveUnknownFields
-	RawKey *kyverno.Any `json:"key,omitempty"`
+	RawKey *apiextv1.JSON `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Operator is the conditional operation to perform. Valid operators are:
 	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
 	// GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
 	// DurationLessThanOrEquals, DurationLessThan
-	Operator ConditionOperator `json:"operator,omitempty"`
+	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
 	// or can be variables declared using JMESPath.
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:pruning:PreserveUnknownFields
-	RawValue *kyverno.Any `json:"value,omitempty"`
+	// +optional
+	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
 
 	// Message is an optional display message
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
-func (c *Condition) GetKey() any {
-	return kyverno.FromAny(c.RawKey)
+func (c *Condition) GetKey() apiextensions.JSON {
+	return kyvernov1.FromJSON(c.RawKey)
 }
 
-func (c *Condition) SetKey(in any) {
-	c.RawKey = kyverno.ToAny(in)
+func (c *Condition) SetKey(in apiextensions.JSON) {
+	c.RawKey = kyvernov1.ToJSON(in)
 }
 
-func (c *Condition) GetValue() any {
-	return kyverno.FromAny(c.RawValue)
+func (c *Condition) GetValue() apiextensions.JSON {
+	return kyvernov1.FromJSON(c.RawValue)
 }
 
-func (c *Condition) SetValue(in any) {
-	c.RawValue = kyverno.ToAny(in)
+func (c *Condition) SetValue(in apiextensions.JSON) {
+	c.RawValue = kyvernov1.ToJSON(in)
 }
 
 type AnyAllConditions struct {
@@ -84,12 +83,12 @@ type AnyAllConditions struct {
 	// using JMESPath notation.
 	// Here, at least one of the conditions need to pass.
 	// +optional
-	AnyConditions []Condition `json:"any,omitempty"`
+	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
 
 	// AllConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
 	// Here, all of the conditions need to pass.
 	// +optional
-	AllConditions []Condition `json:"all,omitempty"`
+	AllConditions []Condition `json:"all,omitempty" yaml:"all,omitempty"`
 }

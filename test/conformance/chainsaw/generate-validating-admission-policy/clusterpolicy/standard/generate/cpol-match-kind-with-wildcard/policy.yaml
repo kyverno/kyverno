@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: check-label-app4
 spec:
+  validationFailureAction: Audit
   background: false
   rules:
     - name: check-label-app
@@ -11,11 +12,7 @@ spec:
         - resources:
             kinds:
             - '*'
-            namespaces:
-            - production
-            - staging
       validate:
-        failureAction: Audit
         cel:
           expressions:
             - expression: "'app' in object.metadata.labels"

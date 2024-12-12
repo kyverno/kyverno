@@ -4,7 +4,7 @@ import (
 	"os"
 	"text/template"
 
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/spf13/cobra"
@@ -36,7 +36,7 @@ func Command() *cobra.Command {
 				defer file.Close()
 				output = file
 			}
-			values := kyvernov2.RequestInfo{
+			values := v1beta1.RequestInfo{
 				Roles:        roles,
 				ClusterRoles: clusterRoles,
 				AdmissionUserInfo: authenticationv1.UserInfo{

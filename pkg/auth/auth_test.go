@@ -17,7 +17,6 @@ func TestNewCanI(t *testing.T) {
 	type args struct {
 		client    dclient.Interface
 		kind      string
-		name      string
 		namespace string
 		verb      string
 	}
@@ -28,24 +27,14 @@ func TestNewCanI(t *testing.T) {
 		name: "deployments",
 		args: args{
 			client:    dclient.NewEmptyFakeClient(),
-			name:      "",
 			kind:      "Deployment",
-			namespace: "default",
-			verb:      "test",
-		},
-	}, {
-		name: "secrets",
-		args: args{
-			client:    dclient.NewEmptyFakeClient(),
-			name:      "test-secret",
-			kind:      "Secret",
 			namespace: "default",
 			verb:      "test",
 		},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewCanI(tt.args.client.Discovery(), tt.args.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.args.kind, tt.args.namespace, tt.args.verb, tt.args.name, "", "admin")
+			got := NewCanI(tt.args.client.Discovery(), tt.args.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.args.kind, tt.args.namespace, tt.args.verb, "", "admin")
 			assert.NotNil(t, got)
 		})
 	}
@@ -59,7 +48,6 @@ func (d *discovery) GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionR
 
 func TestCanIOptions_DiscoveryError(t *testing.T) {
 	type fields struct {
-		name      string
 		namespace string
 		verb      string
 		kind      string
@@ -74,19 +62,7 @@ func TestCanIOptions_DiscoveryError(t *testing.T) {
 		name: "deployments",
 		fields: fields{
 			discovery: &discovery{},
-			name:      "",
 			kind:      "Deployment",
-			namespace: "default",
-			verb:      "test",
-		},
-		want:    false,
-		wantErr: true,
-	}, {
-		name: "secrets",
-		fields: fields{
-			discovery: &discovery{},
-			name:      "test-secret",
-			kind:      "Secret",
 			namespace: "default",
 			verb:      "test",
 		},
@@ -95,7 +71,7 @@ func TestCanIOptions_DiscoveryError(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.discovery, nil, tt.fields.kind, tt.fields.namespace, tt.fields.name, tt.fields.verb, "", "admin")
+			o := NewCanI(tt.fields.discovery, nil, tt.fields.kind, tt.fields.namespace, tt.fields.verb, "", "admin")
 			got, _, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -115,7 +91,6 @@ func (d *sar) Create(_ context.Context, _ *v1.SubjectAccessReview, _ metav1.Crea
 
 func TestCanIOptions_SsarError(t *testing.T) {
 	type fields struct {
-		name      string
 		namespace string
 		verb      string
 		kind      string
@@ -132,20 +107,7 @@ func TestCanIOptions_SsarError(t *testing.T) {
 		fields: fields{
 			discovery: dclient.NewEmptyFakeClient().Discovery(),
 			sarClient: &sar{},
-			name:      "",
 			kind:      "Deployment",
-			namespace: "default",
-			verb:      "test",
-		},
-		want:    false,
-		wantErr: true,
-	}, {
-		name: "secrets",
-		fields: fields{
-			discovery: dclient.NewEmptyFakeClient().Discovery(),
-			sarClient: &sar{},
-			name:      "test-secret",
-			kind:      "Secret",
 			namespace: "default",
 			verb:      "test",
 		},
@@ -154,7 +116,7 @@ func TestCanIOptions_SsarError(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.discovery, tt.fields.sarClient, tt.fields.kind, tt.fields.namespace, tt.fields.name, tt.fields.verb, "", "admin")
+			o := NewCanI(tt.fields.discovery, tt.fields.sarClient, tt.fields.kind, tt.fields.namespace, tt.fields.verb, "", "admin")
 			got, _, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -168,7 +130,6 @@ func TestCanIOptions_SsarError(t *testing.T) {
 
 func TestCanIOptions_RunAccessCheck(t *testing.T) {
 	type fields struct {
-		name      string
 		namespace string
 		verb      string
 		kind      string
@@ -183,7 +144,6 @@ func TestCanIOptions_RunAccessCheck(t *testing.T) {
 		name: "deployments",
 		fields: fields{
 			client:    dclient.NewEmptyFakeClient(),
-			name:      "",
 			kind:      "Deployment",
 			namespace: "default",
 			verb:      "test",
@@ -194,7 +154,6 @@ func TestCanIOptions_RunAccessCheck(t *testing.T) {
 		name: "unknown",
 		fields: fields{
 			client:    dclient.NewEmptyFakeClient(),
-			name:      "",
 			kind:      "Unknown",
 			namespace: "default",
 			verb:      "test",
@@ -205,28 +164,16 @@ func TestCanIOptions_RunAccessCheck(t *testing.T) {
 		name: "v2 pods",
 		fields: fields{
 			client:    dclient.NewEmptyFakeClient(),
-			name:      "",
 			kind:      "v2/Pod",
 			namespace: "default",
 			verb:      "test",
 		},
 		want:    false,
 		wantErr: true,
-	}, {
-		name: "secrets",
-		fields: fields{
-			client:    dclient.NewEmptyFakeClient(),
-			name:      "test-secret",
-			kind:      "Secret",
-			namespace: "default",
-			verb:      "test",
-		},
-		want:    false,
-		wantErr: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.client.Discovery(), tt.fields.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.fields.kind, tt.fields.namespace, tt.fields.name, tt.fields.verb, "", "admin")
+			o := NewCanI(tt.fields.client.Discovery(), tt.fields.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.fields.kind, tt.fields.namespace, tt.fields.verb, "", "admin")
 			got, _, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)

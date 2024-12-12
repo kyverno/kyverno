@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
-	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
-	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -50,13 +50,13 @@ type controller struct {
 	// listers
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
-	vapLister   admissionregistrationv1beta1listers.ValidatingAdmissionPolicyLister
+	vapLister   admissionregistrationv1alpha1listers.ValidatingAdmissionPolicyLister
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
 
 	// queues
-	frontQueue workqueue.TypedRateLimitingInterface[any]
-	backQueue  workqueue.TypedRateLimitingInterface[any]
+	frontQueue workqueue.RateLimitingInterface
+	backQueue  workqueue.RateLimitingInterface
 }
 
 type policyMapEntry struct {
@@ -70,7 +70,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer,
+	vapInformer admissionregistrationv1alpha1informers.ValidatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -83,14 +83,8 @@ func NewController(
 		cpolLister:  cpolInformer.Lister(),
 		ephrLister:  ephrInformer.Lister(),
 		cephrLister: cephrInformer.Lister(),
-		frontQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
-			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
-		),
-		backQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
-			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
-		),
+		frontQueue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		backQueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 	}
 	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, ephrInformer.Informer(), c.frontQueue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -99,16 +93,12 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 	enqueueAll := func() {
-		selector := labels.SelectorFromSet(labels.Set{
-			kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
-		})
-
-		if list, err := polrInformer.Lister().List(selector); err == nil {
+		if list, err := polrInformer.Lister().List(labels.Everything()); err == nil {
 			for _, item := range list {
 				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
 			}
 		}
-		if list, err := cpolrInformer.Lister().List(selector); err == nil {
+		if list, err := cpolrInformer.Lister().List(labels.Everything()); err == nil {
 			for _, item := range list {
 				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
 			}
@@ -170,7 +160,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: cpol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogen.Default.ComputeRules(cpol, "") {
+		for _, rule := range autogen.ComputeRules(cpol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
@@ -187,7 +177,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 			policy: pol,
 			rules:  sets.New[string](),
 		}
-		for _, rule := range autogen.Default.ComputeRules(pol, "") {
+		for _, rule := range autogen.ComputeRules(pol, "") {
 			results[key].rules.Insert(rule.Name)
 		}
 	}
@@ -212,12 +202,12 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 	return results, nil
 }
 
-func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, name string) ([]reportsv1.ReportInterface, error) {
+func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, name string) ([]kyvernov1alpha2.ReportInterface, error) {
 	selector, err := reportutils.SelectorResourceUidEquals(types.UID(name))
 	if err != nil {
 		return nil, err
 	}
-	var results []reportsv1.ReportInterface
+	var results []kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		reports, err := c.client.ReportsV1().ClusterEphemeralReports().List(ctx, metav1.ListOptions{
 			LabelSelector: selector.String(),
@@ -254,7 +244,7 @@ func (c *controller) findOwnedEphemeralReports(ctx context.Context, namespace, n
 	return results, nil
 }
 
-func (c *controller) getReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		report, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -292,7 +282,7 @@ func (c *controller) lookupEphemeralReportMeta(_ context.Context, namespace, nam
 	}
 }
 
-func (c *controller) getEphemeralReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
+func (c *controller) getEphemeralReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		obj, err := c.client.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -336,30 +326,27 @@ func (c *controller) findResource(ctx context.Context, reportMeta *metav1.Partia
 	return resource, nil
 }
 
-func (c *controller) adopt(ctx context.Context, reportMeta *metav1.PartialObjectMetadata) (bool, bool) {
+func (c *controller) adopt(ctx context.Context, reportMeta *metav1.PartialObjectMetadata) bool {
 	resource, err := c.findResource(ctx, reportMeta)
 	if err != nil {
-		if apierrors.IsForbidden(err) {
-			return false, true
-		}
-		return false, false
+		return false
 	}
 	if resource == nil {
-		return false, false
+		return false
 	}
 	report, err := c.getEphemeralReport(ctx, reportMeta.GetNamespace(), reportMeta.GetName())
 	if err != nil {
-		return false, false
+		return false
 	}
 	if report == nil {
-		return false, false
+		return false
 	}
 	controllerutils.SetOwner(report, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
 	reportutils.SetResourceUid(report, resource.GetUID())
 	if _, err := updateReport(ctx, report, c.client); err != nil {
-		return false, false
+		return false
 	}
-	return true, false
+	return true
 }
 
 func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
@@ -380,11 +367,8 @@ func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, 
 		return nil
 	}
 	// try to find the owner
-	if adopted, forbidden := c.adopt(ctx, reportMeta); adopted {
+	if c.adopt(ctx, reportMeta) {
 		return nil
-	} else if forbidden {
-		logger.Info("deleting because insufficient permission to fetch resource")
-		return c.deleteEphemeralReport(ctx, reportMeta.GetNamespace(), reportMeta.GetName())
 	}
 	// if not found and too old, forget about it
 	if isTooOld(reportMeta) {
@@ -396,7 +380,7 @@ func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, 
 }
 
 func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) (err error) {
-	var reports []reportsv1.ReportInterface
+	var reports []kyvernov1alpha2.ReportInterface
 	// get the report
 	// if we don't have a report, we will eventually create one
 	report, err := c.getReport(ctx, namespace, name)

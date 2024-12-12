@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -32,7 +32,7 @@ type PolicyContext struct {
 	element unstructured.Unstructured
 
 	// admissionInfo contains the admission request information
-	admissionInfo kyvernov2.RequestInfo
+	admissionInfo kyvernov1beta1.RequestInfo
 
 	// operation contains the admission operatipn
 	operation kyvernov1.AdmissionOperation
@@ -98,20 +98,12 @@ func (c *PolicyContext) ResourceKind() (schema.GroupVersionKind, string) {
 	return c.gvk, c.subresource
 }
 
-func (c *PolicyContext) AdmissionInfo() kyvernov2.RequestInfo {
+func (c *PolicyContext) AdmissionInfo() kyvernov1beta1.RequestInfo {
 	return c.admissionInfo
 }
 
 func (c *PolicyContext) Operation() kyvernov1.AdmissionOperation {
 	return c.operation
-}
-
-func (c *PolicyContext) SetOperation(op kyvernov1.AdmissionOperation) error {
-	c.operation = op
-	if err := c.jsonContext.AddOperation(string(op)); err != nil {
-		return errors.Wrapf(err, "failed to replace old object in the JSON context")
-	}
-	return nil
 }
 
 func (c *PolicyContext) NamespaceLabels() map[string]string {
@@ -150,7 +142,7 @@ func (c PolicyContext) WithNamespaceLabels(namespaceLabels map[string]string) *P
 	return &c
 }
 
-func (c PolicyContext) WithAdmissionInfo(admissionInfo kyvernov2.RequestInfo) *PolicyContext {
+func (c PolicyContext) WithAdmissionInfo(admissionInfo kyvernov1beta1.RequestInfo) *PolicyContext {
 	c.admissionInfo = admissionInfo
 	return &c
 }
@@ -198,7 +190,7 @@ func NewPolicyContext(
 	jp jmespath.Interface,
 	resource unstructured.Unstructured,
 	operation kyvernov1.AdmissionOperation,
-	admissionInfo *kyvernov2.RequestInfo,
+	admissionInfo *kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
 	enginectx := enginectx.NewContext(jp)
@@ -215,11 +207,9 @@ func NewPolicyContext(
 	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
-
 	if err := enginectx.AddImageInfos(&resource, configuration); err != nil {
 		return nil, err
 	}
-
 	if admissionInfo != nil {
 		if err := enginectx.AddUserInfo(*admissionInfo); err != nil {
 			return nil, err
@@ -247,7 +237,7 @@ func NewPolicyContext(
 func NewPolicyContextFromAdmissionRequest(
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
-	admissionInfo kyvernov2.RequestInfo,
+	admissionInfo kyvernov1beta1.RequestInfo,
 	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
@@ -276,7 +266,7 @@ func NewPolicyContextFromAdmissionRequest(
 func newJsonContext(
 	jp jmespath.Interface,
 	request admissionv1.AdmissionRequest,
-	userRequestInfo *kyvernov2.RequestInfo,
+	userRequestInfo *kyvernov1beta1.RequestInfo,
 ) (enginectx.Interface, error) {
 	engineCtx := enginectx.NewContext(jp)
 	if err := engineCtx.AddRequest(request); err != nil {

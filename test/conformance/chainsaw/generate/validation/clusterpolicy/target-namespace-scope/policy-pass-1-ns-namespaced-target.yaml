@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: user-per-namespace-pass-2
 spec:
-  generateExisting: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - generate:
         apiVersion: rbac.authorization.k8s.io/v1

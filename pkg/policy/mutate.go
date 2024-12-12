@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -12,24 +12,14 @@ import (
 
 func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("handleMutate").WithName(policyKey)
-	logger.V(4).Info("update URs on policy event")
+	logger.Info("update URs on policy event")
 
-	ruleType := kyvernov2.Mutate
-	spec := policy.GetSpec()
+	ruleType := kyvernov1beta1.Mutate
 	policyNew := policy.CreateDeepCopy()
 	policyNew.GetSpec().Rules = nil
 
-	for _, rule := range spec.Rules {
+	for _, rule := range policy.GetSpec().Rules {
 		if !rule.HasMutateExisting() {
-			continue
-		}
-
-		mutateExisting := rule.Mutation.MutateExistingOnPolicyUpdate
-		if mutateExisting != nil {
-			if !*mutateExisting {
-				continue
-			}
-		} else if !spec.MutateExistingOnPolicyUpdate {
 			continue
 		}
 
@@ -42,8 +32,8 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 				continue
 			}
 
-			logger.V(4).Info("creating new UR for mutate")
-			ur := newMutateUR(policy, backgroundcommon.ResourceSpecFromUnstructured(*trigger), rule.Name)
+			logger.Info("creating new UR for mutate")
+			ur := newUR(policy, backgroundcommon.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
 			skip, err := pc.handleUpdateRequest(ur, trigger, rule.Name, policyNew)
 			if err != nil {
 				pc.log.Error(err, "failed to create new UR on policy update", "policy", policyNew.GetName(), "rule", rule.Name, "rule type", ruleType,
@@ -60,7 +50,7 @@ func (pc *policyController) handleMutate(policyKey string, policy kyvernov1.Poli
 	return nil
 }
 
-func (pc *policyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov2.UpdateRequest {
+func (pc *policyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
 	mutateURs, err := pc.urLister.List(labels.SelectorFromSet(backgroundcommon.MutateLabelsSet(policyKey, trigger)))
 	if err != nil {
 		pc.log.Error(err, "failed to list update request for mutate policy")

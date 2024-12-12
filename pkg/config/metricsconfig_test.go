@@ -8,8 +8,11 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
 )
+
+func boolPtr(b bool) *bool {
+	return &b
+}
 
 func Test_metricsConfig_load(t *testing.T) {
 	tests := []struct {
@@ -44,8 +47,8 @@ func Test_metricsConfig_load(t *testing.T) {
 				namespaces:             namespacesConfig{IncludeNamespaces: []string{"namespace1"}, ExcludeNamespaces: []string{"namespace2"}},
 				bucketBoundaries:       []float64{0.005, 0.01, 0.025, 0.05},
 				metricsExposure: map[string]metricExposureConfig{
-					"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05}},
-					"metric2": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1", "dim2"}, BucketBoundaries: []float64{0.025, 0.05}},
+					"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05}},
+					"metric2": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1", "dim2"}, BucketBoundaries: []float64{0.025, 0.05}},
 				},
 			},
 		},
@@ -62,8 +65,8 @@ func Test_metricsConfig_load(t *testing.T) {
 				namespaces:             namespacesConfig{IncludeNamespaces: []string{"namespace1"}, ExcludeNamespaces: []string{"namespace2"}},
 				bucketBoundaries:       []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30},
 				metricsExposure: map[string]metricExposureConfig{
-					"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
-					"metric2": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1", "dim2"}, BucketBoundaries: []float64{0.025, 0.05}},
+					"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
+					"metric2": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1", "dim2"}, BucketBoundaries: []float64{0.025, 0.05}},
 				},
 			},
 		},
@@ -102,39 +105,13 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 			expectedSize:    0,
 		},
 		{
-			name: "Case 2: there is no matching entry on the exposure config",
+			name: "Case 2: metrics enabled",
 			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
-			},
-			expectedSize: 1,
-			validateFunc: func(views []sdkmetric.View) bool {
-				stream, _ := views[0](sdkmetric.Instrument{Name: "metric2"})
-				assert := stream.AttributeFilter == nil
-				assert = assert && stream.Aggregation == nil
-				return assert
-			},
-		},
-		{
-			name: "Case 3: metrics enabled, no transformation configured",
-			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: ptr.To(true)},
+				"metric1": {Enabled: boolPtr(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
 			},
 			expectedSize: 1,
 			validateFunc: func(views []sdkmetric.View) bool {
 				stream, _ := views[0](sdkmetric.Instrument{Name: "metric1"})
-				assert := stream.AttributeFilter == nil
-				assert = assert && stream.Aggregation == nil
-				return assert
-			},
-		},
-		{
-			name: "Case 4: metrics enabled, histogram metric",
-			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
-			},
-			expectedSize: 1,
-			validateFunc: func(views []sdkmetric.View) bool {
-				stream, _ := views[0](sdkmetric.Instrument{Name: "metric1", Kind: sdkmetric.InstrumentKindHistogram})
 				assert := stream.AttributeFilter(attribute.String("policy_validation_mode", ""))
 				assert = assert && !stream.AttributeFilter(attribute.String("dim1", ""))
 				assert = assert && reflect.DeepEqual(stream.Aggregation, sdkmetric.AggregationExplicitBucketHistogram{
@@ -145,23 +122,9 @@ func Test_metricsConfig_BuildMeterProviderViews(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 5: metrics enabled, non histogram metric",
+			name: "Case 3: metrics disabled",
 			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: ptr.To(true), DisabledLabelDimensions: []string{"dim1"}, BucketBoundaries: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30}},
-			},
-			expectedSize: 1,
-			validateFunc: func(views []sdkmetric.View) bool {
-				stream, _ := views[0](sdkmetric.Instrument{Name: "metric1", Kind: sdkmetric.InstrumentKindCounter})
-				assert := stream.AttributeFilter(attribute.String("policy_validation_mode", ""))
-				assert = assert && !stream.AttributeFilter(attribute.String("dim1", ""))
-				assert = assert && stream.Aggregation == nil
-				return assert
-			},
-		},
-		{
-			name: "Case 6: metrics disabled",
-			metricsExposure: map[string]metricExposureConfig{
-				"metric1": {Enabled: ptr.To(false)},
+				"metric1": {Enabled: boolPtr(false)},
 			},
 			expectedSize: 1,
 			validateFunc: func(views []sdkmetric.View) bool {

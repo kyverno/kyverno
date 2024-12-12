@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno-policies
-version: v0.0.0
-appVersion: latest
+version: 3.2.6
+appVersion: v1.12.6
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Pod Security Standards implemented as Kyverno policies
 keywords:
@@ -21,12 +21,3 @@ kubeVersion: ">=1.25.0-0"
 annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
-  artifacthub.io/changes: |
-    - kind: removed
-      description: Remove spec.validationFailureAction field from policies as it is deprecated
-    - kind: added
-      description: Add spec.validate[*].failureAction field to policies
-    - kind: fixed
-      description: Fix the merging of policyExclude customizations to avoid wrong overrides
-    - kind: added
-      description: Add spec.validate[*].allowExistingViolations field to policies

@@ -265,6 +265,7 @@ The chart values are organised per component.
 {{- $test := list -}}
 {{- $apiVersionOverride := list -}}
 {{- $webhooksCleanup := list -}}
+{{- $cleanupJobs := list -}}
 {{- range .Values -}}
   {{- if (hasPrefix "admissionController." .Key) -}}
     {{- $admissionController = append $admissionController . -}}
@@ -290,6 +291,8 @@ The chart values are organised per component.
     {{- $test = append $test . -}}
   {{- else if (hasPrefix "apiVersionOverride." .Key) -}}
     {{- $apiVersionOverride = append $apiVersionOverride . -}}
+  {{- else if (hasPrefix "cleanupJobs." .Key) -}}
+    {{- $cleanupJobs = append $cleanupJobs . -}}
   {{- else -}}
     {{- $other = append $other . -}}
   {{- end -}}
@@ -342,6 +345,10 @@ The chart values are organised per component.
 ### Api version override
 
 {{ template "chart.valuesTable" (dict "Values" $apiVersionOverride) }}
+
+### Cleanup jobs
+
+{{ template "chart.valuesTable" (dict "Values" $cleanupJobs) }}
 
 ### Other
 

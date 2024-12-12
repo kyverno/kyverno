@@ -16,13 +16,7 @@ spec:
         app: new-deployment
     spec:
       containers:
-        - name: pause
-          image: registry.k8s.io/pause:latest
-          resources:
-            requests:
-              cpu: 10m
-              memory: 10Mi
-            limits:
-              cpu: 10m
-              memory: 10Mi
-      terminationGracePeriodSeconds: 0
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80

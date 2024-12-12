@@ -8,14 +8,14 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
+	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -63,7 +63,7 @@ type policyController struct {
 	eventRecorder events.EventRecorder
 
 	// Policies that need to be synced
-	queue workqueue.TypedRateLimitingInterface[any]
+	queue workqueue.RateLimitingInterface
 
 	// pLister can list/get policy from the shared informer's store
 	pLister kyvernov1listers.ClusterPolicyLister
@@ -72,7 +72,7 @@ type policyController struct {
 	npLister kyvernov1listers.PolicyLister
 
 	// urLister can list/get update request from the shared informer's store
-	urLister kyvernov2listers.UpdateRequestLister
+	urLister kyvernov1beta1listers.UpdateRequestLister
 
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
@@ -100,7 +100,7 @@ func NewPolicyController(
 	engine engineapi.Engine,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
-	urInformer kyvernov2informers.UpdateRequestInformer,
+	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	configuration config.Configuration,
 	eventGen event.Interface,
 	namespaces corev1informers.NamespaceInformer,
@@ -122,17 +122,14 @@ func NewPolicyController(
 	eventBroadcaster.StartRecordingToSink(stopCh)
 
 	pc := policyController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		engine:        engine,
-		pInformer:     pInformer,
-		npInformer:    npInformer,
-		eventGen:      eventGen,
-		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
-			workqueue.TypedRateLimitingQueueConfig[any]{Name: "policy"},
-		),
+		client:          client,
+		kyvernoClient:   kyvernoClient,
+		engine:          engine,
+		pInformer:       pInformer,
+		npInformer:      npInformer,
+		eventGen:        eventGen,
+		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configuration:   configuration,
 		reconcilePeriod: reconcilePeriod,
 		metricsConfig:   metricsConfig,
@@ -167,7 +164,7 @@ func (pc *policyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 		val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
 		interval, err := time.ParseDuration(val)
 		if err != nil {
-			logger.V(4).Info("The BACKGROUND_SCAN_INTERVAL env variable is not set, therefore the default interval of 1h will be used.", "msg", err.Error())
+			logger.V(4).Info("failed to parse BACKGROUND_SCAN_INTERVAL env variable, falling to default 1h", "msg", err.Error())
 			interval = time.Hour
 		}
 		if p.GetCreationTimestamp().Add(interval).After(time.Now()) {
@@ -204,13 +201,11 @@ func (pc *policyController) updatePolicy(old, cur interface{}) {
 	}
 
 	logger.V(2).Info("updating policy", "name", oldP.GetName())
-	if deleted, ok, selector := ruleChange(oldP, curP); ok {
+	if deleted, ok := ruleDeletion(oldP, curP); ok {
 		err := pc.createURForDownstreamDeletion(deleted)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("failed to create UR on rule deletion, clean up downstream resource may be failed: %v", err))
 		}
-	} else {
-		pc.unlabelDownstream(selector)
 	}
 
 	pc.enqueuePolicy(curP)
@@ -401,9 +396,9 @@ func (pc *policyController) requeuePolicies() {
 	}
 }
 
-func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, triggerResource *unstructured.Unstructured, ruleName string, policy kyvernov1.PolicyInterface) (skip bool, err error) {
+func (pc *policyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, ruleName string, policy kyvernov1.PolicyInterface) (skip bool, err error) {
 	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(triggerResource.GetKind(), triggerResource.GetNamespace(), pc.nsLister, pc.log)
-	policyContext, err := backgroundcommon.NewBackgroundContext(pc.log, pc.client, ur.Spec.Context, policy, triggerResource, pc.configuration, pc.jp, namespaceLabels)
+	policyContext, err := backgroundcommon.NewBackgroundContext(pc.log, pc.client, ur, policy, triggerResource, pc.configuration, pc.jp, namespaceLabels)
 	if err != nil {
 		return false, fmt.Errorf("failed to build policy context for rule %s: %w", ruleName, err)
 	}
@@ -432,8 +427,8 @@ func (pc *policyController) handleUpdateRequest(ur *kyvernov2.UpdateRequest, tri
 			continue
 		}
 		updated := created.DeepCopy()
-		updated.Status.State = kyvernov2.Pending
-		_, err = pc.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		updated.Status.State = kyvernov1beta1.Pending
+		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}

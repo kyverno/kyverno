@@ -4,6 +4,7 @@ metadata:
   name: kyverno-psa-policy-test-deletion
 spec:
   background: true
+  validationFailureAction: Enforce
   rules:
   - name: kyverno-psa-policy-test-deletion
     match:
@@ -12,7 +13,6 @@ spec:
           kinds:
           - Pod
     validate:
-      failureAction: Enforce
       podSecurity:
         level: baseline
         version: latest

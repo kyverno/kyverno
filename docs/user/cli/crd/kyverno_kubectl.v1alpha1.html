@@ -458,7 +458,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2.RequestInfo</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v1beta1.RequestInfo</span>
             
           
         </td>
@@ -1675,7 +1675,7 @@ Possible values are pass, fail and skip.</p>
     
     
       <tr>
-        <td><code>patchedResources</code>
+        <td><code>patchedResource</code>
           
           <span style="color:blue;"> *</span>
           
@@ -1692,8 +1692,7 @@ Possible values are pass, fail and skip.</p>
           
 
           <p>PatchedResource takes a resource configuration file in yaml format from
-the user to compare it against the Kyverno mutated resource configuration.
-Multiple resources can be passed in the same file</p>
+the user to compare it against the Kyverno mutated resource configuration.</p>
 
 
           
@@ -1881,37 +1880,6 @@ This is DEPRECATED, use <code>Resources</code> instead.</p>
 
           <p>Namespace mentions the namespace of the policy which has namespace scope.
 This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;</code> for policies and/or resources instead.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>patchedResource</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>PatchedResource takes a resource configuration file in yaml format from
-the user to compare it against the Kyverno mutated resource configuration.
-This is DEPRECATED, Use <code>patchedResources</code> instead.</p>
 
 
           

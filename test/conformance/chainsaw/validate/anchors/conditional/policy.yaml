@@ -18,6 +18,7 @@ metadata:
       of rules which can be used to limit the replica count both upon creation of a Deployment and
       when a scale operation is performed.
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
     # This rule can be used to limit scale operations based upon Deployment labels assuming the given label
@@ -29,7 +30,6 @@ spec:
               kinds:
                 - Deployment/scale
       validate:
-        failureAction: Enforce
         message: The replica count for this Deployment may not exceed 8.
         pattern:
           (status):

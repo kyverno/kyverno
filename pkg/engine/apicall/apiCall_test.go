@@ -2,7 +2,7 @@ package apicall
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -34,34 +34,17 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resource", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
-			auth := r.Header.Get("Authorization")
-			if auth != "Bearer 1234567890" {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			contentType := r.Header.Get("Content-Type")
-			if contentType != "application/json" {
-				http.Error(w, "StatusUnsupportedMediaType", http.StatusUnsupportedMediaType)
-				return
-			}
+			w.Write(responseData)
 
 			if useChunked {
 				flusher, ok := w.(http.Flusher)
 				if !ok {
-					http.Error(w, "expected http.ResponseWriter to be an http.Flusher", http.StatusInternalServerError)
-					return
+					panic("expected http.ResponseWriter to be an http.Flusher")
 				}
-				chunkSize := len(responseData) / 10
-				for i := 0; i < 10; i++ {
-					data := responseData[i*chunkSize : (i+1)*chunkSize]
-					w.Write(data)
+				for i := 1; i <= 10; i++ {
+					fmt.Fprintf(w, "Chunk #%d\n", i)
 					flusher.Flush()
 				}
-				w.Write(responseData[10*chunkSize:])
-				flusher.Flush()
-			} else {
-				w.Write(responseData)
 			}
 
 			return
@@ -80,7 +63,7 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 func Test_serviceGetRequest(t *testing.T) {
 	testfn := func(t *testing.T, useChunked bool) {
 		serverResponse := []byte(`{ "day": "Sunday" }`)
-		s := buildTestServer(serverResponse, useChunked)
+		s := buildTestServer(serverResponse, false)
 		defer s.Close()
 
 		entry := kyvernov1.ContextEntry{}
@@ -94,10 +77,6 @@ func Test_serviceGetRequest(t *testing.T) {
 			APICall: kyvernov1.APICall{
 				Service: &kyvernov1.ServiceCall{
 					URL: s.URL,
-					Headers: []kyvernov1.HTTPHeader{
-						{Key: "Authorization", Value: "Bearer 1234567890"},
-						{Key: "Content-Type", Value: "application/json"},
-					},
 				},
 			},
 		}
@@ -124,8 +103,8 @@ func Test_serviceGetRequest(t *testing.T) {
 
 		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigMaxSizeExceed)
 		assert.NilError(t, err)
-		_, err = call.FetchAndLoad(context.TODO())
-		assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10")
+		data, err = call.FetchAndLoad(context.TODO())
+		assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10.")
 
 		call, err = New(logr.Discard(), jp, entry, ctx, nil, apiConfigWithoutSecurityCheck)
 		assert.NilError(t, err)
@@ -212,59 +191,4 @@ func Test_servicePostRequest(t *testing.T) {
 
 	expectedResults := `{"images":["https://ghcr.io/tomcat/tomcat:9","https://ghcr.io/vault/vault:v3","https://ghcr.io/busybox/busybox:latest"]}`
 	assert.Equal(t, string(expectedResults)+"\n", string(data))
-}
-
-func buildEchoHeaderTestServer() *httptest.Server {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/resource", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			responseData := make(map[string][]string)
-			for k, v := range r.Header {
-				responseData[k] = v
-			}
-			responseBytes, err := json.Marshal(responseData)
-			if err != nil {
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
-			w.Write(responseBytes)
-		}
-	})
-	return httptest.NewServer(mux)
-}
-
-func Test_serviceHeaders(t *testing.T) {
-	s := buildEchoHeaderTestServer()
-	defer s.Close()
-
-	entry := kyvernov1.ContextEntry{}
-	ctx := enginecontext.NewContext(jp)
-
-	entry.Name = "test"
-	entry.APICall = &kyvernov1.ContextAPICall{
-		APICall: kyvernov1.APICall{
-			Method: "GET",
-			Service: &kyvernov1.ServiceCall{
-				URL: s.URL + "/resource",
-				Headers: []kyvernov1.HTTPHeader{
-					{Key: "Content-Type", Value: "application/json"},
-					{Key: "Custom-Key", Value: "CustomVal"},
-				},
-			},
-		},
-	}
-
-	entry.APICall.Service.URL = s.URL + "/resource"
-	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
-	assert.NilError(t, err)
-	data, err := call.FetchAndLoad(context.TODO())
-	assert.NilError(t, err)
-	assert.Assert(t, data != nil, "nil data")
-
-	var responseHeaders map[string][]string
-	err = json.Unmarshal(data, &responseHeaders)
-	assert.NilError(t, err)
-	assert.Equal(t, 4, len(responseHeaders))
-	assert.Equal(t, "application/json", responseHeaders["Content-Type"][0])
-	assert.Equal(t, "CustomVal", responseHeaders["Custom-Key"][0])
 }

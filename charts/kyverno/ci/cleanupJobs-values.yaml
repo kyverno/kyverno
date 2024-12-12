@@ -1,0 +1,29 @@
+cleanupJobs:
+  admissionReports:
+    nodeSelector:
+      kubernetes.io/os: linux
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - cleanup
+            topologyKey: kubernetes.io/hostname
+  clusterAdmissionReports:
+    nodeSelector:
+      kubernetes.io/os: linux
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - cleanup
+            topologyKey: kubernetes.io/hostname

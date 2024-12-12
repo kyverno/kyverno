@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-data-sync-delete-downstream-policy
+  namespace: exeter
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

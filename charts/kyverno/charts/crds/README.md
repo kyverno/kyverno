@@ -1,12 +1,12 @@
 # crds
 
-![Version: v0.0.0](https://img.shields.io/badge/Version-v0.0.0-informational?style=flat-square)
+![Version: 3.2.8](https://img.shields.io/badge/Version-3.2.8-informational?style=flat-square)
 
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | This field can be overwritten by setting crds.labels in the parent chart |
+| groups.kyverno | object | `{"admissionreports":true,"backgroundscanreports":true,"cleanuppolicies":true,"clusteradmissionreports":true,"clusterbackgroundscanreports":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | This field can be overwritten by setting crds.labels in the parent chart |
 | groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | This field can be overwritten by setting crds.labels in the parent chart |
 | groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | This field can be overwritten by setting crds.labels in the parent chart |
 | annotations | object | `{}` | This field can be overwritten by setting crds.annotations in the parent chart |

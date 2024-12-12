@@ -26,4 +26,3 @@ webhooks:
       (contains(@,'pods/binding')): true
       (contains(@,'pods/proxy')): true
     scope: 'Namespaced'
- 

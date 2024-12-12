@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: generate
 spec:
+  validationFailureAction: Audit
   admission: false
   background: true
   rules:

@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 )
 
 func FixPolicy(policy kyvernov1.PolicyInterface) ([]string, error) {
@@ -37,7 +38,10 @@ func FixPolicy(policy kyvernov1.PolicyInterface) ([]string, error) {
 		}
 		preconditions := rule.GetAnyAllConditions()
 		if preconditions != nil {
-			cond := preconditions
+			cond, err := apiutils.ApiextensionsJsonToKyvernoConditions(preconditions)
+			if err != nil {
+				return messages, err
+			}
 			var newCond *kyvernov1.AnyAllConditions
 			switch typedValue := cond.(type) {
 			case kyvernov1.AnyAllConditions:

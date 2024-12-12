@@ -8,7 +8,7 @@ resources:
 - resource.yaml
 results:
 - kind: Endpoints
-  patchedResources: patchedresource.yaml
+  patchedResource: patchedresource.yaml
   policy: policy-endpoints
   resources:
   - test-endpoint

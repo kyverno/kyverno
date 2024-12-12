@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  labels:
-    foo: bar
-  name: secret-1
-  namespace: staging

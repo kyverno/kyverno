@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-nosync-delete-source
+  namespace: default
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

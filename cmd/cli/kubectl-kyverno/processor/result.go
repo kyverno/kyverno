@@ -32,7 +32,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 		}
 		policy := genericPolicy.AsKyvernoPolicy()
 		scored := annotations.Scored(policy.GetAnnotations())
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		for _, rule := range autogen.ComputeRules(policy, "") {
 			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
 				for _, valResponseRule := range response.PolicyResponse.Rules {
 					if rule.Name == valResponseRule.Name() {
@@ -63,19 +63,23 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 	}
 }
 
-func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
+func (rc *ResultCounts) addGenerateResponse(auditWarn bool, response engineapi.EngineResponse) {
 	genericPolicy := response.Policy()
 	if polType := genericPolicy.GetType(); polType == engineapi.ValidatingAdmissionPolicyType {
 		return
 	}
 	policy := genericPolicy.AsKyvernoPolicy()
-	for _, policyRule := range autogen.Default.ComputeRules(policy, "") {
+	for _, policyRule := range autogen.ComputeRules(policy, "") {
 		for _, ruleResponse := range response.PolicyResponse.Rules {
 			if policyRule.Name == ruleResponse.Name() {
 				if ruleResponse.Status() == engineapi.RuleStatusPass {
 					rc.Pass++
 				} else {
-					rc.Fail++
+					if auditWarn && response.GetValidationFailureAction().Audit() {
+						rc.Warn++
+					} else {
+						rc.Fail++
+					}
 				}
 				continue
 			}
@@ -90,7 +94,7 @@ func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) boo
 	}
 	policy := genericPolicy.AsKyvernoPolicy()
 	var policyHasMutate bool
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.ComputeRules(policy, "") {
 		if rule.HasMutate() {
 			policyHasMutate = true
 		}
@@ -99,7 +103,7 @@ func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) boo
 		return false
 	}
 	printMutatedRes := false
-	for _, policyRule := range autogen.Default.ComputeRules(policy, "") {
+	for _, policyRule := range autogen.ComputeRules(policy, "") {
 		for _, mutateResponseRule := range response.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name() {
 				if mutateResponseRule.Status() == engineapi.RuleStatusPass {

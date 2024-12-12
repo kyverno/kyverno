@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: cpol-apply-on-deletion  
 spec:
+  validationFailureAction: Enforce
   background: true
   rules:
   - name: validate-nodeport
@@ -12,7 +13,6 @@ spec:
           kinds:
           - Service
     validate:
-      failureAction: Enforce
       message: "Services of type NodePort are not allowed."
       pattern:
         spec:

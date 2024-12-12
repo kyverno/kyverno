@@ -7,10 +7,6 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
-  {{- with .Values.backgroundController.annotations }}
-  annotations:
-    {{- tpl (toYaml .) $ | nindent 4 }}
-  {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.backgroundController.replicas }}
   revisionHistoryLimit: {{ .Values.backgroundController.revisionHistoryLimit }}
@@ -32,7 +28,7 @@ spec:
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
-      {{- with .Values.backgroundController.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      {{- with .Values.backgroundController.imagePullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -44,7 +40,7 @@ spec:
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.backgroundController.tolerations | default .Values.global.tolerations}}
+      {{- with .Values.backgroundController.tolerations }}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -84,10 +80,10 @@ spec:
           image: {{ include "kyverno.background-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.backgroundController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.backgroundController.image.pullPolicy }}
           ports:
-          - containerPort: {{ .Values.backgroundController.server.port }}
+          - containerPort: 9443
             name: https
             protocol: TCP
-          - containerPort: {{ .Values.backgroundController.metering.port }}
+          - containerPort: 8000
             name: metrics
             protocol: TCP
           {{ if .Values.backgroundController.profiling.enabled }}
@@ -118,9 +114,7 @@ spec:
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
-            - --resyncPeriod={{ .Values.backgroundController.resyncPeriod | default .Values.global.resyncPeriod }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.backgroundController.featuresOverride)
-              "reporting"
               "configMapCaching"
               "deferredLoading"
               "globalContext"

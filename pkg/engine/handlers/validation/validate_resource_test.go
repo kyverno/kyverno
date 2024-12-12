@@ -16,7 +16,7 @@ func Test_validateOldObject(t *testing.T) {
 		return nil
 	}
 
-	policyContext := buildTestNamespaceLabelsContext(t, validateDenyPolicy, resource, oldResource)
+	policyContext := buildTestNamespaceLabelsContext(t)
 	rule := policyContext.Policy().GetSpec().Rules[0]
 	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
 
@@ -32,33 +32,15 @@ func Test_validateOldObject(t *testing.T) {
 	assert.Equal(t, api.RuleStatusFail, resp2.Status())
 }
 
-func buildTestNamespaceLabelsContext(t *testing.T, policy string, resource string, oldResource string) api.PolicyContext {
-	return buildContext(t, kyvernov1.Update, policy, resource, oldResource)
-}
-
-func Test_validateOldObjectForeach(t *testing.T) {
-	mockCL := func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
-		return nil
-	}
-
-	policyContext := buildTestNamespaceLabelsContext(t, validateForeachPolicy, resource, oldResource)
-	rule := policyContext.Policy().GetSpec().Rules[0]
-	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
-
-	ctx := context.TODO()
-	resp := v.validate(ctx)
-	assert.NotNil(t, resp)
-	assert.Equal(t, api.RuleStatusSkip, resp.Status())
-}
-
-var (
-	validateDenyPolicy = `{
+func buildTestNamespaceLabelsContext(t *testing.T) api.PolicyContext {
+	policy := `{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
 		  "name": "block-label-changes"
 		},
 		"spec": {
+		  "validationFailureAction": "Enforce",
 		  "background": false,
 		  "rules": [
 			{
@@ -72,14 +54,13 @@ var (
 						"UPDATE"
 					  ],
 					  "kinds": [
-						"Pod"
+						"Namespace"
 					  ]
 					}
 				  }
 				]
 			  },
 			  "validate": {
-			    "failureAction": "Enforce",
 				"message": "The label size is required",
 				"pattern": {
 				  "metadata": {
@@ -100,14 +81,13 @@ var (
 						"UPDATE"
 					  ],
 					  "kinds": [
-						"Pod"
+						"Namespace"
 					  ]
 					}
 				  }
 				]
 			  },
 			  "validate": {
-			    "failureAction": "Enforce",
 				"message": "The label size cannot be changed for a namespace",
 				"deny": {
 				  "conditions": {
@@ -124,61 +104,11 @@ var (
 			}
 		  ]
 		}
-	}`
+	  }`
 
-	validateForeachPolicy = `{
-  "apiVersion": "kyverno.io/v1",
-  "kind": "ClusterPolicy",
-  "metadata": {
-    "name": "validate-image-list"
-  },
-  "spec": {
-    "admission": true,
-    "background": true,
-    "rules": [
-      {
-        "match": {
-          "any": [
-            {
-              "resources": {
-                "kinds": [
-                  "Pod"
-                ]
-              }
-            }
-          ]
-        },
-        "name": "check-image",
-        "validate": {
-    	    "failureAction": "Enforce",
-		      "allowExistingViolations": true,
-            "foreach": [
-            {
-              "deny": {
-                "conditions": {
-                  "all": [
-                    {
-                      "key": "{{ element }}",
-                      "operator": "NotEquals",
-                      "value": "ghcr.io"
-                    }
-                  ]
-                }
-              },
-              "list": "request.object.spec.containers[].image"
-            }
-          ],
-          "message": "images must begin with ghcr.io"
-        }
-      }
-    ]
-  }
-}
-	`
-
-	resource = `{
+	resource := `{
 		"apiVersion": "v1",
-		"kind": "Pod",
+		"kind": "Namespace",
 		"metadata": {
 		  "annotations": {},
 		  "labels": {
@@ -187,49 +117,12 @@ var (
 		  },
 		  "name": "test"
 		},
-		"spec": {
-			"containers": [
-				{
-					"image": "ghcr.io/test-webserver",
-					"name": "test1",
-					"volumeMounts": [
-						{
-							"mountPath": "/tmp/cache",
-							"name": "cache-volume"
-						}
-					]
-				},
-				{
-					"image": "ghcr.io/test-webserver",
-					"name": "test2",
-					"volumeMounts": [
-						{
-							"mountPath": "/tmp/cache",
-							"name": "cache-volume"
-						},
-						{
-							"mountPath": "/gce",
-							"name": "gce"
-						}
-					]
-				}
-			],
-			"volumes": [
-				{
-					"name": "cache-volume",
-					"emptyDir": {}
-				},
-				{
-					"name": "gce",
-					"gcePersistentDisk": {}
-				}
-			]
-		}
-	}`
+		"spec": {}
+	  }`
 
-	oldResource = `{
+	oldResource := `{
 		"apiVersion": "v1",
-		"kind": "Pod",
+		"kind": "Namespace",
 		"metadata": {
 		  "labels": {
 			"kubernetes.io/metadata.name": "test",
@@ -237,43 +130,8 @@ var (
 		  },
 		  "name": "test"
 		},
-		"spec": {
-			"containers": [
-				{
-					"image": "ghcr.io/test-webserver",
-					"name": "test1",
-					"volumeMounts": [
-						{
-							"mountPath": "/tmp/cache",
-							"name": "cache-volume"
-						}
-					]
-				},
-				{
-					"image": "ghcr.io/test-webserver",
-					"name": "test2",
-					"volumeMounts": [
-						{
-							"mountPath": "/tmp/cache",
-							"name": "cache-volume"
-						},
-						{
-							"mountPath": "/gce",
-							"name": "gce"
-						}
-					]
-				}
-			],
-			"volumes": [
-				{
-					"name": "cache-volume",
-					"emptyDir": {}
-				},
-				{
-					"name": "gce",
-					"gcePersistentDisk": {}
-				}
-			]
-		}
-	}`
-)
+		"spec": {}
+	  }`
+
+	return buildContext(t, kyvernov1.Update, policy, resource, oldResource)
+}

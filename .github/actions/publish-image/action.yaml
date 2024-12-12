@@ -55,11 +55,11 @@ runs:
       run: |
         set -e
         echo "digest=$(VERSION=${{ inputs.version }} make ${{ inputs.makefile-target }})" >> $GITHUB_OUTPUT
-    - uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+    - uses: CycloneDX/gh-gomod-generate-sbom@d4aee0cf5133055dbd98899978246c10c18c440f # v1.1.0
       with:
         version: v1
         args: app -licenses -json -output ${{ inputs.sbom-name }}-bom.cdx.json -main ${{ inputs.main-path }}
-    - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+    - uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
       with:
         name: ${{ inputs.sbom-name }}-bom-cdx
         path: ${{ inputs.sbom-name }}-bom.cdx.json

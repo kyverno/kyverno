@@ -13,5 +13,4 @@ type PSSCheckResult struct {
 	ID               string
 	CheckResult      policy.CheckResult
 	RestrictedFields []RestrictedField
-	Images           []string
 }

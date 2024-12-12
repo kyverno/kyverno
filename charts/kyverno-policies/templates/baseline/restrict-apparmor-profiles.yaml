@@ -15,8 +15,8 @@ metadata:
     {{- end }}
     policies.kyverno.io/subject: Pod, Annotation
     policies.kyverno.io/minversion: 1.3.0
-    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
-    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    kyverno.io/kyverno-version: 1.6.0
+    kyverno.io/kubernetes-version: "1.22-1.23"
     policies.kyverno.io/description: >-
       On supported hosts, the 'runtime/default' AppArmor profile is applied by default.
       The default policy should prevent overriding or disabling the policy, or restrict
@@ -24,6 +24,14 @@ metadata:
       specify any other AppArmor profiles than `runtime/default` or `localhost/*`.
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
+  {{- with index .Values "validationFailureActionByPolicy" $name }}
+  validationFailureAction: {{ toYaml . }}
+  {{- else }}
+  validationFailureAction: {{ .Values.validationFailureAction }}
+  {{- end }}
+  {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+  validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
+  {{- end }}
   background: {{ .Values.background }}
   failurePolicy: {{ .Values.failurePolicy }}
   rules:
@@ -33,7 +41,7 @@ spec:
         - resources:
             kinds:
               - Pod
-      {{- with merge (index .Values "policyExclude" "app-armor") (index .Values "policyExclude" $name) }}
+      {{- with index .Values "policyExclude" $name }}
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -45,15 +53,6 @@ spec:
       skipBackgroundRequests: {{ .Values.skipBackgroundRequests }}
       {{- end }}
       validate:
-        {{- with index .Values "validationFailureActionByPolicy" $name }}
-        failureAction: {{ toYaml . }}
-        {{- else }}
-        failureAction: {{ .Values.validationFailureAction }}
-        {{- end }}
-        {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
-        failureActionOverrides: {{ toYaml . | nindent 8 }}
-        {{- end }}
-        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Specifying other AppArmor profiles is disallowed. The annotation
           `container.apparmor.security.beta.kubernetes.io` if defined

@@ -7,6 +7,7 @@ metadata:
 spec:
   background: false
   mutateExistingOnPolicyUpdate: false
+  validationFailureAction: Audit
   rules:
   - name: test-audit-reports-namespacesselector
     match:
@@ -19,7 +20,6 @@ spec:
               - key: org
                 operator: Exists
     validate:
-      failureAction: Audit
       pattern:
         metadata:
           annotations:

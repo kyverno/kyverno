@@ -14,12 +14,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/exceptions"
 	"github.com/kyverno/kyverno/pkg/imageverifycache"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	kubeinformers "k8s.io/client-go/informers"
@@ -40,23 +38,22 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 
 	dclient := dclient.NewEmptyFakeClient()
 	configuration := config.NewDefaultConfiguration(false)
-	urLister := kyvernoInformers.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
-	peLister := kyvernoInformers.Kyverno().V2().PolicyExceptions().Lister()
+	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
+	peLister := kyvernoInformers.Kyverno().V2beta1().PolicyExceptions().Lister()
 	jp := jmespath.New(configuration)
 	rclient := registryclient.NewOrDie()
 
 	return &resourceHandlers{
-		client:          dclient,
-		configuration:   configuration,
-		metricsConfig:   metricsConfig,
-		pCache:          policyCache,
-		nsLister:        informers.Core().V1().Namespaces().Lister(),
-		urLister:        urLister,
-		urGenerator:     updaterequest.NewFake(),
-		eventGen:        event.NewFake(),
-		pcBuilder:       webhookutils.NewPolicyContextBuilder(configuration, jp),
-		auditPool:       pond.New(8, 1000),
-		reportingConfig: report.NewReportingConfig("validate", "mutate", "mutateExisiting", "generate", "imageVerify"),
+		client:        dclient,
+		configuration: configuration,
+		metricsConfig: metricsConfig,
+		pCache:        policyCache,
+		nsLister:      informers.Core().V1().Namespaces().Lister(),
+		urLister:      urLister,
+		urGenerator:   updaterequest.NewFake(),
+		eventGen:      event.NewFake(),
+		pcBuilder:     webhookutils.NewPolicyContextBuilder(configuration, jp),
+		auditPool:     pond.New(8, 1000),
 		engine: engine.NewEngine(
 			configuration,
 			config.NewDefaultMetricsConfiguration(),
@@ -65,7 +62,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(configMapResolver),
-			exceptions.New(peLister),
+			peLister,
 		),
 	}
 }

@@ -1,8 +1,0 @@
-apiVersion: v1
-data:
-  foo: YmFy
-kind: Secret
-metadata:
-  name: regcred
-  namespace: cpol-clone-sync-single-source-multiple-targets-ns
-type: Opaque

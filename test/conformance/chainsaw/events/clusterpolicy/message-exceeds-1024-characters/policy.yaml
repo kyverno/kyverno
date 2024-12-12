@@ -4,6 +4,7 @@ metadata:
   name: podsecurity-subrule-restricted
 spec:
   background: true
+  validationFailureAction: Audit
   rules:
   - name: restricted
     match:
@@ -12,7 +13,6 @@ spec:
           kinds:
           - Pod
     validate:
-      failureAction: Audit
       podSecurity:
         level: restricted
         version: latest
