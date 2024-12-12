@@ -3,6 +3,7 @@ package apicall
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/stretchr/testify/require"
 	"gotest.tools/assert"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -267,4 +269,114 @@ func Test_serviceHeaders(t *testing.T) {
 	assert.Equal(t, 4, len(responseHeaders))
 	assert.Equal(t, "application/json", responseHeaders["Content-Type"][0])
 	assert.Equal(t, "CustomVal", responseHeaders["Custom-Key"][0])
+}
+
+func buildResponseTypeTestServer() *httptest.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/text", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			w.Write([]byte("response content"))
+		}
+	})
+	mux.HandleFunc("/json", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			responseBytes, err := json.Marshal(map[string]string{"key": "response content"})
+			if err != nil {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			w.Write(responseBytes)
+		}
+	})
+	return httptest.NewServer(mux)
+}
+
+func Test_responseTypes(t *testing.T) {
+	s := buildResponseTypeTestServer()
+	defer s.Close()
+
+	entry := kyvernov1.ContextEntry{}
+	ctx := enginecontext.NewContext(jp)
+
+	tests := []struct {
+		endpoint     string
+		responseType kyvernov1.ResponseType
+		JMESPath     string
+		expectedData []byte
+		errFunc      require.ErrorAssertionFunc
+	}{
+		{
+			endpoint:     "text",
+			responseType: kyvernov1.Text,
+			expectedData: []byte("\"response content\""),
+		},
+		{
+			endpoint:     "text",
+			responseType: kyvernov1.Text,
+			JMESPath:     "contains(@, 'response')",
+			expectedData: []byte("true"),
+		},
+		{
+			endpoint:     "json",
+			responseType: kyvernov1.JSON,
+			expectedData: []byte("{\"key\":\"response content\"}"),
+		},
+		{
+			endpoint: "text",
+			errFunc:  require.Error,
+		},
+		{
+			endpoint:     "json",
+			responseType: kyvernov1.JSON,
+			expectedData: []byte("{\"key\":\"response content\"}"),
+		},
+		{
+			endpoint:     "json",
+			expectedData: []byte("{\"key\":\"response content\"}"),
+		},
+		{
+			endpoint:     "json",
+			responseType: kyvernov1.JSON,
+			JMESPath:     "key",
+			expectedData: []byte("\"response content\""),
+		},
+		{
+			endpoint:     "text",
+			responseType: kyvernov1.JSON,
+			errFunc:      require.Error,
+		},
+		{
+			endpoint:     "json",
+			responseType: "dummy response type that doesn't have support added",
+			errFunc:      require.Error,
+		},
+	}
+
+	for _, test := range tests {
+		entry.Name = "test"
+		entry.APICall = &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				Method: "GET",
+				Service: &kyvernov1.ServiceCall{
+					URL: fmt.Sprintf("%s/%s", s.URL, test.endpoint),
+				},
+				ResponseType: test.responseType,
+			},
+		}
+
+		if test.JMESPath != "" {
+			entry.APICall.JMESPath = test.JMESPath
+		}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig)
+		assert.NilError(t, err)
+
+		data, err := call.FetchAndLoad(context.TODO())
+		if test.errFunc == nil {
+			test.errFunc = require.NoError
+		}
+		test.errFunc(t, err)
+
+		require.ElementsMatch(t, data, test.expectedData, "incorrect data")
+	}
 }

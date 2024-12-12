@@ -1360,6 +1360,39 @@ It's mutually exclusive with the URLPath field.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>responseType</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-ResponseType">
+                <span style="font-family: monospace">ResponseType</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ResponseType is an optional parameter that allows for configuring the
+expected HTTP response body content type. If set to &quot;text&quot;, the content
+will be parsed as a JSON string for JMESPath logic. Defaults to JSON.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -7763,6 +7796,21 @@ does not match an empty label set.</p>
 
       </tbody>
     </table>
+  
+
+  <H3 id="kyverno-io-v1-ResponseType">ResponseType
+    (<code>string</code> alias)</p></H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-APICall">APICall</a>)
+    </p>
+  
+
+  <p><p>ResponseType specifies how the HTTP response content should be treated.</p>
+</p>
+
   
 
   <H3 id="kyverno-io-v1-Rule">Rule
