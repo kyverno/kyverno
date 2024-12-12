@@ -73,9 +73,31 @@ func LoadTest(fs billy.Filesystem, path string) TestCase {
 			Err:  err,
 		}
 	}
+	cleanTest(&test)
 	return TestCase{
 		Path: path,
 		Fs:   fs,
 		Test: &test,
 	}
+}
+
+func cleanTest(test *v1alpha1.Test) {
+	test.Policies = removeDuplicateStrings(test.Policies)
+	test.Resources = removeDuplicateStrings(test.Resources)
+	for index, result := range test.Results {
+		test.Results[index].Resources = removeDuplicateStrings(result.Resources)
+	}
+}
+
+func removeDuplicateStrings(strings []string) []string {
+	seen := make(map[string]struct{})
+	var result []string
+
+	for _, str := range strings {
+		if _, exists := seen[str]; !exists {
+			seen[str] = struct{}{}
+			result = append(result, str)
+		}
+	}
+	return result
 }
