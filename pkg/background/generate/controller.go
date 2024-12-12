@@ -35,6 +35,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -98,6 +99,44 @@ func NewGenerateController(
 	return &c
 }
 
+type urTriggers struct {
+	resources map[types.UID]unstructured.Unstructured
+}
+
+func (c *GenerateController) collectTriggers(ruleContext []kyvernov2.RuleContext) (*urTriggers, error) {
+	resourceTypes := map[schema.GroupVersionKind]map[string]struct{}{}
+
+	for _, rule := range ruleContext {
+		gv, err := schema.ParseGroupVersion(rule.Trigger.APIVersion)
+		if err != nil {
+			return nil, fmt.Errorf("parse group/version from %s: %w", rule.Trigger.APIVersion, err)
+		}
+		gvk := gv.WithKind(rule.Trigger.Kind)
+		if _, ok := resourceTypes[gvk]; !ok {
+			resourceTypes[gvk] = map[string]struct{}{}
+		}
+		resourceTypes[gvk][rule.Trigger.Namespace] = struct{}{}
+	}
+
+	triggers := &urTriggers{
+		resources: map[types.UID]unstructured.Unstructured{},
+	}
+	for gvk, namespaces := range resourceTypes {
+		for ns := range namespaces {
+			items, err := c.client.ListResource(context.TODO(), gvk.GroupVersion().String(), gvk.Kind, ns, nil)
+			if err != nil {
+				return nil, fmt.Errorf("list resources for %s in namespace %q: %w", gvk.String(), ns, err)
+			}
+
+			for _, item := range items.Items {
+				triggers.resources[item.GetUID()] = item
+			}
+		}
+	}
+
+	return triggers, nil
+}
+
 func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	var genResources []kyvernov1.ResourceSpec
@@ -109,16 +148,21 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		return fmt.Errorf("error in fetching policy: %v", err)
 	}
 
+	triggers, err := c.collectTriggers(ur.Spec.RuleContext)
+	if err != nil {
+		return fmt.Errorf("collect triggers: %w", err)
+	}
+
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		rule := ur.Spec.RuleContext[i]
-		trigger, err := c.getTrigger(ur.Spec, i)
-		if err != nil || trigger == nil {
+		trigger, ok := triggers.resources[rule.Trigger.UID]
+		if !ok {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
 			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: %v", rule.Rule, err))
 			continue
 		}
 
-		genResources, err = c.applyGenerate(*trigger, *ur, policy, i)
+		genResources, err = c.applyGenerate(trigger, *ur, policy, i)
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
 				logger.V(4).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
