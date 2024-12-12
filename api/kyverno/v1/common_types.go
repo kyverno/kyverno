@@ -56,6 +56,15 @@ const (
 	Descending ForeachOrder = "Descending"
 )
 
+// ResponseType specifies how the HTTP response content should be treated.
+// +kubebuilder:validation:Enum=JSON;text
+type ResponseType string
+
+const (
+	JSON ResponseType = "JSON"
+	Text ResponseType = "text"
+)
+
 // WebhookConfiguration specifies the configuration for Kubernetes admission webhookconfiguration.
 type WebhookConfiguration struct {
 	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
@@ -212,6 +221,13 @@ type APICall struct {
 	// It's mutually exclusive with the URLPath field.
 	// +kubebuilder:validation:Optional
 	Service *ServiceCall `json:"service,omitempty"`
+
+	// ResponseType is an optional parameter that allows for configuring the
+	// expected HTTP response body content type. If set to "text", the content
+	// will be parsed as a JSON string for JMESPath logic. Defaults to JSON.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=JSON
+	ResponseType ResponseType `json:"responseType,omitempty"`
 }
 
 type ContextAPICall struct {

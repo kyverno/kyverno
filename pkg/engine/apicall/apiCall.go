@@ -81,26 +81,32 @@ func (a *apiCall) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte,
 	return a.executor.Execute(ctx, call)
 }
 
-func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
-	if jsonData == nil {
+func (a *apiCall) transformAndStore(rawData []byte) ([]byte, error) {
+	if rawData == nil {
 		if a.entry.APICall.Default.Raw == nil {
-			return jsonData, nil
+			return rawData, nil
 		}
-		jsonData = a.entry.APICall.Default.Raw
-		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
+		rawData = a.entry.APICall.Default.Raw
+		err := a.jsonCtx.AddContextEntry(a.entry.Name, rawData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", a.entry.Name, err)
 		}
 
-		return jsonData, nil
+		return rawData, nil
 	}
+
+	rawData, err := a.convertRawToJSONRaw(rawData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert response to JSON internally (bug): %w", err)
+	}
+
 	if a.entry.APICall.JMESPath == "" {
-		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
+		err := a.jsonCtx.AddContextEntry(a.entry.Name, rawData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", a.entry.Name, err)
 		}
 
-		return jsonData, nil
+		return rawData, nil
 	}
 
 	path, err := variables.SubstituteAll(a.logger, a.jsonCtx, a.entry.APICall.JMESPath)
@@ -108,7 +114,7 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", a.entry.Name, a.entry.APICall.JMESPath, err)
 	}
 
-	results, err := a.applyJMESPathJSON(path.(string), jsonData)
+	results, err := a.applyJMESPathJSON(path.(string), rawData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, a.entry.Name, err)
 	}
@@ -125,6 +131,23 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 
 	a.logger.V(4).Info("added context data", "name", a.entry.Name, "len", len(contextData))
 	return contextData, nil
+}
+
+// Converts the response content to JSON so that downstream JSON operations can succeed.
+func (a *apiCall) convertRawToJSONRaw(rawData []byte) ([]byte, error) {
+	responseType := a.entry.APICall.ResponseType
+	if responseType == "" {
+		responseType = kyvernov1.JSON
+	}
+
+	switch responseType {
+	case kyvernov1.JSON:
+		return rawData, nil
+	case kyvernov1.Text:
+		return json.Marshal(string(rawData))
+	default:
+		return nil, fmt.Errorf("unsupported content type %q (bug)", a.entry.APICall.ResponseType)
+	}
 }
 
 func (a *apiCall) applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {

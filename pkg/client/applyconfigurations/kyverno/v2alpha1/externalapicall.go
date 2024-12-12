@@ -75,6 +75,14 @@ func (b *ExternalAPICallApplyConfiguration) WithService(value *v1.ServiceCallApp
 	return b
 }
 
+// WithResponseType sets the ResponseType field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ResponseType field is set to the value of the last call.
+func (b *ExternalAPICallApplyConfiguration) WithResponseType(value kyvernov1.ResponseType) *ExternalAPICallApplyConfiguration {
+	b.ResponseType = &value
+	return b
+}
+
 // WithRefreshInterval sets the RefreshInterval field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RefreshInterval field is set to the value of the last call.

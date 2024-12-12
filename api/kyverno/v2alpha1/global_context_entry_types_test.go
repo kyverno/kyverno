@@ -59,6 +59,19 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "valid text APICall",
+			spec: GlobalContextEntrySpec{
+				APICall: &ExternalAPICall{
+					APICall: kyvernov1.APICall{
+						URLPath:      "https://kyverno.io/",
+						ResponseType: kyvernov1.Text,
+					},
+					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "both KubernetesResource and APICall",
 			spec: GlobalContextEntrySpec{
 				KubernetesResource: &KubernetesResource{
@@ -164,7 +177,8 @@ func TestExternalAPICallValidate(t *testing.T) {
 			name: "valid ExternalAPICall",
 			apiCall: ExternalAPICall{
 				APICall: kyvernov1.APICall{
-					URLPath: "/api/v1/namespaces",
+					URLPath:      "/api/v1/namespaces",
+					ResponseType: kyvernov1.Text,
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
 			},
@@ -209,7 +223,6 @@ func TestExternalAPICallValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
-
 		{
 			name: "non-POST method with data",
 			apiCall: ExternalAPICall{
@@ -235,6 +248,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		})
 	}
 }
+
 func generateRandomVersion() string {
 	rand.NewSource(time.Now().UnixNano())
 	for {

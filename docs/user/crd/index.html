@@ -672,6 +672,21 @@ This is used for non-Kubernetes API server calls.
 It&rsquo;s mutually exclusive with the URLPath field.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>responseType</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResponseType">
+ResponseType
+</a>
+</em>
+</td>
+<td>
+<p>ResponseType is an optional parameter that allows for configuring the
+expected HTTP response body content type. If set to &ldquo;text&rdquo;, the content
+will be parsed as a JSON string for JMESPath logic. Defaults to JSON.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3900,6 +3915,15 @@ k8s.io/apimachinery/pkg/types.UID
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ResponseType">ResponseType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.APICall">APICall</a>)
+</p>
+<p>
+<p>ResponseType specifies how the HTTP response content should be treated.</p>
+</p>
 <h3 id="kyverno.io/v1.Rule">Rule
 </h3>
 <p>
