@@ -16,5 +16,4 @@ labels:
 # according to https://grafana-operator.github.io/grafana-operator/docs/examples/dashboard_from_configmap/readme/
 grafanaDashboard:
   create: false
-  matchLabels:
-    dashboards: "grafana"
+  matchLabels: {}
