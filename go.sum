@@ -1263,8 +1263,8 @@ sigs.k8s.io/kustomize/kyaml v0.18.1 h1:WvBo56Wzw3fjS+7vBjN6TeivvpbW9GmRaWZ9CIVmt
 sigs.k8s.io/kustomize/kyaml v0.18.1/go.mod h1:C3L2BFVU1jgcddNBE1TxuVLgS46TjObMwW5FT9FcjYo=
 sigs.k8s.io/release-utils v0.8.4 h1:4QVr3UgbyY/d9p74LBhg0njSVQofUsAZqYOzVZBhdBw=
 sigs.k8s.io/release-utils v0.8.4/go.mod h1:m1bHfscTemQp+z+pLCZnkXih9n0+WukIUU70n6nFnU0=
-sigs.k8s.io/structured-merge-diff/v4 v4.4.3 h1:sCP7Vv3xx/CWIuTPVN38lUPx0uw0lcLfzaiDa8Ja01A=
-sigs.k8s.io/structured-merge-diff/v4 v4.4.3/go.mod h1:N8f93tFZh9U6vpxwRArLiikrE5/2tiu1w1AGfACIGE4=
+sigs.k8s.io/structured-merge-diff/v4 v4.5.0 h1:nbCitCK2hfnhyiKo6uf2HxUPTCodY6Qaf85SbDIaMBk=
+sigs.k8s.io/structured-merge-diff/v4 v4.5.0/go.mod h1:N8f93tFZh9U6vpxwRArLiikrE5/2tiu1w1AGfACIGE4=
 sigs.k8s.io/yaml v1.4.0 h1:Mk1wCc2gy/F0THH0TAp1QYyJNzRm2KCLy3o5ASXVI5E=
 sigs.k8s.io/yaml v1.4.0/go.mod h1:Ejl7/uTz7PSA4eKMyQCUTnhZYNmLIl+5c2lQPGR2BPY=
 software.sslmate.com/src/go-pkcs12 v0.4.0 h1:H2g08FrTvSFKUj+D309j1DPfk5APnIdAQAB8aEykJ5k=
