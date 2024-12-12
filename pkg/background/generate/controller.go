@@ -99,11 +99,7 @@ func NewGenerateController(
 	return &c
 }
 
-type urTriggers struct {
-	resources map[types.UID]unstructured.Unstructured
-}
-
-func (c *GenerateController) collectTriggers(ruleContext []kyvernov2.RuleContext) (*urTriggers, error) {
+func (c *GenerateController) collectTriggers(ruleContext []kyvernov2.RuleContext) (map[types.UID]unstructured.Unstructured, error) {
 	resourceTypes := map[schema.GroupVersionKind]map[string]struct{}{}
 
 	for _, rule := range ruleContext {
@@ -118,9 +114,8 @@ func (c *GenerateController) collectTriggers(ruleContext []kyvernov2.RuleContext
 		resourceTypes[gvk][rule.Trigger.Namespace] = struct{}{}
 	}
 
-	triggers := &urTriggers{
-		resources: map[types.UID]unstructured.Unstructured{},
-	}
+	triggers := map[types.UID]unstructured.Unstructured{}
+
 	for gvk, namespaces := range resourceTypes {
 		for ns := range namespaces {
 			items, err := c.client.ListResource(context.TODO(), gvk.GroupVersion().String(), gvk.Kind, ns, nil)
@@ -129,7 +124,7 @@ func (c *GenerateController) collectTriggers(ruleContext []kyvernov2.RuleContext
 			}
 
 			for _, item := range items.Items {
-				triggers.resources[item.GetUID()] = item
+				triggers[item.GetUID()] = item
 			}
 		}
 	}
@@ -155,7 +150,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		rule := ur.Spec.RuleContext[i]
-		trigger, ok := triggers.resources[rule.Trigger.UID]
+		trigger, ok := triggers[rule.Trigger.UID]
 		if !ok {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
 			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: %v", rule.Rule, err))
