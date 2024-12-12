@@ -225,9 +225,6 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		for _, engineResponse := range engineResponses {
 			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
 				resourceKey := generateResourceKey(targetResource)
-				// TODO: Check behavior for policies that have mutate rules targeting the same resource
-				// or multiple policies targeting the same resources. With each rule, the resource will
-				// be mutated again, not from scratch.
 				testResponse.Target[resourceKey] = append(testResponse.Target[resourceKey], engineResponse)
 			}
 		}
