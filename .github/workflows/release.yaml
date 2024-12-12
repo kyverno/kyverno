@@ -24,7 +24,7 @@ jobs:
       reports-controller-digest: ${{ steps.release-reports-controller.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -35,7 +35,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 30
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.24.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -47,7 +47,7 @@ jobs:
           # See: https://github.com/aquasecurity/trivy-action/issues/389#issuecomment-2385416577
           TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
       - name: Install Cosign
-        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+        uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       - name: Publish kyverno
         id: release-kyverno
         uses: ./.github/actions/publish-image
@@ -237,7 +237,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -247,7 +247,7 @@ jobs:
         timeout-minutes: 30
       - uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # v1.0
       - name: Install Cosign
-        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+        uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       - name: Make Release
         env:
           VERSION: ${{ github.ref_name }}
@@ -257,7 +257,7 @@ jobs:
           make release-notes > release/release-notes.out
           cat release/release-notes.out
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf # v6.1.0
+        uses: goreleaser/goreleaser-action@286f3b13b1b49da4ac219696163fb8c1c93e1200 # v6.0.0
         with:
           distribution: goreleaser
           version: latest
@@ -274,7 +274,7 @@ jobs:
       packages: write # needed for ghcr access  
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -283,11 +283,11 @@ jobs:
         uses: ./.github/actions/setup-build-env
         timeout-minutes: 10
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@5350425cdcd5fa015337e09fa502153c0275bd4b # v2.4.0
+        uses: fluxcd/flux2/action@896e0fa46d5107a05e953dd0a5261d78a145ec8c # v2.3.0
         with:
           version: 0.35.0
       - name: Install Cosign
-        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+        uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       - name: Build yaml manifest
         run: VERSION=${{ github.ref_name }} make codegen-manifest-release
       - name: Upload install manifest
@@ -331,7 +331,7 @@ jobs:
     needs: create-release
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -347,4 +347,4 @@ jobs:
           fi
       - name: Update new version in krew-index
         if: steps.check-tag.outputs.match == 'true'
-        uses: rajatjindal/krew-release-bot@3d9faef30a82761d610544f62afddca00993eef9 # v0.0.47
+        uses: rajatjindal/krew-release-bot@df3eb197549e3568be8b4767eec31c5e8e8e6ad8 # v0.0.46

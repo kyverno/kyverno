@@ -122,17 +122,14 @@ func NewPolicyController(
 	eventBroadcaster.StartRecordingToSink(stopCh)
 
 	pc := policyController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		engine:        engine,
-		pInformer:     pInformer,
-		npInformer:    npInformer,
-		eventGen:      eventGen,
-		eventRecorder: eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
-			workqueue.TypedRateLimitingQueueConfig[any]{Name: "policy"},
-		),
+		client:          client,
+		kyvernoClient:   kyvernoClient,
+		engine:          engine,
+		pInformer:       pInformer,
+		npInformer:      npInformer,
+		eventGen:        eventGen,
+		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, "policy_controller"),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), "policy"),
 		configuration:   configuration,
 		reconcilePeriod: reconcilePeriod,
 		metricsConfig:   metricsConfig,

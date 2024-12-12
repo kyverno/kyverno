@@ -61,13 +61,10 @@ func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, ma
 		logger.Error(err, "failed to register metric kyverno_events_dropped")
 	}
 	return &controller{
-		logger:       logger,
-		eventsClient: eventsClient,
-		omitEvents:   sets.New(omitEvents...),
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
-			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
-		),
+		logger:               logger,
+		eventsClient:         eventsClient,
+		omitEvents:           sets.New(omitEvents...),
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName),
 		clock:                clock,
 		hostname:             hostname,
 		droppedEventsCounter: droppedEventsCounter,

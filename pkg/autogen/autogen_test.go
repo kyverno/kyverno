@@ -1,4 +1,4 @@
-package v1
+package autogen
 
 import (
 	"encoding/json"
@@ -12,7 +12,6 @@ import (
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/utils/ptr"
 )
 
 func Test_getAutogenRuleName(t *testing.T) {
@@ -393,6 +392,7 @@ func TestUpdateCELFields(t *testing.T) {
 }
 
 func Test_ComputeRules(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
 	testCases := []struct {
 		name          string
 		policy        string
@@ -455,7 +455,7 @@ spec:
 				VerifyImages: []kyvernov1.ImageVerification{{
 					ImageReferences: []string{"*"},
 					Attestors: []kyvernov1.AttestorSet{{
-						Count: ptr.To(1),
+						Count: intPtr(1),
 						Entries: []kyvernov1.Attestor{{
 							Keyless: &kyvernov1.KeylessAttestor{
 								Roots: `-----BEGIN CERTIFICATE-----
@@ -494,7 +494,7 @@ kA==
 				VerifyImages: []kyvernov1.ImageVerification{{
 					ImageReferences: []string{"*"},
 					Attestors: []kyvernov1.AttestorSet{{
-						Count: ptr.To(1),
+						Count: intPtr(1),
 						Entries: []kyvernov1.Attestor{{
 							Keyless: &kyvernov1.KeylessAttestor{
 								Roots: `-----BEGIN CERTIFICATE-----

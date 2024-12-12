@@ -70,10 +70,7 @@ func NewController(
 	eventGen event.Interface,
 	checker checker.AuthChecker,
 ) controllers.Controller {
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
-		workqueue.DefaultTypedControllerRateLimiter[any](),
-		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
-	)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any](), ControllerName)
 	c := &controller{
 		client:           client,
 		kyvernoClient:    kyvernoClient,

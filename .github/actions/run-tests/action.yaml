@@ -28,9 +28,6 @@ inputs:
   shard-count:
     description: Shard count
     default: '0'
-  upgrade-scenario:
-    description: Determines which version to upgrade from
-    required: true
 runs:
   using: composite
   steps:
@@ -39,9 +36,9 @@ runs:
       id: helm
       uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
     - name: Install Cosign
-      uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+      uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
     - name: Install chainsaw
-      uses: kyverno/action-install-chainsaw@f2b47b97dc889c12702113753d713f01ec268de5 # v0.2.12
+      uses: kyverno/action-install-chainsaw@d311eacde764f806c9658574ff64c9c3b21f8397 # v0.2.11
       with:
         verify: true
     # create cluster
@@ -61,123 +58,12 @@ runs:
       run: |
         set -e
         kind load image-archive kyverno.tar --name kind
-    - name: Determine Previous Version
-      id: determine-prev-version
+    - name: Install kyverno
       shell: bash
       run: |
-        set -ex
-        export HELM=${{ steps.helm.outputs.helm-path }}
-
-        $HELM repo add kyverno https://kyverno.github.io/kyverno
-        $HELM repo update
-
-        case "${{ inputs.upgrade-scenario }}" in
-          "patch")
-            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel --versions | awk -F' +' '{print $2}' | awk '{$1=$1};1' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$' | awk -F. '!seen[$1"."$2"."$3]++' | head -2 | tail -1)
-            ;;
-          "minor")
-            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel --versions | awk -F' +' '{print $2}' | awk '{$1=$1};1' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$' | awk -F. '!seen[$1"."$2]++' | head -2 | tail -1)
-            ;;
-          "latest")
-            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel -o json | jq -r '.[0].version')
-            ;;
-          *)
-            export INSTALL_VERSION=none
-            ;;
-        esac
-
-        echo "::set-output name=prev_version::$INSTALL_VERSION"
-    - name: Checkout Previous Version
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      if: ${{ steps.determine-prev-version.outputs.prev_version != 'none' }}
-      with:
-        repository: kyverno/kyverno
-        ref: kyverno-chart-${{ steps.determine-prev-version.outputs.prev_version }}
-        path: prev-version
-    - name: Install Kyverno from prev-version
-      if: ${{ steps.determine-prev-version.outputs.prev_version != 'none' }}
-      shell: bash
-      run: |
-        set -ex
+        set -e
         export HELM=${{ steps.helm.outputs.helm-path }}
         export USE_CONFIG=${{ inputs.kyverno-configs }}
-
-        cd prev-version
-
-        IFS=',' read -ra CONFIGS <<< "$USE_CONFIG"
-        for config in "${CONFIGS[@]}"; do
-          if [ ! -f ./scripts/config/$config/kyverno.yaml ]; then
-            echo "Skipping installation of Kyverno from prev-version for config: $config"
-            exit 0
-          fi
-        done
-
-        export INSTALL_VERSION=${{ steps.determine-prev-version.outputs.prev_version }}
-        echo "Installing Kyverno using Helm with Chart version $INSTALL_VERSION"
-        make -C .. kind-install-kyverno-from-repo
-    - name: Determine Next Version
-      id: determine-next-version
-      shell: bash
-      run: |
-        set -ex
-        export HELM=${{ steps.helm.outputs.helm-path }}
-
-        $HELM repo add kyverno https://kyverno.github.io/kyverno
-        $HELM repo update
-
-        case "${{ inputs.upgrade-scenario }}" in
-          "patch")
-            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel --versions | awk -F' +' '{print $2}' | awk '{$1=$1};1' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$' | awk -F. '!seen[$1"."$2"."$3]++' | head -1)
-            ;;
-          "minor")
-            export INSTALL_VERSION=$($HELM search repo kyverno/kyverno --devel --versions | awk -F' +' '{print $2}' | awk '{$1=$1};1' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$' | awk -F. '!seen[$1"."$2]++' | head -1)
-            ;;
-          "latest")
-            export INSTALL_VERSION=main
-            ;;
-          *)
-            export INSTALL_VERSION=main
-            ;;
-        esac
-
-        echo "::set-output name=next_version::$INSTALL_VERSION"
-    - name: Checkout Next Version
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      if: ${{ steps.determine-next-version.outputs.next_version != 'main' }}
-      with:
-        repository: kyverno/kyverno
-        ref: kyverno-chart-${{ steps.determine-next-version.outputs.next_version }}
-        path: next-version
-    - name: Install Kyverno from next-version
-      if: ${{ steps.determine-next-version.outputs.next_version != 'main' }}
-      shell: bash
-      run: |
-        set -ex
-        export HELM=${{ steps.helm.outputs.helm-path }}
-        export USE_CONFIG=${{ inputs.kyverno-configs }}
-
-        cd next-version
-
-        IFS=',' read -ra CONFIGS <<< "$USE_CONFIG"
-        for config in "${CONFIGS[@]}"; do
-          if [ ! -f ./scripts/config/$config/kyverno.yaml ]; then
-            echo "Skipping installation of Kyverno from prev-version for config: $config"
-            exit 0
-          fi
-        done
-
-        export INSTALL_VERSION=${{ steps.determine-next-version.outputs.next_version }}
-        echo "Installing Kyverno using Helm with Chart version $INSTALL_VERSION"
-        make -C .. kind-install-kyverno-from-repo
-    - name: Install Kyverno from main
-      if: ${{ steps.determine-next-version.outputs.next_version == 'main' }}
-      shell: bash
-      run: |
-        set -ex
-        export HELM=${{ steps.helm.outputs.helm-path }}
-        export USE_CONFIG=${{ inputs.kyverno-configs }}
-
-        echo "Installing Kyverno from main"
         make kind-install-kyverno
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno-wait-ready
@@ -192,20 +78,6 @@ runs:
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     # run tests
     - name: Test with Chainsaw
-      if: ${{ steps.determine-next-version.outputs.next_version != 'main' }}
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-      run: |
-        set -e
-        cd ./next-version/test/conformance/chainsaw
-        chainsaw test ${{ inputs.tests-path }} \
-          --config ../${{ inputs.chainsaw-config }} \
-          --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
-          --shard-index ${{ inputs.shard-index }} \
-          --shard-count ${{ inputs.shard-count }}
-    - name: Test with Chainsaw
-      if: ${{ steps.determine-next-version.outputs.next_version == 'main' }}
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
