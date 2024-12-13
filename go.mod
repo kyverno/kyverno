@@ -1,6 +1,7 @@
 module github.com/kyverno/kyverno
 
 go 1.22.8
+toolchain go1.23.4
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -18,7 +19,7 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/fatih/color v1.18.0
-	github.com/fluxcd/pkg/oci v0.42.0
+	github.com/fluxcd/pkg/oci v0.43.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.6.0
 	github.com/go-git/go-git/v5 v5.12.0
