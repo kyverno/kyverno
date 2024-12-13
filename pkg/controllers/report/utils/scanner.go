@@ -28,7 +28,7 @@ type scanner struct {
 }
 
 type ScanResult struct {
-	EngineResponse []*engineapi.EngineResponse
+	EngineResponse *engineapi.EngineResponse
 	Error          error
 }
 
@@ -56,7 +56,6 @@ func NewScanner(
 
 func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, bindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
 	results := map[*engineapi.GenericPolicy]ScanResult{}
-	var responses []*engineapi.EngineResponse
 	for i, policy := range policies {
 		var errors []error
 		logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
@@ -89,7 +88,9 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 					logger.Error(err, "failed to scan images")
 					errors = append(errors, err)
 				}
-				if ivResponse != nil {
+				if response == nil {
+					response = ivResponse
+				} else if ivResponse != nil {
 					response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ivResponse.PolicyResponse.Rules...)
 				}
 			}
@@ -101,16 +102,13 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := validatingadmissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client, true) // todo: check if this is ever being called offline
+			res, err := validatingadmissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client, true)
 			if err != nil {
 				errors = append(errors, err)
 			}
-			for _, r := range res {
-				rCopy := r
-				responses = append(responses, &rCopy)
-			}
+			response = &res[0]
 		}
-		results[&policies[i]] = ScanResult{responses, multierr.Combine(errors...)}
+		results[&policies[i]] = ScanResult{response, multierr.Combine(errors...)}
 	}
 	return results
 }
