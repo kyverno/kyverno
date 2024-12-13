@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -13,7 +14,8 @@ func FuzzValidatePolicy(f *testing.F) {
 		ff := fuzz.NewConsumer(data)
 		p := &kyverno.ClusterPolicy{}
 		ff.GenerateStruct(p)
-
-		Validate(p, nil, nil, nil, true, "admin", "admin")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		Validate(ctx, p, nil, nil, nil, true, "admin", "admin")
 	})
 }

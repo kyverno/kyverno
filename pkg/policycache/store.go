@@ -1,6 +1,7 @@
 package policycache
 
 import (
+	"context"
 	"sync"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -14,7 +15,7 @@ import (
 
 type store interface {
 	// set inserts a policy in the cache
-	set(string, kyvernov1.PolicyInterface, ResourceFinder) error
+	set(context.Context, string, kyvernov1.PolicyInterface, ResourceFinder) error
 	// unset removes a policy from the cache
 	unset(string)
 	// get finds policies that match a given type, gvr, subresource and namespace
@@ -32,10 +33,10 @@ func newPolicyCache() store {
 	}
 }
 
-func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
+func (pc *policyCache) set(ctx context.Context, key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
-	if err := pc.store.set(key, policy, client); err != nil {
+	if err := pc.store.set(ctx, key, policy, client); err != nil {
 		return err
 	}
 	logger.V(4).Info("policy is added to cache", "key", key)
@@ -99,7 +100,7 @@ func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 	}
 }
 
-func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
+func (m *policyMap) set(ctx context.Context, key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	var errs []error
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	auditWarning := false
@@ -111,7 +112,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool
 	}
 	kindStates := map[policyKey]state{}
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		if rule.HasValidate() {
 			action := rule.Validation.FailureAction
 			if action != nil && action.Enforce() {

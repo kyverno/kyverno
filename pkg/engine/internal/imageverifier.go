@@ -720,7 +720,7 @@ func (iv *ImageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 func (iv *ImageVerifier) validate(imageVerify kyvernov1.ImageVerification, ctx context.Context) error {
 	spec := iv.policyContext.Policy().GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	err := policy.ValidateVariables(iv.policyContext.Policy(), background)
+	err := policy.ValidateVariables(ctx, iv.policyContext.Policy(), background)
 	if err != nil {
 		return err
 	}
