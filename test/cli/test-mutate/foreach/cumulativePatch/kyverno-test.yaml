@@ -8,7 +8,7 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  patchedResource: patched.yaml
+  patchedResources: patched.yaml
   policy: add-default-resources
   resources:
   - badpod

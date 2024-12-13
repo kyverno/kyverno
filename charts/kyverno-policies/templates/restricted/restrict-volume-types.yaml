@@ -70,6 +70,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Only the following types of volumes may be used: configMap, csi, downwardAPI,
           emptyDir, ephemeral, persistentVolumeClaim, projected, and secret.

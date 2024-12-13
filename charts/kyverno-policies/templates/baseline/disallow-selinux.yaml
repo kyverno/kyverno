@@ -50,6 +50,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Setting the SELinux type is restricted. The fields
           spec.securityContext.seLinuxOptions.type, spec.containers[*].securityContext.seLinuxOptions.type,
@@ -98,6 +99,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Setting the SELinux user or role is forbidden. The fields
           spec.securityContext.seLinuxOptions.user, spec.securityContext.seLinuxOptions.role,

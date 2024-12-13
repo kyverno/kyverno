@@ -137,7 +137,7 @@ func main() {
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-background-controller", false)
 		defer sdown()
 		var err error
-		bgscanInterval := 30 * time.Second
+		bgscanInterval := time.Hour
 		val := os.Getenv("BACKGROUND_SCAN_INTERVAL")
 		if val != "" {
 			if bgscanInterval, err = time.ParseDuration(val); err != nil {

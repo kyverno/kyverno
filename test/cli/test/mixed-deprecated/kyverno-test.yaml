@@ -20,7 +20,7 @@ results:
   result: pass
   rule: ondemand-managed_by
 - kind: Pod
-  patchedResource: patched-resource.yaml
+  patchedResources: patched-resource.yaml
   policy: ondemand
   resources:
   - user-space/nodeselector-with-labels-on-mutation

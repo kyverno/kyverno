@@ -26,11 +26,6 @@ type TestResultBase struct {
 	// Kind mentions the kind of the resource on which the policy is to be applied.
 	Kind string `json:"kind"`
 
-	// Deprecated. Use `patchedResources` instead.
-	// PatchedResource takes a resource configuration file in yaml format from
-	// the user to compare it against the Kyverno mutated resource configuration.
-	PatchedResource string `json:"patchedResource,omitempty"`
-
 	// PatchedResource takes a resource configuration file in yaml format from
 	// the user to compare it against the Kyverno mutated resource configuration.
 	// Multiple resources can be passed in the same file
@@ -59,6 +54,11 @@ type TestResultDeprecated struct {
 	// Namespace mentions the namespace of the policy which has namespace scope.
 	// This is DEPRECATED, use a name in the form `<namespace>/<name>` for policies and/or resources instead.
 	Namespace string `json:"namespace,omitempty"`
+
+	// PatchedResource takes a resource configuration file in yaml format from
+	// the user to compare it against the Kyverno mutated resource configuration.
+	// This is DEPRECATED, Use `patchedResources` instead.
+	PatchedResource string `json:"patchedResource,omitempty"`
 }
 
 // TestResultBase declares a test result

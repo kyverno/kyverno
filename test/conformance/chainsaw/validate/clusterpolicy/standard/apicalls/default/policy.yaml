@@ -12,31 +12,27 @@ spec:
           - Pod
           operations:
           - CREATE
+          - UPDATE
     context:
-    - name: testString
+    - name: podname
       apiCall:
         urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
         jmesPath: metadata.name
-        default: default
+        default: example
     - name: testJSON
       apiCall:
         urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
-        default: '{"metadata": {"name": "default"}}'
-    - name: testInteger
-      apiCall:
-        urlPath: "/api/v1/namespaces/{{ request.namespace }}/invalid"
-        jmesPath: metadata.resourceVersion
-        default: 1     
+        default:
+          metadata:
+            name: example
     validate:
+      failureAction: Enforce
       deny:
         conditions:
           all:
-          - key: "{{ testString }}"
-            operator: Equals
-            value: "{{ request.namespace }}"
+          - key: "{{ podname }}"
+            operator: NotEquals
+            value: "{{ request.object.metadata.name }}"
           - key: "{{ testJSON.metadata.name }}"
-            operator: Equals
-            value: "{{ request.namespace }}"
-          - key: "{{ testInteger }}"
-            operator: GreaterThan
-            value: 2
+            operator: NotEquals
+            value: "{{ request.object.metadata.name }}"

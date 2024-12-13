@@ -52,6 +52,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Changing the proc mount from the default is not allowed. The fields
           spec.containers[*].securityContext.procMount, spec.initContainers[*].securityContext.procMount,
