@@ -25,7 +25,7 @@ type Test struct {
 	Resources []string `json:"resources,omitempty"`
 
 	// Resources that act as parameters for validating admission policies
-	VapParams []string `json:"vapParams,omitempty"`
+	ParamResources []string `json:"paramResources,omitempty"`
 
 	// Variables is the values to be used in the test
 	Variables string `json:"variables,omitempty"`

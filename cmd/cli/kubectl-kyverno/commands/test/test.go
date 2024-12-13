@@ -190,14 +190,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) ([]engi
 		engineResponses = append(engineResponses, ers...)
 	}
 
-	vapParamsPath := path.GetFullPaths(testCase.Test.VapParams, testDir, isGit)
-	vapParams, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, vapParamsPath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
+	paramResourcePath := path.GetFullPaths(testCase.Test.ParamResources, testDir, isGit)
+	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, paramResourcePath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
 	}
 
 	vp := []runtime.Object{}
-	for _, p := range vapParams {
+	for _, p := range paramResources {
 		vp = append(vp, p)
 	}
 

@@ -18,7 +18,9 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
@@ -201,9 +203,28 @@ func Validate(
 			}
 
 			if binding.Spec.ParamRef != nil {
-				params, err := CollectParams(context.TODO(), adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, resource.GetNamespace())
-				if err != nil {
-					return nil, err
+				var params []runtime.Object
+				for _, param := range policyData.params {
+					unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
+					if err != nil {
+						return nil, fmt.Errorf("failed to convert to unstructured: %w", err)
+					}
+					obj := &unstructured.Unstructured{Object: unstructuredMap}
+					if binding.Spec.ParamRef.Selector != nil {
+						labelSelector, err := v1.LabelSelectorAsSelector(binding.Spec.ParamRef.Selector)
+						if err != nil {
+							return nil, fmt.Errorf("failed to convert LabelSelector: %w", err)
+						}
+
+						objLabels := obj.GetLabels()
+						if labelSelector.Matches(labels.Set(objLabels)) {
+							params = append(params, param)
+						}
+					} else {
+						if obj.GetName() == binding.Spec.ParamRef.Name {
+							params = append(params, param)
+						}
+					}
 				}
 				logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
 				for _, p := range params {
@@ -266,12 +287,7 @@ func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 	if paramRef.Name != "" {
 		param, err := client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
 		if err != nil {
-			// handle the case where this method is being called with a fake client, a fake client doesnt have discovery mechanism
-			// and hence will return that namespaced is false in cases where its true and the resource will be not found
-			param, err = client.GetResource(ctx, apiVersion, kind, namespace, paramRef.Name, "")
-			if err != nil {
-				return nil, err
-			}
+			return nil, err
 		}
 		return []runtime.Object{param}, nil
 	} else if paramRef.Selector != nil {

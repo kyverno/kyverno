@@ -7,7 +7,7 @@ policies:
 resources:
 - deployment1.yaml
 - deployment2.yaml
-vapParams:
+paramResources:
 - cm.yaml
 results:
 - kind: Deployment
