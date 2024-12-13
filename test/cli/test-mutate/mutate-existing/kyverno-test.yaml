@@ -8,7 +8,7 @@ resources:
 - trigger-cm.yaml
 results:
 - kind: ""
-  patchedResource: mutated-secret.yaml
+  patchedResources: mutated-secret.yaml
   policy: mutate-existing-secret
   resources: []
   result: pass

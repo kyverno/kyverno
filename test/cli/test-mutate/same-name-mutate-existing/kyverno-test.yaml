@@ -8,7 +8,7 @@ resources:
 - cm.yaml
 results:
 - kind: ""
-  patchedResource: mutated-resources.yaml
+  patchedResources: mutated-resources.yaml
   policy: mutate-existing-secret
   resources:
   - staging/secret-1
