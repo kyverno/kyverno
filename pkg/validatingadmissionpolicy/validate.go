@@ -18,7 +18,6 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -211,7 +210,7 @@ func Validate(
 					}
 					obj := &unstructured.Unstructured{Object: unstructuredMap}
 					if binding.Spec.ParamRef.Selector != nil {
-						labelSelector, err := v1.LabelSelectorAsSelector(binding.Spec.ParamRef.Selector)
+						labelSelector, err := metav1.LabelSelectorAsSelector(binding.Spec.ParamRef.Selector)
 						if err != nil {
 							return nil, fmt.Errorf("failed to convert LabelSelector: %w", err)
 						}

@@ -202,7 +202,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
 
-	var paramResources []runtime.Object
+	paramResources := []runtime.Object{}
 	for _, p := range paramResourcesUnstructured {
 		paramResources = append(paramResources, p)
 	}
