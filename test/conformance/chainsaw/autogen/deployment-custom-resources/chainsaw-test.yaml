@@ -1,0 +1,23 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  creationTimestamp: null
+  name: deployment-custom-resources
+spec:
+  steps:
+  - name: Prerequisites
+    timeouts:
+      # Using the default timeout will result in the following error.
+      #     | 19:56:32 | deployment-custom-resources | Prerequisites | CLEANUP   | ERROR |
+      # === ERROR
+      # context deadline exceeded
+      cleanup: 2m
+    try:
+    - apply:
+        file: kruise.yaml
+  - name: step-01
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
