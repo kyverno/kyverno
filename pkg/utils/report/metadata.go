@@ -115,7 +115,13 @@ func SetResourceUid(report reportsv1.ReportInterface, uid types.UID) {
 }
 
 func SetResourceGVR(report reportsv1.ReportInterface, gvr schema.GroupVersionResource) {
-	if gvr.Group != "" {
+	gvrString := gvr.Resource + "." + gvr.Version + "." + gvr.Group
+
+	if len(gvrString) > 63 {
+		controllerutils.SetLabel(report, LabelResourceGroup, gvr.Group)
+		controllerutils.SetLabel(report, LabelResourceVersion, gvr.Version)
+		controllerutils.SetLabel(report, AnnotationResourceName, gvr.Resource)
+	} else if gvr.Group != "" {
 		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version+"."+gvr.Group)
 	} else {
 		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version)
@@ -181,16 +187,29 @@ func GetResourceUid(report metav1.Object) types.UID {
 }
 
 func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
-	arg := controllerutils.GetLabel(report, LabelResourceGVR)
-	dots := strings.Count(arg, ".")
+	group := controllerutils.GetLabel(report, LabelResourceGroup)
+	version := controllerutils.GetLabel(report, LabelResourceVersion)
+	resource := controllerutils.GetLabel(report, AnnotationResourceName)
+	GVRstring := group + version + resource
+
+	// If all three parts exist, return the GVR
+	if group != "" && version != "" && resource != "" {
+		if len(GVRstring) > 63 {
+			return schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+		}
+	}
+
+	// Fallback to the old combined label
+	combinedGVR := controllerutils.GetLabel(report, LabelResourceGVR)
+	dots := strings.Count(combinedGVR, ".")
 	if dots >= 2 {
-		s := strings.SplitN(arg, ".", 3)
+		s := strings.SplitN(combinedGVR, ".", 3)
 		return schema.GroupVersionResource{Group: s[2], Version: s[1], Resource: s[0]}
 	} else if dots == 1 {
-		s := strings.SplitN(arg, ".", 2)
+		s := strings.SplitN(combinedGVR, ".", 2)
 		return schema.GroupVersionResource{Version: s[1], Resource: s[0]}
 	}
-	return schema.GroupVersionResource{Resource: arg}
+	return schema.GroupVersionResource{Resource: combinedGVR}
 }
 
 func GetResourceNamespaceAndName(report metav1.Object) (string, string) {
