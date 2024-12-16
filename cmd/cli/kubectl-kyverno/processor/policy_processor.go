@@ -43,6 +43,7 @@ type PolicyProcessor struct {
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 *variables.Variables
+	Cluster                   bool
 	UserInfo                  *kyvernov2.RequestInfo
 	PolicyReport              bool
 	NamespaceSelectorMap      map[string]map[string]string
@@ -72,6 +73,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if rclient == nil {
 		rclient = registryclient.NewOrDie()
 	}
+	isCluster := false
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
@@ -81,13 +83,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(p.Store, nil),
 		exceptions.New(policyExceptionLister),
+		&isCluster,
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
 	resourceKind := resource.GetKind()
 	resourceName := resource.GetName()
 	resourceNamespace := resource.GetNamespace()
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
-	if p.Client == nil {
+	if !p.Cluster {
 		for _, s := range p.Subresources {
 			subgvk := schema.GroupVersionKind{
 				Group:   s.Subresource.Group,
@@ -409,9 +412,6 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 		file = f
 	}
 	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
-		if err := file.Close(); err != nil {
-			log.Log.Error(err, "failed to close file")
-		}
 		return err
 	}
 	if err := file.Close(); err != nil {

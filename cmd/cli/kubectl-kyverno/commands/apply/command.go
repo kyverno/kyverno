@@ -34,6 +34,7 @@ import (
 	"github.com/spf13/cobra"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -53,6 +54,7 @@ type ApplyCommandConfig struct {
 	Variables             []string
 	ValuesFile            string
 	UserInfoPath          string
+	ParamResources        []string
 	Cluster               bool
 	PolicyReport          bool
 	Stdin                 bool
@@ -139,6 +141,7 @@ func Command() *cobra.Command {
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.ParamResources, "parameter-resource", "", []string{}, "Path to resource files that act as validating admission policy parameters")
 	cmd.Flags().StringVarP(&applyCommandConfig.ValuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
 	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
@@ -189,11 +192,22 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
 	var store store.Store
-	rc, resources1, skipInvalidPolicies, responses1, dClient, err := c.initStoreAndClusterClient(&store, skipInvalidPolicies)
+	rc, resources1, skipInvalidPolicies, responses1, policies, vaps, vapBindings, err := c.loadPolicies(skipInvalidPolicies)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	rc, resources1, skipInvalidPolicies, responses1, policies, vaps, vapBindings, err := c.loadPolicies(skipInvalidPolicies)
+
+	paramResourcesUnstructured, err := common.GetResources(out, policies, vaps, c.ParamResources, nil, false, "", false)
+	if err != nil {
+		return rc, resources1, skipInvalidPolicies, responses1, err
+	}
+
+	paramResources := []runtime.Object{}
+	for _, p := range paramResourcesUnstructured {
+		paramResources = append(paramResources, p)
+	}
+
+	rc, resources1, skipInvalidPolicies, responses1, dClient, err := c.initStoreAndClusterClient(&store, skipInvalidPolicies)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
@@ -238,7 +252,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	responses2, err := c.applyValidatingAdmissionPolicytoResource(vaps, vapBindings, resources1, variables.NamespaceSelectors(), rc, dClient)
+	responses2, err := c.applyValidatingAdmissionPolicytoResource(vaps, vapBindings, paramResources, resources1, variables.NamespaceSelectors(), rc, dClient)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
@@ -259,6 +273,7 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedIn
 func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 	vaps []admissionregistrationv1beta1.ValidatingAdmissionPolicy,
 	vapBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
+	params []runtime.Object,
 	resources []*unstructured.Unstructured,
 	namespaceSelectorMap map[string]map[string]string,
 	rc *processor.ResultCounts,
@@ -272,8 +287,10 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
 			Resource:             resource,
 			NamespaceSelectorMap: namespaceSelectorMap,
 			PolicyReport:         c.PolicyReport,
+			Params:               params,
 			Rc:                   rc,
 			Client:               dClient,
+			IsCluster:            c.Cluster,
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
