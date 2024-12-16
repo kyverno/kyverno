@@ -634,7 +634,7 @@ jobs:
           upgrade-scenario: ${{ matrix.upgrade }}
 
   custom-sigstore:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       packages: read
     strategy:
