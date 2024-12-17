@@ -68,14 +68,14 @@
       {{- $newWebhooks = merge $newWebhooks (dict $webhook.name $newWebhook) }}
     {{- end -}}
   {{- end -}}
-  {{- $newWebhooks | toJson | nindent 2 }}
+  {{- $newWebhooks | toJson }}
 {{- else -}}
   {{- $webhook := $webhooks }}
   {{- $namespaceSelector := default (dict) $webhook.namespaceSelector }}
   {{- $matchExpressions := default (list) $namespaceSelector.matchExpressions }}
   {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
   {{- $newWebhook := merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector) }}
-  {{- $newWebhook | toJson | nindent 2 }}
+  {{- $newWebhook | toJson }}
 {{- end -}}
 {{- end -}}
 
