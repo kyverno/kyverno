@@ -101,8 +101,6 @@ func (h validatePssHandler) validate(
 		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to parse pod security api version", err, rule.ReportProperties)
 	}
 	allowed, pssChecks := pss.EvaluatePod(levelVersion, podSecurity.Exclude, pod)
-	pssChecks = convertChecks(pssChecks, resource.GetKind())
-	pssChecks = addImages(pssChecks, policyContext.JSONContext().ImageInfo())
 	podSecurityChecks := engineapi.PodSecurityChecks{
 		Level:   podSecurity.Level,
 		Version: podSecurity.Version,
@@ -131,6 +129,9 @@ func (h validatePssHandler) validate(
 			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks)
 		}
+		pssChecks = convertChecks(pssChecks, resource.GetKind())
+		pssChecks = addImages(pssChecks, policyContext.JSONContext().ImageInfo())
+		podSecurityChecks.Checks = pssChecks
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
 		var action kyvernov1.ValidationFailureAction
