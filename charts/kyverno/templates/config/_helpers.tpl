@@ -56,12 +56,27 @@
 
 {{- define "kyverno.config.webhooks" -}}
 {{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list (include "kyverno.namespace" .)) }}
-{{- $webhook := .Values.config.webhooks }}
-{{- $namespaceSelector := default dict $webhook.namespaceSelector }}
-{{- $matchExpressions := default list $namespaceSelector.matchExpressions }}
-{{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
-{{- $newWebhook := merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector) }}
-{{- $newWebhook | toJson }}
+{{- $webhooks := .Values.config.webhooks -}}
+{{- if $webhooks | typeIs "slice" -}}
+  {{- $newWebhooks := dict -}}
+  {{- range $index, $webhook := $webhooks -}}
+    {{- if $webhook.namespaceSelector -}}
+      {{- $namespaceSelector := $webhook.namespaceSelector }}
+      {{- $matchExpressions := default (list) $namespaceSelector.matchExpressions }}
+      {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
+      {{- $newWebhook := merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector) }}
+      {{- $newWebhooks = merge $newWebhooks (dict $webhook.name $newWebhook) }}
+    {{- end -}}
+  {{- end -}}
+  {{- $newWebhooks | toJson }}
+{{- else -}}
+  {{- $webhook := $webhooks }}
+  {{- $namespaceSelector := default (dict) $webhook.namespaceSelector }}
+  {{- $matchExpressions := default (list) $namespaceSelector.matchExpressions }}
+  {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
+  {{- $newWebhook := merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector) }}
+  {{- $newWebhook | toJson }}
+{{- end -}}
 {{- end -}}
 
 {{- define "kyverno.config.imagePullSecret" -}}
