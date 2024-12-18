@@ -186,7 +186,13 @@ func printTestResult(
 			// lookup matching engine responses (with the resource name this time)
 			for _, response := range lookupEngineResponses(test, resource, responses...) {
 				// lookup matching rule responses
-				for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
+				var rulesToCheck []engineapi.RuleResponse
+				if test.Rule == "" {
+					rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
+				} else {
+					rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
+				}
+				for _, rule := range rulesToCheck {
 					// perform test checks
 					ok, message, reason := checkResult(test, fs, resoucePath, response, rule)
 					// if checks failed but we were expecting a fail it's considered a success
@@ -195,7 +201,7 @@ func printTestResult(
 						RowCompact: table.RowCompact{
 							ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
-							Rule:      color.Rule(test.Rule),
+							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(test.Kind, test.Namespace, resource),
 							Reason:    reason,
 							IsFailure: !success,
