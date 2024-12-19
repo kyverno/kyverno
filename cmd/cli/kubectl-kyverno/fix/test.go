@@ -37,7 +37,7 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			messages = append(messages, "test result should not use both `resource` and `resources` fields")
 		}
 		if result.Resource != "" {
-			var resources []string
+			var resources []any
 			messages = append(messages, "test result uses deprecated `resource` field, moving it into the `resources` field")
 			resources = append(resources, result.Resources...)
 			resources = append(resources, result.Resource)
@@ -67,7 +67,13 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 	if compress {
 		compressed := map[v1alpha1.TestResultBase][]string{}
 		for _, result := range results {
-			compressed[result.TestResultBase] = append(compressed[result.TestResultBase], result.Resources...)
+			resourcesAsStringArray := []string{}
+			for _, resource := range result.Resources {
+				if r, ok := resource.(string); ok {
+					resourcesAsStringArray = append(resourcesAsStringArray, r)
+				}
+			}
+			compressed[result.TestResultBase] = append(compressed[result.TestResultBase], resourcesAsStringArray...)
 		}
 		results = nil
 		for k, v := range compressed {
@@ -76,9 +82,13 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 				messages = append(messages, "test results contains duplicate resources")
 				v = unique.UnsortedList()
 			}
+			anyArray := make([]interface{}, len(v))
+			for i, r := range v {
+				anyArray[i] = r
+			}
 			results = append(results, v1alpha1.TestResult{
 				TestResultBase: k,
-				Resources:      v,
+				Resources:      anyArray,
 			})
 		}
 	}
@@ -104,14 +114,25 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 		if x := cmp.Compare(a.CloneSourceResource, b.CloneSourceResource); x != 0 {
 			return x
 		}
-		slices.Sort(a.Resources)
-		slices.Sort(b.Resources)
+		asArray1 := []string{}
+		for _, r := range a.Resources {
+			resourceString, _ := r.(string)
+			asArray1 = append(asArray1, resourceString)
+		}
+		asArray2 := []string{}
+		for _, r := range b.Resources {
+			resourceString, _ := r.(string)
+			asArray2 = append(asArray1, resourceString)
+		}
+		slices.Sort(asArray1)
+		slices.Sort(asArray2)
+
 		if x := cmp.Compare(len(a.Resources), len(b.Resources)); x != 0 {
 			return x
 		}
 		if len(a.Resources) == len(b.Resources) {
 			for i := range a.Resources {
-				if x := cmp.Compare(a.Resources[i], b.Resources[i]); x != 0 {
+				if x := cmp.Compare(asArray1[i], asArray2[i]); x != 0 {
 					return x
 				}
 			}
