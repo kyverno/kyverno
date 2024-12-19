@@ -25,11 +25,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	regex "github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	validationpolicy "github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -97,7 +99,13 @@ func NewGenerateController(
 	return &c
 }
 
-func (c *GenerateController) collectTriggers(ruleContext []kyvernov2.RuleContext) (map[types.UID]unstructured.Unstructured, error) {
+type triggers struct {
+	logger           logr.Logger
+	admissionRequest *admissionv1.AdmissionRequest
+	byUID            map[types.UID]unstructured.Unstructured
+}
+
+func (c *GenerateController) collectTriggers(logger logr.Logger, admissionRequest *admissionv1.AdmissionRequest, ruleContext []kyvernov2.RuleContext) (*triggers, error) {
 	resourceTypes := map[schema.GroupVersionKind]map[string]struct{}{}
 
 	for _, rule := range ruleContext {
@@ -112,7 +120,7 @@ func (c *GenerateController) collectTriggers(ruleContext []kyvernov2.RuleContext
 		resourceTypes[gvk][rule.Trigger.Namespace] = struct{}{}
 	}
 
-	triggers := map[types.UID]unstructured.Unstructured{}
+	byUID := map[types.UID]unstructured.Unstructured{}
 
 	for gvk, namespaces := range resourceTypes {
 		for ns := range namespaces {
@@ -122,12 +130,82 @@ func (c *GenerateController) collectTriggers(ruleContext []kyvernov2.RuleContext
 			}
 
 			for _, item := range items.Items {
-				triggers[item.GetUID()] = item
+				byUID[item.GetUID()] = item
 			}
 		}
 	}
 
-	return triggers, nil
+	return &triggers{
+		logger:           logger,
+		admissionRequest: admissionRequest,
+		byUID:            byUID,
+	}, nil
+}
+
+func (t *triggers) getTrigger(trigger kyvernov1.ResourceSpec) (unstructured.Unstructured, error) {
+	t.logger.V(4).Info("fetching trigger", "trigger", trigger.String())
+	if t.admissionRequest == nil {
+		obj, ok := t.byUID[trigger.UID]
+		if !ok {
+			return unstructured.Unstructured{}, fmt.Errorf("trigger resource does not exist")
+		}
+		return obj, nil
+	} else {
+		switch t.admissionRequest.Operation {
+		case admissionv1.Delete:
+			return t.getTriggerForDeleteOperation(trigger)
+		case admissionv1.Create:
+			return t.getTriggerForCreateOperation(trigger)
+		default:
+			newResource, oldResource, err := admission.ExtractResources(nil, *t.admissionRequest)
+			if err != nil {
+				t.logger.Error(err, "failed to extract resources from admission review request")
+				return unstructured.Unstructured{}, err
+			}
+
+			trigger := newResource
+			if newResource.Object == nil {
+				trigger = oldResource
+			}
+			return trigger, nil
+		}
+	}
+}
+
+func (t *triggers) getTriggerForDeleteOperation(trigger kyvernov1.ResourceSpec) (unstructured.Unstructured, error) {
+	_, oldResource, err := admission.ExtractResources(nil, *t.admissionRequest)
+	if err != nil {
+		return unstructured.Unstructured{}, fmt.Errorf("failed to load resource from context: %w", err)
+	}
+	labels := oldResource.GetLabels()
+	if labels[common.GeneratePolicyLabel] != "" {
+		// non-trigger deletion, get trigger from ur spec
+		t.logger.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", trigger.String())
+		obj, ok := t.byUID[trigger.UID]
+		if !ok {
+			return unstructured.Unstructured{}, fmt.Errorf("trigger resource does not exist")
+		}
+		return obj, nil
+	}
+	return oldResource, nil
+}
+
+func (t *triggers) getTriggerForCreateOperation(trigger kyvernov1.ResourceSpec) (unstructured.Unstructured, error) {
+	obj, ok := t.byUID[trigger.UID]
+	if !ok {
+		if t.admissionRequest.SubResource == "" {
+			return unstructured.Unstructured{}, fmt.Errorf("trigger resource does not found")
+		} else {
+			t.logger.V(4).Info("trigger resource not found for subresource, reverting to resource in AdmissionReviewRequest", "subresource", t.admissionRequest.SubResource)
+			newResource, _, err := admission.ExtractResources(nil, *t.admissionRequest)
+			if err != nil {
+				t.logger.Error(err, "failed to extract resources from admission review request")
+				return unstructured.Unstructured{}, err
+			}
+			return newResource, nil
+		}
+	}
+	return obj, nil
 }
 
 func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
@@ -141,16 +219,15 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		return fmt.Errorf("error in fetching policy: %v", err)
 	}
 
-	triggers, err := c.collectTriggers(ur.Spec.RuleContext)
+	triggers, err := c.collectTriggers(logger, ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest, ur.Spec.RuleContext)
 	if err != nil {
 		return fmt.Errorf("collect triggers: %w", err)
 	}
 
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		rule := ur.Spec.RuleContext[i]
-		trigger, ok := triggers[rule.Trigger.UID]
-		if !ok {
-			logger.V(4).Info("the trigger resource does not exist or is pending creation")
+		trigger, err := triggers.getTrigger(rule.Trigger)
+		if err != nil {
 			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: %v", rule.Rule, err))
 			continue
 		}
