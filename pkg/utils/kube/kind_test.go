@@ -178,6 +178,9 @@ func TestParseKindSelector(t *testing.T) {
 		args: args{"apps/v1/Deployment.scale"},
 		want: want{"apps", "v1", "Deployment", "scale"},
 	}, {
+		args: args{"v1.demo/v1/Demo"},
+		want: want{"v1.demo", "v1", "Demo", ""},
+	}, {
 		args: args{"*/scale"},
 		want: want{"*", "*", "*", "scale"},
 	}, {
