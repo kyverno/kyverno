@@ -131,7 +131,7 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.cleanupController.featuresOverride)
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.cleanupController.featuresOverride)
               "deferredLoading"
               "dumpPayload"
               "globalContext"
