@@ -4,6 +4,7 @@ metadata:
   name: configuration
 spec:
   timeouts:
+    apply: 30s
     assert: 90s
     error: 90s
   parallel: 1
