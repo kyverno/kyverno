@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-existing-secret
+spec:
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - dictionary-1
+          namespaces:
+          - staging
+    mutate:
+      mutateExistingOnPolicyUpdate: false
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: bar
+      targets:
+      - apiVersion: v1
+        kind: Secret
+        name: secret-1
+        namespace: staging
+    name: mutate-secret-on-configmap-create
