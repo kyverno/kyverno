@@ -86,7 +86,7 @@ func ExpandStaticKeys(attestorSet kyvernov1.AttestorSet) kyvernov1.AttestorSet {
 		if e.Keys != nil {
 			keys := splitPEM(e.Keys.PublicKeys)
 			if len(keys) > 1 {
-				moreEntries := createStaticKeyAttestors(keys)
+				moreEntries := createStaticKeyAttestors(keys, e)
 				entries = append(entries, moreEntries...)
 				continue
 			}
@@ -107,15 +107,12 @@ func splitPEM(pem string) []string {
 	return keys[0 : len(keys)-1]
 }
 
-func createStaticKeyAttestors(keys []string) []kyvernov1.Attestor {
+func createStaticKeyAttestors(keys []string, base kyvernov1.Attestor) []kyvernov1.Attestor {
 	attestors := make([]kyvernov1.Attestor, 0, len(keys))
 	for _, k := range keys {
-		a := kyvernov1.Attestor{
-			Keys: &kyvernov1.StaticKeyAttestor{
-				PublicKeys: k,
-			},
-		}
-		attestors = append(attestors, a)
+		a := base.DeepCopy()
+		a.Keys.PublicKeys = k
+		attestors = append(attestors, *a)
 	}
 	return attestors
 }
