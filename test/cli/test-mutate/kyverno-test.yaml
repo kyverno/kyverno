@@ -15,13 +15,6 @@ results:
   result: pass
   rule: add-label
 - kind: Pod
-  patchedResources: patchedResource3.yaml
-  policy: add-label
-  resources:
-  - production/same-name-but-diff-namespace
-  result: pass
-  rule: add-label
-- kind: Pod
   patchedResources: patchedResource6.yaml
   policy: add-label
   resources:
@@ -33,6 +26,13 @@ results:
   policy: add-label
   resources:
   - testing/same-name-but-diff-namespace
+  result: pass
+  rule: add-label
+- kind: Pod
+  patchedResources: patchedResource3.yaml
+  policy: add-label
+  resources:
+  - production/same-name-but-diff-namespace
   result: pass
   rule: add-label
 - kind: Pod
