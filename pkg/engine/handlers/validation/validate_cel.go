@@ -30,14 +30,12 @@ import (
 )
 
 type validateCELHandler struct {
-	client    engineapi.Client
-	isCluster bool
+	client engineapi.Client
 }
 
-func NewValidateCELHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
+func NewValidateCELHandler(client engineapi.Client) (handlers.Handler, error) {
 	return validateCELHandler{
-		client:    client,
-		isCluster: isCluster,
+		client: client,
 	}, nil
 }
 
@@ -142,7 +140,7 @@ func (h validateCELHandler) Process(
 		ns = ""
 	}
 	if ns != "" {
-		if h.client != nil && h.isCluster {
+		if h.client != nil {
 			namespace, err = h.client.GetNamespace(ctx, ns, metav1.GetOptions{})
 			if err != nil {
 				return resource, handlers.WithResponses(

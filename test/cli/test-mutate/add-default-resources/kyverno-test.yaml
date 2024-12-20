@@ -8,17 +8,17 @@ resources:
 - resource.yaml
 results:
 - kind: Pod
-  patchedResources: patchedResource3.yaml
-  policy: add-default-resources
-  resources:
-  - nginx-demo3
-  result: pass
-  rule: add-default-requests
-- kind: Pod
   patchedResources: patchedResource1.yaml
   policy: add-default-resources
   resources:
   - nginx-demo1
+  result: pass
+  rule: add-default-requests
+- kind: Pod
+  patchedResources: patchedResource3.yaml
+  policy: add-default-resources
+  resources:
+  - nginx-demo3
   result: pass
   rule: add-default-requests
 - kind: Pod

@@ -18,6 +18,3 @@ var ExceptionTemplate string
 
 //go:embed metrics-config.yaml
 var MetricsConfigTemplate string
-
-//go:embed aggregated-role.yaml
-var AggregatedRoleTemplate string
