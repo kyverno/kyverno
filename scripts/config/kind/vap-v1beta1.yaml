@@ -3,6 +3,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 featureGates:
   ValidatingAdmissionPolicy: true
 runtimeConfig:
+  admissionregistration.k8s.io/v1alpha1: true # Needed only for the upgrade conformance tests
   admissionregistration.k8s.io/v1beta1: true
 kubeadmConfigPatches:
   - |-

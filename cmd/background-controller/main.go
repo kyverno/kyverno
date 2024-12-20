@@ -11,6 +11,7 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -28,13 +29,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
-)
-
-const (
-	resyncPeriod = 15 * time.Minute
 )
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
@@ -54,6 +52,8 @@ func createrLeaderControllers(
 	jp jmespath.Interface,
 	backgroundScanInterval time.Duration,
 	urGenerator generator.UpdateRequestGenerator,
+	reportsConfig reportutils.ReportingConfiguration,
+	reportsBreaker breaker.Breaker,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -85,6 +85,8 @@ func createrLeaderControllers(
 		eventGenerator,
 		configuration,
 		jp,
+		reportsConfig,
+		reportsBreaker,
 	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
@@ -98,12 +100,15 @@ func main() {
 		maxQueuedEvents          int
 		omitEvents               string
 		maxAPICallResponseLength int64
+		maxBackgroundReports     int
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
+	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies.")
+
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -122,6 +127,7 @@ func main() {
 		internal.WithApiServerClient(),
 		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
+		internal.WithReporting(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -148,7 +154,7 @@ func main() {
 			os.Exit(1)
 		}
 		// informer factories
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
@@ -198,6 +204,18 @@ func main() {
 			polexCache,
 			gcstore,
 		)
+		ephrs, err := breaker.StartBackgroundReportsCounter(signalCtx, setup.MetadataClient)
+		if err != nil {
+			setup.Logger.Error(err, "failed to start background-scan reports watcher")
+			os.Exit(1)
+		}
+		reportsBreaker := breaker.NewBreaker("background scan reports", func(context.Context) bool {
+			count, isRunning := ephrs.Count()
+			if !isRunning {
+				return true
+			}
+			return count > maxBackgroundReports
+		})
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
@@ -214,8 +232,8 @@ func main() {
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
 				// create leader factories
-				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
+				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				// create leader controllers
 				leaderControllers, err := createrLeaderControllers(
 					engine,
@@ -230,6 +248,8 @@ func main() {
 					setup.Jp,
 					bgscanInterval,
 					urGenerator,
+					setup.ReportingConfiguration,
+					reportsBreaker,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")

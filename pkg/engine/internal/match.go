@@ -54,6 +54,9 @@ func checkResourceFilters(configuration config.Configuration, gvk schema.GroupVe
 func checkNamespacedPolicy(policy kyvernov1.PolicyInterface, resources ...unstructured.Unstructured) bool {
 	if policy.IsNamespaced() {
 		policyNamespace := policy.GetNamespace()
+		if policyNamespace == "" {
+			policyNamespace = "default"
+		}
 		for _, resource := range resources {
 			if resource.Object != nil {
 				resourceNamespace := resource.GetNamespace()

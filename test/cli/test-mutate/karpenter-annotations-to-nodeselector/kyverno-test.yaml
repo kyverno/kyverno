@@ -14,7 +14,7 @@ results:
   result: pass
   rule: hard-nodeselector-lifecycle-on-demand
 - kind: Pod
-  patchedResource: patched.yaml
+  patchedResources: patched.yaml
   policy: karpenter-annotations-to-nodeselector
   resources:
   - soft-pod-antiaffinity-1

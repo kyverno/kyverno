@@ -16,6 +16,7 @@ import (
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
@@ -112,20 +113,31 @@ func (h validateAssertHandler) Process(
 	}
 	// compose a response
 	if len(errs) != 0 {
-		allowExisitingViolations := rule.HasValidateAllowExistingViolations()
-		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
-			errs, err := validateOldObject(ctx, policyContext, rule, payload, bindings)
-			if err != nil {
-				logger.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name, "error", err.Error())
-				return resource, handlers.WithSkip(rule, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed")
-			}
+		var action kyvernov1.ValidationFailureAction
+		if rule.Validation.FailureAction != nil {
+			action = *rule.Validation.FailureAction
+		} else {
+			action = policyContext.Policy().GetSpec().ValidationFailureAction
+		}
 
-			logger.V(3).Info("old object verification", "errors", errs)
-			if len(errs) != 0 {
-				logger.V(3).Info("skipping modified resource as validation results have not changed")
-				return resource, handlers.WithSkip(rule, engineapi.Validation, "skipping modified resource as validation results have not changed")
+		// process the old object for UPDATE admission requests in case of enforce policies
+		if action.Enforce() {
+			allowExisitingViolations := rule.HasValidateAllowExistingViolations()
+			if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
+				errs, err := validateOldObject(ctx, logger, policyContext, rule, payload, bindings)
+				if err != nil {
+					logger.V(4).Info("warning: failed to validate old object", "rule", rule.Name, "error", err.Error())
+					return resource, handlers.WithSkip(rule, engineapi.Validation, "failed to validate old object")
+				}
+
+				logger.V(3).Info("old object verification", "errors", errs)
+				if len(errs) != 0 {
+					logger.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name)
+					return resource, handlers.WithSkip(rule, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed")
+				}
 			}
 		}
+
 		var responses []*engineapi.RuleResponse
 		for _, err := range errs {
 			responses = append(responses, engineapi.RuleFail(rule.Name, engineapi.Validation, err.Error(), rule.ReportProperties))
@@ -138,25 +150,37 @@ func (h validateAssertHandler) Process(
 	)
 }
 
-func validateOldObject(ctx context.Context, policyContext engineapi.PolicyContext, rule kyvernov1.Rule, payload map[string]any, bindings binding.Bindings) (field.ErrorList, error) {
+func validateOldObject(ctx context.Context, logger logr.Logger, policyContext engineapi.PolicyContext, rule kyvernov1.Rule, payload map[string]any, bindings binding.Bindings) (errs field.ErrorList, err error) {
 	if policyContext.Operation() != kyvernov1.Update {
 		return nil, nil
 	}
 
 	oldResource := policyContext.OldResource()
 
-	if ok := matchResource(oldResource, rule); !ok {
-		return nil, nil
+	if err := policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
+		return nil, errors.Wrapf(err, "failed to set operation")
 	}
 
 	payload["object"] = policyContext.OldResource().Object
 	payload["oldObject"] = nil
 	payload["operation"] = kyvernov1.Create
 
-	asserttion := assert.Parse(ctx, rule.Validation.Assert.Value)
-	errs, err := assert.Assert(ctx, nil, asserttion, payload, bindings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to apply assertion: %w", err)
+	defer func() {
+		if err = policyContext.SetOperation(kyvernov1.Update); err != nil {
+			logger.Error(errors.Wrapf(err, "failed to reset operation"), "")
+		}
+
+		payload["object"] = policyContext.NewResource().Object
+		payload["oldObject"] = policyContext.OldResource().Object
+		payload["operation"] = kyvernov1.Update
+	}()
+
+	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); !ok {
+		return
 	}
-	return errs, nil
+
+	assertion := assert.Parse(ctx, rule.Validation.Assert.Value)
+	errs, err = assert.Assert(ctx, nil, assertion, payload, bindings)
+
+	return
 }

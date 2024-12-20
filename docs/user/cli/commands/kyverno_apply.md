@@ -51,7 +51,7 @@ kyverno apply [flags]
   -h, --help                               help for apply
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
-  -o, --output string                      Prints the mutated resources in provided file/directory
+  -o, --output string                      Prints the mutated/generated resources in provided file/directory
   -p, --policy-report                      Generates policy report when passed (default policyviolation)
       --registry                           If set to true, access the image registry using local docker credentials to populate external data
       --remove-color                       Remove any color from output
@@ -60,6 +60,8 @@ kyverno apply [flags]
   -s, --set strings                        Variables that are required
   -i, --stdin                              Optional mutate policy parameter to pipe directly through to kubectl
   -t, --table                              Show results in table format
+      --target-resource strings            Path to individual files containing target resources files for policies that have mutate existing
+      --target-resources strings           Path to a directory containing target resources files for policies that have mutate existing
   -u, --userinfo string                    Admission Info including Roles, Cluster Roles and Subjects
   -f, --values-file string                 File containing values for policy variables
       --warn-exit-code int                 Set the exit code for warnings; if failures or errors are found, will exit 1

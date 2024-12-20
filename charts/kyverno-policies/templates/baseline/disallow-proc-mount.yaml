@@ -14,8 +14,8 @@ metadata:
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity }}
     {{- end }}
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: 1.6.0
-    kyverno.io/kubernetes-version: "1.22-1.23"
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
     policies.kyverno.io/description: >-
       The default /proc masks are set up to reduce attack surface and should be required. This policy
       ensures nothing but the default procMount can be specified. Note that in order for users
@@ -32,7 +32,7 @@ spec:
         - resources:
             kinds:
               - Pod
-      {{- with index .Values "policyExclude" $name }}
+      {{- with merge (index .Values "policyExclude" "check-proc-mount") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -52,6 +52,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Changing the proc mount from the default is not allowed. The fields
           spec.containers[*].securityContext.procMount, spec.initContainers[*].securityContext.procMount,

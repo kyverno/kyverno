@@ -101,8 +101,6 @@ func (h validatePssHandler) validate(
 		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to parse pod security api version", err, rule.ReportProperties)
 	}
 	allowed, pssChecks := pss.EvaluatePod(levelVersion, podSecurity.Exclude, pod)
-	pssChecks = convertChecks(pssChecks, resource.GetKind())
-	pssChecks = addImages(pssChecks, policyContext.JSONContext().ImageInfo())
 	podSecurityChecks := engineapi.PodSecurityChecks{
 		Level:   podSecurity.Level,
 		Version: podSecurity.Version,
@@ -131,25 +129,36 @@ func (h validatePssHandler) validate(
 			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks)
 		}
+		pssChecks = convertChecks(pssChecks, resource.GetKind())
+		pssChecks = addImages(pssChecks, policyContext.JSONContext().ImageInfo())
+		podSecurityChecks.Checks = pssChecks
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
-		allowExisitingViolations := rule.HasValidateAllowExistingViolations()
-		if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
-			logger.V(4).Info("is update request")
-			priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
-			if err != nil {
-				logger.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name, "error", err.Error())
-				return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed", rule.ReportProperties)
-			}
+		var action kyvernov1.ValidationFailureAction
+		if rule.Validation.FailureAction != nil {
+			action = *rule.Validation.FailureAction
+		} else {
+			action = policyContext.Policy().GetSpec().ValidationFailureAction
+		}
 
-			if ruleResponse.Status() == priorResp.Status() {
-				logger.V(3).Info("skipping modified resource as validation results have not changed", "oldResp", priorResp, "newResp", ruleResponse)
-				if ruleResponse.Status() == engineapi.RuleStatusPass {
-					return resource, ruleResponse
+		// process the old object for UPDATE admission requests in case of enforce policies
+		if action.Enforce() {
+			allowExisitingViolations := rule.HasValidateAllowExistingViolations()
+			if engineutils.IsUpdateRequest(policyContext) && allowExisitingViolations {
+				priorResp, err := h.validateOldObject(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
+				if err != nil {
+					logger.V(4).Info("warning: failed to validate old object", "rule", rule.Name, "error", err.Error())
+					return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object", rule.ReportProperties)
 				}
-				return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed", rule.ReportProperties)
+
+				if ruleResponse.Status() == priorResp.Status() {
+					logger.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "oldResp", priorResp, "newResp", ruleResponse)
+					if ruleResponse.Status() == engineapi.RuleStatusPass {
+						return resource, ruleResponse
+					}
+					return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", rule.ReportProperties)
+				}
 			}
-			logger.V(4).Info("old object response is different", "oldResp", priorResp, "newResp", ruleResponse)
 		}
 
 		return resource, ruleResponse
@@ -164,7 +173,7 @@ func (h validatePssHandler) validateOldObject(
 	rule kyvernov1.Rule,
 	engineLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
-) (*engineapi.RuleResponse, error) {
+) (resp *engineapi.RuleResponse, err error) {
 	if policyContext.Operation() != kyvernov1.Update {
 		return nil, nil
 	}
@@ -173,27 +182,30 @@ func (h validatePssHandler) validateOldObject(
 	oldResource := policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if ok := matchResource(oldResource, rule); !ok {
-		return nil, nil
-	}
-	if err := policyContext.SetResources(emptyResource, oldResource); err != nil {
+	if err = policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")
 	}
-	if err := policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
+	if err = policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
 		return nil, errors.Wrapf(err, "failed to set operation")
 	}
 
-	_, resp := h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
+	defer func() {
+		if err = policyContext.SetResources(oldResource, newResource); err != nil {
+			logger.Error(errors.Wrapf(err, "failed to reset resources"), "")
+		}
 
-	if err := policyContext.SetResources(oldResource, newResource); err != nil {
-		return nil, errors.Wrapf(err, "failed to reset resources")
+		if err = policyContext.SetOperation(kyvernov1.Update); err != nil {
+			logger.Error(errors.Wrapf(err, "failed to reset operations"), "")
+		}
+	}()
+
+	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); !ok {
+		return
 	}
 
-	if err := policyContext.SetOperation(kyvernov1.Update); err != nil {
-		return nil, errors.Wrapf(err, "failed to reset operation")
-	}
+	_, resp = h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
 
-	return resp, nil
+	return
 }
 
 func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []pssutils.PSSCheckResult) {

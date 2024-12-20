@@ -716,7 +716,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &audit,
 							},
 						},
@@ -731,7 +731,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 							},
 						},
@@ -772,7 +772,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
@@ -791,7 +791,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     "invalid",
@@ -969,7 +969,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
@@ -989,7 +989,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
@@ -1012,7 +1012,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action: kyvernov1.Audit,
@@ -1039,7 +1039,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action: kyvernov1.Audit,
@@ -1066,7 +1066,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
@@ -1094,7 +1094,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
@@ -1122,7 +1122,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,
@@ -1150,7 +1150,7 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				Spec: kyvernov1.Spec{
 					Rules: []kyvernov1.Rule{
 						{
-							Validation: kyvernov1.Validation{
+							Validation: &kyvernov1.Validation{
 								FailureAction: &enforce,
 								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 									Action:     kyvernov1.Audit,

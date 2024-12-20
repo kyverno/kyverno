@@ -1,0 +1,46 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+status:
+  autogen:
+    rules:
+    - match:
+        any:
+        - resources:
+            kinds:
+            - DaemonSet
+            - Deployment
+            - Job
+            - ReplicaSet
+            - ReplicationController
+            - StatefulSet
+      name: autogen-validate-registries
+      skipBackgroundRequests: true
+      validate:
+        message: Images may only come from our internal enterprise registry.
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                - image: registry.domain.com/*
+        failureAction: Enforce
+    - match:
+        any:
+        - resources:
+            kinds:
+            - CronJob
+      name: autogen-cronjob-validate-registries
+      skipBackgroundRequests: true
+      validate:
+        message: Images may only come from our internal enterprise registry.
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    containers:
+                    - image: registry.domain.com/*
+        failureAction: Enforce

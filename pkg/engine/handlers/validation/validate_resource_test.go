@@ -72,7 +72,7 @@ var (
 						"UPDATE"
 					  ],
 					  "kinds": [
-						"Namespace"
+						"Pod"
 					  ]
 					}
 				  }
@@ -100,7 +100,7 @@ var (
 						"UPDATE"
 					  ],
 					  "kinds": [
-						"Namespace"
+						"Pod"
 					  ]
 					}
 				  }
@@ -150,9 +150,9 @@ var (
         },
         "name": "check-image",
         "validate": {
-    			"failureAction": "Audit",
-					"allowExistingViolations": true,
-          "foreach": [
+    	    "failureAction": "Enforce",
+		      "allowExistingViolations": true,
+            "foreach": [
             {
               "deny": {
                 "conditions": {

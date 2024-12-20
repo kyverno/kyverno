@@ -1745,3 +1745,27 @@ func Test_SHA256(t *testing.T) {
 	assert.Assert(t, ok)
 	assert.Equal(t, str, "75c07bb807f2d80a85d34880b8af0c5f29f7c27577076ed5d0e4b427dee7dbcc")
 }
+
+func Test_SHA1(t *testing.T) {
+	jp, err := jmespathInterface.Query("sha1('Alice & Bob')")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	str, ok := result.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, str, "e3ec484930685a61b0f824cd684a68699d2b98c1")
+}
+
+func Test_MD5(t *testing.T) {
+	jp, err := jmespathInterface.Query("md5('Alice & Bob')")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	str, ok := result.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, str, "def42e1abd2462df1f9f0a4b3d488221")
+}

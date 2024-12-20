@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 )
 
 type entry struct {
@@ -135,12 +136,20 @@ func (e *entry) Stop() {
 }
 
 func updateStatus(ctx context.Context, gce *kyvernov2alpha1.GlobalContextEntry, kyvernoClient versioned.Interface, ready bool, reason string) error {
-	_, err := controllerutils.UpdateStatus(ctx, gce, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
-		if latest == nil {
-			return fmt.Errorf("failed to update status: %s", gce.Name)
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latestGCE, getErr := kyvernoClient.KyvernoV2alpha1().GlobalContextEntries().Get(ctx, gce.GetName(), metav1.GetOptions{})
+		if getErr != nil {
+			return getErr
 		}
-		latest.Status.SetReady(ready, reason)
-		return nil
+
+		updateErr := controllerutils.UpdateStatus(ctx, latestGCE, kyvernoClient.KyvernoV2alpha1().GlobalContextEntries(), func(latest *kyvernov2alpha1.GlobalContextEntry) error {
+			if latest == nil {
+				return fmt.Errorf("failed to update status: %s", gce.GetName())
+			}
+			latest.Status.SetReady(ready, reason)
+			return nil
+		}, nil)
+		return updateErr
 	})
-	return err
+	return retryErr
 }

@@ -2,26 +2,41 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: dyn-op-validate-and-mutate
 spec:
   steps:
-  - name: step-01
-    try:
-    - apply:
-        file: policy-01.yaml
-    - assert:
-        file: policy-assert1.yaml
+  - name: create policy
+    use:
+      template: ../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-01.yaml
+  - name: wait policy ready
+    use:
+      template: ../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: require-labels
   - name: step-02
     try:
     - assert:
         file: webhooks-02.yaml
-  - name: step-03
-    try:
-    - apply:
-        file: policy-03.yaml
-    - assert:
-        file: policy-assert2.yaml
+  - name: create policy
+    use:
+      template: ../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-03.yaml
+  - name: wait policy ready
+    use:
+      template: ../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: add-apparmor-annotations
   - name: step-04
     try:
     - assert:

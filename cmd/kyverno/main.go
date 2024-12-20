@@ -58,7 +58,6 @@ import (
 )
 
 const (
-	resyncPeriod                     = 15 * time.Minute
 	exceptionWebhookControllerName   = "exception-webhook-controller"
 	gctxWebhookControllerName        = "global-context-webhook-controller"
 	webhookControllerFinalizerName   = "kyverno.io/webhooks"
@@ -287,6 +286,7 @@ func main() {
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
+	flagset.Func(toggle.DumpMutatePatchesFlagName, toggle.DumpMutatePatchesDescription, toggle.DumpMutatePatches.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
@@ -319,6 +319,7 @@ func main() {
 		internal.WithApiServerClient(),
 		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
+		internal.WithReporting(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -344,9 +345,9 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, resyncPeriod)
-		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, resyncPeriod)
-		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), resyncPeriod)
+		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
+		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
+		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), setup.ResyncPeriod)
 		if !informers.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, caSecret, tlsSecret, kyvernoDeployment) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
@@ -362,9 +363,9 @@ func main() {
 			os.Exit(1)
 		}
 		// informer factories
-		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
+		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 
 		certRenewer := tls.NewCertRenewer(
 			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
@@ -478,8 +479,8 @@ func main() {
 			func(ctx context.Context) {
 				logger := setup.Logger.WithName("leader")
 				// create leader factories
-				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
+				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				// create leader controllers
 				leaderControllers, warmup, err := createrLeaderControllers(
 					generateValidatingAdmissionPolicy,
@@ -546,9 +547,9 @@ func main() {
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
-		ephrs, err := StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
-			setup.Logger.Error(errors.New("failed to start admission reports watcher"), "failed to start admission reports watcher")
+			setup.Logger.Error(err, "failed to start admission reports watcher")
 			os.Exit(1)
 		}
 		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
@@ -577,6 +578,7 @@ func main() {
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,
+			setup.ReportingConfiguration,
 			reportsBreaker,
 		)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{

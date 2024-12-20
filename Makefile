@@ -27,6 +27,7 @@ REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
 REPO_REPORTS         := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE)
 REPO_BACKGROUND      := $(REGISTRY)/$(REPO)/$(BACKGROUND_IMAGE)
 USE_CONFIG           ?= standard
+INSTALL_VERSION	     ?= 3.2.6
 
 #########
 # TOOLS #
@@ -697,11 +698,6 @@ codegen-helm-update-versions: ## Update helm charts versions
 	@$(SED) -i 's/appVersion: .*/appVersion: $(APP_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 	@$(SED) -i 's/kubeVersion: .*/kubeVersion: $(KUBE_CHART_VERSION)/' 	charts/kyverno/charts/grafana/Chart.yaml
 
-.PHONY: codegen-e2e-matrix
-codegen-e2e-matrix: ## Generate e2e tests matrix
-	@echo Generating e2e tests matrix... >&2
-	@(cd hack/chainsaw-matrix && go run . > ../../test/conformance/chainsaw/e2e-matrix.json)
-
 .PHONY: codegen-quick
 codegen-quick: ## Generate all generated code except client
 codegen-quick: codegen-deepcopy
@@ -709,7 +705,6 @@ codegen-quick: codegen-crds-all
 codegen-quick: codegen-docs-all
 codegen-quick: codegen-helm-all
 codegen-quick: codegen-manifest-all
-codegen-quick: codegen-e2e-matrix
 
 .PHONY: codegen-slow
 codegen-slow: ## Generate client code
@@ -799,15 +794,6 @@ verify-cli-tests: ## Check CLI test files are up to date
 	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code test/cli
 
-.PHONY: verify-e2e-matrix
-verify-e2e-matrix: ## Check e2e tests matrix is up to date
-verify-e2e-matrix: codegen-e2e-matrix
-	@echo Checking e2e tests matrix is up to date... >&2
-	@git --no-pager diff test/conformance/chainsaw
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-e2e-matrix".' >&2
-	@echo 'To correct this, locally run "make codegen-e2e-matrix", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code test/conformance/chainsaw
-
 .PHONY: verify-codegen
 verify-codegen: ## Verify all generated code and docs are up to date
 verify-codegen: verify-crds
@@ -817,7 +803,6 @@ verify-codegen: verify-docs
 verify-codegen: verify-helm
 verify-codegen: verify-manifests
 verify-codegen: verify-cli-crds
-verify-codegen: verify-e2e-matrix
 
 ##############
 # UNIT TESTS #
@@ -1049,7 +1034,17 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
 		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
 		--set crds.migration.image.tag=$(GIT_SHA) \
-		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml)
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
+		$(EXPLICIT_INSTALL_SETTINGS)
+
+.PHONY: kind-install-kyverno-from-repo
+kind-install-kyverno-from-repo: $(HELM) ## Install Kyverno Helm Chart from the Kyverno repo
+	@echo Install kyverno chart... >&2
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait \
+		--repo https://kyverno.github.io/kyverno/ kyverno \
+		--version $(INSTALL_VERSION) \
+		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
+		$(EXPLICIT_INSTALL_SETTINGS)
 
 .PHONY: kind-install-goldilocks
 kind-install-goldilocks: $(HELM) ## Install goldilocks helm chart
@@ -1080,6 +1075,10 @@ kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/standard/kyverno-reporter.yaml
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
+
+.PHONY: kind-admission-controller-image-name
+kind-admission-controller-image-name: ## Print admission controller image name
+	@echo -n $(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(GIT_SHA)
 
 ###########
 # ROLLOUT #
@@ -1143,8 +1142,8 @@ dev-lab-otel-collector: $(HELM) ## Deploy tempo helm chart
 .PHONY: dev-lab-metrics-server
 dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait \
-		--repo https://charts.bitnami.com/bitnami metrics-server \
+	@$(HELM) install metrics-server oci://registry-1.docker.io/bitnamicharts/metrics-server \
+		--namespace kube-system --wait \
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all

@@ -26,3 +26,7 @@ annotations:
       description: Remove spec.validationFailureAction field from policies as it is deprecated
     - kind: added
       description: Add spec.validate[*].failureAction field to policies
+    - kind: fixed
+      description: Fix the merging of policyExclude customizations to avoid wrong overrides
+    - kind: added
+      description: Add spec.validate[*].allowExistingViolations field to policies

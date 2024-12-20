@@ -22,7 +22,7 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 					},
 				}},
 			},
-			Validation: Validation{
+			Validation: &Validation{
 				Message:       "message",
 				RawAnyPattern: kyverno.ToAny("{"),
 			},
@@ -36,7 +36,7 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 						},
 					}},
 				}},
-			Validation: Validation{
+			Validation: &Validation{
 				Message:       "message",
 				RawAnyPattern: kyverno.ToAny("{"),
 			},

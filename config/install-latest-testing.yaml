@@ -86,6 +86,8 @@ data:
     [Pod/binding,*,*]
     [ReplicaSet,*,*]
     [ReplicaSet/*,*,*]
+    [EphemeralReport,*,*]
+    [ClusterEphemeralReport,*,*]
     [ClusterRole,*,kyverno:admission-controller]
     [ClusterRole,*,kyverno:admission-controller:core]
     [ClusterRole,*,kyverno:admission-controller:additional]
@@ -173,7 +175,7 @@ data:
     [Secret,kyverno,kyverno-svc.kyverno.svc.*]
     [Secret,kyverno,kyverno-cleanup-controller.kyverno.svc.*]
   updateRequestThreshold: "1000"
-  webhooks: "[{\"namespaceSelector\":{\"matchExpressions\":[{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kube-system\"]},{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kyverno\"]}],\"matchLabels\":null}}]"
+  webhooks: "{\"namespaceSelector\":{\"matchExpressions\":[{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kube-system\"]},{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kyverno\"]}],\"matchLabels\":null}}"
   webhookAnnotations: "{\"admissions.enforcer/disabled\":\"true\"}"
 ---
 apiVersion: v1
@@ -557,6 +559,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -1842,6 +1852,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -3153,6 +3171,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -4438,6 +4464,14 @@ spec:
                   - name
                   type: object
                 type: array
+              deletionPropagationPolicy:
+                description: DeletionPropagationPolicy defines how resources will
+                  be deleted (Foreground, Background, Orphan).
+                enum:
+                - Foreground
+                - Background
+                - Orphan
+                type: string
               exclude:
                 description: |-
                   ExcludeResources defines when cleanuppolicy should not be applied. The exclude
@@ -7931,12 +7965,12 @@ spec:
                                 description: |-
                                   PatchStrategicMerge is a strategic merge patch used to modify resources.
                                   See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                  and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                  and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
                               patchesJson6902:
                                 description: |-
                                   PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                                 type: string
                               preconditions:
                                 description: |-
@@ -8054,12 +8088,12 @@ spec:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
                             See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                            and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                            and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: |-
                             PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                            See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                            See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                           type: string
                         targets:
                           description: Targets defines the target resources to be
@@ -8311,6 +8345,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -12984,12 +13066,12 @@ spec:
                                     description: |-
                                       PatchStrategicMerge is a strategic merge patch used to modify resources.
                                       See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                      and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                      and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                                     x-kubernetes-preserve-unknown-fields: true
                                   patchesJson6902:
                                     description: |-
                                       PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                      See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                      See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                                     type: string
                                   preconditions:
                                     description: |-
@@ -13110,12 +13192,12 @@ spec:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
                                 See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                               x-kubernetes-preserve-unknown-fields: true
                             patchesJson6902:
                               description: |-
                                 PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                               type: string
                             targets:
                               description: Targets defines the target resources to
@@ -13372,6 +13454,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -15670,6 +15800,12 @@ spec:
                   Optional. Default value is "true". The value must be set to "false" if the policy rule
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
+              emitWarning:
+                default: false
+                description: |-
+                  EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+                  Enabling this option will extend admission request processing times. The default value is "false".
+                type: boolean
               failurePolicy:
                 description: Deprecated, use failurePolicy under the webhookConfiguration
                   instead.
@@ -17689,12 +17825,12 @@ spec:
                                 description: |-
                                   PatchStrategicMerge is a strategic merge patch used to modify resources.
                                   See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                  and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                  and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
                               patchesJson6902:
                                 description: |-
                                   PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                                 type: string
                               preconditions:
                                 description: |-
@@ -17812,12 +17948,12 @@ spec:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
                             See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                            and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                            and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: |-
                             PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                            See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                            See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                           type: string
                         targets:
                           description: Targets defines the target resources to be
@@ -18069,6 +18205,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -22876,12 +23060,12 @@ spec:
                                     description: |-
                                       PatchStrategicMerge is a strategic merge patch used to modify resources.
                                       See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                      and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                      and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                                     x-kubernetes-preserve-unknown-fields: true
                                   patchesJson6902:
                                     description: |-
                                       PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                      See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                      See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                                     type: string
                                   preconditions:
                                     description: |-
@@ -23002,12 +23186,12 @@ spec:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
                                 See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                               x-kubernetes-preserve-unknown-fields: true
                             patchesJson6902:
                               description: |-
                                 PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                               type: string
                             targets:
                               description: Targets defines the target resources to
@@ -23264,6 +23448,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -28292,12 +28524,12 @@ spec:
                                 description: |-
                                   PatchStrategicMerge is a strategic merge patch used to modify resources.
                                   See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                  and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                  and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
                               patchesJson6902:
                                 description: |-
                                   PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                                 type: string
                               preconditions:
                                 description: |-
@@ -28415,12 +28647,12 @@ spec:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
                             See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                            and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                            and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: |-
                             PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                            See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                            See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                           type: string
                         targets:
                           description: Targets defines the target resources to be
@@ -28672,6 +28904,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -33346,12 +33626,12 @@ spec:
                                     description: |-
                                       PatchStrategicMerge is a strategic merge patch used to modify resources.
                                       See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                      and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                      and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                                     x-kubernetes-preserve-unknown-fields: true
                                   patchesJson6902:
                                     description: |-
                                       PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                      See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                      See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                                     type: string
                                   preconditions:
                                     description: |-
@@ -33472,12 +33752,12 @@ spec:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
                                 See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                               x-kubernetes-preserve-unknown-fields: true
                             patchesJson6902:
                               description: |-
                                 PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                               type: string
                             targets:
                               description: Targets defines the target resources to
@@ -33734,6 +34014,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -36033,6 +36361,12 @@ spec:
                   Optional. Default value is "true". The value must be set to "false" if the policy rule
                   uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
+              emitWarning:
+                default: false
+                description: |-
+                  EmitWarning enables API response warnings for mutate policy rules or validate policy rules with validationFailureAction set to Audit.
+                  Enabling this option will extend admission request processing times. The default value is "false".
+                type: boolean
               failurePolicy:
                 description: Deprecated, use failurePolicy under the webhookConfiguration
                   instead.
@@ -38052,12 +38386,12 @@ spec:
                                 description: |-
                                   PatchStrategicMerge is a strategic merge patch used to modify resources.
                                   See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                  and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                  and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                                 x-kubernetes-preserve-unknown-fields: true
                               patchesJson6902:
                                 description: |-
                                   PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                  See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                                 type: string
                               preconditions:
                                 description: |-
@@ -38175,12 +38509,12 @@ spec:
                           description: |-
                             PatchStrategicMerge is a strategic merge patch used to modify resources.
                             See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                            and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                            and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: |-
                             PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                            See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                            See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                           type: string
                         targets:
                           description: Targets defines the target resources to be
@@ -38432,6 +38766,54 @@ spec:
                                   will be deprecated in the next major release.
                                   See: https://kyverno.io/docs/writing-policies/preconditions/
                                 x-kubernetes-preserve-unknown-fields: true
+                              selector:
+                                description: Selector allows you to select target
+                                  resources with their labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: |-
+                                        A label selector requirement is a selector that contains values, a key, and an operator that
+                                        relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: |-
+                                            operator represents a key's relationship to a set of values.
+                                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: |-
+                                            values is an array of string values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array is replaced during a strategic
+                                            merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                    type: object
+                                type: object
+                                x-kubernetes-map-type: atomic
                               uid:
                                 description: UID specifies the resource uid.
                                 type: string
@@ -43239,12 +43621,12 @@ spec:
                                     description: |-
                                       PatchStrategicMerge is a strategic merge patch used to modify resources.
                                       See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                      and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                      and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                                     x-kubernetes-preserve-unknown-fields: true
                                   patchesJson6902:
                                     description: |-
                                       PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                      See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                      See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                                     type: string
                                   preconditions:
                                     description: |-
@@ -43365,12 +43747,12 @@ spec:
                               description: |-
                                 PatchStrategicMerge is a strategic merge patch used to modify resources.
                                 See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
-                                and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
+                                and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesstrategicmerge/.
                               x-kubernetes-preserve-unknown-fields: true
                             patchesJson6902:
                               description: |-
                                 PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources.
-                                See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
+                                See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/patchesjson6902/.
                               type: string
                             targets:
                               description: Targets defines the target resources to
@@ -43627,6 +44009,54 @@ spec:
                                       will be deprecated in the next major release.
                                       See: https://kyverno.io/docs/writing-policies/preconditions/
                                     x-kubernetes-preserve-unknown-fields: true
+                                  selector:
+                                    description: Selector allows you to select target
+                                      resources with their labels.
+                                    properties:
+                                      matchExpressions:
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
+                                        items:
+                                          description: |-
+                                            A label selector requirement is a selector that contains values, a key, and an operator that
+                                            relates the key and values.
+                                          properties:
+                                            key:
+                                              description: key is the label key that
+                                                the selector applies to.
+                                              type: string
+                                            operator:
+                                              description: |-
+                                                operator represents a key's relationship to a set of values.
+                                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              type: string
+                                            values:
+                                              description: |-
+                                                values is an array of string values. If the operator is In or NotIn,
+                                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This array is replaced during a strategic
+                                                merge patch.
+                                              items:
+                                                type: string
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: |-
+                                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        type: object
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   uid:
                                     description: UID specifies the resource uid.
                                     type: string
@@ -49623,6 +50053,20 @@ rules:
       - update
       - watch
   - apiGroups:
+      - reports.kyverno.io
+    resources:
+      - ephemeralreports
+      - clusterephemeralreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
     - networking.k8s.io
     resources:
     - ingresses
@@ -50701,6 +51145,7 @@ spec:
             - --reportsServiceAccountName=system:serviceaccount:kyverno:kyverno-reports-controller
             - --servicePort=443
             - --webhookServerPort=9443
+            - --resyncPeriod=15m
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -50712,14 +51157,16 @@ spec:
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
+            - --dumpPatches=false
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           resources:
             limits:
@@ -50864,13 +51311,15 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --resyncPeriod=15m
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --maxAPICallResponseLength=2000000
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
+            - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
@@ -50969,6 +51418,7 @@ spec:
             - --servicePort=443
             - --cleanupServerPort=9443
             - --webhookServerPort=9443
+            - --resyncPeriod=15m
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
@@ -51107,6 +51557,7 @@ spec:
             - --disableMetrics=false
             - --otelConfig=prometheus
             - --metricsPort=8000
+            - --resyncPeriod=15m
             - --admissionReports=true
             - --aggregateReports=true
             - --policyReports=true
@@ -51121,9 +51572,10 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
-            - --enablePolicyException=true
+            - --enablePolicyException=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME

@@ -140,6 +140,11 @@ func (in *CleanupPolicySpec) DeepCopyInto(out *CleanupPolicySpec) {
 		*out = new(AnyAllConditions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.DeletionPropagationPolicy != nil {
+		in, out := &in.DeletionPropagationPolicy, &out.DeletionPropagationPolicy
+		*out = new(metav1.DeletionPropagation)
+		**out = **in
+	}
 	return
 }
 
@@ -742,8 +747,16 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		*out = make([]admissionregistrationv1.MatchCondition, len(*in))
 		copy(*out, *in)
 	}
-	in.Mutation.DeepCopyInto(&out.Mutation)
-	in.Validation.DeepCopyInto(&out.Validation)
+	if in.Mutation != nil {
+		in, out := &in.Mutation, &out.Mutation
+		*out = new(v1.Mutation)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Validation != nil {
+		in, out := &in.Validation, &out.Validation
+		*out = new(Validation)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Generation != nil {
 		in, out := &in.Generation, &out.Generation
 		*out = new(v1.Generation)
@@ -800,6 +813,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.EmitWarning != nil {
+		in, out := &in.EmitWarning, &out.EmitWarning
+		*out = new(bool)
+		**out = **in
 	}
 	if in.Admission != nil {
 		in, out := &in.Admission, &out.Admission

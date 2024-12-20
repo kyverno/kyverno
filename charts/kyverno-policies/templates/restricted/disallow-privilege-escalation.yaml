@@ -14,8 +14,8 @@ metadata:
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
     {{- end }}
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: 1.6.0
-    kyverno.io/kubernetes-version: "1.22-1.23"
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
     policies.kyverno.io/description: >-
       Privilege escalation, such as via set-user-ID or set-group-ID file mode, should not be allowed.
       This policy ensures the `allowPrivilegeEscalation` field is set to `false`.
@@ -30,7 +30,7 @@ spec:
         - resources:
             kinds:
               - Pod
-      {{- with index .Values "policyExclude" $name }}
+      {{- with merge (index .Values "policyExclude" "privilege-escalation") (index .Values "policyExclude" $name) }}
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -50,6 +50,7 @@ spec:
         {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
         failureActionOverrides: {{ toYaml . | nindent 8 }}
         {{- end }}
+        allowExistingViolations: {{ .Values.validationAllowExistingViolations }}
         message: >-
           Privilege escalation is disallowed. The fields
           spec.containers[*].securityContext.allowPrivilegeEscalation,
