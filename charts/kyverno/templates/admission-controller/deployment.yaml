@@ -94,7 +94,7 @@ spec:
           image: {{ include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.admissionController.container.image.tag)) | quote }}
           imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
           args:
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.admissionController.featuresOverride)
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride)
               "logging"
             ) | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.initContainer.extraArgs }}
@@ -174,7 +174,7 @@ spec:
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.admissionController.featuresOverride)
+            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride)
               "reporting"
               "admissionReports"
               "autoUpdateWebhooks"
