@@ -42,6 +42,7 @@ func testMutate(
 		imageverifycache.DisabledImageVerifyCache(),
 		contextLoader,
 		nil,
+		nil,
 	)
 	return e.Mutate(
 		ctx,
