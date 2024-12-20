@@ -11,14 +11,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
-type gctxHandlers struct {
-	validationOptions validation.ValidationOptions
-}
+type gctxHandlers struct{}
 
-func NewHandlers(validationOptions validation.ValidationOptions) webhooks.GlobalContextHandlers {
-	return &gctxHandlers{
-		validationOptions: validationOptions,
-	}
+func NewHandlers() webhooks.GlobalContextHandlers {
+	return &gctxHandlers{}
 }
 
 // Validate performs the validation check on global context entries
@@ -28,7 +24,7 @@ func (h *gctxHandlers) Validate(ctx context.Context, logger logr.Logger, request
 		logger.Error(err, "failed to unmarshal global context entry from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	warnings, err := validation.Validate(ctx, logger, gctx, h.validationOptions)
+	warnings, err := validation.Validate(ctx, logger, gctx)
 	if err != nil {
 		logger.Error(err, "global context entry validation errors")
 	}

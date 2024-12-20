@@ -11,7 +11,6 @@ import (
 
 func Test_Validate(t *testing.T) {
 	type args struct {
-		opts     ValidationOptions
 		resource []byte
 	}
 	tc := []struct {
@@ -21,45 +20,41 @@ func Test_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "GlobalContextEntry disabled.",
+			name: "GlobalContextEntry with both KubernetesResource and APICall present",
 			args: args{
-				opts: ValidationOptions{
-					Enabled: false,
-				},
-				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10ns"}}}`),
-			},
-			want:    1,
-			wantErr: false,
-		},
-		{
-			name: "GlobalContextEntry enabled, both KubernetesResource and APICall present",
-			args: args{
-				opts: ValidationOptions{
-					Enabled: true,
-				},
 				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10ns"},"kubernetesResource":{"group":"apis/networking.k8s.io","version":"v1","resource":"ingresses","namespace":"apps"}}}`),
 			},
 			want:    0,
 			wantErr: true,
 		},
 		{
-			name: "GlobalContextEntry enabled, neither KubernetesResource nor APICall present",
+			name: "GlobalContextEntry with neither KubernetesResource nor APICall present",
 			args: args{
-				opts: ValidationOptions{
-					Enabled: true,
-				},
 				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{}}`),
 			},
 			want:    0,
 			wantErr: true,
 		},
 		{
-			name: "GlobalContextEntry enabled.",
+			name: "GlobalContextEntry with only KubernetesResource present",
 			args: args{
-				opts: ValidationOptions{
-					Enabled: true,
-				},
-				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"ingress"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10ns"}}}`),
+				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"gce-kubernetesresource"},"spec":{"kubernetesResource":{"group":"apis/networking.k8s.io","version":"v1","resource":"ingresses","namespace":"apps"}}}`),
+			},
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name: "GlobalContextEntry with a core KubernetesResource present",
+			args: args{
+				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"gce-kubernetesresource"},"spec":{"kubernetesResource":{"version":"v1","resource":"namespaces"}}}`),
+			},
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name: "GlobalContextEntry with only APICall present",
+			args: args{
+				resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"GlobalContextEntry","metadata":{"name":"gce-apicall"},"spec":{"apiCall":{"service":{"url":"https://svc.kyverno/example","caBundle":"-----BEGIN CERTIFICATE-----\n-----REDACTED-----\n-----END CERTIFICATE-----"},"refreshInterval":"10ns"}}}`),
 			},
 			want:    0,
 			wantErr: false,
@@ -69,7 +64,7 @@ func Test_Validate(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			gctx, err := admissionutils.UnmarshalGlobalContextEntry(c.args.resource)
 			assert.NilError(t, err)
-			warnings, err := Validate(context.Background(), logging.GlobalLogger(), gctx, c.args.opts)
+			warnings, err := Validate(context.Background(), logging.GlobalLogger(), gctx)
 			if c.wantErr {
 				assert.Assert(t, err != nil)
 			} else {
