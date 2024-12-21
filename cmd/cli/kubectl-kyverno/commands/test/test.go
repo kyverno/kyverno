@@ -230,28 +230,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 		}
 	}
 
-	paramResourcePath := path.GetFullPaths(testCase.Test.ParamResources, testDir, isGit)
-	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, paramResourcePath, false, results.Policies, results.VAPs, dClient, "", false, testDir)
-	if err != nil {
-		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
-	}
-
-	vp := []runtime.Object{}
-	for _, p := range paramResources {
-		vp = append(vp, p)
-	}
-
 	for _, resource := range uniques {
 		processor := processor.ValidatingAdmissionPolicyProcessor{
 			Policies:             results.VAPs,
 			Bindings:             results.VAPBindings,
-			Params:               vp,
 			Resource:             resource,
 			NamespaceSelectorMap: vars.NamespaceSelectors(),
 			PolicyReport:         true,
 			Rc:                   &resultCounts,
-			Client:               dClient,
-			IsCluster:            false,
 		}
 		ers, err := processor.ApplyPolicyOnResource()
 		if err != nil {
@@ -267,3 +253,4 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 func generateResourceKey(resource *unstructured.Unstructured) string {
 	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
 }
+
