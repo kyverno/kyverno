@@ -184,8 +184,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1 h1:iXtILhv
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1/go.mod h1:9nu0fVANtYiAePIBh2/pFUSwtJ402hLnp854CNoDOeE=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.6 h1:50+XsN70RS7dwJ2CkVNXzj7U2L1HKP8nqTd3XWEXBN4=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.6/go.mod h1:WqgLmwY7so32kG01zD8CPTJWVWM+TzJoOVHwTg4aPug=
-github.com/aws/aws-sdk-go-v2/service/kms v1.35.7 h1:v0D1LeMkA/X+JHAZWERrr+sUGOt8KrCZKnJA6KszkcE=
-github.com/aws/aws-sdk-go-v2/service/kms v1.35.7/go.mod h1:K9lwD0Rsx9+NSaJKsdAdlDK4b2G4KKOEve9PzHxPoMI=
+github.com/aws/aws-sdk-go-v2/service/kms v1.37.7 h1:dZmNIRtPUvtvUIIDVNpvtnJQ8N8Iqm7SQAxf18htZYw=
+github.com/aws/aws-sdk-go-v2/service/kms v1.37.7/go.mod h1:vj8PlfJH9mnGeIzd6uMLPi5VgiqzGG7AZoe1kf1uTXM=
 github.com/aws/aws-sdk-go-v2/service/sso v1.24.7 h1:rLnYAfXQ3YAccocshIH5mzNNwZBkBo+bP6EhIxak6Hw=
 github.com/aws/aws-sdk-go-v2/service/sso v1.24.7/go.mod h1:ZHtuQJ6t9A/+YDuxOLnbryAmITtr8UysSny3qcyvJTc=
 github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.6 h1:JnhTZR3PiYDNKlXy50/pNeix9aGMo6lLpXwJ1mw8MD4=
@@ -808,8 +808,8 @@ github.com/sigstore/sigstore v1.8.10 h1:r4t+TYzJlG9JdFxMy+um9GZhZ2N1hBTyTex0AHEZ
 github.com/sigstore/sigstore v1.8.10/go.mod h1:BekjqxS5ZtHNJC4u3Q3Stvfx2eyisbW/lUZzmPU2u4A=
 github.com/sigstore/sigstore-go v0.6.2 h1:8uiywjt73vzfrGfWYVwVsiB1E1Qmwmpgr1kVpl4fs6A=
 github.com/sigstore/sigstore-go v0.6.2/go.mod h1:pOIUH7Jx+ctwMICo+2zNrViOJJN5sGaQgwX4yAVJkA0=
-github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.9 h1:tgpdvjyoEgYFeTBFe4MHvBKsG+J4E7NVtstChIExVT8=
-github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.9/go.mod h1:wCz6cAZKL/wFumDHX9l8VkVITS2GntrOfs2j/kwH4wo=
+github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.11 h1:4jIEBOtqDZHyQNQSw/guGmIY0y3CVdOGQu3l2FNlqpY=
+github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.11/go.mod h1:rzfk1r8p6Mgjp5tidjzNC+/Kh1h6Eh/ON7xI7ApqBSM=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.9 h1:eXFm3cte0hvxxYsvGpCMd7aBusEgKJdlUw1Fb5AZQpw=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.9/go.mod h1:RYy9GKnFKKwqbg3Uc6rUyhQdichSVkFlfxnY6f7cAWc=
 github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.9 h1:liWcl12dfFeQXU0JemQVgdVQx02Fls9UPdrFzVrCWhs=
