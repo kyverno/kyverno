@@ -67,5 +67,5 @@ type TestResult struct {
 	TestResultDeprecated `json:",inline,omitempty"`
 
 	// Resources gives us the list of resources on which the policy is going to be applied.
-	Resources []string `json:"resources"`
+	Resources []any `json:"resources"`
 }

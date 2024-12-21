@@ -54,7 +54,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -83,7 +83,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make build-cli
       - name: upload images archive
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: kubectl-kyverno
           path: cmd/cli/kubectl-kyverno/kubectl-kyverno
@@ -664,7 +664,7 @@ jobs:
           verify: true
       # create cluster
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@0fb6c1e4d34c1d40f58a00da8380b7d5fa65a04c # v0.7.17
+        uses: sigstore/scaffolding/actions/setup@7dd406abbfb07599b10ad048a397a4904d3e40cc
         with:
           version: main
           k8s-version: ${{ matrix.k8s-version }}
@@ -761,7 +761,7 @@ jobs:
           echo "$PWD/cmd/cli/kubectl-kyverno" >> $GITHUB_PATH
       # create cluster
       - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -883,7 +883,7 @@ jobs:
           verify: true
       # create cluster
       - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
         with:
           node_image: kindest/node:v1.30.0
           cluster_name: kind
@@ -938,7 +938,7 @@ jobs:
           curl -LO "https://dl.k8s.io/release/${{ matrix.k8s-version.version }}/bin/linux/amd64/kubectl"
           sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
       - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version.version }}
           cluster_name: kind
@@ -1001,7 +1001,7 @@ jobs:
       uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
     # create cluster
     - name: Create kind cluster
-      uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+      uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
       with:
         node_image: kindest/node:${{ matrix.k8s-version }}
         cluster_name: kind

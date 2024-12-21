@@ -1,0 +1,30 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-long-resource-labels
+spec:
+  steps:
+  - name: create crd
+    try:
+    - apply:
+        file: crd-definition.yaml 
+
+  - name: create permission
+    try:
+    - apply:
+        file: crd-permission.yaml  
+
+  - name: apply policy
+    try:
+    - apply:
+        file: policy.yaml 
+
+  - name: create resource
+    try:
+    - apply:
+        file: resource.yaml 
+  
+  - name: check report
+    try:
+    - assert:
+        file: ephemeral-report.yaml

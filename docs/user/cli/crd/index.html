@@ -112,13 +112,21 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
 </tr>
 <tr>
 <td>
+<<<<<<< HEAD
 <code>paramResources</code><br/>
+=======
+<code>targetResources</code><br/>
+>>>>>>> main
 <em>
 []string
 </em>
 </td>
 <td>
+<<<<<<< HEAD
 <p>Resources that act as parameters for validating admission policies</p>
+=======
+<p>Target Resources are for policies that have mutate existing</p>
+>>>>>>> main
 </td>
 </tr>
 <tr>
@@ -666,6 +674,81 @@ Kubernetes meta/v1.APIResource
 </tbody>
 </table>
 <hr />
+<h3 id="cli.kyverno.io/v1alpha1.TestResourceSpec">TestResourceSpec
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>group</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>subresource</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="cli.kyverno.io/v1alpha1.TestResult">TestResult
 </h3>
 <p>
@@ -717,7 +800,7 @@ TestResultDeprecated
 <td>
 <code>resources</code><br/>
 <em>
-[]string
+[]any
 </em>
 </td>
 <td>

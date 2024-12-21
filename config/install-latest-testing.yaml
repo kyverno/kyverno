@@ -175,7 +175,7 @@ data:
     [Secret,kyverno,kyverno-svc.kyverno.svc.*]
     [Secret,kyverno,kyverno-cleanup-controller.kyverno.svc.*]
   updateRequestThreshold: "1000"
-  webhooks: "\n  {\"namespaceSelector\":{\"matchExpressions\":[{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kube-system\"]},{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kyverno\"]}],\"matchLabels\":null}}"
+  webhooks: "{\"namespaceSelector\":{\"matchExpressions\":[{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kube-system\"]},{\"key\":\"kubernetes.io/metadata.name\",\"operator\":\"NotIn\",\"values\":[\"kyverno\"]}],\"matchLabels\":null}}"
   webhookAnnotations: "{\"admissions.enforcer/disabled\":\"true\"}"
 ---
 apiVersion: v1

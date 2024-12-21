@@ -50,7 +50,7 @@ jobs:
           set -e
           VERSION=${{ github.ref_name }} make docker-save-image-all
       - name: upload images archive
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: kyverno.tar
           path: kyverno.tar
@@ -82,7 +82,7 @@ jobs:
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
       - name: Create Kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -163,7 +163,7 @@ jobs:
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
       - name: Create Kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -219,7 +219,7 @@ jobs:
             exit 1
           fi
       - name: Archive Report
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: load-test-report.html
           path: report
@@ -252,7 +252,7 @@ jobs:
         id: helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
       - name: Create Kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@ae94020eaf628e9b9b9f341a10cc0cdcf5c018fb # v1.11.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -317,7 +317,7 @@ jobs:
           sleep 60
           ./test/load/k6/reports-size-in-etcd.sh > report/reports-size-in-etcd.txt
       - name: Archive Report
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: report-${{ matrix.k8s-version }}-${{ matrix.test.name }}-${{ matrix.test.scenario }}-${{ matrix.test.replicas }}-${{ matrix.test.cpu_request }}-${{ matrix.test.memory_request }}-${{ matrix.test.memory_limit }}-${{ matrix.test.concurrent_connections }}
           path: report

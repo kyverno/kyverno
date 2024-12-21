@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-long-resource-labels
+spec:
+  rules:
+    - name: check-label-length 
+      match:
+        resources:
+          kinds:
+            - VeryLongResource
+      validate:
+        message: "Resource must have valid labels."
+        pattern:
+          metadata:
+            labels:
+              env: "?*"
+              team: "?*"
+        failureAction: Audit

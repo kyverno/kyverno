@@ -27,6 +27,9 @@ type Test struct {
 	// Resources that act as parameters for validating admission policies
 	ParamResources []string `json:"paramResources,omitempty"`
 
+	// Target Resources are for policies that have mutate existing
+	TargetResources []string `json:"targetResources,omitempty"`
+
 	// Variables is the values to be used in the test
 	Variables string `json:"variables,omitempty"`
 
@@ -55,6 +58,15 @@ type CheckResult struct {
 
 	// Error contains negative assertion to be performed on the relevant rule responses
 	Error v1alpha1.Any `json:"error"`
+}
+
+type TestResourceSpec struct {
+	Group       string `json:"group,omitempty"`
+	Version     string `json:"version,omitempty"`
+	Kind        string `json:"kind,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
+	Subresource string `json:"subresource,omitempty"`
+	Name        string `json:"name,omitempty"`
 }
 
 type CheckMatch struct {
