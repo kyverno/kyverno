@@ -253,4 +253,3 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 func generateResourceKey(resource *unstructured.Unstructured) string {
 	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
 }
-
