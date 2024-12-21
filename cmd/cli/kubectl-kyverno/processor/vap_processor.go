@@ -6,16 +6,19 @@ import (
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type ValidatingAdmissionPolicyProcessor struct {
 	Policies             []admissionregistrationv1beta1.ValidatingAdmissionPolicy
 	Bindings             []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
+	Params               []runtime.Object
 	Resource             *unstructured.Unstructured
 	NamespaceSelectorMap map[string]map[string]string
 	PolicyReport         bool
 	Rc                   *ResultCounts
 	Client               dclient.Interface
+	IsCluster            bool
 }
 
 func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineapi.EngineResponse, error) {
@@ -27,9 +30,13 @@ func (p *ValidatingAdmissionPolicyProcessor) ApplyPolicyOnResource() ([]engineap
 				policyData.AddBinding(binding)
 			}
 		}
-		response, _ := validatingadmissionpolicy.Validate(policyData, *p.Resource, p.NamespaceSelectorMap, p.Client)
-		responses = append(responses, response)
-		p.Rc.addValidatingAdmissionResponse(response)
+		for _, param := range p.Params {
+			policyData.AddParam(param)
+		}
+		responses, _ = validatingadmissionpolicy.Validate(policyData, *p.Resource, p.NamespaceSelectorMap, p.Client, p.IsCluster)
+		for _, r := range responses {
+			p.Rc.addValidatingAdmissionResponse(r)
+		}
 	}
 	return responses, nil
 }
