@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -16,10 +17,15 @@ import (
 type PolicyData struct {
 	definition admissionregistrationv1beta1.ValidatingAdmissionPolicy
 	bindings   []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
+	params     []runtime.Object
 }
 
 func (p *PolicyData) AddBinding(binding admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
 	p.bindings = append(p.bindings, binding)
+}
+
+func (p *PolicyData) AddParam(param runtime.Object) {
+	p.params = append(p.params, param)
 }
 
 func (p *PolicyData) GetDefinition() admissionregistrationv1beta1.ValidatingAdmissionPolicy {
@@ -28,6 +34,10 @@ func (p *PolicyData) GetDefinition() admissionregistrationv1beta1.ValidatingAdmi
 
 func (p *PolicyData) GetBindings() []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding {
 	return p.bindings
+}
+
+func (p *PolicyData) GetParams() []runtime.Object {
+	return p.params
 }
 
 func NewPolicyData(policy admissionregistrationv1beta1.ValidatingAdmissionPolicy) PolicyData {
