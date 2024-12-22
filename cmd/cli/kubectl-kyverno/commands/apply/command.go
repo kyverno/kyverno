@@ -35,6 +35,8 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -62,6 +64,7 @@ type ApplyCommandConfig struct {
 	AuditWarn             bool
 	ResourcePaths         []string
 	PolicyPaths           []string
+	TargetResourcePaths   []string
 	GitBranch             string
 	warnExitCode          int
 	warnNoPassed          bool
@@ -136,6 +139,8 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resources", "", []string{}, "Path to resource files")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resource", "", []string{}, "Path to individual files containing target resources files for policies that have mutate existing")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resources", "", []string{}, "Path to a directory containing target resources files for policies that have mutate existing")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated/generated resources in provided file/directory")
 	// currently `set` flag supports variable for single policy applied on single resource
@@ -207,14 +212,24 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		paramResources = append(paramResources, p)
 	}
 
-	rc, resources1, skipInvalidPolicies, responses1, dClient, err := c.initStoreAndClusterClient(&store, skipInvalidPolicies)
+	var targetResources []*unstructured.Unstructured
+	if len(c.TargetResourcePaths) > 0 {
+		targetResources, err = c.loadResources(out, c.TargetResourcePaths, policies, vaps, nil)
+		if err != nil {
+			return rc, resources1, skipInvalidPolicies, responses1, err
+		}
+	}
+
+	rc, resources1, skipInvalidPolicies, responses1, dClient, err := c.initStoreAndClusterClient(&store, skipInvalidPolicies, targetResources...)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	resources, err := c.loadResources(out, policies, vaps, dClient)
+
+	resources, err := c.loadResources(out, c.ResourcePaths, policies, vaps, dClient)
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
+
 	var exceptions []*kyvernov2.PolicyException
 	if c.inlineExceptions {
 		exceptions = exception.SelectFrom(resources)
@@ -356,6 +371,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 			Stdin:                c.Stdin,
 			Rc:                   &rc,
 			PrintPatchResource:   true,
+			Cluster:              c.Cluster,
 			Client:               dClient,
 			AuditWarn:            c.AuditWarn,
 			Subresources:         vars.Subresources(),
@@ -379,8 +395,8 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	return &rc, resources, responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1beta1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
-	resources, err := common.GetResourceAccordingToResourcePath(out, nil, c.ResourcePaths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
+func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1beta1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
+	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, fmt.Errorf("failed to load resources (%w)", err)
 	}
@@ -446,7 +462,7 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 	return nil, nil, skipInvalidPolicies, nil, policies, vaps, vapBindings, nil
 }
 
-func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, dclient.Interface, error) {
+func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, skipInvalidPolicies SkippedInvalidPolicies, targetResources ...*unstructured.Unstructured) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, dclient.Interface, error) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
@@ -468,6 +484,18 @@ func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, skipI
 			return nil, nil, skipInvalidPolicies, nil, nil, err
 		}
 		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute)
+		if err != nil {
+			return nil, nil, skipInvalidPolicies, nil, nil, err
+		}
+	}
+	if len(targetResources) > 0 && !c.Cluster {
+		var targets []runtime.Object
+		for _, t := range targetResources {
+			targets = append(targets, t)
+		}
+
+		dClient, err = dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{}, targets...)
+		dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 		if err != nil {
 			return nil, nil, skipInvalidPolicies, nil, nil, err
 		}
