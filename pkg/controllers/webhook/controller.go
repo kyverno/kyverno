@@ -571,7 +571,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType strin
 		status := policy.GetStatus()
 		status.SetReady(ready, message)
 		status.Autogen.Rules = nil
-		rules := autogen.Default.ComputeRules(policy, "")
+		rules := autogen.Default(ctx).ComputeRules(policy, "")
 		setRuleCount(rules, status)
 		for _, rule := range rules {
 			if strings.HasPrefix(rule.Name, "autogen-") {
@@ -841,18 +841,18 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 					if spec.CustomWebhookMatchConditions() {
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-							c.mergeWebhook(fineGrainedIgnore, p, false)
+							c.mergeWebhook(ctx, fineGrainedIgnore, p, false)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
 							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-							c.mergeWebhook(fineGrainedFail, p, false)
+							c.mergeWebhook(ctx, fineGrainedFail, p, false)
 							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
 						}
 					} else {
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-							c.mergeWebhook(ignoreWebhook, p, false)
+							c.mergeWebhook(ctx, ignoreWebhook, p, false)
 						} else {
-							c.mergeWebhook(failWebhook, p, false)
+							c.mergeWebhook(ctx, failWebhook, p, false)
 						}
 					}
 				}
@@ -979,18 +979,18 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 					if spec.CustomWebhookMatchConditions() {
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
 							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-							c.mergeWebhook(fineGrainedIgnore, p, true)
+							c.mergeWebhook(ctx, fineGrainedIgnore, p, true)
 							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
 						} else {
 							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-							c.mergeWebhook(fineGrainedFail, p, true)
+							c.mergeWebhook(ctx, fineGrainedFail, p, true)
 							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
 						}
 					} else {
 						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-							c.mergeWebhook(ignoreWebhook, p, true)
+							c.mergeWebhook(ctx, ignoreWebhook, p, true)
 						} else {
-							c.mergeWebhook(failWebhook, p, true)
+							c.mergeWebhook(ctx, failWebhook, p, true)
 						}
 					}
 				}
@@ -1096,9 +1096,9 @@ func (w webhookConfig) merge(other webhookConfig) {
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
-func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
+func (c *controller) mergeWebhook(ctx context.Context, dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
 	matched := webhookConfig{}
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		// matching kinds in generate policies need to be added to both webhooks
 		if rule.HasGenerate() {
 			// all four operations including CONNECT are needed for generate.

@@ -135,7 +135,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	// TODO document the code below
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range results.Policies {
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
+		for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
 				if res.IsValidatingAdmissionPolicy {
 					continue
@@ -180,7 +180,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	for _, pol := range results.Policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
+		_, err := policyvalidation.Validate(ctx, pol, nil, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			continue
