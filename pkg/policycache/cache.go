@@ -101,16 +101,21 @@ func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyver
 			validationFailureActionOverrides = policy.GetSpec().ValidationFailureActionOverrides
 		}
 
-		if (ns == "" || len(validationFailureActionOverrides) == 0) && validationFailureAction.Enforce() == enforce {
-			filteredRules = append(filteredRules, *rule)
-			continue
+		// Track if an override matched for the namespace
+		overrideMatched := false
+		for _, action := range validationFailureActionOverrides {
+			if ns != "" && wildcard.CheckPatterns(action.Namespaces, ns) {
+				overrideMatched = true
+				if action.Action.Enforce() == enforce {
+					filteredRules = append(filteredRules, *rule)
+				}
+				break // Stop once we find a matching override
+			}
 		}
 
-		for _, action := range validationFailureActionOverrides {
-			if action.Action.Enforce() == enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
-				filteredRules = append(filteredRules, *rule)
-				break // Changed continue to break since we found a match
-			}
+		// If no override matched for the namespace, apply the default validation failure action
+		if !overrideMatched && validationFailureAction.Enforce() == enforce {
+			filteredRules = append(filteredRules, *rule)
 		}
 	}
 
