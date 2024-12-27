@@ -388,14 +388,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
 
-		match := rule.MatchResources
-		matchKinds := match.GetKinds()
-		var allKinds []string
-		allKinds = append(allKinds, matchKinds...)
-		if exclude := rule.ExcludeResources; exclude != nil {
-			excludeKinds := exclude.GetKinds()
-			allKinds = append(allKinds, excludeKinds...)
-		}
 		if rule.HasValidate() {
 			validationElem := rule.Validation.DeepCopy()
 			if validationElem.Deny != nil {
@@ -409,10 +401,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		if rule.HasMutate() {
 			_, err := json.Marshal(rule.Mutation)
-			targets := rule.Mutation.Targets
-			for _, target := range targets {
-				allKinds = append(allKinds, target.GetKind())
-			}
 			if err != nil {
 				return nil, err
 			}
