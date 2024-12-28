@@ -13,6 +13,6 @@ spec:
     spec:
       containers:
         - name: podinfo-a
-          image: ghcr.io/seankhliao/podinfo:6.3.3
+          image: ghcr.io/stefanprodan/podinfo:6.3.3
         - name: podinfo-b
-          image: ghcr.io/seankhliao/podinfo:6.3.4
+          image: ghcr.io/stefanprodan/podinfo:6.3.4
