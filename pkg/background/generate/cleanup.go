@@ -102,7 +102,7 @@ func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[st
 		return nil, err
 	}
 
-	selector[common.GenerateTriggerUIDLabel] = string(ruleContext.Trigger.GetUID())
+	selector[common.GenerateSourceUIDLabel] = string(ruleContext.Trigger.GetUID())
 	selector[common.GenerateTriggerNSLabel] = ruleContext.Trigger.GetNamespace()
 	selector[common.GenerateTriggerKindLabel] = ruleContext.Trigger.GetKind()
 	selector[common.GenerateTriggerGroupLabel] = gv.Group
@@ -127,7 +127,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 
 		if len(dsList.Items) == 0 {
 			// Fetch downstream resources using the trigger name label
-			delete(selector, common.GenerateTriggerUIDLabel)
+			delete(selector, common.GenerateSourceUIDLabel)
 			selector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
 			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", selector)
 			dsList, err = common.FindDownstream(c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
@@ -149,7 +149,7 @@ func (c *GenerateController) fetch(generatePattern kyvernov1.GeneratePattern, se
 		}
 
 		if len(dsList.Items) == 0 {
-			delete(selector, common.GenerateTriggerUIDLabel)
+			delete(selector, common.GenerateSourceUIDLabel)
 			selector[common.GenerateTriggerNameLabel] = ruleContext.Trigger.GetName()
 			c.log.V(4).Info("fetching downstream resource by the name", "APIVersion", generatePattern.GetAPIVersion(), "kind", generatePattern.GetKind(), "selector", selector)
 			dsList, err = common.FindDownstream(c.client, generatePattern.GetAPIVersion(), generatePattern.GetKind(), selector)
