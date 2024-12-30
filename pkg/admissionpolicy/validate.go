@@ -66,6 +66,11 @@ func GetKinds(policy admissionregistrationv1beta1.ValidatingAdmissionPolicy) []s
 	return kindList
 }
 
+var (
+	isMatch bool
+	err     error
+)
+
 func Validate(
 	policyData PolicyData,
 	resource unstructured.Unstructured,
@@ -89,9 +94,10 @@ func Validate(
 	// Special case, the namespace object has the namespace of itself.
 	// unset it if the incoming object is a namespace
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
+		logger.V(3).Info("Skipping additional validation for namespace resource:", "namespace", namespaceName)
 		namespaceName = ""
+		return engineResponse, nil
 	}
-
 	if namespaceName != "" {
 		namespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -104,7 +110,12 @@ func Validate(
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
 	if len(bindings) == 0 {
-		isMatch, err := matches(a, namespaceSelectorMap, *policy.Spec.MatchConstraints)
+		if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
+			isMatch = true
+		} else {
+			isMatch, err = matches(a, namespaceSelectorMap, *policy.Spec.MatchConstraints)
+		}
+
 		if err != nil {
 			return engineResponse, err
 		}
@@ -112,7 +123,7 @@ func Validate(
 			return engineResponse, nil
 		}
 		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-		return validateResource(policy, nil, resource, *namespace, a)
+		return validateResource(policy, nil, resource, namespace, a)
 	}
 
 	if client != nil {
@@ -158,7 +169,7 @@ func Validate(
 			}
 
 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, *namespace, a)
+			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	} else {
 		for i, binding := range bindings {
@@ -170,7 +181,7 @@ func Validate(
 				continue
 			}
 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, *namespace, a)
+			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	}
 
@@ -181,12 +192,18 @@ func validateResource(
 	policy admissionregistrationv1beta1.ValidatingAdmissionPolicy,
 	binding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
-	namespace corev1.Namespace,
+	namespace *corev1.Namespace,
 	a admission.Attributes,
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
 	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+
+	if resource.GetKind() == "Namespace" && resource.GroupVersionKind().Version == "v1" && resource.GroupVersionKind().Group == "" {
+		logger.V(3).Info("Skipping validateResource for namespace resource:", "namespace", resource.GetName())
+		return engineResponse, nil
+	}
+
 	policyResp := engineapi.NewPolicyResponse()
 	var ruleResp *engineapi.RuleResponse
 
@@ -223,7 +240,7 @@ func validateResource(
 		&failPolicy,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
-	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, &namespace, celconfig.RuntimeCELCostBudget, nil)
+	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, nil)
 
 	// no validations are returned if match conditions aren't met
 	if datautils.DeepEqual(validateResult, validating.ValidateResult{}) {
