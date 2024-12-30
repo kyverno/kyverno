@@ -4,6 +4,7 @@ metadata:
   name: validate-csr
 spec:
   background: false
+  validationFailureAction: Enforce
   rules:
   - name: csr
     match:
@@ -12,7 +13,6 @@ spec:
           kinds:
           - CertificateSigningRequest
     validate:
-      failureAction: Enforce
       message: >-
         CSR created by {{ request.userInfo | to_string(@) }}
         with ClusterRoles {{ request.clusterRoles | to_string(@) }}
@@ -31,6 +31,7 @@ metadata:
   name: mutate-csr
 spec:
   background: false
+  validationFailureAction: Enforce
   rules:
   - name: csr
     match:

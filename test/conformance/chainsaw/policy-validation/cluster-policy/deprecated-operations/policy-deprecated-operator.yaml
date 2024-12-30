@@ -14,7 +14,6 @@ spec:
           - Pod
     name: test-not-in
     validate:
-      failureAction: Enforce
       deny:
         conditions:
           any:
@@ -24,3 +23,4 @@ spec:
             value:
             - busybox
             - busybox1
+  validationFailureAction: Enforce

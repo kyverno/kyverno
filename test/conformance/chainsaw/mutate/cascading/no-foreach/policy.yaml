@@ -4,6 +4,7 @@ metadata:
   name: mutate-chain
 spec:
   background: false
+  validationFailureAction: Enforce
   rules:
     - name: mutation1
       match:

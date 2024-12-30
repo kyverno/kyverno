@@ -3,7 +3,8 @@ package v1
 import (
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -11,18 +12,18 @@ import (
 type ResourceSpec struct {
 	// APIVersion specifies resource apiVersion.
 	// +optional
-	APIVersion string `json:"apiVersion,omitempty"`
+	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
 	// Kind specifies resource kind.
-	Kind string `json:"kind,omitempty"`
+	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 	// Namespace specifies resource namespace.
 	// +optional
-	Namespace string `json:"namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Name specifies the resource name.
 	// +optional
-	Name string `json:"name,omitempty"`
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 	// UID specifies the resource uid.
 	// +optional
-	UID types.UID `json:"uid,omitempty"`
+	UID types.UID `json:"uid,omitempty" yaml:"uid,omitempty"`
 }
 
 func (s ResourceSpec) GetName() string       { return s.Name }
@@ -40,12 +41,12 @@ func (s ResourceSpec) String() string {
 
 // TargetResourceSpec defines targets for mutating existing resources.
 type TargetResourceSpec struct {
-	// TargetSelector contains the ResourceSpec and a label selector to support selecting with labels.
-	TargetSelector `json:",omitempty"`
+	// ResourceSpec contains the target resources to load when mutating existing resources.
+	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
-	Context []ContextEntry `json:"context,omitempty"`
+	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
@@ -53,24 +54,9 @@ type TargetResourceSpec struct {
 	// will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:pruning:PreserveUnknownFields
-	RawAnyAllConditions *ConditionsWrapper `json:"preconditions,omitempty"`
+	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 }
 
-type TargetSelector struct {
-	// ResourceSpec contains the target resources to load when mutating existing resources.
-	ResourceSpec `json:",omitempty"`
-	// Selector allows you to select target resources with their labels.
-	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+func (r *TargetResourceSpec) GetAnyAllConditions() apiextensions.JSON {
+	return FromJSON(r.RawAnyAllConditions)
 }
-
-func (r *TargetResourceSpec) GetAnyAllConditions() any {
-	if r.RawAnyAllConditions == nil {
-		return nil
-	}
-	return r.RawAnyAllConditions.Conditions
-}
-
-func (r *TargetResourceSpec) GetSelector() *metav1.LabelSelector { return r.Selector }

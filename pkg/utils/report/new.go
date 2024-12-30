@@ -1,6 +1,7 @@
 package report
 
 import (
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -12,8 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, resource unstructured.Unstructured) reportsv1.ReportInterface {
-	var report reportsv1.ReportInterface
+func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, resource unstructured.Unstructured) kyvernov1alpha2.ReportInterface {
+	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &reportsv1.ClusterEphemeralReport{Spec: reportsv1.EphemeralReportSpec{}}
 	} else {
@@ -30,20 +31,20 @@ func NewAdmissionReport(namespace, name string, gvr schema.GroupVersionResource,
 	return report
 }
 
-func BuildAdmissionReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
+func BuildAdmissionReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) kyvernov1alpha2.ReportInterface {
 	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), schema.GroupVersionKind(request.Kind), resource)
 	SetResponses(report, responses...)
 	return report
 }
 
-func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) reportsv1.ReportInterface {
-	var report reportsv1.ReportInterface
+func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportInterface {
+	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &reportsv1.ClusterEphemeralReport{}
 	} else {
 		report = &reportsv1.EphemeralReport{}
 	}
-	report.SetGenerateName(name + "-")
+	report.SetName(name)
 	report.SetNamespace(namespace)
 	controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, owner, uid)
 	SetResourceUid(report, uid)
@@ -54,26 +55,8 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	return report
 }
 
-func BuildMutationReport(resource unstructured.Unstructured, request admissionv1.AdmissionRequest, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
-	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), schema.GroupVersionResource(request.Resource), schema.GroupVersionKind(request.Kind), resource)
-	SetMutationResponses(report, responses...)
-	return report
-}
-
-func BuildMutateExistingReport(namespace string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
-	report := NewBackgroundScanReport(namespace, string(uid), gvk, owner, uid)
-	SetMutationResponses(report, responses...)
-	return report
-}
-
-func BuildGenerateReport(namespace string, gvk schema.GroupVersionKind, owner string, uid types.UID, responses ...engineapi.EngineResponse) reportsv1.ReportInterface {
-	report := NewBackgroundScanReport(namespace, string(uid), gvk, owner, uid)
-	SetGenerationResponses(report, responses...)
-	return report
-}
-
-func NewPolicyReport(namespace, name string, scope *corev1.ObjectReference, results ...policyreportv1alpha2.PolicyReportResult) reportsv1.ReportInterface {
-	var report reportsv1.ReportInterface
+func NewPolicyReport(namespace, name string, scope *corev1.ObjectReference, results ...policyreportv1alpha2.PolicyReportResult) kyvernov1alpha2.ReportInterface {
+	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &policyreportv1alpha2.ClusterPolicyReport{
 			Scope: scope,

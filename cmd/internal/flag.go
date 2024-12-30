@@ -41,10 +41,9 @@ var (
 	exceptionNamespace     string
 	enableConfigMapCaching bool
 	// cosign
-	enableTUF  bool
-	tufMirror  string
-	tufRoot    string
-	tufRootRaw string
+	enableTUF bool
+	tufMirror string
+	tufRoot   string
 	// registry client
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
@@ -59,10 +58,6 @@ var (
 	imageVerifyCacheMaxSize     int64
 	// global context
 	enableGlobalContext bool
-	// reporting
-	enableReporting string
-	// resync
-	resyncPeriod time.Duration
 )
 
 func initLoggingFlags() {
@@ -99,12 +94,11 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Float64Var(&eventsRateLimitQPS, "eventsRateLimitQPS", eventsQPS, "Configure the maximum QPS to the Kubernetes API server from Kyverno for events. Uses the client default if zero.")
 	flag.IntVar(&eventsRateLimitBurst, "eventsRateLimitBurst", eventsBurst, "Configure the maximum burst for throttle for events. Uses the client default if zero.")
-	flag.DurationVar(&resyncPeriod, "resyncPeriod", 15*time.Minute, "Configure the resync period for informer factory")
 }
 
 func initPolicyExceptionsFlags() {
-	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions. If it is set to '*', exceptions are allowed in all namespaces.")
-	flag.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flag.BoolVar(&enablePolicyException, "enablePolicyException", true, "Enable PolicyException feature.")
 }
 
 func initConfigMapCachingFlags() {
@@ -118,8 +112,7 @@ func initDeferredLoadingFlags() {
 func initCosignFlags() {
 	flag.BoolVar(&enableTUF, "enableTuf", false, "enable tuf for private sigstore deployments")
 	flag.StringVar(&tufMirror, "tufMirror", tuf.DefaultRemoteRoot, "Alternate TUF mirror for sigstore. If left blank, public sigstore one is used for cosign verification.")
-	flag.StringVar(&tufRoot, "tufRoot", "", "Path to alternate TUF root.json for sigstore (url or env). If left blank, public sigstore one is used for cosign verification.")
-	flag.StringVar(&tufRootRaw, "tufRootRaw", "", "The raw body of alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
+	flag.StringVar(&tufRoot, "tufRoot", "", "Alternate TUF root.json for sigstore. If left blank, public sigstore one is used for cosign verification.")
 }
 
 func initRegistryClientFlags() {
@@ -142,10 +135,6 @@ func initCleanupFlags() {
 	flag.StringVar(&cleanupServerPort, "cleanupServerPort", "9443", "kyverno cleanup server port, defaults to '9443'.")
 }
 
-func initReportingFlags() {
-	flag.StringVar(&enableReporting, "enableReporting", "validate,mutate,mutateExisting,generate,imageVerify", "Comma separated list to enables reporting for different rule types. (validate,mutate,mutateExisting,generate,imageVerify)")
-}
-
 type options struct {
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
@@ -155,8 +144,8 @@ type options struct {
 
 func newOptions() options {
 	return options{
-		clientRateLimitQPS:   100,
-		clientRateLimitBurst: 200,
+		clientRateLimitQPS:   20,
+		clientRateLimitBurst: 50,
 		eventsRateLimitQPS:   1000,
 		eventsRateLimitBurst: 2000,
 	}
@@ -229,11 +218,6 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesLeaderElection() {
 		initLeaderElectionFlags()
 	}
-	// reporting
-	if config.UsesReporting() {
-		initReportingFlags()
-	}
-
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {

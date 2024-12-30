@@ -4,6 +4,7 @@ metadata:
   name: psa
 spec:
   background: true
+  validationFailureAction: Enforce
   rules:
   - name: baseline
     match:
@@ -12,7 +13,6 @@ spec:
           kinds:
           - Pod
     validate:
-      failureAction: Enforce
       podSecurity:
         level: baseline
         version: latest

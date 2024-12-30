@@ -136,8 +136,7 @@ func (v *notaryVerifier) verifyOutcomes(outcomes []*notation.VerificationOutcome
 func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
 	v.log.V(2).Info("fetching attestations", "reference", opts.ImageRef, "opts", opts)
 
-	nameOpts := opts.Client.NameOptions()
-	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
+	ref, err := name.ParseReference(opts.ImageRef)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
@@ -192,7 +191,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 		}
 
 		v.log.V(4).Info("extracting statements", "desc", referrer, "repo", ref)
-		statements, err = extractStatements(ctx, ref, referrer, remoteOpts, nameOpts)
+		statements, err = extractStatements(ctx, ref, referrer, remoteOpts)
 		if err != nil {
 			msg := err.Error()
 			v.log.V(4).Info("failed to extract statements %s", "err", msg)
@@ -273,9 +272,9 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	return targetDesc, nil
 }
 
-func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option, nameOpts []name.Option) ([]map[string]interface{}, error) {
+func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) ([]map[string]interface{}, error) {
 	statements := make([]map[string]interface{}, 0)
-	data, err := extractStatement(ctx, repoRef, desc, remoteOpts, nameOpts)
+	data, err := extractStatement(ctx, repoRef, desc, remoteOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -287,9 +286,9 @@ func extractStatements(ctx context.Context, repoRef name.Reference, desc v1.Desc
 	return statements, nil
 }
 
-func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option, nameOpts []name.Option) (map[string]interface{}, error) {
+func extractStatement(ctx context.Context, repoRef name.Reference, desc v1.Descriptor, remoteOpts []gcrremote.Option) (map[string]interface{}, error) {
 	refStr := repoRef.Context().RegistryStr() + "/" + repoRef.Context().RepositoryStr() + "@" + desc.Digest.String()
-	ref, err := name.ParseReference(refStr, nameOpts...)
+	ref, err := name.ParseReference(refStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse image reference: %s", refStr)
 	}

@@ -57,7 +57,7 @@ func preProcessStrategicMergePatch(logger logr.Logger, pattern, resource string)
 	patternNode := yaml.MustParse(pattern)
 	resourceNode := yaml.MustParse(resource)
 
-	err := PreProcessPattern(logger, patternNode, resourceNode)
+	err := preProcessPattern(logger, patternNode, resourceNode)
 
 	return patternNode, err
 }

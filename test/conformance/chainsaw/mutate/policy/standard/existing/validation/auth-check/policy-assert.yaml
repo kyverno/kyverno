@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-mutate-existing-auth-check
+  namespace: pol-mutate-existing-auth-check-ns
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

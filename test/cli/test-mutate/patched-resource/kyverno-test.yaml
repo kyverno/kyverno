@@ -8,7 +8,7 @@ resources:
 - resource.yaml
 results:
 - kind: Pod
-  patchedResources: patched-resource.yaml
+  patchedResource: patched-resource.yaml
   policy: add-default-resources
   resources:
   - nginx-demo

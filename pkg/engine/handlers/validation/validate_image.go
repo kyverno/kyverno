@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -45,25 +45,21 @@ func (h validateImageHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	_ engineapi.EngineContextLoader,
-	exceptions []*kyvernov2.PolicyException,
+	exceptions []kyvernov2beta1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
-	if len(matchedExceptions) > 0 {
-		var keys []string
-		for i, exception := range matchedExceptions {
-			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
-			if err != nil {
-				logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
-			}
-			keys = append(keys, key)
+	// check if there is a policy exception matches the incoming resource
+	exception := engineutils.MatchesException(exceptions, policyContext, logger)
+	if exception != nil {
+		key, err := cache.MetaNamespaceKeyFunc(exception)
+		if err != nil {
+			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to compute exception key", err)
+		} else {
+			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			return resource, handlers.WithResponses(
+				engineapi.RuleSkip(rule.Name, engineapi.ImageVerify, "rule skipped due to policy exception "+key).WithException(exception),
+			)
 		}
-
-		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
-		return resource, handlers.WithResponses(
-			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
-		)
 	}
 
 	skippedImages := make([]string, 0)
@@ -71,7 +67,7 @@ func (h validateImageHandler) Process(
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
 		for _, infoMap := range policyContext.JSONContext().ImageInfo() {
-			for _, imageInfo := range infoMap {
+			for name, imageInfo := range infoMap {
 				image := imageInfo.String()
 
 				if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
@@ -80,7 +76,7 @@ func (h validateImageHandler) Process(
 				}
 
 				logger.V(4).Info("validating image", "image", image)
-				if v, err := validateImage(policyContext, imageVerify, imageInfo, logger); err != nil {
+				if v, err := validateImage(policyContext, imageVerify, name, imageInfo, logger); err != nil {
 					return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
 				} else if v == engineapi.ImageVerificationSkip {
 					skippedImages = append(skippedImages, image)
@@ -102,7 +98,7 @@ func (h validateImageHandler) Process(
 	}
 }
 
-func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
+func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
 	var verified engineapi.ImageVerificationMetadataStatus
 	var err error
 	image := imageInfo.String()

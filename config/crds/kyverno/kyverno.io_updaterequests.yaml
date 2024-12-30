@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: (devel)
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -43,7 +43,6 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    deprecated: true
     name: v1beta1
     schema:
       openAPIV3Schema:
@@ -138,11 +137,13 @@ spec:
                               RequestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale).
                               If this is specified and differs from the value in "kind", an equivalent match and conversion was performed.
 
+
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
                               `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
                               an API request to apps/v1beta1 deployments would be converted and sent to the webhook
                               with `kind: {group:"apps", version:"v1", kind:"Deployment"}` (matching the rule the webhook registered for),
                               and `requestKind: {group:"apps", version:"v1beta1", kind:"Deployment"}` (indicating the kind of the original API request).
+
 
                               See documentation for the "matchPolicy" field in the webhook configuration type for more details.
                             properties:
@@ -162,11 +163,13 @@ spec:
                               RequestResource is the fully-qualified resource of the original API request (for example, v1.pods).
                               If this is specified and differs from the value in "resource", an equivalent match and conversion was performed.
 
+
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
                               `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
                               an API request to apps/v1beta1 deployments would be converted and sent to the webhook
                               with `resource: {group:"apps", version:"v1", resource:"deployments"}` (matching the resource the webhook registered for),
                               and `requestResource: {group:"apps", version:"v1beta1", resource:"deployments"}` (indicating the resource of the original API request).
+
 
                               See documentation for the "matchPolicy" field in the webhook configuration type.
                             properties:
@@ -233,7 +236,6 @@ spec:
                                 items:
                                   type: string
                                 type: array
-                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -293,7 +295,6 @@ spec:
                             items:
                               type: string
                             type: array
-                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
@@ -397,7 +398,7 @@ spec:
             type: object
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -449,9 +450,7 @@ spec:
             description: ResourceSpec is the information to identify the trigger resource.
             properties:
               context:
-                description: |-
-                  Context represents admission request context.
-                  It is used upon admission review only and is shared across rules within the same UR.
+                description: Context ...
                 properties:
                   admissionRequestInfo:
                     description: AdmissionRequestInfoObject stores the admission request
@@ -518,11 +517,13 @@ spec:
                               RequestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale).
                               If this is specified and differs from the value in "kind", an equivalent match and conversion was performed.
 
+
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
                               `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
                               an API request to apps/v1beta1 deployments would be converted and sent to the webhook
                               with `kind: {group:"apps", version:"v1", kind:"Deployment"}` (matching the rule the webhook registered for),
                               and `requestKind: {group:"apps", version:"v1beta1", kind:"Deployment"}` (indicating the kind of the original API request).
+
 
                               See documentation for the "matchPolicy" field in the webhook configuration type for more details.
                             properties:
@@ -542,11 +543,13 @@ spec:
                               RequestResource is the fully-qualified resource of the original API request (for example, v1.pods).
                               If this is specified and differs from the value in "resource", an equivalent match and conversion was performed.
 
+
                               For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
                               `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
                               an API request to apps/v1beta1 deployments would be converted and sent to the webhook
                               with `resource: {group:"apps", version:"v1", resource:"deployments"}` (matching the resource the webhook registered for),
                               and `requestResource: {group:"apps", version:"v1beta1", resource:"deployments"}` (indicating the resource of the original API request).
+
 
                               See documentation for the "matchPolicy" field in the webhook configuration type.
                             properties:
@@ -613,7 +616,6 @@ spec:
                                 items:
                                   type: string
                                 type: array
-                                x-kubernetes-list-type: atomic
                               uid:
                                 description: |-
                                   A unique value that identifies this user across time. If this user is
@@ -673,7 +675,6 @@ spec:
                             items:
                               type: string
                             type: array
-                            x-kubernetes-list-type: atomic
                           uid:
                             description: |-
                               A unique value that identifies this user across time. If this user is
@@ -688,9 +689,8 @@ spec:
                     type: object
                 type: object
               deleteDownstream:
-                description: |-
-                  DeleteDownstream represents whether the downstream needs to be deleted.
-                  Deprecated
+                description: DeleteDownstream represents whether the downstream needs
+                  to be deleted.
                 type: boolean
               policy:
                 description: Specifies the name of the policy.
@@ -724,56 +724,10 @@ spec:
               rule:
                 description: Rule is the associate rule name of the current UR.
                 type: string
-              ruleContext:
-                description: |-
-                  RuleContext is the associate context to apply rules.
-                  optional
-                items:
-                  properties:
-                    deleteDownstream:
-                      description: DeleteDownstream represents whether the downstream
-                        needs to be deleted.
-                      type: boolean
-                    rule:
-                      description: Rule is the associate rule name of the current
-                        UR.
-                      type: string
-                    synchronize:
-                      description: |-
-                        Synchronize represents the sync behavior of the corresponding rule
-                        Optional. Defaults to "false" if not specified.
-                      type: boolean
-                    trigger:
-                      description: ResourceSpec is the information to identify the
-                        trigger resource.
-                      properties:
-                        apiVersion:
-                          description: APIVersion specifies resource apiVersion.
-                          type: string
-                        kind:
-                          description: Kind specifies resource kind.
-                          type: string
-                        name:
-                          description: Name specifies the resource name.
-                          type: string
-                        namespace:
-                          description: Namespace specifies resource namespace.
-                          type: string
-                        uid:
-                          description: UID specifies the resource uid.
-                          type: string
-                      type: object
-                  required:
-                  - deleteDownstream
-                  - rule
-                  - trigger
-                  type: object
-                type: array
               synchronize:
                 description: |-
                   Synchronize represents the sync behavior of the corresponding rule
                   Optional. Defaults to "false" if not specified.
-                  Deprecated, will be removed in 1.14.
                 type: boolean
             required:
             - context
@@ -821,6 +775,6 @@ spec:
             type: object
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}

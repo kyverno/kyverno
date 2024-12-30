@@ -16,7 +16,6 @@ spec:
           name: test*
     name: validate-yaml
     validate:
-      failureAction: Enforce
       manifests:
         attestors:
         - count: 1
@@ -43,7 +42,6 @@ spec:
           name: test*
     name: validate-yaml-multi-sig
     validate:
-      failureAction: Enforce
       manifests:
         attestors:
         - entries:
@@ -61,4 +59,5 @@ spec:
                 FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
                 -----END PUBLIC KEY-----
               signatureAlgorithm: sha256
+  validationFailureAction: Enforce
   webhookTimeoutSeconds: 30

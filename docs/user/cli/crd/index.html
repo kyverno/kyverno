@@ -233,7 +233,7 @@ Refer to the Kubernetes API documentation for the fields of the
 <td>
 <code>RequestInfo</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno/v2.RequestInfo
+github.com/kyverno/kyverno/api/kyverno/v1beta1.RequestInfo
 </em>
 </td>
 <td>
@@ -795,15 +795,14 @@ string
 </tr>
 <tr>
 <td>
-<code>patchedResources</code><br/>
+<code>patchedResource</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
 <p>PatchedResource takes a resource configuration file in yaml format from
-the user to compare it against the Kyverno mutated resource configuration.
-Multiple resources can be passed in the same file</p>
+the user to compare it against the Kyverno mutated resource configuration.</p>
 </td>
 </tr>
 <tr>
@@ -885,19 +884,6 @@ string
 <td>
 <p>Namespace mentions the namespace of the policy which has namespace scope.
 This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;</code> for policies and/or resources instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>patchedResource</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>PatchedResource takes a resource configuration file in yaml format from
-the user to compare it against the Kyverno mutated resource configuration.
-This is DEPRECATED, Use <code>patchedResources</code> instead.</p>
 </td>
 </tr>
 </tbody>

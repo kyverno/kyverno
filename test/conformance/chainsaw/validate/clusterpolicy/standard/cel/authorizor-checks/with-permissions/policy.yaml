@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-host-port
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
     - name: host-port
@@ -15,7 +16,6 @@ spec:
               - CREATE
               - UPDATE
       validate:
-        failureAction: Enforce
         cel:
           expressions:
             - expression: "authorizer.serviceAccount('default', 'test-account').group('').resource('pods').namespace('default').check('delete').allowed()"

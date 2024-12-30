@@ -112,7 +112,7 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("", Validation, "", nil),
+					*RuleFail("", Validation, ""),
 				},
 			},
 		},
@@ -121,7 +121,7 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("", Validation, "", nil),
+					*RuleFail("", Validation, ""),
 				},
 			},
 		},
@@ -133,7 +133,7 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("", Validation, "", nil),
+					*RuleFail("", Validation, ""),
 				},
 			},
 		},
@@ -145,7 +145,7 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("", Validation, "", nil),
+					*RuleFail("", Validation, ""),
 				},
 			},
 		},
@@ -157,7 +157,7 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("", Validation, "", nil),
+					*RuleFail("", Validation, ""),
 				},
 			},
 		},
@@ -197,7 +197,7 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RulePass("", Validation, "", nil),
+					*RulePass("", Validation, ""),
 				},
 			},
 		},
@@ -206,7 +206,7 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("", Validation, "", nil),
+					*RuleFail("", Validation, ""),
 				},
 			},
 		},
@@ -215,7 +215,7 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleWarn("", Validation, "", nil),
+					*RuleWarn("", Validation, ""),
 				},
 			},
 		},
@@ -224,7 +224,7 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleError("", Validation, "", nil, nil),
+					*RuleError("", Validation, "", nil),
 				},
 			},
 		},
@@ -233,7 +233,7 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleSkip("", Validation, "", nil),
+					*RuleSkip("", Validation, ""),
 				},
 			},
 		},
@@ -270,7 +270,7 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RulePass("", Validation, "", nil),
+					*RulePass("", Validation, ""),
 				},
 			},
 		},
@@ -279,7 +279,7 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("", Validation, "", nil),
+					*RuleFail("", Validation, ""),
 				},
 			},
 		},
@@ -288,7 +288,7 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleWarn("", Validation, "", nil),
+					*RuleWarn("", Validation, ""),
 				},
 			},
 		},
@@ -297,7 +297,7 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleError("", Validation, "", nil, nil),
+					*RuleError("", Validation, "", nil),
 				},
 			},
 		},
@@ -306,7 +306,7 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleSkip("", Validation, "", nil),
+					*RuleSkip("", Validation, ""),
 				},
 			},
 		},
@@ -343,7 +343,7 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RulePass("", Validation, "", nil),
+					*RulePass("", Validation, ""),
 				},
 			},
 		},
@@ -352,7 +352,7 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("", Validation, "", nil),
+					*RuleFail("", Validation, ""),
 				},
 			},
 		},
@@ -361,7 +361,7 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleWarn("", Validation, "", nil),
+					*RuleWarn("", Validation, ""),
 				},
 			},
 		},
@@ -370,7 +370,7 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleError("", Validation, "", nil, nil),
+					*RuleError("", Validation, "", nil),
 				},
 			},
 		},
@@ -379,7 +379,7 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleSkip("", Validation, "", nil),
+					*RuleSkip("", Validation, ""),
 				},
 			},
 		},
@@ -416,7 +416,7 @@ func TestEngineResponse_IsError(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RulePass("", Validation, "", nil),
+					*RulePass("", Validation, ""),
 				},
 			},
 		},
@@ -425,7 +425,7 @@ func TestEngineResponse_IsError(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("", Validation, "", nil),
+					*RuleFail("", Validation, ""),
 				},
 			},
 		},
@@ -434,7 +434,7 @@ func TestEngineResponse_IsError(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleWarn("", Validation, "", nil),
+					*RuleWarn("", Validation, ""),
 				},
 			},
 		},
@@ -443,7 +443,7 @@ func TestEngineResponse_IsError(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleError("", Validation, "", nil, nil),
+					*RuleError("", Validation, "", nil),
 				},
 			},
 		},
@@ -452,7 +452,7 @@ func TestEngineResponse_IsError(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleSkip("", Validation, "", nil),
+					*RuleSkip("", Validation, ""),
 				},
 			},
 		},
@@ -487,7 +487,7 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleSkip("skip", Validation, "", nil),
+					*RuleSkip("skip", Validation, ""),
 				},
 			},
 		},
@@ -495,7 +495,7 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleWarn("warn", Validation, "", nil),
+					*RuleWarn("warn", Validation, ""),
 				},
 			},
 		},
@@ -503,7 +503,7 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RulePass("pass", Validation, "", nil),
+					*RulePass("pass", Validation, ""),
 				},
 			},
 		},
@@ -511,7 +511,7 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("fail", Validation, "", nil),
+					*RuleFail("fail", Validation, ""),
 				},
 			},
 		},
@@ -520,8 +520,8 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("fail-1", Validation, "", nil),
-					*RuleFail("fail-2", Validation, "", nil),
+					*RuleFail("fail-1", Validation, ""),
+					*RuleFail("fail-2", Validation, ""),
 				},
 			},
 		},
@@ -530,8 +530,8 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("fail-1", Validation, "", nil),
-					*RuleError("error-1", Validation, "", nil, nil),
+					*RuleFail("fail-1", Validation, ""),
+					*RuleError("error-1", Validation, "", nil),
 				},
 			},
 		},
@@ -540,8 +540,8 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleError("error-1", Validation, "", nil, nil),
-					*RuleError("error-2", Validation, "", nil, nil),
+					*RuleError("error-1", Validation, "", nil),
+					*RuleError("error-2", Validation, "", nil),
 				},
 			},
 		},
@@ -576,7 +576,7 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleSkip("skip", Validation, "", nil),
+					*RuleSkip("skip", Validation, ""),
 				},
 			},
 		},
@@ -584,7 +584,7 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleWarn("warn", Validation, "", nil),
+					*RuleWarn("warn", Validation, ""),
 				},
 			},
 		},
@@ -592,8 +592,8 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RulePass("pass-1", Validation, "", nil),
-					*RulePass("pass-2", Validation, "", nil),
+					*RulePass("pass-1", Validation, ""),
+					*RulePass("pass-2", Validation, ""),
 				},
 			},
 		},
@@ -602,7 +602,7 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RulePass("pass", Validation, "", nil),
+					*RulePass("pass", Validation, ""),
 				},
 			},
 		},
@@ -611,8 +611,8 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RulePass("pass", Validation, "", nil),
-					*RuleFail("fail", Validation, "", nil),
+					*RulePass("pass", Validation, ""),
+					*RuleFail("fail", Validation, ""),
 				},
 			},
 		},
@@ -621,8 +621,8 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RulePass("pass", Validation, "", nil),
-					*RuleSkip("skip", Validation, "", nil),
+					*RulePass("pass", Validation, ""),
+					*RuleSkip("skip", Validation, ""),
 				},
 			},
 		},
@@ -631,7 +631,7 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("fail", Validation, "", nil),
+					*RuleFail("fail", Validation, ""),
 				},
 			},
 		},
@@ -639,8 +639,8 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("fail-1", Validation, "", nil),
-					*RuleFail("fail-2", Validation, "", nil),
+					*RuleFail("fail-1", Validation, ""),
+					*RuleFail("fail-2", Validation, ""),
 				},
 			},
 		},
@@ -648,8 +648,8 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleFail("fail-1", Validation, "", nil),
-					*RuleError("error-1", Validation, "", nil, nil),
+					*RuleFail("fail-1", Validation, ""),
+					*RuleError("error-1", Validation, "", nil),
 				},
 			},
 		},
@@ -657,8 +657,8 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
 				Rules: []RuleResponse{
-					*RuleError("error-1", Validation, "", nil, nil),
-					*RuleError("error-2", Validation, "", nil, nil),
+					*RuleError("error-1", Validation, "", nil),
+					*RuleError("error-2", Validation, "", nil),
 				},
 			},
 		},
@@ -680,8 +680,6 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 	resource := unstructured.Unstructured{}
 	resource.SetNamespace("foo")
-	audit := kyvernov1.Audit
-	enforce := kyvernov1.Enforce
 	type fields struct {
 		PatchedResource unstructured.Unstructured
 		GenericPolicy   GenericPolicy
@@ -714,36 +712,6 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		fields: fields{
 			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &audit,
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Audit,
-	}, {
-		fields: fields{
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Enforce,
-	}, {
-		fields: fields{
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
 					ValidationFailureAction: kyvernov1.Enforce,
 					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
 						Action:     kyvernov1.Audit,
@@ -768,44 +736,6 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action:     kyvernov1.Audit,
-									Namespaces: []string{"*"},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Audit,
-	}, {
-		fields: fields{
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action:     "invalid",
-									Namespaces: []string{"*"},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Enforce,
-	}, {
-		fields: fields{
 			PatchedResource: resource,
 			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
 				Spec: kyvernov1.Spec{
@@ -958,212 +888,6 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 							},
 						},
 					}},
-				},
-			}),
-		},
-		want: kyvernov1.Audit,
-	}, {
-		fields: fields{
-			PatchedResource: resource,
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action:     kyvernov1.Audit,
-									Namespaces: []string{"foo"},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Audit,
-	}, {
-		fields: fields{
-			PatchedResource: resource,
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action:     kyvernov1.Audit,
-									Namespaces: []string{"bar"},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Enforce,
-	}, {
-		fields: fields{
-			namespaceLabels: map[string]string{
-				"foo": "bar",
-			},
-			PatchedResource: resource,
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action: kyvernov1.Audit,
-									NamespaceSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"bar": "foo",
-										},
-									},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Enforce,
-	}, {
-		fields: fields{
-			namespaceLabels: map[string]string{
-				"foo": "bar",
-			},
-			PatchedResource: resource,
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action: kyvernov1.Audit,
-									NamespaceSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"foo": "bar",
-										},
-									},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Audit,
-	}, {
-		fields: fields{
-			namespaceLabels: map[string]string{
-				"foo": "bar",
-			},
-			PatchedResource: resource,
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action:     kyvernov1.Audit,
-									Namespaces: []string{"foo"},
-									NamespaceSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"bar": "foo",
-										},
-									},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Enforce,
-	}, {
-		fields: fields{
-			namespaceLabels: map[string]string{
-				"foo": "bar",
-			},
-			PatchedResource: resource,
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action:     kyvernov1.Audit,
-									Namespaces: []string{"bar"},
-									NamespaceSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"foo": "bar",
-										},
-									},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Enforce,
-	}, {
-		fields: fields{
-			namespaceLabels: map[string]string{
-				"foo": "bar",
-			},
-			PatchedResource: resource,
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action:     kyvernov1.Audit,
-									Namespaces: []string{"foo"},
-									NamespaceSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"foo": "bar",
-										},
-									},
-								}},
-							},
-						},
-					},
-				},
-			}),
-		},
-		want: kyvernov1.Audit,
-	}, {
-		fields: fields{
-			namespaceLabels: map[string]string{
-				"foo": "bar",
-			},
-			PatchedResource: resource,
-			GenericPolicy: NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-				Spec: kyvernov1.Spec{
-					Rules: []kyvernov1.Rule{
-						{
-							Validation: &kyvernov1.Validation{
-								FailureAction: &enforce,
-								FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
-									Action:     kyvernov1.Audit,
-									Namespaces: []string{"*"},
-									NamespaceSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"foo": "bar",
-										},
-									},
-								}},
-							},
-						},
-					},
 				},
 			}),
 		},

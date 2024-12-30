@@ -14,7 +14,6 @@ spec:
           - Pod
     name: validate-selinux-options
     validate:
-      failureAction: Audit
       message: SELinux level is required
       pattern:
         spec:
@@ -22,3 +21,4 @@ spec:
           - securityContext:
               seLinuxOptions:
                 level: ?*
+  validationFailureAction: Audit

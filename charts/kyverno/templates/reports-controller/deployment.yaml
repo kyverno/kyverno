@@ -7,10 +7,6 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
-  {{- with .Values.reportsController.annotations }}
-  annotations:
-    {{- tpl (toYaml .) $ | nindent 4 }}
-  {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.reportsController.replicas }}
   revisionHistoryLimit: {{ .Values.reportsController.revisionHistoryLimit }}
@@ -32,7 +28,7 @@ spec:
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
-      {{- with .Values.reportsController.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      {{- with .Values.reportsController.imagePullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -44,7 +40,7 @@ spec:
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.reportsController.tolerations | default .Values.global.tolerations}}
+      {{- with .Values.reportsController.tolerations }}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -84,10 +80,10 @@ spec:
           image: {{ include "kyverno.reports-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.reportsController.image.pullPolicy }}
           ports:
-          - containerPort: {{ .Values.reportsController.server.port }}
+          - containerPort: 9443
             name: https
             protocol: TCP
-          - containerPort: {{ .Values.reportsController.metering.port }}
+          - containerPort: 8000
             name: metrics
             protocol: TCP
           {{ if .Values.reportsController.profiling.enabled }}
@@ -118,9 +114,7 @@ spec:
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
-            - --resyncPeriod={{ .Values.reportsController.resyncPeriod | default .Values.global.resyncPeriod }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.reportsController.featuresOverride)
-              "reporting"
               "admissionReports"
               "aggregateReports"
               "policyReports"
@@ -132,6 +126,7 @@ spec:
               "logging"
               "omitEvents"
               "policyExceptions"
+              "reports"
               "registryClient"
               "tuf"
             ) | nindent 12 }}

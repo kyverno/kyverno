@@ -59,7 +59,7 @@ func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error)
 	return resource, nil
 }
 
-func GetResourceFromPath(fs billy.Filesystem, path string) ([]*unstructured.Unstructured, error) {
+func GetResourceFromPath(fs billy.Filesystem, path string) (*unstructured.Unstructured, error) {
 	var resourceBytes []byte
 	if fs == nil {
 		data, err := GetFileBytes(path)
@@ -83,10 +83,10 @@ func GetResourceFromPath(fs billy.Filesystem, path string) ([]*unstructured.Unst
 	if err != nil {
 		return nil, err
 	}
-	if len(resources) == 0 {
-		return nil, fmt.Errorf("no resources found")
+	if len(resources) != 1 {
+		return nil, fmt.Errorf("exactly one resource expected, found %d", len(resources))
 	}
-	return resources, nil
+	return resources[0], nil
 }
 
 func GetFileBytes(path string) ([]byte, error) {

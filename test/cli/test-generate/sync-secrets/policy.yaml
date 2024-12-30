@@ -32,3 +32,4 @@ spec:
           kinds:
           - Namespace
     name: sync-image-pull-secret
+  validationFailureAction: Audit

@@ -30,8 +30,8 @@ spec:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       restartPolicy: Never
-      {{- with .Values.webhooksCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
-      imagePullSecrets:
+      {{- with .Values.webhooksCleanup.imagePullSecrets }}
+      imagePullSecrets: 
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       containers:
@@ -51,7 +51,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.webhooksCleanup.tolerations | default .Values.global.tolerations}}
+      {{- with .Values.webhooksCleanup.tolerations }}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

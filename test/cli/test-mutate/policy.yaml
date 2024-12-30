@@ -43,6 +43,7 @@ spec:
       - key: not-the-name
         operator: AllIn
         value: '{{ request.object.metadata.labels | keys(@) }}'
+  validationFailureAction: Audit
 ---
 apiVersion: kyverno.io/v1
 kind: Policy
@@ -74,6 +75,7 @@ spec:
             - name: ndots
               value: "1"
     name: add-ndots
+  validationFailureAction: Audit
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -102,3 +104,4 @@ spec:
           op: replace
           value: {{ annotations }}
     name: object_from_lists
+  validationFailureAction: Audit

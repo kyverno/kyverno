@@ -1,8 +1,0 @@
-apiVersion: chainsaw.kyverno.io/v1alpha1
-kind: StepTemplate
-metadata:
-  name: update-policy
-spec:
-  try:
-  - update:
-      file: ($file)

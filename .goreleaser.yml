@@ -1,5 +1,3 @@
-version: 2
-
 project_name: kyverno-cli
 
 before:
@@ -8,10 +6,7 @@ before:
 
 builds:
 - id: kyverno-cli
-  # As mentioned in https://github.com/golang/go/issues/51831, to include build info, we should use go build <package>
-  # instead of go build main.go here.
-  # see https://goreleaser.com/customization/builds/
-  main: ./cmd/cli/kubectl-kyverno
+  main: cmd/cli/kubectl-kyverno/main.go
   binary: kyverno
   env:
   - CGO_ENABLED=0

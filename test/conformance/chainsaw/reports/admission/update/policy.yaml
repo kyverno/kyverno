@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-latest-tag
 spec:
+  validationFailureAction: Audit
   background: true
   rules:
   - name: validate-image-tag-pod
@@ -12,7 +13,6 @@ spec:
           kinds:
           - Pod
     validate:
-      failureAction: Audit
       message: "Using a mutable image tag e.g. 'latest' is not allowed."
       pattern:
         spec:

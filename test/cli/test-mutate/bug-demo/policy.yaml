@@ -80,3 +80,4 @@ spec:
             to_string(@)
           }}
     name: mutate1
+  validationFailureAction: Enforce

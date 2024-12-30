@@ -1,7 +1,6 @@
 package context
 
 import (
-	cont "context"
 	"encoding/csv"
 	"fmt"
 	"regexp"
@@ -9,12 +8,11 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -73,7 +71,7 @@ type Interface interface {
 	AddOperation(data string) error
 
 	// AddUserInfo merges userInfo json under kyverno.userInfo
-	AddUserInfo(userInfo kyvernov2.RequestInfo) error
+	AddUserInfo(userInfo kyvernov1beta1.RequestInfo) error
 
 	// AddServiceAccount merges ServiceAccount types
 	AddServiceAccount(userName string) error
@@ -238,7 +236,7 @@ func (ctx *context) AddOperation(data string) error {
 }
 
 // AddUserInfo adds userInfo at path request.userInfo
-func (ctx *context) AddUserInfo(userRequestInfo kyvernov2.RequestInfo) error {
+func (ctx *context) AddUserInfo(userRequestInfo kyvernov1beta1.RequestInfo) error {
 	if data, err := toUnstructured(&userRequestInfo); err == nil {
 		return addToContext(ctx, data, false, "request")
 	} else {
@@ -306,25 +304,12 @@ func (ctx *context) AddImageInfo(info apiutils.ImageInfo, cfg config.Configurati
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg config.Configuration) error {
-	imageInfoLoader := &ImageInfoLoader{
-		resource: resource,
-		eCtx:     ctx,
-		cfg:      cfg,
-	}
-	dl, err := NewDeferredLoader("images", imageInfoLoader, logger)
+	images, err := apiutils.ExtractImagesFromResource(*resource, nil, cfg)
 	if err != nil {
 		return err
 	}
-	if toggle.FromContext(cont.Background()).EnableDeferredLoading() {
-		if err := ctx.AddDeferredLoader(dl); err != nil {
-			return err
-		}
-	} else {
-		if err := imageInfoLoader.LoadData(); err != nil {
-			return err
-		}
-	}
-	return nil
+
+	return ctx.addImageInfos(images)
 }
 
 func (ctx *context) addImageInfos(images map[string]map[string]apiutils.ImageInfo) error {
@@ -336,28 +321,9 @@ func (ctx *context) addImageInfos(images map[string]map[string]apiutils.ImageInf
 	if err != nil {
 		return err
 	}
+
 	logging.V(4).Info("updated image info", "images", utm)
 	return addToContext(ctx, utm, false, "images")
-}
-
-type ImageInfoLoader struct {
-	resource  *unstructured.Unstructured
-	hasLoaded bool
-	eCtx      *context
-	cfg       config.Configuration
-}
-
-func (l *ImageInfoLoader) HasLoaded() bool {
-	return l.hasLoaded
-}
-
-func (l *ImageInfoLoader) LoadData() error {
-	images, err := apiutils.ExtractImagesFromResource(*l.resource, nil, l.cfg)
-	if err != nil {
-		return err
-	}
-
-	return l.eCtx.addImageInfos(images)
 }
 
 func convertImagesToUnstructured(images map[string]map[string]apiutils.ImageInfo) (map[string]interface{}, error) {
@@ -397,12 +363,6 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 }
 
 func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
-	// force load of image info from deferred loader
-	if len(ctx.images) == 0 {
-		if err := ctx.loadDeferred("images"); err != nil {
-			return map[string]map[string]apiutils.ImageInfo{}
-		}
-	}
 	return ctx.images
 }
 

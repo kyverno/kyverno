@@ -6,7 +6,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,25 +37,31 @@ func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	_, policyName, _ := cache.SplitMetaNamespaceKey(policyKey)
 
 	set := pkglabels.Set{
-		kyvernov2.URMutatePolicyLabel: policyName,
+		kyvernov1beta1.URMutatePolicyLabel: policyName,
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
-		set[kyvernov2.URMutateTriggerNameLabel] = trimByLength(trigger.GetName(), 63)
-		set[kyvernov2.URMutateTriggerNSLabel] = trigger.GetNamespace()
-		set[kyvernov2.URMutateTriggerKindLabel] = trigger.GetKind()
+		set[kyvernov1beta1.URMutateTriggerNameLabel] = trimByLength(trigger.GetName(), 63)
+		set[kyvernov1beta1.URMutateTriggerNSLabel] = trigger.GetNamespace()
+		set[kyvernov1beta1.URMutateTriggerKindLabel] = trigger.GetKind()
 		if trigger.GetAPIVersion() != "" {
-			set[kyvernov2.URMutateTriggerAPIVersionLabel] = strings.ReplaceAll(trigger.GetAPIVersion(), "/", "-")
+			set[kyvernov1beta1.URMutateTriggerAPIVersionLabel] = strings.ReplaceAll(trigger.GetAPIVersion(), "/", "-")
 		}
 	}
 	return set
 }
 
-func GenerateLabelsSet(policyKey string) pkglabels.Set {
+func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	_, policyName, _ := cache.SplitMetaNamespaceKey(policyKey)
 
 	set := pkglabels.Set{
-		kyvernov2.URGeneratePolicyLabel: policyName,
+		kyvernov1beta1.URGeneratePolicyLabel: policyName,
+	}
+	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
+	if !isNil {
+		set[kyvernov1beta1.URGenerateResourceUIDLabel] = string(trigger.GetUID())
+		set[kyvernov1beta1.URGenerateResourceNSLabel] = trigger.GetNamespace()
+		set[kyvernov1beta1.URGenerateResourceKindLabel] = trigger.GetKind()
 	}
 	return set
 }

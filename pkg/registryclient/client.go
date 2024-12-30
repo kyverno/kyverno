@@ -58,22 +58,17 @@ type Client interface {
 
 	// Options returns remote.Option configuration for the client.
 	Options(context.Context) ([]gcrremote.Option, error)
-
-	// NameOptions returns name.Option configuration for the client.
-	NameOptions() []name.Option
 }
 
 type client struct {
-	keychain              authn.Keychain
-	transport             http.RoundTripper
-	allowInsecureRegistry bool
+	keychain  authn.Keychain
+	transport http.RoundTripper
 }
 
 type config struct {
-	keychain              []authn.Keychain
-	transport             *http.Transport
-	tracing               bool
-	allowInsecureRegistry bool
+	keychain  []authn.Keychain
+	transport *http.Transport
+	tracing   bool
 }
 
 // Option is an option to initialize registry client.
@@ -98,9 +93,6 @@ func New(options ...Option) (Client, error) {
 	}
 	if cfg.tracing {
 		c.transport = tracing.Transport(cfg.transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
-	}
-	if cfg.allowInsecureRegistry {
-		c.allowInsecureRegistry = true
 	}
 	return c, nil
 }
@@ -155,7 +147,6 @@ func WithCredentialProviders(credentialProviders ...string) Option {
 func WithAllowInsecureRegistry() Option {
 	return func(c *config) error {
 		c.transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
-		c.allowInsecureRegistry = true
 		return nil
 	}
 }
@@ -200,22 +191,10 @@ func (c *client) Options(ctx context.Context) ([]gcrremote.Option, error) {
 	return opts, nil
 }
 
-// NameOptions returns name.Option config parameters for the client
-func (c *client) NameOptions() []name.Option {
-	nameOpts := []name.Option{}
-
-	if c.allowInsecureRegistry {
-		nameOpts = append(nameOpts, name.Insecure)
-	}
-
-	return nameOpts
-}
-
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef
 // and provides access to metadata about remote artifact.
 func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gcrremote.Descriptor, error) {
-	nameOpts := c.NameOptions()
-	parsedRef, err := name.ParseReference(imageRef, nameOpts...)
+	parsedRef, err := name.ParseReference(imageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", imageRef, err)
 	}

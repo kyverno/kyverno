@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: disallow-host-path-t9
 spec:
+  validationFailureAction: Audit
   background: false
   rules:
     - name: host-path
@@ -19,7 +20,6 @@ spec:
               matchLabels:
                 app: critical
       validate:
-        failureAction: Audit
         cel:
           expressions:
             - expression: "!has(object.spec.template.spec.volumes) || object.spec.template.spec.volumes.all(volume, !has(volume.hostPath))"

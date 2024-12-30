@@ -62,69 +62,31 @@ func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, su
 func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace string) []kyvernov1.PolicyInterface {
 	var policies []kyvernov1.PolicyInterface
 	for _, policy := range result {
-		var filteredPolicy kyvernov1.PolicyInterface
 		keepPolicy := true
 		switch pkey {
 		case ValidateAudit:
-			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(false, nspace, policy)
+			keepPolicy = checkValidationFailureActionOverrides(false, nspace, policy)
 		case ValidateEnforce:
-			keepPolicy, filteredPolicy = checkValidationFailureActionOverrides(true, nspace, policy)
+			keepPolicy = checkValidationFailureActionOverrides(true, nspace, policy)
 		}
 		// add policy to result
 		if keepPolicy {
-			policies = append(policies, filteredPolicy)
+			policies = append(policies, policy)
 		}
 	}
 	return policies
 }
 
-func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) (bool, kyvernov1.PolicyInterface) {
-	filteredRules := make([]kyvernov1.Rule, 0, len(policy.GetSpec().Rules))
-
-	// Use pointer to avoid copying the rule in each iteration
-	for i := range policy.GetSpec().Rules {
-		rule := &policy.GetSpec().Rules[i]
-
-		if !rule.HasValidate() {
-			continue
-		}
-
-		// if the field isn't set, use the higher level policy setting
-		validationFailureAction := rule.Validation.FailureAction
-		if validationFailureAction == nil {
-			policyAction := policy.GetSpec().ValidationFailureAction
-			validationFailureAction = &policyAction
-		}
-
-		validationFailureActionOverrides := rule.Validation.FailureActionOverrides
-		if len(validationFailureActionOverrides) == 0 {
-			validationFailureActionOverrides = policy.GetSpec().ValidationFailureActionOverrides
-		}
-
-		if (ns == "" || len(validationFailureActionOverrides) == 0) && validationFailureAction.Enforce() == enforce {
-			filteredRules = append(filteredRules, *rule)
-			continue
-		}
-
-		for _, action := range validationFailureActionOverrides {
-			if action.Action.Enforce() == enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
-				filteredRules = append(filteredRules, *rule)
-				break // Changed continue to break since we found a match
-			}
+func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) bool {
+	validationFailureAction := policy.GetSpec().ValidationFailureAction
+	validationFailureActionOverrides := policy.GetSpec().ValidationFailureActionOverrides
+	if validationFailureAction.Enforce() != enforce && (ns == "" || len(validationFailureActionOverrides) == 0) {
+		return false
+	}
+	for _, action := range validationFailureActionOverrides {
+		if action.Action.Enforce() != enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
+			return false
 		}
 	}
-
-	if len(filteredRules) > 0 {
-		var filteredPolicy kyvernov1.PolicyInterface
-		if _, ok := policy.(*kyvernov1.Policy); ok {
-			shallowCopy := *policy.(*kyvernov1.Policy)
-			filteredPolicy = &shallowCopy
-		} else {
-			shallowCopy := *policy.(*kyvernov1.ClusterPolicy)
-			filteredPolicy = &shallowCopy
-		}
-		filteredPolicy.GetSpec().SetRules(filteredRules)
-		return true, filteredPolicy
-	}
-	return false, nil
+	return true
 }

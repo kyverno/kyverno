@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -13,14 +14,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, severSideApply bool, pattern kyvernov1.GeneratePattern, client dclient.Interface) generateResponse {
+func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, rule kyvernov1.Rule, client dclient.Interface) generateResponse {
 	source := sourceSpec
-	if pattern.Clone.Name != "" {
+	clone := rule.Generation
+	if clone.Clone.Name != "" {
 		source = kyvernov1.ResourceSpec{
 			APIVersion: target.GetAPIVersion(),
 			Kind:       target.GetKind(),
-			Namespace:  pattern.Clone.Namespace,
-			Name:       pattern.Clone.Name,
+			Namespace:  clone.Clone.Namespace,
+			Name:       clone.Clone.Name,
 		}
 	}
 
@@ -28,7 +30,8 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, sev
 		log.V(4).Info("namespace is optional in case of cluster scope resource", "source namespace", source.GetNamespace())
 	}
 
-	if source.GetNamespace() == target.GetNamespace() && source.GetName() == target.GetName() {
+	if source.GetNamespace() == target.GetNamespace() && source.GetName() == target.GetName() ||
+		(rule.Generation.CloneList.Kinds != nil) && (source.GetNamespace() == target.GetNamespace()) {
 		log.V(4).Info("skip resource self-clone")
 		return newSkipGenerateResponse(nil, target, nil)
 	}
@@ -57,13 +60,19 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, sev
 	sourceObjCopy.SetResourceVersion("")
 
 	targetObj, err := client.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
-	if err != nil && apierrors.IsNotFound(err) {
-		// the target resource should always exist regardless of synchronize settings
-		return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
+	if err != nil {
+		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !clone.Synchronize {
+			log.V(4).Info("synchronization is disabled, recreation will be skipped", "target resource", targetObj)
+			return newSkipGenerateResponse(nil, target, nil)
+		}
+		if apierrors.IsNotFound(err) {
+			return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
+		}
+		return newSkipGenerateResponse(nil, target, fmt.Errorf("failed to get the target source: %v", err))
 	}
 
 	if targetObj != nil {
-		if !severSideApply {
+		if !policy.GetSpec().UseServerSideApply {
 			sourceObjCopy.SetUID(targetObj.GetUID())
 			sourceObjCopy.SetSelfLink(targetObj.GetSelfLink())
 			sourceObjCopy.SetCreationTimestamp(targetObj.GetCreationTimestamp())
@@ -79,13 +88,14 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, sev
 	return newCreateGenerateResponse(sourceObjCopy.UnstructuredContent(), target, nil)
 }
 
-func manageCloneList(log logr.Logger, targetNamespace string, severSideApply bool, pattern kyvernov1.GeneratePattern, client dclient.Interface) []generateResponse {
+func manageCloneList(log logr.Logger, targetNamespace string, ur kyvernov1beta1.UpdateRequest, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, client dclient.Interface) []generateResponse {
 	var responses []generateResponse
-	sourceNamespace := pattern.CloneList.Namespace
-	kinds := pattern.CloneList.Kinds
+	cloneList := rule.Generation.CloneList
+	sourceNamespace := cloneList.Namespace
+	kinds := cloneList.Kinds
 	for _, kind := range kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-		sources, err := client.ListResource(context.TODO(), apiVersion, kind, sourceNamespace, pattern.CloneList.Selector)
+		sources, err := client.ListResource(context.TODO(), apiVersion, kind, sourceNamespace, cloneList.Selector)
 		if err != nil {
 			responses = append(responses,
 				newSkipGenerateResponse(
@@ -98,14 +108,8 @@ func manageCloneList(log logr.Logger, targetNamespace string, severSideApply boo
 
 		for _, source := range sources.Items {
 			target := newResourceSpec(source.GetAPIVersion(), source.GetKind(), targetNamespace, source.GetName())
-
-			if (pattern.CloneList.Kinds != nil) && (source.GetNamespace() == target.GetNamespace()) {
-				log.V(4).Info("skip resource self-clone")
-				responses = append(responses, newSkipGenerateResponse(nil, target, nil))
-				continue
-			}
 			responses = append(responses,
-				manageClone(log, target, newResourceSpec(source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source.GetName()), severSideApply, pattern, client))
+				manageClone(log, target, newResourceSpec(source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source.GetName()), policy, ur, rule, client))
 		}
 	}
 	return responses

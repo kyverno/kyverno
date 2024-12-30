@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: verify-image
 spec:
+  validationFailureAction: Audit
   admission: false
   background: true
   rules:
@@ -13,8 +14,7 @@ spec:
           kinds:
           - Pod
     verifyImages:
-    - failureAction: Audit
-      imageReferences:
+    - imageReferences:
       - "ghcr.io/kyverno/test-verify-image:*"
       attestors:
       - entries:

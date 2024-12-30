@@ -23,4 +23,4 @@ spec:
             value:
             - busybox
             - busybox1
-      failureAction: Enforce
+  validationFailureAction: Enforce

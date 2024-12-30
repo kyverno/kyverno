@@ -1,6 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: pol-data-sync-modify-downstream
 spec:
   steps:

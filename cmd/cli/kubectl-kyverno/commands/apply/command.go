@@ -12,7 +12,8 @@ import (
 
 	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -20,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -32,10 +34,11 @@ import (
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/yaml"
 )
 
 const divider = "----------------------------------------------------------------------"
@@ -46,28 +49,25 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig            string
-	Context               string
-	Namespace             string
-	MutateLogPath         string
-	Variables             []string
-	ValuesFile            string
-	UserInfoPath          string
-	Cluster               bool
-	PolicyReport          bool
-	Stdin                 bool
-	RegistryAccess        bool
-	AuditWarn             bool
-	ResourcePaths         []string
-	PolicyPaths           []string
-	GitBranch             string
-	warnExitCode          int
-	warnNoPassed          bool
-	Exception             []string
-	ContinueOnFail        bool
-	inlineExceptions      bool
-	GenerateExceptions    bool
-	GeneratedExceptionTTL time.Duration
+	KubeConfig     string
+	Context        string
+	Namespace      string
+	MutateLogPath  string
+	Variables      []string
+	ValuesFile     string
+	UserInfoPath   string
+	Cluster        bool
+	PolicyReport   bool
+	Stdin          bool
+	RegistryAccess bool
+	AuditWarn      bool
+	ResourcePaths  []string
+	PolicyPaths    []string
+	GitBranch      string
+	warnExitCode   int
+	warnNoPassed   bool
+	Exception      []string
+	ContinueOnFail bool
 }
 
 func Command() *cobra.Command {
@@ -90,43 +90,10 @@ func Command() *cobra.Command {
 			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
-				printReports(out, responses, applyCommandConfig.AuditWarn)
-			} else if applyCommandConfig.GenerateExceptions {
-				printExceptions(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.GeneratedExceptionTTL)
+				printReport(out, responses, applyCommandConfig.AuditWarn)
 			} else if table {
 				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
-				for _, response := range responses {
-					var failedRules []engineapi.RuleResponse
-					resPath := fmt.Sprintf("%s/%s/%s", response.Resource.GetNamespace(), response.Resource.GetKind(), response.Resource.GetName())
-					for _, rule := range response.PolicyResponse.Rules {
-						if rule.Status() == engineapi.RuleStatusFail {
-							failedRules = append(failedRules, rule)
-						}
-						if rule.RuleType() == engineapi.Mutation {
-							if rule.Status() == engineapi.RuleStatusSkip {
-								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().GetName(), "->", "resource", resPath)
-							} else if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
-							}
-						}
-					}
-					if len(failedRules) > 0 {
-						auditWarn := false
-						if applyCommandConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
-							auditWarn = true
-						}
-						if auditWarn {
-							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed as audit warning:")
-						} else {
-							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
-						}
-						for i, rule := range failedRules {
-							fmt.Fprintln(out, i+1, "-", rule.Name(), rule.Message())
-						}
-						fmt.Fprintln(out, "")
-					}
-				}
 				printViolations(out, rc)
 			}
 			return exit(out, rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
@@ -135,7 +102,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resources", "", []string{}, "Path to resource files")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
-	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated/generated resources in provided file/directory")
+	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
@@ -156,9 +123,6 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().BoolVar(&applyCommandConfig.ContinueOnFail, "continue-on-fail", false, "If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out")
-	cmd.Flags().BoolVarP(&applyCommandConfig.inlineExceptions, "exceptions-with-resources", "", false, "Evaluate policy exceptions from the resources path")
-	cmd.Flags().BoolVarP(&applyCommandConfig.GenerateExceptions, "generate-exceptions", "", false, "Generate policy exceptions for each violation")
-	cmd.Flags().DurationVarP(&applyCommandConfig.GeneratedExceptionTTL, "generated-exception-ttl", "", time.Hour*24*30, "Default TTL for generated exceptions")
 	return cmd
 }
 
@@ -175,7 +139,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	var userInfo *kyvernov2.RequestInfo
+	var userInfo *v1beta1.RequestInfo
 	if c.UserInfoPath != "" {
 		info, err := userinfo.Load(nil, c.UserInfoPath, "")
 		if err != nil {
@@ -201,19 +165,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skipInvalidPolicies, responses1, err
 	}
-	var exceptions []*kyvernov2.PolicyException
-	if c.inlineExceptions {
-		exceptions = exception.SelectFrom(resources)
-	} else {
-		exceptions, err = exception.Load(c.Exception...)
-		if err != nil {
-			return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
-		}
+	exceptions, err := exception.Load(c.Exception...)
+	if err != nil {
+		return rc, resources1, skipInvalidPolicies, responses1, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 	}
-	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
+	if !c.Stdin {
 		var policyRulesCount int
 		for _, policy := range policies {
-			policyRulesCount += len(autogen.Default.ComputeRules(policy, ""))
+			policyRulesCount += len(autogen.ComputeRules(policy, ""))
 		}
 		policyRulesCount += len(vaps)
 		if len(exceptions) > 0 {
@@ -257,8 +216,8 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir(skipInvalidPolicies SkippedIn
 }
 
 func (c *ApplyCommandConfig) applyValidatingAdmissionPolicytoResource(
-	vaps []admissionregistrationv1beta1.ValidatingAdmissionPolicy,
-	vapBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
+	vaps []v1alpha1.ValidatingAdmissionPolicy,
+	vapBindings []v1alpha1.ValidatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
 	namespaceSelectorMap map[string]map[string]string,
 	rc *processor.ResultCounts,
@@ -294,10 +253,10 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	vars *variables.Variables,
 	policies []kyvernov1.PolicyInterface,
 	resources []*unstructured.Unstructured,
-	exceptions []*kyvernov2.PolicyException,
+	exceptions []*kyvernov2beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
-	userInfo *kyvernov2.RequestInfo,
+	userInfo *v1beta1.RequestInfo,
 	mutateLogPathIsDir bool,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
 	if vars != nil {
@@ -308,8 +267,7 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
-		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, sa, sa)
+		_, err := policyvalidation.Validate(pol, nil, nil, nil, true, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)
@@ -347,22 +305,17 @@ func (c *ApplyCommandConfig) applyPolicytoResource(
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
 			if c.ContinueOnFail {
-				log.Log.Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
+				fmt.Printf("failed to apply policies on resource %v (%v)\n", resource.GetName(), err)
 				continue
 			}
-			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
+			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
-	}
-	for _, policy := range validPolicies {
-		if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-			log.Log.Info(fmt.Sprintf("Policy %s has no namespace detected. Ensure that namespaced policies are correctly loaded.", policy.GetNamespace()))
-		}
 	}
 	return &rc, resources, responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1beta1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
+func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.PolicyInterface, vap []v1alpha1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(out, nil, c.ResourcePaths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, fmt.Errorf("failed to load resources (%w)", err)
@@ -370,11 +323,11 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, policies []kyvernov1.P
 	return resources, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, []kyvernov1.PolicyInterface, []admissionregistrationv1beta1.ValidatingAdmissionPolicy, []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, error) {
+func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPolicies) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, []kyvernov1.PolicyInterface, []v1alpha1.ValidatingAdmissionPolicy, []v1alpha1.ValidatingAdmissionPolicyBinding, error) {
 	// load policies
 	var policies []kyvernov1.PolicyInterface
-	var vaps []admissionregistrationv1beta1.ValidatingAdmissionPolicy
-	var vapBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
+	var vaps []v1alpha1.ValidatingAdmissionPolicy
+	var vapBindings []v1alpha1.ValidatingAdmissionPolicyBinding
 
 	for _, path := range c.PolicyPaths {
 		isGit := source.IsGit(path)
@@ -420,12 +373,8 @@ func (c *ApplyCommandConfig) loadPolicies(skipInvalidPolicies SkippedInvalidPoli
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 			}
 		}
-		for _, policy := range policies {
-			if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s. This might cause incorrect report generation.", policy.GetNamespace()))
-			}
-		}
 	}
+
 	return nil, nil, skipInvalidPolicies, nil, policies, vaps, vapBindings, nil
 }
 
@@ -487,6 +436,44 @@ func (c *ApplyCommandConfig) checkArguments() (*processor.ResultCounts, []*unstr
 		return nil, nil, skipInvalidPolicies, nil, fmt.Errorf("resource file(s) or cluster required")
 	}
 	return nil, nil, skipInvalidPolicies, nil, nil
+}
+
+func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedInvalidPolicies) {
+	if len(skipInvalidPolicies.skipped) > 0 {
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "Policies Skipped (as required variables are not provided by the user):")
+		for i, policyName := range skipInvalidPolicies.skipped {
+			fmt.Fprintf(out, "%d. %s\n", i+1, policyName)
+		}
+		fmt.Fprintln(out, divider)
+	}
+	if len(skipInvalidPolicies.invalid) > 0 {
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "Invalid Policies:")
+		for i, policyName := range skipInvalidPolicies.invalid {
+			fmt.Fprintf(out, "%d. %s\n", i+1, policyName)
+		}
+		fmt.Fprintln(out, divider)
+	}
+}
+
+func printReport(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool) {
+	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
+	if len(clustered) > 0 || len(namespaced) > 0 {
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "POLICY REPORT:")
+		fmt.Fprintln(out, divider)
+		report := report.MergeClusterReports(clustered)
+		yamlReport, _ := yaml.Marshal(report)
+		fmt.Fprintln(out, string(yamlReport))
+	} else {
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "POLICY REPORT: skip generating policy report (no validate policy found/resource skipped)")
+	}
+}
+
+func printViolations(out io.Writer, rc *processor.ResultCounts) {
+	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
 }
 
 type WarnExitCodeError struct {

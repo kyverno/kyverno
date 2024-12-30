@@ -1,4 +1,0 @@
-webhooksCleanup:
-  enabled: true
-  autoDeleteWebhooks:
-    enabled: true

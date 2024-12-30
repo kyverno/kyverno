@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -47,21 +46,7 @@ func NewVerifier() images.ImageVerifier {
 type cosignVerifier struct{}
 
 func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
-	if opts.SigstoreBundle {
-		results, err := verifyBundleAndFetchAttestations(ctx, opts)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(results) == 0 {
-			return nil, fmt.Errorf("sigstore bundle verification failed: no matching signatures found")
-		}
-
-		return &images.Response{Digest: results[0].Desc.Digest.String()}, nil
-	}
-
-	nameOpts := opts.Client.NameOptions()
-	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
+	ref, err := name.ParseReference(opts.ImageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
 	}
@@ -89,7 +74,7 @@ func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Option
 		return nil, err
 	}
 
-	if err := matchSignatures(signatures, opts.Subject, opts.SubjectRegExp, opts.Issuer, opts.IssuerRegExp, opts.AdditionalExtensions); err != nil {
+	if err := matchSignatures(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
 		return nil, err
 	}
 
@@ -136,20 +121,19 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		cosignOpts.RootCerts = cp
 	}
 
-	signatureAlgorithm, ok := signatureAlgorithmMap[opts.SignatureAlgorithm]
-	if !ok {
-		return nil, fmt.Errorf("invalid signature algorithm provided %s", opts.SignatureAlgorithm)
-	}
-
 	if opts.Key != "" {
 		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
-			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithm)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
+			if signatureAlgorithm, ok := signatureAlgorithmMap[opts.SignatureAlgorithm]; ok {
+				cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithm)
+				if err != nil {
+					return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
+				}
+			} else {
+				return nil, fmt.Errorf("invalid signature algorithm provided %s", opts.SignatureAlgorithm)
 			}
 		} else {
 			// this supports Kubernetes secrets and KMS
-			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, opts.Key, signatureAlgorithm)
+			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, opts.Key)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load public key from %s: %w", opts.Key, err)
 			}
@@ -163,7 +147,7 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 			}
 
 			if opts.CertChain == "" {
-				cosignOpts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, signatureAlgorithm)
+				cosignOpts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, crypto.SHA256)
 				if err != nil {
 					return nil, fmt.Errorf("failed to load signature from certificate: %w", err)
 				}
@@ -230,22 +214,6 @@ func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.Check
 		cosignOpts.RegistryClientOpts = append(cosignOpts.RegistryClientOpts, remote.WithTargetRepository(signatureRepo))
 	}
 
-	if opts.TSACertChain != "" {
-		leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.TSACertChain))
-		if err != nil {
-			return nil, fmt.Errorf("error splitting tsa certificates: %w", err)
-		}
-		if len(leaves) > 1 {
-			return nil, fmt.Errorf("certificate chain must contain at most one TSA certificate")
-		}
-		if len(leaves) == 1 {
-			cosignOpts.TSACertificate = leaves[0]
-		}
-		cosignOpts.TSAIntermediateCertificates = intermediates
-		cosignOpts.TSARootCertificates = roots
-	}
-
-	cosignOpts.ExperimentalOCI11 = opts.CosignOCI11
 	return cosignOpts, nil
 }
 
@@ -281,34 +249,17 @@ func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
 }
 
 func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
-	if opts.SigstoreBundle {
-		results, err := verifyBundleAndFetchAttestations(ctx, opts)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(results) == 0 {
-			return nil, fmt.Errorf("sigstore bundle verification failed: no matching signatures found")
-		}
-
-		statements, err := decodeStatementsFromBundles(results)
-		if err != nil {
-			return nil, err
-		}
-		return &images.Response{Digest: results[0].Desc.Digest.String(), Statements: statements}, nil
-	}
 	cosignOpts, err := buildCosignOptions(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	nameOpts := opts.Client.NameOptions()
 	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
 		"",
 		"VERIFY IMG ATTESTATIONS",
 		func(ctx context.Context, span trace.Span) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
-			ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
+			ref, err := name.ParseReference(opts.ImageRef)
 			if err != nil {
 				return nil, false, fmt.Errorf("failed to parse image: %w", err)
 			}
@@ -341,7 +292,7 @@ func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Opti
 			continue
 		}
 
-		if err := matchSignatures([]oci.Signature{signature}, opts.Subject, opts.SubjectRegExp, opts.Issuer, opts.IssuerRegExp, opts.AdditionalExtensions); err != nil {
+		if err := matchSignatures([]oci.Signature{signature}, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
 			return nil, err
 		}
 	}
@@ -438,7 +389,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to base64 decode payload for %v: %w", statementRaw, err)
 	}
 
-	var statement in_toto.Statement //nolint:staticcheck
+	var statement in_toto.Statement
 	if err := json.Unmarshal(statementRaw, &statement); err != nil {
 		return nil, err
 	}
@@ -455,7 +406,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 	return decodeCosignCustomProvenanceV01(statement)
 }
 
-func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]interface{}, error) { //nolint:staticcheck
+func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]interface{}, error) {
 	if statement.Type != attestation.CosignCustomProvenanceV01 {
 		return nil, fmt.Errorf("invalid statement type %s", attestation.CosignCustomProvenanceV01)
 	}
@@ -533,7 +484,7 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 	return "", fmt.Errorf("digest not found for %s", imgRef)
 }
 
-func matchSignatures(signatures []oci.Signature, subject, subjectRegExp, issuer, issuerRegExp string, extensions map[string]string) error {
+func matchSignatures(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
 	if subject == "" && issuer == "" && len(extensions) == 0 {
 		return nil
 	}
@@ -549,7 +500,7 @@ func matchSignatures(signatures []oci.Signature, subject, subjectRegExp, issuer,
 			return fmt.Errorf("certificate not found")
 		}
 
-		if err := matchCertificateData(cert, subject, subjectRegExp, issuer, issuerRegExp, extensions); err != nil {
+		if err := matchCertificateData(cert, subject, issuer, extensions); err != nil {
 			errs = append(errs, err)
 		} else {
 			// only one signature certificate needs to match the required subject, issuer, and extensions
@@ -565,66 +516,31 @@ func matchSignatures(signatures []oci.Signature, subject, subjectRegExp, issuer,
 	return fmt.Errorf("invalid signature")
 }
 
-func matchCertificateData(cert *x509.Certificate, subject, subjectRegExp, issuer, issuerRegExp string, extensions map[string]string) error {
-	if subject != "" || subjectRegExp != "" {
+func matchCertificateData(cert *x509.Certificate, subject, issuer string, extensions map[string]string) error {
+	if subject != "" {
+		s := ""
 		if sans := cryptoutils.GetSubjectAlternateNames(cert); len(sans) > 0 {
-			subjectMatched := false
-			if subject != "" {
-				for _, s := range sans {
-					if wildcard.Match(subject, s) {
-						subjectMatched = true
-						break
-					}
-				}
-			}
-			if subjectRegExp != "" {
-				regex, err := regexp.Compile(subjectRegExp)
-				if err != nil {
-					return fmt.Errorf("invalid regexp for subject: %s : %w", subjectRegExp, err)
-				}
-				for _, s := range sans {
-					if regex.MatchString(s) {
-						subjectMatched = true
-						break
-					}
-				}
-			}
-
-			if !subjectMatched {
-				sub := ""
-				if subject != "" {
-					sub = subject
-				} else if subjectRegExp != "" {
-					sub = subjectRegExp
-				}
-				return fmt.Errorf("subject mismatch: expected %s, received %s", sub, strings.Join(sans, ", "))
-			}
+			s = sans[0]
+		}
+		if !wildcard.Match(subject, s) {
+			return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
 		}
 	}
 
-	if err := matchExtensions(cert, issuer, issuerRegExp, extensions); err != nil {
+	if err := matchExtensions(cert, issuer, extensions); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func matchExtensions(cert *x509.Certificate, issuer, issuerRegExp string, extensions map[string]string) error {
+func matchExtensions(cert *x509.Certificate, issuer string, extensions map[string]string) error {
 	ce := cosign.CertExtensions{Cert: cert}
 
-	if issuer != "" || issuerRegExp != "" {
+	if issuer != "" {
 		val := ce.GetIssuer()
-		if issuer != "" {
-			if !wildcard.Match(issuer, val) {
-				return fmt.Errorf("issuer mismatch: expected %s, received %s", issuer, val)
-			}
-		}
-		if issuerRegExp != "" {
-			if regex, err := regexp.Compile(issuerRegExp); err != nil {
-				return fmt.Errorf("invalid regexp for issuer: %s : %w", issuerRegExp, err)
-			} else if !regex.MatchString(val) {
-				return fmt.Errorf("issuer mismatch: expected %s, received %s", issuerRegExp, val)
-			}
+		if !wildcard.Match(issuer, val) {
+			return fmt.Errorf("issuer mismatch: expected %s, received %s", issuer, val)
 		}
 	}
 
@@ -695,26 +611,4 @@ func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTrans
 		return nil, fmt.Errorf("failed to get transparency log public keys: %w", err)
 	}
 	return &publicKeys, nil
-}
-
-func splitPEMCertificateChain(pem []byte) (leaves, intermediates, roots []*x509.Certificate, err error) {
-	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(pem)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	for _, cert := range certs {
-		if !cert.IsCA {
-			leaves = append(leaves, cert)
-		} else {
-			// root certificates are self-signed
-			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
-				roots = append(roots, cert)
-			} else {
-				intermediates = append(intermediates, cert)
-			}
-		}
-	}
-
-	return leaves, intermediates, roots, nil
 }

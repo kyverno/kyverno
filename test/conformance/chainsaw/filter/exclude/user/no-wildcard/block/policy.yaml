@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: block-pod
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
   - name: block-pod
@@ -17,5 +18,4 @@ spec:
         - kind: User
           name: not-kubernetes-admin
     validate:
-      failureAction: Enforce
       deny: {}

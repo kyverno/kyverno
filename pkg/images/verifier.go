@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
@@ -19,11 +18,9 @@ type ImageVerifier interface {
 type Client interface {
 	Keychain() authn.Keychain
 	Options(context.Context) ([]gcrremote.Option, error)
-	NameOptions() []name.Option
 }
 
 type Options struct {
-	SigstoreBundle       bool
 	ImageRef             string
 	Client               Client
 	FetchAttestations    bool
@@ -32,18 +29,14 @@ type Options struct {
 	CertChain            string
 	Roots                string
 	Subject              string
-	SubjectRegExp        string
 	Issuer               string
-	IssuerRegExp         string
 	AdditionalExtensions map[string]string
 	Annotations          map[string]string
 	Repository           string
-	CosignOCI11          bool
 	IgnoreTlog           bool
 	RekorURL             string
 	RekorPubKey          string
 	IgnoreSCT            bool
-	TSACertChain         string
 	CTLogsPubKey         string
 	SignatureAlgorithm   string
 	PredicateType        string

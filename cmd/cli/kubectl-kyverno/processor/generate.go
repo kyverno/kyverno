@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -47,7 +48,7 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 	listKinds := map[schema.GroupVersionResource]string{}
 
 	// Collect items in a potential cloneList to provide list kinds to the fake dynamic client.
-	for _, rule := range autogen.Default.ComputeRules(policyContext.Policy(), "") {
+	for _, rule := range autogen.ComputeRules(policyContext.Policy(), "") {
 		if !rule.HasGenerate() || len(rule.Generation.CloneList.Kinds) == 0 {
 			continue
 		}
@@ -79,22 +80,34 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 		return nil, err
 	}
 
-	newRuleResponse := []engineapi.RuleResponse{}
+	gr := kyvernov1beta1.UpdateRequest{
+		Spec: kyvernov1beta1.UpdateRequestSpec{
+			Type:   kyvernov1beta1.Generate,
+			Policy: generateResponse.Policy().GetName(),
+			Resource: kyvernov1.ResourceSpec{
+				Kind:       generateResponse.Resource.GetKind(),
+				Namespace:  generateResponse.Resource.GetNamespace(),
+				Name:       generateResponse.Resource.GetName(),
+				APIVersion: generateResponse.Resource.GetAPIVersion(),
+			},
+		},
+	}
+
+	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		genResourceMap, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, []string{rule.Name()})
+		genResource, err := c.ApplyGeneratePolicy(log.Log.V(2), &policyContext, gr, []string{rule.Name()})
 		if err != nil {
 			return nil, err
 		}
-		generatedResources := []kyvernov1.ResourceSpec{}
-		for _, v := range genResourceMap {
-			generatedResources = append(generatedResources, v...)
+
+		if genResource != nil {
+			unstrGenResource, err := c.GetUnstrResource(genResource[0])
+			if err != nil {
+				return nil, err
+			}
+			newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResource(*unstrGenResource))
 		}
-		unstrGenResources, err := c.GetUnstrResources(generatedResources)
-		if err != nil {
-			return nil, err
-		}
-		newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResources(unstrGenResources))
 	}
 
 	return newRuleResponse, nil

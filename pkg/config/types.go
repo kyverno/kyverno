@@ -17,12 +17,12 @@ type WebhookConfig struct {
 	ObjectSelector    *metav1.LabelSelector `json:"objectSelector,omitempty"`
 }
 
-func parseWebhooks(in string) (*WebhookConfig, error) {
-	var webhookCfg WebhookConfig
-	if err := json.Unmarshal([]byte(in), &webhookCfg); err != nil {
+func parseWebhooks(in string) ([]WebhookConfig, error) {
+	var webhookCfgs []WebhookConfig
+	if err := json.Unmarshal([]byte(in), &webhookCfgs); err != nil {
 		return nil, err
 	}
-	return &webhookCfg, nil
+	return webhookCfgs, nil
 }
 
 func parseExclusions(in string) (exclusions, inclusions []string) {

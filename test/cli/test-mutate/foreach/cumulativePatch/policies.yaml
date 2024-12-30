@@ -27,3 +27,4 @@ spec:
             op: add
             value: "100m"
     name: add-default-requests
+  validationFailureAction: Audit

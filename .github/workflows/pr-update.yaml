@@ -7,15 +7,15 @@ permissions: {}
 on:
   push:
     branches:
-      - main
-      - release-*
+      - 'main'
+      - 'release-*'
 
 jobs:
   autoupdate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Check secret
         id: checksecret
         uses: ./.github/actions/is-defined
@@ -23,7 +23,7 @@ jobs:
           value: ${{ secrets.PR_UPDATE_TOKEN }}
       - name: Automatically update PR
         if: steps.checksecret.outputs.result == 'true'
-        uses: adRise/update-pr-branch@3576c22e28fb6f665417bfe3a83f9da7ca5363e2 # v0.9.1
+        uses: adRise/update-pr-branch@cd305ecbd76bf63056c9400ce2c725293fc3e0c0 # v0.7.0
         with:
           token: ${{ secrets.PR_UPDATE_TOKEN }}
           base: ${{ github.ref_name }}

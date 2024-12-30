@@ -26,25 +26,26 @@ import (
 // UpdateRequestStatus defines the observed state of UpdateRequest
 type UpdateRequestStatus struct {
 	// Deprecated
-	Handler string `json:"handler,omitempty"`
+	Handler string `json:"handler,omitempty" yaml:"handler,omitempty"`
 
 	// State represents state of the update request.
-	State UpdateRequestState `json:"state"`
+	State UpdateRequestState `json:"state" yaml:"state"`
 
 	// Specifies request status message.
 	// +optional
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
 	// This will track the resources that are updated by the generate Policy.
 	// Will be used during clean up resources.
-	GeneratedResources []kyvernov1.ResourceSpec `json:"generatedResources,omitempty"`
+	GeneratedResources []kyvernov1.ResourceSpec `json:"generatedResources,omitempty" yaml:"generatedResources,omitempty"`
 
-	RetryCount int `json:"retryCount,omitempty"`
+	RetryCount int `json:"retryCount,omitempty" yaml:"retryCount,omitempty"`
 }
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Policy",type="string",JSONPath=".spec.policy"
 // +kubebuilder:printcolumn:name="Rule",type="string",JSONPath=".spec.rule"
@@ -55,7 +56,6 @@ type UpdateRequestStatus struct {
 // +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=ur,categories=kyverno
-// +kubebuilder:deprecatedversion
 
 // UpdateRequest is a request to process mutate and generate rules in background.
 type UpdateRequest struct {
@@ -81,34 +81,34 @@ const (
 type UpdateRequestSpec struct {
 	// Type represents request type for background processing
 	// +kubebuilder:validation:Enum=mutate;generate
-	Type RequestType `json:"requestType,omitempty"`
+	Type RequestType `json:"requestType,omitempty" yaml:"requestType,omitempty"`
 
 	// Specifies the name of the policy.
-	Policy string `json:"policy"`
+	Policy string `json:"policy" yaml:"policy"`
 
 	// Rule is the associate rule name of the current UR.
-	Rule string `json:"rule"`
+	Rule string `json:"rule" yaml:"rule"`
 
 	// DeleteDownstream represents whether the downstream needs to be deleted.
-	DeleteDownstream bool `json:"deleteDownstream"`
+	DeleteDownstream bool `json:"deleteDownstream" yaml:"deleteDownstream"`
 
 	// Synchronize represents the sync behavior of the corresponding rule
 	// Optional. Defaults to "false" if not specified.
-	Synchronize bool `json:"synchronize,omitempty"`
+	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
 	// ResourceSpec is the information to identify the trigger resource.
-	Resource kyvernov1.ResourceSpec `json:"resource"`
+	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
 
 	// Context ...
-	Context UpdateRequestSpecContext `json:"context"`
+	Context UpdateRequestSpecContext `json:"context" yaml:"context"`
 }
 
 // UpdateRequestSpecContext stores the context to be shared.
 type UpdateRequestSpecContext struct {
 	// +optional
-	UserRequestInfo RequestInfo `json:"userInfo,omitempty"`
+	UserRequestInfo RequestInfo `json:"userInfo,omitempty" yaml:"userInfo,omitempty"`
 	// +optional
-	AdmissionRequestInfo AdmissionRequestInfoObject `json:"admissionRequestInfo,omitempty"`
+	AdmissionRequestInfo AdmissionRequestInfoObject `json:"admissionRequestInfo,omitempty" yaml:"admissionRequestInfo,omitempty"`
 }
 
 // RequestInfo contains permission info carried in an admission request.
@@ -116,24 +116,24 @@ type RequestInfo struct {
 	// Roles is a list of possible role send the request.
 	// +nullable
 	// +optional
-	Roles []string `json:"roles,omitempty"`
+	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
 
 	// ClusterRoles is a list of possible clusterRoles send the request.
 	// +nullable
 	// +optional
-	ClusterRoles []string `json:"clusterRoles,omitempty"`
+	ClusterRoles []string `json:"clusterRoles,omitempty" yaml:"clusterRoles,omitempty"`
 
 	// UserInfo is the userInfo carried in the admission request.
 	// +optional
-	AdmissionUserInfo authenticationv1.UserInfo `json:"userInfo"`
+	AdmissionUserInfo authenticationv1.UserInfo `json:"userInfo" yaml:"userInfo"`
 }
 
 // AdmissionRequestInfoObject stores the admission request and operation details
 type AdmissionRequestInfoObject struct {
 	// +optional
-	AdmissionRequest *admissionv1.AdmissionRequest `json:"admissionRequest,omitempty"`
+	AdmissionRequest *admissionv1.AdmissionRequest `json:"admissionRequest,omitempty" yaml:"admissionRequest,omitempty"`
 	// +optional
-	Operation admissionv1.Operation `json:"operation,omitempty"`
+	Operation admissionv1.Operation `json:"operation,omitempty" yaml:"operation,omitempty"`
 }
 
 // UpdateRequestState defines the state of request.

@@ -1,6 +1,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
+  creationTimestamp: null
   name: apply-on-cluster-scoped-resources
 spec:
   steps:

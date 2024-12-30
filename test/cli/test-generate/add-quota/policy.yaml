@@ -57,3 +57,4 @@ spec:
           kinds:
           - Namespace
     name: generate-limitrange
+  validationFailureAction: Audit

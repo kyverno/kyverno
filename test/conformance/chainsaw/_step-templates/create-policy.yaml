@@ -1,8 +1,0 @@
-apiVersion: chainsaw.kyverno.io/v1alpha1
-kind: StepTemplate
-metadata:
-  name: create-policy
-spec:
-  try:
-  - create:
-      file: ($file)

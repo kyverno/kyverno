@@ -5,6 +5,7 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
+  validationFailureAction: Audit
   background: false
   rules:
     - name: deny-scale-deployment
@@ -14,7 +15,6 @@ spec:
               kinds:
                 - Deployment/scale
       validate:
-        failureAction: Audit
         deny: {}
 ---
 apiVersion: kyverno.io/v1
@@ -24,6 +24,7 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
+  validationFailureAction: Enforce
   background: false
   rules:
     - name: deny-scale-statefulset
@@ -33,5 +34,4 @@ spec:
               kinds:
                 - StatefulSet/scale
       validate:
-        failureAction: Enforce
         deny: {}

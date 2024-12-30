@@ -4,20 +4,8 @@ kind: Deployment
 metadata:
   name: {{ template "kyverno.admission-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
-  {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-  {{- if not .Values.templating.enabled }}
-  finalizers:
-  - kyverno.io/webhooks
-  - kyverno.io/exceptionwebhooks
-  - kyverno.io/globalcontextwebhooks
-  {{- end }}
-  {{- end }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
-  {{- with .Values.admissionController.annotations }}
-  annotations:
-    {{- tpl (toYaml .) $ | nindent 4 }}
-  {{- end }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.admissionController.replicas }}
   revisionHistoryLimit: {{ .Values.admissionController.revisionHistoryLimit }}
@@ -39,7 +27,7 @@ spec:
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
-      {{- with .Values.admissionController.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      {{- with .Values.admissionController.imagePullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -51,7 +39,7 @@ spec:
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.admissionController.tolerations | default .Values.global.tolerations}}
+      {{- with .Values.admissionController.tolerations }}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -113,8 +101,6 @@ spec:
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
-          - name: KYVERNO_ROLE_NAME
-            value: {{ template "kyverno.admission-controller.roleName" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG
@@ -145,13 +131,8 @@ spec:
             - --caSecretName={{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
             - --tlsSecretName={{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
             - --backgroundServiceAccountName=system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.background-controller.serviceAccountName" . }}
-            - --reportsServiceAccountName=system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.reports-controller.serviceAccountName" . }}
             - --servicePort={{ .Values.admissionController.service.port }}
             - --webhookServerPort={{ .Values.admissionController.webhookServer.port }}
-            - --resyncPeriod={{ .Values.admissionController.resyncPeriod | default .Values.global.resyncPeriod }}
-            {{- if .Values.webhooksCleanup.autoDeleteWebhooks.enabled }}
-            - --autoDeleteWebhooks
-            {{- end }}
             {{- if .Values.admissionController.tracing.enabled }}
             - --enableTracing
             - --tracingAddress={{ .Values.admissionController.tracing.address }}
@@ -175,7 +156,6 @@ spec:
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.admissionController.featuresOverride)
-              "reporting"
               "admissionReports"
               "autoUpdateWebhooks"
               "configMapCaching"
@@ -183,7 +163,6 @@ spec:
               "dumpPayload"
               "forceFailurePolicyIgnore"
               "generateValidatingAdmissionPolicy"
-              "dumpPatches"
               "globalContext"
               "logging"
               "omitEvents"
@@ -210,10 +189,10 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
-          - containerPort: {{ .Values.admissionController.webhookServer.port }}
+          - containerPort: 9443
             name: https
             protocol: TCP
-          - containerPort: {{ .Values.admissionController.metering.port }}
+          - containerPort: 8000
             name: metrics-port
             protocol: TCP
           {{ if .Values.admissionController.profiling.enabled }}
@@ -236,8 +215,6 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
-          - name: KYVERNO_ROLE_NAME
-            value: {{ template "kyverno.admission-controller.roleName" . }}
           - name: KYVERNO_SVC
             value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT

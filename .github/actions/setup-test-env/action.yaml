@@ -5,7 +5,7 @@ description: Create kind cluster, deploy kyverno, and wait pods are ready.
 inputs:
   version:
     description: kubernetes version
-    default: v1.30.0
+    default: v1.29.1
   free-disk-space:
     description: free disk space
     default: 'false'
@@ -13,7 +13,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+    - uses: jlumbroso/free-disk-space@76866dbe54312617f00798d1762df7f43def6e5c # v1.2.0
       if: ${{ inputs.free-disk-space == 'true' }}
       with:
         tool-cache: true

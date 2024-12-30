@@ -1,4 +1,0 @@
-{{- range .Values.customPolicies }}
----
-{{ include "kyverno-policies.customPolicies" (dict "value" . "context" $) }}
-{{- end }}

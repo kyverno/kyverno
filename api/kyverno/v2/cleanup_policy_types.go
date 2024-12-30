@@ -35,7 +35,6 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:storageversion
 
 // CleanupPolicy defines a rule for resource cleanup.
 type CleanupPolicy struct {
@@ -121,7 +120,6 @@ type CleanupPolicyList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:storageversion
 
 // ClusterCleanupPolicy defines rule for resource cleanup.
 type ClusterCleanupPolicy struct {
@@ -204,13 +202,13 @@ type ClusterCleanupPolicyList struct {
 type CleanupPolicySpec struct {
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
-	Context []kyvernov1.ContextEntry `json:"context,omitempty"`
+	Context []kyvernov1.ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
 
 	// MatchResources defines when cleanuppolicy should be applied. The match
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources MatchResources `json:"match"`
+	MatchResources MatchResources `json:"match,omitempty"`
 
 	// ExcludeResources defines when cleanuppolicy should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
@@ -224,11 +222,6 @@ type CleanupPolicySpec struct {
 	// Conditions defines the conditions used to select the resources which will be cleaned up.
 	// +optional
 	Conditions *AnyAllConditions `json:"conditions,omitempty"`
-
-	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).
-	// +optional
-	// +kubebuilder:validation:Enum=Foreground;Background;Orphan
-	DeletionPropagationPolicy *metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // CleanupPolicyStatus stores the status of the policy.
@@ -293,7 +286,6 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 		}
 		return errs
 	}
-	// If the ExcludeResources is empty, no need to validate further
 	if datautils.DeepEqual(spec.ExcludeResources, &MatchResources{}) {
 		return errs
 	}

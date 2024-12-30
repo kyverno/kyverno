@@ -5,6 +5,8 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
+  failurePolicy: Fail
+  validationFailureAction: Enforce
   background: false
   rules:
     - name: require-team
@@ -14,20 +16,19 @@ spec:
               kinds:
                 - Pod
       validate:
-        failureAction: Enforce
         message: 'The label `team` is required.'
         pattern:
           metadata:
             labels:
               team: '?*'
-  webhookConfiguration:
-    failurePolicy: Fail
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: add-labels
 spec:
+  failurePolicy: Fail
+  validationFailureAction: Enforce
   background: false
   rules:
   - name: add-labels
@@ -44,5 +45,3 @@ spec:
         metadata:
           labels:
             foo: bar
-  webhookConfiguration:
-    failurePolicy: Fail

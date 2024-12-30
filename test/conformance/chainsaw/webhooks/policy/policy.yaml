@@ -5,6 +5,7 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
+  validationFailureAction: Audit
   background: false
   rules:
     - name: require-team
@@ -14,7 +15,6 @@ spec:
               kinds:
                 - '*'
       validate:
-        failureAction: Audit
         message: 'The label `team` is required.'
         pattern:
           metadata:

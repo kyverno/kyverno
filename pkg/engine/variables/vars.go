@@ -205,10 +205,10 @@ func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error
 }
 
 func ValidateElementInForEach(log logr.Logger, rule interface{}) (interface{}, error) {
-	return jsonUtils.NewTraversal(rule, validateElementInForEach()).TraverseJSON()
+	return jsonUtils.NewTraversal(rule, validateElementInForEach(log)).TraverseJSON()
 }
 
-func validateElementInForEach() jsonUtils.Action {
+func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
@@ -222,7 +222,7 @@ func validateElementInForEach() jsonUtils.Action {
 				v = v[1:]
 			}
 
-			variable, _ := replaceBracesAndTrimSpaces(v)
+			variable := replaceBracesAndTrimSpaces(v)
 			isElementVar := strings.HasPrefix(variable, "element") || variable == "elementIndex"
 			if isElementVar && !strings.Contains(data.Path, "/foreach/") {
 				return nil, fmt.Errorf("variable '%v' present outside of foreach at path %s", variable, data.Path)
@@ -257,7 +257,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 				v = v[1:]
 			}
 
-			resolvedReference, err := resolveReference(data.Document, v, data.Path)
+			resolvedReference, err := resolveReference(log, data.Document, v, data.Path)
 			if err != nil {
 				switch err.(type) {
 				case context.InvalidVariableError:
@@ -308,7 +308,7 @@ func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interf
 	return ctx.Query(variable)
 }
 
-func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookupVar VariableResolver) jsonUtils.Action {
+func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr VariableResolver) jsonUtils.Action {
 	isDeleteRequest := isDeleteRequest(ctx)
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
@@ -319,16 +319,16 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 		vars := regex.RegexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
 			originalPattern := value
-			shallowSubstitution := false
-			var variable string
 			for _, v := range vars {
 				initial := len(regex.RegexVariableInit.FindAllString(v, -1)) > 0
 				old := v
+
 				if !initial {
 					v = v[1:]
 				}
 
-				variable, shallowSubstitution = replaceBracesAndTrimSpaces(v)
+				variable := replaceBracesAndTrimSpaces(v)
+
 				if variable == "@" {
 					pathPrefix := "target"
 					if _, err := ctx.Query("target"); err != nil {
@@ -339,6 +339,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 					// Skip 2 elements (e.g. mutate.overlay | validate.pattern) plus "foreach" if it is part of the pointer.
 					// Prefix the pointer with pathPrefix.
 					val := jsonpointer.ParsePath(data.Path).SkipPast("foreach").SkipN(2).Prepend(strings.Split(pathPrefix, ".")...).JMESPath()
+
 					variable = strings.Replace(variable, "@", val, -1)
 				}
 
@@ -346,7 +347,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
 				}
 
-				substitutedVar, err := lookupVar(ctx, variable)
+				substitutedVar, err := vr(ctx, variable)
 				if err != nil {
 					switch err.(type) {
 					case context.InvalidVariableError, gojmespath.NotFoundError:
@@ -363,31 +364,26 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 				}
 
 				prefix := ""
+
 				if !initial {
 					prefix = string(old[0])
 				}
 
-				if shallowSubstitution {
-					substitutedVar = strings.ReplaceAll(substitutedVar.(string), "{{", "\\{{")
-				}
-
-				if value, err = substituteVarInPattern(prefix, value, v, substitutedVar); err != nil {
+				if value, err = substituteVarInPattern(prefix, originalPattern, v, substitutedVar); err != nil {
 					return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
 				}
 
 				continue
 			}
 
-			if shallowSubstitution {
-				vars = []string{}
-			} else {
-				// check for nested variables in strings
-				vars = regex.RegexVariables.FindAllString(value, -1)
-			}
+			// check for nested variables in strings
+			vars = regex.RegexVariables.FindAllString(value, -1)
 		}
 
-		// Unescape escaped braces
-		value = strings.ReplaceAll(value, "\\{{", "{{")
+		for _, v := range regex.RegexEscpVariables.FindAllString(value, -1) {
+			value = strings.Replace(value, v, v[1:], -1)
+		}
+
 		return value, nil
 	})
 }
@@ -423,19 +419,14 @@ func substituteVarInPattern(prefix, pattern, variable string, value interface{})
 	return strings.Replace(pattern, variable, stringToSubstitute, 1), nil
 }
 
-func replaceBracesAndTrimSpaces(v string) (variable string, isShallow bool) {
-	variable = strings.ReplaceAll(v, "{{", "")
+func replaceBracesAndTrimSpaces(v string) string {
+	variable := strings.ReplaceAll(v, "{{", "")
 	variable = strings.ReplaceAll(variable, "}}", "")
 	variable = strings.TrimSpace(variable)
-	if strings.HasPrefix(variable, "-") {
-		variable = strings.TrimSpace(variable[1:])
-		return variable, true
-	}
-
-	return variable, false
+	return variable
 }
 
-func resolveReference(fullDocument interface{}, reference, absolutePath string) (interface{}, error) {
+func resolveReference(log logr.Logger, fullDocument interface{}, reference, absolutePath string) (interface{}, error) {
 	var foundValue interface{}
 
 	path := strings.Trim(reference, "$()")

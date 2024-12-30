@@ -14,7 +14,6 @@ spec:
           - Pod
     name: validate-volumes-whitelist
     validate:
-      failureAction: Audit
       anyPattern:
       - spec:
           volumes:
@@ -26,3 +25,4 @@ spec:
           volumes:
           - configMap: '*'
       message: Volume type is not of type hostPath, emptyDir, or configMap.
+  validationFailureAction: Audit

@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +30,7 @@ type AuthClient interface {
 type ResourceClient interface {
 	GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error)
 	ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error)
-	GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string, lselector *metav1.LabelSelector) ([]Resource, error)
+	GetResources(ctx context.Context, group, version, kind, subresource, namespace, name string) ([]Resource, error)
 	GetNamespace(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Namespace, error)
 	IsNamespaced(group, version, kind string) (bool, error)
 }
@@ -48,7 +47,6 @@ type ImageData struct {
 	Registry      string
 	Repository    string
 	Identifier    string
-	ManifestList  []byte
 	Manifest      []byte
 	Config        []byte
 }
@@ -64,7 +62,6 @@ type KeychainClient interface {
 
 type RemoteClient interface {
 	Options(context.Context) ([]gcrremote.Option, error)
-	NameOptions() []name.Option
 }
 
 type RegistryClient interface {

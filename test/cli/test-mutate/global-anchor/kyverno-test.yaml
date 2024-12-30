@@ -8,14 +8,14 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  patchedResources: patchedResource.yaml
+  patchedResource: patchedResource.yaml
   policy: add-safe-to-evict
   resources:
   - pod-with-emptydir-hostpath
   result: pass
   rule: annotate-empty-dir
 - kind: Pod
-  patchedResources: patchedResourceWithVolume.yaml
+  patchedResource: patchedResourceWithVolume.yaml
   policy: add-safe-to-evict
   resources:
   - pod-with-emptydir-hostpath-1
