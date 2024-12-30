@@ -21,8 +21,9 @@ package v2alpha1
 // GlobalContextEntrySpecApplyConfiguration represents an declarative configuration of the GlobalContextEntrySpec type for use
 // with apply.
 type GlobalContextEntrySpecApplyConfiguration struct {
-	KubernetesResource *KubernetesResourceApplyConfiguration `json:"kubernetesResource,omitempty"`
-	APICall            *ExternalAPICallApplyConfiguration    `json:"apiCall,omitempty"`
+	KubernetesResource *KubernetesResourceApplyConfiguration            `json:"kubernetesResource,omitempty"`
+	APICall            *ExternalAPICallApplyConfiguration               `json:"apiCall,omitempty"`
+	Projections        []GlobalContextEntryProjectionApplyConfiguration `json:"projections,omitempty"`
 }
 
 // GlobalContextEntrySpecApplyConfiguration constructs an declarative configuration of the GlobalContextEntrySpec type for use with
@@ -44,5 +45,18 @@ func (b *GlobalContextEntrySpecApplyConfiguration) WithKubernetesResource(value 
 // If called multiple times, the APICall field is set to the value of the last call.
 func (b *GlobalContextEntrySpecApplyConfiguration) WithAPICall(value *ExternalAPICallApplyConfiguration) *GlobalContextEntrySpecApplyConfiguration {
 	b.APICall = value
+	return b
+}
+
+// WithProjections adds the given value to the Projections field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Projections field.
+func (b *GlobalContextEntrySpecApplyConfiguration) WithProjections(values ...*GlobalContextEntryProjectionApplyConfiguration) *GlobalContextEntrySpecApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithProjections")
+		}
+		b.Projections = append(b.Projections, *values[i])
+	}
 	return b
 }

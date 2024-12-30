@@ -84,7 +84,7 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := tt.spec.Validate(field.NewPath("spec"))
+			errs := tt.spec.Validate(field.NewPath("spec"), "")
 			if (len(errs) > 0) != tt.wantErr {
 				t.Errorf("GlobalContextEntrySpec.Validate() error = %v, wantErr %v", errs, tt.wantErr)
 			}
@@ -235,6 +235,69 @@ func TestExternalAPICallValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestGlobalContextEntryProjectionValidate(t *testing.T) {
+	tests := []struct {
+		name       string
+		projection GlobalContextEntryProjection
+		gctxName   string
+		wantErr    bool
+	}{
+		{
+			name: "valid projection",
+			projection: GlobalContextEntryProjection{
+				Name:     "example",
+				JMESPath: "metadata.name",
+			},
+			gctxName: "globalContext",
+			wantErr:  false,
+		},
+		{
+			name: "missing name",
+			projection: GlobalContextEntryProjection{
+				JMESPath: "metadata.name",
+			},
+			gctxName: "globalContext",
+			wantErr:  true,
+		},
+		{
+			name: "name same as global context entry name",
+			projection: GlobalContextEntryProjection{
+				Name:     "globalContext",
+				JMESPath: "metadata.name",
+			},
+			gctxName: "globalContext",
+			wantErr:  true,
+		},
+		{
+			name: "missing JMESPath",
+			projection: GlobalContextEntryProjection{
+				Name: "example",
+			},
+			gctxName: "globalContext",
+			wantErr:  true,
+		},
+		{
+			name: "invalid JMESPath",
+			projection: GlobalContextEntryProjection{
+				Name:     "example",
+				JMESPath: "invalid[",
+			},
+			gctxName: "globalContext",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.projection.Validate(field.NewPath("projection"), tt.gctxName)
+			if (len(errs) > 0) != tt.wantErr {
+				t.Errorf("GlobalContextEntryProjection.Validate() error = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
 func generateRandomVersion() string {
 	rand.NewSource(time.Now().UnixNano())
 	for {

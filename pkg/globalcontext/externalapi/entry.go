@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -24,9 +25,10 @@ import (
 
 type entry struct {
 	sync.Mutex
-	data any
-	err  error
-	stop func()
+	dataMap     map[string]any
+	err         error
+	stop        func()
+	projections []store.Projection
 }
 
 func New(
@@ -41,6 +43,7 @@ func New(
 	period time.Duration,
 	maxResponseLength int64,
 	shouldUpdateStatus bool,
+	jp jmespath.Interface,
 ) (store.Entry, error) {
 	var group wait.Group
 	ctx, cancel := context.WithCancel(ctx)
@@ -50,8 +53,22 @@ func New(
 		// Wait for the group to terminate
 		group.Wait()
 	}
+
+	projections := make([]store.Projection, 0)
+	for _, p := range gce.Spec.Projections {
+		jpQuery, err := jp.Query(p.JMESPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse jmespath query: %s", err)
+		}
+		projections = append(projections, store.Projection{
+			Name: p.Name,
+			JP:   jpQuery,
+		})
+	}
+
 	e := &entry{
-		stop: stop,
+		stop:        stop,
+		projections: projections,
 	}
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
@@ -94,7 +111,7 @@ func New(
 	return e, nil
 }
 
-func (e *entry) Get() (any, error) {
+func (e *entry) Get(projection string) (any, error) {
 	e.Lock()
 	defer e.Unlock()
 
@@ -102,11 +119,12 @@ func (e *entry) Get() (any, error) {
 		return nil, e.err
 	}
 
-	if e.data == nil {
+	data := e.dataMap[projection]
+	if data == nil {
 		return nil, fmt.Errorf("no data available")
 	}
 
-	return e.data, nil
+	return data, nil
 }
 
 func (e *entry) Stop() {
@@ -122,7 +140,15 @@ func (e *entry) setData(data any, err error) {
 	if err != nil {
 		e.err = err
 	} else {
-		e.data = data
+		e.dataMap[""] = data
+		for _, projection := range e.projections {
+			result, err := projection.JP.Search(data)
+			if err != nil {
+				e.err = err
+				return
+			}
+			e.dataMap[projection.Name] = result
+		}
 		e.err = nil
 	}
 }

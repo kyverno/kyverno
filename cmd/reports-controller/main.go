@@ -293,6 +293,7 @@ func main() {
 				eventGenerator,
 				maxAPICallResponseLength,
 				false,
+				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
 		)
