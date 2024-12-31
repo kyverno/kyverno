@@ -1,6 +1,7 @@
 package policycache
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -11,9 +12,11 @@ import (
 	kubecache "k8s.io/client-go/tools/cache"
 )
 
+var ctx = context.Background()
+
 func setPolicy(t *testing.T, store store, policy kyvernov1.PolicyInterface, finder ResourceFinder) {
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
-	err := store.set(key, policy, finder)
+	err := store.set(ctx, key, policy, finder)
 	assert.NilError(t, err)
 }
 
@@ -27,8 +30,10 @@ func Test_All(t *testing.T) {
 	policy := newPolicy(t)
 	finder := TestResourceFinder{}
 	//add
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -61,10 +66,12 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newPolicy(t)
 	finder := TestResourceFinder{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -92,12 +99,14 @@ func Test_Add_Validate_Audit(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newPolicy(t)
 	finder := TestResourceFinder{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	policy.Spec.ValidationFailureAction = "audit"
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -121,6 +130,7 @@ func Test_Add_Remove(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newPolicy(t)
 	finder := TestResourceFinder{}
+
 	setPolicy(t, pCache, policy, finder)
 	validateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateEnforce) != 1 {
@@ -891,10 +901,12 @@ func Test_Ns_All(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
 	finder := TestResourceFinder{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	//add
 	setPolicy(t, pCache, policy, finder)
 	nspace := policy.GetNamespace()
-	rules := autogen.Default.ComputeRules(policy, "")
+	rules := autogen.Default(ctx).ComputeRules(policy, "")
 	for _, rule := range rules {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
@@ -927,11 +939,13 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
 	finder := TestResourceFinder{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	nspace := policy.GetNamespace()
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -958,13 +972,15 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
 	finder := TestResourceFinder{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	nspace := policy.GetNamespace()
 	policy.GetSpec().ValidationFailureAction = "audit"
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -1005,9 +1021,11 @@ func Test_GVk_Cache(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newGVKPolicy(t)
 	finder := TestResourceFinder{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	//add
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -1043,9 +1061,11 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 	policy := newUserTestPolicy(t)
 	nspace := policy.GetNamespace()
 	finder := TestResourceFinder{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	//add
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -1065,6 +1085,7 @@ func Test_Ns_Add_Remove_User(t *testing.T) {
 	policy := newUserTestPolicy(t)
 	nspace := policy.GetNamespace()
 	finder := TestResourceFinder{}
+
 	// kind := "Deployment"
 	setPolicy(t, pCache, policy, finder)
 	validateEnforce := pCache.get(ValidateEnforce, deploymentsGVRS.GroupVersionResource(), "", nspace)
@@ -1082,11 +1103,13 @@ func Test_Mutate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newMutatePolicy(t)
 	finder := TestResourceFinder{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	//add
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -1106,9 +1129,11 @@ func Test_Generate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newGeneratePolicy(t)
 	finder := TestResourceFinder{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	//add
 	setPolicy(t, pCache, policy, finder)
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
@@ -1179,7 +1204,7 @@ func Test_Get_Policies(t *testing.T) {
 	policy := newPolicy(t)
 	finder := TestResourceFinder{}
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
-	cache.Set(key, policy, finder)
+	cache.Set(ctx, key, policy, finder)
 	validateAudit := cache.GetPolicies(ValidateAudit, namespacesGVRS.GroupVersionResource(), "", "")
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
@@ -1207,7 +1232,7 @@ func Test_Get_Policies_Ns(t *testing.T) {
 	policy := newNsPolicy(t)
 	finder := TestResourceFinder{}
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
-	cache.Set(key, policy, finder)
+	cache.Set(ctx, key, policy, finder)
 	nspace := policy.GetNamespace()
 	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", nspace)
 	if len(validateAudit) != 0 {
@@ -1233,9 +1258,9 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 	policy2 := newValidateEnforcePolicy(t)
 	finder := TestResourceFinder{}
 	key1, _ := kubecache.MetaNamespaceKeyFunc(policy1)
-	cache.Set(key1, policy1, finder)
+	cache.Set(ctx, key1, policy1, finder)
 	key2, _ := kubecache.MetaNamespaceKeyFunc(policy2)
-	cache.Set(key2, policy2, finder)
+	cache.Set(ctx, key2, policy2, finder)
 	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateAudit) != 1 {
 		t.Errorf("expected 1 validate audit policy, found %v", len(validateAudit))

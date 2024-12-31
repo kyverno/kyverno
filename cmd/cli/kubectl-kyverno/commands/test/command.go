@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -18,6 +19,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+var ctx = context.Background()
 
 func Command() *cobra.Command {
 	var testCase string

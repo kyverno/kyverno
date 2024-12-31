@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -22,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
+
+var ctx = context.Background()
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(
@@ -89,7 +92,7 @@ func GetResourceAccordingToResourcePath(
 
 func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subresources []v1alpha1.Subresource, dClient dclient.Interface) sets.Set[string] {
 	knownkinds := sets.New[string]()
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			k, err := getKind(kind, subresources, dClient)
 			if err != nil {

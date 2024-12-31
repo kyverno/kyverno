@@ -20,20 +20,22 @@ import (
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func (e *engine) applyBackgroundChecks(
+	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) engineapi.PolicyResponse {
-	return e.filterRules(policyContext, logger)
+	return e.filterRules(ctx, policyContext, logger)
 }
 
 func (e *engine) filterRules(
+	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 ) engineapi.PolicyResponse {
 	policy := policyContext.Policy()
 	resp := engineapi.NewPolicyResponse()
 	applyRules := policy.GetSpec().GetApplyRules()
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
+	for _, rule := range autogen.Default(ctx).ComputeRules(policy, "") {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.Rules = append(resp.Rules, *ruleResp)
