@@ -841,6 +841,21 @@ func Test_Can_Generate_ValidatingAdmissionPolicy(t *testing.T) {
 `),
 			expected: true,
 		},
+		{
+			name: "policy-with-no-rules",
+			policy: []byte(`
+{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "empty-policy"
+  },
+  "spec": {
+    "rules": []
+  }
+}`),
+			expected: false,
+		},
 	}
 
 	for _, test := range testCases {
