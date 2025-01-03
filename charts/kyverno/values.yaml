@@ -775,6 +775,22 @@ admissionController:
   # The certificates won't be automatically renewed if this is set to `true`.
   createSelfSignedCert: false
 
+  # -- Create self-signed certificates at deployment time using cert-manager.
+  # The certificates are automatically renewed if this is set to `true` via cert-manager.
+  createSelfSignedCertViaCertManager:
+    enabled: false
+    certManager:
+      issuerRef: {}
+      #   name: selfsigned-issuer
+      #   kind: ClusterIssuer
+      #   group: cert-manager.io
+      caCert:
+        # defaults to be 5y
+        duration: ""
+      tlsPair:
+        # defaults to be 1y
+        duration: ""
+
   # -- (int) Desired number of pods
   replicas: ~
 
@@ -1487,6 +1503,22 @@ cleanupController:
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.
   createSelfSignedCert: false
+
+  # -- Create self-signed certificates at deployment time using cert-manager.
+  # The certificates are automatically renewed if this is set to `true` via cert-manager.
+  createSelfSignedCertViaCertManager:
+    enabled: false
+    certManager:
+      issuerRef: {}
+      #   name: selfsigned-issuer
+      #   kind: ClusterIssuer
+      #   group: cert-manager.io
+      caCert:
+        # default to be 5y
+        duration: ""
+      tlsPair:
+        # default to be 1y
+        duration: ""
 
   image:
     # -- Image registry

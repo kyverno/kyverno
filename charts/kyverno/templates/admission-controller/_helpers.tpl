@@ -37,3 +37,12 @@
 {{- define "kyverno.admission-controller.caCertificatesConfigMapName" -}}
 {{ printf "%s-ca-certificates" (include "kyverno.admission-controller.name" .) }}
 {{- end -}}
+
+{{- define "kyverno.admission-controller.dnsNames" -}}
+{{- $fullname := include "kyverno.admission-controller.roleName" . }}
+{{- $namespace := include "kyverno.namespace" . }}
+{{- $fullname }}
+{{ $fullname }}.{{ $namespace }}.svc
+{{ template "kyverno.admission-controller.serviceName" . }}
+{{ template "kyverno.admission-controller.serviceName" . }}.{{ $namespace }}.svc
+{{- end }}

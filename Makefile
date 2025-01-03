@@ -1110,6 +1110,13 @@ dev-lab-ingress-ngingx: ## Deploy ingress-ngingx
 	@sleep 15
 	@kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
 
+.PHONY: dev-lab-cert-manager
+dev-lab-cert-manager: $(HELM) ## Deploy cert-manager helm chart
+	@echo Install cert-manager... >&2
+	@$(HELM) upgrade --install cert-manager --namespace cert-manager --create-namespace --wait \
+		--repo https://charts.jetstack.io cert-manager \
+		--values ./scripts/config/dev/cert-manager.yaml
+
 .PHONY: dev-lab-prometheus
 dev-lab-prometheus: $(HELM) ## Deploy kube-prometheus-stack helm chart
 	@echo Install kube-prometheus-stack chart... >&2
@@ -1147,7 +1154,7 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all
-dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-otel-collector ## Deploy all dev lab components
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-cert-manager dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo dev-lab-otel-collector ## Deploy all dev lab components
 
 .PHONY: dev-lab-policy-reporter
 dev-lab-policy-reporter: $(HELM) ## Deploy policy-reporter helm chart

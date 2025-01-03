@@ -373,6 +373,7 @@ The chart values are organised per component.
 | admissionController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
+| admissionController.createSelfSignedCertViaCertManager | object | `{"certManager":{"caCert":{"duration":""},"issuerRef":{},"tlsPair":{"duration":""}},"enabled":false}` | Create self-signed certificates at deployment time using cert-manager. The certificates are automatically renewed if this is set to `true` via cert-manager. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
 | admissionController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | admissionController.resyncPeriod | string | `"15m"` | Resync period for informers |
@@ -550,6 +551,7 @@ The chart values are organised per component.
 | cleanupController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
+| cleanupController.createSelfSignedCertViaCertManager | object | `{"certManager":{"caCert":{"duration":""},"issuerRef":{},"tlsPair":{"duration":""}},"enabled":false}` | Create self-signed certificates at deployment time using cert-manager. The certificates are automatically renewed if this is set to `true` via cert-manager. |
 | cleanupController.image.registry | string | `nil` | Image registry |
 | cleanupController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
