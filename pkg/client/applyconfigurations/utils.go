@@ -211,6 +211,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.ExternalAPICallApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntry"):
 		return &kyvernov2alpha1.GlobalContextEntryApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntryProjection"):
+		return &kyvernov2alpha1.GlobalContextEntryProjectionApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntrySpec"):
 		return &kyvernov2alpha1.GlobalContextEntrySpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntryStatus"):

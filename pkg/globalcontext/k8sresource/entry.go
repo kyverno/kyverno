@@ -3,17 +3,19 @@ package k8sresource
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -23,10 +25,13 @@ import (
 )
 
 type entry struct {
-	lister   cache.GenericLister
-	stop     func()
-	gce      *kyvernov2alpha1.GlobalContextEntry
-	eventGen event.Interface
+	sync.RWMutex
+	dataMap     map[string]any
+	stop        func()
+	gce         *kyvernov2alpha1.GlobalContextEntry
+	eventGen    event.Interface
+	projections []store.Projection
+	jp          jmespath.Interface
 }
 
 // TODO: Handle Kyverno Pod Ready State
@@ -40,7 +45,28 @@ func New(
 	gvr schema.GroupVersionResource,
 	namespace string,
 	shouldUpdateStatus bool,
+	jp jmespath.Interface,
 ) (store.Entry, error) {
+	e := &entry{
+		dataMap:  make(map[string]any),
+		gce:      gce,
+		eventGen: eventGen,
+		jp:       jp,
+	}
+
+	projections := make([]store.Projection, 0)
+	for _, p := range gce.Spec.Projections {
+		jpQuery, err := jp.Query(p.JMESPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse jmespath query for projection '%s': %w", p.Name, err)
+		}
+		projections = append(projections, store.Projection{
+			Name: p.Name,
+			JP:   jpQuery,
+		})
+	}
+	e.projections = projections
+
 	indexers := cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
@@ -48,6 +74,16 @@ func New(
 		namespace = metav1.NamespaceAll
 	}
 	informer := dynamicinformer.NewFilteredDynamicInformer(client, gvr, namespace, 0, indexers, nil)
+
+	_, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    e.addResource,
+		UpdateFunc: e.updateResource,
+		DeleteFunc: e.deleteResource,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	var group wait.Group
 	ctx, cancel := context.WithCancel(ctx)
 	stop := func() {
@@ -56,14 +92,16 @@ func New(
 		// Wait for the group to terminate
 		group.Wait()
 	}
-	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	e.stop = stop
+
+	err = informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		if shouldUpdateStatus {
-			if err := updateStatus(ctx, gce, kyvernoClient, false, "CacheSyncFailure"); err != nil {
-				logger.Error(err, "failed to update status")
+			if updateErr := updateStatus(ctx, gce, kyvernoClient, false, "CacheSyncFailure"); updateErr != nil {
+				logger.Error(updateErr, "failed to update status")
 			}
 		}
 
-		eventErr := fmt.Errorf("failed to run informer for %s", gvr)
+		eventErr := fmt.Errorf("failed to run informer for %s: %w", gvr, err)
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,
 			Kind:       gce.Kind,
@@ -82,53 +120,94 @@ func New(
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		informer.Informer().Run(ctx.Done())
 	})
+
 	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
 		stop()
 
 		if shouldUpdateStatus {
-			if err := updateStatus(ctx, gce, kyvernoClient, false, "CacheSyncFailure"); err != nil {
-				logger.Error(err, "failed to update status")
+			if updateErr := updateStatus(ctx, gce, kyvernoClient, false, "CacheSyncFailure"); updateErr != nil {
+				logger.Error(updateErr, "failed to update status")
 			}
 		}
 
-		err := fmt.Errorf("failed to sync cache for %s", gvr)
+		syncErr := fmt.Errorf("failed to sync cache for %s", gvr)
 		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 			APIVersion: gce.APIVersion,
 			Kind:       gce.Kind,
 			Name:       gce.Name,
 			Namespace:  gce.Namespace,
 			UID:        gce.UID,
-		}, err))
+		}, syncErr))
 
-		return nil, err
+		return nil, syncErr
 	}
 
 	if shouldUpdateStatus {
-		if err := updateStatus(ctx, gce, kyvernoClient, true, "CacheSyncSuccess"); err != nil {
-			logger.Error(err, "failed to update status")
+		if updateErr := updateStatus(ctx, gce, kyvernoClient, true, "CacheSyncSuccess"); updateErr != nil {
+			logger.Error(updateErr, "failed to update status")
 		}
 	}
 
-	return &entry{
-		lister:   informer.Lister(),
-		stop:     stop,
-		eventGen: eventGen,
-	}, nil
+	return e, nil
 }
 
-func (e *entry) Get() (any, error) {
-	obj, err := e.lister.List(labels.Everything())
-	if err != nil {
-		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
-			APIVersion: e.gce.APIVersion,
-			Kind:       e.gce.Kind,
-			Name:       e.gce.Name,
-			Namespace:  e.gce.Namespace,
-			UID:        e.gce.UID,
-		}, err))
-		return nil, err
+func (e *entry) addResource(obj interface{}) {
+	e.Lock()
+	defer e.Unlock()
+	e.processResource(obj)
+}
+
+func (e *entry) updateResource(oldObj, newObj interface{}) {
+	e.Lock()
+	defer e.Unlock()
+	e.processResource(newObj)
+}
+
+func (e *entry) deleteResource(obj interface{}) {
+	e.Lock()
+	defer e.Unlock()
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		obj = deletedObj.Obj
 	}
-	return obj, nil
+	e.processResource(obj)
+}
+
+func (e *entry) processResource(obj interface{}) {
+	e.updateData(obj.(runtime.Object))
+}
+
+func (e *entry) updateData(object runtime.Object) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.dataMap[""] = object
+
+	for _, projection := range e.projections {
+		res, err := projection.JP.Search(object)
+		if err != nil {
+			e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+				APIVersion: e.gce.APIVersion,
+				Kind:       e.gce.Kind,
+				Name:       e.gce.Name,
+				Namespace:  e.gce.Namespace,
+				UID:        e.gce.UID,
+			}, fmt.Errorf("failed to apply projection '%s': %w", projection.Name, err)))
+			continue
+		}
+		e.dataMap[projection.Name] = res
+	}
+}
+
+func (e *entry) Get(projection string) (any, error) {
+	e.RLock()
+	defer e.RUnlock()
+
+	data, ok := e.dataMap[projection]
+	if !ok {
+		return nil, fmt.Errorf("projection '%s' not found", projection)
+	}
+	return data, nil
 }
 
 func (e *entry) Stop() {

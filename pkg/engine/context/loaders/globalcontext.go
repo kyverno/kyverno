@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -88,13 +89,26 @@ func (g *gctxLoader) loadGctxData() ([]byte, error) {
 	}
 	g.logger.V(6).Info("variables substituted", "resourcecache", rc)
 
-	storeEntry, ok := g.gctxStore.Get(rc.Name)
-	if !ok {
-		err := fmt.Errorf("failed to fetch entry key=%s", rc.Name)
+	names := strings.Split(rc.Name, ".")
+	if len(names) < 1 {
+		err := fmt.Errorf("invalid resource cache name %s", rc.Name)
 		g.logger.Error(err, "")
 		return nil, err
 	}
-	data, err = storeEntry.Get()
+
+	gctxName := names[0]
+	projectionName := ""
+	if len(names) > 1 {
+		projectionName = names[1]
+	}
+
+	storeEntry, ok := g.gctxStore.Get(gctxName)
+	if !ok {
+		err := fmt.Errorf("failed to fetch entry key=%s", gctxName)
+		g.logger.Error(err, "")
+		return nil, err
+	}
+	data, err = storeEntry.Get(projectionName)
 	if err != nil {
 		g.logger.Error(err, "failed to fetch data from entry")
 		return nil, err
