@@ -207,6 +207,16 @@ spec:
                           - GET
                           - POST
                           type: string
+                        responseType:
+                          default: JSON
+                          description: |-
+                            ResponseType is an optional parameter that allows for configuring the
+                            expected HTTP response body content type. If set to "text", the content
+                            will be parsed as a JSON string for JMESPath logic. Defaults to JSON.
+                          enum:
+                          - JSON
+                          - text
+                          type: string
                         service:
                           description: |-
                             Service is an API call to a JSON web service.
@@ -1499,6 +1509,16 @@ spec:
                           enum:
                           - GET
                           - POST
+                          type: string
+                        responseType:
+                          default: JSON
+                          description: |-
+                            ResponseType is an optional parameter that allows for configuring the
+                            expected HTTP response body content type. If set to "text", the content
+                            will be parsed as a JSON string for JMESPath logic. Defaults to JSON.
+                          enum:
+                          - JSON
+                          - text
                           type: string
                         service:
                           description: |-

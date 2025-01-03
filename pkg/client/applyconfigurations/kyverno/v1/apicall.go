@@ -25,10 +25,11 @@ import (
 // APICallApplyConfiguration represents an declarative configuration of the APICall type for use
 // with apply.
 type APICallApplyConfiguration struct {
-	URLPath *string                         `json:"urlPath,omitempty"`
-	Method  *v1.Method                      `json:"method,omitempty"`
-	Data    []RequestDataApplyConfiguration `json:"data,omitempty"`
-	Service *ServiceCallApplyConfiguration  `json:"service,omitempty"`
+	URLPath      *string                         `json:"urlPath,omitempty"`
+	Method       *v1.Method                      `json:"method,omitempty"`
+	Data         []RequestDataApplyConfiguration `json:"data,omitempty"`
+	Service      *ServiceCallApplyConfiguration  `json:"service,omitempty"`
+	ResponseType *v1.ResponseType                `json:"responseType,omitempty"`
 }
 
 // APICallApplyConfiguration constructs an declarative configuration of the APICall type for use with
@@ -71,5 +72,13 @@ func (b *APICallApplyConfiguration) WithData(values ...*RequestDataApplyConfigur
 // If called multiple times, the Service field is set to the value of the last call.
 func (b *APICallApplyConfiguration) WithService(value *ServiceCallApplyConfiguration) *APICallApplyConfiguration {
 	b.Service = value
+	return b
+}
+
+// WithResponseType sets the ResponseType field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ResponseType field is set to the value of the last call.
+func (b *APICallApplyConfiguration) WithResponseType(value v1.ResponseType) *APICallApplyConfiguration {
+	b.ResponseType = &value
 	return b
 }
