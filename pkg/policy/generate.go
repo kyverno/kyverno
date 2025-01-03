@@ -296,6 +296,10 @@ func ruleChange(old, new kyvernov1.PolicyInterface) (_ kyvernov1.PolicyInterface
 		} else {
 			ruleRsrc := ruleResource{rule: oldRule.Name}
 			old, new := oldRule.Generation, newRule.Generation
+			if old == nil || new == nil {
+				continue
+			}
+
 			if old.ResourceSpec != new.ResourceSpec || old.Clone != new.Clone {
 				ruleRsrc.kinds = append(ruleRsrc.kinds, old.ResourceSpec.GetKind())
 			}
