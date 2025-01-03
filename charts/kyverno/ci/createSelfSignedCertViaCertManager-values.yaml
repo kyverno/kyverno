@@ -1,0 +1,10 @@
+---
+admissionController:
+  createSelfSignedCert: true
+  createSelfSignedCertViaCertManager:
+    enabled: true
+
+cleanupController:
+  createSelfSignedCert: true
+  createSelfSignedCertViaCertManager:
+    enabled: true
