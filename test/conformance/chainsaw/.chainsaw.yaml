@@ -6,6 +6,7 @@ spec:
   timeouts:
     assert: 90s
     error: 90s
+    apply: 30s
   parallel: 1
   fullName: true
   failFast: true
