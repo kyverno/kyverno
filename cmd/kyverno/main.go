@@ -40,7 +40,6 @@ import (
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
-	"github.com/kyverno/kyverno/pkg/validation/globalcontext"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
@@ -585,9 +584,7 @@ func main() {
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
-		globalContextHandlers := webhooksglobalcontext.NewHandlers(globalcontext.ValidationOptions{
-			Enabled: internal.PolicyExceptionEnabled(),
-		})
+		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		server := webhooks.NewServer(
 			signalCtx,
 			policyHandlers,
