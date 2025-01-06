@@ -52,6 +52,7 @@ kyverno apply [flags]
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
   -o, --output string                      Prints the mutated/generated resources in provided file/directory
+      --output-format string               Specifies the policy report format (json or yaml). Default: yaml. (default "yaml")
   -p, --policy-report                      Generates policy report when passed (default policyviolation)
       --registry                           If set to true, access the image registry using local docker credentials to populate external data
       --remove-color                       Remove any color from output
