@@ -47,7 +47,7 @@ func NewGCTXLoader(
 
 func (g *gctxLoader) HasLoaded() bool {
 	data, ok := g.gctxStore.Get(g.entry.Name)
-	if ok {
+	if !ok {
 		g.logger.Error(fmt.Errorf("failed to get data from global context store"), "failed to get data from global context store")
 		return false
 	}
