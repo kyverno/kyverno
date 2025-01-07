@@ -40,26 +40,36 @@ func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedIn
 	}
 }
 
-func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool) {
+func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool, outputFormat string) {
 	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
-	if len(clustered) > 0 {
-		report := report.MergeClusterReports(clustered)
-		yamlReport, _ := yaml.Marshal(report)
-		fmt.Fprintln(out, string(yamlReport))
+
+	printReport := func(report interface{}) {
+		var output []byte
+		if outputFormat == "json" {
+			output, _ = json.Marshal(report)
+		} else {
+			output, _ = yaml.Marshal(report)
+		}
+		fmt.Fprintln(out, string(output))
 	}
+
+	if len(clustered) > 0 {
+		clusterReport := report.MergeClusterReports(clustered)
+		printReport(clusterReport)
+	}
+
 	for _, r := range namespaced {
-		fmt.Fprintln(out, string("---"))
-		yamlReport, _ := yaml.Marshal(r)
-		fmt.Fprintln(out, string(yamlReport))
+		fmt.Fprintln(out, "---")
+		printReport(r)
 	}
 }
 
-func printExceptions(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool, ttl time.Duration) {
+func printExceptions(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool, outputFormat string, ttl time.Duration) {
 	clustered, _ := report.ComputePolicyReports(auditWarn, engineResponses...)
 	for _, report := range clustered {
 		for _, result := range report.Results {
 			if result.Result == "fail" {
-				if err := printException(out, result, ttl); err != nil {
+				if err := printException(out, result, ttl, outputFormat); err != nil {
 					log.Error(err)
 				}
 			}
@@ -67,7 +77,7 @@ func printExceptions(out io.Writer, engineResponses []engineapi.EngineResponse, 
 	}
 }
 
-func printException(out io.Writer, result v1alpha2.PolicyReportResult, ttl time.Duration) error {
+func printException(out io.Writer, result v1alpha2.PolicyReportResult, ttl time.Duration, outputFormat string) error {
 	for _, r := range result.Resources {
 		name := strings.Join([]string{result.Policy, result.Rule, r.Namespace, r.Name}, "-")
 
@@ -141,13 +151,21 @@ func printException(out io.Writer, result v1alpha2.PolicyReportResult, ttl time.
 			exception.Spec.PodSecurity = pssList
 		}
 
-		exceptionYAML, err := yaml.Marshal(exception)
+		var exceptionReport []byte
+		marshal := func(report interface{}) ([]byte, error) {
+			if outputFormat == "json" {
+				return json.Marshal(report)
+			}
+			return yaml.Marshal(report)
+		}
+
+		exceptionReport, err := marshal(exception)
 		if err != nil {
 			return err
 		}
 
 		fmt.Fprint(out, "---\n")
-		fmt.Fprint(out, string(exceptionYAML))
+		fmt.Fprint(out, string(exceptionReport))
 		fmt.Fprint(out, "\n")
 	}
 
