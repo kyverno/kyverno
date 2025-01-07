@@ -57,6 +57,7 @@ type ApplyCommandConfig struct {
 	UserInfoPath          string
 	Cluster               bool
 	PolicyReport          bool
+	OutputFormat          string
 	Stdin                 bool
 	RegistryAccess        bool
 	AuditWarn             bool
@@ -93,9 +94,9 @@ func Command() *cobra.Command {
 			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
-				printReports(out, responses, applyCommandConfig.AuditWarn)
+				printReports(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.OutputFormat)
 			} else if applyCommandConfig.GenerateExceptions {
-				printExceptions(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.GeneratedExceptionTTL)
+				printExceptions(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.OutputFormat, applyCommandConfig.GeneratedExceptionTTL)
 			} else if table {
 				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
@@ -146,6 +147,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
 	cmd.Flags().StringVarP(&applyCommandConfig.ValuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
+	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Specifies the policy report format (json or yaml). Default: yaml.")
 	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVar(&applyCommandConfig.RegistryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")

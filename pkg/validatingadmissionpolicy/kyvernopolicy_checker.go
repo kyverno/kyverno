@@ -114,6 +114,10 @@ func checkPolicy(spec *kyvernov1.Spec) (bool, string) {
 
 func checkRuleCount(spec *kyvernov1.Spec) (bool, string) {
 	var msg string
+	if len(spec.Rules) == 0 {
+		msg = "skip generating ValidatingAdmissionPolicy: no rules found."
+		return false, msg
+	}
 	if len(spec.Rules) > 1 {
 		msg = "skip generating ValidatingAdmissionPolicy: multiple rules are not applicable."
 		return false, msg
