@@ -51576,7 +51576,6 @@ spec:
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
-            
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-reports-controller

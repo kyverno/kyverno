@@ -2060,3 +2060,6 @@ reportsController:
     # -- Service node port.
     # Only used if `type` is `NodePort`.
     nodePort:
+
+  # -- Enable sanity check for reports CRDs
+  sanityChecks: true
