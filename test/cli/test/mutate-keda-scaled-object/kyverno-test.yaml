@@ -8,17 +8,17 @@ resources:
 - resources.yaml
 results:
 - kind: ScaledObject
-  patchedResources: patchedResource2.yaml
-  policy: keda-prometheus-serveraddress
-  resources:
-  - service-2
-  result: pass
-  rule: keda-prometheus-serveraddress
-- kind: ScaledObject
   patchedResources: patchedResource1.yaml
   policy: keda-prometheus-serveraddress
   resources:
   - service-1
+  result: pass
+  rule: keda-prometheus-serveraddress
+- kind: ScaledObject
+  patchedResources: patchedResource2.yaml
+  policy: keda-prometheus-serveraddress
+  resources:
+  - service-2
   result: pass
   rule: keda-prometheus-serveraddress
 - kind: ScaledObject
