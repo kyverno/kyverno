@@ -217,6 +217,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.GlobalContextEntryStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("KubernetesResource"):
 		return &kyvernov2alpha1.KubernetesResourceApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy"):
+		return &kyvernov2alpha1.ValidatingPolicyApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2beta1
 	case v2beta1.SchemeGroupVersion.WithKind("AnyAllConditions"):
