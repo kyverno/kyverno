@@ -196,6 +196,7 @@ func main() {
 		aggregateReports                 bool
 		policyReports                    bool
 		validatingAdmissionPolicyReports bool
+		reportsCRDsSanityChecks          bool
 		backgroundScanWorkers            int
 		backgroundScanInterval           time.Duration
 		aggregationWorkers               int
@@ -219,6 +220,7 @@ func main() {
 	flagset.BoolVar(&skipResourceFilters, "skipResourceFilters", true, "If true, resource filters wont be considered.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
+	flagset.BoolVar(&reportsCRDsSanityChecks, "reportsCRDsSanityChecks", true, "Enable or disable sanity checks for policy reports and ephemeral reports CRDs.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -257,7 +259,9 @@ func main() {
 		kyamlopenapi.Schema()
 		if err := sanityChecks(setup.ApiServerClient); err != nil {
 			setup.Logger.Error(err, "sanity checks failed")
-			os.Exit(1)
+			if reportsCRDsSanityChecks {
+				os.Exit(1)
+			}
 		}
 		setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
 		// check if validating admission policies are registered in the API server
