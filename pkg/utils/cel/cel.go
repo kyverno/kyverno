@@ -45,32 +45,32 @@ func (c Compiler) CompileVariables(optionalVars cel.OptionalVariableDeclarations
 	)
 }
 
-func (c Compiler) CompileValidateExpressions(optionalVars cel.OptionalVariableDeclarations) cel.Filter {
-	return c.compositedCompiler.Compile(
+func (c Compiler) CompileValidateExpressions(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
+	return c.compositedCompiler.CompileCondition(
 		c.convertValidations(),
 		optionalVars,
 		environment.StoredExpressions,
 	)
 }
 
-func (c Compiler) CompileMessageExpressions(optionalVars cel.OptionalVariableDeclarations) cel.Filter {
-	return c.compositedCompiler.Compile(
+func (c Compiler) CompileMessageExpressions(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
+	return c.compositedCompiler.CompileCondition(
 		c.convertMessageExpressions(),
 		optionalVars,
 		environment.StoredExpressions,
 	)
 }
 
-func (c Compiler) CompileAuditAnnotationsExpressions(optionalVars cel.OptionalVariableDeclarations) cel.Filter {
-	return c.compositedCompiler.Compile(
+func (c Compiler) CompileAuditAnnotationsExpressions(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
+	return c.compositedCompiler.CompileCondition(
 		c.convertAuditAnnotations(),
 		optionalVars,
 		environment.StoredExpressions,
 	)
 }
 
-func (c Compiler) CompileMatchExpressions(optionalVars cel.OptionalVariableDeclarations) cel.Filter {
-	return c.compositedCompiler.Compile(
+func (c Compiler) CompileMatchExpressions(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
+	return c.compositedCompiler.CompileCondition(
 		c.convertMatchExpressions(),
 		optionalVars,
 		environment.StoredExpressions,
