@@ -702,6 +702,7 @@ The chart values are organised per component.
 | reportsController.profiling.port | int | `6060` | Profiling endpoint port |
 | reportsController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
 | reportsController.profiling.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
+| reportsController.sanityChecks | bool | `true` | Enable sanity check for reports CRDs |
 
 ### Grafana
 
