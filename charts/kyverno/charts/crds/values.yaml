@@ -17,6 +17,7 @@ groups:
     policies: true
     policyexceptions: true
     updaterequests: true
+    validatingpolicies: true
 
   # -- Install CRDs in group `reports.kyverno.io`
   # -- This field can be overwritten by setting crds.labels in the parent chart

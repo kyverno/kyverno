@@ -82,6 +82,7 @@ crds:
       policies: true
       policyexceptions: true
       updaterequests: true
+      validatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
