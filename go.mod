@@ -364,10 +364,10 @@ require (
 	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
 	go.step.sm/crypto v0.51.2 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948
+	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/oauth2 v0.24.0 // indirect
+	golang.org/x/oauth2 v0.25.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/term v0.28.0 // indirect
@@ -384,7 +384,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/component-base v0.32.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7
-	k8s.io/kubectl v0.31.0 // indirect
+	k8s.io/kubectl v0.32.0 // indirect
 	oras.land/oras-go/v2 v2.5.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.1 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect

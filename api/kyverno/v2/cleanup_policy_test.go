@@ -23,8 +23,8 @@ func Test_CleanupPolicy_Name(t *testing.T) {
 	assert.Assert(t, len(errs) == 1)
 	assert.Equal(t, errs[0].Field, "metadata.name")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeTooLong)
-	assert.Equal(t, errs[0].Detail, "must have at most 63 bytes")
-	assert.Equal(t, errs[0].Error(), "metadata.name: Too long: must have at most 63 bytes")
+	assert.Equal(t, errs[0].Detail, "may not be more than 63 bytes")
+	assert.Equal(t, errs[0].Error(), "metadata.name: Too long: may not be more than 63 bytes")
 }
 
 func Test_CleanupPolicy_Schedule(t *testing.T) {
@@ -57,8 +57,8 @@ func Test_ClusterCleanupPolicy_Name(t *testing.T) {
 	assert.Assert(t, len(errs) == 1)
 	assert.Equal(t, errs[0].Field, "metadata.name")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeTooLong)
-	assert.Equal(t, errs[0].Detail, "must have at most 63 bytes")
-	assert.Equal(t, errs[0].Error(), "metadata.name: Too long: must have at most 63 bytes")
+	assert.Equal(t, errs[0].Detail, "may not be more than 63 bytes")
+	assert.Equal(t, errs[0].Error(), "metadata.name: Too long: may not be more than 63 bytes")
 }
 
 func Test_ClusterCleanupPolicy_Schedule(t *testing.T) {
