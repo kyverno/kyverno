@@ -3,7 +3,6 @@ package client
 import (
 	"github.com/go-logr/logr"
 	deviceclasses "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha3/deviceclasses"
-	podschedulingcontexts "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha3/podschedulingcontexts"
 	resourceclaims "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha3/resourceclaims"
 	resourceclaimtemplates "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha3/resourceclaimtemplates"
 	resourceslices "github.com/kyverno/kyverno/pkg/clients/kube/resourcev1alpha3/resourceslices"
@@ -37,10 +36,6 @@ func (c *withMetrics) DeviceClasses() k8s_io_client_go_kubernetes_typed_resource
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "DeviceClass", c.clientType)
 	return deviceclasses.WithMetrics(c.inner.DeviceClasses(), recorder)
 }
-func (c *withMetrics) PodSchedulingContexts(namespace string) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.PodSchedulingContextInterface {
-	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "PodSchedulingContext", c.clientType)
-	return podschedulingcontexts.WithMetrics(c.inner.PodSchedulingContexts(namespace), recorder)
-}
 func (c *withMetrics) ResourceClaimTemplates(namespace string) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourceClaimTemplateInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "ResourceClaimTemplate", c.clientType)
 	return resourceclaimtemplates.WithMetrics(c.inner.ResourceClaimTemplates(namespace), recorder)
@@ -65,9 +60,6 @@ func (c *withTracing) RESTClient() rest.Interface {
 func (c *withTracing) DeviceClasses() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface {
 	return deviceclasses.WithTracing(c.inner.DeviceClasses(), c.client, "DeviceClass")
 }
-func (c *withTracing) PodSchedulingContexts(namespace string) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.PodSchedulingContextInterface {
-	return podschedulingcontexts.WithTracing(c.inner.PodSchedulingContexts(namespace), c.client, "PodSchedulingContext")
-}
 func (c *withTracing) ResourceClaimTemplates(namespace string) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourceClaimTemplateInterface {
 	return resourceclaimtemplates.WithTracing(c.inner.ResourceClaimTemplates(namespace), c.client, "ResourceClaimTemplate")
 }
@@ -88,9 +80,6 @@ func (c *withLogging) RESTClient() rest.Interface {
 }
 func (c *withLogging) DeviceClasses() k8s_io_client_go_kubernetes_typed_resource_v1alpha3.DeviceClassInterface {
 	return deviceclasses.WithLogging(c.inner.DeviceClasses(), c.logger.WithValues("resource", "DeviceClasses"))
-}
-func (c *withLogging) PodSchedulingContexts(namespace string) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.PodSchedulingContextInterface {
-	return podschedulingcontexts.WithLogging(c.inner.PodSchedulingContexts(namespace), c.logger.WithValues("resource", "PodSchedulingContexts").WithValues("namespace", namespace))
 }
 func (c *withLogging) ResourceClaimTemplates(namespace string) k8s_io_client_go_kubernetes_typed_resource_v1alpha3.ResourceClaimTemplateInterface {
 	return resourceclaimtemplates.WithLogging(c.inner.ResourceClaimTemplates(namespace), c.logger.WithValues("resource", "ResourceClaimTemplates").WithValues("namespace", namespace))
