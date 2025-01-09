@@ -32,6 +32,10 @@ func (c *FakeKyvernoV2alpha1) GlobalContextEntries() v2alpha1.GlobalContextEntry
 	return &FakeGlobalContextEntries{c}
 }
 
+func (c *FakeKyvernoV2alpha1) ValidatingPolicies() v2alpha1.ValidatingPolicyInterface {
+	return &FakeValidatingPolicies{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeKyvernoV2alpha1) RESTClient() rest.Interface {
