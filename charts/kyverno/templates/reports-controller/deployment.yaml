@@ -140,9 +140,12 @@ spec:
             - --{{ $key }}={{ $value }}
             {{- end }}
             {{- end }}
-            {{ if .Values.reportsController.profiling.enabled }}
+            {{- if .Values.reportsController.profiling.enabled }}
             - --profile=true
             - --profilePort={{ .Values.reportsController.profiling.port }}
+            {{- end }}
+            {{- if not .Values.reportsController.sanityChecks }}
+            - --reportsCRDsSanityChecks=false
             {{- end }}
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
