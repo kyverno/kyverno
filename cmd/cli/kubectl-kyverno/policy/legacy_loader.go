@@ -7,7 +7,6 @@ func legacyLoader(_ string, content []byte) (*LoaderResults, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &LoaderResults{
 		Policies:    policies,
 		VAPs:        vaps,
