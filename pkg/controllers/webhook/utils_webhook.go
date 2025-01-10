@@ -21,6 +21,7 @@ type webhook struct {
 	failurePolicy     admissionregistrationv1.FailurePolicyType
 	rules             sets.Set[ruleEntry]
 	matchConditions   []admissionregistrationv1.MatchCondition
+	matchPolicy       admissionregistrationv1.MatchPolicyType
 }
 
 type ruleEntry struct {
@@ -71,6 +72,7 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 		failurePolicy:     failurePolicy,
 		rules:             sets.New[ruleEntry](),
 		matchConditions:   matchConditions,
+		matchPolicy:       admissionregistrationv1.Equivalent,
 	}
 }
 

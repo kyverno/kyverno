@@ -957,17 +957,26 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 }
 
 func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
-	result := admissionregistrationv1.ValidatingWebhookConfiguration{
+	result := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
+	err := c.buildForPolicies(ctx, cfg, caBundle, result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (c *controller) buildForPolicies(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	if c.watchdogCheck() {
 		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
 		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
 		policies, err := c.getAllPolicies()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		var fineGrainedIgnoreList, fineGrainedFailList []*webhook
@@ -1007,7 +1016,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 	} else {
 		c.recordPolicyState(config.MutatingWebhookConfigurationName)
 	}
-	return &result, nil
+	return nil
 }
 
 func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.ValidatingWebhook {
