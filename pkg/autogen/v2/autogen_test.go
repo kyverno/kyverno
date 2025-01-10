@@ -609,7 +609,7 @@ spec:
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			policies, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
+			policies, _, _, _, err := yamlutils.GetPolicy([]byte(test.policy))
 			assert.NilError(t, err)
 			assert.Equal(t, 1, len(policies))
 			rules := GetAutogenRuleNames(policies[0])

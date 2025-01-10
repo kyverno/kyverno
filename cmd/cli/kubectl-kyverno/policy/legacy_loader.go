@@ -3,7 +3,7 @@ package policy
 import yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 
 func legacyLoader(_ string, content []byte) (*LoaderResults, error) {
-	policies, vaps, bindings, err := yamlutils.GetPolicy(content)
+	policies, vaps, bindings, _, err := yamlutils.GetPolicy(content)
 	if err != nil {
 		return nil, err
 	}
