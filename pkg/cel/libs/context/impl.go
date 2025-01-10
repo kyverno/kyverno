@@ -10,7 +10,7 @@ type impl struct {
 	types.Adapter
 }
 
-func (c *impl) get_cm_string_string(args ...ref.Val) ref.Val {
+func (c *impl) get_configmap_string_string(args ...ref.Val) ref.Val {
 	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
 		return types.WrapErr(err)
 	} else if namespace, err := utils.ConvertToNative[string](args[1]); err != nil {
