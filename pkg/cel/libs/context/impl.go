@@ -1,34 +1,28 @@
 package context
 
 import (
-	"context"
-
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 type impl struct {
 	types.Adapter
-	client kubernetes.Interface
 }
 
-func (c *impl) context_get_cm(arg ref.Val) ref.Val {
-	if ref, err := utils.ConvertToNative[ConfigMapReference](arg); err != nil {
+func (c *impl) get_cm_string_string(args ...ref.Val) ref.Val {
+	if self, err := utils.ConvertToNative[Context](args[0]); err != nil {
+		return types.WrapErr(err)
+	} else if namespace, err := utils.ConvertToNative[string](args[1]); err != nil {
+		return types.WrapErr(err)
+	} else if name, err := utils.ConvertToNative[string](args[2]); err != nil {
 		return types.WrapErr(err)
 	} else {
-		cm, err := c.client.CoreV1().ConfigMaps(ref.Namespace).Get(context.TODO(), ref.Name, metav1.GetOptions{})
+		cm, err := self.GetConfigMap(namespace, name)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
 			return types.NewErr("failed to get resource: %v", err)
 		}
-		out, err := utils.ConvertObjectToUnstructured(cm)
-		if err != nil {
-			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
-			return types.NewErr("failed to convert to unstructured: %v", err)
-		}
-		return c.NativeToValue(out.UnstructuredContent())
+		return c.NativeToValue(cm.UnstructuredContent())
 	}
 }
