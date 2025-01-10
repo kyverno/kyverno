@@ -36,6 +36,8 @@ spec:
           metadata:
             type: object
           spec:
+            description: ValidatingPolicySpec is the specification of the desired
+              behavior of the ValidatingPolicy.
             properties:
               auditAnnotations:
                 description: |-
