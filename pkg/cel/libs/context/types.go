@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var TokenType = types.NewObjectType("context.Context")
+var ContextType = types.NewObjectType("context.Context")
 
 type Context interface {
 	GetConfigMap(string, string) (unstructured.Unstructured, error)
