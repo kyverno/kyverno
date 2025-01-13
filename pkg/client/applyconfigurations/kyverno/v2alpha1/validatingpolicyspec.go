@@ -25,8 +25,8 @@ import (
 // ValidatingPolicySpecApplyConfiguration represents an declarative configuration of the ValidatingPolicySpec type for use
 // with apply.
 type ValidatingPolicySpecApplyConfiguration struct {
-	Spec                 *v1.ValidatingAdmissionPolicySpec       `json:",inline"`
-	WebhookConfiguration *WebhookConfigurationApplyConfiguration `json:"webhookConfiguration,omitempty"`
+	v1.ValidatingAdmissionPolicySpec `json:",inline"`
+	WebhookConfiguration             *WebhookConfigurationApplyConfiguration `json:"webhookConfiguration,omitempty"`
 }
 
 // ValidatingPolicySpecApplyConfiguration constructs an declarative configuration of the ValidatingPolicySpec type for use with
@@ -35,11 +35,67 @@ func ValidatingPolicySpec() *ValidatingPolicySpecApplyConfiguration {
 	return &ValidatingPolicySpecApplyConfiguration{}
 }
 
-// WithSpec sets the Spec field in the declarative configuration to the given value
+// WithParamKind sets the ParamKind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Spec field is set to the value of the last call.
-func (b *ValidatingPolicySpecApplyConfiguration) WithSpec(value v1.ValidatingAdmissionPolicySpec) *ValidatingPolicySpecApplyConfiguration {
-	b.Spec = &value
+// If called multiple times, the ParamKind field is set to the value of the last call.
+func (b *ValidatingPolicySpecApplyConfiguration) WithParamKind(value v1.ParamKind) *ValidatingPolicySpecApplyConfiguration {
+	b.ParamKind = &value
+	return b
+}
+
+// WithMatchConstraints sets the MatchConstraints field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the MatchConstraints field is set to the value of the last call.
+func (b *ValidatingPolicySpecApplyConfiguration) WithMatchConstraints(value v1.MatchResources) *ValidatingPolicySpecApplyConfiguration {
+	b.MatchConstraints = &value
+	return b
+}
+
+// WithValidations adds the given value to the Validations field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Validations field.
+func (b *ValidatingPolicySpecApplyConfiguration) WithValidations(values ...v1.Validation) *ValidatingPolicySpecApplyConfiguration {
+	for i := range values {
+		b.Validations = append(b.Validations, values[i])
+	}
+	return b
+}
+
+// WithFailurePolicy sets the FailurePolicy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the FailurePolicy field is set to the value of the last call.
+func (b *ValidatingPolicySpecApplyConfiguration) WithFailurePolicy(value v1.FailurePolicyType) *ValidatingPolicySpecApplyConfiguration {
+	b.FailurePolicy = &value
+	return b
+}
+
+// WithAuditAnnotations adds the given value to the AuditAnnotations field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the AuditAnnotations field.
+func (b *ValidatingPolicySpecApplyConfiguration) WithAuditAnnotations(values ...v1.AuditAnnotation) *ValidatingPolicySpecApplyConfiguration {
+	for i := range values {
+		b.AuditAnnotations = append(b.AuditAnnotations, values[i])
+	}
+	return b
+}
+
+// WithMatchConditions adds the given value to the MatchConditions field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the MatchConditions field.
+func (b *ValidatingPolicySpecApplyConfiguration) WithMatchConditions(values ...v1.MatchCondition) *ValidatingPolicySpecApplyConfiguration {
+	for i := range values {
+		b.MatchConditions = append(b.MatchConditions, values[i])
+	}
+	return b
+}
+
+// WithVariables adds the given value to the Variables field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Variables field.
+func (b *ValidatingPolicySpecApplyConfiguration) WithVariables(values ...v1.Variable) *ValidatingPolicySpecApplyConfiguration {
+	for i := range values {
+		b.Variables = append(b.Variables, values[i])
+	}
 	return b
 }
 
