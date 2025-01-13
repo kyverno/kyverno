@@ -8,9 +8,13 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
     kind: ValidatingPolicy
     listKind: ValidatingPolicyList
     plural: validatingpolicies
+    shortNames:
+    - vpol
     singular: validatingpolicy
   scope: Cluster
   versions:
