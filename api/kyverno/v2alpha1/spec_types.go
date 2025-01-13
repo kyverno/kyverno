@@ -6,7 +6,7 @@ import (
 
 // ValidatingPolicySpec is the specification of the desired behavior of the ValidatingPolicy.
 type ValidatingPolicySpec struct {
-	Spec admissionregistrationv1.ValidatingAdmissionPolicySpec `json:",inline"`
+	admissionregistrationv1.ValidatingAdmissionPolicySpec `json:",inline"`
 
 	// WebhookConfiguration defines the configuration for the webhook.
 	// +optional
