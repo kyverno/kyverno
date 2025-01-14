@@ -110,6 +110,10 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (*CompiledP
 			if err := issues.Err(); err != nil {
 				return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
 			}
+			if !ast.OutputType().IsExactType(types.StringType) && !ast.OutputType().IsExactType(types.NullType) {
+				msg := fmt.Sprintf("output is expected to be either of type %s or %s", types.StringType.TypeName(), types.NullType.TypeName())
+				return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, msg))
+			}
 			prog, err := env.Program(ast)
 			if err != nil {
 				return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
