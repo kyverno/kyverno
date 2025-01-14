@@ -17,11 +17,23 @@ type ValidatingPolicy struct {
 	Spec              admissionregistrationv1.ValidatingAdmissionPolicySpec `json:"spec"`
 }
 
+func (s *ValidatingPolicy) GetMatchConstraints() admissionregistrationv1.MatchResources {
+	return *s.Spec.MatchConstraints
+}
+
+func (s *ValidatingPolicy) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return s.Spec.MatchConditions
+}
+
 func (s *ValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
 	if s.Spec.FailurePolicy == nil {
 		return admissionregistrationv1.Fail
 	}
 	return *s.Spec.FailurePolicy
+}
+
+func (s *ValidatingPolicy) GetVariables() []admissionregistrationv1.Variable {
+	return s.Spec.Variables
 }
 
 // +kubebuilder:object:root=true
