@@ -45,8 +45,18 @@ func (r *BackgroundScanReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// the policy should be rescheduled at the next activation time after current time
 	schedResult := reconcile.Result{RequeueAfter: sched.Next(now).Sub(now)}
 
+	getLastScheduledTime := func(vpol *kyvernov2alpha1.ValidatingPolicy) time.Time {
+		var lastSchedule time.Time
+		if vpol.Status.LastScheduleTime != nil {
+			lastSchedule = vpol.Status.LastScheduleTime.Time
+		} else {
+			lastSchedule = vpol.ObjectMeta.CreationTimestamp.Time
+		}
+		return lastSchedule
+
+	}
 	// If current time is before next scheduled time, that means the policy has been processed already
-	if now.Before(sched.Next(vpol.Status.LastScheduleTime.Time)) {
+	if now.Before(sched.Next(getLastScheduledTime(&vpol))) {
 		return schedResult, nil
 	}
 
@@ -60,7 +70,7 @@ func (r *BackgroundScanReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	var filteredList []kyvernov2alpha1.ValidatingPolicy
 	for _, v := range vpolList.Items {
 		// If the next scheduled run of cron is in the past, run it
-		if now.After(sched.Next(v.Status.LastScheduleTime.Time)) {
+		if now.After(sched.Next(getLastScheduledTime(&v))) {
 			filteredList = append(filteredList, v)
 		}
 	}
@@ -73,7 +83,6 @@ func (r *BackgroundScanReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		if err := r.Status().Update(ctx, &v); err != nil {
 			log.Error(err, "unable to last scheduled time on policy")
-			return ctrl.Result{}, err
 		}
 	}
 
