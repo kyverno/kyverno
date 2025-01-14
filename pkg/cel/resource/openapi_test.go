@@ -108,12 +108,13 @@ func (_ TestClient) ResolveSchema(gvk schema.GroupVersionKind) (*spec.Schema, er
 }
 
 func TestOpenAPITypeResolver(t *testing.T) {
+	typeName := "self"
 
 	s := schema.FromAPIVersionAndKind("v1", "CustomObject")
 
 	resolver := resource.NewOpenAPITypeResolver(TestClient{})
 
-	provider, err := resolver.GetDeclProvier(s)
+	provider, err := resolver.GetDeclProvier(s, typeName)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -121,7 +122,7 @@ func TestOpenAPITypeResolver(t *testing.T) {
 	env, err := engine.NewEnv()
 	opts, err := provider.EnvOptions(env.CELTypeProvider())
 
-	rootType, ok := provider.FindDeclType(resource.TypeName)
+	rootType, ok := provider.FindDeclType(typeName)
 	if !ok {
 		t.Fatal("declaration type not found")
 	}
