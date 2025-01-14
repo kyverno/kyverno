@@ -1,51 +1,135 @@
 package resource_test
 
 import (
-	"fmt"
-	"os"
 	"testing"
 
 	"github.com/google/cel-go/cel"
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	"github.com/kyverno/kyverno/pkg/cel/resource"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	commoncel "k8s.io/apiserver/pkg/cel"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 )
 
+func testSchema() *spec.Schema {
+	// Manual construction of a schema with the following definition:
+	//
+	// schema:
+	//   type: object
+	//   metadata:
+	//     custom_type: "CustomObject"
+	//   required:
+	//     - name
+	//     - value
+	//   properties:
+	//     name:
+	//       type: string
+	//     nested:
+	//       type: object
+	//       properties:
+	//         subname:
+	//           type: string
+	//         flags:
+	//           type: object
+	//           additionalProperties:
+	//             type: boolean
+	//         dates:
+	//           type: array
+	//           items:
+	//             type: string
+	//             format: date-time
+	//      metadata:
+	//        type: object
+	//        additionalProperties:
+	//          type: object
+	//          properties:
+	//            key:
+	//              type: string
+	//            values:
+	//              type: array
+	//              items: string
+	//     value:
+	//       type: integer
+	//       format: int64
+	//       default: 1
+	//       enum: [1,2,3]
+	return &spec.Schema{
+		SchemaProps: spec.SchemaProps{
+			Type: []string{"object"},
+			Properties: map[string]spec.Schema{
+				"name": *spec.StringProperty(),
+				"value": {SchemaProps: spec.SchemaProps{
+					Type:    []string{"integer"},
+					Default: int64(1),
+					Format:  "int64",
+					Enum:    []any{1, 2, 3},
+				}},
+				"nested": {SchemaProps: spec.SchemaProps{
+					Type: []string{"object"},
+					Properties: map[string]spec.Schema{
+						"subname": *spec.StringProperty(),
+						"flags": {SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: spec.BooleanProperty(),
+							},
+						}},
+						"dates": {SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{Schema: &spec.Schema{
+								SchemaProps: spec.SchemaProps{
+									Type:   []string{"string"},
+									Format: "date-time",
+								}}}}},
+					},
+				},
+				},
+				"metadata": {SchemaProps: spec.SchemaProps{
+					Type: []string{"object"},
+					Properties: map[string]spec.Schema{
+						"name": *spec.StringProperty(),
+						"value": {
+							SchemaProps: spec.SchemaProps{
+								Type: []string{"array"},
+								Items: &spec.SchemaOrArray{Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"string"},
+									}}},
+							},
+						},
+					},
+				}},
+			}}}
+}
+
+type TestClient struct{}
+
+func (_ TestClient) ResolveSchema(gvk schema.GroupVersionKind) (*spec.Schema, error) {
+	return testSchema(), nil
+}
+
 func TestOpenAPITypeResolver(t *testing.T) {
-	c, err := RestConfig()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	d, err := discovery.NewDiscoveryClientForConfig(c)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 
-	s := schema.FromAPIVersionAndKind("v1", "ConfigMap")
+	s := schema.FromAPIVersionAndKind("v1", "CustomObject")
 
-	resolver := resource.NewOpenAPITypeResolver(d)
+	resolver := resource.NewOpenAPITypeResolver(TestClient{})
 
-	decl, err := resolver.GetDecl(s)
+	provider, err := resolver.GetDeclProvier(s)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	env, err := engine.NewEnv()
-
-	provider := commoncel.NewDeclTypeProvider(decl)
 	opts, err := provider.EnvOptions(env.CELTypeProvider())
 
-	rootType, _ := provider.FindDeclType("object")
+	rootType, ok := provider.FindDeclType(resource.TypeName)
+	if !ok {
+		t.Fatal("declaration type not found")
+	}
+
 	opts = append(opts, cel.Variable("object", rootType.CelType()))
 	env, err = env.Extend(opts...)
 
-	ast, issue := env.Compile(`object.metadata.name != ""`)
+	ast, issue := env.Compile(`object.name != ""`)
 	if issue != nil {
 		t.Fatal(issue.Err().Error())
 	}
@@ -55,27 +139,12 @@ func TestOpenAPITypeResolver(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	val, _, err := prog.Eval(map[string]any{
-		"object": corev1.ConfigMap{
-			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test",
-			},
+	_, _, err = prog.Eval(map[string]any{
+		"object": map[string]any{
+			"name": "test",
 		},
 	})
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-
-	fmt.Println(val.Value())
-}
-
-func RestConfig() (*rest.Config, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
-	if err != nil {
-		return nil, err
-	}
-	config.QPS = 300
-	config.Burst = 300
-	return config, nil
 }
