@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/context"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
 const (
@@ -37,17 +38,24 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (*CompiledP
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
-	provider := NewVariablesProvider(base.CELTypeProvider())
-	env, err := base.Extend(
+	options := []cel.EnvOption{
 		cel.Variable(ContextKey, context.ContextType),
-		cel.Variable(NamespaceObjectKey, cel.DynType),
+		cel.Variable(NamespaceObjectKey, namespaceType.CelType()),
 		cel.Variable(ObjectKey, cel.DynType),
 		cel.Variable(OldObjectKey, cel.DynType),
-		cel.Variable(RequestKey, cel.DynType),
+		cel.Variable(RequestKey, requestType.CelType()),
 		cel.Variable(VariablesKey, VariablesType),
-		// TODO: params, authorizer, authorizer.requestResource ?
-		cel.CustomTypeProvider(provider),
-	)
+	}
+	variablesProvider := NewVariablesProvider(base.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(namespaceType, requestType)
+	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	if err != nil {
+		// TODO: proper error handling
+		panic(err)
+	}
+	options = append(options, declOptions...)
+	// TODO: params, authorizer, authorizer.requestResource ?
+	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -81,7 +89,7 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (*CompiledP
 			if err := issues.Err(); err != nil {
 				return nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 			}
-			provider.RegisterField(variable.Name, ast.OutputType())
+			variablesProvider.RegisterField(variable.Name, ast.OutputType())
 			prog, err := env.Program(ast)
 			if err != nil {
 				return nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
