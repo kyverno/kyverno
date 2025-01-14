@@ -13,9 +13,12 @@ import (
 )
 
 const (
-	ContextKey   = "context"
-	ObjectKey    = "object"
-	VariablesKey = "variables"
+	ContextKey         = "context"
+	NamespaceObjectKey = "namespaceObject"
+	ObjectKey          = "object"
+	OldObjectKey       = "oldObject"
+	RequestKey         = "request"
+	VariablesKey       = "variables"
 )
 
 type Compiler interface {
@@ -37,8 +40,12 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (*CompiledP
 	provider := NewVariablesProvider(base.CELTypeProvider())
 	env, err := base.Extend(
 		cel.Variable(ContextKey, context.ContextType),
+		cel.Variable(NamespaceObjectKey, cel.DynType),
 		cel.Variable(ObjectKey, cel.DynType),
+		cel.Variable(OldObjectKey, cel.DynType),
+		cel.Variable(RequestKey, cel.DynType),
 		cel.Variable(VariablesKey, VariablesType),
+		// TODO: params, authorizer, authorizer.requestResource ?
 		cel.CustomTypeProvider(provider),
 	)
 	if err != nil {
