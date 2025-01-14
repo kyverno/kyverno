@@ -6,8 +6,9 @@ import (
 )
 
 type CompiledPolicy struct {
-	failurePolicy   admissionregistrationv1.FailurePolicyType
-	matchConditions []cel.Program
-	variables       map[string]cel.Program
-	validations     []cel.Program
+	failurePolicy    admissionregistrationv1.FailurePolicyType
+	matchConditions  []cel.Program
+	variables        map[string]cel.Program
+	validations      []cel.Program
+	auditAnnotations map[string]cel.Program
 }
