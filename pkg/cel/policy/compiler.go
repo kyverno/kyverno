@@ -38,12 +38,13 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (*CompiledP
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	provider := NewVariablesProvider(base.CELTypeProvider())
+	// TODO: we need another provider for requestType and namespaceType (might be worth a lib ?)
 	env, err := base.Extend(
 		cel.Variable(ContextKey, context.ContextType),
-		cel.Variable(NamespaceObjectKey, cel.DynType),
+		cel.Variable(NamespaceObjectKey, namespaceType.CelType()),
 		cel.Variable(ObjectKey, cel.DynType),
 		cel.Variable(OldObjectKey, cel.DynType),
-		cel.Variable(RequestKey, cel.DynType),
+		cel.Variable(RequestKey, requestType.CelType()),
 		cel.Variable(VariablesKey, VariablesType),
 		// TODO: params, authorizer, authorizer.requestResource ?
 		cel.CustomTypeProvider(provider),
