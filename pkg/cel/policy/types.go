@@ -1,8 +1,10 @@
 package policy
 
-import "k8s.io/apiserver/pkg/admission/plugin/cel"
+import (
+	apiservercel "k8s.io/apiserver/pkg/admission/plugin/cel"
+)
 
 var (
-	namespaceType = cel.BuildNamespaceType()
-	requestType   = cel.BuildRequestType()
+	namespaceType = apiservercel.BuildNamespaceType()
+	requestType   = apiservercel.BuildRequestType()
 )
