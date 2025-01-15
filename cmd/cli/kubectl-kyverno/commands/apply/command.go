@@ -27,6 +27,8 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -197,7 +199,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
 	var store store.Store
-	policies, vaps, vapBindings, _, err := c.loadPolicies()
+	policies, vaps, vapBindings, vps, err := c.loadPolicies()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -230,7 +232,10 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		for _, policy := range policies {
 			policyRulesCount += len(autogen.Default.ComputeRules(policy, ""))
 		}
+		// account for vaps
 		policyRulesCount += len(vaps)
+		// account for vps
+		policyRulesCount += len(vps)
 		if len(exceptions) > 0 {
 			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, len(resources), len(exceptions))
 		} else {
@@ -256,9 +261,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
+	responses3, err := c.applyValidatingPolicies(vps, resources1, variables.NamespaceSelectors(), rc, dClient)
+	if err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses1, err
+	}
 	var responses []engineapi.EngineResponse
 	responses = append(responses, responses1...)
 	responses = append(responses, responses2...)
+	responses = append(responses, responses3...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
 }
 
@@ -298,6 +308,49 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 			return responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
+	}
+	return responses, nil
+}
+
+func (c *ApplyCommandConfig) applyValidatingPolicies(
+	vps []kyvernov2alpha1.ValidatingPolicy,
+	resources []*unstructured.Unstructured,
+	namespaceSelectorMap map[string]map[string]string,
+	_ *processor.ResultCounts,
+	_ dclient.Interface,
+) ([]engineapi.EngineResponse, error) {
+	ctx := context.TODO()
+	compiler := celpolicy.NewCompiler()
+	policies := make([]celpolicy.CompiledPolicy, 0, len(vps))
+	for _, vp := range vps {
+		policy, err := compiler.Compile(&vp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
+		}
+		policies = append(policies, *policy)
+	}
+	eng := engine.NewEngine()
+	var responses []engineapi.EngineResponse
+	for _, resource := range resources {
+		request := engine.EngineRequest{
+			Resource:        resource,
+			NamespaceLabels: namespaceSelectorMap,
+		}
+		_, err := eng.Handle(ctx, request, policies...)
+		if err != nil {
+			if c.ContinueOnFail {
+				fmt.Printf("failed to apply validating policies on resource %s (%v)\n", resource.GetName(), err)
+				continue
+			}
+			return responses, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+		}
+		// TODO
+		// 	processor := processor.ValidatingAdmissionPolicyProcessor{
+		// 		PolicyReport:         c.PolicyReport,
+		// 		Rc:                   rc,
+		// 		Client:               dClient,
+		// 	}
+		// 	responses = append(responses, ers...)
 	}
 	return responses, nil
 }
