@@ -1,4 +1,4 @@
-package validatingadmissionpolicy
+package admissionpolicy
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/text/cases"
@@ -193,7 +192,7 @@ func validateResource(
 
 	// compile CEL expressions
 	matchConditions := ConvertMatchConditionsV1(policy.Spec.MatchConditions)
-	compiler, err := celutils.NewCompiler(policy.Spec.Validations, policy.Spec.AuditAnnotations, matchConditions, policy.Spec.Variables)
+	compiler, err := NewCompiler(policy.Spec.Validations, policy.Spec.AuditAnnotations, matchConditions, policy.Spec.Variables)
 	if err != nil {
 		return engineResponse, err
 	}
