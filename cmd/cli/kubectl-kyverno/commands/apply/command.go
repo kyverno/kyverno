@@ -422,6 +422,9 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
+				for _, err := range loaderResults.NonFatalErrors {
+					log.Log.V(3).Info("Non-fatal parsing error for single document " + err.Error.Error())
+				}
 				if err != nil {
 					continue
 				}
@@ -431,6 +434,9 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
+			for _, err := range loaderResults.NonFatalErrors {
+				log.Log.V(3).Info("Non-fatal parsing error for single document " + err.Error.Error())
+			}
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
