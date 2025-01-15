@@ -1,11 +1,8 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   name: validate-namespace-binding
 spec:
-  policyName: validate-namespace-policy
-  matchResources:
-    resourceRules:
-    - apiGroups: [""]
-      apiVersions: ["v1"]
-      resources: ["namespaces"]
+  policyName: validate-namespace-name
+  validationActions:
+  - Enforce

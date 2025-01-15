@@ -1,19 +1,21 @@
-name: with-namespaceObject-3
-policies:
-  - policy.yaml
-  - kyverno-test.yaml
-resources:
-  - namespace-valid.yaml
-  - namespace-invalid.yaml
-results:
-  - policy: validate-namespace-policy
-    rule: validate-namespace
-    resource: namespace-valid.yaml
-    kind: Namespace
-    result: pass
-  - policy: validate-namespace-policy
-    rule: validate-namespace
-    resource: namespace-invalid.yaml
-    kind: Namespace
-    result: fail
-    message: "Namespace name must start with 'valid-'."
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: with-namespaceObject-3
+spec:
+  policies:
+    - policy.yaml
+  resources:
+    - resources.yaml
+  results:
+    - isValidatingAdmissionPolicy: true
+      policy: validate-namespace-policy
+      resource: valid-namespace
+      kind: Namespace
+      result: pass
+    - isValidatingAdmissionPolicy: true
+      policy: validate-namespace-policy
+      resource: invalid-namespace
+      kind: Namespace
+      result: fail
+      message: "Namespace name must start with 'valid-'."
