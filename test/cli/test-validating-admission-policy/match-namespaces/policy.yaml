@@ -1,0 +1,21 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: validate-namespace-name
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["namespaces"]
+  validations:
+  - expression: "object.metadata.name.startsWith('valid-')"
+    message: "Namespace name must start with 'valid-'."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: validate-namespace-binding
+spec:
+  policyName: validate-namespace-name
+  validationActions: [Deny]
