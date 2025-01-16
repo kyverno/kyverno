@@ -244,6 +244,18 @@ func printTestResult(
 					for _, rule := range lookupRuleResponses(test, response.PolicyResponse.Rules...) {
 						r := response.Resource
 
+						if test.IsValidatingAdmissionPolicy {
+							ok, message, reason := checkResult(test, fs, resoucePath, response, rule, r)
+							if strings.Contains(message, "not found in manifest") {
+								resourceSkipped = true
+								continue
+							}
+
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+							rows = append(rows, resourceRows...)
+							continue
+						}
+
 						if rule.RuleType() != "Generation" {
 							if rule.RuleType() == "Mutation" {
 								r = response.PatchedResource
