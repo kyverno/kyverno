@@ -1,4 +1,4 @@
-package validatingadmissionpolicy
+package admissionpolicy
 
 import (
 	"fmt"

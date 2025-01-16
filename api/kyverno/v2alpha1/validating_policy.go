@@ -16,6 +16,13 @@ type ValidatingPolicy struct {
 	Spec              ValidatingPolicySpec `json:"spec"`
 }
 
+func (s *ValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
+	if s.Spec.FailurePolicy == nil {
+		return admissionregistrationv1.Fail
+	}
+	return *s.Spec.FailurePolicy
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

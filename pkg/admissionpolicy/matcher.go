@@ -1,4 +1,4 @@
-package validatingadmissionpolicy
+package admissionpolicy
 
 import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
