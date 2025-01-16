@@ -225,6 +225,87 @@ func TestBuildWebhookRules(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Multiple Policies",
+			vpols: []*kyvernov2alpha1.ValidatingPolicy{
+				{
+					Spec: kyvernov2alpha1.ValidatingPolicySpec{
+						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+							FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+							MatchConstraints: &admissionregistrationv1.MatchResources{
+								ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+									{
+										RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+											Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+											Rule: admissionregistrationv1.Rule{
+												APIGroups:   []string{"*"},
+												APIVersions: []string{"*"},
+												Resources:   []string{"*"},
+												Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Spec: kyvernov2alpha1.ValidatingPolicySpec{
+						ValidatingAdmissionPolicySpec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+							FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+							MatchConstraints: &admissionregistrationv1.MatchResources{
+								ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+									{
+										RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+											Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+											Rule: admissionregistrationv1.Rule{
+												APIGroups:   []string{"*"},
+												APIVersions: []string{"*"},
+												Resources:   []string{"*"},
+												Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name: config.ValidatingPolicyWebhookName + "-ignore",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"*"},
+								APIVersions: []string{"*"},
+								Resources:   []string{"*"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+				},
+				{
+					Name: config.ValidatingPolicyWebhookName + "-fail",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"*"},
+								APIVersions: []string{"*"},
+								Resources:   []string{"*"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
