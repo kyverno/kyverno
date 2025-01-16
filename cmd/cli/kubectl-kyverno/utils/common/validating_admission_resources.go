@@ -24,9 +24,6 @@ func (r *ValidatingAdmissionResources) FetchResourcesFromPolicy(out io.Writer, r
 	for _, policy := range r.policies {
 		var resourceTypesInRule map[schema.GroupVersionKind]bool
 		resourceTypesInRule, subresourceMap = getKindsFromValidatingAdmissionPolicy(policy, dClient)
-		if err != nil {
-			return resources, err
-		}
 		for resourceKind := range resourceTypesInRule {
 			resourceTypesMap[resourceKind] = true
 		}
