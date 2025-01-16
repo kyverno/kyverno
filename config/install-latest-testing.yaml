@@ -50582,6 +50582,8 @@ rules:
       - globalcontextentries
       - globalcontextentries/status
       - policyexceptions
+      - validatingpolicies
+      - validatingpolicies/status
     verbs:
       - create
       - delete
