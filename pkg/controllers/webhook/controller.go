@@ -970,7 +970,7 @@ func (c *controller) buildForValidatingPolicies(ctx context.Context, cfg config.
 		return err
 	}
 
-	webhooks := buildWebhookRules(c.server, c.servicePort, cfg, caBundle, vpols)
+	webhooks := buildWebhookRules(c.server, c.servicePort, caBundle, vpols)
 	result.Webhooks = append(result.Webhooks, webhooks...)
 	return nil
 }

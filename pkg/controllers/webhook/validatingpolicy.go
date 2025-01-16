@@ -7,7 +7,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(server string, servicePort int32, cfg config.Configuration, caBundle []byte, vpols []*kyvernov2alpha1.ValidatingPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
+func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols []*kyvernov2alpha1.ValidatingPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
 	var (
 		webhookIgnoreList []admissionregistrationv1.ValidatingWebhook
 		webhookFailList   []admissionregistrationv1.ValidatingWebhook
@@ -73,7 +73,18 @@ func buildWebhookRules(server string, servicePort int32, cfg config.Configuratio
 			}
 		}
 	}
-	webhooks = append(webhookIgnoreList, webhookFailList...)
-	webhooks = append(webhooks, webhookIgnore, webhookFail)
+
+	if webhookFailList != nil {
+		webhooks = append(webhooks, webhookFailList...)
+	}
+	if webhookIgnoreList != nil {
+		webhooks = append(webhooks, webhookIgnoreList...)
+	}
+	if webhookFail.Rules != nil {
+		webhooks = append(webhooks, webhookFail)
+	}
+	if webhookIgnore.Rules != nil {
+		webhooks = append(webhooks, webhookIgnore)
+	}
 	return
 }
