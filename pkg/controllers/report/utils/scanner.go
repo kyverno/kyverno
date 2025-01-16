@@ -6,13 +6,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"go.uber.org/multierr"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -96,13 +96,13 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 			}
 		} else {
 			pol := policy.AsValidatingAdmissionPolicy()
-			policyData := validatingadmissionpolicy.NewPolicyData(*pol)
+			policyData := admissionpolicy.NewPolicyData(*pol)
 			for _, binding := range bindings {
 				if binding.Spec.PolicyName == pol.Name {
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := validatingadmissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client)
+			res, err := admissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client)
 			if err != nil {
 				errors = append(errors, err)
 			}
