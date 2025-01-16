@@ -352,7 +352,7 @@ ko-publish-cli: ko-login ## Build and publish cli image (with ko)
 ko-publish-cleanup-controller: ko-login ## Build and publish cleanup controller image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) \
 		$(KO) build ./$(CLEANUP_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS) \
-		--image-annotation 'org.opencontainers.image.authors'='Kyverno Team https://kyverno.io/','org.opencontainers.image.source'='github.com/kyverno/kyverno/commit/${GIT_SHA}','org.opencontainers.image.vendor'='Kyverno','org.opencontainers.image.url'='ghcr.io/kyverno/cleanup-controller'
+		--image-annotation 'org.opencontainers.image.authors'='The Kyverno Team','org.opencontainers.image.source'='github.com/kyverno/kyverno/commit/${GIT_SHA}','org.opencontainers.image.vendor'='Kyverno','org.opencontainers.image.url'='ghcr.io/kyverno/cleanup-controller'
 
 .PHONY: ko-publish-reports-controller
 ko-publish-reports-controller: ko-login ## Build and publish reports controller image (with ko)
