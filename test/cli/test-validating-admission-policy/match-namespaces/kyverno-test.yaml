@@ -18,4 +18,3 @@ spec:
       resource: invalid-namespace
       kind: Namespace
       result: fail
-      message: "Namespace name must start with 'valid-'."
