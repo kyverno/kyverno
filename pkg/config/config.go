@@ -50,6 +50,8 @@ const (
 	MutatingWebhookName = "mutate.kyverno.svc"
 	// VerifyMutatingWebhookName default verify mutating webhook name
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
+	// ValidatingPolicyWebhookName defines default webhook name for validatingpolicies
+	ValidatingPolicyWebhookName = "vpol.validate.kyverno.svc"
 )
 
 // paths
