@@ -722,6 +722,7 @@ codegen-slow: codegen-client-all
 codegen-all: ## Generate all generated code
 codegen-all: codegen-quick
 codegen-all: codegen-slow
+codegen-all: verify-api-versions
 
 ##################
 # VERIFY CODEGEN #
@@ -801,6 +802,11 @@ verify-cli-tests: ## Check CLI test files are up to date
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-fix-tests".' >&2
 	@echo 'To correct this, locally run "make codegen-fix-tests", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code test/cli
+
+.PHONY: verify-api-versions
+verify-api-versions: ## Check API versions are consistent
+	@echo Checking API versions are consistent... >&2
+	@go run ./cmd/api-version-validator/main.go
 
 .PHONY: verify-codegen
 verify-codegen: ## Verify all generated code and docs are up to date
