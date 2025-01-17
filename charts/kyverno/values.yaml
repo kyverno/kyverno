@@ -82,6 +82,7 @@ crds:
       policies: true
       policyexceptions: true
       updaterequests: true
+      validatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
@@ -2060,3 +2061,6 @@ reportsController:
     # -- Service node port.
     # Only used if `type` is `NodePort`.
     nodePort:
+
+  # -- Enable sanity check for reports CRDs
+  sanityChecks: true

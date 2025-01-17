@@ -8,13 +8,12 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,12 +29,14 @@ import (
 )
 
 type validateCELHandler struct {
-	client engineapi.Client
+	client    engineapi.Client
+	isCluster bool
 }
 
-func NewValidateCELHandler(client engineapi.Client) (handlers.Handler, error) {
+func NewValidateCELHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
 	return validateCELHandler{
-		client: client,
+		client:    client,
+		isCluster: isCluster,
 	}, nil
 }
 
@@ -118,7 +119,7 @@ func (h validateCELHandler) Process(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
 	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	// compile CEL expressions
-	compiler, err := celutils.NewCompiler(validations, auditAnnotations, vaputils.ConvertMatchConditionsV1(matchConditions), variables)
+	compiler, err := admissionpolicy.NewCompiler(validations, auditAnnotations, admissionpolicy.ConvertMatchConditionsV1(matchConditions), variables)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
@@ -140,7 +141,7 @@ func (h validateCELHandler) Process(
 		ns = ""
 	}
 	if ns != "" {
-		if h.client != nil {
+		if h.client != nil && h.isCluster {
 			namespace, err = h.client.GetNamespace(ctx, ns, metav1.GetOptions{})
 			if err != nil {
 				return resource, handlers.WithResponses(

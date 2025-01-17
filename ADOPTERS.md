@@ -46,6 +46,8 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [InfraCloud Technologies](https://www.infracloud.io/) | We have successfully implemented Kyverno as a crucial component of our SOC2 compliance, alongside other essential security hardening measures & best practices. Kyverno's policies offer a significantly streamlined implementation process, far exceeding the complexities associated with cloud services. | 
 | [North IT](https://www.northit.co.uk/) | North IT use Kyverno to help deploy Kubernetes for our pen-testing and SOC platform. | 
 | [Corestream](https://corp.corestream.com/) | At our organization, we've leveraged Kyverno to significantly enhance our Kubernetes-based DevOps practices. We use Kyverno's policy-as-code approach to automate and enforce best practices across our clusters. Our policies cover a wide range of scenarios, from managing Azure Key Vault integrations and secret protections to enforcing image registry restrictions and implementing multi-region deployment strategies. Kyverno allows us to automatically inject configuration, create role-based access controls, and ensure consistent labeling across our resources. This automation not only improves our security posture by preventing misconfigurations and unauthorized changes but also streamlines our deployment processes. By using Kyverno, we've been able to standardize our environments, reduce manual errors, and maintain compliance with our organization's policies. |
+| [Tigera](https://www.tigera.io/) | Kubernetes Policy and Governance |
+| [kubriX platform](kubrix.io) | Policy enforcement and automation of your kubrix platform using GitOps |
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->
