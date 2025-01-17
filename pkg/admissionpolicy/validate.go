@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -17,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
@@ -71,11 +73,12 @@ func Validate(
 	resource unstructured.Unstructured,
 	namespaceSelectorMap map[string]map[string]string,
 	client dclient.Interface,
-) (engineapi.EngineResponse, error) {
+	isCluster bool,
+) ([]engineapi.EngineResponse, error) {
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	policy := policyData.definition
 	bindings := policyData.bindings
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+	var ers []engineapi.EngineResponse
 
 	gvk := resource.GroupVersionKind()
 	gvr := schema.GroupVersionResource{
@@ -106,16 +109,22 @@ func Validate(
 	if len(bindings) == 0 {
 		isMatch, err := matches(a, namespaceSelectorMap, *policy.Spec.MatchConstraints)
 		if err != nil {
-			return engineResponse, err
+			return nil, err
 		}
 		if !isMatch {
-			return engineResponse, nil
+			return nil, nil
 		}
 		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-		return validateResource(policy, nil, resource, namespace, a)
+
+		engineResponse, err := validateResource(policy, nil, resource, namespace, a, nil)
+		if err != nil {
+			return nil, err
+		}
+		ers = append(ers, engineResponse)
+		return ers, nil
 	}
 
-	if client != nil {
+	if isCluster {
 		nsLister := NewCustomNamespaceLister(client)
 		matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 
@@ -125,7 +134,7 @@ func Validate(
 		// construct admission attributes
 		gvr, err := client.Discovery().GetGVRFromGVK(gvk)
 		if err != nil {
-			return engineResponse, err
+			return nil, err
 		}
 		a = admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 
@@ -133,16 +142,16 @@ func Validate(
 		o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 		isMatch, _, _, err := matcher.DefinitionMatches(a, o, validating.NewValidatingAdmissionPolicyAccessor(&v1policy))
 		if err != nil {
-			return engineResponse, err
+			return nil, err
 		}
 		if !isMatch {
-			return engineResponse, nil
+			return nil, nil
 		}
 
 		if namespaceName != "" {
 			namespace, err = client.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
 			if err != nil {
-				return engineResponse, err
+				return nil, err
 			}
 		}
 
@@ -151,30 +160,158 @@ func Validate(
 			v1binding := ConvertValidatingAdmissionPolicyBinding(binding)
 			isMatch, err := matcher.BindingMatches(a, o, validating.NewValidatingAdmissionPolicyBindingAccessor(&v1binding))
 			if err != nil {
-				return engineResponse, err
+				return nil, err
 			}
 			if !isMatch {
 				continue
 			}
+			if binding.Spec.ParamRef != nil {
+				params, err := CollectParams(context.TODO(), adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, resource.GetNamespace())
+				if err != nil {
+					return nil, err
+				}
+				logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+				for _, p := range params {
+					engineResponse, err := validateResource(policy, &bindings[i], resource, namespace, a, p)
+					if err != nil {
+						continue // is this correct ?
+					}
+					ers = append(ers, engineResponse)
+				}
+				return ers, nil
+			}
 
-			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, namespace, a)
+			engineResponse, err := validateResource(policy, &bindings[i], resource, namespace, a, nil)
+			if err != nil {
+				continue // is this correct ?
+			}
+			ers = append(ers, engineResponse)
+			return ers, nil
 		}
 	} else {
 		for i, binding := range bindings {
-			isMatch, err := matches(a, namespaceSelectorMap, *binding.Spec.MatchResources)
+			// check if its a global binding
+			if binding.Spec.MatchResources != nil {
+				isMatch, err := matches(a, namespaceSelectorMap, *binding.Spec.MatchResources)
+				if err != nil {
+					return nil, err
+				}
+				if !isMatch {
+					continue
+				}
+			}
+
+			if binding.Spec.ParamRef != nil {
+				var params []runtime.Object
+				for _, param := range policyData.params {
+					unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
+					if err != nil {
+						return nil, fmt.Errorf("failed to convert to unstructured: %w", err)
+					}
+					obj := &unstructured.Unstructured{Object: unstructuredMap}
+					if binding.Spec.ParamRef.Selector != nil {
+						labelSelector, err := metav1.LabelSelectorAsSelector(binding.Spec.ParamRef.Selector)
+						if err != nil {
+							return nil, fmt.Errorf("failed to convert LabelSelector: %w", err)
+						}
+
+						objLabels := obj.GetLabels()
+						if labelSelector.Matches(labels.Set(objLabels)) {
+							params = append(params, param)
+						}
+					} else {
+						if obj.GetName() == binding.Spec.ParamRef.Name {
+							params = append(params, param)
+						}
+					}
+				}
+				logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+				for _, p := range params {
+					engineResponse, err := validateResource(policy, &bindings[i], resource, namespace, a, p)
+					if err != nil {
+						continue // is this correct ?
+					}
+					ers = append(ers, engineResponse)
+				}
+				return ers, nil
+			}
+
+			engineResponse, err := validateResource(policy, &bindings[i], resource, namespace, a, nil)
 			if err != nil {
-				return engineResponse, err
+				continue // is this correct ?
 			}
-			if !isMatch {
-				continue
-			}
-			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, namespace, a)
+			// <<<<<<< HEAD:pkg/admissionpolicy/validate.go
+			// 			if !isMatch {
+			// 				continue
+			// 			}
+			// 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
+			// 			return validateResource(policy, &bindings[i], resource, namespace, a)
+			// =======
+			ers = append(ers, engineResponse)
+			return ers, nil
+			// >>>>>>> vap-cli-params:pkg/validatingadmissionpolicy/validate.go
 		}
 	}
 
-	return engineResponse, nil
+	return ers, nil
+}
+
+func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1beta1.ParamKind, paramRef *admissionregistrationv1beta1.ParamRef, namespace string) ([]runtime.Object, error) {
+	var params []runtime.Object
+
+	apiVersion := paramKind.APIVersion // nil pointer ?
+	kind := paramKind.Kind
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, fmt.Errorf("can't parse the parameter resource group version")
+	}
+
+	// If `paramKind` is cluster-scoped, then paramRef.namespace MUST be unset.
+	// If `paramKind` is namespace-scoped, the namespace of the object being evaluated for admission will be used
+	// when paramRef.namespace is left unset.
+	var paramsNamespace string
+	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if resource is namespaced or not (%w)", err)
+	}
+
+	// check if `paramKind` is namespace-scoped
+	if isNamespaced {
+		// set params namespace to the incoming object's namespace by default.
+		paramsNamespace = namespace
+		if paramRef.Namespace != "" {
+			paramsNamespace = paramRef.Namespace
+		} else if paramsNamespace == "" {
+			return nil, fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
+		}
+	} else {
+		// It isn't allowed to set namespace for cluster-scoped params
+		if paramRef.Namespace != "" {
+			return nil, fmt.Errorf("paramRef.namespace must not be provided for a cluster-scoped `paramKind`")
+		}
+	}
+
+	if paramRef.Name != "" {
+		param, err := client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
+		if err != nil {
+			return nil, err
+		}
+		return []runtime.Object{param}, nil
+	} else if paramRef.Selector != nil {
+		paramList, err := client.ListResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Selector)
+		if err != nil {
+			return nil, err
+		}
+		for i := range paramList.Items {
+			params = append(params, &paramList.Items[i])
+		}
+	}
+
+	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1beta1.DenyAction {
+		return nil, fmt.Errorf("no params found")
+	}
+
+	return params, nil
 }
 
 func validateResource(
@@ -183,6 +320,7 @@ func validateResource(
 	resource unstructured.Unstructured,
 	namespace *corev1.Namespace,
 	a admission.Attributes,
+	param runtime.Object,
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
@@ -223,7 +361,8 @@ func validateResource(
 		&failPolicy,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
-	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, nil)
+
+	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, param, namespace, celconfig.RuntimeCELCostBudget, nil)
 
 	// no validations are returned if match conditions aren't met
 	if datautils.DeepEqual(validateResult, validating.ValidateResult{}) {

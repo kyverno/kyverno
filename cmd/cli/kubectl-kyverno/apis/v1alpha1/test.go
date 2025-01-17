@@ -24,6 +24,9 @@ type Test struct {
 	// Resources are the resource to be used in the test
 	Resources []string `json:"resources,omitempty"`
 
+	// Resources that act as parameters for validating admission policies
+	ParamResources []string `json:"paramResources,omitempty"`
+
 	// Target Resources are for policies that have mutate existing
 	TargetResources []string `json:"targetResources,omitempty"`
 

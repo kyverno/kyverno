@@ -1,0 +1,24 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: update
+paramResources:
+- cm.yaml
+policies:
+- policy.yaml
+resources:
+- deployment1.yaml
+- deployment2.yaml
+results:
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: check-deployments-replicas
+  resources:
+  - nginx-deployment2
+  result: fail
+- isValidatingAdmissionPolicy: true
+  kind: Deployment
+  policy: check-deployments-replicas
+  resources:
+  - nginx-deployment1
+  result: pass
