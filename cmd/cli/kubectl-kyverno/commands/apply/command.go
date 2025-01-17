@@ -321,22 +321,18 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 ) ([]engineapi.EngineResponse, error) {
 	ctx := context.TODO()
 	compiler := celpolicy.NewCompiler()
-	policies := make([]celpolicy.CompiledPolicy, 0, len(vps))
-	for _, vp := range vps {
-		policy, err := compiler.Compile(&vp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
-		}
-		policies = append(policies, *policy)
+	provider, err := engine.NewProvider(compiler, vps...)
+	if err != nil {
+		return nil, err
 	}
-	eng := engine.NewEngine()
+	eng := engine.NewEngine(provider)
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		request := engine.EngineRequest{
 			Resource:        resource,
 			NamespaceLabels: namespaceSelectorMap,
 		}
-		_, err := eng.Handle(ctx, request, policies...)
+		_, err := eng.Handle(ctx, request)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply validating policies on resource %s (%v)\n", resource.GetName(), err)
