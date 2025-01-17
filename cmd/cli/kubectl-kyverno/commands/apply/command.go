@@ -326,13 +326,13 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 		return nil, err
 	}
 	eng := engine.NewEngine(provider)
-	var responses []engineapi.EngineResponse
+	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		request := engine.EngineRequest{
 			Resource:        resource,
 			NamespaceLabels: namespaceSelectorMap,
 		}
-		_, err := eng.Handle(ctx, request)
+		response, err := eng.Handle(ctx, request)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -340,13 +340,15 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			}
 			return responses, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 		}
-		// TODO
-		// 	processor := processor.ValidatingAdmissionPolicyProcessor{
-		// 		PolicyReport:         c.PolicyReport,
-		// 		Rc:                   rc,
-		// 		Client:               dClient,
-		// 	}
-		// 	responses = append(responses, ers...)
+		// transform response into legacy engine responses
+		for _, r := range response.Policies {
+			responses = append(responses, engineapi.EngineResponse{
+				Resource: *response.Resource,
+				PolicyResponse: engineapi.PolicyResponse{
+					Rules: r.Rules,
+				},
+			}.WithPolicy(engine.NewValidatingPolicy(r.Policy)))
+		}
 	}
 	return responses, nil
 }
