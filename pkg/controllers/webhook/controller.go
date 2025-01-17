@@ -26,6 +26,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
+	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -98,6 +99,7 @@ type controller struct {
 	vwcLister         admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 	cpolLister        kyvernov1listers.ClusterPolicyLister
 	polLister         kyvernov1listers.PolicyLister
+	vpolLister        kyvernov2alpha1listers.ValidatingPolicyLister
 	deploymentLister  appsv1listers.DeploymentLister
 	secretLister      corev1listers.SecretLister
 	leaseLister       coordinationv1listers.LeaseLister
@@ -136,6 +138,7 @@ func NewController(
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
+	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	secretInformer corev1informers.SecretInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
@@ -168,6 +171,7 @@ func NewController(
 		vwcLister:           vwcInformer.Lister(),
 		cpolLister:          cpolInformer.Lister(),
 		polLister:           polInformer.Lister(),
+		vpolLister:          vpolInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		secretLister:        secretInformer.Lister(),
 		leaseLister:         leaseInformer.Lister(),
@@ -370,24 +374,6 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 			c.policyState[webhookConfigurationName].Insert(policyKey)
 		}
 	}
-}
-
-func (c *controller) clientConfig(caBundle []byte, path string) admissionregistrationv1.WebhookClientConfig {
-	clientConfig := admissionregistrationv1.WebhookClientConfig{
-		CABundle: caBundle,
-	}
-	if c.server == "" {
-		clientConfig.Service = &admissionregistrationv1.ServiceReference{
-			Namespace: config.KyvernoNamespace(),
-			Name:      config.KyvernoServiceName(),
-			Path:      &path,
-			Port:      &c.servicePort,
-		}
-	} else {
-		url := fmt.Sprintf("https://%s%s", c.server, path)
-		clientConfig.URL = &url
-	}
-	return clientConfig
 }
 
 func (c *controller) reconcileResourceValidatingWebhookConfiguration(ctx context.Context) error {
@@ -701,7 +687,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(_ context.Context, 
 			ObjectMeta: objectMeta(config.VerifyMutatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.MutatingWebhook{{
 				Name:         config.VerifyMutatingWebhookName,
-				ClientConfig: c.clientConfig(caBundle, config.VerifyMutatingWebhookServicePath),
+				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.VerifyMutatingWebhookServicePath),
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Rule: verifyRule,
 					Operations: []admissionregistrationv1.OperationType{
@@ -729,7 +715,7 @@ func (c *controller) buildPolicyMutatingWebhookConfiguration(_ context.Context, 
 			ObjectMeta: objectMeta(config.PolicyMutatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.MutatingWebhook{{
 				Name:         config.PolicyMutatingWebhookName,
-				ClientConfig: c.clientConfig(caBundle, config.PolicyMutatingWebhookServicePath),
+				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.PolicyMutatingWebhookServicePath),
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Rule: policyRule,
 					Operations: []admissionregistrationv1.OperationType{
@@ -753,7 +739,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 			ObjectMeta: objectMeta(config.PolicyValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 				Name:         config.PolicyValidatingWebhookName,
-				ClientConfig: c.clientConfig(caBundle, config.PolicyValidatingWebhookServicePath),
+				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.PolicyValidatingWebhookServicePath),
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Rule: policyRule,
 					Operations: []admissionregistrationv1.OperationType{
@@ -776,7 +762,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 			ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.MutatingWebhook{{
 				Name:         config.MutatingWebhookName + "-ignore",
-				ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/ignore"),
+				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.MutatingWebhookServicePath+"/ignore"),
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{"*"},
@@ -796,7 +782,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.
 				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}, {
 				Name:         config.MutatingWebhookName + "-fail",
-				ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
+				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.MutatingWebhookServicePath+"/fail"),
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{"*"},
@@ -885,7 +871,7 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 			mutatingWebhooks,
 			admissionregistrationv1.MutatingWebhook{
 				Name:                    name,
-				ClientConfig:            c.clientConfig(caBundle, path),
+				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
 				Rules:                   webhook.buildRulesWithOperations(),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
@@ -911,7 +897,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 				Name:         config.ValidatingWebhookName + "-ignore",
-				ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
+				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/ignore"),
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{"*"},
@@ -932,7 +918,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
 			}, {
 				Name:         config.ValidatingWebhookName + "-fail",
-				ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
+				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/fail"),
 				Rules: []admissionregistrationv1.RuleWithOperations{{
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{"*"},
@@ -957,17 +943,46 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 }
 
 func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
-	result := admissionregistrationv1.ValidatingWebhookConfiguration{
+	webhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
+
+	var errs []error
+	if err := c.buildForPolicies(ctx, cfg, caBundle, webhookConfig); err != nil {
+		errs = append(errs, fmt.Errorf("failed to build webhook rules for policies: %v", err))
+	}
+
+	if err := c.buildForValidatingPolicies(ctx, cfg, caBundle, webhookConfig); err != nil {
+		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
+	}
+
+	return webhookConfig, multierr.Combine(errs...)
+}
+
+func (c *controller) buildForValidatingPolicies(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+	if !c.watchdogCheck() {
+		return nil
+	}
+
+	vpols, err := c.vpolLister.List(labels.Everything())
+	if err != nil {
+		return err
+	}
+
+	webhooks := buildWebhookRules(c.server, c.servicePort, caBundle, vpols)
+	result.Webhooks = append(result.Webhooks, webhooks...)
+	return nil
+}
+
+func (c *controller) buildForPolicies(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	if c.watchdogCheck() {
 		webhookCfg := cfg.GetWebhook()
 		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
 		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
 		policies, err := c.getAllPolicies()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		var fineGrainedIgnoreList, fineGrainedFailList []*webhook
@@ -1007,7 +1022,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 	} else {
 		c.recordPolicyState(config.MutatingWebhookConfigurationName)
 	}
-	return &result, nil
+	return nil
 }
 
 func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.ValidatingWebhook {
@@ -1027,7 +1042,7 @@ func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhoo
 			validatingWebhooks,
 			admissionregistrationv1.ValidatingWebhook{
 				Name:                    name,
-				ClientConfig:            c.clientConfig(caBundle, path),
+				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
 				Rules:                   webhook.buildRulesWithOperations(),
 				FailurePolicy:           &failurePolicy,
 				SideEffects:             sideEffects,
