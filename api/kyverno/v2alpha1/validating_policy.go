@@ -8,13 +8,13 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:path=validatingpolicies,scope="Cluster",shortName=vpol,categories=kyverno
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:scope=Cluster
 
 type ValidatingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              admissionregistrationv1.ValidatingAdmissionPolicySpec `json:"spec"`
+	Spec              ValidatingPolicySpec `json:"spec"`
 }
 
 func (s *ValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePolicyType {
@@ -27,7 +27,7 @@ func (s *ValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePol
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// GlobalContextEntryList is a list of Cached Context Entries
+// ValidatingPolicyList is a list of ValidatingPolicy instances
 type ValidatingPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
