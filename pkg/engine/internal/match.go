@@ -88,12 +88,12 @@ func checkMatchConditions(logger logr.Logger, policyContext engineapi.PolicyCont
 	}
 
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: false, HasAuthorizer: false}
-	compiler, err := admissionpolicy.NewCompiler(nil, nil, policy.GetSpec().GetMatchConditions(), nil)
+	compiler, err := admissionpolicy.NewCompiler(policy.GetSpec().GetMatchConditions(), nil)
 	if err != nil {
 		logger.Error(err, "error creating composited compiler")
 		return false
 	}
-	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
+	matchConditionFilter := compiler.CompileMatchConditions(optionalVars)
 	matcher := matchconditions.NewMatcher(matchConditionFilter, nil, policy.GetKind(), "", policy.GetName())
 	result := matcher.Match(context.TODO(), versionedAttr, nil, nil)
 	return result.Matches
