@@ -118,15 +118,17 @@ func (h validateCELHandler) Process(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
 	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	// compile CEL expressions
-	compiler, err := admissionpolicy.NewCompiler(validations, auditAnnotations, admissionpolicy.ConvertMatchConditionsV1(matchConditions), variables)
+	compiler, err := admissionpolicy.NewCompiler(admissionpolicy.ConvertMatchConditionsV1(matchConditions), variables)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
+	compiler.WithValidations(validations)
+	compiler.WithAuditAnnotations(auditAnnotations)
 	compiler.CompileVariables(optionalVars)
-	filter := compiler.CompileValidateExpressions(optionalVars)
+	filter := compiler.CompileValidations(optionalVars)
 	messageExpressionfilter := compiler.CompileMessageExpressions(expressionOptionalVars)
 	auditAnnotationFilter := compiler.CompileAuditAnnotationsExpressions(optionalVars)
-	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
+	matchConditionFilter := compiler.CompileMatchConditions(optionalVars)
 
 	// newMatcher will be used to check if the incoming resource matches the CEL preconditions
 	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, policyKind, "", policyName)

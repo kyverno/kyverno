@@ -2,8 +2,11 @@ package admissionpolicy
 
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	"k8s.io/apiserver/pkg/cel/environment"
@@ -11,16 +14,14 @@ import (
 
 type Compiler struct {
 	compositedCompiler cel.CompositedCompiler
-	// CEL expressions
-	validateExpressions        []admissionregistrationv1beta1.Validation
-	auditAnnotationExpressions []admissionregistrationv1beta1.AuditAnnotation
-	matchExpressions           []admissionregistrationv1.MatchCondition
-	variables                  []admissionregistrationv1beta1.Variable
+	validations        []admissionregistrationv1beta1.Validation
+	mutations          []admissionregistrationv1alpha1.Mutation
+	auditAnnotations   []admissionregistrationv1beta1.AuditAnnotation
+	matchConditions    []admissionregistrationv1.MatchCondition
+	variables          []admissionregistrationv1beta1.Variable
 }
 
 func NewCompiler(
-	validations []admissionregistrationv1beta1.Validation,
-	auditAnnotations []admissionregistrationv1beta1.AuditAnnotation,
 	matchConditions []admissionregistrationv1.MatchCondition,
 	variables []admissionregistrationv1beta1.Variable,
 ) (*Compiler, error) {
@@ -29,12 +30,47 @@ func NewCompiler(
 		return nil, err
 	}
 	return &Compiler{
-		compositedCompiler:         *compositedCompiler,
-		validateExpressions:        validations,
-		auditAnnotationExpressions: auditAnnotations,
-		matchExpressions:           matchConditions,
-		variables:                  variables,
+		compositedCompiler: *compositedCompiler,
+		matchConditions:    matchConditions,
+		variables:          variables,
 	}, nil
+}
+
+func (c *Compiler) WithValidations(validations []admissionregistrationv1beta1.Validation) {
+	c.validations = validations
+}
+
+func (c *Compiler) WithMutations(mutations []admissionregistrationv1alpha1.Mutation) {
+	c.mutations = mutations
+}
+
+func (c *Compiler) WithAuditAnnotations(auditAnnotations []admissionregistrationv1beta1.AuditAnnotation) {
+	c.auditAnnotations = auditAnnotations
+}
+
+func (c Compiler) CompileMutations(patchOptions cel.OptionalVariableDeclarations) []patch.Patcher {
+	var patchers []patch.Patcher
+	for _, m := range c.mutations {
+		switch m.PatchType {
+		case v1alpha1.PatchTypeJSONPatch:
+			if m.JSONPatch != nil {
+				accessor := &patch.JSONPatchCondition{
+					Expression: m.JSONPatch.Expression,
+				}
+				compileResult := c.compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
+				patchers = append(patchers, patch.NewJSONPatcher(compileResult))
+			}
+		case v1alpha1.PatchTypeApplyConfiguration:
+			if m.ApplyConfiguration != nil {
+				accessor := &patch.ApplyConfigurationCondition{
+					Expression: m.ApplyConfiguration.Expression,
+				}
+				compileResult := c.compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
+				patchers = append(patchers, patch.NewApplyConfigurationPatcher(compileResult))
+			}
+		}
+	}
+	return patchers
 }
 
 func (c Compiler) CompileVariables(optionalVars cel.OptionalVariableDeclarations) {
@@ -45,7 +81,7 @@ func (c Compiler) CompileVariables(optionalVars cel.OptionalVariableDeclarations
 	)
 }
 
-func (c Compiler) CompileValidateExpressions(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
+func (c Compiler) CompileValidations(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
 	return c.compositedCompiler.CompileCondition(
 		c.convertValidations(),
 		optionalVars,
@@ -69,17 +105,17 @@ func (c Compiler) CompileAuditAnnotationsExpressions(optionalVars cel.OptionalVa
 	)
 }
 
-func (c Compiler) CompileMatchExpressions(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
+func (c Compiler) CompileMatchConditions(optionalVars cel.OptionalVariableDeclarations) cel.ConditionEvaluator {
 	return c.compositedCompiler.CompileCondition(
-		c.convertMatchExpressions(),
+		c.convertMatchConditions(),
 		optionalVars,
 		environment.StoredExpressions,
 	)
 }
 
 func (c Compiler) convertValidations() []cel.ExpressionAccessor {
-	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.validateExpressions))
-	for i, validation := range c.validateExpressions {
+	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.validations))
+	for i, validation := range c.validations {
 		validation := validating.ValidationCondition{
 			Expression: validation.Expression,
 			Message:    validation.Message,
@@ -91,8 +127,8 @@ func (c Compiler) convertValidations() []cel.ExpressionAccessor {
 }
 
 func (c Compiler) convertMessageExpressions() []cel.ExpressionAccessor {
-	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.validateExpressions))
-	for i, validation := range c.validateExpressions {
+	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.validations))
+	for i, validation := range c.validations {
 		if validation.MessageExpression != "" {
 			condition := validating.MessageExpressionCondition{
 				MessageExpression: validation.MessageExpression,
@@ -104,8 +140,8 @@ func (c Compiler) convertMessageExpressions() []cel.ExpressionAccessor {
 }
 
 func (c Compiler) convertAuditAnnotations() []cel.ExpressionAccessor {
-	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.auditAnnotationExpressions))
-	for i, validation := range c.auditAnnotationExpressions {
+	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.auditAnnotations))
+	for i, validation := range c.auditAnnotations {
 		validation := validating.AuditAnnotationCondition{
 			Key:             validation.Key,
 			ValueExpression: validation.ValueExpression,
@@ -115,9 +151,9 @@ func (c Compiler) convertAuditAnnotations() []cel.ExpressionAccessor {
 	return celExpressionAccessor
 }
 
-func (c Compiler) convertMatchExpressions() []cel.ExpressionAccessor {
-	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.matchExpressions))
-	for i, condition := range c.matchExpressions {
+func (c Compiler) convertMatchConditions() []cel.ExpressionAccessor {
+	celExpressionAccessor := make([]cel.ExpressionAccessor, len(c.matchConditions))
+	for i, condition := range c.matchConditions {
 		condition := matchconditions.MatchCondition{
 			Name:       condition.Name,
 			Expression: condition.Expression,

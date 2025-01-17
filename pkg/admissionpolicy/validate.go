@@ -330,10 +330,13 @@ func validateResource(
 
 	// compile CEL expressions
 	matchConditions := ConvertMatchConditionsV1(policy.Spec.MatchConditions)
-	compiler, err := NewCompiler(policy.Spec.Validations, policy.Spec.AuditAnnotations, matchConditions, policy.Spec.Variables)
+	compiler, err := NewCompiler(matchConditions, policy.Spec.Variables)
 	if err != nil {
 		return engineResponse, err
 	}
+	compiler.WithValidations(policy.Spec.Validations)
+	compiler.WithAuditAnnotations(policy.Spec.AuditAnnotations)
+
 	hasParam := policy.Spec.ParamKind != nil
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	compiler.CompileVariables(optionalVars)
@@ -352,9 +355,9 @@ func validateResource(
 		matchPolicy = *policy.Spec.MatchConstraints.MatchPolicy
 	}
 
-	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchExpressions(optionalVars), &failPolicy, "", string(matchPolicy), "")
+	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchConditions(optionalVars), &failPolicy, "", string(matchPolicy), "")
 	validator := validating.NewValidator(
-		compiler.CompileValidateExpressions(optionalVars),
+		compiler.CompileValidations(optionalVars),
 		newMatcher,
 		compiler.CompileAuditAnnotationsExpressions(optionalVars),
 		compiler.CompileMessageExpressions(optionalVars),
