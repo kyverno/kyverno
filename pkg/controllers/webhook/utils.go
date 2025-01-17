@@ -2,12 +2,14 @@ package webhook
 
 import (
 	"cmp"
+	"fmt"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"golang.org/x/exp/maps"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -126,6 +128,24 @@ func capTimeout(maxWebhookTimeout int32) int32 {
 		return 30
 	}
 	return maxWebhookTimeout
+}
+
+func newClientConfig(server string, servicePort int32, caBundle []byte, path string) admissionregistrationv1.WebhookClientConfig {
+	clientConfig := admissionregistrationv1.WebhookClientConfig{
+		CABundle: caBundle,
+	}
+	if server == "" {
+		clientConfig.Service = &admissionregistrationv1.ServiceReference{
+			Namespace: config.KyvernoNamespace(),
+			Name:      config.KyvernoServiceName(),
+			Path:      &path,
+			Port:      &servicePort,
+		}
+	} else {
+		url := fmt.Sprintf("https://%s%s", server, path)
+		clientConfig.URL = &url
+	}
+	return clientConfig
 }
 
 func webhookNameAndPath(wh webhook, baseName, basePath string) (name string, path string) {
