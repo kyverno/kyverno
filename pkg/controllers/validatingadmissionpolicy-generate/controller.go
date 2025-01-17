@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -21,7 +22,6 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -304,14 +304,14 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	// check if the controller has the required permissions to generate validating admission policies.
-	if !validatingadmissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
+	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
 		logger.Info("insufficient permissions to generate ValidatingAdmissionPolicies")
 		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
 		return nil
 	}
 
 	// check if the controller has the required permissions to generate validating admission policy bindings.
-	if !validatingadmissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
+	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
 		logger.Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 		c.updateClusterPolicyStatus(ctx, *policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 		return nil
@@ -328,7 +328,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		return err
 	}
 
-	if ok, msg := validatingadmissionpolicy.CanGenerateVAP(spec, exceptions); !ok {
+	if ok, msg := admissionpolicy.CanGenerateVAP(spec, exceptions); !ok {
 		// delete the ValidatingAdmissionPolicy if exist
 		if vapErr == nil {
 			err = c.client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
@@ -376,7 +376,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	if observedVAP.ResourceVersion == "" {
-		err := validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, exceptions)
+		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, exceptions)
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
@@ -392,7 +392,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			observedVAP,
 			c.client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1beta1.ValidatingAdmissionPolicy) error {
-				return validatingadmissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, exceptions)
+				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, exceptions)
 			})
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
@@ -401,7 +401,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	if observedVAPbinding.ResourceVersion == "" {
-		err := validatingadmissionpolicy.BuildValidatingAdmissionPolicyBinding(observedVAPbinding, policy)
+		err := admissionpolicy.BuildValidatingAdmissionPolicyBinding(observedVAPbinding, policy)
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())
 			return err
@@ -417,7 +417,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			observedVAPbinding,
 			c.client.AdmissionregistrationV1beta1().ValidatingAdmissionPolicyBindings(),
 			func(observed *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) error {
-				return validatingadmissionpolicy.BuildValidatingAdmissionPolicyBinding(observed, policy)
+				return admissionpolicy.BuildValidatingAdmissionPolicyBinding(observed, policy)
 			})
 		if err != nil {
 			c.updateClusterPolicyStatus(ctx, *policy, false, err.Error())

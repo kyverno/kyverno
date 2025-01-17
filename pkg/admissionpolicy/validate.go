@@ -1,4 +1,4 @@
-package validatingadmissionpolicy
+package admissionpolicy
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/text/cases"
@@ -113,7 +112,7 @@ func Validate(
 			return engineResponse, nil
 		}
 		logger.V(3).Info("validate resource %s against policy %s", resPath, policy.GetName())
-		return validateResource(policy, nil, resource, *namespace, a)
+		return validateResource(policy, nil, resource, namespace, a)
 	}
 
 	if client != nil {
@@ -159,7 +158,7 @@ func Validate(
 			}
 
 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, *namespace, a)
+			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	} else {
 		for i, binding := range bindings {
@@ -171,7 +170,7 @@ func Validate(
 				continue
 			}
 			logger.V(3).Info("validate resource %s against policy %s with binding %s", resPath, policy.GetName(), binding.GetName())
-			return validateResource(policy, &bindings[i], resource, *namespace, a)
+			return validateResource(policy, &bindings[i], resource, namespace, a)
 		}
 	}
 
@@ -182,7 +181,7 @@ func validateResource(
 	policy admissionregistrationv1beta1.ValidatingAdmissionPolicy,
 	binding *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
 	resource unstructured.Unstructured,
-	namespace corev1.Namespace,
+	namespace *corev1.Namespace,
 	a admission.Attributes,
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
@@ -193,7 +192,7 @@ func validateResource(
 
 	// compile CEL expressions
 	matchConditions := ConvertMatchConditionsV1(policy.Spec.MatchConditions)
-	compiler, err := celutils.NewCompiler(policy.Spec.Validations, policy.Spec.AuditAnnotations, matchConditions, policy.Spec.Variables)
+	compiler, err := NewCompiler(policy.Spec.Validations, policy.Spec.AuditAnnotations, matchConditions, policy.Spec.Variables)
 	if err != nil {
 		return engineResponse, err
 	}
@@ -224,7 +223,7 @@ func validateResource(
 		&failPolicy,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
-	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, &namespace, celconfig.RuntimeCELCostBudget, nil)
+	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, nil)
 
 	// no validations are returned if match conditions aren't met
 	if datautils.DeepEqual(validateResult, validating.ValidateResult{}) {

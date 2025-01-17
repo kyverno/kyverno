@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: valid-namespace
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: invalid-namespace
