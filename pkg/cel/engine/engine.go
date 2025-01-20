@@ -8,14 +8,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type EngineRequest struct {
-	Resource        *unstructured.Unstructured
-	NamespaceLabels map[string]map[string]string
+	Resource *unstructured.Unstructured
 }
 
 type EngineResponse struct {
@@ -86,13 +87,17 @@ type Engine interface {
 	Handle(context.Context, EngineRequest, ...policy.CompiledPolicy) (EngineResponse, error)
 }
 
+type NamespaceResolver = func(string) *corev1.Namespace
+
 type engine struct {
-	provider Provider
+	nsResolver NamespaceResolver
+	provider   Provider
 }
 
-func NewEngine(provider Provider) *engine {
+func NewEngine(provider Provider, nsResolver NamespaceResolver) *engine {
 	return &engine{
-		provider: provider,
+		nsResolver: nsResolver,
+		provider:   provider,
 	}
 }
 
@@ -104,15 +109,27 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	if err != nil {
 		return response, err
 	}
+	// resolve namespace
+	var namespace *unstructured.Unstructured
+	if ns := request.Resource.GetNamespace(); ns != "" {
+		coreNs := e.nsResolver(ns)
+		if coreNs != nil {
+			ns, err := kubeutils.ObjToUnstructured(coreNs)
+			if err != nil {
+				return response, err
+			}
+			namespace = ns
+		}
+	}
 	for _, policy := range policies {
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request))
+		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.Resource, namespace))
 	}
 	return response, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy policy.CompiledPolicy, request EngineRequest) PolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy policy.CompiledPolicy, resource *unstructured.Unstructured, namespace *unstructured.Unstructured) PolicyResponse {
 	var rules []engineapi.RuleResponse
-	ok, err := policy.Evaluate(ctx, request.Resource, request.NamespaceLabels)
+	ok, err := policy.Evaluate(ctx, resource, namespace)
 	// TODO: evaluation should be per rule
 	if err != nil {
 		rules = handlers.WithResponses(engineapi.RuleError("todo", engineapi.Validation, "failed to load context", err, nil))
