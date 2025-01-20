@@ -24,12 +24,17 @@ type CompiledPolicy struct {
 func (p *CompiledPolicy) Evaluate(
 	ctx context.Context,
 	resource *unstructured.Unstructured,
-	namespaceLabels map[string]map[string]string,
+	namespace *unstructured.Unstructured,
 ) (bool, error) {
+	var nsData map[string]any
+	if namespace != nil {
+		nsData = namespace.UnstructuredContent()
+	}
 	matchConditions := func() (bool, error) {
 		var errs []error
 		data := map[string]any{
-			ObjectKey: resource.UnstructuredContent(),
+			NamespaceObjectKey: nsData,
+			ObjectKey:          resource.UnstructuredContent(),
 		}
 		for _, matchCondition := range p.matchConditions {
 			// evaluate the condition
@@ -63,8 +68,9 @@ func (p *CompiledPolicy) Evaluate(
 	variables := func() map[string]any {
 		vars := lazy.NewMapValue(VariablesType)
 		data := map[string]any{
-			ObjectKey:    resource.UnstructuredContent(),
-			VariablesKey: vars,
+			NamespaceObjectKey: nsData,
+			ObjectKey:          resource.UnstructuredContent(),
+			VariablesKey:       vars,
 		}
 		for name, variable := range p.variables {
 			vars.Append(name, func(*lazy.MapValue) ref.Val {
