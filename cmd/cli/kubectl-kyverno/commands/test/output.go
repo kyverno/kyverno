@@ -186,36 +186,38 @@ func printTestResult(
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
 					for resourceGVKAndName := range m {
 						nameParts := strings.Split(resourceGVKAndName, ",")
-						if resourceString, ok := r.(string); ok {
-							nsAndName := strings.Split(resourceString, "/")
-							if len(nsAndName) == 1 {
-								if resourceString == nameParts[len(nameParts)-1] {
-									resources = append(resources, resourceGVKAndName)
-								}
-							}
-							if len(nsAndName) == 2 {
-								if nsAndName[0] == nameParts[len(nameParts)-2] && nsAndName[1] == nameParts[len(nameParts)-1] {
-									resources = append(resources, resourceGVKAndName)
-								}
-							}
-						}
-
-						if resourceSpec, ok := r.(v1alpha1.TestResourceSpec); ok {
-							if resourceSpec.Group == "" {
-								if resourceSpec.Version != nameParts[0] {
-									continue
-								}
-							} else {
-								if resourceSpec.Group+"/"+resourceSpec.Version != nameParts[0] {
-									continue
-								}
-							}
-							if resourceSpec.Namespace != nameParts[len(nameParts)-2] {
-								continue
-							}
-							if resourceSpec.Name == nameParts[len(nameParts)-1] {
+						nsAndName := strings.Split(r, "/")
+						if len(nsAndName) == 1 {
+							if r == nameParts[len(nameParts)-1] {
 								resources = append(resources, resourceGVKAndName)
 							}
+						}
+						if len(nsAndName) == 2 {
+							if nsAndName[0] == nameParts[len(nameParts)-2] && nsAndName[1] == nameParts[len(nameParts)-1] {
+								resources = append(resources, resourceGVKAndName)
+							}
+						}
+					}
+				}
+			}
+			for _, resourceSpec := range test.ResourceSpecs {
+				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
+					for resourceGVKAndName := range m {
+						nameParts := strings.Split(resourceGVKAndName, ",")
+						if resourceSpec.Group == "" {
+							if resourceSpec.Version != nameParts[0] {
+								continue
+							}
+						} else {
+							if resourceSpec.Group+"/"+resourceSpec.Version != nameParts[0] {
+								continue
+							}
+						}
+						if resourceSpec.Namespace != nameParts[len(nameParts)-2] {
+							continue
+						}
+						if resourceSpec.Name == nameParts[len(nameParts)-1] {
+							resources = append(resources, resourceGVKAndName)
 						}
 					}
 				}
