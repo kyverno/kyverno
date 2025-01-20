@@ -541,11 +541,11 @@ func isGlobalContextEntryReady(name string, gctxentries *kyvernov2alpha1.GlobalC
 }
 
 func ValidateCustomWebhookMatchConditions(wc []admissionregistrationv1.MatchCondition) error {
-	c, err := admissionpolicy.NewCompiler(nil, nil, wc, nil)
+	c, err := admissionpolicy.NewCompiler(wc, nil)
 	if err != nil {
 		return err
 	}
-	f := c.CompileMatchExpressions(cel.OptionalVariableDeclarations{})
+	f := c.CompileMatchConditions(cel.OptionalVariableDeclarations{})
 	if len(f.CompilationErrors()) > 0 {
 		return fmt.Errorf("match conditions compilation errors: %v", f.CompilationErrors())
 	}
