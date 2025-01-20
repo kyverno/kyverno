@@ -321,22 +321,18 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 ) ([]engineapi.EngineResponse, error) {
 	ctx := context.TODO()
 	compiler := celpolicy.NewCompiler()
-	policies := make([]celpolicy.CompiledPolicy, 0, len(vps))
-	for _, vp := range vps {
-		policy, err := compiler.Compile(&vp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
-		}
-		policies = append(policies, *policy)
+	provider, err := engine.NewProvider(compiler, vps...)
+	if err != nil {
+		return nil, err
 	}
-	eng := engine.NewEngine()
-	var responses []engineapi.EngineResponse
+	eng := engine.NewEngine(provider)
+	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		request := engine.EngineRequest{
 			Resource:        resource,
 			NamespaceLabels: namespaceSelectorMap,
 		}
-		_, err := eng.Handle(ctx, request, policies...)
+		response, err := eng.Handle(ctx, request)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -344,13 +340,15 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			}
 			return responses, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 		}
-		// TODO
-		// 	processor := processor.ValidatingAdmissionPolicyProcessor{
-		// 		PolicyReport:         c.PolicyReport,
-		// 		Rc:                   rc,
-		// 		Client:               dClient,
-		// 	}
-		// 	responses = append(responses, ers...)
+		// transform response into legacy engine responses
+		for _, r := range response.Policies {
+			responses = append(responses, engineapi.EngineResponse{
+				Resource: *response.Resource,
+				PolicyResponse: engineapi.PolicyResponse{
+					Rules: r.Rules,
+				},
+			}.WithPolicy(engine.NewValidatingPolicy(r.Policy)))
+		}
 	}
 	return responses, nil
 }
