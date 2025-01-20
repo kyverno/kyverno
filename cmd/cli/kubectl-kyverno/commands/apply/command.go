@@ -342,12 +342,14 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 		}
 		// transform response into legacy engine responses
 		for _, r := range response.Policies {
-			responses = append(responses, engineapi.EngineResponse{
+			engineResponse := engineapi.EngineResponse{
 				Resource: *response.Resource,
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: r.Rules,
 				},
-			}.WithPolicy(engine.NewValidatingPolicy(r.Policy)))
+			}
+			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(r.Policy))
+			responses = append(responses, engineResponse)
 		}
 	}
 	return responses, nil
@@ -387,7 +389,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 		validPolicies = append(validPolicies, pol)
 	}
-
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
