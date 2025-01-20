@@ -36,6 +36,7 @@ import (
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -261,7 +262,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses3, err := c.applyValidatingPolicies(vps, resources1, variables.NamespaceSelectors(), rc, dClient)
+	responses3, err := c.applyValidatingPolicies(vps, resources1, variables.Namespace, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -315,7 +316,7 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []kyvernov2alpha1.ValidatingPolicy,
 	resources []*unstructured.Unstructured,
-	namespaceSelectorMap map[string]map[string]string,
+	namespaceProvider func(string) *corev1.Namespace,
 	_ *processor.ResultCounts,
 	_ dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
@@ -325,12 +326,11 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	eng := engine.NewEngine(provider)
+	eng := engine.NewEngine(provider, namespaceProvider)
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		request := engine.EngineRequest{
-			Resource:        resource,
-			NamespaceLabels: namespaceSelectorMap,
+			Resource: resource,
 		}
 		response, err := eng.Handle(ctx, request)
 		if err != nil {
