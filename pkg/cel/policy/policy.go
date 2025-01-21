@@ -13,7 +13,16 @@ import (
 	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
-type CompiledPolicy struct {
+type (
+	resource  = *unstructured.Unstructured
+	namespace = *unstructured.Unstructured
+)
+
+type CompiledPolicy interface {
+	Evaluate(context.Context, resource, namespace) (bool, error)
+}
+
+type compiledPolicy struct {
 	failurePolicy    admissionregistrationv1.FailurePolicyType
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
@@ -21,49 +30,17 @@ type CompiledPolicy struct {
 	auditAnnotations map[string]cel.Program
 }
 
-func (p *CompiledPolicy) Evaluate(
-	ctx context.Context,
-	resource *unstructured.Unstructured,
-	namespace *unstructured.Unstructured,
-) (bool, error) {
-	var nsData map[string]any
-	if namespace != nil {
-		nsData = namespace.UnstructuredContent()
-	}
-	matchConditions := func() (bool, error) {
-		var errs []error
-		data := map[string]any{
-			NamespaceObjectKey: nsData,
-			ObjectKey:          resource.UnstructuredContent(),
-		}
-		for _, matchCondition := range p.matchConditions {
-			// evaluate the condition
-			out, _, err := matchCondition.ContextEval(ctx, data)
-			// check error
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			// try to convert to a bool
-			result, err := utils.ConvertToNative[bool](out)
-			// check error
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			// if condition is false, skip
-			if !result {
-				return false, nil
-			}
-		}
-		return true, multierr.Combine(errs...)
-	}
-	match, err := matchConditions()
+func (p *compiledPolicy) Evaluate(ctx context.Context, resource resource, namespace namespace) (bool, error) {
+	match, err := p.match(ctx, resource, namespace)
 	if err != nil {
 		return false, err
 	}
 	if !match {
 		return true, nil
+	}
+	var nsData map[string]any
+	if namespace != nil {
+		nsData = namespace.UnstructuredContent()
 	}
 	variables := func() map[string]any {
 		vars := lazy.NewMapValue(VariablesType)
@@ -104,4 +81,37 @@ func (p *CompiledPolicy) Evaluate(
 		}
 	}
 	return true, nil
+}
+
+func (p *compiledPolicy) match(ctx context.Context, resource resource, namespace namespace) (bool, error) {
+	var nsData map[string]any
+	if namespace != nil {
+		nsData = namespace.UnstructuredContent()
+	}
+	data := map[string]any{
+		NamespaceObjectKey: nsData,
+		ObjectKey:          resource.UnstructuredContent(),
+	}
+	var errs []error
+	for _, matchCondition := range p.matchConditions {
+		// evaluate the condition
+		out, _, err := matchCondition.ContextEval(ctx, data)
+		// check error
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		// try to convert to a bool
+		result, err := utils.ConvertToNative[bool](out)
+		// check error
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		// if condition is false, skip
+		if !result {
+			return false, nil
+		}
+	}
+	return true, multierr.Combine(errs...)
 }
