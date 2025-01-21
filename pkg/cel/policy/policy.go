@@ -18,8 +18,13 @@ type (
 	namespace = *unstructured.Unstructured
 )
 
+type EvaluationResult struct {
+	Result ref.Val
+	Error  error
+}
+
 type CompiledPolicy interface {
-	Evaluate(context.Context, resource, namespace) (bool, error)
+	Evaluate(context.Context, resource, namespace) ([]EvaluationResult, error)
 }
 
 type compiledPolicy struct {
@@ -30,57 +35,60 @@ type compiledPolicy struct {
 	auditAnnotations map[string]cel.Program
 }
 
-func (p *compiledPolicy) Evaluate(ctx context.Context, resource resource, namespace namespace) (bool, error) {
+func (p *compiledPolicy) Evaluate(ctx context.Context, resource resource, namespace namespace) ([]EvaluationResult, error) {
 	match, err := p.match(ctx, resource, namespace)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if !match {
-		return true, nil
+		return nil, nil
 	}
 	var nsData map[string]any
 	if namespace != nil {
 		nsData = namespace.UnstructuredContent()
 	}
-	variables := func() map[string]any {
-		vars := lazy.NewMapValue(VariablesType)
-		data := map[string]any{
-			NamespaceObjectKey: nsData,
-			ObjectKey:          resource.UnstructuredContent(),
-			VariablesKey:       vars,
-		}
-		for name, variable := range p.variables {
-			vars.Append(name, func(*lazy.MapValue) ref.Val {
-				out, _, err := variable.Eval(data)
-				if out != nil {
-					return out
-				}
-				if err != nil {
-					return types.WrapErr(err)
-				}
-				return nil
-			})
-		}
-		return data
+	vars := lazy.NewMapValue(VariablesType)
+	data := map[string]any{
+		NamespaceObjectKey: nsData,
+		ObjectKey:          resource.UnstructuredContent(),
+		VariablesKey:       vars,
 	}
-	data := variables()
+	for name, variable := range p.variables {
+		vars.Append(name, func(*lazy.MapValue) ref.Val {
+			out, _, err := variable.Eval(data)
+			if out != nil {
+				return out
+			}
+			if err != nil {
+				return types.WrapErr(err)
+			}
+			return nil
+		})
+	}
+	results := make([]EvaluationResult, 0, len(p.validations))
 	for _, rule := range p.validations {
 		out, _, err := rule.Eval(data)
-		// check error
-		if err != nil {
-			return false, err
-		}
-		response, err := utils.ConvertToNative[bool](out)
-		// check error
-		if err != nil {
-			return false, err
-		}
-		// if response is false, return
-		if !response {
-			return false, nil
-		}
+		results = append(results, EvaluationResult{
+			Result: out,
+			Error:  err,
+		})
+		// // check error
+		// 	if err != nil {
+		// 		results = append(results, EvaluationResult{
+		// 			Error: err,
+		// 		})
+		// 	}
+		// response, err := utils.ConvertToNative[bool](out)
+		// // check error
+		// if err != nil {
+		// 	return false, err
+		// }
+		// // if response is false, return
+		// if !response {
+		// 	return false, nil
+		// }
 	}
-	return true, nil
+	return results, nil
 }
 
 func (p *compiledPolicy) match(ctx context.Context, resource resource, namespace namespace) (bool, error) {
