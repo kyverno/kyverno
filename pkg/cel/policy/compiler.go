@@ -23,7 +23,7 @@ const (
 )
 
 type Compiler interface {
-	Compile(*kyvernov2alpha1.ValidatingPolicy) (*CompiledPolicy, field.ErrorList)
+	Compile(*kyvernov2alpha1.ValidatingPolicy) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -32,7 +32,7 @@ func NewCompiler() Compiler {
 
 type compiler struct{}
 
-func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (*CompiledPolicy, field.ErrorList) {
+func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -129,7 +129,7 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (*CompiledP
 			auditAnnotations[auditAnnotation.Key] = prog
 		}
 	}
-	return &CompiledPolicy{
+	return &compiledPolicy{
 		failurePolicy:    policy.GetFailurePolicy(),
 		matchConditions:  matchConditions,
 		variables:        variables,
@@ -140,20 +140,18 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (*CompiledP
 
 func compileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
-	{
-		path := path.Child("expression")
-		ast, issues := env.Compile(rule.Expression)
-		if err := issues.Err(); err != nil {
-			return nil, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
-		}
-		if !ast.OutputType().IsExactType(types.BoolType) {
-			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
-			return nil, append(allErrs, field.Invalid(path, rule.Expression, msg))
-		}
-		program, err := env.Program(ast)
-		if err != nil {
-			return nil, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
-		}
-		return program, nil
+	path = path.Child("expression")
+	ast, issues := env.Compile(rule.Expression)
+	if err := issues.Err(); err != nil {
+		return nil, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 	}
+	if !ast.OutputType().IsExactType(types.BoolType) {
+		msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
+		return nil, append(allErrs, field.Invalid(path, rule.Expression, msg))
+	}
+	program, err := env.Program(ast)
+	if err != nil {
+		return nil, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
+	}
+	return program, nil
 }
