@@ -102,11 +102,12 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := admissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client)
+
+			res, err := admissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client, true)
 			if err != nil {
 				errors = append(errors, err)
 			}
-			response = &res
+			response = &res[0]
 		}
 		results[&policies[i]] = ScanResult{response, multierr.Combine(errors...)}
 	}
