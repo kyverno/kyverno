@@ -179,9 +179,10 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *policyre
 
 func EngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
 	pol := response.Policy()
-	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	polMeta := pol.MetaObject()
+	policyName, _ := cache.MetaNamespaceKeyFunc(polMeta)
 	policyType := pol.GetType()
-	annotations := pol.GetAnnotations()
+	annotations := polMeta.GetAnnotations()
 
 	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
@@ -194,9 +195,10 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 
 func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
 	pol := response.Policy()
-	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	polMeta := pol.MetaObject()
+	policyName, _ := cache.MetaNamespaceKeyFunc(polMeta)
 	policyType := pol.GetType()
-	annotations := pol.GetAnnotations()
+	annotations := polMeta.GetAnnotations()
 
 	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
@@ -212,9 +214,10 @@ func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []
 
 func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
 	pol := response.Policy()
-	policyName, _ := cache.MetaNamespaceKeyFunc(pol.AsKyvernoPolicy())
+	polMeta := pol.MetaObject()
+	policyName, _ := cache.MetaNamespaceKeyFunc(polMeta)
 	policyType := pol.GetType()
-	annotations := pol.GetAnnotations()
+	annotations := polMeta.GetAnnotations()
 
 	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {

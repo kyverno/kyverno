@@ -25,7 +25,7 @@ func NewProvider(compiler policy.Compiler, policies ...kyvernov2alpha1.Validatin
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
 		}
-		compiled = append(compiled, *policy)
+		compiled = append(compiled, policy)
 	}
 	provider := func(context.Context) ([]policy.CompiledPolicy, error) {
 		return compiled, nil
