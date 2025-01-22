@@ -38,7 +38,7 @@ func (c *withLogging) OpenAPISchema() (*github_com_google_gnostic_models_openapi
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "OpenAPISchema failed", "duration", time.Since(start))
 	} else {
-		logger.Info("OpenAPISchema done", "duration", time.Since(start))
+		logger.V(4).Info("OpenAPISchema done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -46,14 +46,14 @@ func (c *withLogging) OpenAPIV3() k8s_io_client_go_openapi.Client {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "OpenAPIV3")
 	ret0 := c.inner.OpenAPIV3()
-	logger.Info("OpenAPIV3 done", "duration", time.Since(start))
+	logger.V(4).Info("OpenAPIV3 done", "duration", time.Since(start))
 	return ret0
 }
 func (c *withLogging) RESTClient() k8s_io_client_go_rest.Interface {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "RESTClient")
 	ret0 := c.inner.RESTClient()
-	logger.Info("RESTClient done", "duration", time.Since(start))
+	logger.V(4).Info("RESTClient done", "duration", time.Since(start))
 	return ret0
 }
 func (c *withLogging) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroupList, error) {
@@ -63,7 +63,7 @@ func (c *withLogging) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIG
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "ServerGroups failed", "duration", time.Since(start))
 	} else {
-		logger.Info("ServerGroups done", "duration", time.Since(start))
+		logger.V(4).Info("ServerGroups done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -74,7 +74,7 @@ func (c *withLogging) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_api
 	if err := multierr.Combine(ret2); err != nil {
 		logger.Error(err, "ServerGroupsAndResources failed", "duration", time.Since(start))
 	} else {
-		logger.Info("ServerGroupsAndResources done", "duration", time.Since(start))
+		logger.V(4).Info("ServerGroupsAndResources done", "duration", time.Since(start))
 	}
 	return ret0, ret1, ret2
 }
@@ -85,7 +85,7 @@ func (c *withLogging) ServerPreferredNamespacedResources() ([]*k8s_io_apimachine
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "ServerPreferredNamespacedResources failed", "duration", time.Since(start))
 	} else {
-		logger.Info("ServerPreferredNamespacedResources done", "duration", time.Since(start))
+		logger.V(4).Info("ServerPreferredNamespacedResources done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -96,7 +96,7 @@ func (c *withLogging) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_api
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "ServerPreferredResources failed", "duration", time.Since(start))
 	} else {
-		logger.Info("ServerPreferredResources done", "duration", time.Since(start))
+		logger.V(4).Info("ServerPreferredResources done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -107,7 +107,7 @@ func (c *withLogging) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apima
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "ServerResourcesForGroupVersion failed", "duration", time.Since(start))
 	} else {
-		logger.Info("ServerResourcesForGroupVersion done", "duration", time.Since(start))
+		logger.V(4).Info("ServerResourcesForGroupVersion done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -118,7 +118,7 @@ func (c *withLogging) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, er
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "ServerVersion failed", "duration", time.Since(start))
 	} else {
-		logger.Info("ServerVersion done", "duration", time.Since(start))
+		logger.V(4).Info("ServerVersion done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -126,7 +126,7 @@ func (c *withLogging) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "WithLegacy")
 	ret0 := c.inner.WithLegacy()
-	logger.Info("WithLegacy done", "duration", time.Since(start))
+	logger.V(4).Info("WithLegacy done", "duration", time.Since(start))
 	return ret0
 }
 

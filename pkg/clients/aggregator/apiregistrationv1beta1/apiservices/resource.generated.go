@@ -41,7 +41,7 @@ func (c *withLogging) Create(arg0 context.Context, arg1 *k8s_io_kube_aggregator_
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "Create failed", "duration", time.Since(start))
 	} else {
-		logger.Info("Create done", "duration", time.Since(start))
+		logger.V(4).Info("Create done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -52,7 +52,7 @@ func (c *withLogging) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 	if err := multierr.Combine(ret0); err != nil {
 		logger.Error(err, "Delete failed", "duration", time.Since(start))
 	} else {
-		logger.Info("Delete done", "duration", time.Since(start))
+		logger.V(4).Info("Delete done", "duration", time.Since(start))
 	}
 	return ret0
 }
@@ -63,7 +63,7 @@ func (c *withLogging) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 	if err := multierr.Combine(ret0); err != nil {
 		logger.Error(err, "DeleteCollection failed", "duration", time.Since(start))
 	} else {
-		logger.Info("DeleteCollection done", "duration", time.Since(start))
+		logger.V(4).Info("DeleteCollection done", "duration", time.Since(start))
 	}
 	return ret0
 }
@@ -74,7 +74,7 @@ func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "Get failed", "duration", time.Since(start))
 	} else {
-		logger.Info("Get done", "duration", time.Since(start))
+		logger.V(4).Info("Get done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -85,7 +85,7 @@ func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "List failed", "duration", time.Since(start))
 	} else {
-		logger.Info("List done", "duration", time.Since(start))
+		logger.V(4).Info("List done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -96,7 +96,7 @@ func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "Patch failed", "duration", time.Since(start))
 	} else {
-		logger.Info("Patch done", "duration", time.Since(start))
+		logger.V(4).Info("Patch done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -107,7 +107,7 @@ func (c *withLogging) Update(arg0 context.Context, arg1 *k8s_io_kube_aggregator_
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "Update failed", "duration", time.Since(start))
 	} else {
-		logger.Info("Update done", "duration", time.Since(start))
+		logger.V(4).Info("Update done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -118,7 +118,7 @@ func (c *withLogging) UpdateStatus(arg0 context.Context, arg1 *k8s_io_kube_aggre
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "UpdateStatus failed", "duration", time.Since(start))
 	} else {
-		logger.Info("UpdateStatus done", "duration", time.Since(start))
+		logger.V(4).Info("UpdateStatus done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }
@@ -129,7 +129,7 @@ func (c *withLogging) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_a
 	if err := multierr.Combine(ret1); err != nil {
 		logger.Error(err, "Watch failed", "duration", time.Since(start))
 	} else {
-		logger.Info("Watch done", "duration", time.Since(start))
+		logger.V(4).Info("Watch done", "duration", time.Since(start))
 	}
 	return ret0, ret1
 }

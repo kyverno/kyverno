@@ -80,7 +80,7 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, string, error) 
 		return false, "", err
 	}
 	if !result.Allowed {
-		logger.Info("disallowed operation", "reason", result.Reason, "evaluationError", result.EvaluationError)
+		logger.V(1).Info("disallowed operation", "reason", result.Reason, "evaluationError", result.EvaluationError)
 	}
 	return result.Allowed, result.Reason, nil
 }
