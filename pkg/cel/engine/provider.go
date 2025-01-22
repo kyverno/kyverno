@@ -8,26 +8,34 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 )
 
-type Provider interface {
-	CompiledPolicies(context.Context) ([]policy.CompiledPolicy, error)
+type CompiledPolicy struct {
+	Policy         kyvernov2alpha1.ValidatingPolicy
+	CompiledPolicy policy.CompiledPolicy
 }
 
-type ProviderFunc func(context.Context) ([]policy.CompiledPolicy, error)
+type Provider interface {
+	CompiledPolicies(context.Context) ([]CompiledPolicy, error)
+}
 
-func (f ProviderFunc) CompiledPolicies(ctx context.Context) ([]policy.CompiledPolicy, error) {
+type ProviderFunc func(context.Context) ([]CompiledPolicy, error)
+
+func (f ProviderFunc) CompiledPolicies(ctx context.Context) ([]CompiledPolicy, error) {
 	return f(ctx)
 }
 
 func NewProvider(compiler policy.Compiler, policies ...kyvernov2alpha1.ValidatingPolicy) (ProviderFunc, error) {
-	compiled := make([]policy.CompiledPolicy, 0, len(policies))
+	compiled := make([]CompiledPolicy, 0, len(policies))
 	for _, vp := range policies {
 		policy, err := compiler.Compile(&vp)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
 		}
-		compiled = append(compiled, policy)
+		compiled = append(compiled, CompiledPolicy{
+			Policy:         vp,
+			CompiledPolicy: policy,
+		})
 	}
-	provider := func(context.Context) ([]policy.CompiledPolicy, error) {
+	provider := func(context.Context) ([]CompiledPolicy, error) {
 		return compiled, nil
 	}
 	return provider, nil

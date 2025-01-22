@@ -68,7 +68,7 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	if policy.IsNamespaced() {
 		return LabelPrefixPolicy
 	}
-	if policy.GetType() == engineapi.KyvernoPolicyType {
+	if policy.AsKyvernoPolicy() != nil {
 		return LabelPrefixClusterPolicy
 	}
 	return LabelPrefixValidatingAdmissionPolicy
@@ -82,7 +82,7 @@ func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
 }
 
 func PolicyLabel(policy engineapi.GenericPolicy) string {
-	return PolicyLabelPrefix(policy) + policy.MetaObject().GetName()
+	return PolicyLabelPrefix(policy) + policy.GetName()
 }
 
 func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
@@ -167,7 +167,7 @@ func SetResourceVersionLabels(report reportsv1.ReportInterface, resource *unstru
 }
 
 func SetPolicyLabel(report reportsv1.ReportInterface, policy engineapi.GenericPolicy) {
-	controllerutils.SetLabel(report, PolicyLabel(policy), policy.MetaObject().GetResourceVersion())
+	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
 }
 
 func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyvernov2.PolicyException) {

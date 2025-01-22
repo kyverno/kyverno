@@ -29,7 +29,7 @@ func mutateResource(
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil)
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(&policy), nil)
 	policyResp := engineapi.NewPolicyResponse()
 
 	gvk := resource.GroupVersionKind()

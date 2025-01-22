@@ -75,7 +75,7 @@ func Validate(
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 	policy := policyData.definition
 	bindings := policyData.bindings
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(&policy), nil)
 
 	gvk := resource.GroupVersionKind()
 	gvr := schema.GroupVersionResource{
@@ -186,7 +186,7 @@ func validateResource(
 ) (engineapi.EngineResponse, error) {
 	startTime := time.Now()
 
-	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(&policy), nil)
 	policyResp := engineapi.NewPolicyResponse()
 	var ruleResp *engineapi.RuleResponse
 
