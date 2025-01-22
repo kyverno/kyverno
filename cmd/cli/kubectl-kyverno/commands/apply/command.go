@@ -44,8 +44,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const divider = "----------------------------------------------------------------------"
-
 type SkippedInvalidPolicies struct {
 	skipped []string
 	invalid []string
@@ -113,9 +111,9 @@ func Command() *cobra.Command {
 						}
 						if rule.RuleType() == engineapi.Mutation {
 							if rule.Status() == engineapi.RuleStatusSkip {
-								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().MetaObject().GetName(), "->", "resource", resPath)
+								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().GetName(), "->", "resource", resPath)
 							} else if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().MetaObject().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
+								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
 							}
 						}
 					}
@@ -125,9 +123,9 @@ func Command() *cobra.Command {
 							auditWarn = true
 						}
 						if auditWarn {
-							fmt.Fprintln(out, "policy", response.Policy().MetaObject().GetName(), "->", "resource", resPath, "failed as audit warning:")
+							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed as audit warning:")
 						} else {
-							fmt.Fprintln(out, "policy", response.Policy().MetaObject().GetName(), "->", "resource", resPath, "failed:")
+							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
 						}
 						for i, rule := range failedRules {
 							fmt.Fprintln(out, i+1, "-", rule.Name(), rule.Message())
@@ -348,7 +346,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 					Rules: r.Rules,
 				},
 			}
-			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(r.Policy))
+			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
 			responses = append(responses, engineResponse)
 		}
 	}
@@ -515,10 +513,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	return policies, vaps, vapBindings, vps, nil
 }
 
-func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (
-	dclient.Interface,
-	error,
-) {
+func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {

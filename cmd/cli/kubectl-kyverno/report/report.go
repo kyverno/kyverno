@@ -6,14 +6,9 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) policyreportv1alpha2.PolicyReportResult {
-	policy := engineResponse.Policy()
-	policyType := policy.GetType()
-	policyMeta := policy.MetaObject()
-	policyName := cache.MetaObjectToName(policyMeta).String()
 	resource := engineResponse.Resource
 	resorceRef := &corev1.ObjectReference{
 		Kind:            resource.GetKind(),
@@ -23,8 +18,7 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 		APIVersion:      resource.GetAPIVersion(),
 		ResourceVersion: resource.GetResourceVersion(),
 	}
-
-	result := reportutils.ToPolicyReportResult(policyType, policyName, ruleResponse, policyMeta.GetAnnotations(), resorceRef)
+	result := reportutils.ToPolicyReportResult(engineResponse.Policy(), ruleResponse, resorceRef)
 	if result.Result == policyreportv1alpha2.StatusFail {
 		audit := engineResponse.GetValidationFailureAction().Audit()
 		if audit && auditWarn {
@@ -61,8 +55,7 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 	var namespaced []policyreportv1alpha2.PolicyReport
 	perPolicyResults := ComputePolicyReportResultsPerPolicy(auditWarn, engineResponses...)
 	for policy, results := range perPolicyResults {
-		policyMeta := policy.MetaObject()
-		if policyMeta.GetNamespace() == "" {
+		if policy.GetNamespace() == "" {
 			report := policyreportv1alpha2.ClusterPolicyReport{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
@@ -71,7 +64,7 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 				Results: results,
 				Summary: reportutils.CalculateSummary(results),
 			}
-			report.SetName(policy.MetaObject().GetName())
+			report.SetName(policy.GetName())
 			clustered = append(clustered, report)
 		} else {
 			report := policyreportv1alpha2.PolicyReport{
@@ -82,8 +75,8 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 				Results: results,
 				Summary: reportutils.CalculateSummary(results),
 			}
-			report.SetName(policy.MetaObject().GetName())
-			report.SetNamespace(policyMeta.GetNamespace())
+			report.SetName(policy.GetName())
+			report.SetNamespace(policy.GetNamespace())
 			namespaced = append(namespaced, report)
 		}
 	}
