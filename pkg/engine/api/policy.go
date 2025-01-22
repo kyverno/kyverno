@@ -29,22 +29,12 @@ type GenericPolicy interface {
 	AsKyvernoPolicy() kyvernov1.PolicyInterface
 	// AsValidatingAdmissionPolicy returns the validating admission policy
 	AsValidatingAdmissionPolicy() *admissionregistrationv1beta1.ValidatingAdmissionPolicy
-	// AsValidatingPolicy returns the validating policy
-	AsValidatingPolicy() *kyvernov2alpha1.ValidatingPolicy
 	// GetType returns policy type
 	GetType() PolicyType
 	// GetAPIVersion returns policy API version
 	GetAPIVersion() string
-	// GetName returns policy name
-	GetName() string
-	// GetNamespace returns policy namespace
-	GetNamespace() string
 	// GetKind returns policy kind
 	GetKind() string
-	// GetResourceVersion returns policy resource version
-	GetResourceVersion() string
-	// GetAnnotations returns policy annotations
-	GetAnnotations() map[string]string
 	// IsNamespaced indicates if the policy is namespace scoped
 	IsNamespaced() bool
 	// MetaObject provides an object compatible with metav1.Object
@@ -63,10 +53,6 @@ func (p *KyvernoPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1be
 	return nil
 }
 
-func (p *KyvernoPolicy) AsValidatingPolicy() *kyvernov2alpha1.ValidatingPolicy {
-	return nil
-}
-
 func (p *KyvernoPolicy) GetType() PolicyType {
 	return KyvernoPolicyType
 }
@@ -75,24 +61,8 @@ func (p *KyvernoPolicy) GetAPIVersion() string {
 	return "kyverno.io/v1"
 }
 
-func (p *KyvernoPolicy) GetName() string {
-	return p.policy.GetName()
-}
-
-func (p *KyvernoPolicy) GetNamespace() string {
-	return p.policy.GetNamespace()
-}
-
 func (p *KyvernoPolicy) GetKind() string {
 	return p.policy.GetKind()
-}
-
-func (p *KyvernoPolicy) GetResourceVersion() string {
-	return p.policy.GetResourceVersion()
-}
-
-func (p *KyvernoPolicy) GetAnnotations() map[string]string {
-	return p.policy.GetAnnotations()
 }
 
 func (p *KyvernoPolicy) IsNamespaced() bool {
@@ -121,10 +91,6 @@ func (p *ValidatingAdmissionPolicy) AsValidatingAdmissionPolicy() *admissionregi
 	return &p.policy
 }
 
-func (p *ValidatingAdmissionPolicy) AsValidatingPolicy() *kyvernov2alpha1.ValidatingPolicy {
-	return nil
-}
-
 func (p *ValidatingAdmissionPolicy) GetType() PolicyType {
 	return ValidatingAdmissionPolicyType
 }
@@ -133,24 +99,8 @@ func (p *ValidatingAdmissionPolicy) GetAPIVersion() string {
 	return "admissionregistration.k8s.io/v1beta1"
 }
 
-func (p *ValidatingAdmissionPolicy) GetName() string {
-	return p.policy.GetName()
-}
-
-func (p *ValidatingAdmissionPolicy) GetNamespace() string {
-	return p.policy.GetNamespace()
-}
-
 func (p *ValidatingAdmissionPolicy) GetKind() string {
 	return "ValidatingAdmissionPolicy"
-}
-
-func (p *ValidatingAdmissionPolicy) GetResourceVersion() string {
-	return p.policy.GetResourceVersion()
-}
-
-func (p *ValidatingAdmissionPolicy) GetAnnotations() map[string]string {
-	return p.policy.GetAnnotations()
 }
 
 func (p *ValidatingAdmissionPolicy) IsNamespaced() bool {
@@ -179,10 +129,6 @@ func (p *MutatingAdmissionPolicy) AsValidatingAdmissionPolicy() *admissionregist
 	return nil
 }
 
-func (p *MutatingAdmissionPolicy) AsValidatingPolicy() *kyvernov2alpha1.ValidatingPolicy {
-	return nil
-}
-
 func (p *MutatingAdmissionPolicy) GetType() PolicyType {
 	return MutatingAdmissionPolicyType
 }
@@ -191,24 +137,8 @@ func (p *MutatingAdmissionPolicy) GetAPIVersion() string {
 	return "admissionregistration.k8s.io/v1alpha1"
 }
 
-func (p *MutatingAdmissionPolicy) GetName() string {
-	return p.policy.GetName()
-}
-
-func (p *MutatingAdmissionPolicy) GetNamespace() string {
-	return p.policy.GetNamespace()
-}
-
 func (p *MutatingAdmissionPolicy) GetKind() string {
 	return "MutatingAdmissionPolicy"
-}
-
-func (p *MutatingAdmissionPolicy) GetResourceVersion() string {
-	return p.policy.GetResourceVersion()
-}
-
-func (p *MutatingAdmissionPolicy) GetAnnotations() map[string]string {
-	return p.policy.GetAnnotations()
 }
 
 func (p *MutatingAdmissionPolicy) IsNamespaced() bool {
@@ -237,10 +167,6 @@ func (p *ValidatingPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv
 	return nil
 }
 
-func (p *ValidatingPolicy) AsValidatingPolicy() *kyvernov2alpha1.ValidatingPolicy {
-	return &p.policy
-}
-
 func (p *ValidatingPolicy) GetType() PolicyType {
 	return ValidatingPolicyType
 }
@@ -249,24 +175,8 @@ func (p *ValidatingPolicy) GetAPIVersion() string {
 	return kyvernov2alpha1.GroupVersion.String()
 }
 
-func (p *ValidatingPolicy) GetName() string {
-	return p.policy.GetName()
-}
-
-func (p *ValidatingPolicy) GetNamespace() string {
-	return ""
-}
-
 func (p *ValidatingPolicy) GetKind() string {
 	return "ValidatingPolicy"
-}
-
-func (p *ValidatingPolicy) GetResourceVersion() string {
-	return p.policy.GetResourceVersion()
-}
-
-func (p *ValidatingPolicy) GetAnnotations() map[string]string {
-	return p.policy.GetAnnotations()
 }
 
 func (p *ValidatingPolicy) IsNamespaced() bool {

@@ -12,7 +12,8 @@ import (
 func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) policyreportv1alpha2.PolicyReportResult {
 	policy := engineResponse.Policy()
 	policyType := policy.GetType()
-	policyName := cache.MetaObjectToName(policy.MetaObject()).String()
+	policyMeta := policy.MetaObject()
+	policyName := cache.MetaObjectToName(policyMeta).String()
 	resource := engineResponse.Resource
 	resorceRef := &corev1.ObjectReference{
 		Kind:            resource.GetKind(),
@@ -23,7 +24,7 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 		ResourceVersion: resource.GetResourceVersion(),
 	}
 
-	result := reportutils.ToPolicyReportResult(policyType, policyName, ruleResponse, policy.GetAnnotations(), resorceRef)
+	result := reportutils.ToPolicyReportResult(policyType, policyName, ruleResponse, policyMeta.GetAnnotations(), resorceRef)
 	if result.Result == policyreportv1alpha2.StatusFail {
 		audit := engineResponse.GetValidationFailureAction().Audit()
 		if audit && auditWarn {
@@ -60,7 +61,8 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 	var namespaced []policyreportv1alpha2.PolicyReport
 	perPolicyResults := ComputePolicyReportResultsPerPolicy(auditWarn, engineResponses...)
 	for policy, results := range perPolicyResults {
-		if policy.GetNamespace() == "" {
+		policyMeta := policy.MetaObject()
+		if policyMeta.GetNamespace() == "" {
 			report := policyreportv1alpha2.ClusterPolicyReport{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
@@ -69,7 +71,7 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 				Results: results,
 				Summary: reportutils.CalculateSummary(results),
 			}
-			report.SetName(policy.GetName())
+			report.SetName(policy.MetaObject().GetName())
 			clustered = append(clustered, report)
 		} else {
 			report := policyreportv1alpha2.PolicyReport{
@@ -80,8 +82,8 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 				Results: results,
 				Summary: reportutils.CalculateSummary(results),
 			}
-			report.SetName(policy.GetName())
-			report.SetNamespace(policy.GetNamespace())
+			report.SetName(policy.MetaObject().GetName())
+			report.SetNamespace(policyMeta.GetNamespace())
 			namespaced = append(namespaced, report)
 		}
 	}

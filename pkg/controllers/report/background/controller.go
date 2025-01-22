@@ -284,7 +284,7 @@ func (c *controller) needsReconcile(namespace, name, hash string, exceptions []k
 	// if a policy or an exception changed, we need a partial reconcile
 	expected := map[string]string{}
 	for _, policy := range policies {
-		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
+		expected[reportutils.PolicyLabel(policy)] = policy.MetaObject().GetResourceVersion()
 	}
 	for _, exception := range exceptions {
 		expected[reportutils.PolicyExceptionLabel(exception)] = exception.GetResourceVersion()
@@ -342,7 +342,7 @@ func (c *controller) reconcileReport(
 	// build desired report
 	expected := map[string]string{}
 	for _, policy := range policies {
-		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
+		expected[reportutils.PolicyLabel(policy)] = policy.MetaObject().GetResourceVersion()
 	}
 	for _, exception := range exceptions {
 		expected[reportutils.PolicyExceptionLabel(exception)] = exception.GetResourceVersion()
@@ -427,7 +427,7 @@ func (c *controller) reconcileReport(
 				}
 			}
 		}
-		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
+		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.MetaObject().GetResourceVersion() {
 			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, bindings, policy) {
 				if result.Error != nil {

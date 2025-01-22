@@ -113,9 +113,9 @@ func Command() *cobra.Command {
 						}
 						if rule.RuleType() == engineapi.Mutation {
 							if rule.Status() == engineapi.RuleStatusSkip {
-								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().GetName(), "->", "resource", resPath)
+								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().MetaObject().GetName(), "->", "resource", resPath)
 							} else if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
+								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().MetaObject().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
 							}
 						}
 					}
@@ -125,9 +125,9 @@ func Command() *cobra.Command {
 							auditWarn = true
 						}
 						if auditWarn {
-							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed as audit warning:")
+							fmt.Fprintln(out, "policy", response.Policy().MetaObject().GetName(), "->", "resource", resPath, "failed as audit warning:")
 						} else {
-							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
+							fmt.Fprintln(out, "policy", response.Policy().MetaObject().GetName(), "->", "resource", resPath, "failed:")
 						}
 						for i, rule := range failedRules {
 							fmt.Fprintln(out, i+1, "-", rule.Name(), rule.Message())
