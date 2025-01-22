@@ -14,9 +14,10 @@ func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engin
 	id := 1
 	for _, engineResponse := range engineResponses {
 		policy := engineResponse.Policy()
-		policyName := policy.GetName()
-		policyNamespace := policy.GetNamespace()
-		scored := annotations.Scored(policy.GetAnnotations())
+		policyMeta := policy.MetaObject()
+		policyName := policyMeta.GetName()
+		policyNamespace := policyMeta.GetNamespace()
+		scored := annotations.Scored(policyMeta.GetAnnotations())
 		resourceKind := engineResponse.Resource.GetKind()
 		resourceNamespace := engineResponse.Resource.GetNamespace()
 		resourceName := engineResponse.Resource.GetName()

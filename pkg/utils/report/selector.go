@@ -36,7 +36,7 @@ func SelectorPolicyExists(policy engineapi.GenericPolicy) (labels.Selector, erro
 
 func SelectorPolicyNotEquals(policy engineapi.GenericPolicy) (labels.Selector, error) {
 	selector := labels.Everything()
-	requirement, err := labels.NewRequirement(PolicyLabel(policy), selection.NotEquals, []string{policy.GetResourceVersion()})
+	requirement, err := labels.NewRequirement(PolicyLabel(policy), selection.NotEquals, []string{policy.MetaObject().GetResourceVersion()})
 	if err == nil {
 		selector = selector.Add(*requirement)
 	}

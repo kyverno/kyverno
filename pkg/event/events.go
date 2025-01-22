@@ -18,11 +18,12 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		action = ResourceBlocked
 	}
 	pol := engineResponse.Policy()
+	polMeta := pol.MetaObject()
 	regarding := corev1.ObjectReference{
 		APIVersion: pol.GetAPIVersion(),
 		Kind:       pol.GetKind(),
-		Name:       pol.GetName(),
-		Namespace:  pol.GetNamespace(),
+		Name:       polMeta.GetName(),
+		Namespace:  polMeta.GetNamespace(),
 		UID:        pol.MetaObject().GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
@@ -75,6 +76,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 
 	var action Action
 	policy := engineResponse.Policy()
+	policyMeta := policy.MetaObject()
 	if policy.GetType() == engineapi.KyvernoPolicyType {
 		pol := engineResponse.Policy().AsKyvernoPolicy()
 		hasValidate := pol.GetSpec().HasValidate()
@@ -94,8 +96,8 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	regarding := corev1.ObjectReference{
 		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
-		Name:       policy.GetName(),
-		Namespace:  policy.GetNamespace(),
+		Name:       policyMeta.GetName(),
+		Namespace:  policyMeta.GetNamespace(),
 		UID:        policy.MetaObject().GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
@@ -120,7 +122,7 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	defer bldr.Reset()
 
 	pol := engineResponse.Policy()
-	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", pol.GetName(),
+	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", pol.MetaObject().GetName(),
 		ruleResp.Name(), ruleResp.Status(), ruleResp.Message())
 	resource := engineResponse.GetResourceSpec()
 	regarding := corev1.ObjectReference{
