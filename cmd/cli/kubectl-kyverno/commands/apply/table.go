@@ -14,10 +14,9 @@ func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engin
 	id := 1
 	for _, engineResponse := range engineResponses {
 		policy := engineResponse.Policy()
-		policyMeta := policy.MetaObject()
-		policyName := policyMeta.GetName()
-		policyNamespace := policyMeta.GetNamespace()
-		scored := annotations.Scored(policyMeta.GetAnnotations())
+		policyName := policy.GetName()
+		policyNamespace := policy.GetNamespace()
+		scored := annotations.Scored(policy.GetAnnotations())
 		resourceKind := engineResponse.Resource.GetKind()
 		resourceNamespace := engineResponse.Resource.GetNamespace()
 		resourceName := engineResponse.Resource.GetName()
@@ -27,7 +26,7 @@ func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engin
 			row.ID = id
 			id++
 			row.Policy = color.Policy(policyNamespace, policyName)
-			if policy.GetType() == engineapi.KyvernoPolicyType {
+			if policy.AsKyvernoPolicy() != nil {
 				row.Rule = color.Rule(ruleResponse.Name())
 			}
 			row.Resource = color.Resource(resourceKind, resourceNamespace, resourceName)

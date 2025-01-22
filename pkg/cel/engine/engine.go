@@ -72,9 +72,9 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	return response, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy policy.CompiledPolicy, resource *unstructured.Unstructured, namespace *unstructured.Unstructured) PolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, resource *unstructured.Unstructured, namespace *unstructured.Unstructured) PolicyResponse {
 	var rules []engineapi.RuleResponse
-	results, err := policy.Evaluate(ctx, resource, namespace)
+	results, err := policy.CompiledPolicy.Evaluate(ctx, resource, namespace)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
@@ -93,8 +93,7 @@ func (e *engine) handlePolicy(ctx context.Context, policy policy.CompiledPolicy,
 		}
 	}
 	return PolicyResponse{
-		// TODO
-		Policy: kyvernov2alpha1.ValidatingPolicy{},
+		Policy: policy.Policy,
 		Rules:  rules,
 	}
 }

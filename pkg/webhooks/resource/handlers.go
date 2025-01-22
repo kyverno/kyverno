@@ -341,11 +341,11 @@ func mergeEngineResponses(auditResponses, enforceResponses []engineapi.EngineRes
 	var responses []engineapi.EngineResponse
 
 	for _, enforceResponse := range enforceResponses {
-		responseMap[enforceResponse.Policy().MetaObject().GetName()] = enforceResponse
+		responseMap[enforceResponse.Policy().GetName()] = enforceResponse
 	}
 
 	for _, auditResponse := range auditResponses {
-		policyName := auditResponse.Policy().MetaObject().GetName()
+		policyName := auditResponse.Policy().GetName()
 		if enforceResponse, exists := responseMap[policyName]; exists {
 			response := auditResponse
 			for _, ruleResponse := range enforceResponse.PolicyResponse.Rules {

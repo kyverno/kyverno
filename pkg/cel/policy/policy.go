@@ -72,21 +72,6 @@ func (p *compiledPolicy) Evaluate(ctx context.Context, resource resource, namesp
 			Result: out,
 			Error:  err,
 		})
-		// // check error
-		// 	if err != nil {
-		// 		results = append(results, EvaluationResult{
-		// 			Error: err,
-		// 		})
-		// 	}
-		// response, err := utils.ConvertToNative[bool](out)
-		// // check error
-		// if err != nil {
-		// 	return false, err
-		// }
-		// // if response is false, return
-		// if !response {
-		// 	return false, nil
-		// }
 	}
 	return results, nil
 }
