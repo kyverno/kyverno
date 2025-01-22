@@ -114,8 +114,8 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger.Info("starting")
-	defer logger.Info("shutting down")
+	logger.V(2).Info("starting")
+	defer logger.V(2).Info("shutting down")
 
 	if !cache.WaitForNamedCacheSync("background", ctx.Done(), c.informersSynced...) {
 		return

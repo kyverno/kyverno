@@ -62,7 +62,7 @@ func main() {
 
 	run := func(context.Context) {
 		if err := acquireLeader(ctx, setup.KubeClient); err != nil {
-			logging.V(2).Info("Failed to create lease 'kyvernopre-lock'")
+			logging.V(1).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}
 
@@ -81,7 +81,7 @@ func main() {
 		}
 		// if there is any failure then we fail process
 		if failure {
-			logging.V(2).Info("failed to cleanup prior configurations")
+			logging.V(1).Info("failed to cleanup prior configurations")
 			os.Exit(1)
 		}
 
@@ -171,10 +171,10 @@ func process(client dclient.Interface, kyvernoclient kyvernoclient.Interface, do
 			select {
 			case out <- executeRequest(client, kyvernoclient, req):
 			case <-done:
-				logger.Info("done")
+				logger.V(2).Info("done")
 				return
 			case <-stopCh:
-				logger.Info("shutting down")
+				logger.V(2).Info("shutting down")
 				return
 			}
 		}
@@ -194,10 +194,10 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 			select {
 			case out <- err:
 			case <-done:
-				logger.Info("done")
+				logger.V(2).Info("done")
 				return
 			case <-stopCh:
-				logger.Info("shutting down")
+				logger.V(2).Info("shutting down")
 				return
 			}
 		}

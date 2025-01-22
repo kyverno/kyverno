@@ -259,7 +259,7 @@ func main() {
 			setup.Logger.Error(err, "sanity checks failed")
 			os.Exit(1)
 		}
-		setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
+		setup.Logger.V(3).Info("background scan interval", "duration", backgroundScanInterval.String())
 		// check if validating admission policies are registered in the API server
 		if validatingAdmissionPolicyReports {
 			registered, err := validatingadmissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
