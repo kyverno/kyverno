@@ -6,13 +6,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"go.uber.org/multierr"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -60,9 +60,9 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 		var errors []error
 		logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 		var response *engineapi.EngineResponse
-		if policy.GetType() == engineapi.KyvernoPolicyType {
+		if pol := policy.AsKyvernoPolicy(); pol != nil {
 			var err error
-			pol := policy.AsKyvernoPolicy()
+
 			if s.reportingConfig.ValidateReportsEnabled() {
 				response, err = s.validateResource(ctx, resource, nsLabels, pol)
 				if err != nil {
@@ -94,15 +94,14 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 					response.PolicyResponse.Rules = append(response.PolicyResponse.Rules, ivResponse.PolicyResponse.Rules...)
 				}
 			}
-		} else {
-			pol := policy.AsValidatingAdmissionPolicy()
-			policyData := validatingadmissionpolicy.NewPolicyData(*pol)
+		} else if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
+			policyData := admissionpolicy.NewPolicyData(*pol)
 			for _, binding := range bindings {
 				if binding.Spec.PolicyName == pol.Name {
 					policyData.AddBinding(binding)
 				}
 			}
-			res, err := validatingadmissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client)
+			res, err := admissionpolicy.Validate(policyData, resource, map[string]map[string]string{}, s.client)
 			if err != nil {
 				errors = append(errors, err)
 			}

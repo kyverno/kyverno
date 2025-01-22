@@ -8,14 +8,14 @@ resources:
 - resources.yaml
 results:
 - kind: Pod
-  patchedResource: patchedResource1.yaml
+  patchedResources: patchedResource1.yaml
   policy: mutate-wildcard
   resources:
   - wildcard-mutate-fail
   result: fail
   rule: mutate-wildcard
 - kind: Pod
-  patchedResource: patchedResource.yaml
+  patchedResources: patchedResource.yaml
   policy: mutate-wildcard
   resources:
   - wildcard-mutate

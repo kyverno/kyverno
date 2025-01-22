@@ -362,9 +362,9 @@ func (c *controller) reconcileReport(
 		for _, policy := range policies {
 			var key string
 			var err error
-			if policy.GetType() == engineapi.KyvernoPolicyType {
+			if policy.AsKyvernoPolicy() != nil {
 				key, err = cache.MetaNamespaceKeyFunc(policy.AsKyvernoPolicy())
-			} else {
+			} else if policy.AsValidatingAdmissionPolicy() != nil {
 				key, err = cache.MetaNamespaceKeyFunc(policy.AsValidatingAdmissionPolicy())
 			}
 			if err != nil {
@@ -412,7 +412,7 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range policies {
 		reevaluate := false
-		if policy.GetType() == engineapi.KyvernoPolicyType {
+		if policy.AsKyvernoPolicy() != nil {
 			for _, polex := range exceptions {
 				if actual[reportutils.PolicyExceptionLabel(polex)] != polex.GetResourceVersion() {
 					reevaluate = true
@@ -541,7 +541,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			return err
 		}
 		for _, pol := range vapPolicies {
-			policies = append(policies, engineapi.NewValidatingAdmissionPolicy(pol))
+			policies = append(policies, engineapi.NewValidatingAdmissionPolicy(&pol))
 		}
 	}
 	var vapBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding

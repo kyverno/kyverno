@@ -101,8 +101,6 @@ func (h validatePssHandler) validate(
 		return resource, engineapi.RuleError(rule.Name, engineapi.Validation, "failed to parse pod security api version", err, rule.ReportProperties)
 	}
 	allowed, pssChecks := pss.EvaluatePod(levelVersion, podSecurity.Exclude, pod)
-	pssChecks = convertChecks(pssChecks, resource.GetKind())
-	pssChecks = addImages(pssChecks, policyContext.JSONContext().ImageInfo())
 	podSecurityChecks := engineapi.PodSecurityChecks{
 		Level:   podSecurity.Level,
 		Version: podSecurity.Version,
@@ -131,6 +129,9 @@ func (h validatePssHandler) validate(
 			logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 			return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions).WithPodSecurityChecks(podSecurityChecks)
 		}
+		pssChecks = convertChecks(pssChecks, resource.GetKind())
+		pssChecks = addImages(pssChecks, policyContext.JSONContext().ImageInfo())
+		podSecurityChecks.Checks = pssChecks
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg, rule.ReportProperties).WithPodSecurityChecks(podSecurityChecks)
 		var action kyvernov1.ValidationFailureAction
@@ -172,7 +173,7 @@ func (h validatePssHandler) validateOldObject(
 	rule kyvernov1.Rule,
 	engineLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
-) (*engineapi.RuleResponse, error) {
+) (resp *engineapi.RuleResponse, err error) {
 	if policyContext.Operation() != kyvernov1.Update {
 		return nil, nil
 	}
@@ -181,27 +182,30 @@ func (h validatePssHandler) validateOldObject(
 	oldResource := policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
-	if ok := matchResource(oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create); !ok {
-		return nil, nil
-	}
-	if err := policyContext.SetResources(emptyResource, oldResource); err != nil {
+	if err = policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")
 	}
-	if err := policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
+	if err = policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
 		return nil, errors.Wrapf(err, "failed to set operation")
 	}
 
-	_, resp := h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
+	defer func() {
+		if err = policyContext.SetResources(oldResource, newResource); err != nil {
+			logger.Error(errors.Wrapf(err, "failed to reset resources"), "")
+		}
 
-	if err := policyContext.SetResources(oldResource, newResource); err != nil {
-		return nil, errors.Wrapf(err, "failed to reset resources")
+		if err = policyContext.SetOperation(kyvernov1.Update); err != nil {
+			logger.Error(errors.Wrapf(err, "failed to reset operations"), "")
+		}
+	}()
+
+	if ok := matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()); !ok {
+		return
 	}
 
-	if err := policyContext.SetOperation(kyvernov1.Update); err != nil {
-		return nil, errors.Wrapf(err, "failed to reset operation")
-	}
+	_, resp = h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
 
-	return resp, nil
+	return
 }
 
 func convertChecks(checks []pssutils.PSSCheckResult, kind string) (newChecks []pssutils.PSSCheckResult) {

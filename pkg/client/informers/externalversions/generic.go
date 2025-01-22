@@ -75,6 +75,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=kyverno.io, Version=v2alpha1
 	case v2alpha1.SchemeGroupVersion.WithResource("globalcontextentries"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().GlobalContextEntries().Informer()}, nil
+	case v2alpha1.SchemeGroupVersion.WithResource("validatingpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().ValidatingPolicies().Informer()}, nil
 
 		// Group=reports.kyverno.io, Version=v1
 	case reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"):

@@ -43,6 +43,7 @@ type PolicyProcessor struct {
 	MutateLogPath             string
 	MutateLogPathIsDir        bool
 	Variables                 *variables.Variables
+	Cluster                   bool
 	UserInfo                  *kyvernov2.RequestInfo
 	PolicyReport              bool
 	NamespaceSelectorMap      map[string]map[string]string
@@ -72,6 +73,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	if rclient == nil {
 		rclient = registryclient.NewOrDie()
 	}
+	isCluster := false
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
@@ -81,13 +83,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		imageverifycache.DisabledImageVerifyCache(),
 		store.ContextLoaderFactory(p.Store, nil),
 		exceptions.New(policyExceptionLister),
+		&isCluster,
 	)
 	gvk, subresource := resource.GroupVersionKind(), ""
 	resourceKind := resource.GetKind()
 	resourceName := resource.GetName()
 	resourceNamespace := resource.GetNamespace()
 	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
-	if p.Client == nil {
+	if !p.Cluster {
 		for _, s := range p.Subresources {
 			subgvk := schema.GroupVersionKind{
 				Group:   s.Subresource.Group,
@@ -202,6 +205,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					log.Log.Error(err, "failed to apply generate policy")
 				} else {
 					generateResponse.PolicyResponse.Rules = newRuleResponse
+				}
+				if err := p.processGenerateResponse(generateResponse, resPath); err != nil {
+					return responses, err
 				}
 				responses = append(responses, generateResponse)
 			}
@@ -342,37 +348,82 @@ func (p *PolicyProcessor) makePolicyContext(
 	return policyContext, nil
 }
 
-func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
-	printMutatedRes := p.Rc.addMutateResponse(response)
-	if printMutatedRes && p.PrintPatchResource {
-		yamlEncodedResource, err := yamlv2.Marshal(response.PatchedResource.Object)
+func (p *PolicyProcessor) processGenerateResponse(response engineapi.EngineResponse, resourcePath string) error {
+	generatedResources := []*unstructured.Unstructured{}
+	for _, rule := range response.PolicyResponse.Rules {
+		gen := rule.GeneratedResources()
+		generatedResources = append(generatedResources, gen...)
+	}
+	for _, r := range generatedResources {
+		err := p.printOutput(r.Object, response, resourcePath, true)
 		if err != nil {
-			return fmt.Errorf("failed to marshal (%w)", err)
+			return fmt.Errorf("failed to print generate result (%w)", err)
 		}
-
-		if p.MutateLogPath == "" {
-			mutatedResource := string(yamlEncodedResource) + string("\n---")
-			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				if !p.Stdin {
-					fmt.Fprintf(p.Out, "\nmutate policy %s applied to %s:", response.Policy().GetName(), resourcePath)
-				}
-				fmt.Fprintf(p.Out, "\n"+mutatedResource+"\n") //nolint:govet
-			}
-		} else {
-			err := p.printMutatedOutput(string(yamlEncodedResource))
-			if err != nil {
-				return fmt.Errorf("failed to print mutated result (%w)", err)
-			}
-			fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully. Check the files.")
-		}
+		fmt.Fprintf(p.Out, "\n\nGenerate:\nGeneration completed successfully.")
 	}
 	return nil
 }
 
-func (p *PolicyProcessor) printMutatedOutput(yaml string) error {
+func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
+	p.Rc.addMutateResponse(response)
+	err := p.printOutput(response.PatchedResource.Object, response, resourcePath, false)
+	if err != nil {
+		return fmt.Errorf("failed to print mutated result (%w)", err)
+	}
+	fmt.Fprintf(p.Out, "\n\nMutation:\nMutation has been applied successfully.")
+	return nil
+}
+
+func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.EngineResponse, resourcePath string, isGenerate bool) error {
+	yamlEncodedResource, err := yamlv2.Marshal(resource)
+	if err != nil {
+		return fmt.Errorf("failed to marshal (%w)", err)
+	}
+
+	var yamlEncodedTargetResources [][]byte
+	for _, ruleResponese := range response.PolicyResponse.Rules {
+		patchedTarget, _, _ := ruleResponese.PatchedTarget()
+
+		if patchedTarget != nil {
+			yamlEncodedResource, err := yamlv2.Marshal(patchedTarget.Object)
+			if err != nil {
+				return fmt.Errorf("failed to marshal (%w)", err)
+			}
+
+			yamlEncodedResource = append(yamlEncodedResource, []byte("\n---\n")...)
+			yamlEncodedTargetResources = append(yamlEncodedTargetResources, yamlEncodedResource)
+		}
+	}
+
+	if p.MutateLogPath == "" {
+		resource := string(yamlEncodedResource) + string("\n---")
+		if len(strings.TrimSpace(resource)) > 0 {
+			if !p.Stdin {
+				fmt.Fprintf(p.Out, "\npolicy %s applied to %s:", response.Policy().GetName(), resourcePath)
+			}
+			fmt.Fprintf(p.Out, "\n"+resource+"\n") //nolint:govet
+			if len(yamlEncodedTargetResources) > 0 {
+				fmt.Fprintf(p.Out, "patched targets: \n")
+				for _, patchedTarget := range yamlEncodedTargetResources {
+					fmt.Fprintf(p.Out, "\n"+string(patchedTarget)+"\n")
+				}
+			}
+		}
+		return nil
+	}
+
 	var file *os.File
 	mutateLogPath := filepath.Clean(p.MutateLogPath)
 	filename := p.Resource.GetName() + "-mutated"
+	if isGenerate {
+		filename = response.Policy().GetName() + "-generated"
+	}
+
+	file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
+	if err != nil {
+		return err
+	}
+
 	if !p.MutateLogPathIsDir {
 		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
 		f, err := os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
@@ -380,18 +431,15 @@ func (p *PolicyProcessor) printMutatedOutput(yaml string) error {
 			return err
 		}
 		file = f
-	} else {
-		f, err := os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
-		if err != nil {
+	}
+	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
+		return err
+	}
+
+	for _, patchedTarget := range yamlEncodedTargetResources {
+		if _, err := file.Write(patchedTarget); err != nil {
 			return err
 		}
-		file = f
-	}
-	if _, err := file.Write([]byte(yaml + "\n---\n\n")); err != nil {
-		if err := file.Close(); err != nil {
-			log.Log.Error(err, "failed to close file")
-		}
-		return err
 	}
 	if err := file.Close(); err != nil {
 		return err

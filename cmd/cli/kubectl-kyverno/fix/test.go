@@ -65,20 +65,23 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 		results = append(results, result)
 	}
 	if compress {
-		compressed := map[v1alpha1.TestResultBase][]string{}
+		compressed := map[v1alpha1.TestResultBase]v1alpha1.TestResultData{}
 		for _, result := range results {
-			compressed[result.TestResultBase] = append(compressed[result.TestResultBase], result.Resources...)
+			data := compressed[result.TestResultBase]
+			data.Resources = append(data.Resources, result.Resources...)
+			data.ResourceSpecs = append(data.ResourceSpecs, result.ResourceSpecs...)
+			compressed[result.TestResultBase] = data
 		}
 		results = nil
 		for k, v := range compressed {
-			unique := sets.New(v...)
-			if len(v) != len(unique) {
+			unique := sets.New(v.Resources...)
+			if len(v.Resources) != len(unique) {
 				messages = append(messages, "test results contains duplicate resources")
-				v = unique.UnsortedList()
+				v.Resources = unique.UnsortedList()
 			}
 			results = append(results, v1alpha1.TestResult{
 				TestResultBase: k,
-				Resources:      v,
+				TestResultData: v,
 			})
 		}
 	}
@@ -116,6 +119,7 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 				}
 			}
 		}
+		// TODO resource specs
 		return 0
 	})
 	test.Results = results
