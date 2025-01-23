@@ -6,6 +6,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -24,7 +25,7 @@ type EvaluationResult struct {
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, resource, namespace) ([]EvaluationResult, error)
+	Evaluate(context.Context, resource, namespace, contextlib.ContextInterface) ([]EvaluationResult, error)
 }
 
 type compiledPolicy struct {
@@ -35,7 +36,12 @@ type compiledPolicy struct {
 	auditAnnotations map[string]cel.Program
 }
 
-func (p *compiledPolicy) Evaluate(ctx context.Context, resource resource, namespace namespace) ([]EvaluationResult, error) {
+func (p *compiledPolicy) Evaluate(
+	ctx context.Context,
+	resource resource,
+	namespace namespace,
+	context contextlib.ContextInterface,
+) ([]EvaluationResult, error) {
 	match, err := p.match(ctx, resource, namespace)
 	if err != nil {
 		return nil, err
@@ -52,6 +58,7 @@ func (p *compiledPolicy) Evaluate(ctx context.Context, resource resource, namesp
 		NamespaceObjectKey: nsData,
 		ObjectKey:          resource.UnstructuredContent(),
 		VariablesKey:       vars,
+		ContextKey:         contextlib.Context{ContextInterface: context},
 	}
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
