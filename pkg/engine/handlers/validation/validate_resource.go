@@ -218,9 +218,9 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 		elements, err := engineutils.EvaluateList(foreach.List, v.policyContext.JSONContext())
 		if err != nil {
 			if strings.Contains(err.Error(), "Unknown key") {
-            			v.log.V(4).Info("optional field not found, skipping", "list", foreach.List)
-           			continue
-       			}
+				v.log.V(4).Info("optional field not found, skipping", "list", foreach.List)
+				continue
+			}
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
