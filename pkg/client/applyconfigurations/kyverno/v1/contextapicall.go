@@ -74,6 +74,14 @@ func (b *ContextAPICallApplyConfiguration) WithService(value *ServiceCallApplyCo
 	return b
 }
 
+// WithResponseType sets the ResponseType field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ResponseType field is set to the value of the last call.
+func (b *ContextAPICallApplyConfiguration) WithResponseType(value kyvernov1.ResponseType) *ContextAPICallApplyConfiguration {
+	b.ResponseType = &value
+	return b
+}
+
 // WithDefault sets the Default field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Default field is set to the value of the last call.
