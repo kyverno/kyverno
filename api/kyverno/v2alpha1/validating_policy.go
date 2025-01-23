@@ -9,9 +9,7 @@ import (
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=validatingpolicies,scope="Cluster",shortName=vpol,categories=kyverno
-// +kubebuilder:printcolumn:name="READY",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="MESSAGE",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].message`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ValidatingPolicy struct {
@@ -38,8 +36,16 @@ func (s *ValidatingPolicy) GetFailurePolicy() admissionregistrationv1.FailurePol
 	return *s.Spec.FailurePolicy
 }
 
+func (s *ValidatingPolicy) GetWebhookConfiguration() *WebhookConfiguration {
+	return s.Spec.WebhookConfiguration
+}
+
 func (s *ValidatingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return s.Spec.Variables
+}
+
+func (s *ValidatingPolicy) GetStatus() *PolicyStatus {
+	return &s.Status
 }
 
 // +kubebuilder:object:root=true
