@@ -12,5 +12,5 @@ type ContextInterface interface {
 }
 
 type Context struct {
-	context ContextInterface
+	ContextInterface
 }
