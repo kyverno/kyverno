@@ -141,7 +141,7 @@ func TestBuildWebhookRules(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-ignore-finegrained-test-fine-grained-ignore",
-					ClientConfig: newClientConfig("", 0, nil, "/ignore"+config.FineGrainedWebhookPath+"/test-fine-grained-ignore"),
+					ClientConfig: newClientConfig("", 0, nil, "/validate/ignore"+config.FineGrainedWebhookPath+"/test-fine-grained-ignore"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -201,7 +201,7 @@ func TestBuildWebhookRules(t *testing.T) {
 			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
 				{
 					Name:         config.ValidatingPolicyWebhookName + "-fail-finegrained-test-fine-grained-fail",
-					ClientConfig: newClientConfig("", 0, nil, "/fail"+config.FineGrainedWebhookPath+"/test-fine-grained-fail"),
+					ClientConfig: newClientConfig("", 0, nil, "/validate/fail"+config.FineGrainedWebhookPath+"/test-fine-grained-fail"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -229,7 +229,11 @@ func TestBuildWebhookRules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			webhooks := buildWebhookRules("", 0, nil, tt.vpols)
+			var vpols []kyvernov2alpha1.GenericPolicy
+			for _, vpol := range tt.vpols {
+				vpols = append(vpols, vpol)
+			}
+			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", 0, nil, vpols)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, webhooks[i].Name, expect.Name)
@@ -246,7 +250,7 @@ func TestBuildWebhookRules(t *testing.T) {
 					assert.Equal(t, webhooks[i].TimeoutSeconds, expect.TimeoutSeconds)
 				}
 				if expect.ClientConfig.Service != nil {
-					assert.Equal(t, webhooks[i].ClientConfig.Service.Path, expect.ClientConfig.Service.Path)
+					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
 				}
 			}
 		})

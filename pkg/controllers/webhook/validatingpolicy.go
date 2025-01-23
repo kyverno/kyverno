@@ -7,7 +7,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols []kyvernov2alpha1.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
+func buildWebhookRules(cfg config.Configuration, server string, servicePort int32, caBundle []byte, vpols []kyvernov2alpha1.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
 	var (
 		webhookIgnoreList []admissionregistrationv1.ValidatingWebhook
 		webhookFailList   []admissionregistrationv1.ValidatingWebhook
@@ -26,6 +26,16 @@ func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols 
 			AdmissionReviewVersions: []string{"v1"},
 		}
 	)
+
+	if cfg.GetWebhook().NamespaceSelector != nil {
+		webhookIgnore.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
+		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
+
+	}
+	if cfg.GetWebhook().ObjectSelector != nil {
+		webhookIgnore.ObjectSelector = cfg.GetWebhook().ObjectSelector
+		webhookFail.ObjectSelector = cfg.GetWebhook().ObjectSelector
+	}
 	for _, vpol := range vpols {
 		webhook := admissionregistrationv1.ValidatingWebhook{}
 		failurePolicyIgnore := vpol.GetFailurePolicy() == admissionregistrationv1.Ignore

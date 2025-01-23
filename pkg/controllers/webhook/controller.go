@@ -660,28 +660,31 @@ func (c *controller) updateValidatingPolicyStatuses(ctx context.Context) error {
 		return err
 	}
 
-	updateStatusFunc := func(vpol kyvernov2alpha1.GenericPolicy) error {
-		status := vpol.GetStatus()
-		status.SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
-		return nil
-	}
+	// updateStatusFunc := func(vpol kyvernov2alpha1.GenericPolicy) error {
+	// 	status := vpol.GetStatus()
+	// 	status.SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
+	// 	return nil
+	// }
 
 	var errs []error
 	for _, vpol := range vpols {
 		if !c.vpolState[vpol.GetName()] {
 			continue
 		}
-		err := controllerutils.UpdateStatus(
-			ctx,
-			vpol.(*kyvernov2alpha1.ValidatingPolicy),
-			c.kyvernoClient.KyvernoV2alpha1().ValidatingPolicies(),
-			func(vpol *kyvernov2alpha1.ValidatingPolicy) error {
-				return updateStatusFunc(vpol)
-			},
-			func(a *kyvernov2alpha1.ValidatingPolicy, b *kyvernov2alpha1.ValidatingPolicy) bool {
-				return datautils.DeepEqual(a.Status, b.Status)
-			},
-		)
+		// err := controllerutils.UpdateStatus(
+		// 	ctx,
+		// 	vpol.(*kyvernov2alpha1.ValidatingPolicy),
+		// 	c.kyvernoClient.KyvernoV2alpha1().ValidatingPolicies(),
+		// 	func(vpol *kyvernov2alpha1.ValidatingPolicy) error {
+		// 		return updateStatusFunc(vpol)
+		// 	},
+		// 	func(a *kyvernov2alpha1.ValidatingPolicy, b *kyvernov2alpha1.ValidatingPolicy) bool {
+		// 		return datautils.DeepEqual(a.Status, b.Status)
+		// 	},
+		// )
+		status := vpol.GetStatus()
+		status.SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
+		_, err := c.kyvernoClient.KyvernoV2alpha1().ValidatingPolicies().UpdateStatus(ctx, vpol.(*kyvernov2alpha1.ValidatingPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", vpol.GetName(), err))
 		}
@@ -1007,14 +1010,14 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for policies: %v", err))
 	}
 
-	if err := c.buildForValidatingPolicies(caBundle, webhookConfig); err != nil {
+	if err := c.buildForValidatingPolicies(cfg, caBundle, webhookConfig); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
 	}
 
 	return webhookConfig, multierr.Combine(errs...)
 }
 
-func (c *controller) buildForValidatingPolicies(caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+func (c *controller) buildForValidatingPolicies(cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	if !c.watchdogCheck() {
 		return nil
 	}
@@ -1024,7 +1027,7 @@ func (c *controller) buildForValidatingPolicies(caBundle []byte, result *admissi
 		return err
 	}
 
-	webhooks := buildWebhookRules(c.server, c.servicePort, caBundle, vpols)
+	webhooks := buildWebhookRules(cfg, c.server, c.servicePort, caBundle, vpols)
 	result.Webhooks = append(result.Webhooks, webhooks...)
 	c.recordValidatingPolicyState(vpols...)
 	return nil
