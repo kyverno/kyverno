@@ -74,7 +74,7 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 
 func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, resource *unstructured.Unstructured, namespace *unstructured.Unstructured) PolicyResponse {
 	var rules []engineapi.RuleResponse
-	results, err := policy.CompiledPolicy.Evaluate(ctx, resource, namespace)
+	results, err := policy.CompiledPolicy.Evaluate(ctx, resource, namespace, nil)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
