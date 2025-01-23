@@ -7,7 +7,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols []*kyvernov2alpha1.ValidatingPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
+func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols []kyvernov2alpha1.GenericPolicy) (webhooks []admissionregistrationv1.ValidatingWebhook) {
 	var (
 		webhookIgnoreList []admissionregistrationv1.ValidatingWebhook
 		webhookFailList   []admissionregistrationv1.ValidatingWebhook
@@ -28,28 +28,28 @@ func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols 
 	)
 	for _, vpol := range vpols {
 		webhook := admissionregistrationv1.ValidatingWebhook{}
-		failurePolicyIgnore := vpol.Spec.FailurePolicy != nil && *vpol.Spec.FailurePolicy == admissionregistrationv1.Ignore
+		failurePolicyIgnore := vpol.GetFailurePolicy() == admissionregistrationv1.Ignore
 		if failurePolicyIgnore {
 			webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 		} else {
 			webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 		}
 		// TODO(shuting): exclude?
-		for _, match := range vpol.Spec.MatchConstraints.ResourceRules {
+		for _, match := range vpol.GetMatchConstraints().ResourceRules {
 			webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 		}
 
 		fineGrainedWebhook := false
-		if vpol.Spec.MatchConditions != nil {
-			webhook.MatchConditions = vpol.Spec.MatchConditions
+		if vpol.GetMatchConditions() != nil {
+			webhook.MatchConditions = vpol.GetMatchConditions()
 			fineGrainedWebhook = true
 		}
-		if vpol.Spec.MatchConstraints.MatchPolicy != nil && *vpol.Spec.MatchConstraints.MatchPolicy == admissionregistrationv1.Exact {
-			webhook.MatchPolicy = vpol.Spec.MatchConstraints.MatchPolicy
+		if vpol.GetMatchConstraints().MatchPolicy != nil && *vpol.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
+			webhook.MatchPolicy = vpol.GetMatchConstraints().MatchPolicy
 			fineGrainedWebhook = true
 		}
-		if vpol.Spec.WebhookConfiguration != nil && vpol.Spec.WebhookConfiguration.TimeoutSeconds != nil {
-			webhook.TimeoutSeconds = vpol.Spec.WebhookConfiguration.TimeoutSeconds
+		if vpol.GetWebhookConfiguration() != nil && vpol.GetWebhookConfiguration().TimeoutSeconds != nil {
+			webhook.TimeoutSeconds = vpol.GetWebhookConfiguration().TimeoutSeconds
 			fineGrainedWebhook = true
 		}
 
@@ -57,12 +57,12 @@ func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols 
 			webhook.SideEffects = &noneOnDryRun
 			webhook.AdmissionReviewVersions = []string{"v1"}
 			if failurePolicyIgnore {
-				webhook.Name = config.ValidatingPolicyWebhookName + "-ignore-finegrained-" + vpol.Name
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/ignore"+config.FineGrainedWebhookPath+"/"+vpol.Name)
+				webhook.Name = config.ValidatingPolicyWebhookName + "-ignore-finegrained-" + vpol.GetName()
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/validate/ignore"+config.FineGrainedWebhookPath+"/"+vpol.GetName())
 				webhookIgnoreList = append(webhookIgnoreList, webhook)
 			} else {
-				webhook.Name = config.ValidatingPolicyWebhookName + "-fail-finegrained-" + vpol.Name
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/fail"+config.FineGrainedWebhookPath+"/"+vpol.Name)
+				webhook.Name = config.ValidatingPolicyWebhookName + "-fail-finegrained-" + vpol.GetName()
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/validate/fail"+config.FineGrainedWebhookPath+"/"+vpol.GetName())
 				webhookFailList = append(webhookFailList, webhook)
 			}
 		} else {
