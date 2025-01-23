@@ -19,15 +19,9 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type == "Ready")].status
-      name: READY
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    - jsonPath: .status.conditions[?(@.type == "Ready")].message
-      name: MESSAGE
-      type: string
     name: v2alpha1
     schema:
       openAPIV3Schema:
@@ -736,6 +730,11 @@ spec:
                   - type
                   type: object
                 type: array
+              ready:
+                description: |-
+                  The ready of a policy is a high-level summary of where the policy is in its lifecycle.
+                  The conditions array, the reason and message fields contain more detail about the policy's status.
+                type: boolean
             type: object
         required:
         - spec
