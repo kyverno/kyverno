@@ -1,9 +1,14 @@
 package context
 
 import (
+	"reflect"
+
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/ext"
 )
+
+const libraryName = "kyverno.context"
 
 type lib struct{}
 
@@ -13,11 +18,12 @@ func Lib() cel.EnvOption {
 }
 
 func (*lib) LibraryName() string {
-	return "kyverno.context"
+	return libraryName
 }
 
 func (c *lib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
+		ext.NativeTypes(reflect.TypeFor[Context]()),
 		c.extendEnv,
 	}
 }

@@ -5,6 +5,8 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -28,15 +30,44 @@ func (v Variables) NamespaceSelectors() map[string]Labels {
 		return nil
 	}
 	out := map[string]Labels{}
-	if v.values.NamespaceSelectors != nil {
-		for _, n := range v.values.NamespaceSelectors {
-			out[n.Name] = n.Labels
-		}
+	for _, n := range v.values.NamespaceSelectors {
+		out[n.Name] = n.Labels
+	}
+	// Give precedence to namespaces
+	for _, n := range v.values.Namespaces {
+		out[n.Name] = n.Labels
 	}
 	if len(out) == 0 {
 		return nil
 	}
 	return out
+}
+
+func (v Variables) Namespace(name string) *corev1.Namespace {
+	if v.values == nil {
+		return nil
+	}
+	// Give precedence to namespaces
+	for _, n := range v.values.Namespaces {
+		if n.Name == name {
+			return &n
+		}
+	}
+	for _, n := range v.values.NamespaceSelectors {
+		if n.Name == name {
+			return &corev1.Namespace{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: corev1.SchemeGroupVersion.String(),
+					Kind:       "Namespace",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   name,
+					Labels: n.Labels,
+				},
+			}
+		}
+	}
+	return nil
 }
 
 func (v Variables) ComputeVariables(s *store.Store, policy, resource, kind string, kindMap sets.Set[string], variables ...string) (map[string]interface{}, error) {

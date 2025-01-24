@@ -36,14 +36,13 @@ import (
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
-
-const divider = "----------------------------------------------------------------------"
 
 type SkippedInvalidPolicies struct {
 	skipped []string
@@ -261,7 +260,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses3, err := c.applyValidatingPolicies(vps, resources1, variables.NamespaceSelectors(), rc, dClient)
+	responses3, err := c.applyValidatingPolicies(vps, resources1, variables.Namespace, rc, dClient)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
@@ -315,28 +314,23 @@ func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
 func (c *ApplyCommandConfig) applyValidatingPolicies(
 	vps []kyvernov2alpha1.ValidatingPolicy,
 	resources []*unstructured.Unstructured,
-	namespaceSelectorMap map[string]map[string]string,
+	namespaceProvider func(string) *corev1.Namespace,
 	_ *processor.ResultCounts,
 	_ dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
 	ctx := context.TODO()
 	compiler := celpolicy.NewCompiler()
-	policies := make([]celpolicy.CompiledPolicy, 0, len(vps))
-	for _, vp := range vps {
-		policy, err := compiler.Compile(&vp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
-		}
-		policies = append(policies, *policy)
+	provider, err := engine.NewProvider(compiler, vps...)
+	if err != nil {
+		return nil, err
 	}
-	eng := engine.NewEngine()
-	var responses []engineapi.EngineResponse
+	eng := engine.NewEngine(provider, namespaceProvider)
+	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		request := engine.EngineRequest{
-			Resource:        resource,
-			NamespaceLabels: namespaceSelectorMap,
+			Resource: resource,
 		}
-		_, err := eng.Handle(ctx, request, policies...)
+		response, err := eng.Handle(ctx, request)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -344,13 +338,17 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 			}
 			return responses, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 		}
-		// TODO
-		// 	processor := processor.ValidatingAdmissionPolicyProcessor{
-		// 		PolicyReport:         c.PolicyReport,
-		// 		Rc:                   rc,
-		// 		Client:               dClient,
-		// 	}
-		// 	responses = append(responses, ers...)
+		// transform response into legacy engine responses
+		for _, r := range response.Policies {
+			engineResponse := engineapi.EngineResponse{
+				Resource: *response.Resource,
+				PolicyResponse: engineapi.PolicyResponse{
+					Rules: r.Rules,
+				},
+			}
+			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
+			responses = append(responses, engineResponse)
+		}
 	}
 	return responses, nil
 }
@@ -389,7 +387,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 		validPolicies = append(validPolicies, pol)
 	}
-
 	var responses []engineapi.EngineResponse
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
@@ -478,6 +475,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
+				if loaderResults != nil && loaderResults.NonFatalErrors != nil {
+					for _, err := range loaderResults.NonFatalErrors {
+						log.Log.Error(err.Error, "Non-fatal parsing error for single document")
+					}
+				}
 				if err != nil {
 					continue
 				}
@@ -488,6 +490,11 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
+			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
+				for _, err := range loaderResults.NonFatalErrors {
+					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
+				}
+			}
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
@@ -506,10 +513,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	return policies, vaps, vapBindings, vps, nil
 }
 
-func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (
-	dclient.Interface,
-	error,
-) {
+func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {

@@ -584,7 +584,9 @@ codegen-cli-docs: $(CLI_BIN) ## Generate CLI docs
 	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) docs -o docs/user/cli/commands --autogenTag=false
 
 .PHONY: codegen-cli-crds
-codegen-cli-crds: codegen-crds-kyverno ## Copy generated CRDs to embed in the CLI
+codegen-cli-crds: ## Copy generated CRDs to embed in the CLI
+codegen-cli-crds: codegen-crds-kyverno
+codegen-cli-crds: codegen-crds-cli
 	@echo Copy generated CRDs to embed in the CLI... >&2
 	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
