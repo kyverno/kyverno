@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
+	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -16,6 +16,7 @@ import (
 
 type EngineRequest struct {
 	Resource *unstructured.Unstructured
+	Context  contextlib.ContextInterface
 }
 
 type EngineResponse struct {
@@ -29,7 +30,7 @@ type PolicyResponse struct {
 }
 
 type Engine interface {
-	Handle(context.Context, EngineRequest, ...policy.CompiledPolicy) (EngineResponse, error)
+	Handle(context.Context, EngineRequest) (EngineResponse, error)
 }
 
 type NamespaceResolver = func(string) *corev1.Namespace
@@ -39,7 +40,7 @@ type engine struct {
 	provider   Provider
 }
 
-func NewEngine(provider Provider, nsResolver NamespaceResolver) *engine {
+func NewEngine(provider Provider, nsResolver NamespaceResolver) Engine {
 	return &engine{
 		nsResolver: nsResolver,
 		provider:   provider,
@@ -67,14 +68,14 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 		}
 	}
 	for _, policy := range policies {
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.Resource, namespace))
+		response.Policies = append(response.Policies, e.handlePolicy(ctx, request, policy, namespace))
 	}
 	return response, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, resource *unstructured.Unstructured, namespace *unstructured.Unstructured) PolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, request EngineRequest, policy CompiledPolicy, namespace *unstructured.Unstructured) PolicyResponse {
 	var rules []engineapi.RuleResponse
-	results, err := policy.CompiledPolicy.Evaluate(ctx, resource, namespace, nil)
+	results, err := policy.CompiledPolicy.Evaluate(ctx, request.Resource, namespace, request.Context)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
