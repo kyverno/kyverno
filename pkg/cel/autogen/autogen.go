@@ -8,9 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-var (
-	podControllers = sets.New("daemonsets", "deployments", "jobs", "statefulsets", "replicasets", "cronjobs")
-)
+var podControllers = sets.New("daemonsets", "deployments", "jobs", "statefulsets", "replicasets", "cronjobs")
 
 // canAutoGen checks whether the policy can be applied to Pod controllers
 // It returns false if:
