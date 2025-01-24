@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: disallow-default-namespace
 spec:
-  validationFailureAction: Audit
   background: true
   rules:
   - name: validate-deployment-namespace
@@ -13,6 +12,7 @@ spec:
           kinds:
           - Deployment
     validate:
+      failureAction: Audit
       cel:
         expressions:
           - expression: "namespaceObject.metadata.name != 'default'"

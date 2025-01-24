@@ -51,6 +51,7 @@ func TestRuleResponse_String(t *testing.T) {
 				tt.fields.Type,
 				tt.fields.Message,
 				tt.fields.Status,
+				nil,
 			)
 			if got := rr.String(); got != tt.want {
 				t.Errorf("RuleResponse.ToString() = %v, want %v", got, tt.want)
@@ -119,6 +120,7 @@ func TestRuleResponse_HasStatus(t *testing.T) {
 				tt.fields.Type,
 				tt.fields.Message,
 				tt.fields.Status,
+				nil,
 			)
 			if got := r.HasStatus(tt.args.status...); got != tt.want {
 				t.Errorf("RuleResponse.HasStatus() = %v, want %v", got, tt.want)

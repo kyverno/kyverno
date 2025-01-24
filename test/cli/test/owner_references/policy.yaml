@@ -28,4 +28,4 @@ spec:
               periodSeconds: '>0'
             readinessProbe:
               periodSeconds: '>0'
-  validationFailureAction: Enforce
+      failureAction: Enforce

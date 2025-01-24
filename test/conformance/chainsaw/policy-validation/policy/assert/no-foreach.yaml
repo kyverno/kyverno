@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: foreach
+spec:
+  rules:
+  - name: test
+    match:
+      all:
+      - resources:
+          kinds:
+            - Pod
+    validate:
+      failureAction: Enforce
+      message: "pod must have an env label"
+      foreach:
+      - list: "['dummy']"
+        deny: {}
+      assert:
+        object:
+          metadata:
+            labels:
+              env: {}

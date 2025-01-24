@@ -1,0 +1,12 @@
+apiVersion: cli.kyverno.io/v1alpha1
+globalValues:
+  request.operation: CREATE
+kind: Value
+metadata:
+  name: values
+policies:
+- name: gctx
+  rules:
+  - name: main-deployment-exists
+    values:
+      deploymentCount: 1

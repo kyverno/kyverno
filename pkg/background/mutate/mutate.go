@@ -6,8 +6,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -17,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,6 +46,9 @@ type mutateExistingController struct {
 
 	log logr.Logger
 	jp  jmespath.Interface
+
+	reportsConfig  reportutils.ReportingConfiguration
+	reportsBreaker breaker.Breaker
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -59,27 +64,32 @@ func NewMutateExistingController(
 	eventGen event.Interface,
 	log logr.Logger,
 	jp jmespath.Interface,
+	reportsConfig reportutils.ReportingConfiguration,
+	reportsBreaker breaker.Breaker,
 ) *mutateExistingController {
 	c := mutateExistingController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		statusControl: statusControl,
-		engine:        engine,
-		policyLister:  policyLister,
-		npolicyLister: npolicyLister,
-		nsLister:      nsLister,
-		configuration: dynamicConfig,
-		eventGen:      eventGen,
-		log:           log,
-		jp:            jp,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		statusControl:  statusControl,
+		engine:         engine,
+		policyLister:   policyLister,
+		npolicyLister:  npolicyLister,
+		nsLister:       nsLister,
+		configuration:  dynamicConfig,
+		eventGen:       eventGen,
+		log:            log,
+		jp:             jp,
+		reportsConfig:  reportsConfig,
+		reportsBreaker: reportsBreaker,
 	}
 	return &c
 }
 
-func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
+func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
+	logger.Info("processing mutate existing")
 	policy, err := c.getPolicy(ur)
 	if err != nil {
 		logger.Error(err, "failed to get policy")
@@ -94,7 +104,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		var trigger *unstructured.Unstructured
 		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 		if admissionRequest == nil {
-			trigger, err = common.GetResource(c.client, ur.Spec, c.log)
+			trigger, err = common.GetResource(c.client, ur.Spec.Resource, ur.Spec, c.log)
 			if err != nil || trigger == nil {
 				logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 				if err := updateURStatus(c.statusControl, *ur, err); err != nil {
@@ -104,7 +114,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			}
 		} else {
 			if admissionRequest.Operation == admissionv1.Create {
-				trigger, err = common.GetResource(c.client, ur.Spec, c.log)
+				trigger, err = common.GetResource(c.client, ur.Spec.Resource, ur.Spec, c.log)
 				if err != nil || trigger == nil {
 					if admissionRequest.SubResource == "" {
 						logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
@@ -139,7 +149,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-		policyContext, err := common.NewBackgroundContext(logger, c.client, ur, policy, trigger, c.configuration, c.jp, namespaceLabels)
+		policyContext, err := common.NewBackgroundContext(logger, c.client, ur.Spec.Context, policy, trigger, c.configuration, c.jp, namespaceLabels)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
@@ -157,6 +167,11 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
+		if c.needsReports(trigger) {
+			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
+				c.log.Error(err, "failed to create report")
+			}
+		}
 		for _, r := range er.PolicyResponse.Rules {
 			patched, parentGVR, patchedSubresource := r.PatchedTarget()
 			switch r.Status() {
@@ -168,7 +183,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 			case engineapi.RuleStatusSkip:
 				err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
-				logger.Info(err.Error())
+				logger.V(4).Info(err.Error())
 
 			case engineapi.RuleStatusPass:
 				patchedNew := patched
@@ -211,7 +226,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	return updateURStatus(c.statusControl, *ur, err)
 }
 
-func (c *mutateExistingController) getPolicy(ur *kyvernov1beta1.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {
+func (c *mutateExistingController) getPolicy(ur *kyvernov2.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
 	if err != nil {
 		return nil, err
@@ -243,7 +258,37 @@ func (c *mutateExistingController) report(err error, policy kyvernov1.PolicyInte
 	c.eventGen.Add(events...)
 }
 
-func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error) error {
+func (c *mutateExistingController) needsReports(trigger *unstructured.Unstructured) bool {
+	createReport := c.reportsConfig.MutateExistingReportsEnabled()
+	if trigger == nil {
+		return createReport
+	}
+	if !reportutils.IsGvkSupported(trigger.GroupVersionKind()) {
+		createReport = false
+	}
+
+	return createReport
+}
+
+func (c *mutateExistingController) createReports(
+	ctx context.Context,
+	resource unstructured.Unstructured,
+	engineResponses ...engineapi.EngineResponse,
+) error {
+	report := reportutils.BuildMutateExistingReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
+	if len(report.GetResults()) > 0 {
+		err := c.reportsBreaker.Do(ctx, func(ctx context.Context) error {
+			_, err := reportutils.CreateReport(ctx, report, c.kyvernoClient)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error) error {
 	if err != nil {
 		if _, err := statusControl.Failed(ur.GetName(), err.Error(), nil); err != nil {
 			return err

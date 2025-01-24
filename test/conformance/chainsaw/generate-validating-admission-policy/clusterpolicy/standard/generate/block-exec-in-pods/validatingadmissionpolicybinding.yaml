@@ -1,0 +1,14 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  name: deny-exec-by-namespace-name-binding
+  ownerReferences:
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    name: deny-exec-by-namespace-name
+spec:
+  policyName: deny-exec-by-namespace-name
+  validationActions:
+  - Deny

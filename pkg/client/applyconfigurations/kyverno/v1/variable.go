@@ -19,15 +19,15 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno"
 )
 
 // VariableApplyConfiguration represents an declarative configuration of the Variable type for use
 // with apply.
 type VariableApplyConfiguration struct {
-	Value    *v1.JSON `json:"value,omitempty"`
-	JMESPath *string  `json:"jmesPath,omitempty"`
-	Default  *v1.JSON `json:"default,omitempty"`
+	Value    *kyverno.Any `json:"value,omitempty"`
+	JMESPath *string      `json:"jmesPath,omitempty"`
+	Default  *kyverno.Any `json:"default,omitempty"`
 }
 
 // VariableApplyConfiguration constructs an declarative configuration of the Variable type for use with
@@ -39,7 +39,7 @@ func Variable() *VariableApplyConfiguration {
 // WithValue sets the Value field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Value field is set to the value of the last call.
-func (b *VariableApplyConfiguration) WithValue(value v1.JSON) *VariableApplyConfiguration {
+func (b *VariableApplyConfiguration) WithValue(value kyverno.Any) *VariableApplyConfiguration {
 	b.Value = &value
 	return b
 }
@@ -55,7 +55,7 @@ func (b *VariableApplyConfiguration) WithJMESPath(value string) *VariableApplyCo
 // WithDefault sets the Default field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Default field is set to the value of the last call.
-func (b *VariableApplyConfiguration) WithDefault(value v1.JSON) *VariableApplyConfiguration {
+func (b *VariableApplyConfiguration) WithDefault(value kyverno.Any) *VariableApplyConfiguration {
 	b.Default = &value
 	return b
 }

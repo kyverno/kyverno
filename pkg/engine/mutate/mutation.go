@@ -1,7 +1,6 @@
 package mutate
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -42,8 +40,11 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	if err != nil {
 		return NewErrorResponse("variable substitution failed", err)
 	}
-	m := updatedRule.Mutation
-	patcher := NewPatcher(m.GetPatchStrategicMerge(), m.PatchesJSON6902)
+	mutation := updatedRule.Mutation
+	if mutation == nil {
+		return NewErrorResponse("empty mutate rule", nil)
+	}
+	patcher := NewPatcher(mutation.GetPatchStrategicMerge(), mutation.PatchesJSON6902)
 	if patcher == nil {
 		return NewErrorResponse("empty mutate rule", nil)
 	}
@@ -77,7 +78,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	if err != nil {
 		return NewErrorResponse("variable substitution failed", err)
 	}
-	patcher := NewPatcher(fe.GetPatchStrategicMerge(), fe.PatchesJSON6902)
+	patcher := NewPatcher(fe["patchStrategicMerge"], fe["patchesJson6902"].(string))
 	if patcher == nil {
 		return NewErrorResponse("empty mutate rule", nil)
 	}
@@ -101,28 +102,22 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	return NewResponse(engineapi.RuleStatusPass, *patchedResource, "resource patched")
 }
 
-func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyvernov1.ForEachMutation, error) {
-	jsonObj, err := datautils.ToMap(fe)
+func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (map[string]interface{}, error) {
+	patchesMap := make(map[string]interface{})
+	patchesMap["patchStrategicMerge"] = fe.GetPatchStrategicMerge()
+	patchesMap["patchesJson6902"] = fe.PatchesJSON6902
+
+	subedPatchesMap, err := variables.SubstituteAll(logger, ctx, patchesMap)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := variables.SubstituteAll(logger, ctx, jsonObj)
-	if err != nil {
-		return nil, err
+	typedMap, ok := subedPatchesMap.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("failed to convert patched map to map[string]interface{}")
 	}
 
-	bytes, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
-	}
-
-	var updatedForEach kyvernov1.ForEachMutation
-	if err := json.Unmarshal(bytes, &updatedForEach); err != nil {
-		return nil, err
-	}
-
-	return &updatedForEach, nil
+	return typedMap, nil
 }
 
 func NewPatcher(strategicMergePatch apiextensions.JSON, jsonPatch string) patch.Patcher {

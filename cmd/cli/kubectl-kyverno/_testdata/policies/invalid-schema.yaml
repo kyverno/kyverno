@@ -8,7 +8,6 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
 spec:
   background: false
-  validationFailureAction: audit
   rules:
   - name: pods-require-account
     match:
@@ -19,6 +18,7 @@ spec:
         matchLabels:
           istio/rev: "default"
     validate:
+      validationFailureAction: audit
       message: User pods must include an account for charging
       pattern:
         metadata:
@@ -30,6 +30,7 @@ spec:
         kinds:
         - Pod
     validate:
+      failureAction: audit
       message: CPU and memory resource requests and limits are required for user pods
       pattern:
         spec:

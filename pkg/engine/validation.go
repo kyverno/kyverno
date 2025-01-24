@@ -27,7 +27,7 @@ func (e *engine) validate(
 	defer policyContext.JSONContext().Restore()
 
 	gvk, _ := policyContext.ResourceKind()
-	for _, rule := range autogen.ComputeRules(policy, gvk.Kind) {
+	for _, rule := range autogen.Default.ComputeRules(policy, gvk.Kind) {
 		startTime := time.Now()
 		logger := internal.LoggerWithRule(logger, rule)
 		handlerFactory := func() (handlers.Handler, error) {
@@ -37,6 +37,9 @@ func (e *engine) validate(
 				return nil, nil
 			}
 			if hasValidate {
+				if rule.Validation.Assert.Value != nil {
+					return validation.NewValidateAssertHandler()
+				}
 				hasVerifyManifest := rule.HasVerifyManifests()
 				hasValidatePss := rule.HasValidatePodSecurity()
 				hasValidateCEL := rule.HasValidateCEL()
@@ -48,7 +51,7 @@ func (e *engine) validate(
 				} else if hasValidatePss {
 					return validation.NewValidatePssHandler()
 				} else if hasValidateCEL {
-					return validation.NewValidateCELHandler(e.client)
+					return validation.NewValidateCELHandler(e.client, e.isCluster)
 				} else {
 					return validation.NewValidateResourceHandler()
 				}

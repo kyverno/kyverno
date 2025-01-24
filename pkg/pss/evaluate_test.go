@@ -55,7 +55,7 @@ func Test_EvaluatePod(t *testing.T) {
 				fmt.Printf("failed check result: %v\n", result)
 			}
 		}
-		assert.Assert(t, allowed == test.allowed, fmt.Sprintf("test \"%s\" fails", test.name))
+		assert.Check(t, allowed == test.allowed, fmt.Sprintf("test \"%s\" fails", test.name))
 	}
 }
 
@@ -5481,6 +5481,161 @@ var baseline_sysctls = []testCase{
 		allowed: true,
 	},
 	{
+		name: "baseline_sysctls_new_v1.27_policy_v1.0_allowed_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.0"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+						{
+							"name": "net.ipv4.ip_local_reserved_ports"
+						}
+					]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "baseline_sysctls_new_v1.27_policy_v1.27_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.27"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+						{
+							"name": "net.ipv4.ip_local_reserved_ports"
+						}
+					]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_sysctls_new_v1.29_policy_v1.27_allowed_negative",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.27"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+						{
+							"name": "net.ipv4.tcp_keepalive_time"
+						}
+					]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "baseline_sysctls_new_v1.29_policy_v1.29_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "v1.29"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+						{
+							"name": "net.ipv4.tcp_keepalive_time"
+						}
+					]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "baseline_sysctls_new_v1.29_policy_latest_allowed_positive",
+		rawRule: []byte(`
+		{
+			"level": "baseline",
+			"version": "latest"
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"sysctls": [
+						{
+							"name": "net.ipv4.tcp_keepalive_time"
+						}
+					]
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
 		name: "baseline_sysctls_multiple_sysctls_pass_v1.24",
 		rawRule: []byte(`
 		{
@@ -7408,7 +7563,7 @@ var restricted_runAsNonRoot = []testCase{
 				]
 			}
 		}`),
-		allowed: true,
+		allowed: false,
 	},
 	{
 		name: "restricted_runAsNonRoot_defines_all_violate_spec_true_container_true_spec_level_allowed_positive",

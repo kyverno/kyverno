@@ -1,0 +1,26 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cpol-any-exclude-resource-match-with-namespace-selector
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-host-path-t14
+  - name: step-02
+    try:
+    - assert:
+        file: validatingadmissionpolicy.yaml
+    - assert:
+        file: validatingadmissionpolicybinding.yaml

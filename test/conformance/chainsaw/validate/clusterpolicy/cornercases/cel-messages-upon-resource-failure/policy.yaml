@@ -5,7 +5,6 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: host-port-pods
@@ -14,7 +13,11 @@ spec:
         - resources:
             kinds:
               - Pod
+            operations:
+              - CREATE
+              - UPDATE
       validate:
+        failureAction: Enforce
         message: "hostPort must either be unset or set to 0"
         cel:
           expressions:

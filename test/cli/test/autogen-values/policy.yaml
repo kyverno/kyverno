@@ -28,4 +28,4 @@ spec:
     validate:
       message: Do nothing!
       pattern: {}
-  validationFailureAction: Audit
+      failureAction: Audit

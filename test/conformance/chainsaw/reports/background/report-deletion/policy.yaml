@@ -13,7 +13,7 @@ spec:
           - Pod
     name: restricted
     validate:
+      failureAction: Audit
       podSecurity:
         level: restricted
         version: latest
-  validationFailureAction: Audit

@@ -107,7 +107,7 @@ func readQuery(cmd *cobra.Command) (string, error) {
 }
 
 func loadQueries(cmd *cobra.Command, args []string, files []string) ([]string, error) {
-	var queries []string
+	queries := make([]string, 0, len(args))
 	queries = append(queries, args...)
 	for _, file := range files {
 		query, err := loadFile(cmd, file)

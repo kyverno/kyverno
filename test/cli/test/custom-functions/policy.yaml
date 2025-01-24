@@ -19,7 +19,7 @@ spec:
         - key: '{{base64_decode(request.object.data.value)}}'
           operator: NotEquals
           value: '{{request.object.metadata.labels.value}}'
-  validationFailureAction: Enforce
+      failureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -42,7 +42,7 @@ spec:
           - key: '{{pattern_match(''prefix-*'', request.object.metadata.labels.value)}}'
             operator: Equals
             value: false
-  validationFailureAction: Enforce
+      failureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -78,7 +78,7 @@ spec:
           - key: '{{ element.hostPath.path }}'
             operator: NotEquals
             value: ""
-  validationFailureAction: Enforce
+      failureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -101,7 +101,7 @@ spec:
           operator: NotEquals
           value: b
       message: Test JMESPath
-  validationFailureAction: Enforce
+      failureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -124,7 +124,7 @@ spec:
           operator: NotEquals
           value: a
       message: Test JMESPath
-  validationFailureAction: Enforce
+      failureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -148,7 +148,7 @@ spec:
           value: '{{request.object.metadata.annotations.test | parse_yaml(@).array
             }}'
       message: Test JMESPath
-  validationFailureAction: Enforce
+      failureAction: Enforce
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -175,4 +175,4 @@ spec:
       message: 'public key modulus mismatch: "{{ x509_decode(''{{request.object.data.cert}}'').PublicKey.N
         }}" != "{{ x509_decode(''{{base64_decode(''{{request.object.data.certB64}}'')}}'').PublicKey.N
         }}"'
-  validationFailureAction: Enforce
+      failureAction: Enforce

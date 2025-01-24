@@ -3,7 +3,6 @@ kind: Policy
 metadata:
   name: validate
 spec:
-  validationFailureAction: Enforce
   admission: false
   background: true
   rules:
@@ -14,4 +13,5 @@ spec:
           kinds:
           - Pod
     validate:
+      failureAction: Enforce
       deny: {}

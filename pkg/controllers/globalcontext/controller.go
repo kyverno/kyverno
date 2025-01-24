@@ -36,7 +36,7 @@ type controller struct {
 	gceLister kyvernov2alpha1listers.GlobalContextEntryLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	// state
 	dclient            dclient.Interface
@@ -56,7 +56,10 @@ func NewController(
 	maxResponseLength int64,
 	shouldUpdateStatus bool,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+	)
 	c := &controller{
 		gceLister:          gceInformer.Lister(),
 		queue:              queue,

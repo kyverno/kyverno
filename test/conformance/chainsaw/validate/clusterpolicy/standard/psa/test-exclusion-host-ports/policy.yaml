@@ -4,7 +4,6 @@ metadata:
   name: test-exclusion-host-ports
 spec:
   background: true
-  validationFailureAction: Enforce
   rules:
   - name: test-exclusion-host-ports
     match:
@@ -13,6 +12,7 @@ spec:
           kinds:
           - Pod
     validate:
+      failureAction: Enforce
       podSecurity:
         level: baseline
         version: latest

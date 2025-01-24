@@ -31,6 +31,7 @@ type engine struct {
 	metricsConfiguration config.MetricsConfiguration
 	jp                   jmespath.Interface
 	client               engineapi.Client
+	isCluster            bool
 	rclientFactory       engineapi.RegistryClientFactory
 	ivCache              imageverifycache.Client
 	contextLoader        engineapi.ContextLoaderFactory
@@ -51,7 +52,12 @@ func NewEngine(
 	ivCache imageverifycache.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
+	isCluster *bool,
 ) engineapi.Engine {
+	if isCluster == nil {
+		defaultCluster := true
+		isCluster = &defaultCluster
+	}
 	meter := otel.GetMeterProvider().Meter(metrics.MeterName)
 	resultCounter, err := meter.Int64Counter(
 		"kyverno_policy_results",
@@ -74,6 +80,7 @@ func NewEngine(
 		client:               client,
 		rclientFactory:       rclientFactory,
 		ivCache:              ivCache,
+		isCluster:            *isCluster,
 		contextLoader:        contextLoader,
 		exceptionSelector:    exceptionSelector,
 		resultCounter:        resultCounter,
@@ -107,8 +114,8 @@ func (e *engine) Mutate(
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
 		policyResponse, patchedResource := e.mutate(ctx, logger, policyContext)
 		response = response.
-			WithPolicyResponse(policyResponse).
-			WithPatchedResource(patchedResource)
+			WithPatchedResource(patchedResource).
+			WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
@@ -123,7 +130,7 @@ func (e *engine) Generate(
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
-		policyResponse := e.generateResponse(ctx, logger, policyContext)
+		policyResponse := e.generateResponse(logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
@@ -158,7 +165,7 @@ func (e *engine) ApplyBackgroundChecks(
 	response := engineapi.NewEngineResponseFromPolicyContext(policyContext)
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
 	if internal.MatchPolicyContext(logger, e.client, policyContext, e.configuration) {
-		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
+		policyResponse := e.applyBackgroundChecks(logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	response = response.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
@@ -279,6 +286,10 @@ func (e *engine) invokeRuleHandler(
 				if !preconditionsPassed {
 					s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
 					return resource, handlers.WithSkip(rule, ruleType, s)
+				}
+				// substitute properties
+				if err := internal.SubstitutePropertiesInRule(logger, &rule, policyContext.JSONContext()); err != nil {
+					logger.Error(err, "failed to substitute variables in rule properties")
 				}
 				// get policy exceptions that matches both policy and rule name
 				exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)

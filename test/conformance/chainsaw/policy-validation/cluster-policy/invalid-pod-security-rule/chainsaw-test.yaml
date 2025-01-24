@@ -1,7 +1,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: invalid-pod-security-rule
 spec:
   steps:
@@ -12,7 +11,7 @@ spec:
         check:
           ($error != null): true
           # This check ensures the contents of stderr are exactly as shown.  
-          ($stderr): |-
+          (trim_space($stderr)): |-
             Error from server: error when creating "policy-1.yaml": admission webhook "validate-policy.kyverno.svc" denied the request: spec.rules[0].podSecurity.exclude[0].values: Forbidden: values is required
   - name: Apply the second policy
     try:
@@ -21,5 +20,5 @@ spec:
         check:
           ($error != null): true
           # This check ensures the contents of stderr are exactly as shown.  
-          ($stderr): |-
+          (trim_space($stderr)): |-
             Error from server: error when creating "policy-2.yaml": admission webhook "validate-policy.kyverno.svc" denied the request: spec.rules[0].podSecurity.exclude[0].restrictedField: Forbidden: restrictedField is required

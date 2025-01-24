@@ -194,6 +194,35 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     
     
       <tr>
+        <td><code>targetResources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Target Resources are for policies that have mutate existing</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>variables</code>
           
           <span style="color:blue;"> *</span>
@@ -458,7 +487,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v1beta1.RequestInfo</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2.RequestInfo</span>
             
           
         </td>
@@ -1369,6 +1398,209 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     </table>
   
 
+  <H3 id="cli-kyverno-io-v1alpha1-TestResourceSpec">TestResourceSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-TestResultData">TestResultData</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>group</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>version</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kind</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>namespace</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subresource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="cli-kyverno-io-v1alpha1-TestResult">TestResult
     </H3>
 
@@ -1379,7 +1611,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     </p>
   
 
-  <p><p>TestResultBase declares a test result</p>
+  <p><p>TestResult declares a test result</p>
 </p>
 
   
@@ -1466,7 +1698,7 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
     
     
       <tr>
-        <td><code>resources</code>
+        <td><code>TestResultData</code>
           
           <span style="color:blue;"> *</span>
           
@@ -1475,15 +1707,18 @@ This field is deprecated, use <code>metadata.name</code> instead</p>
           
           
             
-              <span style="font-family: monospace">[]string</span>
+              <a href="#cli-kyverno-io-v1alpha1-TestResultData">
+                <span style="font-family: monospace">TestResultData</span>
+              </a>
             
           
         </td>
         <td>
           
+            <p>(Members of <code>TestResultData</code> are embedded into this type.)</p>
+          
 
-          <p>Resources gives us the list of resources on which the policy is going to be applied.</p>
-
+          
 
           
 
@@ -1675,7 +1910,7 @@ Possible values are pass, fail and skip.</p>
     
     
       <tr>
-        <td><code>patchedResource</code>
+        <td><code>patchedResources</code>
           
           <span style="color:blue;"> *</span>
           
@@ -1692,7 +1927,8 @@ Possible values are pass, fail and skip.</p>
           
 
           <p>PatchedResource takes a resource configuration file in yaml format from
-the user to compare it against the Kyverno mutated resource configuration.</p>
+the user to compare it against the Kyverno mutated resource configuration.
+Multiple resources can be passed in the same file</p>
 
 
           
@@ -1753,6 +1989,102 @@ the user to compare it against the Kyverno generated resource configuration.</p>
 
           <p>CloneSourceResource takes the resource configuration file in yaml format
 from the user which is meant to be cloned by the generate rule.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-TestResultData">TestResultData
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-TestResult">TestResult</a>)
+    </p>
+  
+
+  <p><p>TestResultData declares a test result data</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>resources</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resources gives us the list of resources on which the policy is going to be applied.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>resourceSpecs</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-TestResourceSpec">
+                <span style="font-family: monospace">[]TestResourceSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Resources gives us the list of resources on which the policy is going to be applied.</p>
 
 
           
@@ -1889,6 +2221,37 @@ This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;<
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>patchedResource</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>PatchedResource takes a resource configuration file in yaml format from
+the user to compare it against the Kyverno mutated resource configuration.
+This is DEPRECATED, Use <code>patchedResources</code> instead.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -2008,6 +2371,35 @@ This is DEPRECATED, use a name in the form <code>&lt;namespace&gt;/&lt;name&gt;<
           
 
           <p>NamespaceSelectors are the namespace labels</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>namespaces</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]core/v1.Namespace</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Namespaces are the namespaces</p>
 
 
           

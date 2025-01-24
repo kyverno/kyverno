@@ -1,7 +1,6 @@
 apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
-  creationTimestamp: null
   name: exception-2
 spec:
   exceptions:

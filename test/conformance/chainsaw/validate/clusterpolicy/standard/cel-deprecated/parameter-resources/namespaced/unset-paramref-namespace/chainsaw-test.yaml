@@ -1,0 +1,49 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: unset-paramref-namespace
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: permissions.yaml
+    - apply:
+        file: ns.yaml
+    - assert:
+        file: ns.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: crd.yaml
+    - assert:
+        file: crd-assert.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: replicaLimit.yaml
+    - assert:
+        file: replicaLimit.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-statefulset-replicas
+  - name: step-05
+    try:
+    - apply:
+        file: statefulset-pass.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: statefulset-fail.yaml

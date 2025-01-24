@@ -24,14 +24,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// CleanupPolicies returns a CleanupPolicyInformer.
-	CleanupPolicies() CleanupPolicyInformer
-	// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
-	ClusterCleanupPolicies() ClusterCleanupPolicyInformer
 	// GlobalContextEntries returns a GlobalContextEntryInformer.
 	GlobalContextEntries() GlobalContextEntryInformer
-	// PolicyExceptions returns a PolicyExceptionInformer.
-	PolicyExceptions() PolicyExceptionInformer
+	// ValidatingPolicies returns a ValidatingPolicyInformer.
+	ValidatingPolicies() ValidatingPolicyInformer
 }
 
 type version struct {
@@ -45,22 +41,12 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// CleanupPolicies returns a CleanupPolicyInformer.
-func (v *version) CleanupPolicies() CleanupPolicyInformer {
-	return &cleanupPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
-func (v *version) ClusterCleanupPolicies() ClusterCleanupPolicyInformer {
-	return &clusterCleanupPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // GlobalContextEntries returns a GlobalContextEntryInformer.
 func (v *version) GlobalContextEntries() GlobalContextEntryInformer {
 	return &globalContextEntryInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// PolicyExceptions returns a PolicyExceptionInformer.
-func (v *version) PolicyExceptions() PolicyExceptionInformer {
-	return &policyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// ValidatingPolicies returns a ValidatingPolicyInformer.
+func (v *version) ValidatingPolicies() ValidatingPolicyInformer {
+	return &validatingPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

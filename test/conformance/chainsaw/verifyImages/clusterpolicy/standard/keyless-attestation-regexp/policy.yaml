@@ -1,0 +1,33 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-invalid-attestors-in-attestations
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: check-invalid-attestation-attestor
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - failureAction: Enforce
+        imageReferences:
+        - "ghcr.io/kyverno/zulu*"
+        attestations:
+        - type: https://slsa.dev/provenance/v0.2
+          attestors: 
+          - count: 1
+            entries:
+            - keyless:
+                subjectRegExp: https://github\.com/slsa-framework/slsa-github-generator/\.github/workflows/generator_container_slsa3\.yml@.+
+                issuerRegExp: https://token\.actions\.githubusercontent.+
+                rekor:
+                  url: https://rekor.sigstore.dev
+                ctlog:
+                  ignoreSCT: true

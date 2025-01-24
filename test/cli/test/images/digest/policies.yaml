@@ -22,4 +22,4 @@ spec:
       required: false
       useCache: true
       verifyDigest: true
-  validationFailureAction: Audit
+      failureAction: Audit

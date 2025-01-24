@@ -1,0 +1,42 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: psa-run-as-non-root
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: psp-restricted-limited
+  - name: step-02
+    try:
+    - apply:
+        file: exception.yaml
+  - name: step-03
+    try:
+    - script:
+        content: kubectl apply -f bad-pod-01.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.containers[0].securityContext.runAsNonRoot')): true
+  - name: step-04
+    try:
+    - script:
+        content: kubectl apply -f bad-pod-02.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.containers[0].securityContext.runAsNonRoot')): true
+  - name: step-05
+    try:
+    - apply:
+        file: good-pod.yaml

@@ -14,9 +14,9 @@ spec:
           - Pod
     name: ns-clusterroles
     validate:
+      failureAction: Audit
       message: The `owner` label is required for all Namespaces.
       pattern:
         metadata:
           labels:
             owner: ?*
-  validationFailureAction: Audit

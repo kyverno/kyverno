@@ -3,18 +3,18 @@ package validation
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -22,19 +22,21 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/client-go/tools/cache"
 )
 
 type validateCELHandler struct {
-	client engineapi.Client
+	client    engineapi.Client
+	isCluster bool
 }
 
-func NewValidateCELHandler(client engineapi.Client) (handlers.Handler, error) {
+func NewValidateCELHandler(client engineapi.Client, isCluster bool) (handlers.Handler, error) {
 	return validateCELHandler{
-		client: client,
+		client:    client,
+		isCluster: isCluster,
 	}, nil
 }
 
@@ -45,26 +47,25 @@ func (h validateCELHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	_ engineapi.EngineContextLoader,
-	exceptions []*kyvernov2beta1.PolicyException,
+	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	if engineutils.IsDeleteRequest(policyContext) {
-		logger.V(3).Info("skipping CEL validation on deleted resource")
-		return resource, nil
-	}
-
-	// check if there is a policy exception matches the incoming resource
-	exception := engineutils.MatchesException(exceptions, policyContext, logger)
-	if exception != nil {
-		key, err := cache.MetaNamespaceKeyFunc(exception)
-		if err != nil {
-			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-			return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
-		} else {
-			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule skipped due to policy exception "+key).WithException(exception),
-			)
+	// check if there are policy exceptions that match the incoming resource
+	matchedExceptions := engineutils.MatchesException(exceptions, policyContext, logger)
+	if len(matchedExceptions) > 0 {
+		var keys []string
+		for i, exception := range matchedExceptions {
+			key, err := cache.MetaNamespaceKeyFunc(&matchedExceptions[i])
+			if err != nil {
+				logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+				return resource, handlers.WithError(rule, engineapi.Validation, "failed to compute exception key", err)
+			}
+			keys = append(keys, key)
 		}
+
+		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
+		return resource, handlers.WithResponses(
+			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions),
+		)
 	}
 
 	// check if a corresponding validating admission policy is generated
@@ -76,21 +77,29 @@ func (h validateCELHandler) Process(
 
 	// get resource's name, namespace, GroupVersionResource, and GroupVersionKind
 	gvr := schema.GroupVersionResource(policyContext.RequestResource())
-	gvk := resource.GroupVersionKind()
-	namespaceName := resource.GetNamespace()
-	resourceName := resource.GetName()
-	resourceKind, _ := policyContext.ResourceKind()
+	gvk, _ := policyContext.ResourceKind()
 	policyKind := policyContext.Policy().GetKind()
 	policyName := policyContext.Policy().GetName()
 
-	object := resource.DeepCopyObject()
-	// in case of update request, set the oldObject to the current resource before it gets updated
-	var oldObject runtime.Object
+	// in case of UPDATE requests, set the oldObject to the current resource before it gets updated
+	var object, oldObject runtime.Object
 	oldResource := policyContext.OldResource()
 	if oldResource.Object == nil {
 		oldObject = nil
 	} else {
 		oldObject = oldResource.DeepCopyObject()
+	}
+
+	var ns, name string
+	// in case of DELETE request, get the name and the namespace from the old object
+	if resource.Object == nil {
+		ns = oldResource.GetNamespace()
+		name = oldResource.GetName()
+		object = nil
+	} else {
+		ns = resource.GetNamespace()
+		name = resource.GetName()
+		object = resource.DeepCopyObject()
 	}
 
 	// check if the rule uses parameter resources
@@ -110,39 +119,41 @@ func (h validateCELHandler) Process(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
 	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	// compile CEL expressions
-	compiler, err := celutils.NewCompiler(validations, auditAnnotations, vaputils.ConvertMatchConditionsV1(matchConditions), variables)
+	compiler, err := admissionpolicy.NewCompiler(admissionpolicy.ConvertMatchConditionsV1(matchConditions), variables)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
+	compiler.WithValidations(validations)
+	compiler.WithAuditAnnotations(auditAnnotations)
 	compiler.CompileVariables(optionalVars)
-	filter := compiler.CompileValidateExpressions(optionalVars)
+	filter := compiler.CompileValidations(optionalVars)
 	messageExpressionfilter := compiler.CompileMessageExpressions(expressionOptionalVars)
 	auditAnnotationFilter := compiler.CompileAuditAnnotationsExpressions(optionalVars)
-	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
+	matchConditionFilter := compiler.CompileMatchConditions(optionalVars)
 
 	// newMatcher will be used to check if the incoming resource matches the CEL preconditions
 	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, policyKind, "", policyName)
 	// newValidator will be used to validate CEL expressions against the incoming object
-	validator := validatingadmissionpolicy.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
+	validator := validating.NewValidator(filter, newMatcher, auditAnnotationFilter, messageExpressionfilter, nil)
 
 	var namespace *corev1.Namespace
 	// Special case, the namespace object has the namespace of itself.
 	// unset it if the incoming object is a namespace
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
-		namespaceName = ""
+		ns = ""
 	}
-	if namespaceName != "" {
-		if h.client != nil {
-			namespace, err = h.client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
+	if ns != "" {
+		if h.client != nil && h.isCluster {
+			namespace, err = h.client.GetNamespace(ctx, ns, metav1.GetOptions{})
 			if err != nil {
 				return resource, handlers.WithResponses(
-					engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err),
+					engineapi.RuleError(rule.Name, engineapi.Validation, "Error getting the resource's namespace", err, rule.ReportProperties),
 				)
 			}
 		} else {
 			namespace = &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: namespaceName,
+					Name: ns,
 				},
 			}
 		}
@@ -150,19 +161,23 @@ func (h validateCELHandler) Process(
 
 	requestInfo := policyContext.AdmissionInfo()
 	userInfo := internal.NewUser(requestInfo.AdmissionUserInfo.Username, requestInfo.AdmissionUserInfo.UID, requestInfo.AdmissionUserInfo.Groups)
-	admissionAttributes := admission.NewAttributesRecord(object, oldObject, gvk, namespaceName, resourceName, gvr, "", admission.Operation(policyContext.Operation()), nil, false, &userInfo)
-	versionedAttr, _ := admission.NewVersionedAttributes(admissionAttributes, admissionAttributes.GetKind(), nil)
-	authorizer := internal.NewAuthorizer(h.client, resourceKind)
+	attr := admission.NewAttributesRecord(object, oldObject, gvk, ns, name, gvr, "", admission.Operation(policyContext.Operation()), nil, false, &userInfo)
+	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
+	versionedAttr, err := admission.NewVersionedAttributes(attr, attr.GetKind(), o)
+	if err != nil {
+		return resource, handlers.WithError(rule, engineapi.Validation, "error while creating versioned attributes", err)
+	}
+	authorizer := internal.NewAuthorizer(h.client, gvk)
 	// validate the incoming object against the rule
-	var validationResults []validatingadmissionpolicy.ValidateResult
+	var validationResults []validating.ValidateResult
 	if hasParam {
 		paramKind := rule.Validation.CEL.ParamKind
 		paramRef := rule.Validation.CEL.ParamRef
 
-		params, err := collectParams(ctx, h.client, paramKind, paramRef, namespaceName)
+		params, err := collectParams(ctx, h.client, paramKind, paramRef, ns)
 		if err != nil {
 			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.Validation, "error in parameterized resource", err),
+				engineapi.RuleError(rule.Name, engineapi.Validation, "error in parameterized resource", err, rule.ReportProperties),
 			)
 		}
 
@@ -175,23 +190,23 @@ func (h validateCELHandler) Process(
 
 	for _, validationResult := range validationResults {
 		// no validations are returned if preconditions aren't met
-		if datautils.DeepEqual(validationResult, validatingadmissionpolicy.ValidateResult{}) {
+		if datautils.DeepEqual(validationResult, validating.ValidateResult{}) {
 			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "cel preconditions not met"),
+				engineapi.RuleSkip(rule.Name, engineapi.Validation, "cel preconditions not met", rule.ReportProperties),
 			)
 		}
 
 		for _, decision := range validationResult.Decisions {
 			switch decision.Action {
-			case validatingadmissionpolicy.ActionAdmit:
-				if decision.Evaluation == validatingadmissionpolicy.EvalError {
+			case validating.ActionAdmit:
+				if decision.Evaluation == validating.EvalError {
 					return resource, handlers.WithResponses(
-						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil),
+						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil, rule.ReportProperties),
 					)
 				}
-			case validatingadmissionpolicy.ActionDeny:
+			case validating.ActionDeny:
 				return resource, handlers.WithResponses(
-					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message),
+					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message, rule.ReportProperties),
 				)
 			}
 		}
@@ -199,11 +214,11 @@ func (h validateCELHandler) Process(
 
 	msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
 	return resource, handlers.WithResponses(
-		engineapi.RulePass(rule.Name, engineapi.Validation, msg),
+		engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties),
 	)
 }
 
-func collectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1alpha1.ParamKind, paramRef *admissionregistrationv1alpha1.ParamRef, namespace string) ([]runtime.Object, error) {
+func collectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1beta1.ParamKind, paramRef *admissionregistrationv1beta1.ParamRef, namespace string) ([]runtime.Object, error) {
 	var params []runtime.Object
 
 	apiVersion := paramKind.APIVersion
@@ -254,7 +269,7 @@ func collectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 		}
 	}
 
-	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1alpha1.DenyAction {
+	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1beta1.DenyAction {
 		return nil, fmt.Errorf("no params found")
 	}
 

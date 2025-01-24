@@ -44,4 +44,4 @@ spec:
         metadata:
           labels:
             foo: '*'
-  validationFailureAction: Audit
+      failureAction: Audit

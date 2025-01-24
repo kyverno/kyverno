@@ -1,0 +1,39 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: with-mutation
+spec:
+  timeouts:
+    delete: 2m
+  steps:
+  - name: step-01
+    try:
+      - apply:
+          file: ns.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: with-mutation-img
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: with-mutation-mut
+  - name: step-02
+    try:
+      - apply:
+          file: test-pod.yaml
+      - assert:
+          file: test-pod-assert.yaml

@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: check-old-object
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: require-labels
@@ -16,6 +15,7 @@ spec:
               kinds:
                 - Namespace
       validate:
+        failureAction: Enforce
         message: "The label `size` is required"
         pattern:
           metadata:
@@ -30,6 +30,7 @@ spec:
               kinds:
                 - Namespace
       validate:
+        failureAction: Enforce
         message: "request.oldObject cannot be null for update requests"
         deny:
           conditions:

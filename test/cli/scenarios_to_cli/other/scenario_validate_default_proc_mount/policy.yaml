@@ -14,10 +14,10 @@ spec:
           - Pod
     name: validate-default-proc-mount
     validate:
+      failureAction: Audit
       message: Default proc mount should set to Unmasked
       pattern:
         spec:
           containers:
           - securityContext:
               procMount: Unmasked
-  validationFailureAction: Audit

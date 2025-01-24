@@ -4,7 +4,6 @@ metadata:
   name: disallow-annotations
 spec:
   background: true
-  failurePolicy: Ignore
   rules:
   - match:
       all:
@@ -13,6 +12,7 @@ spec:
           - Pod
     name: disallow-annotations
     validate:
+      failureAction: Enforce
       message: One or more annotations is not allowed per the policies disallowed
         values list.
       pattern:
@@ -20,5 +20,6 @@ spec:
           =(annotations):
             =(kyverno-policies-test/key): '!disallowed'
             X(kyverno-policies-test/disallowed): "null"
-  validationFailureAction: Enforce
-  webhookTimeoutSeconds: 30
+  webhookConfiguration:
+    failurePolicy: Ignore
+    timeoutSeconds: 30

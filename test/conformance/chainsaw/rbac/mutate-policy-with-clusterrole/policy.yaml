@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: policy-reload-on-secret-update
+spec:
+  rules:
+  - name: update-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Secret
+          names:
+          - applicationsecret
+    preconditions:
+      all:
+      - key: "{{ request.operation || 'BACKGROUND' }}"
+        operator: Equals
+        value: UPDATE
+    mutate:
+      mutateExistingOnPolicyUpdate: false
+      targets:
+        - apiVersion: apps/v1
+          kind: Deployment
+          name: monitor-grafana
+      patchStrategicMerge:
+        spec:
+          template:
+            metadata:
+              annotations:
+                example.com/triggerrestart: "{{ request.object.metadata.resourceVersion }}"

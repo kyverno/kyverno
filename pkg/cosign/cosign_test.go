@@ -227,7 +227,10 @@ func TestCosignMatchCertificateData(t *testing.T) {
 	assert.NilError(t, err)
 
 	subject1 := "https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/*"
+	subject1RegExp := `https://github\.com/JimBugwadia/demo-java-tomcat/.+`
 	issuer1 := "https://token.actions.githubusercontent.com"
+	issuer1RegExp := `https://token\.actions\..+`
+
 	extensions := map[string]string{
 		"githubWorkflowTrigger":    "push",
 		"githubWorkflowSha":        "c7645284fa7aebe554618eee879b4d6947f8564e",
@@ -235,20 +238,41 @@ func TestCosignMatchCertificateData(t *testing.T) {
 		"githubWorkflowRepository": "JimBugwadia/demo-java-tomcat",
 	}
 
-	matchErr := matchCertificateData(cert1, subject1, issuer1, extensions)
+	matchErr := matchCertificateData(cert1, subject1, "", issuer1, "", extensions)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchCertificateData(cert1, "", issuer1, extensions)
+	matchErr = matchCertificateData(cert1, "", "", issuer1, "", extensions)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchCertificateData(cert1, subject1, issuer1, nil)
+	matchErr = matchCertificateData(cert1, subject1, "", issuer1, "", nil)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchCertificateData(cert1, "wrong-subject", issuer1, extensions)
+	matchErr = matchCertificateData(cert1, "", subject1RegExp, "", issuer1RegExp, nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchCertificateData(cert1, "", "", "", issuer1RegExp, nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchCertificateData(cert1, subject1, subject1RegExp, issuer1, issuer1RegExp, nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchCertificateData(cert1, "", `^wrong-regex$`, issuer1, issuer1RegExp, nil)
+	assert.Error(t, matchErr, "subject mismatch: expected ^wrong-regex$, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22")
+
+	matchErr = matchCertificateData(cert1, "", "", "", `^wrong-regex$`, nil)
+	assert.Error(t, matchErr, "issuer mismatch: expected ^wrong-regex$, received https://token.actions.githubusercontent.com")
+
+	matchErr = matchCertificateData(cert1, "wrong-subject", "", issuer1, "", extensions)
 	assert.Error(t, matchErr, "subject mismatch: expected wrong-subject, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22")
 
+	matchErr = matchCertificateData(cert1, "", "*", "", issuer1RegExp, nil)
+	assert.Error(t, matchErr, "invalid regexp for subject: * : error parsing regexp: missing argument to repetition operator: `*`")
+
+	matchErr = matchCertificateData(cert1, "", subject1RegExp, "", "?", nil)
+	assert.Error(t, matchErr, "invalid regexp for issuer: ? : error parsing regexp: missing argument to repetition operator: `?`")
+
 	extensions["githubWorkflowTrigger"] = "pull"
-	matchErr = matchCertificateData(cert1, subject1, issuer1, extensions)
+	matchErr = matchCertificateData(cert1, subject1, "", issuer1, "", extensions)
 	assert.Error(t, matchErr, "extension mismatch: expected pull for key githubWorkflowTrigger, received push")
 }
 
@@ -320,6 +344,29 @@ I2MLdq2qjZFDOCXsxBxJpbmLGBx9ow6ZerlUxzws2AWv2pk=
 	assert.ErrorContains(t, err, "unable to verify RFC3161 timestamp bundle: no TSA root certificate(s) provided to verify timestamp")
 
 	opts.TSACertChain = tsaCertChain
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	assert.NilError(t, err)
+}
+
+func TestCosignOCI11Experimental(t *testing.T) {
+	opts := images.Options{
+		ImageRef: "ghcr.io/kyverno/test-verify-image:cosign-oci11",
+		Key: `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoKYkkX32oSx61B4iwKXa6llAF2dB
+IoL3R/9n1SJ7s00Nfkk3z4/Ar6q8el/guUmXi8akEJMxvHnvphorVUz8vQ==
+-----END PUBLIC KEY-----
+`,
+	}
+
+	rc, err := registryclient.New()
+	assert.NilError(t, err)
+	opts.Client = rc
+
+	verifier := &cosignVerifier{}
+	_, err = verifier.VerifySignature(context.TODO(), opts)
+	assert.ErrorContains(t, err, "no signatures found")
+
+	opts.CosignOCI11 = true
 	_, err = verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
 }
@@ -408,17 +455,28 @@ func TestCosignMatchSignatures(t *testing.T) {
 	}
 
 	subject2 := "*@nirmata.com"
+	subject2RegExp := `.+@nirmata\.com`
 	issuer2 := "https://github.com/login/oauth"
+	issuer2RegExp := `https://github\.com/login/.+`
 
-	matchErr := matchSignatures(sigs, subject1, issuer1, extensions)
+	matchErr := matchSignatures(sigs, subject1, "", issuer1, "", extensions)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchSignatures(sigs, subject2, issuer2, nil)
+	matchErr = matchSignatures(sigs, subject2, "", issuer2, "", nil)
 	assert.NilError(t, matchErr)
 
-	matchErr = matchSignatures(sigs, subject2, issuer1, nil)
+	matchErr = matchSignatures(sigs, "", subject2RegExp, issuer2, "", nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchSignatures(sigs, "", "", "", issuer2RegExp, nil)
+	assert.NilError(t, matchErr)
+
+	matchErr = matchSignatures(sigs, subject2, "", issuer1, "", nil)
 	assert.Error(t, matchErr, "subject mismatch: expected *@nirmata.com, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22; issuer mismatch: expected https://token.actions.githubusercontent.com, received https://github.com/login/oauth")
 
-	matchErr = matchSignatures(sigs, subject2, issuer2, extensions)
+	matchErr = matchSignatures(sigs, "", subject2RegExp, issuer1, "", nil)
+	assert.Error(t, matchErr, `subject mismatch: expected .+@nirmata\.com, received https://github.com/JimBugwadia/demo-java-tomcat/.github/workflows/publish.yaml@refs/tags/v0.0.22; issuer mismatch: expected https://token.actions.githubusercontent.com, received https://github.com/login/oauth`)
+
+	matchErr = matchSignatures(sigs, subject2, "", issuer2, "", extensions)
 	assert.ErrorContains(t, matchErr, "extension mismatch")
 }

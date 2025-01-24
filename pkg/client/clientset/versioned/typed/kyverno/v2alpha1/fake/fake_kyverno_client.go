@@ -28,20 +28,12 @@ type FakeKyvernoV2alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeKyvernoV2alpha1) CleanupPolicies(namespace string) v2alpha1.CleanupPolicyInterface {
-	return &FakeCleanupPolicies{c, namespace}
-}
-
-func (c *FakeKyvernoV2alpha1) ClusterCleanupPolicies() v2alpha1.ClusterCleanupPolicyInterface {
-	return &FakeClusterCleanupPolicies{c}
-}
-
 func (c *FakeKyvernoV2alpha1) GlobalContextEntries() v2alpha1.GlobalContextEntryInterface {
 	return &FakeGlobalContextEntries{c}
 }
 
-func (c *FakeKyvernoV2alpha1) PolicyExceptions(namespace string) v2alpha1.PolicyExceptionInterface {
-	return &FakePolicyExceptions{c, namespace}
+func (c *FakeKyvernoV2alpha1) ValidatingPolicies() v2alpha1.ValidatingPolicyInterface {
+	return &FakeValidatingPolicies{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

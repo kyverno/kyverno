@@ -33,4 +33,4 @@ spec:
             operator: AnyNotIn
             value: '{{request.object.metadata.keys(@)}}'
       message: naked pods are not allowed
-  validationFailureAction: Audit
+      failureAction: Audit

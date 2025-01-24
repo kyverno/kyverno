@@ -21,6 +21,7 @@ package v1
 // AttestationApplyConfiguration represents an declarative configuration of the Attestation type for use
 // with apply.
 type AttestationApplyConfiguration struct {
+	Name          *string                              `json:"name,omitempty"`
 	PredicateType *string                              `json:"predicateType,omitempty"`
 	Type          *string                              `json:"type,omitempty"`
 	Attestors     []AttestorSetApplyConfiguration      `json:"attestors,omitempty"`
@@ -31,6 +32,14 @@ type AttestationApplyConfiguration struct {
 // apply.
 func Attestation() *AttestationApplyConfiguration {
 	return &AttestationApplyConfiguration{}
+}
+
+// WithName sets the Name field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Name field is set to the value of the last call.
+func (b *AttestationApplyConfiguration) WithName(value string) *AttestationApplyConfiguration {
+	b.Name = &value
+	return b
 }
 
 // WithPredicateType sets the PredicateType field in the declarative configuration to the given value

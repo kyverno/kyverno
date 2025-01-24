@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: preconditions-check
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
   - name: check-label
@@ -18,6 +17,7 @@ spec:
         operator: Equals
         value: foo
     validate:
+      failureAction: Enforce
       message: >-
         The label `uw.systems/owner` is required. Check policy at
         https://github.com/utilitywarehouse/system-manifests/tree/master/kyverno/policies/namespaces/require-ns-owner-label.yaml

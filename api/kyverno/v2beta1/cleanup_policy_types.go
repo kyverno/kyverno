@@ -31,11 +31,11 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=cleanpol,categories=kyverno
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:deprecatedversion
 
 // CleanupPolicy defines a rule for resource cleanup.
 type CleanupPolicy struct {
@@ -117,11 +117,11 @@ type CleanupPolicyList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=ccleanpol,categories=kyverno
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:deprecatedversion
 
 // ClusterCleanupPolicy defines rule for resource cleanup.
 type ClusterCleanupPolicy struct {
@@ -204,13 +204,13 @@ type ClusterCleanupPolicyList struct {
 type CleanupPolicySpec struct {
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
-	Context []kyvernov1.ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+	Context []kyvernov1.ContextEntry `json:"context,omitempty"`
 
 	// MatchResources defines when cleanuppolicy should be applied. The match
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources MatchResources `json:"match,omitempty"`
+	MatchResources MatchResources `json:"match"`
 
 	// ExcludeResources defines when cleanuppolicy should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
@@ -224,6 +224,11 @@ type CleanupPolicySpec struct {
 	// Conditions defines the conditions used to select the resources which will be cleaned up.
 	// +optional
 	Conditions *AnyAllConditions `json:"conditions,omitempty"`
+
+	// DeletionPropagationPolicy defines how resources will be deleted (Foreground, Background, Orphan).
+	// +optional
+	// +kubebuilder:validation:Enum=Foreground;Background;Orphan
+	DeletionPropagationPolicy *metav1.DeletionPropagation `json:"deletionPropagationPolicy,omitempty"`
 }
 
 // CleanupPolicyStatus stores the status of the policy.

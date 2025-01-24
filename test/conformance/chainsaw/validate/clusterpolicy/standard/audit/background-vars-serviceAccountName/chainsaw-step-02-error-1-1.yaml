@@ -12,9 +12,9 @@ spec:
           - Pod
     name: ns-vars-serviceaccountname
     validate:
+      failureAction: Audit
       message: The `owner` label is required for all Namespaces.
       pattern:
         metadata:
           labels:
             baz: '{{serviceAccountName}}'
-  validationFailureAction: Audit

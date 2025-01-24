@@ -1,0 +1,47 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: enforce-validate-existing
+spec:
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: bad-pod.yaml
+    - assert:
+        file: bad-pod-ready.yaml
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-labels
+  - name: step-03
+    try:
+    - apply:
+        file: good-pod.yaml
+    - assert:
+        file: good-pod-ready.yaml
+  - name: step-04
+    try:
+    - script:
+        content: ./bad-pod-update-test.sh
+        timeout: 30s
+  - name: step-05
+    try:
+    - script:
+        content: ./good-pod-update-test.sh
+        timeout: 30s
+  - name: step-06
+    try:
+    - script:
+        content: ./update-bad-pod-to-comply.sh
+        timeout: 30s

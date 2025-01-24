@@ -1,0 +1,51 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cpol-data-sync-delete-rule
+spec:
+  steps:
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: multiple-gens
+  - name: step-02
+    try:
+    - apply:
+        file: chainsaw-step-02-apply-1-1.yaml
+  - name: step-03
+    try:
+    - assert:
+        file: secret.yaml
+    - assert:
+        file: configmap.yaml
+  - name: step-04
+    try:
+    - apply:
+        file: delete-rule.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: multiple-gens
+  - name: step-05
+    try:
+    - sleep:
+        duration: 3s
+  - name: step-06
+    try:
+    - assert:
+        file: secret.yaml
+    - error:
+        file: configmap.yaml

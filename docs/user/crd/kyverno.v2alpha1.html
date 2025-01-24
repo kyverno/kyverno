@@ -25,591 +25,13 @@
             
             <h3>Resource Types:</h3>
             <ul><li>
-                    <a href="#kyverno-io-v2alpha1-CleanupPolicy">CleanupPolicy</a>
-                  </li><li>
-                    <a href="#kyverno-io-v2alpha1-ClusterCleanupPolicy">ClusterCleanupPolicy</a>
-                  </li><li>
                     <a href="#kyverno-io-v2alpha1-GlobalContextEntry">GlobalContextEntry</a>
                   </li><li>
-                    <a href="#kyverno-io-v2alpha1-PolicyException">PolicyException</a>
+                    <a href="#kyverno-io-v2alpha1-ValidatingPolicy">ValidatingPolicy</a>
                   </li></ul>
 
             
             
-  <H3 id="kyverno-io-v2alpha1-CleanupPolicy">CleanupPolicy
-    </H3>
-
-  
-
-  <p><p>CleanupPolicy defines a rule for resource cleanup.</p>
-</p>
-
-  
-    <table class="table table-striped">
-      <thead class="thead-dark">
-        <tr>
-          <th>Field</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        
-        
-          
-          <tr>
-            <td><code>apiVersion</code></br>string</td>
-            <td><code>kyverno.io/v2alpha1</code></td>
-          </tr>
-          <tr>
-            <td><code>kind</code></br>string</td>
-            <td><code>CleanupPolicy</code></td>
-          </tr>
-        
-
-        
-        
-
-  
-  
-    
-    
-  
-    
-    
-      <tr>
-        <td><code>metadata</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
-            
-          
-        </td>
-        <td>
-          
-
-          
-
-          
-            Refer to the Kubernetes API documentation for the fields of the
-            <code>metadata</code> field.
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>spec</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.CleanupPolicySpec</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Spec declares policy behaviors.</p>
-
-
-          
-
-          
-            <br/>
-            <br/>
-            <table>
-              
-
-  
-  
-    
-    
-      <tr>
-        <td><code>context</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#kyverno-io-v1-ContextEntry">
-                <span style="font-family: monospace">[]ContextEntry</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Context defines variables and data sources that can be used during rule execution.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>match</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.MatchResources</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>MatchResources defines when cleanuppolicy should be applied. The match
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the user name or role.
-At least one kind is required.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>exclude</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.MatchResources</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the name or role.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>schedule</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>The schedule in Cron format</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>conditions</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.AnyAllConditions</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-
-            </table>
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>status</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.CleanupPolicyStatus</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Status contains policy runtime data.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-
-
-      </tbody>
-    </table>
-  
-
-  <H3 id="kyverno-io-v2alpha1-ClusterCleanupPolicy">ClusterCleanupPolicy
-    </H3>
-
-  
-
-  <p><p>ClusterCleanupPolicy defines rule for resource cleanup.</p>
-</p>
-
-  
-    <table class="table table-striped">
-      <thead class="thead-dark">
-        <tr>
-          <th>Field</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        
-        
-          
-          <tr>
-            <td><code>apiVersion</code></br>string</td>
-            <td><code>kyverno.io/v2alpha1</code></td>
-          </tr>
-          <tr>
-            <td><code>kind</code></br>string</td>
-            <td><code>ClusterCleanupPolicy</code></td>
-          </tr>
-        
-
-        
-        
-
-  
-  
-    
-    
-  
-    
-    
-      <tr>
-        <td><code>metadata</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
-            
-          
-        </td>
-        <td>
-          
-
-          
-
-          
-            Refer to the Kubernetes API documentation for the fields of the
-            <code>metadata</code> field.
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>spec</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.CleanupPolicySpec</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Spec declares policy behaviors.</p>
-
-
-          
-
-          
-            <br/>
-            <br/>
-            <table>
-              
-
-  
-  
-    
-    
-      <tr>
-        <td><code>context</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#kyverno-io-v1-ContextEntry">
-                <span style="font-family: monospace">[]ContextEntry</span>
-              </a>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Context defines variables and data sources that can be used during rule execution.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>match</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.MatchResources</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>MatchResources defines when cleanuppolicy should be applied. The match
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the user name or role.
-At least one kind is required.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>exclude</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.MatchResources</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the name or role.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>schedule</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">string</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>The schedule in Cron format</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>conditions</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.AnyAllConditions</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-
-            </table>
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>status</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.CleanupPolicyStatus</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Status contains policy runtime data.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-
-
-      </tbody>
-    </table>
-  
-
   <H3 id="kyverno-io-v2alpha1-GlobalContextEntry">GlobalContextEntry
     </H3>
 
@@ -825,13 +247,12 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
     </table>
   
 
-  <H3 id="kyverno-io-v2alpha1-PolicyException">PolicyException
+  <H3 id="kyverno-io-v2alpha1-ValidatingPolicy">ValidatingPolicy
     </H3>
 
   
 
-  <p><p>PolicyException declares resources to be excluded from specified policies.</p>
-</p>
+  <p></p>
 
   
     <table class="table table-striped">
@@ -851,7 +272,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
           </tr>
           <tr>
             <td><code>kind</code></br>string</td>
-            <td><code>PolicyException</code></td>
+            <td><code>ValidatingPolicy</code></td>
           </tr>
         
 
@@ -906,15 +327,16 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.PolicyExceptionSpec</span>
+              <a href="#kyverno-io-v2alpha1-ValidatingPolicySpec">
+                <span style="font-family: monospace">ValidatingPolicySpec</span>
+              </a>
             
           
         </td>
         <td>
           
 
-          <p>Spec declares policy exception behaviors.</p>
-
+          
 
           
 
@@ -929,7 +351,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
     
     
       <tr>
-        <td><code>background</code>
+        <td><code>ValidatingAdmissionPolicySpec</code>
           
           <span style="color:blue;"> *</span>
           
@@ -938,17 +360,16 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
           
           
             
-              <span style="font-family: monospace">bool</span>
+              <span style="font-family: monospace">admissionregistration/v1.ValidatingAdmissionPolicySpec</span>
             
           
         </td>
         <td>
           
+            <p>(Members of <code>ValidatingAdmissionPolicySpec</code> are embedded into this type.)</p>
+          
 
-          <p>Background controls if exceptions are applied to existing policies during a background scan.
-Optional. Default value is &quot;true&quot;. The value must be set to &quot;false&quot; if the policy rule
-uses variables that are only available in the admission review request (e.g. user name).</p>
-
+          
 
           
 
@@ -960,101 +381,15 @@ uses variables that are only available in the admission review request (e.g. use
     
     
       <tr>
-        <td><code>match</code>
-          
-          <span style="color:blue;"> *</span>
+        <td><code>webhookConfiguration</code>
           
           </br>
 
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.MatchResources</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Match defines match clause used to check if a resource applies to the exception</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>conditions</code>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v2beta1.AnyAllConditions</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Conditions are used to determine if a resource applies to the exception by evaluating a
-set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>exceptions</code>
-          
-          <span style="color:blue;"> *</span>
-          
-          </br>
-
-          
-          
-            
-              <span style="font-family: monospace">[]github.com/kyverno/kyverno/api/kyverno/v2beta1.Exception</span>
-            
-          
-        </td>
-        <td>
-          
-
-          <p>Exceptions is a list policy/rules to be excluded</p>
-
-
-          
-
-          
-        </td>
-      </tr>
-    
-  
-    
-    
-      <tr>
-        <td><code>podSecurity</code>
-          
-          </br>
-
-          
-          
-            
-              <a href="#kyverno-io-v1-PodSecurityStandard">
-                <span style="font-family: monospace">[]PodSecurityStandard</span>
+              <a href="#kyverno-io-v2alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
               </a>
             
           
@@ -1062,8 +397,7 @@ set of conditions. The declaration can contain nested <code>any</code> or <code>
         <td>
           
 
-          <p>PodSecurity specifies the Pod Security Standard controls to be excluded.
-Applicable only to policies that have validate.podSecurity subrule.</p>
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
 
 
           
@@ -1169,6 +503,33 @@ Applicable only to policies that have validate.podSecurity subrule.</p>
           <p>RefreshInterval defines the interval in duration at which to poll the APICall.
 The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
 such as &quot;300ms&quot;, &quot;1.5h&quot; or &quot;2h45m&quot;. Valid time units are &quot;ns&quot;, &quot;us&quot; (or &quot;µs&quot;), &quot;ms&quot;, &quot;s&quot;, &quot;m&quot;, &quot;h&quot;.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>retryLimit</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>RetryLimit defines the number of times the APICall should be retried in case of failure.</p>
 
 
           
@@ -1544,6 +905,167 @@ Requires the pluralized form of the resource kind in lowercase. (Ex., &quot;depl
 
           <p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 If left empty for namespaced resources, all resources from all namespaces will be cached.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-ValidatingPolicySpec">ValidatingPolicySpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-ValidatingPolicy">ValidatingPolicy</a>)
+    </p>
+  
+
+  <p><p>ValidatingPolicySpec is the specification of the desired behavior of the ValidatingPolicy.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>ValidatingAdmissionPolicySpec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">admissionregistration/v1.ValidatingAdmissionPolicySpec</span>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>ValidatingAdmissionPolicySpec</code> are embedded into this type.)</p>
+          
+
+          
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>webhookConfiguration</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-WebhookConfiguration">
+                <span style="font-family: monospace">WebhookConfiguration</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>WebhookConfiguration defines the configuration for the webhook.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-WebhookConfiguration">WebhookConfiguration
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-ValidatingPolicySpec">ValidatingPolicySpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>timeoutSeconds</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">int32</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 
 
           

@@ -1,14 +1,13 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: policy-clusterscope-resource
 spec:
   steps:
     - name: step-01
       try:
         - apply:
+            file: policy.yaml
             expect:
               - check:
                   ($error != null): true
-            file: policy.yaml

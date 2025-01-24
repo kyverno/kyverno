@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-operations-on-pod
+spec:
+  background: true
+  rules:
+  - name: rule-1
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      failureAction: Enforce
+      cel:
+        expressions:
+          - expression: "false"
+            message: Create, update and delete on pods is not allowed

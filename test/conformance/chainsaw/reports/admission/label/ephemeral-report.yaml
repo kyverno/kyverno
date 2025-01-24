@@ -1,0 +1,39 @@
+apiVersion: v1
+items:
+- apiVersion: reports.kyverno.io/v1
+  kind: EphemeralReport
+  metadata:
+    annotations:
+      audit.kyverno.io/resource.name: very-long-resource-name-testing-label-length
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: kyverno
+      audit.kyverno.io/resource.group: verylonggggggggggggggggggggggggggggggggggggggggroup.example.com
+      audit.kyverno.io/resource.name: verylongresources
+      audit.kyverno.io/resource.kind: VeryLongResource
+      audit.kyverno.io/resource.version: verylongversion
+      audit.kyverno.io/source: admission
+    ownerReferences:
+    - apiVersion: verylonggggggggggggggggggggggggggggggggggggggggroup.example.com/verylongversion
+      kind: VeryLongResource
+      name: very-long-resource-name-testing-label-length
+  spec:
+    owner:
+      apiVersion: ""
+      kind: ""
+      name: ""
+      uid: ""
+    results:
+    - message: 'validation error: Resource must have valid labels. rule check-label-length
+        failed at path /metadata/labels/team/'
+      policy: validate-long-resource-labels
+      result: fail
+      rule: check-label-length
+      scored: true
+      source: kyverno
+    summary:
+      error: 0
+      fail: 1
+      pass: 0
+      skip: 0
+      warn: 0

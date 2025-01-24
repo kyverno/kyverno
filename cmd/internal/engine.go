@@ -41,7 +41,7 @@ func NewEngine(
 	exceptionsSelector engineapi.PolicyExceptionSelector,
 	gctxStore loaders.Store,
 ) engineapi.Engine {
-	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, 15*time.Minute)
+	configMapResolver := NewConfigMapResolver(ctx, logger, kubeClient, resyncPeriod)
 	logger = logger.WithName("engine")
 	logger.Info("setup engine...")
 	return engine.NewEngine(
@@ -53,6 +53,7 @@ func NewEngine(
 		ivCache,
 		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig), factories.WithGlobalContextStore(gctxStore)),
 		exceptionsSelector,
+		nil,
 	)
 }
 
@@ -65,10 +66,14 @@ func NewExceptionSelector(
 	if !enablePolicyException {
 		return nil, nil
 	}
+	if exceptionNamespace == "" {
+		logger.Error(errors.New("the flag --exceptionNamespace cannot be empty"), "the flag --exceptionNamespace cannot be empty")
+		return nil, nil
+	}
 	polexCache := exceptioncontroller.NewController(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
+		kyvernoInformer.Kyverno().V2().PolicyExceptions(),
 		exceptionNamespace,
 	)
 	polexController := NewController(

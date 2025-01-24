@@ -4,14 +4,18 @@ import (
 	"reflect"
 	"testing"
 
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
-var jp = jmespath.New(config.NewDefaultConfiguration(false))
+var (
+	jp  = jmespath.New(config.NewDefaultConfiguration(false))
+	cfg = config.NewDefaultConfiguration(false)
+)
 
 func Test_addResourceAndUserContext(t *testing.T) {
 	var err error
@@ -226,4 +230,57 @@ func TestAddVariable(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_ImageInfoLoader(t *testing.T) {
+	resource1, err := kubeutils.BytesToUnstructured([]byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "test-pod",
+		  "namespace": "default"
+		},
+		"spec": {
+		  "containers": [{
+			"name": "test_container",
+			"image": "nginx:latest"
+		  }]
+		}
+	}`))
+	assert.Nil(t, err)
+	newctx := newContext()
+	err = newctx.AddImageInfos(resource1, cfg)
+	assert.Nil(t, err)
+	// images not loaded
+	assert.Nil(t, newctx.images)
+	// images loaded on Query
+	name, err := newctx.Query("images.containers.test_container.name")
+	assert.Nil(t, err)
+	assert.Equal(t, name, "nginx")
+}
+
+func Test_ImageInfoLoader_OnDirectCall(t *testing.T) {
+	resource1, err := kubeutils.BytesToUnstructured([]byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "test-pod",
+		  "namespace": "default"
+		},
+		"spec": {
+		  "containers": [{
+			"name": "test_container",
+			"image": "nginx:latest"
+		  }]
+		}
+	}`))
+	assert.Nil(t, err)
+	newctx := newContext()
+	err = newctx.AddImageInfos(resource1, cfg)
+	assert.Nil(t, err)
+	// images not loaded
+	assert.Nil(t, newctx.images)
+	// images loaded on explicit call to ImageInfo
+	imageinfos := newctx.ImageInfo()
+	assert.Equal(t, imageinfos["containers"]["test_container"].Name, "nginx")
 }

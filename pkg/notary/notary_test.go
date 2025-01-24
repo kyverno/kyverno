@@ -35,7 +35,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func TestExtractStatements(t *testing.T) {
-	imageRef := "jimnotarytest.azurecr.io/jim/net-monitor:v1"
+	imageRef := "ghcr.io/kyverno/test-verify-image:signed"
 	ref, err := name.ParseReference(imageRef)
 	assert.NilError(t, err)
 	repoDesc, err := remote.Head(ref)
@@ -47,7 +47,7 @@ func TestExtractStatements(t *testing.T) {
 
 	for _, referrer := range referrersDescs.Manifests {
 		if referrer.ArtifactType == "application/vnd.cncf.notary.signature" {
-			statements, err := extractStatements(context.Background(), ref, referrer, nil)
+			statements, err := extractStatements(context.Background(), ref, referrer, nil, nil)
 			assert.NilError(t, err)
 			assert.Assert(t, len(statements) == 1)
 			assert.Assert(t, statements[0]["type"] == referrer.ArtifactType)

@@ -107,11 +107,11 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.crds.migration.imagePullSecrets }}
+      {{- with .Values.crds.migration.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.crds.migration.tolerations }}
+      {{- with .Values.crds.migration.tolerations | default .Values.global.tolerations}}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

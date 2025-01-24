@@ -8,7 +8,6 @@ kind: ConfigMap
 metadata:
   name: owner
   namespace: cpol-clone-delete-ownerreferences-across-namespaces-source-ns
-type: Opaque
 ---
 apiVersion: v1
 data:
@@ -24,9 +23,9 @@ kind: ClusterPolicy
 metadata:
   name: cpol-clone-delete-ownerreferences-across-namespaces
 spec:
-  generateExisting: true
   rules:
   - generate:
+      generateExisting: true
       apiVersion: v1
       clone:
         name: cpol-clone-delete-ownerreferences-across-namespaces

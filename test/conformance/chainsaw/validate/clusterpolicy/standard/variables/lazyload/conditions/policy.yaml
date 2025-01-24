@@ -28,7 +28,7 @@ spec:
         operator: Equals
         value: hello
     validate:
+      failureAction: Enforce
       pattern:
         metadata:
           name: '*'
-  validationFailureAction: Enforce

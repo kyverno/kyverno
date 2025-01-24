@@ -1,0 +1,5 @@
+apiVersion: rules.example.com/v1
+kind: NameConstraint
+metadata:
+  name: "name-constraint-test.example.com"
+name: "default"

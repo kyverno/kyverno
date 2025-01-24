@@ -35,4 +35,4 @@ spec:
               value: ghcr.io
         list: request.object.spec.containers
       message: images with root user are not allowed
-  validationFailureAction: Enforce
+      failureAction: Enforce

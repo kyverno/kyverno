@@ -12,11 +12,11 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,7 +29,7 @@ import (
 func GetResources(
 	out io.Writer,
 	policies []kyvernov1.PolicyInterface,
-	validatingAdmissionPolicies []admissionregistrationv1alpha1.ValidatingAdmissionPolicy,
+	validatingAdmissionPolicies []admissionregistrationv1beta1.ValidatingAdmissionPolicy,
 	resourcePaths []string,
 	dClient dclient.Interface,
 	cluster bool,
@@ -130,7 +130,7 @@ func GetResourcesWithTest(out io.Writer, fs billy.Filesystem, policies []kyverno
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceTypesMap := make(map[string]bool)
 	for _, policy := range policies {
-		for _, rule := range autogen.ComputeRules(policy, "") {
+		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, kind := range rule.MatchResources.Kinds {
 				resourceTypesMap[kind] = true
 			}
@@ -250,11 +250,11 @@ func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema
 	return resourceTypesMap, subresourceMap
 }
 
-func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1alpha1.ValidatingAdmissionPolicy, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
+func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1beta1.ValidatingAdmissionPolicy, client dclient.Interface) (map[schema.GroupVersionKind]bool, map[schema.GroupVersionKind]v1alpha1.Subresource) {
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]v1alpha1.Subresource)
 
-	kinds := validatingadmissionpolicy.GetKinds(policy)
+	kinds := admissionpolicy.GetKinds(policy)
 	for _, kind := range kinds {
 		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 	}

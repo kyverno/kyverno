@@ -53,7 +53,7 @@ spec:
               done
 
               COUNT=$(kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '/pol/{print $1}' | wc -l)
-                
+
               if [ $COUNT -gt 0 ]; then
                 echo "deleting $COUNT clusterpolicyreports"
                 kubectl get clusterpolicyreports.wgpolicyk8s.io --no-headers=true | awk '/pol/{print $1}' | xargs kubectl delete clusterpolicyreports.wgpolicyk8s.io
@@ -64,11 +64,11 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.policyReportsCleanup.imagePullSecrets }}
+      {{- with .Values.policyReportsCleanup.imagePullSecrets | default .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.policyReportsCleanup.tolerations }}
+      {{- with .Values.policyReportsCleanup.tolerations | default .Values.global.tolerations}}
       tolerations:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

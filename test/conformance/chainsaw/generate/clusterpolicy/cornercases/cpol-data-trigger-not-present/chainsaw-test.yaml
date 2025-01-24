@@ -2,7 +2,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: cpol-data-trigger-not-present
 spec:
   timeouts:
@@ -11,17 +10,27 @@ spec:
   - name: step-01
     try:
     - apply:
+        file: permissions.yaml
+    - apply:
         file: roles.yaml
   - name: step-02
     try:
     - apply:
         file: rbac.yaml
-  - name: step-03
-    try:
-    - apply:
-        file: policy.yaml
-    - assert:
-        file: policy-ready.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: cpol-data-trigger-not-present
   - name: step-04
     try:
     - script:
@@ -49,5 +58,5 @@ spec:
         content: kubectl get updaterequests -n kyverno
         check:
           # This check ensures the contents of stderr are exactly as shown.
-          ($stderr): |-
+          (trim_space($stderr)): |-
             No resources found in kyverno namespace.

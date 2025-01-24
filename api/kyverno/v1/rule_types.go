@@ -7,9 +7,7 @@ import (
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -20,25 +18,25 @@ type ImageExtractorConfig struct {
 	// Path is the path to the object containing the image field in a custom resource.
 	// It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'.
 	// Wildcard keys are expanded in case of arrays or objects.
-	Path string `json:"path" yaml:"path"`
+	Path string `json:"path"`
 	// Value is an optional name of the field within 'path' that points to the image URI.
 	// This is useful when a custom 'key' is also defined.
 	// +optional
-	Value string `json:"value,omitempty" yaml:"value,omitempty"`
+	Value string `json:"value,omitempty"`
 	// Name is the entry the image will be available under 'images.<name>' in the context.
 	// If this field is not defined, image entries will appear under 'images.custom'.
 	// +optional
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 	// Key is an optional name of the field within 'path' that will be used to uniquely identify an image.
 	// Note - this field MUST be unique.
 	// +optional
-	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+	Key string `json:"key,omitempty"`
 	// JMESPath is an optional JMESPath expression to apply to the image value.
 	// This is useful when the extracted image begins with a prefix like 'docker://'.
 	// The 'trim_prefix' function may be used to trim the prefix: trim_prefix(@, 'docker://').
 	// Note - Image digest mutation may not be used when applying a JMESPAth to an image.
 	// +optional
-	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+	JMESPath string `json:"jmesPath,omitempty"`
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.
@@ -47,28 +45,32 @@ type ImageExtractorConfig struct {
 type Rule struct {
 	// Name is a label to identify the rule, It must be unique within the policy.
 	// +kubebuilder:validation:MaxLength=63
-	Name string `json:"name" yaml:"name"`
+	Name string `json:"name"`
 
 	// Context defines variables and data sources that can be used during rule execution.
 	// +optional
-	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+	Context []ContextEntry `json:"context,omitempty"`
+
+	// ReportProperties are the additional properties from the rule that will be added to the policy report result
+	// +optional
+	ReportProperties map[string]string `json:"reportProperties,omitempty"`
 
 	// MatchResources defines when this policy rule should be applied. The match
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources MatchResources `json:"match,omitempty" yaml:"match,omitempty"`
+	MatchResources MatchResources `json:"match"`
 
 	// ExcludeResources defines when this policy rule should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources MatchResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+	ExcludeResources *MatchResources `json:"exclude,omitempty"`
 
 	// ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
 	// This config is only valid for verifyImages rules.
 	// +optional
-	ImageExtractors ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
+	ImageExtractors ImageExtractorConfigs `json:"imageExtractors,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
@@ -76,40 +78,42 @@ type Rule struct {
 	// will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
-	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	RawAnyAllConditions *ConditionsWrapper `json:"preconditions,omitempty"`
 
 	// CELPreconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of CEL conditions. It can only be used with the validate.cel subrule
 	// +optional
-	CELPreconditions []admissionregistrationv1alpha1.MatchCondition `json:"celPreconditions,omitempty" yaml:"celPreconditions,omitempty"`
+	CELPreconditions []admissionregistrationv1beta1.MatchCondition `json:"celPreconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
-	Mutation Mutation `json:"mutate,omitempty" yaml:"mutate,omitempty"`
+	Mutation *Mutation `json:"mutate,omitempty"`
 
 	// Validation is used to validate matching resources.
 	// +optional
-	Validation Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
+	Validation *Validation `json:"validate,omitempty"`
 
 	// Generation is used to create new resources.
 	// +optional
-	Generation Generation `json:"generate,omitempty" yaml:"generate,omitempty"`
+	Generation *Generation `json:"generate,omitempty"`
 
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
-	VerifyImages []ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	VerifyImages []ImageVerification `json:"verifyImages,omitempty"`
 
 	// SkipBackgroundRequests bypasses admission requests that are sent by the background controller.
 	// The default value is set to "true", it must be set to "false" to apply
 	// generate and mutateExisting rules to those requests.
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
-	SkipBackgroundRequests bool `json:"skipBackgroundRequests,omitempty" yaml:"skipBackgroundRequests,omitempty"`
+	SkipBackgroundRequests *bool `json:"skipBackgroundRequests,omitempty"`
 }
 
 // HasMutate checks for mutate rule
 func (r *Rule) HasMutate() bool {
-	return !datautils.DeepEqual(r.Mutation, Mutation{})
+	return r.Mutation != nil && !datautils.DeepEqual(*r.Mutation, Mutation{})
 }
 
 // HasMutateStandard checks for standard admission mutate rule
@@ -117,18 +121,31 @@ func (r *Rule) HasMutateStandard() bool {
 	if r.HasMutateExisting() {
 		return false
 	}
-	return !datautils.DeepEqual(r.Mutation, Mutation{})
+	return r.HasMutate()
 }
 
 // HasMutateExisting checks if the mutate rule applies to existing resources
 func (r *Rule) HasMutateExisting() bool {
-	return r.Mutation.Targets != nil
+	return r.Mutation != nil && r.Mutation.Targets != nil
 }
 
 // HasVerifyImages checks for verifyImages rule
 func (r *Rule) HasVerifyImages() bool {
 	for _, verifyImage := range r.VerifyImages {
 		if !datautils.DeepEqual(verifyImage, ImageVerification{}) {
+			return true
+		}
+	}
+	return false
+}
+
+// HasValidateImageVerification checks for verifyImages rule has Validation
+func (r *Rule) HasValidateImageVerification() bool {
+	if !r.HasVerifyImages() {
+		return false
+	}
+	for _, verifyImage := range r.VerifyImages {
+		if !datautils.DeepEqual(verifyImage.Validation, ValidateImageVerification{}) {
 			return true
 		}
 	}
@@ -147,46 +164,67 @@ func (r *Rule) HasVerifyImageChecks() bool {
 
 // HasVerifyManifests checks for validate.manifests rule
 func (r Rule) HasVerifyManifests() bool {
-	return r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
+	return r.Validation != nil && r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
 }
 
 // HasValidatePodSecurity checks for validate.podSecurity rule
 func (r Rule) HasValidatePodSecurity() bool {
-	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &PodSecurity{})
+	return r.Validation != nil && r.Validation.PodSecurity != nil && !datautils.DeepEqual(*r.Validation.PodSecurity, PodSecurity{})
 }
 
 // HasValidateCEL checks for validate.cel rule
 func (r *Rule) HasValidateCEL() bool {
-	return r.Validation.CEL != nil && !datautils.DeepEqual(r.Validation.CEL, &CEL{})
+	return r.Validation != nil && r.Validation.CEL != nil && !datautils.DeepEqual(*r.Validation.CEL, CEL{})
+}
+
+// HasValidateAssert checks for validate.assert rule
+func (r *Rule) HasValidateAssert() bool {
+	return r.Validation != nil && !datautils.DeepEqual(r.Validation.Assert, AssertionTree{})
 }
 
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
-	return !datautils.DeepEqual(r.Validation, Validation{})
+	return r.Validation != nil && !datautils.DeepEqual(*r.Validation, Validation{})
+}
+
+// HasValidateAllowExistingViolations() checks for allowExisitingViolations under validate rule
+func (r *Rule) HasValidateAllowExistingViolations() bool {
+	allowExisitingViolations := true
+	if r.Validation != nil && r.Validation.AllowExistingViolations != nil {
+		allowExisitingViolations = *r.Validation.AllowExistingViolations
+	}
+	return allowExisitingViolations
 }
 
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
-	return !datautils.DeepEqual(r.Generation, Generation{})
+	return r.Generation != nil && !datautils.DeepEqual(*r.Generation, Generation{})
 }
 
 func (r *Rule) IsPodSecurity() bool {
-	return r.Validation.PodSecurity != nil
+	return r.Validation != nil && r.Validation.PodSecurity != nil
 }
 
-func (r *Rule) GetTypeAndSyncAndOrphanDownstream() (_ GenerateType, sync bool, orphanDownstream bool) {
+func (r *Rule) GetSyncAndOrphanDownstream() (sync bool, orphanDownstream bool) {
 	if !r.HasGenerate() {
 		return
 	}
-	return r.Generation.GetTypeAndSyncAndOrphanDownstream()
+	return r.Generation.Synchronize, r.Generation.OrphanDownstreamOnPolicyDelete
 }
 
-func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
-	return FromJSON(r.RawAnyAllConditions)
+func (r *Rule) GetAnyAllConditions() any {
+	if r.RawAnyAllConditions == nil {
+		return nil
+	}
+	return r.RawAnyAllConditions.Conditions
 }
 
-func (r *Rule) SetAnyAllConditions(in apiextensions.JSON) {
-	r.RawAnyAllConditions = ToJSON(in)
+func (r *Rule) SetAnyAllConditions(in any) {
+	var new *ConditionsWrapper
+	if in != nil {
+		new = &ConditionsWrapper{in}
+	}
+	r.RawAnyAllConditions = new
 }
 
 // ValidateRuleType checks only one type of rule is defined per rule
@@ -203,7 +241,6 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 	} else if count != 1 {
 		errs = append(errs, field.Invalid(path, r, fmt.Sprintf("Multiple operations defined in the rule '%s', only one operation (mutate,validate,generate,verifyImages) is allowed per rule", r.Name)))
 	}
-
 	if r.ImageExtractors != nil && !r.HasVerifyImages() {
 		errs = append(errs, field.Invalid(path.Child("imageExtractors"), r, fmt.Sprintf("Invalid rule spec for rule '%s', imageExtractors can only be defined for verifyImages rule", r.Name)))
 	}
@@ -212,6 +249,9 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 
 // ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
 func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
+	if r.ExcludeResources == nil {
+		return errs
+	}
 	if len(r.ExcludeResources.All) > 0 || len(r.MatchResources.All) > 0 {
 		return errs
 	}
@@ -226,7 +266,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		}
 		return errs
 	}
-	if datautils.DeepEqual(r.ExcludeResources, MatchResources{}) {
+	if datautils.DeepEqual(*r.ExcludeResources, MatchResources{}) {
 		return errs
 	}
 	excludeRoles := sets.New(r.ExcludeResources.Roles...)

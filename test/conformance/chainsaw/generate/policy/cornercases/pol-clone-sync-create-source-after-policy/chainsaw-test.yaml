@@ -1,7 +1,6 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  creationTimestamp: null
   name: pol-clone-sync-create-source-after-policy
 spec:
   steps:
@@ -9,12 +8,25 @@ spec:
     try:
     - apply:
         file: chainsaw-step-01-apply-1-1.yaml
-    - apply:
-        file: chainsaw-step-01-apply-1-2.yaml
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: pol-clone-sync-create-source-after-policy
+        - name: namespace
+          value: pol-clone-sync-create-source-after-policy-ns
+  - try:
     - apply:
         file: chainsaw-step-01-apply-1-3.yaml
-    - assert:
-        file: chainsaw-step-01-assert-1-1.yaml
   - name: step-02
     try:
     - apply:

@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: deny-pod-delete-match-opn-block
 spec:
-  validationFailureAction: Enforce
   background: false
   rules:
     - name: deny-pod-delete-match-opn-block
@@ -15,6 +14,7 @@ spec:
             operations:
               - DELETE
       validate:
+        failureAction: Enforce
         message: Pod cannot be deleted
         deny: {}
 

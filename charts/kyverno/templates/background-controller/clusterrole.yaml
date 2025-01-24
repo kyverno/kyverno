@@ -9,6 +9,8 @@ metadata:
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
+        rbac.kyverno.io/aggregate-to-background-controller: "true"
+    - matchLabels:
         {{- include "kyverno.background-controller.matchLabels" . | nindent 8 }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -28,7 +30,9 @@ rules:
       - kyverno.io
     resources:
       - policies
+      - policies/status
       - clusterpolicies
+      - clusterpolicies/status
       - policyexceptions
       - updaterequests
       - updaterequests/status
@@ -64,6 +68,20 @@ rules:
       - patch
       - update
       - watch
+  - apiGroups:
+      - reports.kyverno.io
+    resources:
+      - ephemeralreports
+      - clusterephemeralreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
 {{- with .Values.backgroundController.rbac.coreClusterRole.extraResources }}
   {{- toYaml . | nindent 2 }}
 {{- end }}

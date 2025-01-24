@@ -4,7 +4,6 @@ metadata:
   name: latest-check-no-exclusion
 spec:
   background: false
-  validationFailureAction: Enforce
   rules:
   - name: restricted
     match:
@@ -13,6 +12,7 @@ spec:
           kinds:
           - Pod
     validate:
+      failureAction: Enforce
       podSecurity:
         level: baseline
         version: latest

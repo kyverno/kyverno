@@ -56,6 +56,15 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
+{{/* Set if custom policies are managed */}}
+{{- define "kyverno-policies.customPolicies" -}}
+    {{- if typeIs "string" .value }}
+        {{- tpl .value .context }}
+    {{- else }}
+        {{- tpl (.value | toYaml) .context }}
+    {{- end }}
+{{- end -}}
+
 {{/* Get deployed Kyverno version from Kubernetes */}}
 {{- define "kyverno-policies.kyvernoVersion" -}}
 {{- $version := "" -}}

@@ -7,21 +7,6 @@ metadata:
     {{- include "kyverno.rbac.labels.admin" . | nindent 4 }}
 rules:
   - apiGroups:
-      - kyverno.io
-    resources:
-      - admissionreports
-      - clusteradmissionreports
-      - backgroundscanreports
-      - clusterbackgroundscanreports
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
       - reports.kyverno.io
     resources:
       - ephemeralreports
@@ -42,17 +27,6 @@ metadata:
   labels:
     {{- include "kyverno.rbac.labels.view" . | nindent 4 }}
 rules:
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - admissionreports
-      - clusteradmissionreports
-      - backgroundscanreports
-      - clusterbackgroundscanreports
-    verbs:
-      - get
-      - list
-      - watch
   - apiGroups:
       - reports.kyverno.io
     resources:

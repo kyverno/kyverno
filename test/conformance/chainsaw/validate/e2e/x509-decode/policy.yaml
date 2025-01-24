@@ -3,7 +3,6 @@ kind: ClusterPolicy
 metadata:
   name: test-x509-decode
 spec:
-  validationFailureAction: Enforce
   rules:
   - name: test-x509-decode
     match:
@@ -14,6 +13,7 @@ spec:
           names:
           - test-*
     validate:
+      failureAction: Enforce
       message: "public key modulus mismatch: \"{{ x509_decode('{{request.object.data.cert}}').PublicKey.N }}\" != \"{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').PublicKey.N }}\""
       deny:
         conditions:
