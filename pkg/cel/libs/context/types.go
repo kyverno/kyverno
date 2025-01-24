@@ -9,6 +9,8 @@ var ContextType = types.NewOpaqueType("context.Context")
 
 type ContextInterface interface {
 	GetConfigMap(string, string) (unstructured.Unstructured, error)
+	GetGlobalReference(string) (any, error)
+	GetImageData(string) (any, error)
 }
 
 type Context struct {
