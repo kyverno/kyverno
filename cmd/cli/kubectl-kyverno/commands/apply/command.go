@@ -326,7 +326,10 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	}
 	eng := engine.NewEngine(provider, namespaceProvider)
 	// TODO: mock when no cluster provided
-	contextProvider := celpolicy.NewContextProvider(dclient.GetKubeClient())
+	var contextProvider celpolicy.Context
+	if dclient != nil {
+		contextProvider = celpolicy.NewContextProvider(dclient.GetKubeClient())
+	}
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		request := engine.EngineRequest{

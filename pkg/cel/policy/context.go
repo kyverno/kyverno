@@ -10,11 +10,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+type Context = contextlib.ContextInterface
+
 type contextProvider struct {
 	client kubernetes.Interface
 }
 
-func NewContextProvider(client kubernetes.Interface) contextlib.ContextInterface {
+func NewContextProvider(client kubernetes.Interface) Context {
 	return &contextProvider{
 		client: client,
 	}
