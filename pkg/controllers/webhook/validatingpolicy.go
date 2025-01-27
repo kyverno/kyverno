@@ -13,14 +13,14 @@ func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols 
 		webhookFailList   []admissionregistrationv1.ValidatingWebhook
 		webhookIgnore     = admissionregistrationv1.ValidatingWebhook{
 			Name:                    config.ValidatingPolicyWebhookName + "-ignore",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/ignore"),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, config.ValidatingWebhookServicePath+"/ignore"),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
 		webhookFail = admissionregistrationv1.ValidatingWebhook{
 			Name:                    config.ValidatingPolicyWebhookName + "-fail",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/fail"),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, config.ValidatingWebhookServicePath+"/fail"),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
@@ -58,11 +58,11 @@ func buildWebhookRules(server string, servicePort int32, caBundle []byte, vpols 
 			webhook.AdmissionReviewVersions = []string{"v1"}
 			if failurePolicyIgnore {
 				webhook.Name = config.ValidatingPolicyWebhookName + "-ignore-finegrained-" + vpol.Name
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/ignore"+config.FineGrainedWebhookPath+"/"+vpol.Name)
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, config.ValidatingWebhookServicePath+"/ignore"+config.FineGrainedWebhookPath+"/"+vpol.Name)
 				webhookIgnoreList = append(webhookIgnoreList, webhook)
 			} else {
 				webhook.Name = config.ValidatingPolicyWebhookName + "-fail-finegrained-" + vpol.Name
-				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, "/fail"+config.FineGrainedWebhookPath+"/"+vpol.Name)
+				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, config.ValidatingWebhookServicePath+"/fail"+config.FineGrainedWebhookPath+"/"+vpol.Name)
 				webhookFailList = append(webhookFailList, webhook)
 			}
 		} else {
