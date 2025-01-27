@@ -68,7 +68,7 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	if policy.IsNamespaced() {
 		return LabelPrefixPolicy
 	}
-	if policy.GetType() == engineapi.KyvernoPolicyType {
+	if policy.AsKyvernoPolicy() != nil {
 		return LabelPrefixClusterPolicy
 	}
 	return LabelPrefixValidatingAdmissionPolicy

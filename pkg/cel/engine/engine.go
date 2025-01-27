@@ -2,9 +2,11 @@ package engine
 
 import (
 	"context"
+	"fmt"
 
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
+	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -14,6 +16,7 @@ import (
 
 type EngineRequest struct {
 	Resource *unstructured.Unstructured
+	Context  contextlib.ContextInterface
 }
 
 type EngineResponse struct {
@@ -27,7 +30,7 @@ type PolicyResponse struct {
 }
 
 type Engine interface {
-	Handle(context.Context, EngineRequest, ...policy.CompiledPolicy) (EngineResponse, error)
+	Handle(context.Context, EngineRequest) (EngineResponse, error)
 }
 
 type NamespaceResolver = func(string) *corev1.Namespace
@@ -37,7 +40,7 @@ type engine struct {
 	provider   Provider
 }
 
-func NewEngine(provider Provider, nsResolver NamespaceResolver) *engine {
+func NewEngine(provider Provider, nsResolver NamespaceResolver) Engine {
 	return &engine{
 		nsResolver: nsResolver,
 		provider:   provider,
@@ -65,25 +68,33 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 		}
 	}
 	for _, policy := range policies {
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.Resource, namespace))
+		response.Policies = append(response.Policies, e.handlePolicy(ctx, request, policy, namespace))
 	}
 	return response, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy policy.CompiledPolicy, resource *unstructured.Unstructured, namespace *unstructured.Unstructured) PolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, request EngineRequest, policy CompiledPolicy, namespace *unstructured.Unstructured) PolicyResponse {
 	var rules []engineapi.RuleResponse
-	ok, err := policy.Evaluate(ctx, resource, namespace)
-	// TODO: evaluation should be per rule
+	results, err := policy.CompiledPolicy.Evaluate(ctx, request.Resource, namespace, request.Context)
+	// TODO: error is about match conditions here ?
 	if err != nil {
-		rules = handlers.WithResponses(engineapi.RuleError("todo", engineapi.Validation, "failed to load context", err, nil))
-	} else if ok {
-		rules = handlers.WithResponses(engineapi.RulePass("todo", engineapi.Validation, "success", nil))
+		rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
 	} else {
-		rules = handlers.WithResponses(engineapi.RuleFail("todo", engineapi.Validation, "failure", nil))
+		for index, result := range results {
+			ruleName := fmt.Sprintf("rule-%d", index)
+			if result.Error != nil {
+				rules = append(rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", err, nil))
+			} else if result, err := utils.ConvertToNative[bool](result.Result); err != nil {
+				rules = append(rules, *engineapi.RuleError(ruleName, engineapi.Validation, "conversion error", err, nil))
+			} else if result {
+				rules = append(rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", nil))
+			} else {
+				rules = append(rules, *engineapi.RuleFail(ruleName, engineapi.Validation, "failure", nil))
+			}
+		}
 	}
 	return PolicyResponse{
-		// TODO
-		Policy: kyvernov2alpha1.ValidatingPolicy{},
+		Policy: policy.Policy,
 		Rules:  rules,
 	}
 }

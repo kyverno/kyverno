@@ -49,7 +49,7 @@ func printCheckResult(
 		if check.Match.Policy != nil {
 			var filtered []engineapi.EngineResponse
 			for _, response := range matchingEngineResponses {
-				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().MetaObject())
+				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
 				if err != nil {
 					return err
 				}

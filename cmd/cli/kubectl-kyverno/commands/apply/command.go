@@ -44,8 +44,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const divider = "----------------------------------------------------------------------"
-
 type SkippedInvalidPolicies struct {
 	skipped []string
 	invalid []string
@@ -318,7 +316,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
 	_ *processor.ResultCounts,
-	_ dclient.Interface,
+	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
 	ctx := context.TODO()
 	compiler := celpolicy.NewCompiler()
@@ -327,9 +325,15 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 		return nil, err
 	}
 	eng := engine.NewEngine(provider, namespaceProvider)
+	// TODO: mock when no cluster provided
+	var contextProvider celpolicy.Context
+	if dclient != nil {
+		contextProvider = celpolicy.NewContextProvider(dclient.GetKubeClient())
+	}
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		request := engine.EngineRequest{
+			Context:  contextProvider,
 			Resource: resource,
 		}
 		response, err := eng.Handle(ctx, request)
@@ -348,7 +352,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 					Rules: r.Rules,
 				},
 			}
-			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(r.Policy))
+			engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
 			responses = append(responses, engineResponse)
 		}
 	}
@@ -515,10 +519,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	return policies, vaps, vapBindings, vps, nil
 }
 
-func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (
-	dclient.Interface,
-	error,
-) {
+func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
 	store.SetLocal(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
