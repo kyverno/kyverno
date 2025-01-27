@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -18,6 +19,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
+
+type Wrapper struct {
+	pattern *kyvernov1.GeneratePattern
+}
 
 func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 	slices.SortFunc(results, func(a policyreportv1alpha2.PolicyReportResult, b policyreportv1alpha2.PolicyReportResult) int {
@@ -114,6 +119,25 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 			*resource,
 		}
 	}
+
+	if generatedResources := ruleResult.GeneratedResources(); len(generatedResources) != 0 {
+		resourceInfo := make([]string, 0)
+		for _, r := range generatedResources {
+			resourceInfo = append(resourceInfo, getResourceInfo(r.GroupVersionKind(), r.GetName(), r.GetNamespace()))
+		}
+		result.Properties["generated-resources"] = strings.Join(resourceInfo, "; ")
+		result.Properties["resource-status"] = "generated"
+	}
+
+	wrapper := Wrapper{pattern: &kyvernov1.GeneratePattern{}}
+
+	if clonedResources := wrapper.pattern.GetCloneList(); len(clonedResources.Kinds) != 0 {
+		resourceInfo := make([]string, 0)
+		resourceInfo = append(resourceInfo, clonedResources.Kinds...)
+		result.Properties["cloned-resources"] = strings.Join(resourceInfo, "; ")
+		result.Properties["resource-status"] = "cloned"
+	}
+
 	exceptions := ruleResult.Exceptions()
 	if len(exceptions) > 0 {
 		var names []string
