@@ -591,10 +591,6 @@ func main() {
 			Namespace: internal.ExceptionNamespace(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
-		// create a wait group
-		var group wait.Group
-		// wait all tasks in the group are over
-		defer group.Wait()
 		{
 			// create a rest config
 			kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
@@ -630,7 +626,7 @@ func main() {
 			// create a cancellable context
 			ctx, cancel := context.WithCancel(signalCtx)
 			// start manager
-			group.StartWithContext(ctx, func(ctx context.Context) {
+			wg.StartWithContext(ctx, func(ctx context.Context) {
 				// cancel context at the end
 				defer cancel()
 				mgr.Start(ctx)
