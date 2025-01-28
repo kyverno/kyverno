@@ -10,10 +10,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -48,11 +51,13 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	ctrl "sigs.k8s.io/controller-runtime"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -320,6 +325,7 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
 		internal.WithReporting(),
+		internal.WithRestConfig(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -585,6 +591,45 @@ func main() {
 			Namespace: internal.ExceptionNamespace(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
+		{
+			// create a controller manager
+			scheme := kruntime.NewScheme()
+			if err := kyvernov2alpha1.Install(scheme); err != nil {
+				setup.Logger.Error(err, "failed to initialize scheme")
+				os.Exit(1)
+			}
+			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
+				Scheme: scheme,
+			})
+			if err != nil {
+				setup.Logger.Error(err, "failed to construct manager")
+				os.Exit(1)
+			}
+			// create compiler
+			compiler := celpolicy.NewCompiler()
+			// create provider
+			_, err = celengine.NewKubeProvider(compiler, mgr)
+			if err != nil {
+				setup.Logger.Error(err, "failed to create policy provider")
+				os.Exit(1)
+			}
+			// create a cancellable context
+			ctx, cancel := context.WithCancel(signalCtx)
+			// start manager
+			wg.StartWithContext(ctx, func(ctx context.Context) {
+				// cancel context at the end
+				defer cancel()
+				if err := mgr.Start(ctx); err != nil {
+					setup.Logger.Error(err, "failed to start manager")
+					os.Exit(1)
+				}
+			})
+			if !mgr.GetCache().WaitForCacheSync(ctx) {
+				defer cancel()
+				setup.Logger.Error(err, "failed to create policy provider")
+				os.Exit(1)
+			}
+		}
 		server := webhooks.NewServer(
 			signalCtx,
 			policyHandlers,
