@@ -1060,7 +1060,3 @@ const (
 	Delete  AdmissionOperation = AdmissionOperation(admissionv1.Delete)
 	Connect AdmissionOperation = AdmissionOperation(admissionv1.Connect)
 )
-
-func (g *GeneratePattern) GetCloneList() CloneList {
-	return g.CloneList
-}
