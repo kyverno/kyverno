@@ -7,7 +7,6 @@ import (
 	"flag"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -330,7 +329,7 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	var wg sync.WaitGroup
+	var wg wait.Group
 	func() {
 		// setup
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
@@ -527,7 +526,7 @@ func main() {
 					}
 				}
 				// start leader controllers
-				var wg sync.WaitGroup
+				var wg wait.Group
 				for _, controller := range leaderControllers {
 					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 				}
