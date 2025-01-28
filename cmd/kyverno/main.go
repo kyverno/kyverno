@@ -69,6 +69,16 @@ var (
 	tlsSecretName string
 )
 
+func ensureCacheDir(logger logr.Logger) {
+	logger = logger.WithName("ensureCacheDir")
+	const cacheDir = "/home/nonroot/.ecr/"
+	if err := os.MkdirAll(cacheDir, 0700); err != nil {
+		logger.Error(err, "Failed to create cache directory", "path", cacheDir)
+		os.Exit(1)
+	}
+	logger.Info("Cache directory ensured", "path", cacheDir)
+}
+
 func showWarnings(ctx context.Context, logger logr.Logger) {
 	logger = logger.WithName("warnings")
 	// log if `forceFailurePolicyIgnore` flag has been set or not
@@ -328,6 +338,7 @@ func main() {
 		// setup
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 		defer sdown()
+		ensureCacheDir(setup.Logger)
 		if caSecretName == "" {
 			setup.Logger.Error(errors.New("exiting... caSecretName is a required flag"), "exiting... caSecretName is a required flag")
 			os.Exit(1)
