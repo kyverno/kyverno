@@ -19,6 +19,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/rest"
 )
 
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
@@ -38,6 +39,7 @@ type SetupResult struct {
 	MetricsConfiguration   config.MetricsConfiguration
 	MetricsManager         metrics.MetricsConfigManager
 	Jp                     jmespath.Interface
+	KubeClientConfig       *rest.Config
 	KubeClient             kubeclient.UpstreamInterface
 	LeaderElectionClient   kubeclient.UpstreamInterface
 	RegistryClient         registryclient.Client
@@ -62,6 +64,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	sdownMaxProcs := setupMaxProcs(logger)
 	setupProfiling(logger)
 	ctx, sdownSignals := setupSignals(logger)
+	clientConfig := createClientConfig(logger, clientRateLimitQPS, clientRateLimitBurst)
 	client := kubeclient.From(createKubernetesClient(logger, clientRateLimitQPS, clientRateLimitBurst), kubeclient.WithTracing())
 	metricsConfiguration := startMetricsConfigController(ctx, logger, client)
 	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, metricsConfiguration, client)
@@ -119,6 +122,7 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 			MetricsConfiguration:   metricsConfiguration,
 			MetricsManager:         metricsManager,
 			Jp:                     jmespath.New(configuration),
+			KubeClientConfig:       clientConfig,
 			KubeClient:             client,
 			LeaderElectionClient:   leaderElectionClient,
 			RegistryClient:         registryClient,

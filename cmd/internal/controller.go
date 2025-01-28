@@ -6,7 +6,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+type Reconciler interface {
+	SetupWithManager(mgr ctrl.Manager) error
+}
 
 type Controller interface {
 	Run(context.Context, logr.Logger, *sync.WaitGroup)

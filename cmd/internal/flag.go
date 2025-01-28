@@ -94,12 +94,18 @@ func initMetricsFlags() {
 }
 
 func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst int) {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	// flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	// ctrl.RegisterFlags(flag.CommandLine)
+	// kubeconfig = flag.CommandLine.Lookup("kubeconfig").Value.String()
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Float64Var(&eventsRateLimitQPS, "eventsRateLimitQPS", eventsQPS, "Configure the maximum QPS to the Kubernetes API server from Kyverno for events. Uses the client default if zero.")
 	flag.IntVar(&eventsRateLimitBurst, "eventsRateLimitBurst", eventsBurst, "Configure the maximum burst for throttle for events. Uses the client default if zero.")
 	flag.DurationVar(&resyncPeriod, "resyncPeriod", 15*time.Minute, "Configure the resync period for informer factory")
+}
+
+func lookupKubeconfigFlag() {
+	kubeconfig = flag.CommandLine.Lookup("kubeconfig").Value.String()
 }
 
 func initPolicyExceptionsFlags() {
@@ -248,6 +254,7 @@ func showWarnings(config Configuration, logger logr.Logger) {
 func ParseFlags(config Configuration, opts ...Option) {
 	initFlags(config, opts...)
 	flag.Parse()
+	lookupKubeconfigFlag()
 }
 
 func ExceptionNamespace() string {

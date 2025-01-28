@@ -19,7 +19,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
@@ -46,6 +45,8 @@ import (
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	"github.com/kyverno/pkg/certmanager"
+	certmanagermetrics "github.com/kyverno/pkg/certmanager/metrics"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -53,8 +54,16 @@ import (
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
+
+func init() {
+	customRegistry := certmanagermetrics.NewCustomMetricsRegistry()
+	customRegistry.RenameMetric("retries_total", "num_retries")
+	ctrlmetrics.Registry = customRegistry
+}
 
 const (
 	exceptionWebhookControllerName   = "exception-webhook-controller"
@@ -114,7 +123,6 @@ func createrLeaderControllers(
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	caInformer corev1informers.SecretInformer,
-	tlsInformer corev1informers.SecretInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
@@ -125,11 +133,9 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-) ([]internal.Controller, func(context.Context) error, error) {
+) ([]internal.Controller, []internal.Reconciler, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 	certManager := certmanager.NewController(
-		caInformer,
-		tlsInformer,
 		certRenewer,
 		caSecretName,
 		tlsSecretName,
@@ -228,7 +234,6 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, gctxControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, gctxControllerFinalizerName),
 	)
-	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
@@ -248,7 +253,7 @@ func createrLeaderControllers(
 		)
 		leaderControllers = append(leaderControllers, internal.NewController(vapcontroller.ControllerName, vapController, vapcontroller.Workers))
 	}
-	return leaderControllers, nil, nil
+	return leaderControllers, []internal.Reconciler{certManager}, nil, nil
 }
 
 func main() {
@@ -482,7 +487,7 @@ func main() {
 				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				// create leader controllers
-				leaderControllers, warmup, err := createrLeaderControllers(
+				leaderControllers, leaderReconcilers, warmup, err := createrLeaderControllers(
 					generateValidatingAdmissionPolicy,
 					admissionReports,
 					serverIP,
@@ -493,7 +498,6 @@ func main() {
 					kubeKyvernoInformer,
 					kyvernoInformer,
 					caSecret,
-					tlsSecret,
 					kyvernoDeployment,
 					setup.KubeClient,
 					setup.KyvernoClient,
@@ -509,6 +513,12 @@ func main() {
 					logger.Error(err, "failed to create leader controllers")
 					os.Exit(1)
 				}
+				// create manager
+				mgr, err := ctrl.NewManager(setup.KubeClientConfig, ctrl.Options{})
+				if err != nil {
+					logger.Error(err, "unable to start manager")
+					os.Exit(1)
+				}
 				// start informers and wait for cache sync
 				if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 					logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
@@ -520,8 +530,24 @@ func main() {
 						os.Exit(1)
 					}
 				}
-				// start leader controllers
+				// register reconcilers
+				for _, reconciler := range leaderReconcilers {
+					if err := reconciler.SetupWithManager(mgr); err != nil {
+						logger.Error(err, "unable to create controller", "controller", reconciler)
+						os.Exit(1)
+					}
+				}
+				// start manager
 				var wg sync.WaitGroup
+				go func() {
+					wg.Add(1)
+					if err := mgr.Start(ctx); err != nil {
+						logger.Error(err, "problem running manager")
+						os.Exit(1)
+					}
+					wg.Done()
+				}()
+				// start leader controllers
 				for _, controller := range leaderControllers {
 					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 				}
