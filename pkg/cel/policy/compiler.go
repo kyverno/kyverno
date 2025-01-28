@@ -54,6 +54,7 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPo
 		panic(err)
 	}
 	options = append(options, declOptions...)
+	options = append(options, context.Lib())
 	// TODO: params, authorizer, authorizer.requestResource ?
 	env, err := base.Extend(options...)
 	if err != nil {

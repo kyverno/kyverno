@@ -7,7 +7,6 @@ import (
 	"flag"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -49,6 +48,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -323,7 +323,7 @@ func main() {
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	var wg sync.WaitGroup
+	var wg wait.Group
 	func() {
 		// setup
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
@@ -366,7 +366,6 @@ func main() {
 		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
-
 		certRenewer := tls.NewCertRenewer(
 			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 			tls.CertRenewalInterval,
@@ -521,7 +520,7 @@ func main() {
 					}
 				}
 				// start leader controllers
-				var wg sync.WaitGroup
+				var wg wait.Group
 				for _, controller := range leaderControllers {
 					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 				}
