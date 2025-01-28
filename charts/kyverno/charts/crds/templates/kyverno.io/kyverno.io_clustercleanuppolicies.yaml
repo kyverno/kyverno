@@ -333,7 +333,7 @@ spec:
                         reference:
                           description: |-
                             Reference is image reference to a container image in the registry.
-                            Example: ghcr.io/kyverno/kyverno:latest
+                            Example: reg.kyverno.io/kyverno/kyverno:latest
                           type: string
                       required:
                       - reference
@@ -1626,7 +1626,7 @@ spec:
                         reference:
                           description: |-
                             Reference is image reference to a container image in the registry.
-                            Example: ghcr.io/kyverno/kyverno:latest
+                            Example: reg.kyverno.io/kyverno/kyverno:latest
                           type: string
                       required:
                       - reference
