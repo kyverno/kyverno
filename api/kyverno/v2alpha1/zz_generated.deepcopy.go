@@ -22,6 +22,7 @@ limitations under the License.
 package v2alpha1
 
 import (
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -244,6 +245,11 @@ func (in *ValidatingPolicyList) DeepCopyObject() runtime.Object {
 func (in *ValidatingPolicySpec) DeepCopyInto(out *ValidatingPolicySpec) {
 	*out = *in
 	in.ValidatingAdmissionPolicySpec.DeepCopyInto(&out.ValidatingAdmissionPolicySpec)
+	if in.ValidationAction != nil {
+		in, out := &in.ValidationAction, &out.ValidationAction
+		*out = make([]admissionregistrationv1.ValidationAction, len(*in))
+		copy(*out, *in)
+	}
 	if in.WebhookConfiguration != nil {
 		in, out := &in.WebhookConfiguration, &out.WebhookConfiguration
 		*out = new(WebhookConfiguration)
