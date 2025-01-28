@@ -57,7 +57,6 @@ import (
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -326,6 +325,7 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
 		internal.WithReporting(),
+		internal.WithRestConfig(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -592,23 +592,13 @@ func main() {
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		{
-			// create a rest config
-			kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-				clientcmd.NewDefaultClientConfigLoadingRules(),
-				&clientcmd.ConfigOverrides{},
-			)
-			config, err := kubeConfig.ClientConfig()
-			if err != nil {
-				setup.Logger.Error(err, "failed to initialize kube config")
-				os.Exit(1)
-			}
 			// create a controller manager
 			scheme := kruntime.NewScheme()
 			if err := kyvernov2alpha1.Install(scheme); err != nil {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
 			}
-			mgr, err := ctrl.NewManager(config, ctrl.Options{
+			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
 				Scheme: scheme,
 			})
 			if err != nil {
@@ -629,7 +619,10 @@ func main() {
 			wg.StartWithContext(ctx, func(ctx context.Context) {
 				// cancel context at the end
 				defer cancel()
-				mgr.Start(ctx)
+				if err := mgr.Start(ctx); err != nil {
+					setup.Logger.Error(err, "failed to start manager")
+					os.Exit(1)
+				}
 			})
 			if !mgr.GetCache().WaitForCacheSync(ctx) {
 				defer cancel()
