@@ -51,6 +51,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -591,6 +592,7 @@ func main() {
 			Namespace: internal.ExceptionNamespace(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
+		var celEngine celengine.Engine
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
@@ -608,7 +610,7 @@ func main() {
 			// create compiler
 			compiler := celpolicy.NewCompiler()
 			// create provider
-			_, err = celengine.NewKubeProvider(compiler, mgr)
+			provider, err := celengine.NewKubeProvider(compiler, mgr)
 			if err != nil {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
@@ -629,6 +631,13 @@ func main() {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
 			}
+			celEngine = celengine.NewEngine(provider, func(name string) *corev1.Namespace {
+				ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+				if err != nil {
+					return nil
+				}
+				return ns
+			})
 		}
 		server := webhooks.NewServer(
 			signalCtx,
@@ -656,6 +665,7 @@ func main() {
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
 			int32(webhookServerPort), //nolint:gosec
+			celEngine,
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers
