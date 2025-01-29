@@ -1,10 +1,8 @@
 package engine
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"slices"
 	"sync"
 
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
@@ -57,40 +55,27 @@ func NewKubeProvider(compiler policy.Compiler, mgr ctrl.Manager) (Provider, erro
 }
 
 type policyReconciler struct {
-	client       client.Client
-	compiler     policy.Compiler
-	lock         *sync.Mutex
-	policies     map[string]CompiledPolicy
-	sortPolicies func() []CompiledPolicy
+	client   client.Client
+	compiler policy.Compiler
+	lock     *sync.RWMutex
+	policies map[string]CompiledPolicy
 }
 
 func newPolicyReconciler(compiler policy.Compiler, client client.Client) *policyReconciler {
 	return &policyReconciler{
 		client:   client,
 		compiler: compiler,
-		lock:     &sync.Mutex{},
+		lock:     &sync.RWMutex{},
 		policies: map[string]CompiledPolicy{},
-		sortPolicies: func() []CompiledPolicy {
-			return nil
-		},
 	}
 }
 
 func (r *policyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var policy kyvernov2alpha1.ValidatingPolicy
-	// Reset the sorted func on every reconcile so the policies get resorted in next call
-	resetSortPolicies := func() {
-		r.sortPolicies = sync.OnceValue(func() []CompiledPolicy {
-			r.lock.Lock()
-			defer r.lock.Unlock()
-			return mapToSortedSlice(r.policies)
-		})
-	}
 	err := r.client.Get(ctx, req.NamespacedName, &policy)
 	if errors.IsNotFound(err) {
 		r.lock.Lock()
 		defer r.lock.Unlock()
-		defer resetSortPolicies()
 		delete(r.policies, req.NamespacedName.String())
 		return ctrl.Result{}, nil
 	}
@@ -109,23 +94,11 @@ func (r *policyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		Policy:         policy,
 		CompiledPolicy: compiled,
 	}
-	resetSortPolicies()
 	return ctrl.Result{}, nil
 }
 
 func (r *policyReconciler) CompiledPolicies(ctx context.Context) ([]CompiledPolicy, error) {
-	return slices.Clone(r.sortPolicies()), nil
-}
-
-func mapToSortedSlice[K cmp.Ordered, V any](in map[K]V) []V {
-	if in == nil {
-		return nil
-	}
-	out := make([]V, 0, len(in))
-	keys := maps.Keys(in)
-	slices.Sort(keys)
-	for _, key := range keys {
-		out = append(out, in[key])
-	}
-	return out
+	r.lock.RLock()
+	defer r.lock.RUnlock()
+	return maps.Values(r.policies), nil
 }
