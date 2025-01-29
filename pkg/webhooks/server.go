@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/api/kyverno"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -91,6 +92,7 @@ func NewServer(
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	discovery dclient.IDiscovery,
 	webhookServerPort int32,
+	celEngine celengine.Engine,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -137,8 +139,14 @@ func NewServer(
 		"VPOL",
 		config.ValidatingPolicyServicePath,
 		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
-			// TODO
-			return admissionutils.ResponseSuccess(request.UID)
+			newResource, _, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
+			if err != nil {
+				return admissionutils.Response(request.UID, err)
+			}
+			_, err = celEngine.Handle(ctx, celengine.EngineRequest{
+				Resource: &newResource,
+			})
+			return admissionutils.Response(request.UID, err)
 		},
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
