@@ -16,7 +16,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.4.0
 	github.com/dgraph-io/ristretto v0.2.0
 	github.com/distribution/reference v0.6.0
-	github.com/evanphx/json-patch/v5 v5.9.10
+	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.18.0
 	github.com/fluxcd/pkg/oci v0.43.1
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
