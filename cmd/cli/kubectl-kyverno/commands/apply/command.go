@@ -324,7 +324,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	eng := engine.NewEngine(provider, namespaceProvider)
+	eng := engine.NewEngine(provider, namespaceProvider, nil)
 	// TODO: mock when no cluster provided
 	var contextProvider celpolicy.Context
 	if dclient != nil {
