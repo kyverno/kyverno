@@ -1,9 +1,12 @@
 package context
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/pkg/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -104,26 +107,24 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	env, err := base.Extend(options...)
 	assert.NoError(t, err)
 	assert.NotNil(t, env)
-	ast, issues := env.Compile(`context.GetGlobalReference("foo")`)
+	ast, issues := env.Compile(`context.GetImageData("ghcr.io/kyverno/kyverno:latest")`)
 	assert.Nil(t, issues)
 	assert.NotNil(t, ast)
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 	assert.NotNil(t, prog)
-	called := false
 	data := map[string]any{
 		"context": Context{&ctx{
-			GetGlobalReferenceFunc: func(string) (any, error) {
-				type foo struct {
-					s string
-				}
-				called = true
-				return foo{"bar"}, nil
+			GetImageDataFunc: func(image string) (any, error) {
+				idl, err := imagedataloader.New(nil)
+				assert.NoError(t, err)
+				return idl.FetchImageData(context.TODO(), image)
 			},
 		}},
 	}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
-	assert.NotNil(t, out)
-	assert.True(t, called)
+	img := out.Value().(*imagedataloader.ImageData)
+	assert.Equal(t, img.Tag, "latest")
+	assert.True(t, strings.HasPrefix(img.ResolvedImage, "ghcr.io/kyverno/kyverno:latest@sha256:"))
 }
