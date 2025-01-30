@@ -120,7 +120,7 @@ crds:
     image:
       # -- (string) Image registry
       registry: ~
-      defaultRegistry: ghcr.io
+      defaultRegistry: reg.kyverno.io
       # -- (string) Image repository
       repository: kyverno/kyverno-cli
       # -- (string) Image tag
@@ -960,7 +960,7 @@ admissionController:
     image:
       # -- Image registry
       registry: ~
-      defaultRegistry: ghcr.io
+      defaultRegistry: reg.kyverno.io
       # -- Image repository
       repository: kyverno/kyvernopre
       # -- (string) Image tag
@@ -1009,7 +1009,7 @@ admissionController:
     image:
       # -- Image registry
       registry: ~
-      defaultRegistry: ghcr.io
+      defaultRegistry: reg.kyverno.io
       # -- Image repository
       repository: kyverno/kyverno
       # -- (string) Image tag
@@ -1229,7 +1229,7 @@ backgroundController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: ghcr.io
+    defaultRegistry: reg.kyverno.io
     # -- Image repository
     repository: kyverno/background-controller
     # -- Image tag
@@ -1498,7 +1498,7 @@ cleanupController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: ghcr.io
+    defaultRegistry: reg.kyverno.io
     # -- Image repository
     repository: kyverno/cleanup-controller
     # -- (string) Image tag
@@ -1817,7 +1817,7 @@ reportsController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: ghcr.io
+    defaultRegistry: reg.kyverno.io
     # -- Image repository
     repository: kyverno/reports-controller
     # -- (string) Image tag
