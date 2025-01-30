@@ -97,14 +97,13 @@ func makeBaseOptions(opts ...Option) []crane.Option {
 	}
 
 	var transport http.RoundTripper
+	transport = DefaultTransport
 	if opt.tracing {
-		transport = tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
-	} else {
-		transport = DefaultTransport
+		transport = tracing.Transport(DefaultTransport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
 	}
 
 	craneOpts = append(craneOpts,
-		crane.WithTransport(DefaultTransport),
+		crane.WithTransport(transport),
 		crane.WithUserAgent(UserAgent),
 	)
 

@@ -101,7 +101,6 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		img.ResolvedImage = fmt.Sprintf("%s:%s@%s", ref.Context().Name(), img.Tag, img.Digest)
 	} else {
 		img.ResolvedImage = fmt.Sprintf("%s@%s", ref.Context().Name(), img.Digest)
-
 	}
 
 	// error returned means no image index
