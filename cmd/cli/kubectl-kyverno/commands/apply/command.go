@@ -15,6 +15,8 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
+
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -432,6 +434,8 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	if err != nil {
 		return resources, fmt.Errorf("failed to load resources (%w)", err)
 	}
+	resources = test.ProcessResources(resources)
+
 	return resources, nil
 }
 
