@@ -10,9 +10,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 )
@@ -61,16 +61,9 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 		return response, err
 	}
 	// resolve namespace
-	var namespace *unstructured.Unstructured
+	var namespace runtime.Object
 	if ns := request.Resource.GetNamespace(); ns != "" {
-		coreNs := e.nsResolver(ns)
-		if coreNs != nil {
-			ns, err := kubeutils.ObjToUnstructured(coreNs)
-			if err != nil {
-				return response, err
-			}
-			namespace = ns
-		}
+		namespace = e.nsResolver(ns)
 	}
 	attr := admission.NewAttributesRecord(
 		request.Resource,
@@ -91,7 +84,7 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	return response, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, namespace *unstructured.Unstructured, context contextlib.ContextInterface) PolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
 	response := PolicyResponse{
 		Policy: policy.Policy,
 	}
@@ -102,8 +95,7 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 			return response
 		}
 	}
-	object := attr.GetObject().(*unstructured.Unstructured)
-	results, err := policy.CompiledPolicy.Evaluate(ctx, object, namespace, context)
+	results, err := policy.CompiledPolicy.Evaluate(ctx, attr, namespace, context)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
