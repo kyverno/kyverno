@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/pkg/cel/policy"
+	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -16,6 +17,7 @@ import (
 
 type EngineRequest struct {
 	Resource *unstructured.Unstructured
+	Context  contextlib.ContextInterface
 }
 
 type EngineResponse struct {
@@ -29,20 +31,22 @@ type PolicyResponse struct {
 }
 
 type Engine interface {
-	Handle(context.Context, EngineRequest, ...policy.CompiledPolicy) (EngineResponse, error)
+	Handle(context.Context, EngineRequest) (EngineResponse, error)
 }
 
 type NamespaceResolver = func(string) *corev1.Namespace
 
 type engine struct {
-	nsResolver NamespaceResolver
 	provider   Provider
+	nsResolver NamespaceResolver
+	matcher    matching.Matcher
 }
 
-func NewEngine(provider Provider, nsResolver NamespaceResolver) *engine {
+func NewEngine(provider Provider, nsResolver NamespaceResolver, matcher matching.Matcher) Engine {
 	return &engine{
-		nsResolver: nsResolver,
 		provider:   provider,
+		nsResolver: nsResolver,
+		matcher:    matcher,
 	}
 }
 
@@ -67,33 +71,39 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 		}
 	}
 	for _, policy := range policies {
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.Resource, namespace))
+		response.Policies = append(response.Policies, e.handlePolicy(ctx, request, policy, namespace))
 	}
 	return response, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, resource *unstructured.Unstructured, namespace *unstructured.Unstructured) PolicyResponse {
-	var rules []engineapi.RuleResponse
-	results, err := policy.CompiledPolicy.Evaluate(ctx, resource, namespace)
+func (e *engine) handlePolicy(ctx context.Context, request EngineRequest, policy CompiledPolicy, namespace *unstructured.Unstructured) PolicyResponse {
+	response := PolicyResponse{
+		Policy: policy.Policy,
+	}
+	if e.matcher != nil {
+		criteria := matchCriteria{constraints: policy.Policy.Spec.MatchConstraints}
+		// TODO: err handling
+		if matches, err := e.matcher.Match(&criteria, request.Resource, namespace); err != nil || !matches {
+			return response
+		}
+	}
+	results, err := policy.CompiledPolicy.Evaluate(ctx, request.Resource, namespace, request.Context)
 	// TODO: error is about match conditions here ?
 	if err != nil {
-		rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
+		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
 	} else {
 		for index, result := range results {
 			ruleName := fmt.Sprintf("rule-%d", index)
 			if result.Error != nil {
-				rules = append(rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", err, nil))
+				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", err, nil))
 			} else if result, err := utils.ConvertToNative[bool](result.Result); err != nil {
-				rules = append(rules, *engineapi.RuleError(ruleName, engineapi.Validation, "conversion error", err, nil))
+				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "conversion error", err, nil))
 			} else if result {
-				rules = append(rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", nil))
+				response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", nil))
 			} else {
-				rules = append(rules, *engineapi.RuleFail(ruleName, engineapi.Validation, "failure", nil))
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, "failure", nil))
 			}
 		}
 	}
-	return PolicyResponse{
-		Policy: policy.Policy,
-		Rules:  rules,
-	}
+	return response
 }

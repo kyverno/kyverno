@@ -1,0 +1,14 @@
+apiVersion: kyverno.io/v2alpha1
+kind: ValidatingPolicy
+metadata:
+  name: check-deployment-replicas
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["deployments"]
+  validations:
+    - expression: "object.spec.replicas <= 2"
+      message: "Deployment replicas must be less than or equal 2"

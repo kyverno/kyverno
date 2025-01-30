@@ -5,8 +5,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var ContextType = types.NewObjectType("context.Context")
+var ContextType = types.NewOpaqueType("context.Context")
 
-type Context interface {
+type ContextInterface interface {
 	GetConfigMap(string, string) (unstructured.Unstructured, error)
+	GetGlobalReference(string) (any, error)
+	GetImageData(string) (any, error)
+}
+
+type Context struct {
+	ContextInterface
 }

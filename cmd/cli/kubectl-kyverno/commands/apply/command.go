@@ -316,7 +316,7 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	resources []*unstructured.Unstructured,
 	namespaceProvider func(string) *corev1.Namespace,
 	_ *processor.ResultCounts,
-	_ dclient.Interface,
+	dclient dclient.Interface,
 ) ([]engineapi.EngineResponse, error) {
 	ctx := context.TODO()
 	compiler := celpolicy.NewCompiler()
@@ -324,10 +324,16 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	eng := engine.NewEngine(provider, namespaceProvider)
+	eng := engine.NewEngine(provider, namespaceProvider, nil)
+	// TODO: mock when no cluster provided
+	var contextProvider celpolicy.Context
+	if dclient != nil {
+		contextProvider = celpolicy.NewContextProvider(dclient.GetKubeClient())
+	}
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		request := engine.EngineRequest{
+			Context:  contextProvider,
 			Resource: resource,
 		}
 		response, err := eng.Handle(ctx, request)

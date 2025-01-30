@@ -26,6 +26,7 @@ import (
 // with apply.
 type ValidatingPolicySpecApplyConfiguration struct {
 	v1.ValidatingAdmissionPolicySpec `json:",inline"`
+	ValidationAction                 []v1.ValidationAction                   `json:"validationActions,omitempty"`
 	WebhookConfiguration             *WebhookConfigurationApplyConfiguration `json:"webhookConfiguration,omitempty"`
 }
 
@@ -95,6 +96,16 @@ func (b *ValidatingPolicySpecApplyConfiguration) WithMatchConditions(values ...v
 func (b *ValidatingPolicySpecApplyConfiguration) WithVariables(values ...v1.Variable) *ValidatingPolicySpecApplyConfiguration {
 	for i := range values {
 		b.Variables = append(b.Variables, values[i])
+	}
+	return b
+}
+
+// WithValidationAction adds the given value to the ValidationAction field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the ValidationAction field.
+func (b *ValidatingPolicySpecApplyConfiguration) WithValidationAction(values ...v1.ValidationAction) *ValidatingPolicySpecApplyConfiguration {
+	for i := range values {
+		b.ValidationAction = append(b.ValidationAction, values[i])
 	}
 	return b
 }
