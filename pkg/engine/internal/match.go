@@ -5,9 +5,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -88,12 +88,12 @@ func checkMatchConditions(logger logr.Logger, policyContext engineapi.PolicyCont
 	}
 
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: false, HasAuthorizer: false}
-	compiler, err := celutils.NewCompiler(nil, nil, policy.GetSpec().GetMatchConditions(), nil)
+	compiler, err := admissionpolicy.NewCompiler(policy.GetSpec().GetMatchConditions(), nil)
 	if err != nil {
 		logger.Error(err, "error creating composited compiler")
 		return false
 	}
-	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
+	matchConditionFilter := compiler.CompileMatchConditions(optionalVars)
 	matcher := matchconditions.NewMatcher(matchConditionFilter, nil, policy.GetKind(), "", policy.GetName())
 	result := matcher.Match(context.TODO(), versionedAttr, nil, nil)
 	return result.Matches

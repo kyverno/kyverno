@@ -7,13 +7,17 @@ import (
 	"flag"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -38,7 +42,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
-	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
@@ -49,10 +52,14 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	ctrl "sigs.k8s.io/controller-runtime"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -145,6 +152,7 @@ func createrLeaderControllers(
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V2alpha1().ValidatingPolicies(),
 		deploymentInformer,
 		caInformer,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
@@ -319,10 +327,11 @@ func main() {
 		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
 		internal.WithReporting(),
+		internal.WithRestConfig(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
-	var wg sync.WaitGroup
+	var wg wait.Group
 	func() {
 		// setup
 		signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
@@ -338,7 +347,7 @@ func main() {
 		// check if validating admission policies are registered in the API server
 		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
 		if generateValidatingAdmissionPolicy {
-			registered, err := validatingadmissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
+			registered, err := admissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
 			if !registered {
 				setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
 				os.Exit(1)
@@ -365,7 +374,6 @@ func main() {
 		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
-
 		certRenewer := tls.NewCertRenewer(
 			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 			tls.CertRenewalInterval,
@@ -520,7 +528,7 @@ func main() {
 					}
 				}
 				// start leader controllers
-				var wg sync.WaitGroup
+				var wg wait.Group
 				for _, controller := range leaderControllers {
 					controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 				}
@@ -585,6 +593,57 @@ func main() {
 			Namespace: internal.ExceptionNamespace(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
+		var celEngine celengine.Engine
+		{
+			// create a controller manager
+			scheme := kruntime.NewScheme()
+			if err := kyvernov2alpha1.Install(scheme); err != nil {
+				setup.Logger.Error(err, "failed to initialize scheme")
+				os.Exit(1)
+			}
+			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
+				Scheme: scheme,
+			})
+			if err != nil {
+				setup.Logger.Error(err, "failed to construct manager")
+				os.Exit(1)
+			}
+			// create compiler
+			compiler := celpolicy.NewCompiler()
+			// create provider
+			provider, err := celengine.NewKubeProvider(compiler, mgr)
+			if err != nil {
+				setup.Logger.Error(err, "failed to create policy provider")
+				os.Exit(1)
+			}
+			// create a cancellable context
+			ctx, cancel := context.WithCancel(signalCtx)
+			// start manager
+			wg.StartWithContext(ctx, func(ctx context.Context) {
+				// cancel context at the end
+				defer cancel()
+				if err := mgr.Start(ctx); err != nil {
+					setup.Logger.Error(err, "failed to start manager")
+					os.Exit(1)
+				}
+			})
+			if !mgr.GetCache().WaitForCacheSync(ctx) {
+				defer cancel()
+				setup.Logger.Error(err, "failed to create policy provider")
+				os.Exit(1)
+			}
+			celEngine = celengine.NewEngine(
+				provider,
+				func(name string) *corev1.Namespace {
+					ns, err := setup.KubeClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+					if err != nil {
+						return nil
+					}
+					return ns
+				},
+				matching.NewMatcher(),
+			)
+		}
 		server := webhooks.NewServer(
 			signalCtx,
 			policyHandlers,
@@ -611,6 +670,7 @@ func main() {
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
 			int32(webhookServerPort), //nolint:gosec
+			celEngine,
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers

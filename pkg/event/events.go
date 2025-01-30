@@ -23,7 +23,7 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		Kind:       pol.GetKind(),
 		Name:       pol.GetName(),
 		Namespace:  pol.GetNamespace(),
-		UID:        pol.MetaObject().GetUID(),
+		UID:        pol.GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
 	return Info{
@@ -75,7 +75,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 
 	var action Action
 	policy := engineResponse.Policy()
-	if policy.GetType() == engineapi.KyvernoPolicyType {
+	if policy.AsKyvernoPolicy() != nil {
 		pol := engineResponse.Policy().AsKyvernoPolicy()
 		hasValidate := pol.GetSpec().HasValidate()
 		hasVerifyImages := pol.GetSpec().HasVerifyImages()
@@ -96,7 +96,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
-		UID:        policy.MetaObject().GetUID(),
+		UID:        policy.GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
 	return Info{

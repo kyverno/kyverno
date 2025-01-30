@@ -205,7 +205,7 @@ func (er EngineResponse) getRulesWithErrors(predicate func(RuleResponse) bool) [
 // If the policy is of type ValidatingAdmissionPolicy, an empty string is returned.
 func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
 	pol := er.Policy()
-	if polType := pol.GetType(); polType == ValidatingAdmissionPolicyType {
+	if pol.AsKyvernoPolicy() == nil {
 		return ""
 	}
 	spec := pol.AsKyvernoPolicy().GetSpec()

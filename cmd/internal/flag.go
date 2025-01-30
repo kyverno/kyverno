@@ -94,7 +94,11 @@ func initMetricsFlags() {
 }
 
 func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst int) {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	if f := flag.CommandLine.Lookup("kubeconfig"); f != nil {
+		kubeconfig = f.Value.String()
+	} else {
+		flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	}
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", qps, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", burst, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Float64Var(&eventsRateLimitQPS, "eventsRateLimitQPS", eventsQPS, "Configure the maximum QPS to the Kubernetes API server from Kyverno for events. Uses the client default if zero.")
@@ -233,7 +237,6 @@ func initFlags(config Configuration, opts ...Option) {
 	if config.UsesReporting() {
 		initReportingFlags()
 	}
-
 	initCleanupFlags()
 	for _, flagset := range config.FlagSets() {
 		flagset.VisitAll(func(f *flag.Flag) {

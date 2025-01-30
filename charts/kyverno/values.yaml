@@ -82,6 +82,7 @@ crds:
       policies: true
       policyexceptions: true
       updaterequests: true
+      validatingpolicies: true
 
     # -- Install CRDs in group `reports.kyverno.io`
     reports:
@@ -119,7 +120,7 @@ crds:
     image:
       # -- (string) Image registry
       registry: ~
-      defaultRegistry: ghcr.io
+      defaultRegistry: reg.kyverno.io
       # -- (string) Image repository
       repository: kyverno/kyverno-cli
       # -- (string) Image tag
@@ -974,7 +975,7 @@ admissionController:
     image:
       # -- Image registry
       registry: ~
-      defaultRegistry: ghcr.io
+      defaultRegistry: reg.kyverno.io
       # -- Image repository
       repository: kyverno/kyvernopre
       # -- (string) Image tag
@@ -1021,7 +1022,7 @@ admissionController:
     image:
       # -- Image registry
       registry: ~
-      defaultRegistry: ghcr.io
+      defaultRegistry: reg.kyverno.io
       # -- Image repository
       repository: kyverno/kyverno
       # -- (string) Image tag
@@ -1239,7 +1240,7 @@ backgroundController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: ghcr.io
+    defaultRegistry: reg.kyverno.io
     # -- Image repository
     repository: kyverno/background-controller
     # -- Image tag
@@ -1506,7 +1507,7 @@ cleanupController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: ghcr.io
+    defaultRegistry: reg.kyverno.io
     # -- Image repository
     repository: kyverno/cleanup-controller
     # -- (string) Image tag
@@ -1823,7 +1824,7 @@ reportsController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: ghcr.io
+    defaultRegistry: reg.kyverno.io
     # -- Image repository
     repository: kyverno/reports-controller
     # -- (string) Image tag
@@ -2075,3 +2076,6 @@ reportsController:
     # -- Service node port.
     # Only used if `type` is `NodePort`.
     nodePort:
+
+  # -- Enable sanity check for reports CRDs
+  sanityChecks: true

@@ -8,13 +8,12 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	celutils "github.com/kyverno/kyverno/pkg/utils/cel"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	vaputils "github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,15 +119,17 @@ func (h validateCELHandler) Process(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
 	expressionOptionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	// compile CEL expressions
-	compiler, err := celutils.NewCompiler(validations, auditAnnotations, vaputils.ConvertMatchConditionsV1(matchConditions), variables)
+	compiler, err := admissionpolicy.NewCompiler(admissionpolicy.ConvertMatchConditionsV1(matchConditions), variables)
 	if err != nil {
 		return resource, handlers.WithError(rule, engineapi.Validation, "Error while creating composited compiler", err)
 	}
+	compiler.WithValidations(validations)
+	compiler.WithAuditAnnotations(auditAnnotations)
 	compiler.CompileVariables(optionalVars)
-	filter := compiler.CompileValidateExpressions(optionalVars)
+	filter := compiler.CompileValidations(optionalVars)
 	messageExpressionfilter := compiler.CompileMessageExpressions(expressionOptionalVars)
 	auditAnnotationFilter := compiler.CompileAuditAnnotationsExpressions(optionalVars)
-	matchConditionFilter := compiler.CompileMatchExpressions(optionalVars)
+	matchConditionFilter := compiler.CompileMatchConditions(optionalVars)
 
 	// newMatcher will be used to check if the incoming resource matches the CEL preconditions
 	newMatcher := matchconditions.NewMatcher(matchConditionFilter, nil, policyKind, "", policyName)
