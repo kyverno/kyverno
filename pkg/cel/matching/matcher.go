@@ -90,7 +90,6 @@ func _matchObject(obj runtime.Object, selector labels.Selector) bool {
 		return false
 	}
 	return selector.Matches(labels.Set(accessor.GetLabels()))
-
 }
 
 func matchObject(provider namespace.NamespaceSelectorProvider, attr admission.Attributes) (bool, error) {
