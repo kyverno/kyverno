@@ -3348,3 +3348,60 @@ func Test_isMapStringString(t *testing.T) {
 		})
 	}
 }
+
+func Test_Shallow_Variable_Substitution(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "vault-auth-backend"
+  },
+  "spec": {
+    "admission": true,
+    "background": true,
+    "mutateExistingOnPolicyUpdate": true,
+    "validationFailureAction": "Audit",
+    "rules": [
+      {
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "ConfigMap"
+                ],
+                "names": [
+                  "kyverno-test-*"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "data": {
+              "config-init.hcl": "{{ replace_all('{{- request.object.data.\"config-init.hcl\" }}','auth/auth-backend-ori','auth/auth-backend-new') }}"
+            }
+          },
+          "targets": [
+            {
+              "apiVersion": "v1",
+              "kind": "ConfigMap",
+              "namespace": "{{request.namespace}}",
+              "name": "{{request.name}}"
+            }
+          ]
+        },
+        "name": "vault-injector-config-ori-to-new-auth-backend"
+      }
+    ]
+  }
+}`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	err = ValidateVariables(policy, true)
+	assert.Nil(t, err)
+}
