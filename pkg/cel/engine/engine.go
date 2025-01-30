@@ -13,6 +13,8 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
 )
 
 type EngineRequest struct {
@@ -70,24 +72,38 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 			namespace = ns
 		}
 	}
+	attr := admission.NewAttributesRecord(
+		request.Resource,
+		nil,
+		request.Resource.GroupVersionKind(),
+		request.Resource.GetNamespace(),
+		request.Resource.GetName(),
+		schema.GroupVersionResource{},
+		"",
+		admission.Create,
+		nil,
+		false,
+		nil,
+	)
 	for _, policy := range policies {
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, request, policy, namespace))
+		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, attr, namespace, request.Context))
 	}
 	return response, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, request EngineRequest, policy CompiledPolicy, namespace *unstructured.Unstructured) PolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, namespace *unstructured.Unstructured, context contextlib.ContextInterface) PolicyResponse {
 	response := PolicyResponse{
 		Policy: policy.Policy,
 	}
 	if e.matcher != nil {
 		criteria := matchCriteria{constraints: policy.Policy.Spec.MatchConstraints}
 		// TODO: err handling
-		if matches, err := e.matcher.Match(&criteria, request.Resource, namespace); err != nil || !matches {
+		if matches, err := e.matcher.Match(&criteria, attr, namespace); err != nil || !matches {
 			return response
 		}
 	}
-	results, err := policy.CompiledPolicy.Evaluate(ctx, request.Resource, namespace, request.Context)
+	object := attr.GetObject().(*unstructured.Unstructured)
+	results, err := policy.CompiledPolicy.Evaluate(ctx, object, namespace, context)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
