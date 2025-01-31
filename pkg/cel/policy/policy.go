@@ -19,19 +19,25 @@ import (
 )
 
 type EvaluationResult struct {
-	Result ref.Val
-	Error  error
+	Error   error
+	Message string
+	Result  ref.Val
 }
 
 type CompiledPolicy interface {
 	Evaluate(context.Context, admission.Attributes, runtime.Object, contextlib.ContextInterface) ([]EvaluationResult, error)
 }
 
+type compiledValidation struct {
+	message string
+	program cel.Program
+}
+
 type compiledPolicy struct {
 	failurePolicy    admissionregistrationv1.FailurePolicyType
 	matchConditions  []cel.Program
 	variables        map[string]cel.Program
-	validations      []cel.Program
+	validations      []compiledValidation
 	auditAnnotations map[string]cel.Program
 }
 
@@ -81,11 +87,12 @@ func (p *compiledPolicy) Evaluate(
 		})
 	}
 	results := make([]EvaluationResult, 0, len(p.validations))
-	for _, rule := range p.validations {
-		out, _, err := rule.Eval(data)
+	for _, validation := range p.validations {
+		out, _, err := validation.program.Eval(data)
 		results = append(results, EvaluationResult{
-			Result: out,
-			Error:  err,
+			Result:  out,
+			Message: validation.message,
+			Error:   err,
 		})
 	}
 	return results, nil
