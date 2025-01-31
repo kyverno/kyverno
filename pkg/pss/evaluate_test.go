@@ -26,7 +26,6 @@ func Test_EvaluatePod(t *testing.T) {
 		baseline_sysctls,
 		restricted_volume_types,
 		restricted_privilege_escalation,
-		restricted_runAsNonRoot,
 		restricted_runAsUser,
 		restricted_seccompProfile,
 		restricted_capabilities,

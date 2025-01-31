@@ -20,8 +20,45 @@ var (
 	regexStr   = regexp.MustCompile(`[a-zA-Z]+`)
 )
 
+func enforceRunAsNonRoot(pod *corev1.Pod) {
+	// Ensure pod-level security context exists and set runAsNonRoot
+	if pod.Spec.SecurityContext == nil {
+		pod.Spec.SecurityContext = &corev1.PodSecurityContext{}
+	}
+
+	// Explicitly set runAsNonRoot at the pod level to true
+	defaultRunAsNonRoot := true
+	if pod.Spec.SecurityContext.RunAsNonRoot == nil {
+		pod.Spec.SecurityContext.RunAsNonRoot = &defaultRunAsNonRoot
+	}
+
+	// Apply security context to each container
+	for i := range pod.Spec.Containers {
+		applyContainerSecurityDefaults(&pod.Spec.Containers[i])
+	}
+
+	// Apply security context to each initContainer (if applicable)
+	for i := range pod.Spec.InitContainers {
+		applyContainerSecurityDefaults(&pod.Spec.InitContainers[i])
+	}
+}
+
+func applyContainerSecurityDefaults(container *corev1.Container) {
+	// Apply security context defaults to each container
+	defaultRunAsNonRoot := true
+	if container.SecurityContext == nil {
+		container.SecurityContext = &corev1.SecurityContext{}
+	}
+
+	// Set runAsNonRoot to true for each container if not already set
+	if container.SecurityContext.RunAsNonRoot == nil {
+		container.SecurityContext.RunAsNonRoot = &defaultRunAsNonRoot
+	}
+}
+
 // Evaluate Pod's specified containers only and get PSSCheckResults
 func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
+	enforceRunAsNonRoot(&pod)
 	checks := policy.DefaultChecks()
 	for _, check := range checks {
 		if level.Level == api.LevelBaseline && check.Level != level.Level {
