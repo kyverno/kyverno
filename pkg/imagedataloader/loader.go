@@ -80,7 +80,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		return nil, err
 	}
 
-	if json.Unmarshal(manifest, &img.Manifest); err != nil {
+	if err := json.Unmarshal(manifest, &img.Manifest); err != nil {
 		return nil, err
 	}
 
@@ -89,7 +89,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		return nil, err
 	}
 
-	if json.Unmarshal(config, &img.ConfigData); err != nil {
+	if err := json.Unmarshal(config, &img.ConfigData); err != nil {
 		return nil, err
 	}
 
