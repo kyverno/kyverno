@@ -14,7 +14,7 @@ import (
 type ctx struct {
 	GetConfigMapFunc       func(string, string) (unstructured.Unstructured, error)
 	GetGlobalReferenceFunc func(string) (any, error)
-	GetImageDataFunc       func(string) (any, error)
+	GetImageDataFunc       func(string) (*imagedataloader.ImageData, error)
 }
 
 func (mock *ctx) GetConfigMap(ns string, n string) (unstructured.Unstructured, error) {
@@ -25,7 +25,7 @@ func (mock *ctx) GetGlobalReference(n string) (any, error) {
 	return mock.GetGlobalReferenceFunc(n)
 }
 
-func (mock *ctx) GetImageData(n string) (any, error) {
+func (mock *ctx) GetImageData(n string) (*imagedataloader.ImageData, error) {
 	return mock.GetImageDataFunc(n)
 }
 
@@ -115,7 +115,7 @@ func Test_impl_get_imagedata_string(t *testing.T) {
 	assert.NotNil(t, prog)
 	data := map[string]any{
 		"context": Context{&ctx{
-			GetImageDataFunc: func(image string) (any, error) {
+			GetImageDataFunc: func(image string) (*imagedataloader.ImageData, error) {
 				idl, err := imagedataloader.New(nil)
 				assert.NoError(t, err)
 				return idl.FetchImageData(context.TODO(), image)

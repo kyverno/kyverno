@@ -46,7 +46,7 @@ func (cp *contextProvider) GetGlobalReference(string) (any, error) {
 	return nil, nil
 }
 
-func (cp *contextProvider) GetImageData(image string) (any, error) {
+func (cp *contextProvider) GetImageData(image string) (*imagedataloader.ImageData, error) {
 	// TODO: get image credentials from image verification policies?
 	return cp.imagedata.FetchImageData(context.TODO(), image)
 }

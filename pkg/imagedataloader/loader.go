@@ -42,7 +42,7 @@ type ImageData struct {
 	Digest        string      `json:"digest,omitempty"`
 	ImageIndex    interface{} `json:"imageIndex,omitempty"`
 	Manifest      interface{} `json:"manifest,omitempty"`
-	ConfigData    interface{} `json:"configData,omitempty"`
+	ConfigData    interface{} `json:"config,omitempty"`
 }
 
 func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, options ...Option) (*ImageData, error) {
