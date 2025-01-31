@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -77,20 +77,20 @@ func WithLocalCredentials(v bool) Option {
 	}
 }
 
-func makeDefaultOpts(lister v1.SecretInterface, opts ...Option) ([]crane.Option, error) {
-	craneOpts := make([]crane.Option, 0)
-	craneOpts = append(craneOpts, makeBaseOptions(opts...)...)
+func makeDefaultOpts(lister v1.SecretInterface, opts ...Option) ([]remote.Option, error) {
+	remoteOpts := make([]remote.Option, 0)
+	remoteOpts = append(remoteOpts, makeBaseOptions(opts...)...)
 	authOpts, err := makeAuthOptions(lister, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	craneOpts = append(craneOpts, authOpts...)
-	return craneOpts, nil
+	remoteOpts = append(remoteOpts, authOpts...)
+	return remoteOpts, nil
 }
 
-func makeBaseOptions(opts ...Option) []crane.Option {
-	craneOpts := make([]crane.Option, 0)
+func makeBaseOptions(opts ...Option) []remote.Option {
+	remoteOpts := make([]remote.Option, 0)
 	opt := options{}
 	for _, o := range opts {
 		o(&opt)
@@ -102,24 +102,20 @@ func makeBaseOptions(opts ...Option) []crane.Option {
 		transport = tracing.Transport(DefaultTransport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
 	}
 
-	craneOpts = append(craneOpts,
-		crane.WithTransport(transport),
-		crane.WithUserAgent(UserAgent),
+	remoteOpts = append(remoteOpts,
+		remote.WithTransport(transport),
+		remote.WithUserAgent(UserAgent),
 	)
 
-	return craneOpts
+	return remoteOpts
 }
 
-func makeAuthOptions(lister v1.SecretInterface, opts ...Option) ([]crane.Option, error) {
-	craneOpts := make([]crane.Option, 0)
+func makeAuthOptions(lister v1.SecretInterface, opts ...Option) ([]remote.Option, error) {
+	remoteOpts := make([]remote.Option, 0)
 
 	opt := options{}
 	for _, o := range opts {
 		o(&opt)
-	}
-
-	if opt.insecure {
-		craneOpts = append(craneOpts, crane.Insecure)
 	}
 
 	keychains := make([]authn.Keychain, 0)
@@ -146,10 +142,10 @@ func makeAuthOptions(lister v1.SecretInterface, opts ...Option) ([]crane.Option,
 		keychains = []authn.Keychain{AnonymousKeychain}
 	}
 
-	craneOpts = append(craneOpts,
-		crane.WithAuthFromKeychain(authn.NewMultiKeychain(keychains...)),
+	remoteOpts = append(remoteOpts,
+		remote.WithAuthFromKeychain(authn.NewMultiKeychain(keychains...)),
 	)
-	return craneOpts, nil
+	return remoteOpts, nil
 }
 
 func nameOptions(opts ...Option) []name.Option {

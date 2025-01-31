@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -14,7 +14,7 @@ type imagedatafetcher struct {
 	// TODO: Add caching and prefetching
 
 	lister         k8scorev1.SecretInterface
-	defaultOptions []crane.Option
+	defaultOptions []remote.Option
 }
 
 type Fetcher interface {
@@ -22,14 +22,14 @@ type Fetcher interface {
 }
 
 func New(lister k8scorev1.SecretInterface, opts ...Option) (*imagedatafetcher, error) {
-	craneOpts, err := makeDefaultOpts(lister, opts...)
+	remoteOpts, err := makeDefaultOpts(lister, opts...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &imagedatafetcher{
 		lister:         lister,
-		defaultOptions: craneOpts,
+		defaultOptions: remoteOpts,
 	}, nil
 }
 
@@ -50,7 +50,7 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		Image: image,
 	}
 
-	craneOpts, err := i.craneOptions(ctx, i.lister, options...)
+	remoteOpts, err := i.remoteOptions(ctx, i.lister, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -70,25 +70,30 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 		img.Digest = ref.Identifier()
 	}
 
-	manifestBytes, err := crane.Manifest(image, craneOpts...)
+	remoteImg, err := remote.Image(ref, remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(manifestBytes, &img.Manifest); err != nil {
-		return nil, err
-	}
-
-	configBytes, err := crane.Config(image, craneOpts...)
+	manifest, err := remoteImg.RawManifest()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(configBytes, &img.ConfigData); err != nil {
+	if json.Unmarshal(manifest, &img.Manifest); err != nil {
 		return nil, err
 	}
 
-	desc, err := crane.Get(image, craneOpts...)
+	config, err := remoteImg.RawConfigFile()
+	if err != nil {
+		return nil, err
+	}
+
+	if json.Unmarshal(config, &img.ConfigData); err != nil {
+		return nil, err
+	}
+
+	desc, err := remote.Get(ref, remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +123,8 @@ func (i *imagedatafetcher) FetchImageData(ctx context.Context, image string, opt
 	return &img, nil
 }
 
-func (i *imagedatafetcher) craneOptions(ctx context.Context, lister k8scorev1.SecretInterface, options ...Option) ([]crane.Option, error) {
-	var opts []crane.Option
+func (i *imagedatafetcher) remoteOptions(ctx context.Context, lister k8scorev1.SecretInterface, options ...Option) ([]remote.Option, error) {
+	var opts []remote.Option
 	opts = append(opts, i.defaultOptions...)
 
 	authOpts, err := makeAuthOptions(lister, options...)
@@ -128,7 +133,7 @@ func (i *imagedatafetcher) craneOptions(ctx context.Context, lister k8scorev1.Se
 	}
 
 	opts = append(opts, authOpts...)
-	opts = append(opts, crane.WithContext(ctx))
+	opts = append(opts, remote.WithContext(ctx))
 
 	return opts, nil
 }

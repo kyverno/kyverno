@@ -32,5 +32,5 @@ func Test_ImageDataLoader(t *testing.T) {
 	assert.True(t, ok)
 
 	manifestMediaType := img.Manifest.(map[string]interface{})["mediaType"].(string)
-	assert.Equal(t, manifestMediaType, string(types.OCIImageIndex))
+	assert.Equal(t, manifestMediaType, string(types.OCIManifestSchema1))
 }
