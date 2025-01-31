@@ -72,9 +72,9 @@ var (
 func ensureCacheDir(logger logr.Logger) {
 	logger = logger.WithName("ensureCacheDir")
 	const cacheDir = "/home/nonroot/.ecr/"
-	if err := os.MkdirAll(cacheDir, 0700); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
 		logger.Error(err, "Failed to create cache directory", "path", cacheDir)
-		os.Exit(1)
+		return
 	}
 	logger.Info("Cache directory ensured", "path", cacheDir)
 }
