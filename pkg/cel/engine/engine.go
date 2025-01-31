@@ -10,6 +10,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,6 +20,7 @@ import (
 )
 
 type EngineRequest struct {
+	Request  *admissionv1.AdmissionRequest
 	Resource *unstructured.Unstructured
 	Context  contextlib.ContextInterface
 }
@@ -62,22 +65,51 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 	}
 	// resolve namespace
 	var namespace runtime.Object
-	if ns := request.Resource.GetNamespace(); ns != "" {
-		namespace = e.nsResolver(ns)
+	var attr admission.Attributes
+	if request.Request != nil {
+		object, oldObject, err := admissionutils.ExtractResources(nil, *request.Request)
+		if err != nil {
+			return response, err
+		}
+		dryRun := false
+		if request.Request.DryRun != nil {
+			dryRun = *request.Request.DryRun
+		}
+		attr = admission.NewAttributesRecord(
+			&object,
+			&oldObject,
+			schema.GroupVersionKind(request.Request.Kind),
+			request.Request.Namespace,
+			request.Request.Name,
+			schema.GroupVersionResource(request.Request.Resource),
+			request.Request.SubResource,
+			admission.Operation(request.Request.Operation),
+			nil,
+			dryRun,
+			// TODO
+			nil,
+		)
+		if ns := request.Request.Namespace; ns != "" {
+			namespace = e.nsResolver(ns)
+		}
+	} else {
+		attr = admission.NewAttributesRecord(
+			request.Resource,
+			nil,
+			request.Resource.GroupVersionKind(),
+			request.Resource.GetNamespace(),
+			request.Resource.GetName(),
+			schema.GroupVersionResource{},
+			"",
+			admission.Create,
+			nil,
+			false,
+			nil,
+		)
+		if ns := request.Resource.GetNamespace(); ns != "" {
+			namespace = e.nsResolver(ns)
+		}
 	}
-	attr := admission.NewAttributesRecord(
-		request.Resource,
-		nil,
-		request.Resource.GroupVersionKind(),
-		request.Resource.GetNamespace(),
-		request.Resource.GetName(),
-		schema.GroupVersionResource{},
-		"",
-		admission.Create,
-		nil,
-		false,
-		nil,
-	)
 	for _, policy := range policies {
 		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, attr, namespace, request.Context))
 	}
