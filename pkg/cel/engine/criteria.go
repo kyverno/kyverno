@@ -12,11 +12,17 @@ type matchCriteria struct {
 
 // GetParsedNamespaceSelector returns the converted LabelSelector which implements labels.Selector
 func (m *matchCriteria) GetParsedNamespaceSelector() (labels.Selector, error) {
+	if m.constraints.NamespaceSelector == nil {
+		return labels.Everything(), nil
+	}
 	return metav1.LabelSelectorAsSelector(m.constraints.NamespaceSelector)
 }
 
 // GetParsedObjectSelector returns the converted LabelSelector which implements labels.Selector
 func (m *matchCriteria) GetParsedObjectSelector() (labels.Selector, error) {
+	if m.constraints.ObjectSelector == nil {
+		return labels.Everything(), nil
+	}
 	return metav1.LabelSelectorAsSelector(m.constraints.ObjectSelector)
 }
 

@@ -122,8 +122,10 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 	}
 	if e.matcher != nil {
 		criteria := matchCriteria{constraints: policy.Policy.Spec.MatchConstraints}
-		// TODO: err handling
-		if matches, err := e.matcher.Match(&criteria, attr, namespace); err != nil || !matches {
+		if matches, err := e.matcher.Match(&criteria, attr, namespace); err != nil {
+			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
+			return response
+		} else if !matches {
 			return response
 		}
 	}
