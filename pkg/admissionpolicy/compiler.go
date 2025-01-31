@@ -2,7 +2,6 @@ package admissionpolicy
 
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -51,7 +50,7 @@ func (c Compiler) CompileMutations(patchOptions cel.OptionalVariableDeclarations
 	var patchers []patch.Patcher
 	for _, m := range c.mutations {
 		switch m.PatchType {
-		case v1alpha1.PatchTypeJSONPatch:
+		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {
 				accessor := &patch.JSONPatchCondition{
 					Expression: m.JSONPatch.Expression,
@@ -59,7 +58,7 @@ func (c Compiler) CompileMutations(patchOptions cel.OptionalVariableDeclarations
 				compileResult := c.compositedCompiler.CompileMutatingEvaluator(accessor, patchOptions, environment.StoredExpressions)
 				patchers = append(patchers, patch.NewJSONPatcher(compileResult))
 			}
-		case v1alpha1.PatchTypeApplyConfiguration:
+		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
 				accessor := &patch.ApplyConfigurationCondition{
 					Expression: m.ApplyConfiguration.Expression,

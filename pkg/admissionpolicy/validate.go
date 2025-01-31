@@ -196,13 +196,6 @@ func validateResource(
 	optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: false}
 	compiler.CompileVariables(optionalVars)
 
-	var failPolicy admissionregistrationv1.FailurePolicyType
-	if policy.Spec.FailurePolicy == nil {
-		failPolicy = admissionregistrationv1.Fail
-	} else {
-		failPolicy = admissionregistrationv1.FailurePolicyType(*policy.Spec.FailurePolicy)
-	}
-
 	var matchPolicy admissionregistrationv1.MatchPolicyType
 	if policy.Spec.MatchConstraints.MatchPolicy == nil {
 		matchPolicy = admissionregistrationv1.Equivalent
@@ -210,13 +203,13 @@ func validateResource(
 		matchPolicy = *policy.Spec.MatchConstraints.MatchPolicy
 	}
 
-	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchConditions(optionalVars), &failPolicy, "", string(matchPolicy), "")
+	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchConditions(optionalVars), policy.Spec.FailurePolicy, "", string(matchPolicy), "")
 	validator := validating.NewValidator(
 		compiler.CompileValidations(optionalVars),
 		newMatcher,
 		compiler.CompileAuditAnnotationsExpressions(optionalVars),
 		compiler.CompileMessageExpressions(optionalVars),
-		&failPolicy,
+		policy.Spec.FailurePolicy,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
 	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, nil)
