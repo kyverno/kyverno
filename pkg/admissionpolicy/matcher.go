@@ -1,10 +1,11 @@
 package admissionpolicy
 
 import (
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/rules"
 )
@@ -14,7 +15,7 @@ import (
 // - if the object selector matches the resource
 // - if the resource is excluded by the policy/binding
 // - if the resource matches the policy/binding rules
-func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[string]string, matchCriteria admissionregistrationv1beta1.MatchResources) (bool, error) {
+func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[string]string, matchCriteria admissionregistrationv1.MatchResources) (bool, error) {
 	// check if the namespace selector matches the resource namespace
 	if matchCriteria.NamespaceSelector != nil {
 		if len(matchCriteria.NamespaceSelector.MatchLabels) > 0 || len(matchCriteria.NamespaceSelector.MatchExpressions) > 0 {
@@ -39,14 +40,8 @@ func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[stri
 			if err != nil {
 				return false, err
 			}
-			accessor, err := meta.Accessor(attr.GetObject())
-			if err != nil {
-				return false, err
-			}
-			if len(accessor.GetLabels()) != 0 {
-				if !selector.Matches(labels.Set(accessor.GetLabels())) {
-					return false, nil
-				}
+			if !matchObject(attr.GetObject(), selector) && !matchObject(attr.GetOldObject(), selector) {
+				return false, nil
 			}
 		}
 	}
@@ -66,7 +61,18 @@ func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[stri
 	return true, nil
 }
 
-func matchesResourceRules(resourceRules []admissionregistrationv1beta1.NamedRuleWithOperations, attr admission.Attributes) bool {
+func matchObject(obj runtime.Object, selector labels.Selector) bool {
+	if obj == nil {
+		return false
+	}
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return false
+	}
+	return selector.Matches(labels.Set(accessor.GetLabels()))
+}
+
+func matchesResourceRules(resourceRules []admissionregistrationv1.NamedRuleWithOperations, attr admission.Attributes) bool {
 	for _, r := range resourceRules {
 		ruleMatcher := rules.Matcher{
 			Rule: r.RuleWithOperations,

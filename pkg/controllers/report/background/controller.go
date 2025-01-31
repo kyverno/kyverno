@@ -27,14 +27,14 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -60,8 +60,8 @@ type controller struct {
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
-	vapLister        admissionregistrationv1beta1listers.ValidatingAdmissionPolicyLister
-	vapBindingLister admissionregistrationv1beta1listers.ValidatingAdmissionPolicyBindingLister
+	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	vapBindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
 	bgscanrLister    cache.GenericLister
 	cbgscanrLister   cache.GenericLister
 	nsLister         corev1listers.NamespaceLister
@@ -90,8 +90,8 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
-	vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer,
-	vapBindingInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyBindingInformer,
+	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
 	forceDelay time.Duration,
@@ -196,31 +196,31 @@ func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVAP(obj *admissionregistrationv1beta1.ValidatingAdmissionPolicy) {
+func (c *controller) addVAP(obj *admissionregistrationv1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVAP(old, obj *admissionregistrationv1beta1.ValidatingAdmissionPolicy) {
+func (c *controller) updateVAP(old, obj *admissionregistrationv1.ValidatingAdmissionPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVAP(obj *admissionregistrationv1beta1.ValidatingAdmissionPolicy) {
+func (c *controller) deleteVAP(obj *admissionregistrationv1.ValidatingAdmissionPolicy) {
 	c.enqueueResources()
 }
 
-func (c *controller) addVAPBinding(obj *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) addVAPBinding(obj *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	c.enqueueResources()
 }
 
-func (c *controller) updateVAPBinding(old, obj *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) updateVAPBinding(old, obj *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
 }
 
-func (c *controller) deleteVAPBinding(obj *admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func (c *controller) deleteVAPBinding(obj *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	c.enqueueResources()
 }
 
@@ -254,7 +254,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2.PolicyException, bindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) (bool, bool, error) {
+func (c *controller) needsReconcile(namespace, name, hash string, exceptions []kyvernov2.PolicyException, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) (bool, bool, error) {
 	// if the reportMetadata does not exist, we need a full reconcile
 	reportMetadata, err := c.getMeta(namespace, name)
 	if err != nil {
@@ -314,7 +314,7 @@ func (c *controller) reconcileReport(
 	gvk schema.GroupVersionKind,
 	resource resource.Resource,
 	exceptions []kyvernov2.PolicyException,
-	bindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
+	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
 ) error {
 	// namespace labels to be used by the scanner
@@ -544,7 +544,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			policies = append(policies, engineapi.NewValidatingAdmissionPolicy(&pol))
 		}
 	}
-	var vapBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
+	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	if c.vapBindingLister != nil {
 		// load validating admission policy bindings
 		vapBindings, err = utils.FetchValidatingAdmissionPolicyBindings(c.vapBindingLister)
