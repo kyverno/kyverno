@@ -28,6 +28,10 @@ type FakeKyvernoV2alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeKyvernoV2alpha1) CELPolicyExceptions(namespace string) v2alpha1.CELPolicyExceptionInterface {
+	return &FakeCELPolicyExceptions{c, namespace}
+}
+
 func (c *FakeKyvernoV2alpha1) GlobalContextEntries() v2alpha1.GlobalContextEntryInterface {
 	return &FakeGlobalContextEntries{c}
 }

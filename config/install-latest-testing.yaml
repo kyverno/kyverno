@@ -5568,7 +5568,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          be fulfilled for a request to be sent to a webhook.
+                          by fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -10642,7 +10642,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -20636,7 +20636,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -26127,7 +26127,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          be fulfilled for a request to be sent to a webhook.
+                          by fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -31202,7 +31202,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -41197,7 +41197,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-

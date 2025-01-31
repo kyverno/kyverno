@@ -40,8 +40,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 	// build our function overloads
 	libraryDecls := map[string][]cel.FunctionOpt{
 		"GetConfigMap": {
-			// TODO: should not use DynType in return
-			cel.MemberOverload("get_configmap_string_string", []*cel.Type{ContextType, types.StringType, types.StringType}, types.DynType, cel.FunctionBinding(impl.get_configmap_string_string)),
+			cel.MemberOverload("get_configmap_string_string", []*cel.Type{ContextType, types.StringType, types.StringType}, configMapType.CelType(), cel.FunctionBinding(impl.get_configmap_string_string)),
 		},
 		"GetGlobalReference": {
 			// TODO: should not use DynType in return

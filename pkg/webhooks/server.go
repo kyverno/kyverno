@@ -13,6 +13,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -20,6 +21,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -139,14 +141,24 @@ func NewServer(
 		"VPOL",
 		config.ValidatingPolicyServicePath,
 		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
-			newResource, _, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
+			response, err := celEngine.Handle(ctx, celengine.EngineRequest{
+				Request: &request.AdmissionRequest,
+			})
 			if err != nil {
 				return admissionutils.Response(request.UID, err)
 			}
-			_, err = celEngine.Handle(ctx, celengine.EngineRequest{
-				Resource: &newResource,
-			})
-			return admissionutils.Response(request.UID, err)
+			var errs []error
+			for _, policy := range response.Policies {
+				for _, rule := range policy.Rules {
+					switch rule.Status() {
+					case engineapi.RuleStatusFail:
+						errs = append(errs, fmt.Errorf("Policy %s rule %s failed: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+					case engineapi.RuleStatusError:
+						errs = append(errs, fmt.Errorf("Policy %s rule %s error: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+					}
+				}
+			}
+			return admissionutils.Response(request.UID, multierr.Combine(errs...))
 		},
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
