@@ -11,6 +11,7 @@ import (
 	contextlib "github.com/kyverno/kyverno/pkg/cel/libs/context"
 	"github.com/kyverno/kyverno/pkg/cel/utils"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,7 +25,7 @@ type EvaluationResult struct {
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, admission.Attributes, runtime.Object, contextlib.ContextInterface) ([]EvaluationResult, error)
+	Evaluate(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, runtime.Object, contextlib.ContextInterface) ([]EvaluationResult, error)
 }
 
 type compiledPolicy struct {
@@ -38,10 +39,11 @@ type compiledPolicy struct {
 func (p *compiledPolicy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	context contextlib.ContextInterface,
 ) ([]EvaluationResult, error) {
-	match, err := p.match(ctx, attr, namespace)
+	match, err := p.match(ctx, attr, request, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -60,12 +62,17 @@ func (p *compiledPolicy) Evaluate(
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
+	requestVal, err := convertObjectToUnstructured(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+	}
 	vars := lazy.NewMapValue(VariablesType)
 	data := map[string]any{
 		ContextKey:         contextlib.Context{ContextInterface: context},
 		NamespaceObjectKey: namespaceVal,
 		ObjectKey:          objectVal,
 		OldObjectKey:       oldObjectVal,
+		RequestKey:         requestVal.Object,
 		VariablesKey:       vars,
 	}
 	for name, variable := range p.variables {
@@ -91,7 +98,7 @@ func (p *compiledPolicy) Evaluate(
 	return results, nil
 }
 
-func (p *compiledPolicy) match(ctx context.Context, attr admission.Attributes, namespace runtime.Object) (bool, error) {
+func (p *compiledPolicy) match(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object) (bool, error) {
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
@@ -104,15 +111,15 @@ func (p *compiledPolicy) match(ctx context.Context, attr admission.Attributes, n
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
-	// TODO
-	// requestVal, err := convertObjectToUnstructured(attr.)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-	// }
+	requestVal, err := convertObjectToUnstructured(request)
+	if err != nil {
+		return false, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+	}
 	data := map[string]any{
 		NamespaceObjectKey: namespaceVal,
 		ObjectKey:          objectVal,
 		OldObjectKey:       oldObjectVal,
+		RequestKey:         requestVal.Object,
 	}
 	var errs []error
 	for _, matchCondition := range p.matchConditions {
