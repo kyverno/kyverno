@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
-	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -111,7 +110,6 @@ func createNonLeaderControllers(
 }
 
 func createrLeaderControllers(
-	generateVAPs bool,
 	admissionReports bool,
 	serverIP string,
 	webhookTimeout int,
@@ -240,6 +238,7 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
 
+	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
 	if generateVAPs {
 		checker := checker.NewSelfChecker(kubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 		vapController := vapcontroller.NewController(
@@ -248,8 +247,8 @@ func createrLeaderControllers(
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
-			kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicies(),
-			kubeInformer.Admissionregistration().V1beta1().ValidatingAdmissionPolicyBindings(),
+			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicies(),
+			kubeInformer.Admissionregistration().V1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
 			checker,
 		)
@@ -344,15 +343,7 @@ func main() {
 			setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
 			os.Exit(1)
 		}
-		// check if validating admission policies are registered in the API server
-		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-		if generateValidatingAdmissionPolicy {
-			registered, err := admissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
-			if !registered {
-				setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
-				os.Exit(1)
-			}
-		}
+
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
 		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), setup.ResyncPeriod)
@@ -490,7 +481,6 @@ func main() {
 				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 				// create leader controllers
 				leaderControllers, warmup, err := createrLeaderControllers(
-					generateValidatingAdmissionPolicy,
 					admissionReports,
 					serverIP,
 					webhookTimeout,

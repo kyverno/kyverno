@@ -10,11 +10,11 @@ import (
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 )
 
 func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
@@ -125,8 +125,8 @@ func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, n
 	return exceptions, nil
 }
 
-func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1beta1listers.ValidatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.ValidatingAdmissionPolicy, error) {
-	var policies []admissionregistrationv1beta1.ValidatingAdmissionPolicy
+func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1listers.ValidatingAdmissionPolicyLister) ([]admissionregistrationv1.ValidatingAdmissionPolicy, error) {
+	var policies []admissionregistrationv1.ValidatingAdmissionPolicy
 	if pols, err := vapLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
@@ -137,8 +137,8 @@ func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1beta1list
 	return policies, nil
 }
 
-func FetchValidatingAdmissionPolicyBindings(vapBindingLister admissionregistrationv1beta1listers.ValidatingAdmissionPolicyBindingLister) ([]admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding, error) {
-	var bindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
+func FetchValidatingAdmissionPolicyBindings(vapBindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister) ([]admissionregistrationv1.ValidatingAdmissionPolicyBinding, error) {
+	var bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	if pols, err := vapBindingLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
