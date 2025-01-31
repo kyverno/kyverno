@@ -207,6 +207,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.UpdateRequestStatusApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
+	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyException"):
+		return &kyvernov2alpha1.CELPolicyExceptionApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyExceptionSpec"):
+		return &kyvernov2alpha1.CELPolicyExceptionSpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ExternalAPICall"):
 		return &kyvernov2alpha1.ExternalAPICallApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntry"):
@@ -217,6 +221,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.GlobalContextEntryStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("KubernetesResource"):
 		return &kyvernov2alpha1.KubernetesResourceApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("PolicyRef"):
+		return &kyvernov2alpha1.PolicyRefApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy"):
 		return &kyvernov2alpha1.ValidatingPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicySpec"):
