@@ -25,9 +25,9 @@ import (
 // CELPolicyExceptionSpecApplyConfiguration represents an declarative configuration of the CELPolicyExceptionSpec type for use
 // with apply.
 type CELPolicyExceptionSpecApplyConfiguration struct {
-	PolicyNames      []string            `json:"policyNames,omitempty"`
-	MatchConstraints *v1.MatchResources  `json:"matchConstraints,omitempty"`
-	MatchConditions  []v1.MatchCondition `json:"matchConditions,omitempty"`
+	PolicyRefs       []PolicyRefApplyConfiguration `json:"policyRefs,omitempty"`
+	MatchConstraints *v1.MatchResources            `json:"matchConstraints,omitempty"`
+	MatchConditions  []v1.MatchCondition           `json:"matchConditions,omitempty"`
 }
 
 // CELPolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the CELPolicyExceptionSpec type for use with
@@ -36,12 +36,15 @@ func CELPolicyExceptionSpec() *CELPolicyExceptionSpecApplyConfiguration {
 	return &CELPolicyExceptionSpecApplyConfiguration{}
 }
 
-// WithPolicyNames adds the given value to the PolicyNames field in the declarative configuration
+// WithPolicyRefs adds the given value to the PolicyRefs field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the PolicyNames field.
-func (b *CELPolicyExceptionSpecApplyConfiguration) WithPolicyNames(values ...string) *CELPolicyExceptionSpecApplyConfiguration {
+// If called multiple times, values provided by each call will be appended to the PolicyRefs field.
+func (b *CELPolicyExceptionSpecApplyConfiguration) WithPolicyRefs(values ...*PolicyRefApplyConfiguration) *CELPolicyExceptionSpecApplyConfiguration {
 	for i := range values {
-		b.PolicyNames = append(b.PolicyNames, values[i])
+		if values[i] == nil {
+			panic("nil value passed to WithPolicyRefs")
+		}
+		b.PolicyRefs = append(b.PolicyRefs, *values[i])
 	}
 	return b
 }

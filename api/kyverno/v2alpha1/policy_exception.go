@@ -31,8 +31,8 @@ func (p *CELPolicyException) Validate() (errs field.ErrorList) {
 
 // PolicyExceptionSpec stores policy exception spec
 type CELPolicyExceptionSpec struct {
-	// PolicyNames identifies the policies to which the exception is applied.
-	PolicyNames []string `json:"policyNames"`
+	// PolicyRefs identifies the policies to which the exception is applied.
+	PolicyRefs []PolicyRef `json:"policyRefs"`
 
 	// MatchConstraints is used to check if a resource applies to the exception.
 	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints"`
@@ -44,11 +44,34 @@ type CELPolicyExceptionSpec struct {
 
 // Validate implements programmatic validation
 func (p *CELPolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) {
-	if len(p.PolicyNames) == 0 {
-		errs = append(errs, field.Invalid(path.Child("policyNames"), p.PolicyNames, "must specify at least one policy name"))
+	if len(p.PolicyRefs) == 0 {
+		errs = append(errs, field.Invalid(path.Child("policyRefs"), p.PolicyRefs, "must specify at least one policy ref"))
+	} else {
+		for i, policyRef := range p.PolicyRefs {
+			errs = append(errs, policyRef.Validate(path.Child("policyRefs").Index(i))...)
+		}
 	}
+
 	if p.MatchConstraints == nil {
 		errs = append(errs, field.Invalid(path.Child("matchConstraints"), p.MatchConstraints, "must specify match constraints"))
+	}
+	return errs
+}
+
+type PolicyRef struct {
+	// Name is the name of the policy
+	Name string `json:"name"`
+
+	// Kind is the kind of the policy
+	Kind string `json:"kind"`
+}
+
+func (p *PolicyRef) Validate(path *field.Path) (errs field.ErrorList) {
+	if p.Name == "" {
+		errs = append(errs, field.Invalid(path.Child("name"), p.Name, "must specify policy name"))
+	}
+	if p.Kind == "" {
+		errs = append(errs, field.Invalid(path.Child("kind"), p.Kind, "must specify policy kind"))
 	}
 	return errs
 }

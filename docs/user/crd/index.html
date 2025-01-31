@@ -7324,13 +7324,15 @@ CELPolicyExceptionSpec
 <table class="table table-striped">
 <tr>
 <td>
-<code>policyNames</code><br/>
+<code>policyRefs</code><br/>
 <em>
-[]string
+<a href="#kyverno.io/v2alpha1.PolicyRef">
+[]PolicyRef
+</a>
 </em>
 </td>
 <td>
-<p>PolicyNames identifies the policies to which the exception is applied.</p>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
 </td>
 </tr>
 <tr>
@@ -7599,13 +7601,15 @@ WebhookConfiguration
 <tbody>
 <tr>
 <td>
-<code>policyNames</code><br/>
+<code>policyRefs</code><br/>
 <em>
-[]string
+<a href="#kyverno.io/v2alpha1.PolicyRef">
+[]PolicyRef
+</a>
 </em>
 </td>
 <td>
-<p>PolicyNames identifies the policies to which the exception is applied.</p>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
 </td>
 </tr>
 <tr>
@@ -7874,6 +7878,47 @@ string
 <em>(Optional)</em>
 <p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 If left empty for namespaced resources, all resources from all namespaces will be cached.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.PolicyRef">PolicyRef
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CELPolicyExceptionSpec">CELPolicyExceptionSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the name of the policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind is the kind of the policy</p>
 </td>
 </tr>
 </tbody>

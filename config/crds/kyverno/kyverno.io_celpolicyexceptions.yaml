@@ -413,15 +413,25 @@ spec:
                     x-kubernetes-list-type: atomic
                 type: object
                 x-kubernetes-map-type: atomic
-              policyNames:
-                description: PolicyNames identifies the policies to which the exception
+              policyRefs:
+                description: PolicyRefs identifies the policies to which the exception
                   is applied.
                 items:
-                  type: string
+                  properties:
+                    kind:
+                      description: Kind is the kind of the policy
+                      type: string
+                    name:
+                      description: Name is the name of the policy
+                      type: string
+                  required:
+                  - kind
+                  - name
+                  type: object
                 type: array
             required:
             - matchConstraints
-            - policyNames
+            - policyRefs
             type: object
         required:
         - spec

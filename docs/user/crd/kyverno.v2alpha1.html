@@ -140,7 +140,7 @@
     
     
       <tr>
-        <td><code>policyNames</code>
+        <td><code>policyRefs</code>
           
           <span style="color:blue;"> *</span>
           
@@ -149,14 +149,16 @@
           
           
             
-              <span style="font-family: monospace">[]string</span>
+              <a href="#kyverno-io-v2alpha1-PolicyRef">
+                <span style="font-family: monospace">[]PolicyRef</span>
+              </a>
             
           
         </td>
         <td>
           
 
-          <p>PolicyNames identifies the policies to which the exception is applied.</p>
+          <p>PolicyRefs identifies the policies to which the exception is applied.</p>
 
 
           
@@ -685,7 +687,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
     
     
       <tr>
-        <td><code>policyNames</code>
+        <td><code>policyRefs</code>
           
           <span style="color:blue;"> *</span>
           
@@ -694,14 +696,16 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
           
           
             
-              <span style="font-family: monospace">[]string</span>
+              <a href="#kyverno-io-v2alpha1-PolicyRef">
+                <span style="font-family: monospace">[]PolicyRef</span>
+              </a>
             
           
         </td>
         <td>
           
 
-          <p>PolicyNames identifies the policies to which the exception is applied.</p>
+          <p>PolicyRefs identifies the policies to which the exception is applied.</p>
 
 
           
@@ -1258,6 +1262,99 @@ Requires the pluralized form of the resource kind in lowercase. (Ex., &quot;depl
 
           <p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 If left empty for namespaced resources, all resources from all namespaces will be cached.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-PolicyRef">PolicyRef
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-CELPolicyExceptionSpec">CELPolicyExceptionSpec</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the name of the policy</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kind</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Kind is the kind of the policy</p>
 
 
           
