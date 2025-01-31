@@ -7,10 +7,11 @@ import (
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
-var ContextType = types.NewOpaqueType("context.Context")
-
-var configMapType = BuildConfigMapType()
-var imageDataType = BuildImageDataType()
+var (
+	ContextType   = types.NewOpaqueType("context.Context")
+	configMapType = BuildConfigMapType()
+	imageDataType = BuildImageDataType()
+)
 
 type ContextInterface interface {
 	GetConfigMap(string, string) (unstructured.Unstructured, error)
