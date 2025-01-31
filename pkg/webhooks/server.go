@@ -139,12 +139,8 @@ func NewServer(
 		"VPOL",
 		config.ValidatingPolicyServicePath,
 		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
-			newResource, _, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
-			if err != nil {
-				return admissionutils.Response(request.UID, err)
-			}
-			_, err = celEngine.Handle(ctx, celengine.EngineRequest{
-				Resource: &newResource,
+			_, err := celEngine.Handle(ctx, celengine.EngineRequest{
+				Request: &request.AdmissionRequest,
 			})
 			return admissionutils.Response(request.UID, err)
 		},
