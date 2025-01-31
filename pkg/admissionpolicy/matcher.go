@@ -5,6 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/rules"
 )
@@ -39,14 +40,8 @@ func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[stri
 			if err != nil {
 				return false, err
 			}
-			accessor, err := meta.Accessor(attr.GetObject())
-			if err != nil {
-				return false, err
-			}
-			if len(accessor.GetLabels()) != 0 {
-				if !selector.Matches(labels.Set(accessor.GetLabels())) {
-					return false, nil
-				}
+			if !matchObject(attr.GetObject(), selector) && !matchObject(attr.GetOldObject(), selector) {
+				return false, nil
 			}
 		}
 	}
@@ -64,6 +59,17 @@ func matches(attr admission.Attributes, namespaceSelectorMap map[string]map[stri
 	}
 
 	return true, nil
+}
+
+func matchObject(obj runtime.Object, selector labels.Selector) bool {
+	if obj == nil {
+		return false
+	}
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return false
+	}
+	return selector.Matches(labels.Set(accessor.GetLabels()))
 }
 
 func matchesResourceRules(resourceRules []admissionregistrationv1beta1.NamedRuleWithOperations, attr admission.Attributes) bool {
