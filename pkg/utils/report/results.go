@@ -19,6 +19,19 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type RuleResponseWithOrigin struct {
+	Origin string
+}
+
+// Setter method to populate Origin
+func (r *RuleResponseWithOrigin) WithOrigin(origin string) {
+	r.Origin = origin
+}
+
+func (r *RuleResponseWithOrigin) GetOrigin() string {
+	return r.Origin
+}
+
 func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 	slices.SortFunc(results, func(a policyreportv1alpha2.PolicyReportResult, b policyreportv1alpha2.PolicyReportResult) int {
 		if x := cmp.Compare(a.Policy, b.Policy); x != 0 {
@@ -106,6 +119,8 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		Category: annotations[kyverno.AnnotationPolicyCategory],
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 	}
+	r := &RuleResponseWithOrigin{}
+	addProperty("origin", r.GetOrigin(), &result)
 	if result.Result == "fail" && !result.Scored {
 		result.Result = "warn"
 	}
