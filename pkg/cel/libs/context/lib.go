@@ -48,7 +48,7 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 		},
 		"GetImageData": {
 			// TODO: should not use DynType in return
-			cel.MemberOverload("get_imagedata_string", []*cel.Type{ContextType, types.StringType}, types.DynType, cel.BinaryBinding(impl.get_imagedata_string)),
+			cel.MemberOverload("get_imagedata_string", []*cel.Type{ContextType, types.StringType}, imageDataType.CelType(), cel.BinaryBinding(impl.get_imagedata_string)),
 		},
 	}
 	// create env options corresponding to our function overloads
