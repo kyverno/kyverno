@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: accept
+  name: ignore
 spec:
   steps:
   - name: create policy
