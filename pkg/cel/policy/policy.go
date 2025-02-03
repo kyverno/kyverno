@@ -30,8 +30,9 @@ type CompiledPolicy interface {
 }
 
 type compiledValidation struct {
-	message string
-	program cel.Program
+	message           string
+	messageExpression cel.Program
+	program           cel.Program
 }
 
 type compiledPolicy struct {
@@ -96,9 +97,23 @@ func (p *compiledPolicy) Evaluate(
 	results := make([]EvaluationResult, 0, len(p.validations))
 	for _, validation := range p.validations {
 		out, _, err := validation.program.Eval(data)
+		// evaluate only when rule fails
+		var message string
+		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
+			message = validation.message
+			if validation.messageExpression != nil {
+				if out, _, err := validation.messageExpression.Eval(data); err != nil {
+					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
+				} else if msg, err := utils.ConvertToNative[string](out); err != nil {
+					message = fmt.Sprintf("failed to convert message expression to string: %s", err)
+				} else {
+					message = msg
+				}
+			}
+		}
 		results = append(results, EvaluationResult{
 			Result:  out,
-			Message: validation.message,
+			Message: message,
 			Error:   err,
 		})
 	}
