@@ -10,7 +10,7 @@ spec:
     - create:
         file: policy.yaml
     - sleep:
-        duration: 5s
+        duration: 10s
   - name: create configmap
     try:
     - create:

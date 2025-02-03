@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: accept
+  name: fail
 spec:
   steps:
   - name: create policy
@@ -15,3 +15,7 @@ spec:
     try:
     - create:
         file: deployment.yaml
+        expect:
+          - check:
+              ($error): >-
+                deployments.apps "deployment" is forbidden: expression '2 / 0 == 1' resulted in error: division by zero

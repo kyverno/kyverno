@@ -84,7 +84,7 @@ func (p *compiledPolicy) Evaluate(
 	}
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
-			out, _, err := variable.Eval(data)
+			out, _, err := variable.ContextEval(ctx, data)
 			if out != nil {
 				return out
 			}
@@ -96,13 +96,13 @@ func (p *compiledPolicy) Evaluate(
 	}
 	results := make([]EvaluationResult, 0, len(p.validations))
 	for _, validation := range p.validations {
-		out, _, err := validation.program.Eval(data)
+		out, _, err := validation.program.ContextEval(ctx, data)
 		// evaluate only when rule fails
 		var message string
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message = validation.message
 			if validation.messageExpression != nil {
-				if out, _, err := validation.messageExpression.Eval(data); err != nil {
+				if out, _, err := validation.messageExpression.ContextEval(ctx, data); err != nil {
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
 				} else if msg, err := utils.ConvertToNative[string](out); err != nil {
 					message = fmt.Sprintf("failed to convert message expression to string: %s", err)
@@ -164,7 +164,13 @@ func (p *compiledPolicy) match(ctx context.Context, attr admission.Attributes, r
 			return false, nil
 		}
 	}
-	return true, multierr.Combine(errs...)
+	if err := multierr.Combine(errs...); err == nil {
+		return true, nil
+	} else if p.failurePolicy == admissionregistrationv1.Ignore {
+		return false, nil
+	} else {
+		return false, err
+	}
 }
 
 func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
