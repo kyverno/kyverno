@@ -40,14 +40,14 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPo
 	}
 	options := []cel.EnvOption{
 		cel.Variable(ContextKey, context.ContextType),
-		cel.Variable(NamespaceObjectKey, namespaceType.CelType()),
+		cel.Variable(NamespaceObjectKey, engine.NamespaceType.CelType()),
 		cel.Variable(ObjectKey, cel.DynType),
 		cel.Variable(OldObjectKey, cel.DynType),
-		cel.Variable(RequestKey, requestType.CelType()),
+		cel.Variable(RequestKey, engine.RequestType.CelType()),
 		cel.Variable(VariablesKey, VariablesType),
 	}
 	variablesProvider := NewVariablesProvider(base.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider(namespaceType, requestType)
+	declProvider := apiservercel.NewDeclTypeProvider(engine.NamespaceType, engine.RequestType)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
 		// TODO: proper error handling

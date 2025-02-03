@@ -9,6 +9,7 @@ import (
 	engine "github.com/kyverno/kyverno/pkg/cel"
 	policy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
 type Compiler interface {
@@ -28,8 +29,17 @@ func (c *compiler) Compile(exception *kyvernov2alpha1.CELPolicyException) (*Comp
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 	options := []cel.EnvOption{
+		cel.Variable(policy.NamespaceObjectKey, engine.NamespaceType.CelType()),
 		cel.Variable(policy.ObjectKey, cel.DynType),
 	}
+	variablesProvider := policy.NewVariablesProvider(base.CELTypeProvider())
+	declProvider := apiservercel.NewDeclTypeProvider(engine.NamespaceType)
+	declOptions, err := declProvider.EnvOptions(variablesProvider)
+	if err != nil {
+		// TODO: proper error handling
+		panic(err)
+	}
+	options = append(options, declOptions...)
 	env, err := base.Extend(options...)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))

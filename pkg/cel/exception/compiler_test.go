@@ -16,7 +16,7 @@ func Test_compiler_Compile(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name: "simple",
+			name: "use object",
 			exception: &kyvernov2alpha1.CELPolicyException{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: kyvernov2alpha1.GroupVersion.String(),
@@ -30,6 +30,26 @@ func Test_compiler_Compile(t *testing.T) {
 						{
 							Name:       "check env label",
 							Expression: "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "use namespaceObject",
+			exception: &kyvernov2alpha1.CELPolicyException{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: kyvernov2alpha1.GroupVersion.String(),
+					Kind:       "CELPolicyException",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exception",
+				},
+				Spec: kyvernov2alpha1.CELPolicyExceptionSpec{
+					MatchConditions: []admissionregistrationv1.MatchCondition{
+						{
+							Name:       "check namespace name",
+							Expression: "namespaceObject.metadata.name != 'default'",
 						},
 					},
 				},
