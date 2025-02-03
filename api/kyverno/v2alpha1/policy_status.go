@@ -24,8 +24,13 @@ type PolicyStatus struct {
 }
 
 func (status *PolicyStatus) SetReadyByCondition(c PolicyConditionType, s metav1.ConditionStatus, message string) {
+	reason := "Succeeded"
+	if s != metav1.ConditionTrue {
+		reason = "Failed"
+	}
 	newCondition := metav1.Condition{
 		Type:    string(c),
+		Reason:  reason,
 		Status:  s,
 		Message: message,
 	}
