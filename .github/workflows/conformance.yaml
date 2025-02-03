@@ -578,7 +578,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [ v1.30.4, v1.31.0 ]
+        k8s-version: [ v1.28.13, v1.29.8, v1.30.4, v1.31.0 ]
         upgrade: ${{ fromJSON(needs.define-matrix.outputs.upgrades) }}
     needs: [ define-matrix, prepare-images ]
     steps:
@@ -586,8 +586,7 @@ jobs:
       - uses: ./.github/actions/run-tests
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,generate-validating-admission-policy
+          kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhook-configurations
           upgrade-scenario: ${{ matrix.upgrade }}
