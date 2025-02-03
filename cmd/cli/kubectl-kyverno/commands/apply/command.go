@@ -32,6 +32,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/imagedataloader"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
@@ -328,7 +329,13 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	// TODO: mock when no cluster provided
 	var contextProvider celpolicy.Context
 	if dclient != nil {
-		contextProvider = celpolicy.NewContextProvider(dclient.GetKubeClient())
+		contextProvider, err = celpolicy.NewContextProvider(
+			dclient.GetKubeClient(),
+			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
