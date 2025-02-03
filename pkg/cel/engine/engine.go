@@ -134,16 +134,16 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
 	} else {
-		for index, result := range results {
+		for index, validationResult := range results {
 			ruleName := fmt.Sprintf("rule-%d", index)
-			if result.Error != nil {
+			if validationResult.Error != nil {
 				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", err, nil))
-			} else if result, err := utils.ConvertToNative[bool](result.Result); err != nil {
+			} else if result, err := utils.ConvertToNative[bool](validationResult.Result); err != nil {
 				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "conversion error", err, nil))
 			} else if result {
 				response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", nil))
 			} else {
-				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, "failure", nil))
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, validationResult.Message, nil))
 			}
 		}
 	}

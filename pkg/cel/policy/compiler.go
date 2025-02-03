@@ -98,7 +98,7 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPo
 			variables[variable.Name] = prog
 		}
 	}
-	validations := make([]cel.Program, 0, len(policy.Spec.Validations))
+	validations := make([]compiledValidation, 0, len(policy.Spec.Validations))
 	{
 		path := path.Child("validations")
 		for i, rule := range policy.Spec.Validations {
@@ -139,20 +139,23 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPo
 	}, nil
 }
 
-func compileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (cel.Program, field.ErrorList) {
+func compileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (compiledValidation, field.ErrorList) {
 	var allErrs field.ErrorList
 	path = path.Child("expression")
 	ast, issues := env.Compile(rule.Expression)
 	if err := issues.Err(); err != nil {
-		return nil, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
+		return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 	}
 	if !ast.OutputType().IsExactType(types.BoolType) {
 		msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
-		return nil, append(allErrs, field.Invalid(path, rule.Expression, msg))
+		return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, msg))
 	}
 	program, err := env.Program(ast)
 	if err != nil {
-		return nil, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
+		return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 	}
-	return program, nil
+	return compiledValidation{
+		message: rule.Message,
+		program: program,
+	}, nil
 }
