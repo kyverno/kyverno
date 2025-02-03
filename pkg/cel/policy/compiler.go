@@ -141,21 +141,40 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPo
 
 func compileValidation(path *field.Path, rule admissionregistrationv1.Validation, env *cel.Env) (compiledValidation, field.ErrorList) {
 	var allErrs field.ErrorList
-	path = path.Child("expression")
-	ast, issues := env.Compile(rule.Expression)
-	if err := issues.Err(); err != nil {
-		return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
-	}
-	if !ast.OutputType().IsExactType(types.BoolType) {
-		msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
-		return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, msg))
-	}
-	program, err := env.Program(ast)
-	if err != nil {
-		return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
-	}
-	return compiledValidation{
+	compiled := compiledValidation{
 		message: rule.Message,
-		program: program,
-	}, nil
+	}
+	{
+		path = path.Child("expression")
+		ast, issues := env.Compile(rule.Expression)
+		if err := issues.Err(); err != nil {
+			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
+		}
+		if !ast.OutputType().IsExactType(types.BoolType) {
+			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
+			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, msg))
+		}
+		program, err := env.Program(ast)
+		if err != nil {
+			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
+		}
+		compiled.program = program
+	}
+	{
+		path = path.Child("messageExpression")
+		ast, issues := env.Compile(rule.MessageExpression)
+		if err := issues.Err(); err != nil {
+			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
+		}
+		if !ast.OutputType().IsExactType(types.StringType) {
+			msg := fmt.Sprintf("output is expected to be of type %s", types.StringType.TypeName())
+			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, msg))
+		}
+		program, err := env.Program(ast)
+		if err != nil {
+			return compiledValidation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
+		}
+		compiled.messageExpression = program
+	}
+	return compiled, nil
 }
