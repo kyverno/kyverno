@@ -21,7 +21,7 @@ func (c *impl) get_configmap_string_string(args ...ref.Val) ref.Val {
 		cm, err := self.GetConfigMap(namespace, name)
 		if err != nil {
 			// Errors are not expected here since Parse is a more lenient parser than ParseRequestURI.
-			return types.NewErr("failed to get resource: %v", err)
+			return types.NewErr("failed to get configmap: %v", err)
 		}
 		return c.NativeToValue(cm.UnstructuredContent())
 	}

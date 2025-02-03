@@ -38,6 +38,9 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPo
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
+	var declTypes []*apiservercel.DeclType
+	declTypes = append(declTypes, namespaceType, requestType)
+	declTypes = append(declTypes, context.Types()...)
 	options := []cel.EnvOption{
 		cel.Variable(ContextKey, context.ContextType),
 		cel.Variable(NamespaceObjectKey, namespaceType.CelType()),
@@ -46,8 +49,11 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPo
 		cel.Variable(RequestKey, requestType.CelType()),
 		cel.Variable(VariablesKey, VariablesType),
 	}
+	for _, declType := range declTypes {
+		options = append(options, cel.Types(declType.CelType()))
+	}
 	variablesProvider := NewVariablesProvider(base.CELTypeProvider())
-	declProvider := apiservercel.NewDeclTypeProvider(namespaceType, requestType)
+	declProvider := apiservercel.NewDeclTypeProvider(declTypes...)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
 		// TODO: proper error handling
