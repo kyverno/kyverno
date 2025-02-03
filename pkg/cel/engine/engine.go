@@ -111,12 +111,12 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 		}
 	}
 	for _, policy := range policies {
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, attr, namespace, request.Context))
+		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, attr, request.Request, namespace, request.Context))
 	}
 	return response, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
 	response := PolicyResponse{
 		Policy: policy.Policy,
 	}
@@ -129,7 +129,7 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 			return response
 		}
 	}
-	results, err := policy.CompiledPolicy.Evaluate(ctx, attr, namespace, context)
+	results, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
