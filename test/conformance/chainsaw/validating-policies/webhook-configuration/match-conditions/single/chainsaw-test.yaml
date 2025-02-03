@@ -1,0 +1,14 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: clusterpolicy
+spec:
+  steps:
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+  - name: check webhooks
+    try:
+    - assert:
+        file: webhooks.yaml
