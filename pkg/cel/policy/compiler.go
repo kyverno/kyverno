@@ -160,7 +160,7 @@ func compileValidation(path *field.Path, rule admissionregistrationv1.Validation
 		}
 		compiled.program = program
 	}
-	{
+	if rule.MessageExpression != "" {
 		path = path.Child("messageExpression")
 		ast, issues := env.Compile(rule.MessageExpression)
 		if err := issues.Err(); err != nil {
