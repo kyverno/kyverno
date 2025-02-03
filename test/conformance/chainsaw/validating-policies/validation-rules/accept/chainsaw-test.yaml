@@ -2,14 +2,16 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: multiple
+  name: accept
 spec:
   steps:
   - name: create policy
     try:
     - create:
         file: policy.yaml
-  - name: check webhooks
+    - sleep:
+        duration: 5s
+  - name: create deployment
     try:
-    - assert:
-        file: webhooks.yaml
+    - create:
+        file: deployment.yaml
