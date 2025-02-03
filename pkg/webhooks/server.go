@@ -11,6 +11,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/api/kyverno"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -95,6 +96,7 @@ func NewServer(
 	discovery dclient.IDiscovery,
 	webhookServerPort int32,
 	celEngine celengine.Engine,
+	dclient dclient.Interface,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -141,8 +143,17 @@ func NewServer(
 		"VPOL",
 		config.ValidatingPolicyServicePath,
 		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
+			contextProvider, err := celpolicy.NewContextProvider(
+				dclient.GetKubeClient(),
+				nil,
+				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			)
+			if err != nil {
+				return admissionutils.Response(request.UID, err)
+			}
 			response, err := celEngine.Handle(ctx, celengine.EngineRequest{
 				Request: &request.AdmissionRequest,
+				Context: contextProvider,
 			})
 			if err != nil {
 				return admissionutils.Response(request.UID, err)
