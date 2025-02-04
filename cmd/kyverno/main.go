@@ -605,7 +605,6 @@ func main() {
 				matching.NewMatcher(),
 			)
 		}
-		voplHandlers := vpol.New(celEngine, contextProvider)
 		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
 			setup.Logger.Error(err, "failed to start admission reports watcher")
@@ -638,6 +637,12 @@ func main() {
 			maxAuditWorkers,
 			maxAuditCapacity,
 			setup.ReportingConfiguration,
+			reportsBreaker,
+		)
+		voplHandlers := vpol.New(
+			celEngine,
+			contextProvider,
+			setup.KyvernoClient,
 			reportsBreaker,
 		)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
