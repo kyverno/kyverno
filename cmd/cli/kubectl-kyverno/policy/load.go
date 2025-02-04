@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
@@ -32,8 +31,6 @@ var (
 	policyV2              = kyvernov2beta1.SchemeGroupVersion.WithKind("Policy")
 	clusterPolicyV1       = kyvernov1.SchemeGroupVersion.WithKind("ClusterPolicy")
 	clusterPolicyV2       = kyvernov2beta1.SchemeGroupVersion.WithKind("ClusterPolicy")
-	vapV1Beta1            = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
-	vapBindingV1beta1     = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vapV1                 = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	vapBindingV1          = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vpV2alpha1            = kyvernov2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy")
@@ -55,8 +52,8 @@ type LoaderError struct {
 
 type LoaderResults struct {
 	Policies           []kyvernov1.PolicyInterface
-	VAPs               []admissionregistrationv1beta1.ValidatingAdmissionPolicy
-	VAPBindings        []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
+	VAPs               []admissionregistrationv1.ValidatingAdmissionPolicy
+	VAPBindings        []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	ValidatingPolicies []kyvernov2alpha1.ValidatingPolicy
 	NonFatalErrors     []LoaderError
 }
@@ -156,14 +153,14 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 				return nil, err
 			}
 			results.Policies = append(results.Policies, typed)
-		case vapV1Beta1, vapV1:
-			typed, err := convert.To[admissionregistrationv1beta1.ValidatingAdmissionPolicy](untyped)
+		case vapV1:
+			typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicy](untyped)
 			if err != nil {
 				return nil, err
 			}
 			results.VAPs = append(results.VAPs, *typed)
-		case vapBindingV1beta1, vapBindingV1:
-			typed, err := convert.To[admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding](untyped)
+		case vapBindingV1:
+			typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicyBinding](untyped)
 			if err != nil {
 				return nil, err
 			}

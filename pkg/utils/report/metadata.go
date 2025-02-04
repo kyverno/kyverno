@@ -13,7 +13,7 @@ import (
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -68,7 +68,7 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	if policy.IsNamespaced() {
 		return LabelPrefixPolicy
 	}
-	if policy.GetType() == engineapi.KyvernoPolicyType {
+	if policy.AsKyvernoPolicy() != nil {
 		return LabelPrefixClusterPolicy
 	}
 	return LabelPrefixValidatingAdmissionPolicy
@@ -89,7 +89,7 @@ func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
 	return LabelPrefixPolicyException + exception.GetName()
 }
 
-func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) string {
+func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) string {
 	return LabelPrefixValidatingAdmissionPolicyBinding + binding.GetName()
 }
 
@@ -174,7 +174,7 @@ func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyverno
 	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
-func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding) {
+func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	controllerutils.SetLabel(report, ValidatingAdmissionPolicyBindingLabel(binding), binding.GetResourceVersion())
 }
 

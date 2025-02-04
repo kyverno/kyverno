@@ -5568,7 +5568,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          be fulfilled for a request to be sent to a webhook.
+                          by fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -10642,7 +10642,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -20636,7 +20636,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -26127,7 +26127,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          be fulfilled for a request to be sent to a webhook.
+                          by fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -31202,7 +31202,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -41197,7 +41197,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -48948,6 +48948,13 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              validationActions:
+                description: ValidationAction specifies the action to be taken when
+                  the matched resource violates the policy.
+                items:
+                  description: ValidationAction specifies a policy enforcement action.
+                  type: string
+                type: array
               validations:
                 description: |-
                   Validations contain CEL expressions which is used to apply the validation.
@@ -51844,7 +51851,7 @@ spec:
       serviceAccountName: kyverno-admission-controller
       initContainers:
         - name: kyverno-pre
-          image: "ghcr.io/kyverno/kyvernopre:latest"
+          image: "reg.kyverno.io/kyverno/kyvernopre:latest"
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
@@ -51889,7 +51896,7 @@ spec:
             value: kyverno-svc
       containers:
         - name: kyverno
-          image: "ghcr.io/kyverno/kyverno:latest"
+          image: "reg.kyverno.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
             - --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca
@@ -52050,7 +52057,7 @@ spec:
       serviceAccountName: kyverno-background-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/background-controller:latest"
+          image: "reg.kyverno.io/kyverno/background-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
@@ -52155,7 +52162,7 @@ spec:
       serviceAccountName: kyverno-cleanup-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/cleanup-controller:latest"
+          image: "reg.kyverno.io/kyverno/cleanup-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
@@ -52296,7 +52303,7 @@ spec:
       serviceAccountName: kyverno-reports-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/reports-controller:latest"
+          image: "reg.kyverno.io/kyverno/reports-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443

@@ -1049,8 +1049,8 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <td>
 <code>expressions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1beta1-admissionregistration">
-[]Kubernetes admissionregistration/v1beta1.Validation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Validation
 </a>
 </em>
 </td>
@@ -1062,8 +1062,8 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <td>
 <code>paramKind</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramkind-v1beta1-admissionregistration">
-Kubernetes admissionregistration/v1beta1.ParamKind
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramkind-v1-admissionregistration">
+Kubernetes admissionregistration/v1.ParamKind
 </a>
 </em>
 </td>
@@ -1076,8 +1076,8 @@ Kubernetes admissionregistration/v1beta1.ParamKind
 <td>
 <code>paramRef</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramref-v1beta1-admissionregistration">
-Kubernetes admissionregistration/v1beta1.ParamRef
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#paramref-v1-admissionregistration">
+Kubernetes admissionregistration/v1.ParamRef
 </a>
 </em>
 </td>
@@ -1090,8 +1090,8 @@ Kubernetes admissionregistration/v1beta1.ParamRef
 <td>
 <code>auditAnnotations</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1beta1-admissionregistration">
-[]Kubernetes admissionregistration/v1beta1.AuditAnnotation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#auditannotation-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.AuditAnnotation
 </a>
 </em>
 </td>
@@ -1104,8 +1104,8 @@ Kubernetes admissionregistration/v1beta1.ParamRef
 <td>
 <code>variables</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1beta1-admissionregistration">
-[]Kubernetes admissionregistration/v1beta1.Variable
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#variable-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.Variable
 </a>
 </em>
 </td>
@@ -4026,8 +4026,8 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 <td>
 <code>celPreconditions</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1beta1-admissionregistration">
-[]Kubernetes admissionregistration/v1beta1.MatchCondition
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
 </a>
 </em>
 </td>
@@ -7257,10 +7257,116 @@ int
 </p>
 Resource Types:
 <ul><li>
+<a href="#kyverno.io/v2alpha1.CELPolicyException">CELPolicyException</a>
+</li><li>
 <a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>
 </li><li>
 <a href="#kyverno.io/v2alpha1.ValidatingPolicy">ValidatingPolicy</a>
 </li></ul>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CELPolicyException">CELPolicyException
+</h3>
+<p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>CELPolicyException</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CELPolicyExceptionSpec">
+CELPolicyExceptionSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>policyRefs</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.PolicyRef">
+[]PolicyRef
+</a>
+</em>
+</td>
+<td>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchConstraints is used to check if a resource applies to the exception.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h3 id="kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry
 </h3>
@@ -7445,6 +7551,19 @@ Kubernetes admissionregistration/v1.ValidatingAdmissionPolicySpec
 </tr>
 <tr>
 <td>
+<code>validationActions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validationaction-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.ValidationAction
+</a>
+</em>
+</td>
+<td>
+<p>ValidationAction specifies the action to be taken when the matched resource violates the policy.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>webhookConfiguration</code><br/>
 <em>
 <a href="#kyverno.io/v2alpha1.WebhookConfiguration">
@@ -7472,6 +7591,66 @@ PolicyStatus
 <td>
 <em>(Optional)</em>
 <p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CELPolicyExceptionSpec">CELPolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CELPolicyException">CELPolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyRefs</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.PolicyRef">
+[]PolicyRef
+</a>
+</em>
+</td>
+<td>
+<p>PolicyRefs identifies the policies to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConstraints</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchresources-v1-admissionregistration">
+Kubernetes admissionregistration/v1.MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchConstraints is used to check if a resource applies to the exception.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>matchConditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#matchcondition-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.MatchCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
 </td>
 </tr>
 </tbody>
@@ -7722,6 +7901,47 @@ If left empty for namespaced resources, all resources from all namespaces will b
 (<code>string</code> alias)</p></h3>
 <p>
 </p>
+<h3 id="kyverno.io/v2alpha1.PolicyRef">PolicyRef
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CELPolicyExceptionSpec">CELPolicyExceptionSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the name of the policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Kind is the kind of the policy</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2alpha1.PolicyStatus">PolicyStatus
 </h3>
 <p>
@@ -7797,6 +8017,19 @@ Kubernetes admissionregistration/v1.ValidatingAdmissionPolicySpec
 <p>
 (Members of <code>ValidatingAdmissionPolicySpec</code> are embedded into this type.)
 </p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validationActions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validationaction-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.ValidationAction
+</a>
+</em>
+</td>
+<td>
+<p>ValidationAction specifies the action to be taken when the matched resource violates the policy.</p>
 </td>
 </tr>
 <tr>

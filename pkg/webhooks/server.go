@@ -10,14 +10,18 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/api/kyverno"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,6 +94,7 @@ func NewServer(
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	discovery dclient.IDiscovery,
 	webhookServerPort int32,
+	celEngine celengine.Engine,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -97,7 +102,8 @@ func NewServer(
 	exceptionLogger := logger.WithName("exception")
 	globalContextLogger := logger.WithName("globalcontext")
 	verifyLogger := logger.WithName("verify")
-	registerWebhookHandlers(
+	vpolLogger := logger.WithName("vpol")
+	registerWebhookHandlersWithAll(
 		mux,
 		"MUTATE",
 		config.MutatingWebhookServicePath,
@@ -114,7 +120,7 @@ func NewServer(
 				WithAdmission(resourceLogger.WithName("mutate"))
 		},
 	)
-	registerWebhookHandlers(
+	registerWebhookHandlersWithAll(
 		mux,
 		"VALIDATE",
 		config.ValidatingWebhookServicePath,
@@ -128,6 +134,41 @@ func NewServer(
 				WithRoles(rbLister, crbLister).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 				WithAdmission(resourceLogger.WithName("validate"))
+		},
+	)
+	registerWebhookHandlers(
+		mux,
+		"VPOL",
+		config.ValidatingPolicyServicePath,
+		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
+			response, err := celEngine.Handle(ctx, celengine.EngineRequest{
+				Request: &request.AdmissionRequest,
+			})
+			if err != nil {
+				return admissionutils.Response(request.UID, err)
+			}
+			var errs []error
+			for _, policy := range response.Policies {
+				for _, rule := range policy.Rules {
+					switch rule.Status() {
+					case engineapi.RuleStatusFail:
+						errs = append(errs, fmt.Errorf("Policy %s rule %s failed: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+					case engineapi.RuleStatusError:
+						errs = append(errs, fmt.Errorf("Policy %s rule %s error: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+					}
+				}
+			}
+			return admissionutils.Response(request.UID, multierr.Combine(errs...))
+		},
+		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
+			return handler.
+				WithFilter(configuration).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithTopLevelGVK(discovery).
+				WithRoles(rbLister, crbLister).
+				// WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
+				WithAdmission(vpolLogger.WithName("validate"))
 		},
 	)
 	mux.HandlerFunc(
@@ -281,12 +322,6 @@ func registerWebhookHandlers(
 	handlerFunc func(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time) admissionv1.AdmissionResponse,
 	builder func(handler handlers.AdmissionHandler) handlers.HttpHandler,
 ) {
-	all := handlers.FromAdmissionFunc(
-		name,
-		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
-			return handlerFunc(ctx, logger, request, "all", startTime)
-		},
-	)
 	ignore := handlers.FromAdmissionFunc(
 		name,
 		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
@@ -299,9 +334,25 @@ func registerWebhookHandlers(
 			return handlerFunc(ctx, logger, request, "fail", startTime)
 		},
 	)
-	mux.HandlerFunc("POST", basePath, builder(all).ToHandlerFunc(name))
 	mux.HandlerFunc("POST", basePath+"/ignore", builder(ignore).ToHandlerFunc(name))
 	mux.HandlerFunc("POST", basePath+"/fail", builder(fail).ToHandlerFunc(name))
 	mux.HandlerFunc("POST", basePath+"/ignore"+config.FineGrainedWebhookPath+"/*policy", builder(ignore).ToHandlerFunc(name))
 	mux.HandlerFunc("POST", basePath+"/fail"+config.FineGrainedWebhookPath+"/*policy", builder(fail).ToHandlerFunc(name))
+}
+
+func registerWebhookHandlersWithAll(
+	mux *httprouter.Router,
+	name string,
+	basePath string,
+	handlerFunc func(context.Context, logr.Logger, handlers.AdmissionRequest, string, time.Time) admissionv1.AdmissionResponse,
+	builder func(handler handlers.AdmissionHandler) handlers.HttpHandler,
+) {
+	all := handlers.FromAdmissionFunc(
+		name,
+		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
+			return handlerFunc(ctx, logger, request, "all", startTime)
+		},
+	)
+	mux.HandlerFunc("POST", basePath, builder(all).ToHandlerFunc(name))
+	registerWebhookHandlers(mux, name, basePath, handlerFunc, builder)
 }

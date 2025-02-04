@@ -13,14 +13,14 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 		webhookFailList   []admissionregistrationv1.ValidatingWebhook
 		webhookIgnore     = admissionregistrationv1.ValidatingWebhook{
 			Name:                    config.ValidatingPolicyWebhookName + "-ignore",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/ignore"),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/ignore"),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
 		}
 		webhookFail = admissionregistrationv1.ValidatingWebhook{
 			Name:                    config.ValidatingPolicyWebhookName + "-fail",
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, "/fail"),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, config.ValidatingPolicyServicePath+"/fail"),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
