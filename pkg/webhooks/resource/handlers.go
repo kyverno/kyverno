@@ -27,7 +27,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
-	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
@@ -91,7 +90,7 @@ func NewHandlers(
 	maxAuditCapacity int,
 	reportingConfig reportutils.ReportingConfiguration,
 	reportsBreaker breaker.Breaker,
-) webhooks.ResourceHandlers {
+) *resourceHandlers {
 	return &resourceHandlers{
 		engine:                       engine,
 		client:                       client,
