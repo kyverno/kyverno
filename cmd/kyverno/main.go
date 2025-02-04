@@ -47,6 +47,7 @@ import (
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -544,45 +545,15 @@ func main() {
 			backgroundServiceAccountName,
 			reportsServiceAccountName,
 		)
-		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+		contextProvider, err := celpolicy.NewContextProvider(
+			setup.KubeClient,
+			nil,
+			// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+		)
 		if err != nil {
-			setup.Logger.Error(err, "failed to start admission reports watcher")
+			setup.Logger.Error(err, "failed to create cel context provider")
 			os.Exit(1)
 		}
-		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
-			count, isRunning := ephrs.Count()
-			if !isRunning {
-				return true
-			}
-			return count > maxAdmissionReports
-		})
-		resourceHandlers := webhooksresource.NewHandlers(
-			engine,
-			setup.KyvernoDynamicClient,
-			setup.KyvernoClient,
-			setup.Configuration,
-			setup.MetricsManager,
-			policyCache,
-			kubeInformer.Core().V1().Namespaces().Lister(),
-			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
-			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Kyverno().V1().Policies(),
-			urgen,
-			eventGenerator,
-			admissionReports,
-			backgroundServiceAccountName,
-			reportsServiceAccountName,
-			setup.Jp,
-			maxAuditWorkers,
-			maxAuditCapacity,
-			setup.ReportingConfiguration,
-			reportsBreaker,
-		)
-		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
-			Enabled:   internal.PolicyExceptionEnabled(),
-			Namespace: internal.ExceptionNamespace(),
-		})
-		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		var celEngine celengine.Engine
 		{
 			// create a controller manager
@@ -634,12 +605,63 @@ func main() {
 				matching.NewMatcher(),
 			)
 		}
+		voplHandlers := vpol.New(celEngine, contextProvider)
+		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+		if err != nil {
+			setup.Logger.Error(err, "failed to start admission reports watcher")
+			os.Exit(1)
+		}
+		reportsBreaker := breaker.NewBreaker("admission reports", func(context.Context) bool {
+			count, isRunning := ephrs.Count()
+			if !isRunning {
+				return true
+			}
+			return count > maxAdmissionReports
+		})
+		resourceHandlers := webhooksresource.NewHandlers(
+			engine,
+			setup.KyvernoDynamicClient,
+			setup.KyvernoClient,
+			setup.Configuration,
+			setup.MetricsManager,
+			policyCache,
+			kubeInformer.Core().V1().Namespaces().Lister(),
+			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+			kyvernoInformer.Kyverno().V1().Policies(),
+			urgen,
+			eventGenerator,
+			admissionReports,
+			backgroundServiceAccountName,
+			reportsServiceAccountName,
+			setup.Jp,
+			maxAuditWorkers,
+			maxAuditCapacity,
+			setup.ReportingConfiguration,
+			reportsBreaker,
+		)
+		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
+			Enabled:   internal.PolicyExceptionEnabled(),
+			Namespace: internal.ExceptionNamespace(),
+		})
+		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		server := webhooks.NewServer(
 			signalCtx,
-			policyHandlers,
-			resourceHandlers,
-			exceptionHandlers,
-			globalContextHandlers,
+			webhooks.PolicyHandlers{
+				Mutation:   webhooks.HandlerFunc(policyHandlers.Mutate),
+				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
+			},
+			webhooks.ResourceHandlers{
+				Mutation:           webhooks.HandlerFunc(resourceHandlers.Mutate),
+				Validation:         webhooks.HandlerFunc(resourceHandlers.Validate),
+				ValidatingPolicies: webhooks.HandlerFunc(voplHandlers.Validate),
+			},
+			webhooks.ExceptionHandlers{
+				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),
+			},
+			webhooks.GlobalContextHandlers{
+				Validation: webhooks.HandlerFunc(globalContextHandlers.Validate),
+			},
 			setup.Configuration,
 			setup.MetricsManager,
 			webhooks.DebugModeOptions{
@@ -660,7 +682,6 @@ func main() {
 			kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 			setup.KyvernoDynamicClient.Discovery(),
 			int32(webhookServerPort), //nolint:gosec
-			celEngine,
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers

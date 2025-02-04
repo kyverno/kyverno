@@ -8,12 +8,15 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
 	"golang.org/x/exp/maps"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CompiledPolicy struct {
+	Actions        sets.Set[admissionregistrationv1.ValidationAction]
 	Policy         kyvernov2alpha1.ValidatingPolicy
 	CompiledPolicy policy.CompiledPolicy
 }
@@ -35,7 +38,12 @@ func NewProvider(compiler policy.Compiler, policies ...kyvernov2alpha1.Validatin
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
 		}
+		actions := sets.New(vp.Spec.ValidationAction...)
+		if len(actions) == 0 {
+			actions.Insert(admissionregistrationv1.Deny)
+		}
 		compiled = append(compiled, CompiledPolicy{
+			Actions:        actions,
 			Policy:         vp,
 			CompiledPolicy: policy,
 		})
@@ -90,7 +98,12 @@ func (r *policyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	r.lock.Lock()
 	defer r.lock.Unlock()
+	actions := sets.New(policy.Spec.ValidationAction...)
+	if len(actions) == 0 {
+		actions.Insert(admissionregistrationv1.Deny)
+	}
 	r.policies[req.NamespacedName.String()] = CompiledPolicy{
+		Actions:        actions,
 		Policy:         policy,
 		CompiledPolicy: compiled,
 	}
