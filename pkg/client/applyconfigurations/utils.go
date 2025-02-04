@@ -221,10 +221,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.GlobalContextEntryStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("KubernetesResource"):
 		return &kyvernov2alpha1.KubernetesResourceApplyConfiguration{}
-	case v2alpha1.SchemeGroupVersion.WithKind("PolicyStatus"):
-		return &kyvernov2alpha1.PolicyStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyRef"):
 		return &kyvernov2alpha1.PolicyRefApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("PolicyStatus"):
+		return &kyvernov2alpha1.PolicyStatusApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy"):
 		return &kyvernov2alpha1.ValidatingPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicySpec"):
