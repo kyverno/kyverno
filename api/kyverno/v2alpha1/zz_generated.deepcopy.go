@@ -22,7 +22,6 @@ limitations under the License.
 package v2alpha1
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -497,7 +496,7 @@ func (in *Key) DeepCopyInto(out *Key) {
 	*out = *in
 	if in.SecretRef != nil {
 		in, out := &in.SecretRef, &out.SecretRef
-		*out = new(kyvernov1.SecretReference)
+		*out = new(corev1.SecretReference)
 		**out = **in
 	}
 	return
