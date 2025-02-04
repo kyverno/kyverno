@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/utils/report"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -82,16 +81,6 @@ func (e *engine) filterRule(
 		logger.V(3).Info("policy rule is skipped due to policy exceptions", "exceptions", keys)
 		return engineapi.RuleSkip(rule.Name, ruleType, "rule is skipped due to policy exception "+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(matchedExceptions)
 	}
-
-	var origin string
-	ruleResponse := &report.RuleResponseWithOrigin{Origin: origin}
-	if policyContext.Operation() == kyvernov1.Create || policyContext.Operation() == kyvernov1.Update {
-		origin = "admission"
-	} else {
-		origin = "background"
-	}
-
-	ruleResponse.WithOrigin(origin)
 
 	newResource := policyContext.NewResource()
 	oldResource := policyContext.OldResource()
