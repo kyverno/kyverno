@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -160,12 +161,14 @@ func NewServer(
 			}
 			var errs []error
 			for _, policy := range response.Policies {
-				for _, rule := range policy.Rules {
-					switch rule.Status() {
-					case engineapi.RuleStatusFail:
-						errs = append(errs, fmt.Errorf("Policy %s rule %s failed: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
-					case engineapi.RuleStatusError:
-						errs = append(errs, fmt.Errorf("Policy %s rule %s error: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+				if policy.Actions.Has(admissionregistrationv1.Deny) {
+					for _, rule := range policy.Rules {
+						switch rule.Status() {
+						case engineapi.RuleStatusFail:
+							errs = append(errs, fmt.Errorf("Policy %s rule %s failed: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+						case engineapi.RuleStatusError:
+							errs = append(errs, fmt.Errorf("Policy %s rule %s error: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+						}
 					}
 				}
 			}

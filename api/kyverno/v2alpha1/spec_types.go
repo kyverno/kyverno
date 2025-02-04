@@ -9,6 +9,8 @@ type ValidatingPolicySpec struct {
 	admissionregistrationv1.ValidatingAdmissionPolicySpec `json:",inline"`
 
 	// ValidationAction specifies the action to be taken when the matched resource violates the policy.
+	// Required.
+	// +listType=set
 	ValidationAction []admissionregistrationv1.ValidationAction `json:"validationActions,omitempty"`
 
 	// WebhookConfiguration defines the configuration for the webhook.

@@ -525,12 +525,14 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               validationActions:
-                description: ValidationAction specifies the action to be taken when
-                  the matched resource violates the policy.
+                description: |-
+                  ValidationAction specifies the action to be taken when the matched resource violates the policy.
+                  Required.
                 items:
                   description: ValidationAction specifies a policy enforcement action.
                   type: string
                 type: array
+                x-kubernetes-list-type: set
               validations:
                 description: |-
                   Validations contain CEL expressions which is used to apply the validation.

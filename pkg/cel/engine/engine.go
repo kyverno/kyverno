@@ -12,10 +12,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 )
 
@@ -31,8 +33,9 @@ type EngineResponse struct {
 }
 
 type PolicyResponse struct {
-	Policy kyvernov2alpha1.ValidatingPolicy
-	Rules  []engineapi.RuleResponse
+	Actions sets.Set[admissionregistrationv1.ValidationAction]
+	Policy  kyvernov2alpha1.ValidatingPolicy
+	Rules   []engineapi.RuleResponse
 }
 
 type Engine interface {
@@ -118,7 +121,8 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 
 func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
 	response := PolicyResponse{
-		Policy: policy.Policy,
+		Actions: policy.Actions,
+		Policy:  policy.Policy,
 	}
 	if e.matcher != nil {
 		criteria := matchCriteria{constraints: policy.Policy.Spec.MatchConstraints}
