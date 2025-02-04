@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -109,14 +107,14 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
 	}
 
-	cp := &v1.ClusterPolicy{}
 	origin := ""
-	if backgroundProcessing := cp.BackgroundProcessingEnabled(); backgroundProcessing {
-		origin = "backgroundProcessing"
-	} else if admissionProcessing := cp.AdmissionProcessingEnabled(); admissionProcessing {
-		origin = "admissionProcessing"
+	if admissionProcessing := pol.AsKyvernoPolicy().AdmissionProcessingEnabled(); admissionProcessing {
+		origin = "admission review"
 	}
-	addProperty("origin", origin, &result)
+	if backgroundProcessing := pol.AsKyvernoPolicy().BackgroundProcessingEnabled(); backgroundProcessing {
+		origin = "background scan"
+	}
+	addProperty("source", origin, &result)
 
 	if result.Result == "fail" && !result.Scored {
 		result.Result = "warn"
