@@ -98,7 +98,7 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 	}
 	now := time.Now().Add(c.renewBefore)
 	certs = removeExpiredCertificates(now, certs...)
-	if !allCertificatesExpired(now.Add(c.renewBefore), certs...) {
+	if !allCertificatesExpired(now, certs...) {
 		return nil
 	}
 	if !isSecretManagedByKyverno(secret) {
