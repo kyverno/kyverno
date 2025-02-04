@@ -36,6 +36,10 @@ func (c *FakeKyvernoV2alpha1) GlobalContextEntries() v2alpha1.GlobalContextEntry
 	return &FakeGlobalContextEntries{c}
 }
 
+func (c *FakeKyvernoV2alpha1) ImageVerificationPolicies() v2alpha1.ImageVerificationPolicyInterface {
+	return &FakeImageVerificationPolicies{c}
+}
+
 func (c *FakeKyvernoV2alpha1) ValidatingPolicies() v2alpha1.ValidatingPolicyInterface {
 	return &FakeValidatingPolicies{c}
 }

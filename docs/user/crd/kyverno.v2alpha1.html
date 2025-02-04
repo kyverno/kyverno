@@ -29,6 +29,8 @@
                   </li><li>
                     <a href="#kyverno-io-v2alpha1-GlobalContextEntry">GlobalContextEntry</a>
                   </li><li>
+                    <a href="#kyverno-io-v2alpha1-ImageVerificationPolicy">ImageVerificationPolicy</a>
+                  </li><li>
                     <a href="#kyverno-io-v2alpha1-ValidatingPolicy">ValidatingPolicy</a>
                   </li></ul>
 
@@ -410,6 +412,80 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
           <p>Status contains globalcontextentry runtime data.</p>
 
 
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-ImageVerificationPolicy">ImageVerificationPolicy
+    </H3>
+
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>kyverno.io/v2alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>ImageVerificationPolicy</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
           
 
           
@@ -991,6 +1067,480 @@ Required.</p>
     </table>
   
 
+  <H3 id="kyverno-io-v2alpha1-CTLog">CTLog
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>CTLog sets the configuration to verify the authority against a Rekor instance.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>url</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>URL sets the url to the rekor instance (by default the public rekor.sigstore.dev)</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>rekorPubKey</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>RekorPubKey is an optional PEM-encoded public key to use for a custom Rekor.
+If set, this will be used to validate transparency log signatures from a custom Rekor.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>ctLogPubKey</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CTLogPubKey, if set, is used to validate SCTs against a custom source.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>insecureIgnoreTlog</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>InsecureIgnoreTlog skips transparency log verification.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>insecureIgnoreSCT</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IgnoreSCT defines whether to use the Signed Certificate Timestamp (SCT) log to check for a certificate
+timestamp. Default is false. Set to true if this was opted out during signing.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-Certificate">Certificate
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>Certificate defines the configuration for local signature verification</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>cert</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Certificate is the to the public certificate for local signature verification.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>certChain</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CertificateChain is the list of CA certificates in PEM format which will be needed
+when building the certificate chain for the signing certificate. Must start with the
+parent intermediate CA certificate of the signing certificate and end with the root certificate</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-Cosign">Cosign
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>)
+    </p>
+  
+
+  <p><p>Cosign defines attestor configuration for Cosign based signatures</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>key</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-Key">
+                <span style="font-family: monospace">Key</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Key defines the type of key to validate the image.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>keyless</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-Keyless">
+                <span style="font-family: monospace">Keyless</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Keyless sets the configuration to verify the authority against a Fulcio instance.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>certificate</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-Certificate">
+                <span style="font-family: monospace">Certificate</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Certificate defines the configuration for local signature verification</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>source</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-Source">
+                <span style="font-family: monospace">[]Source</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Sources sets the configuration to specify the sources from where to consume the signature and attestations.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>ctlog</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-CTLog">
+                <span style="font-family: monospace">CTLog</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CTLog sets the configuration to verify the authority against a Rekor instance.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>tuf</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-TUF">
+                <span style="font-family: monospace">TUF</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TUF defines the configuration to fetch sigstore root</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v2alpha1-ExternalAPICall">ExternalAPICall
     </H3>
 
@@ -1339,6 +1889,429 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
     </table>
   
 
+  <H3 id="kyverno-io-v2alpha1-Identity">Identity
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Keyless">Keyless</a>)
+    </p>
+  
+
+  <p><p>Identity may contain the issuer and/or the subject found in the transparency
+log.
+Issuer/Subject uses a strict match, while IssuerRegExp and SubjectRegExp
+apply a regexp for matching.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>issuer</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Issuer defines the issuer for this identity.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subject</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Subject defines the subject for this identity.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>issuerRegExp</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>IssuerRegExp specifies a regular expression to match the issuer for this identity.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>subjectRegExp</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SubjectRegExp specifies a regular expression to match the subject for this identity.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-Key">Key
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Cosign">Cosign</a>, 
+        <a href="#kyverno-io-v2alpha1-Keyless">Keyless</a>)
+    </p>
+  
+
+  <p><p>This references a public verification key stored in
+a secret in the cosign-system namespace.
+A Key must specify only one of SecretRef, Data or KMS</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>secretRef</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-SecretReference">
+                <span style="font-family: monospace">SecretReference</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SecretRef sets a reference to a secret with the key.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>data</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Data contains the inline public key</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kms</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>KMS contains the KMS url of the public key
+Supported formats differ based on the KMS system used.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>hashAlgorithm</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>HashAlgorithm specifues signature algorithm for public keys. Supported values are
+sha224, sha256, sha384 and sha512. Defaults to sha256.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-Keyless">Keyless
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>Keyless contains location of the validating certificate and the identities
+against which to verify. KeylessRef will contain either the URL to the verifying
+certificate, or it will contain the certificate data inline or in a secret.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>url</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>URL defines a url to the keyless instance.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>identities</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-Identity">
+                <span style="font-family: monospace">[]Identity</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Identities sets a list of identities.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>ca-cert</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-Key">
+                <span style="font-family: monospace">Key</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CACert sets a reference to CA certificate</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v2alpha1-KubernetesResource">KubernetesResource
     </H3>
 
@@ -1476,6 +2449,70 @@ Requires the pluralized form of the resource kind in lowercase. (Ex., &quot;depl
 
           <p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 If left empty for namespaced resources, all resources from all namespaces will be cached.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-Notary">Notary
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>)
+    </p>
+  
+
+  <p><p>Notary defines attestor configuration for Notary based signatures</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>certs</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Certs define the cert chain for Notary signature verification</p>
 
 
           
@@ -1687,6 +2724,309 @@ The conditions array, the reason and message fields contain more detail about th
           
 
           
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-Source">Source
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>Source specifies the location of the signature / attestations.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>repository</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Repository defines the location from where to pull the signature / attestations.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>PullSecrets</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]core/v1.LocalObjectReference</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SignaturePullSecrets is an optional list of references to secrets in the
+same namespace as the deploying resource for pulling any of the signatures
+used by this Source.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>tagPrefixy</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TagPrefix is an optional prefix that signature and attestations have.
+This is the 'tag based discovery' and in the future once references are
+fully supported that should likely be the preferred way to handle these.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-TUF">TUF
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-Cosign">Cosign</a>)
+    </p>
+  
+
+  <p><p>TUF defines the configuration to fetch sigstore root</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>root</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-TUFRoot">
+                <span style="font-family: monospace">TUFRoot</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Root defines the path or data of the trusted root</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>mirror</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Mirror is the base URL of Sigstore TUF repository</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-TUFRoot">TUFRoot
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-TUF">TUF</a>)
+    </p>
+  
+
+  <p><p>TUFRoot defines the path or data of the trusted root</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>path</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Path is the URL or File location of the TUF root</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>ata</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Data is the base64 encoded TUF root</p>
+
 
           
 

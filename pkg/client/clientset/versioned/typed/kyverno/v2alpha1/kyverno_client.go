@@ -30,6 +30,7 @@ type KyvernoV2alpha1Interface interface {
 	RESTClient() rest.Interface
 	CELPolicyExceptionsGetter
 	GlobalContextEntriesGetter
+	ImageVerificationPoliciesGetter
 	ValidatingPoliciesGetter
 }
 
@@ -44,6 +45,10 @@ func (c *KyvernoV2alpha1Client) CELPolicyExceptions(namespace string) CELPolicyE
 
 func (c *KyvernoV2alpha1Client) GlobalContextEntries() GlobalContextEntryInterface {
 	return newGlobalContextEntries(c)
+}
+
+func (c *KyvernoV2alpha1Client) ImageVerificationPolicies() ImageVerificationPolicyInterface {
+	return newImageVerificationPolicies(c)
 }
 
 func (c *KyvernoV2alpha1Client) ValidatingPolicies() ValidatingPolicyInterface {

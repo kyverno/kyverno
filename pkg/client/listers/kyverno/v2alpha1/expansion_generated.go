@@ -30,6 +30,10 @@ type CELPolicyExceptionNamespaceListerExpansion interface{}
 // GlobalContextEntryLister.
 type GlobalContextEntryListerExpansion interface{}
 
+// ImageVerificationPolicyListerExpansion allows custom methods to be added to
+// ImageVerificationPolicyLister.
+type ImageVerificationPolicyListerExpansion interface{}
+
 // ValidatingPolicyListerExpansion allows custom methods to be added to
 // ValidatingPolicyLister.
 type ValidatingPolicyListerExpansion interface{}

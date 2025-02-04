@@ -62,6 +62,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CELPolicyExceptionList{},
 		&GlobalContextEntry{},
 		&GlobalContextEntryList{},
+		&ImageVerificationPolicy{},
+		&ImageVerificationPolicyList{},
 		&ValidatingPolicy{},
 		&ValidatingPolicyList{},
 	)

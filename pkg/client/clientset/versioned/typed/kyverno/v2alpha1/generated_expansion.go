@@ -22,4 +22,6 @@ type CELPolicyExceptionExpansion interface{}
 
 type GlobalContextEntryExpansion interface{}
 
+type ImageVerificationPolicyExpansion interface{}
+
 type ValidatingPolicyExpansion interface{}

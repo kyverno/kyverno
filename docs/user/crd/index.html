@@ -4181,7 +4181,8 @@ int
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.StaticKeyAttestor">StaticKeyAttestor</a>)
+<a href="#kyverno.io/v1.StaticKeyAttestor">StaticKeyAttestor</a>, 
+<a href="#kyverno.io/v2alpha1.Key">Key</a>)
 </p>
 <p>
 </p>
@@ -7264,6 +7265,8 @@ Resource Types:
 </li><li>
 <a href="#kyverno.io/v2alpha1.GlobalContextEntry">GlobalContextEntry</a>
 </li><li>
+<a href="#kyverno.io/v2alpha1.ImageVerificationPolicy">ImageVerificationPolicy</a>
+</li><li>
 <a href="#kyverno.io/v2alpha1.ValidatingPolicy">ValidatingPolicy</a>
 </li></ul>
 <hr />
@@ -7468,6 +7471,52 @@ GlobalContextEntryStatus
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2alpha1.ImageVerificationPolicy">ImageVerificationPolicy
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ImageVerificationPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2alpha1.ValidatingPolicy">ValidatingPolicy
 </h3>
 <p>
@@ -7582,6 +7631,61 @@ PolicyStatus
 <td>
 <em>(Optional)</em>
 <p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Attestor">Attestor
+</h3>
+<p>
+<p>Attestor is an identity that confirms or verifies the authenticity of an image or an attestation</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the name for this attestor. It is used to refer to the attestor in verification</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cosign</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Cosign">
+Cosign
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Cosign defines attestor configuration for Cosign based signatures</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>notary</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Notary">
+Notary
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Notary defines attestor configuration for Notary based signatures</p>
 </td>
 </tr>
 </tbody>
@@ -7741,6 +7845,238 @@ Kubernetes admissionregistration/v1.MatchResources
 <td>
 <em>(Optional)</em>
 <p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CTLog">CTLog
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.Cosign">Cosign</a>)
+</p>
+<p>
+<p>CTLog sets the configuration to verify the authority against a Rekor instance.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>URL sets the url to the rekor instance (by default the public rekor.sigstore.dev)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>rekorPubKey</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RekorPubKey is an optional PEM-encoded public key to use for a custom Rekor.
+If set, this will be used to validate transparency log signatures from a custom Rekor.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ctLogPubKey</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CTLogPubKey, if set, is used to validate SCTs against a custom source.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>insecureIgnoreTlog</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>InsecureIgnoreTlog skips transparency log verification.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>insecureIgnoreSCT</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IgnoreSCT defines whether to use the Signed Certificate Timestamp (SCT) log to check for a certificate
+timestamp. Default is false. Set to true if this was opted out during signing.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Certificate">Certificate
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.Cosign">Cosign</a>)
+</p>
+<p>
+<p>Certificate defines the configuration for local signature verification</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>cert</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Certificate is the to the public certificate for local signature verification.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certChain</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CertificateChain is the list of CA certificates in PEM format which will be needed
+when building the certificate chain for the signing certificate. Must start with the
+parent intermediate CA certificate of the signing certificate and end with the root certificate</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Cosign">Cosign
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.Attestor">Attestor</a>)
+</p>
+<p>
+<p>Cosign defines attestor configuration for Cosign based signatures</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Key">
+Key
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Key defines the type of key to validate the image.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keyless</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Keyless">
+Keyless
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Keyless sets the configuration to verify the authority against a Fulcio instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certificate</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Certificate">
+Certificate
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Certificate defines the configuration for local signature verification</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>source</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Source">
+[]Source
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Sources sets the configuration to specify the sources from where to consume the signature and attestations.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ctlog</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CTLog">
+CTLog
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CTLog sets the configuration to verify the authority against a Rekor instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tuf</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.TUF">
+TUF
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TUF defines the configuration to fetch sigstore root</p>
 </td>
 </tr>
 </tbody>
@@ -7920,6 +8256,213 @@ Kubernetes meta/v1.Time
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2alpha1.Identity">Identity
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.Keyless">Keyless</a>)
+</p>
+<p>
+<p>Identity may contain the issuer and/or the subject found in the transparency
+log.
+Issuer/Subject uses a strict match, while IssuerRegExp and SubjectRegExp
+apply a regexp for matching.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>issuer</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Issuer defines the issuer for this identity.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>subject</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Subject defines the subject for this identity.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>issuerRegExp</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IssuerRegExp specifies a regular expression to match the issuer for this identity.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>subjectRegExp</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SubjectRegExp specifies a regular expression to match the subject for this identity.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Key">Key
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.Cosign">Cosign</a>, 
+<a href="#kyverno.io/v2alpha1.Keyless">Keyless</a>)
+</p>
+<p>
+<p>This references a public verification key stored in
+a secret in the cosign-system namespace.
+A Key must specify only one of SecretRef, Data or KMS</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>secretRef</code><br/>
+<em>
+<a href="#kyverno.io/v1.SecretReference">
+SecretReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SecretRef sets a reference to a secret with the key.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>data</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Data contains the inline public key</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kms</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>KMS contains the KMS url of the public key
+Supported formats differ based on the KMS system used.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>hashAlgorithm</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HashAlgorithm specifues signature algorithm for public keys. Supported values are
+sha224, sha256, sha384 and sha512. Defaults to sha256.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Keyless">Keyless
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.Cosign">Cosign</a>)
+</p>
+<p>
+<p>Keyless contains location of the validating certificate and the identities
+against which to verify. KeylessRef will contain either the URL to the verifying
+certificate, or it will contain the certificate data inline or in a secret.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>URL defines a url to the keyless instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>identities</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Identity">
+[]Identity
+</a>
+</em>
+</td>
+<td>
+<p>Identities sets a list of identities.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ca-cert</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Key">
+Key
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CACert sets a reference to CA certificate</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2alpha1.KubernetesResource">KubernetesResource
 </h3>
 <p>
@@ -7982,6 +8525,37 @@ string
 <em>(Optional)</em>
 <p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 If left empty for namespaced resources, all resources from all namespaces will be cached.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Notary">Notary
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.Attestor">Attestor</a>)
+</p>
+<p>
+<p>Notary defines attestor configuration for Notary based signatures</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>certs</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Certs define the cert chain for Notary signature verification</p>
 </td>
 </tr>
 </tbody>
@@ -8085,6 +8659,158 @@ AutogenStatus
 </td>
 <td>
 <em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Source">Source
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.Cosign">Cosign</a>)
+</p>
+<p>
+<p>Source specifies the location of the signature / attestations.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>repository</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Repository defines the location from where to pull the signature / attestations.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>PullSecrets</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#localobjectreference-v1-core">
+[]Kubernetes core/v1.LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SignaturePullSecrets is an optional list of references to secrets in the
+same namespace as the deploying resource for pulling any of the signatures
+used by this Source.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tagPrefixy</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TagPrefix is an optional prefix that signature and attestations have.
+This is the &lsquo;tag based discovery&rsquo; and in the future once references are
+fully supported that should likely be the preferred way to handle these.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.TUF">TUF
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.Cosign">Cosign</a>)
+</p>
+<p>
+<p>TUF defines the configuration to fetch sigstore root</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>root</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.TUFRoot">
+TUFRoot
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Root defines the path or data of the trusted root</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mirror</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Mirror is the base URL of Sigstore TUF repository</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.TUFRoot">TUFRoot
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.TUF">TUF</a>)
+</p>
+<p>
+<p>TUFRoot defines the path or data of the trusted root</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>path</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path is the URL or File location of the TUF root</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ata</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Data is the base64 encoded TUF root</p>
 </td>
 </tr>
 </tbody>
