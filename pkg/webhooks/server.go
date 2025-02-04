@@ -11,6 +11,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/api/kyverno"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicy "github.com/kyverno/kyverno/pkg/cel/policy"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -23,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -95,6 +97,7 @@ func NewServer(
 	discovery dclient.IDiscovery,
 	webhookServerPort int32,
 	celEngine celengine.Engine,
+	dclient dclient.Interface,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -141,20 +144,31 @@ func NewServer(
 		"VPOL",
 		config.ValidatingPolicyServicePath,
 		func(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
+			contextProvider, err := celpolicy.NewContextProvider(
+				dclient.GetKubeClient(),
+				nil,
+				// []imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+			)
+			if err != nil {
+				return admissionutils.Response(request.UID, err)
+			}
 			response, err := celEngine.Handle(ctx, celengine.EngineRequest{
 				Request: &request.AdmissionRequest,
+				Context: contextProvider,
 			})
 			if err != nil {
 				return admissionutils.Response(request.UID, err)
 			}
 			var errs []error
 			for _, policy := range response.Policies {
-				for _, rule := range policy.Rules {
-					switch rule.Status() {
-					case engineapi.RuleStatusFail:
-						errs = append(errs, fmt.Errorf("Policy %s rule %s failed: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
-					case engineapi.RuleStatusError:
-						errs = append(errs, fmt.Errorf("Policy %s rule %s error: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+				if policy.Actions.Has(admissionregistrationv1.Deny) {
+					for _, rule := range policy.Rules {
+						switch rule.Status() {
+						case engineapi.RuleStatusFail:
+							errs = append(errs, fmt.Errorf("Policy %s rule %s failed: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+						case engineapi.RuleStatusError:
+							errs = append(errs, fmt.Errorf("Policy %s rule %s error: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+						}
 					}
 				}
 			}

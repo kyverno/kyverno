@@ -12,10 +12,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 )
 
@@ -31,8 +33,9 @@ type EngineResponse struct {
 }
 
 type PolicyResponse struct {
-	Policy kyvernov2alpha1.ValidatingPolicy
-	Rules  []engineapi.RuleResponse
+	Actions sets.Set[admissionregistrationv1.ValidationAction]
+	Policy  kyvernov2alpha1.ValidatingPolicy
+	Rules   []engineapi.RuleResponse
 }
 
 type Engine interface {
@@ -111,14 +114,15 @@ func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineRespo
 		}
 	}
 	for _, policy := range policies {
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, attr, namespace, request.Context))
+		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, attr, request.Request, namespace, request.Context))
 	}
 	return response, nil
 }
 
-func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
+func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context contextlib.ContextInterface) PolicyResponse {
 	response := PolicyResponse{
-		Policy: policy.Policy,
+		Actions: policy.Actions,
+		Policy:  policy.Policy,
 	}
 	if e.matcher != nil {
 		criteria := matchCriteria{constraints: policy.Policy.Spec.MatchConstraints}
@@ -129,21 +133,21 @@ func (e *engine) handlePolicy(ctx context.Context, policy CompiledPolicy, attr a
 			return response
 		}
 	}
-	results, err := policy.CompiledPolicy.Evaluate(ctx, attr, namespace, context)
+	results, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
 	} else {
-		for index, result := range results {
+		for index, validationResult := range results {
 			ruleName := fmt.Sprintf("rule-%d", index)
-			if result.Error != nil {
+			if validationResult.Error != nil {
 				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", err, nil))
-			} else if result, err := utils.ConvertToNative[bool](result.Result); err != nil {
+			} else if result, err := utils.ConvertToNative[bool](validationResult.Result); err != nil {
 				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "conversion error", err, nil))
 			} else if result {
 				response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", nil))
 			} else {
-				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, "failure", nil))
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, validationResult.Message, nil))
 			}
 		}
 	}
