@@ -47,6 +47,7 @@ func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
 	exceptionHandlers ExceptionHandlers,
+	celExceptionHandlers CELExceptionHandlers,
 	globalContextHandlers GlobalContextHandlers,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
@@ -65,6 +66,7 @@ func NewServer(
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	exceptionLogger := logger.WithName("exception")
+	celExceptionLogger := logger.WithName("cel-exception")
 	globalContextLogger := logger.WithName("globalcontext")
 	verifyLogger := logger.WithName("verify")
 	vpolLogger := logger.WithName("vpol")
@@ -144,6 +146,16 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(exceptionLogger.WithName("validate")).
+			ToHandlerFunc("VALIDATE"),
+	)
+	mux.HandlerFunc(
+		"POST",
+		config.CELExceptionValidatingWebhookServicePath,
+		handlerFunc("VALIDATE", celExceptionHandlers.Validation, "").
+			WithDump(debugModeOpts.DumpPayload).
+			WithSubResourceFilter().
+			WithMetrics(celExceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(celExceptionLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc(
