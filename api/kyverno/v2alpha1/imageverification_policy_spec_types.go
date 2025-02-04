@@ -1,7 +1,6 @@
 package v2alpha1
 
 import (
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -109,7 +108,7 @@ type CTLog struct {
 type Key struct {
 	// SecretRef sets a reference to a secret with the key.
 	// +optional
-	SecretRef *v1.SecretReference `json:"secretRef,omitempty"`
+	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
 	// Data contains the inline public key
 	// +optional
 	Data string `json:"data,omitempty"`
