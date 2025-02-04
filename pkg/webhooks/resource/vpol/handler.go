@@ -35,7 +35,12 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, request hand
 	if err != nil {
 		return admissionutils.Response(request.UID, err)
 	}
+	return admissionResponse(response, request)
+}
+
+func admissionResponse(response celengine.EngineResponse, request handlers.AdmissionRequest) handlers.AdmissionResponse {
 	var errs []error
+	var warnings []string
 	for _, policy := range response.Policies {
 		if policy.Actions.Has(admissionregistrationv1.Deny) {
 			for _, rule := range policy.Rules {
@@ -47,7 +52,16 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, request hand
 				}
 			}
 		}
+		if policy.Actions.Has(admissionregistrationv1.Warn) {
+			for _, rule := range policy.Rules {
+				switch rule.Status() {
+				case engineapi.RuleStatusFail:
+					warnings = append(warnings, fmt.Sprintf("Policy %s rule %s failed: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+				case engineapi.RuleStatusError:
+					warnings = append(warnings, fmt.Sprintf("Policy %s rule %s error: %s", policy.Policy.GetName(), rule.Name(), rule.Message()))
+				}
+			}
+		}
 	}
-	// TODO: reporting
-	return admissionutils.Response(request.UID, multierr.Combine(errs...))
+	return admissionutils.Response(request.UID, multierr.Combine(errs...), warnings...)
 }
