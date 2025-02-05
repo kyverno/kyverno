@@ -27,7 +27,8 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 			continue
 		}
 		for _, result := range report.GetResults() {
-			if result.Source == reportutils.SourceValidatingPolicy {
+			switch result.Source {
+			case reportutils.SourceValidatingPolicy:
 				if maps.vpol != nil && maps.vpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
@@ -36,7 +37,7 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 						accumulator[key] = result
 					}
 				}
-			} else if result.Source == reportutils.SourceValidatingAdmissionPolicy {
+			case reportutils.SourceValidatingAdmissionPolicy:
 				if maps.vap != nil && maps.vap.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					if rule, exists := accumulator[key]; !exists {
@@ -45,7 +46,7 @@ func mergeReports(maps maps, accumulator map[string]policyreportv1alpha2.PolicyR
 						accumulator[key] = result
 					}
 				}
-			} else {
+			default:
 				currentPolicy := maps.pol[result.Policy]
 				if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
 					key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)

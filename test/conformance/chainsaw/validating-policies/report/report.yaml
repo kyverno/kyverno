@@ -17,7 +17,7 @@ results:
   result: pass
   rule: rule-0
   scored: true
-  source: ValidatingPolicy
+  source: KyvernoValidatingPolicy
 summary:
   error: 0
   fail: 0

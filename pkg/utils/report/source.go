@@ -7,5 +7,5 @@ import (
 const (
 	SourceKyverno                   = kyverno.ValueKyvernoApp
 	SourceValidatingAdmissionPolicy = "ValidatingAdmissionPolicy"
-	SourceValidatingPolicy          = "ValidatingPolicy"
+	SourceValidatingPolicy          = "KyvernoValidatingPolicy"
 )
