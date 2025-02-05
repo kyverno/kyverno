@@ -67,7 +67,7 @@ type controller struct {
 	nsLister         corev1listers.NamespaceLister
 
 	// queue
-	queue workqueue.TypedRateLimitingInterface[any]
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	// cache
 	metadataCache resource.MetadataCache
@@ -105,8 +105,8 @@ func NewController(
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
-		workqueue.DefaultTypedControllerRateLimiter[any](),
-		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: ControllerName},
 	)
 	c := controller{
 		client:         client,
@@ -361,29 +361,21 @@ func (c *controller) reconcileReport(
 		policyNameToLabel := map[string]string{}
 		for _, policy := range policies {
 			var key string
-			var err error
 			if policy.AsKyvernoPolicy() != nil {
-				key, err = cache.MetaNamespaceKeyFunc(policy.AsKyvernoPolicy())
+				key = cache.MetaObjectToName(policy.AsKyvernoPolicy()).String()
 			} else if policy.AsValidatingAdmissionPolicy() != nil {
-				key, err = cache.MetaNamespaceKeyFunc(policy.AsValidatingAdmissionPolicy())
-			}
-			if err != nil {
-				return err
+				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy()).String()
+			} else if policy.AsValidatingPolicy() != nil {
+				key = cache.MetaObjectToName(policy.AsValidatingPolicy()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
 		for i, exception := range exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(&exceptions[i])
-			if err != nil {
-				return err
-			}
+			key := cache.MetaObjectToName(&exceptions[i]).String()
 			policyNameToLabel[key] = reportutils.PolicyExceptionLabel(exception)
 		}
 		for _, binding := range bindings {
-			key, err := cache.MetaNamespaceKeyFunc(binding)
-			if err != nil {
-				return err
-			}
+			key := cache.MetaObjectToName(&binding).String()
 			policyNameToLabel[key] = reportutils.ValidatingAdmissionPolicyBindingLabel(binding)
 		}
 		for _, result := range observed.GetResults() {
@@ -400,7 +392,6 @@ func (c *controller) reconcileReport(
 					break
 				}
 			}
-
 			label := policyNameToLabel[result.Policy]
 			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
 			if (label != "" && expected[label] == actual[label]) ||

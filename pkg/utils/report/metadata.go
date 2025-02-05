@@ -35,8 +35,10 @@ const (
 	//	policy labels
 	LabelDomainClusterPolicy                    = "cpol.kyverno.io"
 	LabelDomainPolicy                           = "pol.kyverno.io"
+	LabelDomainValidatingPolicy                 = "vpol.kyverno.io"
 	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
+	LabelPrefixValidatingPolicy                 = LabelDomainValidatingPolicy + "/"
 	LabelPrefixPolicyException                  = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
@@ -65,11 +67,14 @@ func PolicyNameFromLabel(namespace, label string) (string, error) {
 }
 
 func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
-	if policy.IsNamespaced() {
-		return LabelPrefixPolicy
-	}
 	if policy.AsKyvernoPolicy() != nil {
+		if policy.IsNamespaced() {
+			return LabelPrefixPolicy
+		}
 		return LabelPrefixClusterPolicy
+	}
+	if policy.AsValidatingPolicy() != nil {
+		return LabelPrefixValidatingPolicy
 	}
 	return LabelPrefixValidatingAdmissionPolicy
 }
