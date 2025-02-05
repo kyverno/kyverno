@@ -57,7 +57,7 @@ const (
 type EventHandler func(EventType, types.UID, schema.GroupVersionKind, Resource)
 
 type MetadataCache interface {
-	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool)
+	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, schema.GroupVersionResource, bool)
 	GetAllResourceKeys() []string
 	AddEventHandler(EventHandler)
 	Warmup(ctx context.Context) error
@@ -139,15 +139,15 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	c.stopDynamicWatchers()
 }
 
-func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {
+func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, schema.GroupVersionResource, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	for _, watcher := range c.dynamicWatchers {
+	for gvr, watcher := range c.dynamicWatchers {
 		if resource, exists := watcher.hashes[uid]; exists {
-			return resource, watcher.gvk, true
+			return resource, watcher.gvk, gvr, true
 		}
 	}
-	return Resource{}, schema.GroupVersionKind{}, false
+	return Resource{}, schema.GroupVersionKind{}, schema.GroupVersionResource{}, false
 }
 
 func (c *controller) GetAllResourceKeys() []string {

@@ -338,6 +338,7 @@ func (c *controller) reconcileReport(
 	full bool,
 	uid types.UID,
 	gvk schema.GroupVersionKind,
+	gvr schema.GroupVersionResource,
 	resource resource.Resource,
 	exceptions []kyvernov2.PolicyException,
 	bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
@@ -446,7 +447,7 @@ func (c *controller) reconcileReport(
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
 			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig)
-			for _, result := range scanner.ScanResource(ctx, *target, ns, bindings, policy) {
+			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, bindings, policy) {
 				if result.Error != nil {
 					return result.Error
 				} else if result.EngineResponse != nil {
@@ -515,7 +516,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namespace, name string) error {
 	// try to find resource from the cache
 	uid := types.UID(name)
-	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
+	resource, gvk, gvr, exists := c.metadataCache.GetResourceHash(uid)
 	// if the resource is not present it means we shouldn't have a report for it
 	// we can delete the report, we will recreate one if the resource comes back
 	if !exists {
@@ -592,7 +593,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			c.queue.AddAfter(key, c.forceDelay)
 		}()
 		if needsReconcile {
-			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, resource, exceptions, vapBindings, policies...)
+			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, resource, exceptions, vapBindings, policies...)
 		}
 	}
 	return nil
