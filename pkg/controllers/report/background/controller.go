@@ -31,6 +31,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -343,13 +344,13 @@ func (c *controller) reconcileReport(
 	policies ...engineapi.GenericPolicy,
 ) error {
 	// namespace labels to be used by the scanner
-	var nsLabels map[string]string
+	var ns *corev1.Namespace
 	if namespace != "" {
-		ns, err := c.nsLister.Get(namespace)
+		namespace, err := c.nsLister.Get(namespace)
 		if err != nil {
 			return err
 		}
-		nsLabels = ns.GetLabels()
+		ns = namespace
 	}
 	// load target resource
 	target, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
@@ -445,7 +446,7 @@ func (c *controller) reconcileReport(
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
 			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.reportsConfig)
-			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, bindings, policy) {
+			for _, result := range scanner.ScanResource(ctx, *target, ns, bindings, policy) {
 				if result.Error != nil {
 					return result.Error
 				} else if result.EngineResponse != nil {

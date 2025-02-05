@@ -38,7 +38,7 @@ type ScanResult struct {
 }
 
 type Scanner interface {
-	ScanResource(context.Context, unstructured.Unstructured, map[string]string, []admissionregistrationv1.ValidatingAdmissionPolicyBinding, ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult
+	ScanResource(context.Context, unstructured.Unstructured, *corev1.Namespace, []admissionregistrationv1.ValidatingAdmissionPolicyBinding, ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult
 }
 
 func NewScanner(
@@ -59,7 +59,7 @@ func NewScanner(
 	}
 }
 
-func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
+func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, ns *corev1.Namespace, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
 	var kpols, vpols, vaps []engineapi.GenericPolicy
 	// split policies per nature
 	for _, policy := range policies {
@@ -74,6 +74,10 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 	results := map[*engineapi.GenericPolicy]ScanResult{}
 	// evaluate kyverno policies
+	var nsLabels map[string]string
+	if ns != nil {
+		nsLabels = ns.Labels
+	}
 	for i, policy := range kpols {
 		if pol := policy.AsKyvernoPolicy(); pol != nil {
 			var errors []error
