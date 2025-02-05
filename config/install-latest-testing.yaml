@@ -51581,6 +51581,8 @@ rules:
       - policyexceptions
       - policies
       - clusterpolicies
+      - validatingpolicies
+      - validatingpolicies/status
     verbs:
       - create
       - delete

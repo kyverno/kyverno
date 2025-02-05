@@ -93,7 +93,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	policyName, _ := cache.MetaNamespaceKeyFunc(pol)
 	annotations := pol.GetAnnotations()
 	result := policyreportv1alpha2.PolicyReportResult{
-		Source:     kyverno.ValueKyvernoApp,
+		Source:     SourceKyverno,
 		Policy:     policyName,
 		Rule:       ruleResult.Name(),
 		Message:    ruleResult.Message(),
@@ -127,11 +127,14 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		addPodSecurityProperties(pss, &result)
 	}
 	if pol.AsValidatingAdmissionPolicy() != nil {
-		result.Source = "ValidatingAdmissionPolicy"
+		result.Source = SourceValidatingAdmissionPolicy
 		result.Policy = ruleResult.Name()
 		if ruleResult.ValidatingAdmissionPolicyBinding() != nil {
 			addProperty("binding", ruleResult.ValidatingAdmissionPolicyBinding().Name, &result)
 		}
+	}
+	if pol.AsValidatingPolicy() != nil {
+		result.Source = SourceValidatingPolicy
 	}
 	return result
 }

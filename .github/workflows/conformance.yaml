@@ -1081,6 +1081,7 @@ jobs:
       - ttl
       - validate
       - validating-admission-policy-reports
+      - validating-policies
       - verify-manifests
       - verifyImages
       - webhook-configurations
@@ -1118,6 +1119,7 @@ jobs:
       - ttl
       - validate
       - validating-admission-policy-reports
+      - validating-policies
       - verify-manifests
       - verifyImages
       - webhook-configurations
