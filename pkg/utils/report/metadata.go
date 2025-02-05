@@ -77,6 +77,7 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	if policy.AsValidatingPolicy() != nil {
 		return LabelPrefixValidatingPolicy
 	}
+	// TODO: detect potential type not detected
 	return LabelPrefixValidatingAdmissionPolicy
 }
 

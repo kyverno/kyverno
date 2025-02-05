@@ -133,8 +133,8 @@ func createReportControllers(
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
 				backgroundScanController,
-				backgroundScanWorkers),
-			)
+				backgroundScanWorkers,
+			))
 		}
 	}
 	return ctrls, func(ctx context.Context) error {

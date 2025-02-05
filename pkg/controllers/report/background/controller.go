@@ -550,6 +550,16 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	for _, pol := range kyvernoPolicies {
 		policies = append(policies, engineapi.NewKyvernoPolicy(pol))
 	}
+	if c.vpolLister != nil {
+		// load validating policies
+		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
+		if err != nil {
+			return err
+		}
+		for _, vpol := range vpols {
+			policies = append(policies, engineapi.NewValidatingPolicy(&vpol))
+		}
+	}
 	if c.vapLister != nil {
 		// load validating admission policies
 		vapPolicies, err := utils.FetchValidatingAdmissionPolicies(c.vapLister)
