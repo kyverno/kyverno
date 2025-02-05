@@ -1138,7 +1138,7 @@ func (c *controller) getValidatingPolicies() ([]kyvernov2alpha1.GenericPolicy, e
 		return nil, err
 	}
 
-	vpols := make([]kyvernov2alpha1.GenericPolicy, len(validatingpolicies))
+	vpols := make([]kyvernov2alpha1.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
 		vpols = append(vpols, vpol)
 	}
