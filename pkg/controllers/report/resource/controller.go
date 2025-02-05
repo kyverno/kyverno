@@ -10,7 +10,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
@@ -80,6 +82,7 @@ type controller struct {
 	polLister  kyvernov1listers.PolicyLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	vapLister  admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	vpolLister kyvernov2alpha1listers.ValidatingPolicyLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -94,6 +97,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
 ) Controller {
 	c := controller{
 		client:     client,
@@ -104,6 +108,12 @@ func NewController(
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 		),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+	}
+	if vpolInformer != nil {
+		c.vpolLister = vpolInformer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vpolInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
 	}
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
@@ -249,7 +259,21 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 		// fetch kinds from validating admission policies
 		for _, policy := range vapPolicies {
-			kinds := admissionpolicy.GetKinds(policy)
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
+	if c.vpolLister != nil {
+		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
+		if err != nil {
+			return err
+		}
+		// fetch kinds from validating admission policies
+		for _, policy := range vpols {
+			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)

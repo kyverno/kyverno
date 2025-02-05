@@ -83,6 +83,7 @@ func createReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 			vapInformer,
+			kyvernoV2alpha1.ValidatingPolicies(),
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
 			return resourceReportController.Warmup(ctx)
