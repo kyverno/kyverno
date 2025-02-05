@@ -34,9 +34,6 @@ type CELPolicyExceptionSpec struct {
 	// PolicyRefs identifies the policies to which the exception is applied.
 	PolicyRefs []PolicyRef `json:"policyRefs"`
 
-	// MatchConstraints is used to check if a resource applies to the exception.
-	MatchConstraints *admissionregistrationv1.MatchResources `json:"matchConstraints"`
-
 	// MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.
 	// +optional
 	MatchConditions []admissionregistrationv1.MatchCondition `json:"matchConditions,omitempty"`
@@ -50,10 +47,6 @@ func (p *CELPolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorLis
 		for i, policyRef := range p.PolicyRefs {
 			errs = append(errs, policyRef.Validate(path.Child("policyRefs").Index(i))...)
 		}
-	}
-
-	if p.MatchConstraints == nil {
-		errs = append(errs, field.Invalid(path.Child("matchConstraints"), p.MatchConstraints, "must specify match constraints"))
 	}
 	return errs
 }

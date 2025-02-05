@@ -95,11 +95,6 @@ func (in *CELPolicyExceptionSpec) DeepCopyInto(out *CELPolicyExceptionSpec) {
 		*out = make([]PolicyRef, len(*in))
 		copy(*out, *in)
 	}
-	if in.MatchConstraints != nil {
-		in, out := &in.MatchConstraints, &out.MatchConstraints
-		*out = new(v1.MatchResources)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.MatchConditions != nil {
 		in, out := &in.MatchConditions, &out.MatchConditions
 		*out = make([]v1.MatchCondition, len(*in))
