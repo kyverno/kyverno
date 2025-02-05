@@ -32,10 +32,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/imagedataloader"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -280,8 +281,8 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
 }
 
 func (c *ApplyCommandConfig) applyValidatingAdmissionPolicies(
-	vaps []admissionregistrationv1beta1.ValidatingAdmissionPolicy,
-	vapBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
+	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
+	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
 	namespaceSelectorMap map[string]map[string]string,
 	rc *processor.ResultCounts,
@@ -324,11 +325,17 @@ func (c *ApplyCommandConfig) applyValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	eng := engine.NewEngine(provider, namespaceProvider)
+	eng := engine.NewEngine(provider, namespaceProvider, nil)
 	// TODO: mock when no cluster provided
 	var contextProvider celpolicy.Context
 	if dclient != nil {
-		contextProvider = celpolicy.NewContextProvider(dclient.GetKubeClient())
+		contextProvider, err = celpolicy.NewContextProvider(
+			dclient.GetKubeClient(),
+			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
@@ -433,7 +440,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	return &rc, resources, responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1beta1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
+func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []kyvernov1.PolicyInterface, vap []admissionregistrationv1.ValidatingAdmissionPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, error) {
 	resources, err := common.GetResourceAccordingToResourcePath(out, nil, paths, c.Cluster, policies, vap, dClient, c.Namespace, c.PolicyReport, "")
 	if err != nil {
 		return resources, fmt.Errorf("failed to load resources (%w)", err)
@@ -443,15 +450,15 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 
 func (c *ApplyCommandConfig) loadPolicies() (
 	[]kyvernov1.PolicyInterface,
-	[]admissionregistrationv1beta1.ValidatingAdmissionPolicy,
-	[]admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding,
+	[]admissionregistrationv1.ValidatingAdmissionPolicy,
+	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	[]kyvernov2alpha1.ValidatingPolicy,
 	error,
 ) {
 	// load policies
 	var policies []kyvernov1.PolicyInterface
-	var vaps []admissionregistrationv1beta1.ValidatingAdmissionPolicy
-	var vapBindings []admissionregistrationv1beta1.ValidatingAdmissionPolicyBinding
+	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
+	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	var vps []kyvernov2alpha1.ValidatingPolicy
 
 	for _, path := range c.PolicyPaths {

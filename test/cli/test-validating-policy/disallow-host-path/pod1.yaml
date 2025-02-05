@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+spec:
+  containers:
+  - name:
+    image: nginx
+    volumeMounts:
+      - name: udev
+        mountPath: /data
+  volumes:
+  - name: udev
+    emptyDir: {}

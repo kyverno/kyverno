@@ -9,7 +9,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -63,9 +62,9 @@ func mutateResource(
 	for _, m := range policy.Spec.MatchConditions {
 		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition(m))
 	}
-	variables := make([]admissionregistrationv1beta1.Variable, 0, len(policy.Spec.Variables))
+	variables := make([]admissionregistrationv1.Variable, 0, len(policy.Spec.Variables))
 	for _, v := range policy.Spec.Variables {
-		variables = append(variables, admissionregistrationv1beta1.Variable(v))
+		variables = append(variables, admissionregistrationv1.Variable(v))
 	}
 
 	// create compiler

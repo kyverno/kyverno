@@ -3,12 +3,20 @@ package engine
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/cel/policy"
+	"golang.org/x/exp/maps"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CompiledPolicy struct {
+	Actions        sets.Set[admissionregistrationv1.ValidationAction]
 	Policy         kyvernov2alpha1.ValidatingPolicy
 	CompiledPolicy policy.CompiledPolicy
 }
@@ -30,7 +38,12 @@ func NewProvider(compiler policy.Compiler, policies ...kyvernov2alpha1.Validatin
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", vp.GetName(), err.ToAggregate())
 		}
+		actions := sets.New(vp.Spec.ValidationAction...)
+		if len(actions) == 0 {
+			actions.Insert(admissionregistrationv1.Deny)
+		}
 		compiled = append(compiled, CompiledPolicy{
+			Actions:        actions,
 			Policy:         vp,
 			CompiledPolicy: policy,
 		})
@@ -39,4 +52,66 @@ func NewProvider(compiler policy.Compiler, policies ...kyvernov2alpha1.Validatin
 		return compiled, nil
 	}
 	return provider, nil
+}
+
+func NewKubeProvider(compiler policy.Compiler, mgr ctrl.Manager) (Provider, error) {
+	r := newPolicyReconciler(compiler, mgr.GetClient())
+	if err := ctrl.NewControllerManagedBy(mgr).For(&kyvernov2alpha1.ValidatingPolicy{}).Complete(r); err != nil {
+		return nil, fmt.Errorf("failed to construct manager: %w", err)
+	}
+	return r, nil
+}
+
+type policyReconciler struct {
+	client   client.Client
+	compiler policy.Compiler
+	lock     *sync.RWMutex
+	policies map[string]CompiledPolicy
+}
+
+func newPolicyReconciler(compiler policy.Compiler, client client.Client) *policyReconciler {
+	return &policyReconciler{
+		client:   client,
+		compiler: compiler,
+		lock:     &sync.RWMutex{},
+		policies: map[string]CompiledPolicy{},
+	}
+}
+
+func (r *policyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var policy kyvernov2alpha1.ValidatingPolicy
+	err := r.client.Get(ctx, req.NamespacedName, &policy)
+	if errors.IsNotFound(err) {
+		r.lock.Lock()
+		defer r.lock.Unlock()
+		delete(r.policies, req.NamespacedName.String())
+		return ctrl.Result{}, nil
+	}
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	compiled, errs := r.compiler.Compile(&policy)
+	if len(errs) > 0 {
+		fmt.Println(errs)
+		// No need to retry it
+		return ctrl.Result{}, nil
+	}
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	actions := sets.New(policy.Spec.ValidationAction...)
+	if len(actions) == 0 {
+		actions.Insert(admissionregistrationv1.Deny)
+	}
+	r.policies[req.NamespacedName.String()] = CompiledPolicy{
+		Actions:        actions,
+		Policy:         policy,
+		CompiledPolicy: compiled,
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *policyReconciler) CompiledPolicies(ctx context.Context) ([]CompiledPolicy, error) {
+	r.lock.RLock()
+	defer r.lock.RUnlock()
+	return maps.Values(r.policies), nil
 }

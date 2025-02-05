@@ -20,25 +20,25 @@ package v1
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 // RuleApplyConfiguration represents an declarative configuration of the Rule type for use
 // with apply.
 type RuleApplyConfiguration struct {
-	Name                   *string                               `json:"name,omitempty"`
-	Context                []ContextEntryApplyConfiguration      `json:"context,omitempty"`
-	ReportProperties       map[string]string                     `json:"reportProperties,omitempty"`
-	MatchResources         *MatchResourcesApplyConfiguration     `json:"match,omitempty"`
-	ExcludeResources       *MatchResourcesApplyConfiguration     `json:"exclude,omitempty"`
-	ImageExtractors        *kyvernov1.ImageExtractorConfigs      `json:"imageExtractors,omitempty"`
-	RawAnyAllConditions    *kyvernov1.ConditionsWrapper          `json:"preconditions,omitempty"`
-	CELPreconditions       []v1beta1.MatchCondition              `json:"celPreconditions,omitempty"`
-	Mutation               *MutationApplyConfiguration           `json:"mutate,omitempty"`
-	Validation             *ValidationApplyConfiguration         `json:"validate,omitempty"`
-	Generation             *GenerationApplyConfiguration         `json:"generate,omitempty"`
-	VerifyImages           []ImageVerificationApplyConfiguration `json:"verifyImages,omitempty"`
-	SkipBackgroundRequests *bool                                 `json:"skipBackgroundRequests,omitempty"`
+	Name                   *string                                  `json:"name,omitempty"`
+	Context                []ContextEntryApplyConfiguration         `json:"context,omitempty"`
+	ReportProperties       map[string]string                        `json:"reportProperties,omitempty"`
+	MatchResources         *MatchResourcesApplyConfiguration        `json:"match,omitempty"`
+	ExcludeResources       *MatchResourcesApplyConfiguration        `json:"exclude,omitempty"`
+	ImageExtractors        *kyvernov1.ImageExtractorConfigs         `json:"imageExtractors,omitempty"`
+	RawAnyAllConditions    *kyvernov1.ConditionsWrapper             `json:"preconditions,omitempty"`
+	CELPreconditions       []admissionregistrationv1.MatchCondition `json:"celPreconditions,omitempty"`
+	Mutation               *MutationApplyConfiguration              `json:"mutate,omitempty"`
+	Validation             *ValidationApplyConfiguration            `json:"validate,omitempty"`
+	Generation             *GenerationApplyConfiguration            `json:"generate,omitempty"`
+	VerifyImages           []ImageVerificationApplyConfiguration    `json:"verifyImages,omitempty"`
+	SkipBackgroundRequests *bool                                    `json:"skipBackgroundRequests,omitempty"`
 }
 
 // RuleApplyConfiguration constructs an declarative configuration of the Rule type for use with
@@ -117,7 +117,7 @@ func (b *RuleApplyConfiguration) WithRawAnyAllConditions(value kyvernov1.Conditi
 // WithCELPreconditions adds the given value to the CELPreconditions field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the CELPreconditions field.
-func (b *RuleApplyConfiguration) WithCELPreconditions(values ...v1beta1.MatchCondition) *RuleApplyConfiguration {
+func (b *RuleApplyConfiguration) WithCELPreconditions(values ...admissionregistrationv1.MatchCondition) *RuleApplyConfiguration {
 	for i := range values {
 		b.CELPreconditions = append(b.CELPreconditions, values[i])
 	}
