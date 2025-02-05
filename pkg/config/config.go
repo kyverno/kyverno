@@ -67,7 +67,7 @@ const (
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CELExceptionValidatingWebhookServicePath is the path for CELPolicyException validation webhook(used to validate CELPolicyException resource)
-	CELExceptionValidatingWebhookServicePath = "/celexceptionvalidate"
+	CELExceptionValidatingWebhookServicePath = "/celexception/validate"
 	// GlobalContextValidatingWebhookServicePath is the path for global context validation webhook(used to validate global context entries)
 	GlobalContextValidatingWebhookServicePath = "/globalcontextvalidate"
 	// CleanupValidatingWebhookServicePath is the path for cleanup policy validation webhook(used to validate cleanup policy resource)
