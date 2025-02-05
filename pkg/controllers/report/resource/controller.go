@@ -81,8 +81,8 @@ type controller struct {
 	// listers
 	polLister  kyvernov1listers.PolicyLister
 	cpolLister kyvernov1listers.ClusterPolicyLister
-	vapLister  admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vpolLister kyvernov2alpha1listers.ValidatingPolicyLister
+	vapLister  admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -96,8 +96,8 @@ func NewController(
 	client dclient.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
+	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) Controller {
 	c := controller{
 		client:     client,

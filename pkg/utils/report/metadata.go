@@ -49,6 +49,7 @@ const (
 func IsPolicyLabel(label string) bool {
 	return strings.HasPrefix(label, LabelPrefixPolicy) ||
 		strings.HasPrefix(label, LabelPrefixClusterPolicy) ||
+		strings.HasPrefix(label, LabelPrefixValidatingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixPolicyException) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)

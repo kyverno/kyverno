@@ -8,14 +8,17 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
+	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -59,6 +62,7 @@ type controller struct {
 	// listers
 	polLister        kyvernov1listers.PolicyLister
 	cpolLister       kyvernov1listers.ClusterPolicyLister
+	vpolLister       kyvernov2alpha1listers.ValidatingPolicyLister
 	polexLister      kyvernov2listers.PolicyExceptionLister
 	vapLister        admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
@@ -89,6 +93,7 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
 	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
@@ -127,6 +132,12 @@ func NewController(
 		policyReports:  policyReports,
 		reportsConfig:  reportsConfig,
 		breaker:        breaker,
+	}
+	if vpolInformer != nil {
+		c.vpolLister = vpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
 	}
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
@@ -193,6 +204,20 @@ func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
 }
 
 func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
+	c.enqueueResources()
+}
+
+func (c *controller) addVP(obj *kyvernov2alpha1.ValidatingPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateVP(old, obj *kyvernov2alpha1.ValidatingPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteVP(obj *kyvernov2alpha1.ValidatingPolicy) {
 	c.enqueueResources()
 }
 
