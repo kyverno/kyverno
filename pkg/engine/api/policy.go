@@ -24,6 +24,8 @@ type GenericPolicy interface {
 	AsKyvernoPolicy() kyvernov1.PolicyInterface
 	// AsValidatingAdmissionPolicy returns the validating admission policy
 	AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy
+	// AsValidatingPolicy returns the validating policy
+	AsValidatingPolicy() *kyvernov2alpha1.ValidatingPolicy
 }
 
 type genericPolicy struct {
@@ -44,6 +46,10 @@ func (p *genericPolicy) AsKyvernoPolicy() kyvernov1.PolicyInterface {
 
 func (p *genericPolicy) AsValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy {
 	return p.ValidatingAdmissionPolicy
+}
+
+func (p *genericPolicy) AsValidatingPolicy() *kyvernov2alpha1.ValidatingPolicy {
+	return p.ValidatingPolicy
 }
 
 func (p *genericPolicy) GetAPIVersion() string {
