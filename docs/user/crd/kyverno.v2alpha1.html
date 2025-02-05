@@ -649,6 +649,35 @@ Required.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>status</code>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v2alpha1-PolicyStatus">
+                <span style="font-family: monospace">PolicyStatus</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Status contains policy runtime data.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -1357,6 +1386,95 @@ If left empty for namespaced resources, all resources from all namespaces will b
 
           <p>Kind is the kind of the policy</p>
 
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v2alpha1-PolicyStatus">PolicyStatus
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v2alpha1-ValidatingPolicy">ValidatingPolicy</a>)
+    </p>
+  
+
+  <p></p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>ready</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>The ready of a policy is a high-level summary of where the policy is in its lifecycle.
+The conditions array, the reason and message fields contain more detail about the policy's status.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>conditions</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]meta/v1.Condition</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
 
           
 
