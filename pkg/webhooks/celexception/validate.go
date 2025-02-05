@@ -1,4 +1,4 @@
-package exception
+package celexception
 
 import (
 	"context"
@@ -10,21 +10,21 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
-type exceptionHandlers struct {
+type celExceptionHandlers struct {
 	validationOptions validation.ValidationOptions
 }
 
-func NewHandlers(validationOptions validation.ValidationOptions) *exceptionHandlers {
-	return &exceptionHandlers{
+func NewHandlers(validationOptions validation.ValidationOptions) *celExceptionHandlers {
+	return &celExceptionHandlers{
 		validationOptions: validationOptions,
 	}
 }
 
-// Validate performs the validation check on policy exception resources
-func (h *exceptionHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, startTime time.Time) handlers.AdmissionResponse {
-	polex, _, err := admissionutils.GetPolicyExceptions(request.AdmissionRequest)
+// Validate performs the validation check on CELPolicyException resources
+func (h *celExceptionHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, startTime time.Time) handlers.AdmissionResponse {
+	polex, _, err := admissionutils.GetCELPolicyExceptions(request.AdmissionRequest)
 	if err != nil {
-		logger.Error(err, "failed to unmarshal policy exceptions from admission request")
+		logger.Error(err, "failed to unmarshal CELPolicyExceptions from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
 	warnings := validation.ValidateNamespace(ctx, logger, polex.GetNamespace(), h.validationOptions)

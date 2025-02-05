@@ -25,6 +25,11 @@ func (f HandlerFunc) Execute(ctx context.Context, logger logr.Logger, request ha
 	return f(ctx, logger, request, failurePolicy, startTime)
 }
 
+type CELExceptionHandlers struct {
+	// Validation performs the validation check on cel exception resources
+	Validation Handler
+}
+
 type ExceptionHandlers struct {
 	// Validation performs the validation check on exception resources
 	Validation Handler
