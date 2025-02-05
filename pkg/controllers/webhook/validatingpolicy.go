@@ -30,7 +30,6 @@ func buildWebhookRules(cfg config.Configuration, server string, servicePort int3
 	if cfg.GetWebhook().NamespaceSelector != nil {
 		webhookIgnore.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
 		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
-
 	}
 	if cfg.GetWebhook().ObjectSelector != nil {
 		webhookIgnore.ObjectSelector = cfg.GetWebhook().ObjectSelector

@@ -660,14 +660,28 @@ func (c *controller) updateValidatingPolicyStatuses(ctx context.Context) error {
 		return err
 	}
 
+	updateStatusFunc := func(vpol kyvernov2alpha1.GenericPolicy) error {
+		status := vpol.GetStatus()
+		status.SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
+		return nil
+	}
+
 	var errs []error
 	for _, vpol := range vpols {
 		if !c.vpolState[vpol.GetName()] {
 			continue
 		}
-		status := vpol.GetStatus()
-		status.SetReadyByCondition(kyvernov2alpha1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured")
-		_, err := c.kyvernoClient.KyvernoV2alpha1().ValidatingPolicies().UpdateStatus(ctx, vpol.(*kyvernov2alpha1.ValidatingPolicy), metav1.UpdateOptions{})
+		err := controllerutils.UpdateStatus(
+			ctx,
+			vpol.(*kyvernov2alpha1.ValidatingPolicy),
+			c.kyvernoClient.KyvernoV2alpha1().ValidatingPolicies(),
+			func(vpol *kyvernov2alpha1.ValidatingPolicy) error {
+				return updateStatusFunc(vpol)
+			},
+			func(a *kyvernov2alpha1.ValidatingPolicy, b *kyvernov2alpha1.ValidatingPolicy) bool {
+				return datautils.DeepEqual(a.Status, b.Status)
+			},
+		)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", vpol.GetName(), err))
 		}
@@ -1119,12 +1133,12 @@ func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
 }
 
 func (c *controller) getValidatingPolicies() ([]kyvernov2alpha1.GenericPolicy, error) {
-	var vpols []kyvernov2alpha1.GenericPolicy
 	validatingpolicies, err := c.vpolLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
+	vpols := make([]kyvernov2alpha1.GenericPolicy, len(validatingpolicies))
 	for _, vpol := range validatingpolicies {
 		vpols = append(vpols, vpol)
 	}
