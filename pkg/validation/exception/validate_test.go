@@ -83,25 +83,6 @@ func Test_Validate(t *testing.T) {
                 "name": "require-run-as-nonroot"
             }
         ],
-        "matchConstraints": {
-            "resourceRules": [
-                {
-                    "apiGroups": [
-                        "apps"
-                    ],
-                    "apiVersions": [
-                        "v1"
-                    ],
-                    "operations": [
-                        "CREATE",
-                        "UPDATE"
-                    ],
-                    "resources": [
-                        "pods"
-                    ]
-                }
-            ]
-        },
         "matchConditions": [
             {
                 "name": "check-namespace",
@@ -133,25 +114,6 @@ func Test_Validate(t *testing.T) {
                 "name": "require-run-as-nonroot"
             }
         ],
-        "matchConstraints": {
-            "resourceRules": [
-                {
-                    "apiGroups": [
-                        "apps"
-                    ],
-                    "apiVersions": [
-                        "v1"
-                    ],
-                    "operations": [
-                        "CREATE",
-                        "UPDATE"
-                    ],
-                    "resources": [
-                        "pods"
-                    ]
-                }
-            ]
-        },
         "matchConditions": [
             {
                 "name": "check-namespace",
@@ -183,25 +145,6 @@ func Test_Validate(t *testing.T) {
                 "name": "require-run-as-nonroot"
             }
         ],
-        "matchConstraints": {
-            "resourceRules": [
-                {
-                    "apiGroups": [
-                        "apps"
-                    ],
-                    "apiVersions": [
-                        "v1"
-                    ],
-                    "operations": [
-                        "CREATE",
-                        "UPDATE"
-                    ],
-                    "resources": [
-                        "pods"
-                    ]
-                }
-            ]
-        },
         "matchConditions": [
             {
                 "name": "check-namespace",
@@ -233,25 +176,6 @@ func Test_Validate(t *testing.T) {
                 "name": "require-run-as-nonroot"
             }
         ],
-        "matchConstraints": {
-            "resourceRules": [
-                {
-                    "apiGroups": [
-                        "apps"
-                    ],
-                    "apiVersions": [
-                        "v1"
-                    ],
-                    "operations": [
-                        "CREATE",
-                        "UPDATE"
-                    ],
-                    "resources": [
-                        "pods"
-                    ]
-                }
-            ]
-        },
         "matchConditions": [
             {
                 "name": "check-namespace",
