@@ -15,6 +15,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -33,7 +34,7 @@ type ScanResult struct {
 }
 
 type Scanner interface {
-	ScanResource(context.Context, unstructured.Unstructured, map[string]string, []admissionregistrationv1.ValidatingAdmissionPolicyBinding, ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult
+	ScanResource(context.Context, unstructured.Unstructured, *corev1.Namespace, []admissionregistrationv1.ValidatingAdmissionPolicyBinding, ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult
 }
 
 func NewScanner(
@@ -54,7 +55,7 @@ func NewScanner(
 	}
 }
 
-func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
+func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, ns *corev1.Namespace, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
 	results := map[*engineapi.GenericPolicy]ScanResult{}
 	for i, policy := range policies {
 		var errors []error
@@ -62,7 +63,10 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 		var response *engineapi.EngineResponse
 		if pol := policy.AsKyvernoPolicy(); pol != nil {
 			var err error
-
+			var nsLabels map[string]string
+			if ns != nil {
+				nsLabels = ns.Labels
+			}
 			if s.reportingConfig.ValidateReportsEnabled() {
 				response, err = s.validateResource(ctx, resource, nsLabels, pol)
 				if err != nil {
