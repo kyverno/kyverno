@@ -246,7 +246,7 @@ func (s *server) cleanup(ctx context.Context) {
 			if err := s.leaseClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				logger.Error(err, "failed to clean up lease", "name", name)
 			} else if err == nil {
-				logger.Info("successfully deleted leases", "label", kyverno.LabelWebhookManagedBy)
+				logger.V(2).Info("successfully deleted leases", "label", kyverno.LabelWebhookManagedBy)
 			}
 		}
 		deleteVwc := func() {
@@ -255,7 +255,7 @@ func (s *server) cleanup(ctx context.Context) {
 			}); err != nil && !apierrors.IsNotFound(err) {
 				logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 			} else if err == nil {
-				logger.Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
+				logger.V(2).Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
 			}
 		}
 		deleteMwc := func() {
@@ -264,7 +264,7 @@ func (s *server) cleanup(ctx context.Context) {
 			}); err != nil && !apierrors.IsNotFound(err) {
 				logger.Error(err, "failed to clean up mutating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 			} else if err == nil {
-				logger.Info("successfully deleted mutating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
+				logger.V(2).Info("successfully deleted mutating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
 			}
 		}
 		deleteLease("kyvernopre-lock")

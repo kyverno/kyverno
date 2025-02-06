@@ -263,7 +263,7 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		setup.Logger.Info("background scan interval", "duration", backgroundScanInterval.String())
+		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
 		// check if validating admission policies are registered in the API server
 		if validatingAdmissionPolicyReports {
 			registered, err := admissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)

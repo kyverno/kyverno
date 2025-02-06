@@ -46,5 +46,5 @@ func Hash() string {
 
 // PrintVersionInfo displays the kyverno version - git version
 func PrintVersionInfo(log logr.Logger) {
-	log.Info("version", "version", Version(), "hash", Hash(), "time", Time())
+	log.V(2).Info("version", "version", Version(), "hash", Hash(), "time", Time())
 }

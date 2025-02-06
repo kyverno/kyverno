@@ -48,7 +48,7 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 
 func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInterface, ruleContext kyvernov2.RuleContext, ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.V(4).WithValues("ur", ur.Name, "policy", ur.Spec.Policy, "rule", ruleContext.Rule)
-	logger.Info("synchronize for none-policy changes")
+	logger.Info("synchronize for non-policy changes")
 	for _, rule := range policy.GetSpec().Rules {
 		if ruleContext.Rule != rule.Name {
 			continue

@@ -239,21 +239,21 @@ func (c *controller) reconcileWebhookDeletion(ctx context.Context) error {
 				c.logger.Error(err, "failed to clean up validating webhook configuration", "label", kyverno.LabelWebhookManagedBy)
 				return err
 			} else if err == nil {
-				c.logger.Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
+				c.logger.V(4).Info("successfully deleted validating webhook configurations", "label", kyverno.LabelWebhookManagedBy)
 			}
 
 			if err := c.postWebhookCleanup(ctx, c.logger); err != nil {
 				c.logger.Error(err, "failed to clean up temporary rbac")
 				return err
 			} else {
-				c.logger.Info("successfully deleted temporary rbac")
+				c.logger.V(4).Info("successfully deleted temporary rbac")
 			}
 		} else {
 			if err := c.webhookCleanupSetup(ctx, c.logger); err != nil {
 				c.logger.Error(err, "failed to reconcile webhook cleanup setup")
 				return err
 			}
-			c.logger.Info("reconciled webhook cleanup setup")
+			c.logger.V(4).Info("reconciled webhook cleanup setup")
 		}
 	}
 	return nil

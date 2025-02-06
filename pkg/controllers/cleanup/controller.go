@@ -95,7 +95,7 @@ func NewController(
 			if obj.GetNamespace() != "" {
 				logger = logger.WithValues("namespace", obj.GetNamespace())
 			}
-			logger.Info(operation)
+			logger.V(2).Info(operation)
 			if err := baseEnqueueFunc(obj); err != nil {
 				logger.Error(err, "failed to enqueue object", "obj", obj)
 				return err

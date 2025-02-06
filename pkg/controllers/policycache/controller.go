@@ -66,8 +66,8 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 }
 
 func (c *controller) WarmUp() error {
-	logger.Info("warming up ...")
-	defer logger.Info("warm up done")
+	logger.V(4).Info("warming up ...")
+	defer logger.V(4).Info("warm up done")
 
 	pols, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {

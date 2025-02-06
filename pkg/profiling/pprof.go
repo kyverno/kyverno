@@ -11,7 +11,7 @@ import (
 )
 
 func Start(logger logr.Logger, address string) {
-	logger.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes")
+	logger.V(2).Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes")
 	go func() {
 		s := http.Server{
 			Addr:              address,

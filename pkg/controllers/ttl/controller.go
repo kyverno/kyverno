@@ -135,7 +135,7 @@ func determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *meta
 	case "":
 		return nil
 	default:
-		logger.Info("Unknown propagationPolicy annotation, no global policy found", "policy", annotations[kyverno.AnnotationCleanupPropagationPolicy])
+		logger.V(2).Info("Unknown propagationPolicy annotation, no global policy found", "policy", annotations[kyverno.AnnotationCleanupPropagationPolicy])
 		return nil
 	}
 }
@@ -160,7 +160,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 	}
 	metaObj, err := meta.Accessor(obj)
 	if err != nil {
-		logger.Info("object is not of type metav1.Object")
+		logger.V(2).Info("object is not of type metav1.Object")
 		return err
 	}
 	commonLabels := []attribute.KeyValue{
@@ -197,7 +197,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 			}
 			return err
 		}
-		logger.Info("resource has been deleted")
+		logger.V(2).Info("resource has been deleted")
 	} else {
 		if c.metrics.deletedObjectsTotal != nil {
 			c.metrics.deletedObjectsTotal.Add(context.Background(), 1, metric.WithAttributes(commonLabels...))
