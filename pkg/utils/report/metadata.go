@@ -35,8 +35,10 @@ const (
 	//	policy labels
 	LabelDomainClusterPolicy                    = "cpol.kyverno.io"
 	LabelDomainPolicy                           = "pol.kyverno.io"
+	LabelDomainValidatingPolicy                 = "vpol.kyverno.io"
 	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
+	LabelPrefixValidatingPolicy                 = LabelDomainValidatingPolicy + "/"
 	LabelPrefixPolicyException                  = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
@@ -47,6 +49,7 @@ const (
 func IsPolicyLabel(label string) bool {
 	return strings.HasPrefix(label, LabelPrefixPolicy) ||
 		strings.HasPrefix(label, LabelPrefixClusterPolicy) ||
+		strings.HasPrefix(label, LabelPrefixValidatingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixPolicyException) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding)
@@ -65,12 +68,16 @@ func PolicyNameFromLabel(namespace, label string) (string, error) {
 }
 
 func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
-	if policy.IsNamespaced() {
-		return LabelPrefixPolicy
-	}
 	if policy.AsKyvernoPolicy() != nil {
+		if policy.IsNamespaced() {
+			return LabelPrefixPolicy
+		}
 		return LabelPrefixClusterPolicy
 	}
+	if policy.AsValidatingPolicy() != nil {
+		return LabelPrefixValidatingPolicy
+	}
+	// TODO: detect potential type not detected
 	return LabelPrefixValidatingAdmissionPolicy
 }
 

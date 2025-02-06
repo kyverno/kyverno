@@ -14,17 +14,62 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/utils/ptr"
 )
 
 type EngineRequest struct {
-	Request  *admissionv1.AdmissionRequest
-	Resource *unstructured.Unstructured
-	Context  contextlib.ContextInterface
+	request admissionv1.AdmissionRequest
+	context contextlib.ContextInterface
+}
+
+func RequestFromAdmission(context contextlib.ContextInterface, request admissionv1.AdmissionRequest) EngineRequest {
+	return EngineRequest{
+		request: request,
+		context: context,
+	}
+}
+
+func Request(
+	context contextlib.ContextInterface,
+	gvk schema.GroupVersionKind,
+	gvr schema.GroupVersionResource,
+	subResource string,
+	name string,
+	namespace string,
+	operation admissionv1.Operation,
+	// userInfo authenticationv1.UserInfo,
+	object runtime.Object,
+	oldObject runtime.Object,
+	dryRun bool,
+	options runtime.Object,
+) EngineRequest {
+	request := admissionv1.AdmissionRequest{
+		Kind:               metav1.GroupVersionKind(gvk),
+		Resource:           metav1.GroupVersionResource(gvr),
+		SubResource:        subResource,
+		RequestKind:        ptr.To(metav1.GroupVersionKind(gvk)),
+		RequestResource:    ptr.To(metav1.GroupVersionResource(gvr)),
+		RequestSubResource: subResource,
+		Name:               name,
+		Namespace:          namespace,
+		Operation:          operation,
+		// UserInfo: userInfo,
+		Object:    runtime.RawExtension{Object: object},
+		OldObject: runtime.RawExtension{Object: oldObject},
+		DryRun:    &dryRun,
+		Options:   runtime.RawExtension{Object: options},
+	}
+	return RequestFromAdmission(context, request)
+}
+
+func (r *EngineRequest) AdmissionRequest() admissionv1.AdmissionRequest {
+	return r.request
 }
 
 type EngineResponse struct {
@@ -59,62 +104,49 @@ func NewEngine(provider Provider, nsResolver NamespaceResolver, matcher matching
 }
 
 func (e *engine) Handle(ctx context.Context, request EngineRequest) (EngineResponse, error) {
-	response := EngineResponse{
-		Resource: request.Resource,
-	}
+	var response EngineResponse
+	// fetch compiled policies
 	policies, err := e.provider.CompiledPolicies(ctx)
 	if err != nil {
 		return response, err
 	}
+	// load objects
+	object, oldObject, err := admissionutils.ExtractResources(nil, request.request)
+	if err != nil {
+		return response, err
+	}
+	response.Resource = &object
+	if response.Resource.Object == nil {
+		response.Resource = &oldObject
+	}
+	// default dry run
+	dryRun := false
+	if request.request.DryRun != nil {
+		dryRun = *request.request.DryRun
+	}
+	// create admission attributes
+	attr := admission.NewAttributesRecord(
+		&object,
+		&oldObject,
+		schema.GroupVersionKind(request.request.Kind),
+		request.request.Namespace,
+		request.request.Name,
+		schema.GroupVersionResource(request.request.Resource),
+		request.request.SubResource,
+		admission.Operation(request.request.Operation),
+		nil,
+		dryRun,
+		// TODO
+		nil,
+	)
 	// resolve namespace
 	var namespace runtime.Object
-	var attr admission.Attributes
-	if request.Request != nil {
-		object, oldObject, err := admissionutils.ExtractResources(nil, *request.Request)
-		if err != nil {
-			return response, err
-		}
-		dryRun := false
-		if request.Request.DryRun != nil {
-			dryRun = *request.Request.DryRun
-		}
-		attr = admission.NewAttributesRecord(
-			&object,
-			&oldObject,
-			schema.GroupVersionKind(request.Request.Kind),
-			request.Request.Namespace,
-			request.Request.Name,
-			schema.GroupVersionResource(request.Request.Resource),
-			request.Request.SubResource,
-			admission.Operation(request.Request.Operation),
-			nil,
-			dryRun,
-			// TODO
-			nil,
-		)
-		if ns := request.Request.Namespace; ns != "" {
-			namespace = e.nsResolver(ns)
-		}
-	} else {
-		attr = admission.NewAttributesRecord(
-			request.Resource,
-			nil,
-			request.Resource.GroupVersionKind(),
-			request.Resource.GetNamespace(),
-			request.Resource.GetName(),
-			schema.GroupVersionResource{},
-			"",
-			admission.Create,
-			nil,
-			false,
-			nil,
-		)
-		if ns := request.Resource.GetNamespace(); ns != "" {
-			namespace = e.nsResolver(ns)
-		}
+	if ns := request.request.Namespace; ns != "" {
+		namespace = e.nsResolver(ns)
 	}
+	// evaluate policies
 	for _, policy := range policies {
-		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, attr, request.Request, namespace, request.Context))
+		response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, attr, &request.request, namespace, request.context))
 	}
 	return response, nil
 }

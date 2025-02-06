@@ -52,8 +52,8 @@ type controller struct {
 	// listers
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
-	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vpolLister  kyvernov2alpha1listers.ValidatingPolicyLister
+	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
 
@@ -73,8 +73,8 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
+	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -133,10 +133,10 @@ func NewController(
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	if vapInformer != nil {
-		c.vapLister = vapInformer.Lister()
+	if vpolInformer != nil {
+		c.vpolLister = vpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
-			vapInformer.Informer(),
+			vpolInformer.Informer(),
 			func(_ metav1.Object) { enqueueAll() },
 			func(_, _ metav1.Object) { enqueueAll() },
 			func(_ metav1.Object) { enqueueAll() },
@@ -144,10 +144,10 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
-	if vpolInformer != nil {
-		c.vpolLister = vpolInformer.Lister()
+	if vapInformer != nil {
+		c.vapLister = vapInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
-			vpolInformer.Informer(),
+			vapInformer.Informer(),
 			func(_ metav1.Object) { enqueueAll() },
 			func(_, _ metav1.Object) { enqueueAll() },
 			func(_ metav1.Object) { enqueueAll() },
