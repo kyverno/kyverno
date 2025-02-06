@@ -50777,6 +50777,7 @@ rules:
       - policyexceptions
       - validatingpolicies
       - validatingpolicies/status
+      - celpolicyexceptions
     verbs:
       - create
       - delete
