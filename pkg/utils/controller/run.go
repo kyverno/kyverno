@@ -54,7 +54,7 @@ func newControllerMetrics(logger logr.Logger, controllerName string) *controller
 	}
 }
 
-func Run(ctx context.Context, logger logr.Logger, controllerName string, period time.Duration, queue workqueue.TypedRateLimitingInterface[any], n, maxRetries int, r reconcileFunc, routines ...func(context.Context, logr.Logger)) {
+func Run[T comparable](ctx context.Context, logger logr.Logger, controllerName string, period time.Duration, queue workqueue.TypedRateLimitingInterface[T], n, maxRetries int, r reconcileFunc, routines ...func(context.Context, logr.Logger)) {
 	logger.V(2).Info("starting ...")
 	defer logger.V(2).Info("stopped")
 	var wg sync.WaitGroup
