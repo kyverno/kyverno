@@ -36,11 +36,12 @@ type compiledValidation struct {
 }
 
 type compiledPolicy struct {
-	failurePolicy    admissionregistrationv1.FailurePolicyType
-	matchConditions  []cel.Program
-	variables        map[string]cel.Program
-	validations      []compiledValidation
-	auditAnnotations map[string]cel.Program
+	failurePolicy        admissionregistrationv1.FailurePolicyType
+	matchConditions      []cel.Program
+	variables            map[string]cel.Program
+	validations          []compiledValidation
+	auditAnnotations     map[string]cel.Program
+	polexMatchConditions []cel.Program
 }
 
 func (p *compiledPolicy) Evaluate(
@@ -50,7 +51,18 @@ func (p *compiledPolicy) Evaluate(
 	namespace runtime.Object,
 	context contextlib.ContextInterface,
 ) ([]EvaluationResult, error) {
-	match, err := p.match(ctx, attr, request, namespace)
+	// check if the resource matches an exception
+	if len(p.polexMatchConditions) > 0 {
+		match, err := p.match(ctx, attr, request, namespace, true)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			return nil, nil
+		}
+	}
+
+	match, err := p.match(ctx, attr, request, namespace, false)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +132,13 @@ func (p *compiledPolicy) Evaluate(
 	return results, nil
 }
 
-func (p *compiledPolicy) match(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object) (bool, error) {
+func (p *compiledPolicy) match(
+	ctx context.Context,
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	isException bool,
+) (bool, error) {
 	namespaceVal, err := objectToResolveVal(namespace)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
@@ -144,7 +162,12 @@ func (p *compiledPolicy) match(ctx context.Context, attr admission.Attributes, r
 		RequestKey:         requestVal.Object,
 	}
 	var errs []error
-	for _, matchCondition := range p.matchConditions {
+
+	matchConditions := p.matchConditions
+	if isException {
+		matchConditions = p.polexMatchConditions
+	}
+	for _, matchCondition := range matchConditions {
 		// evaluate the condition
 		out, _, err := matchCondition.ContextEval(ctx, data)
 		// check error

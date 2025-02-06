@@ -23,7 +23,7 @@ const (
 )
 
 type Compiler interface {
-	Compile(*kyvernov2alpha1.ValidatingPolicy) (CompiledPolicy, field.ErrorList)
+	Compile(*kyvernov2alpha1.ValidatingPolicy, []kyvernov2alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList)
 }
 
 func NewCompiler() Compiler {
@@ -32,7 +32,7 @@ func NewCompiler() Compiler {
 
 type compiler struct{}
 
-func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPolicy, field.ErrorList) {
+func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy, exceptions []kyvernov2alpha1.CELPolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
 	base, err := engine.NewEnv()
 	if err != nil {
@@ -136,12 +136,38 @@ func (c *compiler) Compile(policy *kyvernov2alpha1.ValidatingPolicy) (CompiledPo
 			auditAnnotations[auditAnnotation.Key] = prog
 		}
 	}
+
+	// exceptions' match conditions
+	var polexMatchConditions []cel.Program
+	if len(exceptions) > 0 {
+		for _, polex := range exceptions {
+			path := field.NewPath("spec").Child("matchConditions")
+			for i, matchCondition := range polex.Spec.MatchConditions {
+				path := path.Index(i).Child("expression")
+				ast, issues := env.Compile(matchCondition.Expression)
+				if err := issues.Err(); err != nil {
+					return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
+				}
+				if !ast.OutputType().IsExactType(types.BoolType) {
+					msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
+					return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, msg))
+				}
+				prog, err := env.Program(ast)
+				if err != nil {
+					return nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
+				}
+				polexMatchConditions = append(polexMatchConditions, prog)
+			}
+		}
+	}
+
 	return &compiledPolicy{
-		failurePolicy:    policy.GetFailurePolicy(),
-		matchConditions:  matchConditions,
-		variables:        variables,
-		validations:      validations,
-		auditAnnotations: auditAnnotations,
+		failurePolicy:        policy.GetFailurePolicy(),
+		matchConditions:      matchConditions,
+		variables:            variables,
+		validations:          validations,
+		auditAnnotations:     auditAnnotations,
+		polexMatchConditions: polexMatchConditions,
 	}, nil
 }
 
