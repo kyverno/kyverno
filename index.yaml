@@ -7,6 +7,59 @@ entries:
           description: fix validation error in validate.yaml
         - kind: fixed
           description: fixed global image registry config by introducing *.image.defaultRegistry.
+        - kind: added
+          description: added a new option .reportsController.sanityChecks to disable checks for policy reports crds
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.13.3
+    created: "2025-02-06T11:06:30.639777967Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.3.5
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.3.5
+    description: Kubernetes Native Policy Management
+    digest: 0761371b928dc81f26366c1a873ecc070ebd998bd69e5e799adb7f42e27f3bdc
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.3.5.tgz
+    version: 3.3.5
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: fixed
+          description: fix validation error in validate.yaml
+        - kind: fixed
+          description: fixed global image registry config by introducing *.image.defaultRegistry.
       artifacthub.io/links: |
         - name: Documentation
           url: https://kyverno.io/docs
@@ -13127,4 +13180,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2024-12-10T09:04:09.952304429Z"
+generated: "2025-02-06T11:06:30.625168087Z"
