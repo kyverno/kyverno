@@ -380,7 +380,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.filters = parseKinds(data[resourceFilters])
 	cd.updateRequestThreshold = UpdateRequestThreshold
 	logger.V(2).Info("filters configured")
-	//detailed
 	logger.V(4).Info("filters configured", "filters", cd.filters)
 	// load defaultRegistry
 	defaultRegistry, ok := data[defaultRegistry]
