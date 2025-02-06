@@ -43,6 +43,7 @@ import (
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	webhookscelexception "github.com/kyverno/kyverno/pkg/webhooks/celexception"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
@@ -64,11 +65,13 @@ import (
 )
 
 const (
-	exceptionWebhookControllerName   = "exception-webhook-controller"
-	gctxWebhookControllerName        = "global-context-webhook-controller"
-	webhookControllerFinalizerName   = "kyverno.io/webhooks"
-	exceptionControllerFinalizerName = "kyverno.io/exceptionwebhooks"
-	gctxControllerFinalizerName      = "kyverno.io/globalcontextwebhooks"
+	exceptionWebhookControllerName      = "exception-webhook-controller"
+	celExceptionWebhookControllerName   = "celexception-webhook-controller"
+	gctxWebhookControllerName           = "global-context-webhook-controller"
+	webhookControllerFinalizerName      = "kyverno.io/webhooks"
+	exceptionControllerFinalizerName    = "kyverno.io/exceptionwebhooks"
+	celExceptionControllerFinalizerName = "kyverno.io/celexceptionwebhooks"
+	gctxControllerFinalizerName         = "kyverno.io/globalcontextwebhooks"
 )
 
 var (
@@ -202,6 +205,38 @@ func createrLeaderControllers(
 		webhookcontroller.WebhookCleanupSetup(kubeClient, exceptionControllerFinalizerName),
 		webhookcontroller.WebhookCleanupHandler(kubeClient, exceptionControllerFinalizerName),
 	)
+	celExceptionWebhookController := genericwebhookcontroller.NewController(
+		celExceptionWebhookControllerName,
+		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+		caInformer,
+		deploymentInformer,
+		config.CELExceptionValidatingWebhookConfigurationName,
+		config.CELExceptionValidatingWebhookServicePath,
+		serverIP,
+		servicePort,
+		webhookServerPort,
+		nil,
+		[]admissionregistrationv1.RuleWithOperations{{
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{"kyverno.io"},
+				APIVersions: []string{"v2alpha1"},
+				Resources:   []string{"celpolicyexceptions"},
+			},
+			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
+				admissionregistrationv1.Update,
+			},
+		}},
+		genericwebhookcontroller.Fail,
+		genericwebhookcontroller.None,
+		configuration,
+		caSecretName,
+		runtime,
+		autoDeleteWebhooks,
+		webhookcontroller.WebhookCleanupSetup(kubeClient, celExceptionControllerFinalizerName),
+		webhookcontroller.WebhookCleanupHandler(kubeClient, celExceptionControllerFinalizerName),
+	)
 	gctxWebhookController := genericwebhookcontroller.NewController(
 		gctxWebhookControllerName,
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
@@ -237,6 +272,7 @@ func createrLeaderControllers(
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
+	leaderControllers = append(leaderControllers, internal.NewController(celExceptionWebhookControllerName, celExceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(gctxWebhookControllerName, gctxWebhookController, 1))
 
 	generateVAPs := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
@@ -649,6 +685,10 @@ func main() {
 			Enabled:   internal.PolicyExceptionEnabled(),
 			Namespace: internal.ExceptionNamespace(),
 		})
+		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
+			Enabled:   internal.PolicyExceptionEnabled(),
+			Namespace: internal.ExceptionNamespace(),
+		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		server := webhooks.NewServer(
 			signalCtx,
@@ -663,6 +703,9 @@ func main() {
 			},
 			webhooks.ExceptionHandlers{
 				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),
+			},
+			webhooks.CELExceptionHandlers{
+				Validation: webhooks.HandlerFunc(celExceptionHandlers.Validate),
 			},
 			webhooks.GlobalContextHandlers{
 				Validation: webhooks.HandlerFunc(globalContextHandlers.Validate),

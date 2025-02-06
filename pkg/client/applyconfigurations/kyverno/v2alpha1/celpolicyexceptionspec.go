@@ -25,9 +25,8 @@ import (
 // CELPolicyExceptionSpecApplyConfiguration represents an declarative configuration of the CELPolicyExceptionSpec type for use
 // with apply.
 type CELPolicyExceptionSpecApplyConfiguration struct {
-	PolicyRefs       []PolicyRefApplyConfiguration `json:"policyRefs,omitempty"`
-	MatchConstraints *v1.MatchResources            `json:"matchConstraints,omitempty"`
-	MatchConditions  []v1.MatchCondition           `json:"matchConditions,omitempty"`
+	PolicyRefs      []PolicyRefApplyConfiguration `json:"policyRefs,omitempty"`
+	MatchConditions []v1.MatchCondition           `json:"matchConditions,omitempty"`
 }
 
 // CELPolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the CELPolicyExceptionSpec type for use with
@@ -46,14 +45,6 @@ func (b *CELPolicyExceptionSpecApplyConfiguration) WithPolicyRefs(values ...*Pol
 		}
 		b.PolicyRefs = append(b.PolicyRefs, *values[i])
 	}
-	return b
-}
-
-// WithMatchConstraints sets the MatchConstraints field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the MatchConstraints field is set to the value of the last call.
-func (b *CELPolicyExceptionSpecApplyConfiguration) WithMatchConstraints(value v1.MatchResources) *CELPolicyExceptionSpecApplyConfiguration {
-	b.MatchConstraints = &value
 	return b
 }
 

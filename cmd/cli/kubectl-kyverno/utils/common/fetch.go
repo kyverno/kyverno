@@ -254,7 +254,7 @@ func getKindsFromValidatingAdmissionPolicy(policy admissionregistrationv1.Valida
 	resourceTypesMap := make(map[schema.GroupVersionKind]bool)
 	subresourceMap := make(map[schema.GroupVersionKind]v1alpha1.Subresource)
 
-	kinds := admissionpolicy.GetKinds(policy)
+	kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints)
 	for _, kind := range kinds {
 		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 	}

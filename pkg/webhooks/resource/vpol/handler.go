@@ -40,26 +40,24 @@ func New(
 	}
 }
 
-func (h *handler) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
-	response, err := h.engine.Handle(ctx, celengine.EngineRequest{
-		Request: &request.AdmissionRequest,
-		Context: h.context,
-	})
+func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
+	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
+	response, err := h.engine.Handle(ctx, request)
 	if err != nil {
-		return admissionutils.Response(request.UID, err)
+		return admissionutils.Response(admissionRequest.UID, err)
 	}
 	var group wait.Group
 	defer group.Wait()
 	group.Start(func() {
-		err := h.admissionReport(ctx, response, request)
+		err := h.admissionReport(ctx, request, response)
 		if err != nil {
 			logger.Error(err, "failed to create report")
 		}
 	})
-	return h.admissionResponse(response, request)
+	return h.admissionResponse(request, response)
 }
 
-func (h *handler) admissionResponse(response celengine.EngineResponse, request handlers.AdmissionRequest) handlers.AdmissionResponse {
+func (h *handler) admissionResponse(request celengine.EngineRequest, response celengine.EngineResponse) handlers.AdmissionResponse {
 	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
@@ -84,11 +82,12 @@ func (h *handler) admissionResponse(response celengine.EngineResponse, request h
 			}
 		}
 	}
-	return admissionutils.Response(request.UID, multierr.Combine(errs...), warnings...)
+	return admissionutils.Response(request.AdmissionRequest().UID, multierr.Combine(errs...), warnings...)
 }
 
-func (h *handler) admissionReport(ctx context.Context, response celengine.EngineResponse, request handlers.AdmissionRequest) error {
-	object, oldObject, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
+func (h *handler) admissionReport(ctx context.Context, request celengine.EngineRequest, response celengine.EngineResponse) error {
+	admissionRequest := request.AdmissionRequest()
+	object, oldObject, err := admissionutils.ExtractResources(nil, admissionRequest)
 	if err != nil {
 		return err
 	}
@@ -106,7 +105,7 @@ func (h *handler) admissionReport(ctx context.Context, response celengine.Engine
 		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicy(&r.Policy))
 		responses = append(responses, engineResponse)
 	}
-	report := reportutils.BuildAdmissionReport(object, request.AdmissionRequest, responses...)
+	report := reportutils.BuildAdmissionReport(object, admissionRequest, responses...)
 	if len(report.GetResults()) > 0 {
 		err := h.reportsBreaker.Do(ctx, func(ctx context.Context) error {
 			_, err := reportutils.CreateReport(ctx, report, h.kyvernoClient)

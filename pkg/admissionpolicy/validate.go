@@ -27,10 +27,8 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
-func GetKinds(policy admissionregistrationv1.ValidatingAdmissionPolicy) []string {
+func GetKinds(matchResources *admissionregistrationv1.MatchResources) []string {
 	var kindList []string
-
-	matchResources := policy.Spec.MatchConstraints
 	for _, rule := range matchResources.ResourceRules {
 		group := rule.APIGroups[0]
 		version := rule.APIVersions[0]
