@@ -267,14 +267,6 @@ func main() {
 			}
 		}
 		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
-		// check if validating admission policies are registered in the API server
-		if validatingAdmissionPolicyReports {
-			registered, err := admissionpolicy.IsValidatingAdmissionPolicyRegistered(setup.KubeClient)
-			if !registered {
-				setup.Logger.Error(err, "ValidatingAdmissionPolicies isn't supported in the API server")
-				os.Exit(1)
-			}
-		}
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
