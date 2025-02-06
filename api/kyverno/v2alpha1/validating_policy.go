@@ -45,6 +45,10 @@ func (s *ValidatingPolicy) GetVariables() []admissionregistrationv1.Variable {
 	return s.Spec.Variables
 }
 
+func (s *ValidatingPolicy) GetSpec() *ValidatingPolicySpec {
+	return &s.Spec
+}
+
 func (s *ValidatingPolicy) GetStatus() *PolicyStatus {
 	return &s.Status
 }
