@@ -26,12 +26,11 @@ func NewController(name string, c controllers.Controller, w int) Controller {
 	}
 }
 
-func (c controller) Run(ctx context.Context, logger logr.Logger, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func(logger logr.Logger) {
+func (c controller) Run(ctx context.Context, logger logr.Logger, wg *wait.Group) {
+	logger = logger.WithValues("name", c.name)
+	wg.Start(func() {
 		logger.V(2).Info("starting controller", "workers", c.workers)
 		defer logger.V(2).Info("controller stopped")
-		defer wg.Done()
 		c.controller.Run(ctx, c.workers)
 	})
 }
