@@ -33,6 +33,9 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv2beta1"><b style="color: white">kyverno.io/v2beta1</b></a>
 </li>
 <li>
+<a href="#policies.kyverno.io%2fv1alpha1"><b style="color: white">policies.kyverno.io/v1alpha1</b></a>
+</li>
+<li>
 <a href="#reports.kyverno.io%2fv1"><b style="color: white">reports.kyverno.io/v1</b></a>
 </li>
 <li>
@@ -10518,6 +10521,277 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <td>
 <em>(Optional)</em>
 <p>Assert defines a kyverno-json assertion tree.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="policies.kyverno.io/v1alpha1">policies.kyverno.io/v1alpha1</h2>
+<p>
+</p>
+Resource Types:
+<ul><li>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>
+</li></ul>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+policies.kyverno.io/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ValidatingPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">
+ValidatingPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>ValidatingAdmissionPolicySpec</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validatingadmissionpolicyspec-v1-admissionregistration">
+Kubernetes admissionregistration/v1.ValidatingAdmissionPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>ValidatingAdmissionPolicySpec</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validationActions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validationaction-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.ValidationAction
+</a>
+</em>
+</td>
+<td>
+<p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.PolicyStatus">
+PolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.PolicyConditionType">PolicyConditionType
+(<code>string</code> alias)</p></h3>
+<p>
+</p>
+<h3 id="policies.kyverno.io/v1alpha1.PolicyStatus">PolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ready</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The ready of a policy is a high-level summary of where the policy is in its lifecycle.
+The conditions array, the reason and message fields contain more detail about the policy&rsquo;s status.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicy">ValidatingPolicy</a>)
+</p>
+<p>
+<p>ValidatingPolicySpec is the specification of the desired behavior of the ValidatingPolicy.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ValidatingAdmissionPolicySpec</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validatingadmissionpolicyspec-v1-admissionregistration">
+Kubernetes admissionregistration/v1.ValidatingAdmissionPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>ValidatingAdmissionPolicySpec</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validationActions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#validationaction-v1-admissionregistration">
+[]Kubernetes admissionregistration/v1.ValidationAction
+</a>
+</em>
+</td>
+<td>
+<p>ValidationAction specifies the action to be taken when the matched resource violates the policy.
+Required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>webhookConfiguration</code><br/>
+<em>
+<a href="#policies.kyverno.io/v1alpha1.WebhookConfiguration">
+WebhookConfiguration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WebhookConfiguration defines the configuration for the webhook.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="policies.kyverno.io/v1alpha1.WebhookConfiguration">WebhookConfiguration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#policies.kyverno.io/v1alpha1.ValidatingPolicySpec">ValidatingPolicySpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>timeoutSeconds</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>TimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
+After the configured time expires, the admission request may fail, or may simply ignore the policy results,
+based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
 </tbody>
