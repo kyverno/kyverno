@@ -6,6 +6,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -34,6 +35,12 @@ func ExtractResources(newRaw []byte, request admissionv1.AdmissionRequest) (unst
 		if err != nil {
 			return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
 		}
+	} else if request.Object.Object != nil {
+		ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(request.Object.Object)
+		if err != nil {
+			return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
+		}
+		newResource = unstructured.Unstructured{Object: ret}
 	}
 
 	// Old Resource
@@ -43,6 +50,12 @@ func ExtractResources(newRaw []byte, request admissionv1.AdmissionRequest) (unst
 		if err != nil {
 			return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
 		}
+	} else if request.OldObject.Object != nil {
+		ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(request.OldObject.Object)
+		if err != nil {
+			return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
+		}
+		oldResource = unstructured.Unstructured{Object: ret}
 	}
 
 	return newResource, oldResource, err

@@ -82,6 +82,7 @@ func createReportControllers(
 			client,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
+			kyvernoV2alpha1.ValidatingPolicies(),
 			vapInformer,
 		)
 		warmups = append(warmups, func(ctx context.Context) error {
@@ -101,8 +102,8 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
-					vapInformer,
 					kyvernoV2alpha1.ValidatingPolicies(),
+					vapInformer,
 				),
 				aggregationWorkers,
 			))
@@ -115,6 +116,7 @@ func createReportControllers(
 				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
+				kyvernoV2alpha1.ValidatingPolicies(),
 				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
@@ -131,8 +133,8 @@ func createReportControllers(
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
 				backgroundScanController,
-				backgroundScanWorkers),
-			)
+				backgroundScanWorkers,
+			))
 		}
 	}
 	return ctrls, func(ctx context.Context) error {
