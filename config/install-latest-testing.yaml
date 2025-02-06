@@ -205,6 +205,119 @@ metadata:
     helm.sh/chart: crds-v0.0.0
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
+  name: celpolicyexceptions.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    kind: CELPolicyException
+    listKind: CELPolicyExceptionList
+    plural: celpolicyexceptions
+    singular: celpolicyexception
+  scope: Namespaced
+  versions:
+  - name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: PolicyException declares resources to be excluded from specified
+          policies.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec declares policy exception behaviors.
+            properties:
+              matchConditions:
+                description: MatchConditions is a list of CEL expressions that must
+                  be met for a resource to be excluded.
+                items:
+                  description: MatchCondition represents a condition which must by
+                    fulfilled for a request to be sent to a webhook.
+                  properties:
+                    expression:
+                      description: |-
+                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
+
+                        'object' - The object from the incoming request. The value is null for DELETE requests.
+                        'oldObject' - The existing object. The value is null for CREATE requests.
+                        'request' - Attributes of the admission request(/pkg/apis/admission/types.go#AdmissionRequest).
+                        'authorizer' - A CEL Authorizer. May be used to perform authorization checks for the principal (user or service account) of the request.
+                          See https://pkg.go.dev/k8s.io/apiserver/pkg/cel/library#Authz
+                        'authorizer.requestResource' - A CEL ResourceCheck constructed from the 'authorizer' and configured with the
+                          request resource.
+                        Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+
+                        Required.
+                      type: string
+                    name:
+                      description: |-
+                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        as well as providing an identifier for logging purposes. A good name should be descriptive of
+                        the associated expression.
+                        Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
+                        must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or
+                        '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]') with an
+                        optional DNS subdomain prefix and '/' (e.g. 'example.com/MyName')
+
+                        Required.
+                      type: string
+                  required:
+                  - expression
+                  - name
+                  type: object
+                type: array
+              policyRefs:
+                description: PolicyRefs identifies the policies to which the exception
+                  is applied.
+                items:
+                  properties:
+                    kind:
+                      description: Kind is the kind of the policy
+                      type: string
+                    name:
+                      description: Name is the name of the policy
+                      type: string
+                  required:
+                  - kind
+                  - name
+                  type: object
+                type: array
+            required:
+            - policyRefs
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kyverno-crds
+    app.kubernetes.io/version: v0.0.0
+    helm.sh/chart: crds-v0.0.0
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -5568,7 +5681,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          be fulfilled for a request to be sent to a webhook.
+                          by fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -10642,7 +10755,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -20636,7 +20749,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -26127,7 +26240,7 @@ spec:
                         set of CEL conditions. It can only be used with the validate.cel subrule
                       items:
                         description: MatchCondition represents a condition which must
-                          be fulfilled for a request to be sent to a webhook.
+                          by fulfilled for a request to be sent to a webhook.
                         properties:
                           expression:
                             description: |-
@@ -31202,7 +31315,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -41197,7 +41310,7 @@ spec:
                             set of CEL conditions. It can only be used with the validate.cel subrule
                           items:
                             description: MatchCondition represents a condition which
-                              must be fulfilled for a request to be sent to a webhook.
+                              must by fulfilled for a request to be sent to a webhook.
                             properties:
                               expression:
                                 description: |-
@@ -48438,7 +48551,11 @@ spec:
     singular: validatingpolicy
   scope: Cluster
   versions:
-  - name: v2alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v2alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -48944,6 +49061,15 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              validationActions:
+                description: |-
+                  ValidationAction specifies the action to be taken when the matched resource violates the policy.
+                  Required.
+                items:
+                  description: ValidationAction specifies a policy enforcement action.
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               validations:
                 description: |-
                   Validations contain CEL expressions which is used to apply the validation.
@@ -49087,11 +49213,78 @@ spec:
                     type: integer
                 type: object
             type: object
+          status:
+            description: Status contains policy runtime data.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              ready:
+                description: |-
+                  The ready of a policy is a high-level summary of where the policy is in its lifecycle.
+                  The conditions array, the reason and message fields contain more detail about the policy's status.
+                type: boolean
+            type: object
         required:
         - spec
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -51125,6 +51318,8 @@ rules:
       - policyexceptions
       - policies
       - clusterpolicies
+      - validatingpolicies
+      - validatingpolicies/status
     verbs:
       - create
       - delete
@@ -51774,7 +51969,7 @@ spec:
       serviceAccountName: kyverno-admission-controller
       initContainers:
         - name: kyverno-pre
-          image: "ghcr.io/kyverno/kyvernopre:latest"
+          image: "reg.kyverno.io/kyverno/kyvernopre:latest"
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
@@ -51819,7 +52014,7 @@ spec:
             value: kyverno-svc
       containers:
         - name: kyverno
-          image: "ghcr.io/kyverno/kyverno:latest"
+          image: "reg.kyverno.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
             - --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca
@@ -51980,7 +52175,7 @@ spec:
       serviceAccountName: kyverno-background-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/background-controller:latest"
+          image: "reg.kyverno.io/kyverno/background-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
@@ -52085,7 +52280,7 @@ spec:
       serviceAccountName: kyverno-cleanup-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/cleanup-controller:latest"
+          image: "reg.kyverno.io/kyverno/cleanup-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
@@ -52226,7 +52421,7 @@ spec:
       serviceAccountName: kyverno-reports-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/reports-controller:latest"
+          image: "reg.kyverno.io/kyverno/reports-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443

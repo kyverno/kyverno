@@ -40,6 +40,7 @@ type ValidatingPoliciesGetter interface {
 type ValidatingPolicyInterface interface {
 	Create(ctx context.Context, validatingPolicy *v2alpha1.ValidatingPolicy, opts v1.CreateOptions) (*v2alpha1.ValidatingPolicy, error)
 	Update(ctx context.Context, validatingPolicy *v2alpha1.ValidatingPolicy, opts v1.UpdateOptions) (*v2alpha1.ValidatingPolicy, error)
+	UpdateStatus(ctx context.Context, validatingPolicy *v2alpha1.ValidatingPolicy, opts v1.UpdateOptions) (*v2alpha1.ValidatingPolicy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2alpha1.ValidatingPolicy, error)
@@ -121,6 +122,21 @@ func (c *validatingPolicies) Update(ctx context.Context, validatingPolicy *v2alp
 	err = c.client.Put().
 		Resource("validatingpolicies").
 		Name(validatingPolicy.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(validatingPolicy).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *validatingPolicies) UpdateStatus(ctx context.Context, validatingPolicy *v2alpha1.ValidatingPolicy, opts v1.UpdateOptions) (result *v2alpha1.ValidatingPolicy, err error) {
+	result = &v2alpha1.ValidatingPolicy{}
+	err = c.client.Put().
+		Resource("validatingpolicies").
+		Name(validatingPolicy.Name).
+		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(validatingPolicy).
 		Do(ctx).

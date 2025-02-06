@@ -12,7 +12,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -26,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
-	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
-	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -50,7 +52,8 @@ type controller struct {
 	// listers
 	polLister   kyvernov1listers.PolicyLister
 	cpolLister  kyvernov1listers.ClusterPolicyLister
-	vapLister   admissionregistrationv1beta1listers.ValidatingAdmissionPolicyLister
+	vpolLister  kyvernov2alpha1listers.ValidatingPolicyLister
+	vapLister   admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	ephrLister  cache.GenericLister
 	cephrLister cache.GenericLister
 
@@ -70,7 +73,8 @@ func NewController(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	vapInformer admissionregistrationv1beta1informers.ValidatingAdmissionPolicyInformer,
+	vpolInformer kyvernov2alpha1informers.ValidatingPolicyInformer,
+	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -102,7 +106,6 @@ func NewController(
 		selector := labels.SelectorFromSet(labels.Set{
 			kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
 		})
-
 		if list, err := polrInformer.Lister().List(selector); err == nil {
 			for _, item := range list {
 				c.backQueue.AddAfter(controllerutils.MetaObjectToName(item.(*metav1.PartialObjectMetadata)), enqueueDelay)
@@ -129,6 +132,17 @@ func NewController(
 		func(_ metav1.Object) { enqueueAll() },
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
+	}
+	if vpolInformer != nil {
+		c.vpolLister = vpolInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(
+			vpolInformer.Informer(),
+			func(_ metav1.Object) { enqueueAll() },
+			func(_, _ metav1.Object) { enqueueAll() },
+			func(_ metav1.Object) { enqueueAll() },
+		); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
 	}
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
@@ -162,10 +176,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 		return nil, err
 	}
 	for _, cpol := range cpols {
-		key, err := cache.MetaNamespaceKeyFunc(cpol)
-		if err != nil {
-			return nil, err
-		}
+		key := cache.MetaObjectToName(cpol).String()
 		results[key] = policyMapEntry{
 			policy: cpol,
 			rules:  sets.New[string](),
@@ -179,10 +190,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 		return nil, err
 	}
 	for _, pol := range pols {
-		key, err := cache.MetaNamespaceKeyFunc(pol)
-		if err != nil {
-			return nil, err
-		}
+		key := cache.MetaObjectToName(pol).String()
 		results[key] = policyMapEntry{
 			policy: pol,
 			rules:  sets.New[string](),
@@ -202,11 +210,21 @@ func (c *controller) createVapMap() (sets.Set[string], error) {
 			return nil, err
 		}
 		for _, vap := range vaps {
-			key, err := cache.MetaNamespaceKeyFunc(vap)
-			if err != nil {
-				return nil, err
-			}
-			results.Insert(key)
+			results.Insert(cache.MetaObjectToName(vap).String())
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) createVPolMap() (sets.Set[string], error) {
+	results := sets.New[string]()
+	if c.vpolLister != nil {
+		vpols, err := c.vpolLister.List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+		for _, vpol := range vpols {
+			results.Insert(cache.MetaObjectToName(vpol).String())
 		}
 	}
 	return results, nil
@@ -432,9 +450,18 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
+	vpolMap, err := c.createVPolMap()
+	if err != nil {
+		return err
+	}
+	maps := maps{
+		pol:  policyMap,
+		vap:  vapMap,
+		vpol: vpolMap,
+	}
 	reports = append(reports, ephemeralReports...)
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
-	mergeReports(policyMap, vapMap, merged, types.UID(name), reports...)
+	mergeReports(maps, merged, types.UID(name), reports...)
 	results := make([]policyreportv1alpha2.PolicyReportResult, 0, len(merged))
 	for _, result := range merged {
 		results = append(results, result)

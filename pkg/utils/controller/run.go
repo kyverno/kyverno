@@ -88,12 +88,12 @@ func Run(ctx context.Context, logger logr.Logger, controllerName string, period 
 	logger.V(4).Info("waiting for workers to terminate ...")
 }
 
-func worker(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[any], maxRetries int, r reconcileFunc) {
+func worker[T comparable](ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, r reconcileFunc) {
 	for processNextWorkItem(ctx, logger, metric, queue, maxRetries, r) {
 	}
 }
 
-func processNextWorkItem(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[any], maxRetries int, r reconcileFunc) bool {
+func processNextWorkItem[T comparable](ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, r reconcileFunc) bool {
 	if obj, quit := queue.Get(); !quit {
 		defer queue.Done(obj)
 		handleErr(ctx, logger, metric, queue, maxRetries, reconcile(ctx, logger, obj, r), obj)
@@ -102,7 +102,7 @@ func processNextWorkItem(ctx context.Context, logger logr.Logger, metric *contro
 	return false
 }
 
-func handleErr(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[any], maxRetries int, err error, obj interface{}) {
+func handleErr[T comparable](ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.TypedRateLimitingInterface[T], maxRetries int, err error, obj T) {
 	if metric.reconcileTotal != nil {
 		metric.reconcileTotal.Add(ctx, 1, sdkmetric.WithAttributes(attribute.String("controller_name", metric.controllerName)))
 	}

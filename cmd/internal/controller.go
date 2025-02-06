@@ -2,14 +2,14 @@ package internal
 
 import (
 	"context"
-	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type Controller interface {
-	Run(context.Context, logr.Logger, *sync.WaitGroup)
+	Run(context.Context, logr.Logger, *wait.Group)
 }
 
 type controller struct {
@@ -33,5 +33,5 @@ func (c controller) Run(ctx context.Context, logger logr.Logger, wg *sync.WaitGr
 		defer logger.V(2).Info("controller stopped")
 		defer wg.Done()
 		c.controller.Run(ctx, c.workers)
-	}(logger.WithValues("name", c.name))
+	})
 }
