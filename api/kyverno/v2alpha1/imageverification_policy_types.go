@@ -13,6 +13,7 @@ import (
 type ImageVerificationPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ImageVerificationPolicySpec `json:"spec"`
 }
 
 // +kubebuilder:object:root=true

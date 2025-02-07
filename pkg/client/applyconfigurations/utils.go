@@ -207,14 +207,29 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2.UpdateRequestStatusApplyConfiguration{}
 
 		// Group=kyverno.io, Version=v2alpha1
+<<<<<<< HEAD
 	case v2alpha1.SchemeGroupVersion.WithKind("AutogenRule"):
 		return &kyvernov2alpha1.AutogenRuleApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("AutogenStatus"):
 		return &kyvernov2alpha1.AutogenStatusApplyConfiguration{}
+=======
+	case v2alpha1.SchemeGroupVersion.WithKind("Attestation"):
+		return &kyvernov2alpha1.AttestationApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Attestor"):
+		return &kyvernov2alpha1.AttestorApplyConfiguration{}
+>>>>>>> f14c3e8b3 (fix: codegen)
 	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyException"):
 		return &kyvernov2alpha1.CELPolicyExceptionApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("CELPolicyExceptionSpec"):
 		return &kyvernov2alpha1.CELPolicyExceptionSpecApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Certificate"):
+		return &kyvernov2alpha1.CertificateApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Cosign"):
+		return &kyvernov2alpha1.CosignApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Credentials"):
+		return &kyvernov2alpha1.CredentialsApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("CTLog"):
+		return &kyvernov2alpha1.CTLogApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ExternalAPICall"):
 		return &kyvernov2alpha1.ExternalAPICallApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntry"):
@@ -223,14 +238,38 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kyvernov2alpha1.GlobalContextEntrySpecApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("GlobalContextEntryStatus"):
 		return &kyvernov2alpha1.GlobalContextEntryStatusApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Identity"):
+		return &kyvernov2alpha1.IdentityApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Image"):
+		return &kyvernov2alpha1.ImageApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("ImageRule"):
+		return &kyvernov2alpha1.ImageRuleApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ImageVerificationPolicy"):
 		return &kyvernov2alpha1.ImageVerificationPolicyApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("ImageVerificationPolicySpec"):
+		return &kyvernov2alpha1.ImageVerificationPolicySpecApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("InToto"):
+		return &kyvernov2alpha1.InTotoApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Key"):
+		return &kyvernov2alpha1.KeyApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Keyless"):
+		return &kyvernov2alpha1.KeylessApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("KubernetesResource"):
 		return &kyvernov2alpha1.KubernetesResourceApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Notary"):
+		return &kyvernov2alpha1.NotaryApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyRef"):
 		return &kyvernov2alpha1.PolicyRefApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("PolicyStatus"):
 		return &kyvernov2alpha1.PolicyStatusApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Referrer"):
+		return &kyvernov2alpha1.ReferrerApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("Source"):
+		return &kyvernov2alpha1.SourceApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("TUF"):
+		return &kyvernov2alpha1.TUFApplyConfiguration{}
+	case v2alpha1.SchemeGroupVersion.WithKind("TUFRoot"):
+		return &kyvernov2alpha1.TUFRootApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicy"):
 		return &kyvernov2alpha1.ValidatingPolicyApplyConfiguration{}
 	case v2alpha1.SchemeGroupVersion.WithKind("ValidatingPolicySpec"):

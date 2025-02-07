@@ -513,6 +513,7 @@ func (in *ImageVerificationPolicy) DeepCopyInto(out *ImageVerificationPolicy) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	in.Spec.DeepCopyInto(&out.Spec)
 	return
 }
 
